@@ -50,6 +50,24 @@ class Orbit:
         """
         return self.orbit
 
+    def __call__(self,t):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           return the orbit vector at time t
+        INPUT:
+           t - desired time
+        OUTPUT:
+           [R,vR,vT,z,vz(,phi)]
+        BUGS:
+           currently only works for times at which the orbit was requested
+           during integration; use interpolation in between?
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self.orbit[list(self.t).index(t),:]
+
     def plotEt(self,pot,*args,**kwargs):
         """
         NAME:
