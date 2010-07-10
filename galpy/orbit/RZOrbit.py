@@ -36,7 +36,7 @@ class RZOrbit(Orbit):
         HISTORY:
            2010-07-10
         """
-        self.t= t
+        self.t= nu.array(t)
         self.orbit= integrateRZOrbit(self.vxvv,pot,t)
 
     def plot(self,*args,**kwargs):
