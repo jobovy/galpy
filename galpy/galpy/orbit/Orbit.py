@@ -284,17 +284,3 @@ def RZEOM(y,t,pot,l2):
             l2/y[0]**3.+evaluateRforces(y[0],y[2],pot),
             y[3],
             evaluatezforces(y[0],y[2],pot)]
-
-if __name__ == '__main__':
-    #from DoubleExponentialDiskPotential import DoubleExponentialDiskPotential
-    #pot= DoubleExponentialDiskPotential()
-    from MiyamotoNagaiPotential import MiyamotoNagaiPotential
-    pot= MiyamotoNagaiPotential(a=1.,b=0.2)
-    rhoo= 1./nu.fabs(pot.Rforce(1.,0))
-    pot= MiyamotoNagaiPotential(a=1.,b=0.2,amp=rhoo)  
-    #pot= DoubleExponentialDiskPotential(rhoo=rhoo) #Not quite what we want?
-    t= nu.arange(11)/10.*nu.pi*2.
-
-    vxvv= [1.,0.05,1.,0.,0.05]
-    out= integrateRZOrbit(vxvv,pot,t)
-    print out
