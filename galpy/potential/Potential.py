@@ -66,7 +66,6 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_Rforce' function not implemented for this potential")
         
-        
     def zforce(self,R,z):
         """
         NAME:
@@ -87,6 +86,18 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_zforce' function not implemented for this potential")
 
+    def normalize(self):
+        """
+        NAME:
+           normalize
+        PURPOSE:
+           normalize a potential in such a way that vc(R=1,z=0)=1.
+        INPUT:
+        OUTPUT:
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self._amp/= self.Rforce(1.,0.)
 
     def _phiforce(self,R,z,phi):
         """

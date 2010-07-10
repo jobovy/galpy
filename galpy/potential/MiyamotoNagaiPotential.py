@@ -13,7 +13,7 @@ class MiyamotoNagaiPotential(Potential):
     phi(R,z) = -  ---------------------------------
                    \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
     """
-    def __init__(self,amp=1.,a=0.,b=0.):
+    def __init__(self,amp=1.,a=0.,b=0.,normalize=False):
         """
         NAME:
            __init__
@@ -23,6 +23,7 @@ class MiyamotoNagaiPotential(Potential):
            amp - amplitude to be applied to the potential (default: 1)
            a - "disk scale" (in terms of Ro)
            b - "disk height" (in terms of Ro)
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -32,6 +33,8 @@ class MiyamotoNagaiPotential(Potential):
         self._a= a
         self._b= b
         self._b2= self._b**2.
+        if normalize:
+            self.normalize()
 
     def _evaluate(self,R,z):
         """
