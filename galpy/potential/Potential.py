@@ -97,7 +97,7 @@ class Potential:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._amp/= self.Rforce(1.,0.)
+        self._amp/= nu.fabs(self.Rforce(1.,0.))
 
     def _phiforce(self,R,z,phi):
         """

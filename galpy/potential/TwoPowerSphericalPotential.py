@@ -367,7 +367,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= m.sqrt(R**2.+z**2.)
-        return -self.a*R/sqrtRz**3./(1.+a/sqrtRz)
+        return -self.a*R/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _zforce(self,R,z):
         """
@@ -384,7 +384,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= m.sqrt(R**2.+z**2.)
-        return -self.a*z/sqrtRz**3./(1.+a/sqrtRz)
+        return -self.a*z/sqrtRz**3./(1.+self.a/sqrtRz)
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
