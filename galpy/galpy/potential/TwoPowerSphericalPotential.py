@@ -17,7 +17,7 @@ class TwoPowerSphericalPotential(Potential):
     rho(r)= ------------------------------------
              (r/a)^\alpha (1+r/a)^(\beta-\alpha)
     """
-    def __init__(self,amp=1.,a=1.,alpha=1.,beta=3.):
+    def __init__(self,amp=1.,a=1.,alpha=1.,beta=3.,normalize=False):
         """
         NAME:
            __init__
@@ -28,6 +28,7 @@ class TwoPowerSphericalPotential(Potential):
            a - "scale" (in terms of Ro)
            alpha - inner power
            beta - outer power
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -36,13 +37,16 @@ class TwoPowerSphericalPotential(Potential):
         if alpha == round(alpha) and beta == round(beta):
             integerSelf= TwoPowerIntegerSphericalPotential(amp=amp,a=a,
                                                            alpha=int(alpha),
-                                                           beta=int(beta))
+                                                           beta=int(beta),
+                                                           normalize=normalize)
             self.integerSelf= integerSelf
         else:
             self.integerSelf= None
             self.a= a
             self.alpha= alpha
             self.beta= beta
+            if normalize:
+                self.normalize()
         return None
 
     def _evaluate(self,R,z):
@@ -127,7 +131,7 @@ def _potIntegrand(t,alpha,beta):
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
     the case of integer powers"""
-    def __init__(self,amp=1.,a=1.,alpha=1,beta=3):
+    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False):
         """
         NAME:
            __init__
@@ -138,23 +142,24 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            a - "scale" (in terms of Ro)
            alpha - inner power (default: NFW)
            beta - outer power (default: NFW)
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
         if alpha == 1 and beta == 4:
-            HernquistSelf= HernquistPotential(amp=amp,a=a)
+            HernquistSelf= HernquistPotential(amp=amp,a=a,normalize=normalize)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
             self.NFWSelf= None
         elif alpha == 2 and beta == 4:
-            JaffeSelf= JaffePotential(amp=amp,a=a)
+            JaffeSelf= JaffePotential(amp=amp,a=a,normalize=normalize)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
-            NFWSelf= NFWPotential(amp=amp,a=a)
+            NFWSelf= NFWPotential(amp=amp,a=a,normalize=normalize)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
@@ -162,6 +167,8 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
+            if normalize:
+                self.normalize()
         return None
 
     def _evaluate(self,R,z):
@@ -235,7 +242,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
 
 class HernquistPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Hernquist potential"""
-    def __init__(self,amp=1.,a=1.):
+    def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
            __init__
@@ -244,6 +251,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -251,6 +259,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        if normalize:
+            self.normalize()
         return None
 
     def _evaluate(self,R,z):
@@ -305,7 +315,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
-    def __init__(self,amp=1.,a=1.):
+    def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
            __init__
@@ -314,6 +324,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -321,6 +332,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        if normalize:
+            self.normalize()
         return None
 
     def _evaluate(self,R,z):
@@ -375,7 +388,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
-    def __init__(self,amp=1.,a=1.):
+    def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
            __init__
@@ -384,6 +397,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -391,6 +405,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        if normalize:
+            self.normalize()
         return None
 
     def _evaluate(self,R,z):

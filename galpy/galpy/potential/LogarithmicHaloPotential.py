@@ -7,7 +7,7 @@ from Potential import Potential
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic halo potential Phi(r)"""
-    def __init__(self,amp=1.,vc=235.,core=_CORE):
+    def __init__(self,amp=1.,vc=235.,core=_CORE,normalize=False):
         """
         NAME:
            __init__
@@ -17,6 +17,7 @@ class LogarithmicHaloPotential(Potential):
            amp - amplitude to be applied to the potential (default: 1)
            vc - circular velocity
            core - core radius at which the logarithm is cut
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -25,6 +26,8 @@ class LogarithmicHaloPotential(Potential):
         Potential.__init__(self,amp=amp)
         self._vc2= vc**2.
         self._core2= core**2.
+        if normalize:
+            self.normalize()
         return None
 
     def _evaluate(self,R,z):

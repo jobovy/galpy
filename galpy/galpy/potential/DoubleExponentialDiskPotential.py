@@ -13,7 +13,7 @@ class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
     rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
     def __init__(self,amp=1.,rhoo=1.,ro=1.,hr=1./3.,hz=1./16.,
-                 maxiter=_MAXITER,tol=0.001):
+                 maxiter=_MAXITER,tol=0.001,normalize=False):
         """
         NAME:
            __init__
@@ -27,6 +27,7 @@ class DoubleExponentialDiskPotential(Potential):
            rhoo - density at (ro,0)
            tol - relative accuracy of potential-evaluations
            maxiter - scipy.integrate keyword
+           normalize - if True, normalize such that vc(1.,0.)=1.
         OUTPUT:
            DoubleExponentialDiskPotential object
         HISTORY:
@@ -43,6 +44,8 @@ class DoubleExponentialDiskPotential(Potential):
         self._maxiter= maxiter
         self._tol= tol
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
+        if normalize:
+            self.normalize()
         
     def _evaluate(self,R,z):
         """
