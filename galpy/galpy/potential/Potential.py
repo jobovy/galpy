@@ -11,7 +11,7 @@
 import os, os.path
 import cPickle as pickle
 import numpy as nu
-import bovy_plot as plot
+import galpy.util.bovy_plot as plot
 class Potential:
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
