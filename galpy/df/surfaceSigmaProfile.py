@@ -117,6 +117,25 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         else:
             return sc.exp(-R/self._params[0])
 
+    def surfacemassDerivative(self,R,log=False):
+        """
+        NAME:
+           surfacemassDerivative
+        PURPOSE:
+           return the derivative wrt R of the surface density profile at this R
+        INPUT:
+           R - Galactocentric radius (/ro)
+           log - if True, return the derivative of the log (default: False)
+        OUTPUT:
+           Sigma'(R) or (log Sigma(r) )'
+        HISTORY:
+           2010-03-26 - Written - Bovy (NYU)
+        """
+        if log:
+            return -1./self._params[0]
+        else:
+            return -sc.exp(-R/self._params[0])/self._params[0]
+
     def sigma2(self,R,log=False):
         """
         NAME:
