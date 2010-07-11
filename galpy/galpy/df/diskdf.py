@@ -14,7 +14,6 @@ _EPSREL=10.**-14.
 _NSIGMA= 4.
 _INTERPDEGREE= 3
 _RMIN=10.**-10.
-_CORRECTIONSDIR='./data'
 import copy
 import os, os.path
 import cPickle as pickle
@@ -24,6 +23,8 @@ import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from surfaceSigmaProfile import *
 from galpy.orbit.Orbit import Orbit
+_CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
+print _CORRECTIONSDIR
 class diskdf:
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
@@ -510,16 +511,12 @@ class DFcorrection:
                 self._corrections= self._calc_corrections()
         #Interpolation; smoothly go to zero
         interpRs= sc.append(self._rs,2.*self._rmax)
-        self._surfaceInterpolate= interpolate.interp1d(interpRs,
+        self._surfaceInterpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
                                                        sc.log(sc.append(self._corrections[:,0],1.)),
-                                                       kind=self._interp1d_kind,
-                                                       bounds_error=False,
-                                                       fill_value=0.)
-        self._sigma2Interpolate= interpolate.interp1d(interpRs,
+                                                       k=self._interp1d_kind)
+        self._sigma2Interpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
                                                       sc.log(sc.append(self._corrections[:,1],1.)),
-                                                      kind=self._interp1d_kind,
-                                                      bounds_error=False,
-                                                      fill_value=0.)
+                                                      k=self._interp1d_kind)
         #Interpolation for R < _RMIN
         surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],sc.log(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
         self._surfaceDerivSmallR= surfaceInterpolateSmallR.derivatives(interpRs[0])[1]
@@ -557,9 +554,11 @@ class DFcorrection:
         if R < _RMIN:
             out= sc.array([sc.log(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
                            sc.log(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
+        elif R > (2.*self._rmax):
+            out= sc.array([0.,0.])
         else:
-            out= sc.array([self._surfaceInterpolate(R),
-                           self._sigma2Interpolate(R)])
+            out= sc.array([self._surfaceInterpolate(R)[0],
+                           self._sigma2Interpolate(R)[0]])
         if log:
             return out
         else:
