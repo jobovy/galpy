@@ -41,6 +41,7 @@ class TwoPowerSphericalPotential(Potential):
                                                            normalize=normalize)
             self.integerSelf= integerSelf
         else:
+            Potential.__init__(self,amp=amp)
             self.integerSelf= None
             self.a= a
             self.alpha= alpha
@@ -164,6 +165,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
         else:
+            Potential.__init__(self,amp=amp)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
