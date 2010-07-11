@@ -456,7 +456,7 @@ class DFcorrection:
            beta - power-law index of the rotation curve (when calculating)
            dftype - classname of the DF
            niter - number of iterations to perform to calculate the corrections
-           interp1d_kind - 'kind' keyword to give to interp1d
+           interp_k - 'k' keyword to give to InterpolatedUnivariateSpline
         OUTPUT:
         HISTORY:
            2010-03-10 - Written - Bovy (NYU)
@@ -489,10 +489,10 @@ class DFcorrection:
         else:
             self._beta= 0.
         self._rs= sc.linspace(_RMIN,self._rmax,self._npoints)
-        if kwargs.has_key('interp1d_kind'):
-            self._interp1d_kind= kwargs['interp1d_kind']
+        if kwargs.has_key('interp_k'):
+            self._interp_k= kwargs['interp_k']
         else:
-            self._interp1d_kind= _INTERPDEGREE
+            self._interp_k= _INTERPDEGREE
         if kwargs.has_key('corrections'):
             self._corrections= kwargs['corrections']
             if not len(self._corrections) == self._npoints:
@@ -513,10 +513,10 @@ class DFcorrection:
         interpRs= sc.append(self._rs,2.*self._rmax)
         self._surfaceInterpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
                                                        sc.log(sc.append(self._corrections[:,0],1.)),
-                                                       k=self._interp1d_kind)
+                                                       k=self._interp_k)
         self._sigma2Interpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
                                                       sc.log(sc.append(self._corrections[:,1],1.)),
-                                                      k=self._interp1d_kind)
+                                                      k=self._interp_k)
         #Interpolation for R < _RMIN
         surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],sc.log(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
         self._surfaceDerivSmallR= surfaceInterpolateSmallR.derivatives(interpRs[0])[1]
@@ -590,7 +590,7 @@ class DFcorrection:
                                         npoints=self._npoints,
                                         rmax=self._rmax,
                                         savedir=self._savedir,
-                                        interp1d_kind=self._interp1d_kind)
+                                        interp_k=self._interp_k)
             newcorrections= sc.zeros((self._npoints,2))
             for jj in range(self._npoints):
                 thisSurface= currentDF.surfacemass(self._rs[jj])
