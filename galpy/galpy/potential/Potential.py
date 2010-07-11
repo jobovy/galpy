@@ -169,6 +169,46 @@ class Potential:
                                                    ncontours))
         
 
+    def plotRotcurve(self,rmin=0.,rmax=1.5,nrs=21,
+                     savefilename=None,*args,**kwargs):
+        """
+        NAME:
+           plotRotcurve
+        PURPOSE:
+           plot the rotation curve for this potential (in the z=0 plane for
+           non-spherical potentials)
+        INPUT:
+           rmin - minimum R
+           rmax - maximum R
+           nrs - grid in R
+           savefilename - save to or restore from this savefile (pickle)
+           +matploltib.plot args and kwargs
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        if not savefilename == None and os.path.exists(savefilename):
+            print "Restoring savefile "+savefilename+" ..."
+            savefile= open(savefilename,'rb')
+            rotcurve= pickle.load(savefile)
+            Rs= pickle.load(savefile)
+            savefile.close()
+        else:
+            Rs= nu.linspace(rmin,rmax,nrs)
+            rotcurve= nu.zeros(nrs)
+            for ii in range(nrs):
+                rotcurve[ii]= nu.sqrt(Rs[ii]*-self.Rforce(Rs[ii],0.))
+            if not savefilename == None:
+                print "Writing savefile "+savefilename+" ..."
+                savefile= open(savefilename,'wb')
+                pickle.dump(rotcurve,savefile)
+                pickle.dump(Rs,savefile)
+                savefile.close()
+        return plot.bovy_plot(Rs,rotcurve,*args,
+                              xlabel=r"$R/R_0$",ylabel=r"$v_c(R)$",
+                              xrange=[rmin,rmax],**kwargs)
+
 
 class PotentialError(Exception):
     def __init__(self, value):
