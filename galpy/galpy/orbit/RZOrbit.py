@@ -1,6 +1,6 @@
 import numpy as nu
 from scipy import integrate
-from galpy.potential.Potential import evaluateRforces, evaluatezforces, evaluatePotentials
+from galpy.potential import evaluateRforces, evaluatezforces, evaluatePotentials
 import galpy.util.bovy_plot as plot
 from Orbit import Orbit
 class RZOrbit(Orbit):
