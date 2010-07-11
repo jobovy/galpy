@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from galpy.potential.Potential import evaluateRforces, evaluatezforces, evaluatePotentials
-import bovy_plot as plot
+import galpy.util.bovy_plot as plot
 from Orbit import Orbit
 class RZOrbit(Orbit):
     """Class that holds and integrates orbits in axisymetric potentials 
