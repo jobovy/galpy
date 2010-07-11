@@ -314,6 +314,24 @@ class dehnendf(diskdf):
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
 
+    def sample(self,n=1,rrange=None):
+        """
+        NAME:
+           sample
+        PURPOSE:
+           sample from this DF
+        INPUT:
+           n - number of desired sample (specifying this rather than calling 
+               this routine n times is more efficient)
+           rrange - if you only want samples in this rrange, set this keyword
+        OUTPUT:
+           list of [[E,Lz],...]
+        HISTORY:
+           2010-07-10 - Started  - Bovy (NYU)
+        """
+        #First sample xE
+        #Then sample Lz
+
 class shudf(diskdf):
     """Shu's df (1969)"""
     def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
