@@ -18,11 +18,12 @@ _CORRECTIONSDIR='./data'
 import copy
 import os, os.path
 import cPickle as pickle
+import math as m
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
-from integrate_orbits import vRvTRToEL
 from surfaceSigmaProfile import *
+from galpy.orbit.Orbit import Orbit
 class diskdf:
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
@@ -70,6 +71,42 @@ class diskdf:
             self._correct= False
         return None
     
+    def __call__(self,*args):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           evaluate the distribution function
+        INPUT:
+           either an orbit instance or E,Lz
+
+           1) Orbit instance:
+              a) Orbit instance alone: use vxvv member
+              b) Orbit instance + t: call the Orbit instance
+
+           2)
+              E - energy (/vo^2)
+              L - angular momentun (/ro/vo)
+        OUTPUT:
+           DF(orbit/E,L)
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        if isinstance(args[0],Orbit):
+            if len(args) == 1:
+                return self.eval(*vRvTRToEL(args[0].vxvv[1],
+                                            args[0].vxvv[2],
+                                            args[0].vxvv[0],
+                                            self._beta))
+            else:
+                vxvv= args[0](args[1])
+                return self.eval(*vRvTRToEL(vxvv[1],
+                                            vxvv[2],
+                                            vxvv[0],
+                                            self._beta))
+        else:
+            return self.eval(*args)
+
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -558,4 +595,39 @@ class DFcorrectionError(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
+
+def vRvTRToEL(vR,vT,R,beta):
+    """
+    NAME:
+       vRvTRToEL
+    PURPOSE:
+       calculate the energy and angular momentum
+    INPUT:
+       vR - radial velocity
+       vT - tangential velocity
+       R - Galactocentric radius
+    OUTPUT:
+    HISTORY:
+       2010-03-10 - Written - Bovy (NYU)
+    """
+    return (axipotential(R,beta)+0.5*vR**2.+0.5*vT**2.,vT*R)
+
+def axipotential(R,beta=0.):
+    """
+    NAME:
+       axipotential
+    PURPOSE:
+       return the axisymmetric potential at R/Ro
+    INPUT:
+       R - Galactocentric radius
+       beta - rotation curve power-law
+    OUTPUT:
+       Pot(R)/vo**2.
+    HISTORY:
+       2010-03-01 - Written - Bovy (NYU)
+    """
+    if beta == 0.:
+        return m.log(R)
+    else: #non-flat rotation curve
+        return R**(2.*beta)/2./beta
 
