@@ -22,9 +22,8 @@ import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from surfaceSigmaProfile import *
-from galpy.orbit.Orbit import Orbit
+from galpy.orbit import Orbit
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
-print _CORRECTIONSDIR
 class diskdf:
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
