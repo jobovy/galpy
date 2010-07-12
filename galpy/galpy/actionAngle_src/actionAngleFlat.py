@@ -20,7 +20,7 @@ from scipy import optimize, integrate
 from actionAngle import *
 class actionAngleFlat(actionAngle):
     """Action-angle formalism for flat rotation curves"""
-    def __init__(*args,**kwargs):
+    def __init__(self,*args,**kwargs):
         """
         NAME:
            __init__
@@ -35,13 +35,13 @@ class actionAngleFlat(actionAngle):
         HISTORY:
            2010-07-11 - Written - Bovy (NYU)
         """
-        acionAngle.__init__(self,*args,**kwargs)
+        actionAngle.__init__(self,*args,**kwargs)
         return None
     
     def angleR(self,**kwargs):
         """
         NAME:
-           AngleRFlat
+           AngleR
         PURPOSE:
            Calculate the radial angle for a flat rotation curve
         INPUT:
@@ -91,11 +91,12 @@ class actionAngleFlat(actionAngle):
         """
         if hasattr(self,'_TR'):
             return self._TR
-        (rperi,rap)= calcRapRperi()
+        (rperi,rap)= self.calcRapRperi()
         if rap == rperi: #Rough limit
-            e= 10.**-6.
-            rap= self._R*(1+e)
-            rperi= self._R*(1-e)
+            #TR=kappa
+            kappa= m.sqrt(2.)/self._R
+            self._TR= nu.array([2.*m.pi/kappa,0.])
+            return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         TR= 0.
         if Rmean > rperi:
@@ -108,7 +109,7 @@ class actionAngleFlat(actionAngle):
                                                    0.,m.sqrt(1.-Rmean/rap),
                                                    args=((self._R*self._vT)**2/rap**2.,),
                                                    **kwargs))
-        self._TR= TR
+        self._TR= m.sqrt(2.)*TR
         return self._TR
 
     def Tphi(self,**kwargs):
@@ -156,9 +157,10 @@ class actionAngleFlat(actionAngle):
         (rperi,rap)= self.calcRapRperi()
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         if rap == rperi: #Rough limit
-            e= 10.**-6.
-            rap= self._R*(1+e)
-            rperi= self._R*(1-e)
+            TR= self.TR()[0]
+            Tphi= self.Tphi()[0]
+            self._I= nu.array([TR/Tphi,0.])
+            return self._I
         I= 0.
         if Rmean > rperi:
             I+= nu.array(integrate.quadrature(_IFlatIntegrandSmall,
@@ -171,7 +173,7 @@ class actionAngleFlat(actionAngle):
                                               args=((self._R*self._vT)**2/rap**2.,),
                                               **kwargs))/rap
         self._I= I/m.sqrt(2.)*self._R*self._vT
-        return self._
+        return self._I
 
     def Jphi(self):
         """
@@ -202,7 +204,7 @@ class actionAngleFlat(actionAngle):
         """
         if hasattr(self,'_JR'):
             return self._JR
-        (rperi,rap)= self.calcRapRperiFlat()
+        (rperi,rap)= self.calcRapRperi()
         self._JR= (2.*m.sqrt(2.)*rperi*
                    nu.array(integrate.quad(_JRFlatIntegrand,1.,rap/rperi,
                                            args=((self._R*self._vT)**2/rperi**2.),**kwargs)))
@@ -244,7 +246,7 @@ class actionAngleFlat(actionAngle):
             rend= _rapRperiFlatFindStart(self._R,E,L,rap=True)
             rap= optimize.brentq(_rapRperiFlatEq,self._R,rend,EL)
         self._rperirap= (rperi,rap)
-        return return self._rperirap
+        return self._rperirap
 
 #
 # Deprecated interface

@@ -1,6 +1,6 @@
 class actionAngle:
     """Top-level class for actionAngle classes"""
-    def __init__(*args,**kwargs):
+    def __init__(self,*args,**kwargs):
         """
         NAME:
            __init__
@@ -12,7 +12,7 @@ class actionAngle:
            2010-07-11 - Written - Bovy (NYU)
         """
         if len(args) == 3: #R,vR.vT
-            R,vR,vT= *args
+            R,vR,vT= args
             self._R= R
             self._vR= vR
             self._vT= vT
