@@ -533,9 +533,9 @@ def calcRapRperiFromELFlat(E,L,vc=1.,ro=1.):
        2010-05-13 - Written - Bovy (NYU)
     """
     rstart= _rapRperiFlatFindStart(L,E,L)
-    rperi= optimize.brentq(_rapRperiFlatEq,rstart,L,EL)
+    rperi= optimize.brentq(_rapRperiFlatEq,rstart,L,(E,L))
     rend= _rapRperiFlatFindStart(L,E,L,rap=True)
-    rap= optimize.brentq(_rapRperiFlatEq,L,rend,EL)
+    rap= optimize.brentq(_rapRperiFlatEq,L,rend,(E,L))
     return (rperi,rap)
 
 def calcELFlat(R,vR,vT,vc=1.,ro=1.):
