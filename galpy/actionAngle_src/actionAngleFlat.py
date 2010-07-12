@@ -60,17 +60,23 @@ class actionAngleFlat(actionAngle):
         TR= self.TR(**kwargs)[0]
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         if self._R < Rmean:
-            wR= (2.*m.pi/TR*m.sqrt(2.)*rperi*
-                 nu.array(integrate.quadrature(_TRFlatIntegrandSmall,
-                                               0.,m.sqrt(self._R/rperi-1.),
-                                               args=((self._R*self._vT)**2/rperi**2.,),
-                                               **kwargs)))+nu.array([m.pi,0.])
+            if self._R > rperi:
+                wR= (2.*m.pi/TR*m.sqrt(2.)*rperi*
+                     nu.array(integrate.quadrature(_TRFlatIntegrandSmall,
+                                                   0.,m.sqrt(self._R/rperi-1.),
+                                                   args=((self._R*self._vT)**2/rperi**2.,),
+                                                   **kwargs)))+nu.array([m.pi,0.])
+            else:
+                wR= nu.array([m.pi,0.])
         else:
-            wR= -(2.*m.pi/TR*m.sqrt(2.)*rap*
-                  nu.array(integrate.quadrature(_TRFlatIntegrandLarge,
-                                                0.,m.sqrt(1.-self._R/rap),
-                                                args=((self._R*self._vT)**2/rap**2.,),
-                                                **kwargs)))
+            if self._R < rap:
+                wR= -(2.*m.pi/TR*m.sqrt(2.)*rap*
+                      nu.array(integrate.quadrature(_TRFlatIntegrandLarge,
+                                                    0.,m.sqrt(1.-self._R/rap),
+                                                    args=((self._R*self._vT)**2/rap**2.,),
+                                                    **kwargs)))
+            else:
+                wR= nu.array([0.,0.])
         if self._vR < 0.:
             wR[0]+= m.pi
         self._angleR= nu.array([wR[0] % (2.*m.pi),wR[1]])
