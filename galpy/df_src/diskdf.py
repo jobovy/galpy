@@ -325,7 +325,8 @@ class dehnendf(diskdf):
         INPUT:
            n - number of desired sample (specifying this rather than calling 
                this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword
+           rrange - if you only want samples in this rrange, set this keyword 
+                    (only works when asking for an (RZ)Orbit
            returnRZOrbit - if True, return an RZOrbit instance
            returnOrbit - if True, return an Orbit instance (including phi)
         OUTPUT:
