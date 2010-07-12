@@ -564,6 +564,31 @@ class DFcorrection:
             return sc.exp(out)
             
 
+    def derivLogcorrect(self,R):
+        """
+        NAME:
+           derivLogcorrect
+        PURPOSE:
+           calculate the derivative of the log of the correction in Sigma 
+           and sigma2 at R
+        INPUT:
+           R - Galactocentric radius(/ro)
+        OUTPUT:
+           [d log(Sigma correction)/dR, d log(sigma2 correction)/dR]
+        HISTORY:
+           2010-03-10 - Written - Bovy (NYU)
+        """
+        if R < _RMIN:
+            out= sc.array([self._surfaceDerivSmallR,
+                           self._sigma2DerivSmallR])
+        elif R > (2.*self._rmax):
+            out= sc.array([0.,0.])
+        else:
+            out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
+                           self._sigma2Interpolate(R,nu=1)[0]])
+        return out
+            
+
     def _calc_corrections(self):
         """Internal function that calculates the corrections"""     
         searchIter= self._niter-1
