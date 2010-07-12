@@ -516,6 +516,28 @@ def calcRapRperiFlat(R,vR,vT,vc=1.,ro=1.):
         rap= optimize.brentq(_rapRperiFlatEq,R,rend,EL)
     return (rperi,rap)
 
+def calcRapRperiFromELFlat(E,L,vc=1.,ro=1.):
+    """
+    NAME:
+       calcRapRperiFromELFlat
+    PURPOSE:
+       calculate the apocenter and pericenter radii for a flat rotation curve
+    INPUT:
+       E - energy
+       L - angular momemtum
+       vc - circular velocity
+       ro - reference radius
+    OUTPUT:
+       (rperi,rap)
+    HISTORY:
+       2010-05-13 - Written - Bovy (NYU)
+    """
+    rstart= _rapRperiFlatFindStart(L,E,L)
+    rperi= optimize.brentq(_rapRperiFlatEq,rstart,L,EL)
+    rend= _rapRperiFlatFindStart(L,E,L,rap=True)
+    rap= optimize.brentq(_rapRperiFlatEq,L,rend,EL)
+    return (rperi,rap)
+
 def calcELFlat(R,vR,vT,vc=1.,ro=1.):
     """
     NAME:
