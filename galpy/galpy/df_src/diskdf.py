@@ -21,8 +21,9 @@ import math as m
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
+from scipy import stats
 from surfaceSigmaProfile import *
-from galpy.orbit import Orbit
+from galpy.orbit import Orbit, RZOrbit
 from galpy.util.bovy_ars import bovy_ars
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 class diskdf:
@@ -315,7 +316,7 @@ class dehnendf(diskdf):
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
 
-    def sample(self,n=1,rrange=None):
+    def sample(self,n=1,rrange=None,returnRZOrbit=False,returnOrbit=False):
         """
         NAME:
            sample
@@ -325,18 +326,37 @@ class dehnendf(diskdf):
            n - number of desired sample (specifying this rather than calling 
                this routine n times is more efficient)
            rrange - if you only want samples in this rrange, set this keyword
+           returnRZOrbit - if True, return an RZOrbit instance
+           returnOrbit - if True, return an Orbit instance (including phi)
         OUTPUT:
-           list of [[E,Lz],...]
+           list of [[E,Lz],...] or list of (RZ)Orbits
+           CAUTION: lists of EL need to be post-processed to account for the 
+                    \kappa/\omega_R discrepancy
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
         #First sample xE
-        xE= bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,_ars_hpx,
-                     nsamples=n,
-                     hxparams=(self._surfaceSigmaProfile,self._corr))
+        xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,_ars_hpx,
+                              nsamples=n,
+                              hxparams=(self._surfaceSigmaProfile,self._corr)))
+        #Calculate E
+        if self._beta == 0.:
+            E= sc.log(xE)+0.5
+        else: #non-flat rotation curve
+            E= .5*xE**(2.*self._beta)*(1.+1./self._beta)
         #Then sample Lz
-        
-        return xE
+        LCE= xE**(self._beta+1.)
+        OR= xE**(self._beta-1.)
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
+        for ii in range(len(xE)):
+            Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
+        Lz+= LCE
+        if not returnRZOrbit and not returnOrbit:
+            out= [[e,l] for e,l in zip(E,Lz)]
+        else:
+            pass
+        #Recurse to get enough
+        return out
 
 class shudf(diskdf):
     """Shu's df (1969)"""
