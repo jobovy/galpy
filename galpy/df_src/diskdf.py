@@ -25,6 +25,9 @@ from scipy import stats
 from surfaceSigmaProfile import *
 from galpy.orbit import Orbit, RZOrbit
 from galpy.util.bovy_ars import bovy_ars
+from galpy.potential import PowerSphericalPotential
+from galpy.actionAngle import actionAngleFlat
+from galpy.actionAngle_src.actionAngleFlat import calcRapRperiFromELFlat #HACK
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 class diskdf:
     """Class that represents a disk DF"""
@@ -251,6 +254,26 @@ class diskdf:
         """
         return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
 
+    def _ELtowRRapRperi(self,E,L):
+        """
+        NAME:
+           _ELtowRRapRperi
+        PURPOSE:
+           calculate the radial frequency based on E,L, also return rap and 
+           rperi
+        INPUT:
+           E - energy
+           L - angular momentum
+        OUTPUT:
+           wR(E.L)
+        HISTORY:
+           2010-07-11 - Written - Bovy (NYU)
+        """
+        if self._beta == 0.:
+            rperi, rap= calcRapRperiFromELFlat(E,L,vc=1.,ro=1.)
+            aA= actionAngleFlat(rperi,0.,L/rperi)
+        TR= aA.TR()[0]
+        return (2.*m.pi/TR, rap, rperi)
 
 class dehnendf(diskdf):
     """Dehnen's 'new' df"""
@@ -315,7 +338,6 @@ class dehnendf(diskdf):
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
-
     def sample(self,n=1,rrange=None,returnRZOrbit=False,returnOrbit=False):
         """
         NAME:
@@ -333,6 +355,10 @@ class dehnendf(diskdf):
            list of [[E,Lz],...] or list of (RZ)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
                     \kappa/\omega_R discrepancy
+        BUGS:
+           If rrange is set, a lot of samples are rejected and this is slow
+           it would be good to integrate over rrange and estimate how many more
+           samples we will need
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
@@ -355,8 +381,43 @@ class dehnendf(diskdf):
         if not returnRZOrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
-            pass
+            if not hasattr(self,'_psp'):
+                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True)
+            out= []
+            for ii in range(n):
+                try:
+                    wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
+                except ValueError:
+                    continue
+                #BOVY: replace this once you implement planar dynamics
+                TR= 2.*m.pi/wR
+                tr= stats.uniform.rvs()*TR
+                if tr > TR/2.:
+                    tr-= TR/2.
+                    thisOrbit= RZOrbit([rperi,0.,Lz[ii]/rperi,0.,0.])
+                else:
+                    thisOrbit= RZOrbit([rap,0.,Lz[ii]/rap,0.,0.])
+                thisOrbit.integrate(sc.array([0.,tr]),self._psp)
+                thisOrbit= RZOrbit(thisOrbit(tr))
+                kappa= _kappa(thisOrbit.vxvv[0],self._beta)
+                if not rrange == None:
+                    if thisOrbit.vxvv[0] < rrange[0] or thisOrbit.vxvv[0] > rrange[1]:
+                        continue
+                mult= sc.floor(kappa/wR)
+                kappawR= kappa/wR-mult
+                print mult, kappawR
+                while mult > 0:
+                    print mult
+                    out.append(thisOrbit)
+                    mult-= 1
+                if stats.uniform.rvs() > kappawR:
+                    continue
+                out.append(thisOrbit)
         #Recurse to get enough
+        if not len(out) == n:
+            out.extend(self.sample(n=n-len(out),rrange=rrange,
+                                   returnRZOrbit=returnRZOrbit,
+                                   returnOrbit=returnOrbit))
         return out
 
 class shudf(diskdf):
@@ -388,10 +449,10 @@ class shudf(diskdf):
         HISTORY:
             2010-05-09 - Written - Bovy (NYU)
         """
-        return distkdf.__init__(self,surfaceSigma=surfaceSigma,
-                                profileParams=profileParams,
-                                correct=correct,dftype='shu',
-                                beta=beta,**kwargs)
+        return diskdf.__init__(self,surfaceSigma=surfaceSigma,
+                               profileParams=profileParams,
+                               correct=correct,dftype='shu',
+                               beta=beta,**kwargs)
     
     def eval(self,E,L,logSigmaR=0.,logsigmaR2=0.):
         """
@@ -736,3 +797,8 @@ def _ars_hpx(x,args):
     """
     surfaceSigma, dfcorr= args
     return 1./x+surfaceSigma.surfacemassDerivative(x,log=True)+dfcorr.derivLogcorrect(x)[0]
+
+def _kappa(R,beta):
+    """Internal function to give kappa(r)"""
+    return m.sqrt(2.*(1.+beta))*R**(beta-1)
+
