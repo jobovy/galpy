@@ -355,10 +355,6 @@ class dehnendf(diskdf):
            list of [[E,Lz],...] or list of (RZ)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
                     \kappa/\omega_R discrepancy
-        BUGS:
-           If rrange is set, a lot of samples are rejected and this is slow
-           it would be good to integrate over rrange and estimate how many more
-           samples we will need
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
@@ -405,9 +401,7 @@ class dehnendf(diskdf):
                         continue
                 mult= sc.floor(kappa/wR)
                 kappawR= kappa/wR-mult
-                print mult, kappawR
                 while mult > 0:
-                    print mult
                     out.append(thisOrbit)
                     mult-= 1
                 if stats.uniform.rvs() > kappawR:
