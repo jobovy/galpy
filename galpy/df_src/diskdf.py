@@ -23,6 +23,7 @@ import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from surfaceSigmaProfile import *
 from galpy.orbit import Orbit
+from galpy.util.bovy_ars import bovy_ars
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 class diskdf:
     """Class that represents a disk DF"""
@@ -330,7 +331,12 @@ class dehnendf(diskdf):
            2010-07-10 - Started  - Bovy (NYU)
         """
         #First sample xE
+        xE= bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,_ars_hpx,
+                     nsamples=n,
+                     hxparams=(self._surfaceSigmaProfile,self._corr))
         #Then sample Lz
+        
+        return xE
 
 class shudf(diskdf):
     """Shu's df (1969)"""
@@ -672,3 +678,40 @@ def axipotential(R,beta=0.):
     else: #non-flat rotation curve
         return R**(2.*beta)/2./beta
 
+def _ars_hx(x,args):
+    """
+    NAME:
+       _ars_hx
+    PURPOSE:
+       h(x) for ARS sampling of the input surfacemass profile
+    INPUT:
+       x - R(/ro)
+       args= (surfaceSigma, dfcorr)
+          surfaceSigma - surfaceSigmaProfile instance
+          dfcorr - DFcorrection instance
+    OUTPUT:
+       log(x)+log surface(x) + log(correction)
+    HISTORY:
+       2010-07-11 - Written - Bovy (NYU)
+    """
+    surfaceSigma, dfcorr= args
+    return m.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
+
+def _ars_hpx(x,args):
+    """
+    NAME:
+       _ars_hpx
+    PURPOSE:
+       h'(x) for ARS sampling of the input surfacemass profile
+    INPUT:
+       x - R(/ro)
+       args= (surfaceSigma, dfcorr)
+          surfaceSigma - surfaceSigmaProfile instance
+          dfcorr - DFcorrection instance
+    OUTPUT:
+       derivative of log(x)+log surface(x) + log(correction) wrt x
+    HISTORY:
+       2010-07-11 - Written - Bovy (NYU)
+    """
+    surfaceSigma, dfcorr= args
+    return 1./x+surfaceSigma.surfacemassDerivative(x,log=True)+dfcorr.derivLogcorrect(x)[0]
