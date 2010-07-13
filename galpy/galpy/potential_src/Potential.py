@@ -25,6 +25,7 @@ class Potential:
         HISTORY:
         """
         self._amp= amp
+        self.dim= 3
         return None
 
     def __call__(self,R,z):
