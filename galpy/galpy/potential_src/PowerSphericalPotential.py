@@ -26,7 +26,9 @@ class PowerSphericalPotential(Potential):
         INPUT:
            amp - amplitude to be applied to the potential (default: 1)
            alpha - inner power
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -34,6 +36,8 @@ class PowerSphericalPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
+        if normalize:
+            self.normalize(normalize)
 
     def _evaluate(self,R,z):
         """

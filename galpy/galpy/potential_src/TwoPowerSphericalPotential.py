@@ -28,7 +28,9 @@ class TwoPowerSphericalPotential(Potential):
            a - "scale" (in terms of Ro)
            alpha - inner power
            beta - outer power
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -47,7 +49,7 @@ class TwoPowerSphericalPotential(Potential):
             self.alpha= alpha
             self.beta= beta
             if normalize:
-                self.normalize()
+                self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):
@@ -143,7 +145,9 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            a - "scale" (in terms of Ro)
            alpha - inner power (default: NFW)
            beta - outer power (default: NFW)
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -170,7 +174,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.JaffeSelf= None
             self.NFWSelf= None
             if normalize:
-                self.normalize()
+                self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):
@@ -253,7 +257,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -262,7 +268,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         Potential.__init__(self,amp=amp)
         self.a= a
         if normalize:
-            self.normalize()
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):
@@ -326,7 +332,9 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -335,7 +343,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         Potential.__init__(self,amp=amp)
         self.a= a
         if normalize:
-            self.normalize()
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):
@@ -399,7 +407,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            amp - amplitude to be applied to the potential
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
@@ -408,7 +418,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         Potential.__init__(self,amp=amp)
         self.a= a
         if normalize:
-            self.normalize()
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):

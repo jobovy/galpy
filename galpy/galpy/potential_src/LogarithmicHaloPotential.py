@@ -7,7 +7,7 @@ from Potential import Potential
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic halo potential Phi(r)"""
-    def __init__(self,amp=1.,vc=235.,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,core=_CORE,normalize=False):
         """
         NAME:
            __init__
@@ -15,19 +15,19 @@ class LogarithmicHaloPotential(Potential):
            initialize a Logarithmic Halo potential
         INPUT:
            amp - amplitude to be applied to the potential (default: 1)
-           vc - circular velocity
            core - core radius at which the logarithm is cut
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:
            2010-04-02 - Started - Bovy (NYU)
         """
         Potential.__init__(self,amp=amp)
-        self._vc2= vc**2.
         self._core2= core**2.
         if normalize:
-            self.normalize()
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z):
@@ -45,7 +45,7 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
            2010-04-30 - Adapted for R,z - Bovy (NYU)
         """
-        return self._vc2/2.*m.log(R**2.+z**2.+self._core2)
+        return 1./2.*m.log(R**2.+z**2.+self._core2)
 
     def _Rforce(self,R,z):
         """
@@ -60,7 +60,7 @@ class LogarithmicHaloPotential(Potential):
            the radial force
         HISTORY:
         """
-        return -self._vc2*R/(R**2.+z**2.+self._core2)
+        return -R/(R**2.+z**2.+self._core2)
 
     def _zforce(self,R,z):
         """
@@ -75,4 +75,4 @@ class LogarithmicHaloPotential(Potential):
            the vertical force
         HISTORY:
         """
-        return -self._vc2*z/(R**2.+z**2.+self._core2)
+        return -z/(R**2.+z**2.+self._core2)
