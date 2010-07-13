@@ -4,7 +4,7 @@ from galpy.potential import evaluateRforces, evaluatezforces, evaluatePotentials
 import galpy.util.bovy_plot as plot
 class Orbit:
     """General class that holds orbits and integrates them"""
-    def __init__(self,vxvv):
+    def __init__(self,vxvv=None):
         """
         NAME:
            __init__
