@@ -12,7 +12,7 @@ _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
     rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
-    def __init__(self,amp=1.,rhoo=1.,ro=1.,hr=1./3.,hz=1./16.,
+    def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False):
         """
         NAME:
@@ -24,10 +24,11 @@ class DoubleExponentialDiskPotential(Potential):
            hr - disk scale-length in terms of ro
            hz - scale-height
            ro - representative disk-radius at which rhoo is given
-           rhoo - density at (ro,0)
            tol - relative accuracy of potential-evaluations
            maxiter - scipy.integrate keyword
-           normalize - if True, normalize such that vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
+                       given as a number, such that the force is this fraction 
+                       of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            DoubleExponentialDiskPotential object
         HISTORY:
@@ -37,7 +38,6 @@ class DoubleExponentialDiskPotential(Potential):
         self._ro= ro
         self._hr= hr
         self._hz= hz
-        self._rhoo= rhoo*m.exp(self._ro/self._hr)
         self._alpha= 1./self._hr
         self._beta= 1./self._hz
         self._gamma= self._alpha/self._beta
@@ -45,7 +45,7 @@ class DoubleExponentialDiskPotential(Potential):
         self._tol= tol
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
         if normalize:
-            self.normalize()
+            self.normalize(normalize)
         
     def _evaluate(self,R,z):
         """
@@ -113,7 +113,7 @@ class DoubleExponentialDiskPotential(Potential):
                     maxiterFactorLarge*= 2
                 else:
                     notConvergedLarge= False
-        return -4.*m.pi*self._rhoo/self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
+        return -4.*m.pi/self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
     def _Rforce(self,R,z):
         """
@@ -179,7 +179,7 @@ class DoubleExponentialDiskPotential(Potential):
                 maxiterFactorLarge*= 2
             else:
                 notConvergedLarge= False
-        return -4.*m.pi*self._rhoo/self._beta*(smallkIntegral[0]+largekIntegral[0])
+        return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
     def _zforce(self,R,z):
         """
@@ -267,9 +267,9 @@ class DoubleExponentialDiskPotential(Potential):
                     else:
                         notConvergedLarge= False
         if z < 0.:
-            return 4.*m.pi*self._rhoo/self._beta*(smallkIntegral[0]+largekIntegral[0])
+            return 4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
         else:
-            return -4.*m.pi*self._rhoo/self._beta*(smallkIntegral[0]+largekIntegral[0])
+            return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
 
 def _doubleExponentialDiskPotentialPotentialIntegrandSmallk(k,R,z,gamma):
     """Internal function that gives the integrand for the double
