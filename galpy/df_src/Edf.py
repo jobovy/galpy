@@ -29,7 +29,7 @@ class Edf:
             if not t == None:
                 E= call_in.E(t)
             else:
-                E= call_in()
+                E= call_in.E()
             return self.eval(E)
         else:
             return self.eval(call_in)
