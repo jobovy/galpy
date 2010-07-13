@@ -1,0 +1,30 @@
+import scipy as sc
+from linearPotential import linearPotential
+class KGPotential(linearPotential):
+    """Class representing the Kuijken & Gilmore (1989) potential"""
+    def __init__(self,K=1.15,F=0.03,D=1.8,amp=1.):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize a KGPotential
+        INPUT:
+           K
+           F
+           D
+           amp - an overall amplitude
+        OUTPUT:
+        HISTORY:
+           2010-07-12 - Written - Bovy (NYU)
+        """
+        linearPotential.__init__(self,amp=amp)
+        self._K= K
+        self._F= F
+        self._D= D
+        self._D2= self._D**2.
+        
+    def _evaluate(self,x):
+        return self._K*(sc.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
+
+    def _force(self,x):
+        return -x*(self._K/sc.sqrt(x**2+self._D2)+2.*self._F)
