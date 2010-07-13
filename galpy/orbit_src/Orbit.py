@@ -59,7 +59,7 @@ class Orbit:
         INPUT:
            t - desired time
         OUTPUT:
-           [R,vR,vT,z,vz(,phi)]
+           [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit
         BUGS:
            currently only works for times at which the orbit was requested
            during integration; use interpolation in between?
