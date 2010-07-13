@@ -23,7 +23,7 @@ import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from scipy import stats
 from surfaceSigmaProfile import *
-from galpy.orbit import Orbit, RZOrbit
+from galpy.orbit import Orbit, planarROrbit, planarOrbit, RZOrbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleFlat
@@ -338,7 +338,7 @@ class dehnendf(diskdf):
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
-    def sample(self,n=1,rrange=None,returnRZOrbit=False,returnOrbit=False):
+    def sample(self,n=1,rrange=None,returnROrbit=False,returnOrbit=False):
         """
         NAME:
            sample
@@ -349,10 +349,10 @@ class dehnendf(diskdf):
                this routine n times is more efficient)
            rrange - if you only want samples in this rrange, set this keyword 
                     (only works when asking for an (RZ)Orbit
-           returnRZOrbit - if True, return an RZOrbit instance
-           returnOrbit - if True, return an Orbit instance (including phi)
+           returnROrbit - if True, return a planarROrbit instance
+           returnOrbit - if True, return a planarOrbit instance (including phi)
         OUTPUT:
-           list of [[E,Lz],...] or list of (RZ)Orbits
+           list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
                     \kappa/\omega_R discrepancy
         HISTORY:
@@ -374,7 +374,7 @@ class dehnendf(diskdf):
         for ii in range(len(xE)):
             Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
         Lz+= LCE
-        if not returnRZOrbit and not returnOrbit:
+        if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
             if not hasattr(self,'_psp'):
@@ -394,7 +394,10 @@ class dehnendf(diskdf):
                 else:
                     thisOrbit= RZOrbit([rap,0.,Lz[ii]/rap,0.,0.])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
-                thisOrbit= RZOrbit(thisOrbit(tr))
+                if returnROrbit:
+                    thisOrbit= planarROrbit(thisOrbit(tr))
+                else: #planarOrbit
+                    thisOrbit= planarOrbit(thisOrbit(tr))
                 kappa= _kappa(thisOrbit.vxvv[0],self._beta)
                 if not rrange == None:
                     if thisOrbit.vxvv[0] < rrange[0] or thisOrbit.vxvv[0] > rrange[1]:
@@ -410,7 +413,7 @@ class dehnendf(diskdf):
         #Recurse to get enough
         if not len(out) == n:
             out.extend(self.sample(n=n-len(out),rrange=rrange,
-                                   returnRZOrbit=returnRZOrbit,
+                                   returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit))
         return out
 
