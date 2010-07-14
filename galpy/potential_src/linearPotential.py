@@ -1,6 +1,6 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from Potential import PotentialError
+from Potential import PotentialError, Potential
 class linearPotential:
     """Class representing 1D potentials"""
     def __init__(self,amp=1.):
@@ -138,14 +138,22 @@ def RZTolinearPotential(RZPot,R=1.):
     PURPOSE:
        convert an RZPotential to a linearPotential at some radius R
     INPUT:
-       RZPot - RZPotential instance
+       RZPot - RZPotential instance or list
        R - Galactocentric radius at which to evaluate the zPotential
     OUTPUT:
-       linearPotential instance
+       linearPotential instance or list
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
-    return linearPotentialFromRZPotential(RZPot,R=R)
+    if isinstance(RZPot,list):
+        out= []
+        for pot in RZPot:
+            out.append(linearPotentialFromRZPotential(pot,R=R))
+        return out
+    elif isinstance(RZPot,Potential):
+        return linearPotentialFromRZPotential(RZPot,R=R)
+    else:
+        raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
     
 def evaluatePotentials(x,Pot):
     """
