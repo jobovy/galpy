@@ -155,7 +155,7 @@ def RZTolinearPotential(RZPot,R=1.):
     else:
         raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
     
-def evaluatePotentials(x,Pot):
+def evaluatelinearPotentials(x,Pot):
     """
     NAME:
        evaluatePotentials
@@ -179,10 +179,10 @@ def evaluatePotentials(x,Pot):
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a linearPotential-instance or a list of such instances")
 
-def evaluateForces(x,Pot):
+def evaluatelinearForces(x,Pot):
     """
     NAME:
-       evaluateForces
+       evaluatelinearForces
     PURPOSE:
        evaluate the forces due to a list of potentials
     INPUT:
@@ -203,10 +203,10 @@ def evaluateForces(x,Pot):
     else:
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 
-def plotPotentials(Pot,min=-15.,max=15,ns=21,savefilename=None):
+def plotlinearPotentials(Pot,min=-15.,max=15,ns=21,savefilename=None):
     """
     NAME:
-       plotPotentials
+       plotlinearPotentials
     PURPOSE:
        plot a combination of potentials
     INPUT:
