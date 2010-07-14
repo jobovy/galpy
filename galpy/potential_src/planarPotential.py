@@ -1,6 +1,6 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from Potential import PotentialError
+from Potential import PotentialError, Potential
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
@@ -137,4 +137,14 @@ def RZToplanarPotential(RZPot):
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
-    return planarPotentialFromRZPotential(RZPot)
+    if isinstance(RZPot,list):
+        out= []
+        for pot in RZPot:
+            out.append(planarPotentialFromRZPotential(pot))
+        return out
+    elif isinstance(RZPot,Potential):
+        return planarPotentialFromRZPotential(RZPot)
+    else:
+        raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
+
+    
