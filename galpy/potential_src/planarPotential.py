@@ -171,7 +171,8 @@ def RZToplanarPotential(RZPot):
     PURPOSE:
        convert an RZPotential to a planarPotential in the mid-plane (z=0)
     INPUT:
-       RZPot - RZPotential instance
+       RZPot - RZPotential instance or list of such instances (existing 
+               planarPotential instances are just copied to the output)
     OUTPUT:
        planarPotential instance
     HISTORY:
@@ -180,7 +181,10 @@ def RZToplanarPotential(RZPot):
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
-            out.append(planarPotentialFromRZPotential(pot))
+            if isinstance(pot,planarPotential):
+                out.append(pot)
+            else:
+                out.append(planarPotentialFromRZPotential(pot))
         return out
     elif isinstance(RZPot,Potential):
         return planarPotentialFromRZPotential(RZPot)
