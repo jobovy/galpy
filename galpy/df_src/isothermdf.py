@@ -4,7 +4,7 @@ from scipy import integrate, stats
 from Edf import Edf
 from galpy.util.bovy_ars import bovy_ars
 from galpy.orbit_src.linearOrbit import linearOrbit
-from galpy.potential_src.linearPotential import evaluatePotentials, evaluateForces
+from galpy.potential_src.linearPotential import evaluatelinearPotentials, evaluatelinearForces
 class isothermdf(Edf):
     """An isothermal df f(E) ~ exp(-E/sigma^2"""
     def __init__(self,normalize=None,pot=None,**kwargs):
@@ -146,14 +146,14 @@ def _onedNormalizeIntegrand(x,pot,sigma2):
 
 def _onedNormalizeIntegrandRaw(x,pot,sigma2):
     """Internal function that has the normalization integrand for 1D (untransformed)"""
-    return sc.exp(-evaluatePotentials(x,pot)/sigma2)
+    return sc.exp(-evaluatelinearPotentials(x,pot)/sigma2)
 
 def _ars_hx_1d(x,args):
     """Internal function that evaluates h(x) for ARS"""
     pot,sigma2= args
-    return - evaluatePotentials(x,pot)/sigma2
+    return - evaluatelinearPotentials(x,pot)/sigma2
 
 def _ars_hpx_1d(x,args):
     """Internal function that evaluates h'(x) for ARS"""
     pot,sigma2= args
-    return evaluateForces(x,pot)/sigma2
+    return evaluatelinearForces(x,pot)/sigma2
