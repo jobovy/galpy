@@ -4,7 +4,7 @@ from galpy.potential_src import LogarithmicHaloPotential
 from galpy.potential_src import DoubleExponentialDiskPotential
 from galpy.potential_src import PowerSphericalPotential
 from galpy.potential_src import TwoPowerSphericalPotential
-
+from galpy.potential_src import planarPotential
 #
 # Functions
 #
@@ -12,7 +12,7 @@ evaluatePotentials= Potential.evaluatePotentials
 evaluateRforces= Potential.evaluateRforces
 evaluatezforces= Potential.evaluatezforces
 plotPotentials= Potential.plotPotentials
-plotRotcurve= Potential.plotRotcurve
+plotRotcurve= planarPotential.plotRotcurve
 
 #
 # Classes
