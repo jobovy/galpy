@@ -90,6 +90,24 @@ class planarAxiPotential(planarPotential):
         """
         plotplanarPotentials(self,*args,**kwargs)
 
+    def plotRotcurve(self,*args,**kwargs):
+        """
+        NAME:
+           plotRotcurve
+        PURPOSE:
+           plot the rotation curve for this potential
+        INPUT:
+           Rrange - range
+           grid - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           +bovy_plot(*args,**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        plotRotcurve(self,*args,**kwargs)
+
 class planarPotentialFromRZPotential(planarAxiPotential):
     """Class that represents an axisymmetic planar potential derived from a 
     RZPotential"""
@@ -454,7 +472,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    isList= isinstance(Pot,list):
+    isList= isinstance(Pot,list)
     isRZ= ((isList and isinstance(Pot[0],Potential)) or 
            (not isList and isinstance(Pot,Potential)))
     if not isRZ and isNonAxi(Pot):
@@ -470,10 +488,10 @@ def plotRotcurve(Pot,*args,**kwargs):
         Rs= pickle.load(savefile)
         savefile.close()
     else:
-        Rs= nu.linspace(rmin,rmax,nrs)
-        rotcurve= nu.zeros(nrs)
-        for ii in range(nrs):
-            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateRforces(Rs[ii],thisPot))
+        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+        rotcurve= nu.zeros(grid)
+        for ii in range(grid):
+            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],thisPot))
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
@@ -483,7 +501,7 @@ def plotRotcurve(Pot,*args,**kwargs):
     if not kwargs.has_key('xlabel'):
         kwargs['xlabel']= r"$R/R_0$"
     if not kwargs.has_key('ylabel'):
-        kwargs['ylabel']= "$v_c(R)/v_c(R_0)$",
+        kwargs['ylabel']= r"$v_c(R)/v_c(R_0)$"
     return plot.bovy_plot(Rs,rotcurve,*args,
                           xrange=Rrange,**kwargs)
 
