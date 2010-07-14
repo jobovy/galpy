@@ -1,11 +1,14 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential
+from plotRotcurve import plotRotcurve
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
         self._amp= 1.
         self.dim= 2
+        self.isNonAxi= True #Gets reset by planarAxiPotential
+        self.isRZ= False
         return None
 
     def __call__(self,*args):
@@ -67,6 +70,7 @@ class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
     def __init__(self,amp=1.):
         planarPotential.__init__(self,amp=amp)
+        self.isNonAxi= False
         return None
     
     def _phiforce(self,*args):
@@ -183,24 +187,6 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
 
-def isNonAxi(pot):
-    """
-    NAME:
-       isNonAxi
-    PURPOSE:
-       is a (list of) planarPotential instance(s) non-axisymmetric or not?
-    INPUT:
-       pot - (list of) planarPotential instance(s)
-    OUTPUT:
-       True or False
-    HISTORY:
-       2010-07-13 - Written - Bovy (NYU)
-    """
-    return ((isinstance(pot,list) and 
-             not isinstance(pot,planarAxiPotential).any()) or 
-            (isinstance(pot,planarPotential) and 
-             not isinstance(pot,planarAxiPotential)))
-
 def evaluateplanarPotentials(*args):
     """
     NAME:
@@ -221,7 +207,8 @@ def evaluateplanarPotentials(*args):
     else:
         potindx= 1
     Pot= args[potindx]
-    nonAxi= isNonAxi(Pot)
+    isList= isinstance(Pot,list)
+    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if nonAxi and not hasphi:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
@@ -260,7 +247,8 @@ def evaluateplanarRforces(*args):
     else:
         potindx= 1
     Pot= args[potindx]
-    nonAxi= isNonAxi(Pot)
+    isList= isinstance(Pot,list)
+    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if nonAxi and not hasphi:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
@@ -299,7 +287,8 @@ def evaluateplanarphiforces(*args):
     else:
         potindx= 1
     Pot= args[potindx]
-    nonAxi= isNonAxi(Pot)
+    isList= ininstance(Pot,list)
+    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if nonAxi and not hasphi:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
@@ -371,7 +360,8 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    nonAxi= isNonAxi(Pot)
+    isList= isinstance(Pot,list)
+    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if not savefilename == None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
@@ -439,69 +429,3 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                               xlabel=r"$R/R_0$",ylabel=r"$\Phi(R)$",
                               xrange=Rrange,**kwargs)
     
-def plotRotcurve(Pot,*args,**kwargs):
-    """
-    NAME:
-       plotRotcurve
-    PURPOSE:
-       plot the rotation curve for this potential (in the z=0 plane for
-       non-spherical potentials)
-    INPUT:
-       Pot - Potential or list of Potential instances
-       Rrange - 
-       grid - grid in R
-       savefilename - save to or restore from this savefile (pickle)
-       +bovy_plot.bovy_plot args and kwargs
-    OUTPUT:
-       plot to output device
-    HISTORY:
-       2010-07-10 - Written - Bovy (NYU)
-    """
-    if kwargs.has_key('Rrange'):
-        Rrange= kwargs['Rrange']
-        kwargs.pop('Rrange')
-    else:
-        Rrange= [0.01,5.]
-    if kwargs.has_key('grid'):
-        grid= kwargs['grid']
-        kwargs.pop('grid')
-    else:
-        grid= 1001
-    if kwargs.has_key('savefilename'):
-        savefilename= kwargs['savefilename']
-        kwargs.pop('savefilename')
-    else:
-        savefilename= None
-    isList= isinstance(Pot,list)
-    isRZ= ((isList and isinstance(Pot[0],Potential)) or 
-           (not isList and isinstance(Pot,Potential)))
-    if not isRZ and isNonAxi(Pot):
-        raise PotentialError("Rotation curve plotting for non-axisymmetric potentials is not currently supported")
-    if isRZ:
-        thisPot= RZToplanarPotential(Pot)
-    else:
-        thisPot= Pot
-    if not savefilename == None and os.path.exists(savefilename):
-        print "Restoring savefile "+savefilename+" ..."
-        savefile= open(savefilename,'rb')
-        rotcurve= pickle.load(savefile)
-        Rs= pickle.load(savefile)
-        savefile.close()
-    else:
-        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
-        rotcurve= nu.zeros(grid)
-        for ii in range(grid):
-            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],thisPot))
-        if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
-            savefile= open(savefilename,'wb')
-            pickle.dump(rotcurve,savefile)
-            pickle.dump(Rs,savefile)
-            savefile.close()
-    if not kwargs.has_key('xlabel'):
-        kwargs['xlabel']= r"$R/R_0$"
-    if not kwargs.has_key('ylabel'):
-        kwargs['ylabel']= r"$v_c(R)/v_c(R_0)$"
-    return plot.bovy_plot(Rs,rotcurve,*args,
-                          xrange=Rrange,**kwargs)
-

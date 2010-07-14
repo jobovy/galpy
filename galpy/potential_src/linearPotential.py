@@ -6,6 +6,7 @@ class linearPotential:
     def __init__(self,amp=1.):
         self._amp= amp
         self.dim= 1
+        self.isRZ= False
         return None
 
     def __call__(self,x):
