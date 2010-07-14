@@ -72,6 +72,24 @@ class planarAxiPotential(planarPotential):
     def _phiforce(self,*args):
         return 0.
 
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+           plot
+        PURPOSE:
+           plot the potential
+        INPUT:
+           Rrange - range
+           grid - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           +bovy_plot(*args,**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        plotplanarPotentials(self,*args,**kwargs)
+
 class planarPotentialFromRZPotential(planarAxiPotential):
     """Class that represents an axisymmetic planar potential derived from a 
     RZPotential"""
@@ -147,4 +165,181 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
 
-    
+def isNonAxi(pot):
+    """
+    NAME:
+       isNonAxi
+    PURPOSE:
+       is a (list of) planarPotential instance(s) non-axisymmetric or not?
+    INPUT:
+       pot - (list of) planarPotential instance(s)
+    OUTPUT:
+       True or False
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    return ((isinstance(pot,list) and 
+             not isinstance(pot,planarAxiPotential).any()) or 
+            (isinstance(pot,planarPotential) and 
+             not isinstance(pot,planarAxiPotential)))
+
+def evaluateplanarPotentials(*args):
+    """
+    NAME:
+       evaluateplanarPotentials
+    PURPOSE:
+       evaluate a (list of) planarPotential instance(s)
+    INPUT:
+       R (+phi optional)
+       Pot - (list of) planarPotential instance(s)
+    OUTPUT:
+       Phi(R(,phi))
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    hasphi= (len(args) == 3)
+    if hasphi:
+        potindx= 2
+    else:
+        potindx= 1
+    Pot= args[potindx]
+    nonAxi= isNonAxi(Pot)
+    if nonAxi and not hasphi:
+        raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            if nonAxi:
+                sum+= pot(args[0],args[1])
+            else:
+                sum+= pot(args[0])
+        return sum
+    elif isinstance(Pot,planarPotential):
+        if nonAxi:
+            return Pot(args[0],args[1])
+        else:
+            return Pot(args[0])
+    else:
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
+
+def plotplanarPotentials(Pot,*args,**kwargs):
+        """
+        NAME:
+           plotplanarPotentials
+        PURPOSE:
+           plot a planar potential
+        INPUT:
+           Rrange - range
+           xrange, yrange - if relevant
+           grid, gridx, gridy - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           ncontours - number of contours to plot (if applicable)
+           +bovy_plot(*args,**kwargs) or bovy_dens2d(**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        if kwargs.has_key('Rrange'):
+            Rrange= kwargs['Rrange']
+            kwargs.pop('Rrange')
+        else:
+            Rrange= [0.01,5.]
+        if kwargs.has_key('xrange'):
+            xrange= kwargs['xrange']
+            kwargs.pop('xrange')
+        else:
+            xrange= [-5.,5.]
+        if kwargs.has_key('yrange'):
+            yrange= kwargs['yrange']
+            kwargs.pop('yrange')
+        else:
+            yrange= [-5.,5.]
+        if kwargs.has_key('grid'):
+            grid= kwargs['grid']
+            kwargs.pop('grid')
+        else:
+            grid= 1001
+        if kwargs.has_key('gridx'):
+            gridx= kwargs['gridx']
+            kwargs.pop('gridx')
+        else:
+            gridx= 1001
+        if kwargs.has_key('gridy'):
+            gridy= kwargs['gridy']
+            kwargs.pop('gridy')
+        else:
+            gridy= gridx
+        if kwargs.has_key('savefilename'):
+            savefilename= kwargs['savefilename']
+            kwargs.pop('savefilename')
+        else:
+            savefilename= None
+        nonAxi= isNonAxi(Pot)
+        if not savefilename == None and os.path.exists(savefilename):
+            print "Restoring savefile "+savefilename+" ..."
+            savefile= open(savefilename,'rb')
+            potR= pickle.load(savefile)
+            Rs= pickle.load(savefile)
+            if nonAxi:
+                xs= pickle.load(savefile)
+                ys= pickle.load(savefile)
+            else:
+                Rs= pickle.load(savefile)
+            savefile.close()
+        else:
+            if nonAxi:
+                xs= nu.linspace(xrange[0],xrange[1],gridx)
+                ys= nu.linspace(yrange[0],yrange[1],gridy)
+                potR= nu.zeros((gridx,gridy))
+                for ii in range(gridx):
+                    for jj in range(gridy):
+                        thisR= nu.sqrt(xs[ii]**2.+ys[jj]**2.)
+                        if xs[ii] >= 0.:
+                            thisphi= nu.arcsin(ys[jj]/thisR)
+                        else:
+                            thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
+                        potR[ii,jj]= evaluateplanarPotentials(thisR,thisphi,Pot)
+            else:
+                Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+                potR= nu.zeros(grid)
+                for ii in range(grid):
+                    potR[ii]= evaluateplanarPotentials(Rs[ii],Pot)
+            if not savefilename == None:
+                print "Writing savefile "+savefilename+" ..."
+                savefile= open(savefilename,'wb')
+                pickle.dump(potR,savefile)
+                if nonAxi:
+                    pickle.dump(xs,savefile)
+                    pickle.dump(ys,savefile)
+                else:
+                    pickle.dump(Rs,savefile)
+                savefile.close()
+        if nonAxi:
+            if not kwargs.has_key('origin'):
+                kwargs['origin']= 'lower'
+            if not kwargs.has_key('cmap'):
+                kwargs['cmap']= 'gist_yarg'
+            if not kwargs.has_key('contours'):
+                kwargs['contours']= True
+            if not kwargs.has_key('xlabel'):
+                kwargs['xlabel']= r"$R/R_0$"
+            if not kwargs.has_key('ylabel'):
+                kwargs['ylabel']= "$z/R_0$",
+            if not kwargs.has_key('aspect'):
+                kwargs['aspect']= 1.
+            if not kwargs.has_key('cntrls'):
+                kwargs['cntrls']= '-'
+            if kwargs.has_key('ncontours'):
+                ncontours= kwargs['ncontours']
+                kwargs.pop('ncontours')
+            if not kwargs.has_key('levels'):
+                kwargs['levels']= nu.linspace(nu.nanmin(potR),nu.nanmax(potR),ncontours)
+            return plot.bovy_dens2d(potR.T,
+                                xrange=xrange,
+                                yrange=yrange,**kwargs)
+        else:
+            return plot.bovy_plot(Rs,potR,*args,
+                              xlabel=r"$R/R_0$",ylabel=r"$\Phi(R)$",
+                              xrange=Rrange,**kwargs)
+
