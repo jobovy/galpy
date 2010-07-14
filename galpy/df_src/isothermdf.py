@@ -3,6 +3,7 @@ import scipy as sc
 from scipy import integrate, stats
 from Edf import Edf
 from galpy.util.bovy_ars import bovy_ars
+from galpy.orbit_src.linearOrbit import linearOrbit
 from galpy.potential_src.linearPotential import evaluatePotentials, evaluateForces
 class isothermdf(Edf):
     """An isothermal df f(E) ~ exp(-E/sigma^2"""
@@ -82,7 +83,9 @@ class isothermdf(Edf):
            pot - potential
            n - number of samples desired
         OUTPUT:
-           depending on the dimension, list of [linearOrbit,planarOrbit,Orbit]s
+           depending on the dimension, 
+           list of [linearOrbit,planarOrbit,Orbit]s
+           or a single orbit if n=1
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
@@ -92,7 +95,14 @@ class isothermdf(Edf):
             z= bovy_ars([0.,0.],[False,False],[-1.,1.],
                         _ars_hx_1d,_ars_hpx_1d,nsamples=n,
                         hxparams=(pot,self._sigma2))
-            return (z,vz)
+            #Make linearOrbits
+            out= []
+            for ii in range(n):
+                out.append(linearOrbit(vxvv=[z[ii],vz[ii]]))
+            if n == 1:
+                return out[0]
+            else:
+                return out
         elif self._dim == 2:
             raise AttributeError("2 dimensional isothermal distribution functions are not supported at this point")
         elif self._dim == 3:
