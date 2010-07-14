@@ -222,6 +222,84 @@ def evaluateplanarPotentials(*args):
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+def evaluateplanarRforces(*args):
+    """
+    NAME:
+       evaluateplanarRforces
+    PURPOSE:
+       evaluate the Rforce of a (list of) planarPotential instance(s)
+    INPUT:
+       R (+phi optional)
+       Pot - (list of) planarPotential instance(s)
+    OUTPUT:
+       F_R(R(,phi))
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    hasphi= (len(args) == 3)
+    if hasphi:
+        potindx= 2
+    else:
+        potindx= 1
+    Pot= args[potindx]
+    nonAxi= isNonAxi(Pot)
+    if nonAxi and not hasphi:
+        raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            if nonAxi:
+                sum+= pot.Rforce(args[0],args[1])
+            else:
+                sum+= pot.Rforce(args[0])
+        return sum
+    elif isinstance(Pot,planarPotential):
+        if nonAxi:
+            return Pot.Rforce(args[0],args[1])
+        else:
+            return Pot.Rforce(args[0])
+    else:
+        raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
+
+def evaluateplanarphiforces(*args):
+    """
+    NAME:
+       evaluateplanarphiforces
+    PURPOSE:
+       evaluate the phiforce of a (list of) planarPotential instance(s)
+    INPUT:
+       R (+phi optional)
+       Pot - (list of) planarPotential instance(s)
+    OUTPUT:
+       F_phi(R(,phi))
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    hasphi= (len(args) == 3)
+    if hasphi:
+        potindx= 2
+    else:
+        potindx= 1
+    Pot= args[potindx]
+    nonAxi= isNonAxi(Pot)
+    if nonAxi and not hasphi:
+        raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            if nonAxi:
+                sum+= pot.phiforce(args[0],args[1])
+            else:
+                sum+= pot.phiforce(args[0])
+        return sum
+    elif isinstance(Pot,planarPotential):
+        if nonAxi:
+            return Pot.phiforce(args[0],args[1])
+        else:
+            return Pot.phiforce(args[0])
+    else:
+        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
+
 def plotplanarPotentials(Pot,*args,**kwargs):
         """
         NAME:
