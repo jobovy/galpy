@@ -422,8 +422,6 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                               xrange=Rrange,**kwargs)
     
 def plotRotcurve(Pot,*args,**kwargs):
-rmin=0.,rmax=1.5,nrs=21,
-                 savefilename=None,*args,**kwargs):
     """
     NAME:
        plotRotcurve
@@ -432,16 +430,39 @@ rmin=0.,rmax=1.5,nrs=21,
        non-spherical potentials)
     INPUT:
        Pot - Potential or list of Potential instances
-       rmin - minimum R
-       rmax - maximum R
-       nrs - grid in R
+       Rrange - 
+       grid - grid in R
        savefilename - save to or restore from this savefile (pickle)
-       +matploltib.plot args and kwargs
+       +bovy_plot.bovy_plot args and kwargs
     OUTPUT:
        plot to output device
     HISTORY:
        2010-07-10 - Written - Bovy (NYU)
     """
+    if kwargs.has_key('Rrange'):
+        Rrange= kwargs['Rrange']
+        kwargs.pop('Rrange')
+    else:
+        Rrange= [0.01,5.]
+    if kwargs.has_key('grid'):
+        grid= kwargs['grid']
+        kwargs.pop('grid')
+    else:
+        grid= 1001
+    if kwargs.has_key('savefilename'):
+        savefilename= kwargs['savefilename']
+        kwargs.pop('savefilename')
+    else:
+        savefilename= None
+    isList= isinstance(Pot,list):
+    isRZ= ((isList and isinstance(Pot[0],Potential)) or 
+           (not isList and isinstance(Pot,Potential)))
+    if not isRZ and isNonAxi(Pot):
+        raise PotentialError("Rotation curve plotting for non-axisymmetric potentials is not currently supported")
+    if isRZ:
+        thisPot= RZToplanarPotential(Pot)
+    else:
+        thisPot= Pot
     if not savefilename == None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
@@ -452,14 +473,17 @@ rmin=0.,rmax=1.5,nrs=21,
         Rs= nu.linspace(rmin,rmax,nrs)
         rotcurve= nu.zeros(nrs)
         for ii in range(nrs):
-            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateRforces(Rs[ii],0.,Pot))
+            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateRforces(Rs[ii],thisPot))
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
             pickle.dump(rotcurve,savefile)
             pickle.dump(Rs,savefile)
             savefile.close()
+    if not kwargs.has_key('xlabel'):
+        kwargs['xlabel']= r"$R/R_0$"
+    if not kwargs.has_key('ylabel'):
+        kwargs['ylabel']= "$v_c(R)/v_c(R_0)$",
     return plot.bovy_plot(Rs,rotcurve,*args,
-                          xlabel=r"$R/R_0$",ylabel=r"$v_c(R)$",
-                          xrange=[rmin,rmax],**kwargs)
+                          xrange=Rrange,**kwargs)
 
