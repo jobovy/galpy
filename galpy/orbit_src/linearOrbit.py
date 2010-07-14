@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from Orbit import Orbit
-from galpy.potential_src.linearPotential import evaluateForces
+from galpy.potential_src.linearPotential import evaluatelinearForces
 import galpy.util.bovy_plot as plot
 class linearOrbit(Orbit):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""

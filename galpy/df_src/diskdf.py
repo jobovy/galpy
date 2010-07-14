@@ -411,10 +411,12 @@ class dehnendf(diskdf):
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
-        if not len(out) == n:
+        if len(out) < n:
             out.extend(self.sample(n=n-len(out),rrange=rrange,
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit))
+        if len(out) > n:
+            out= out[0:n]
         return out
 
 class shudf(diskdf):
