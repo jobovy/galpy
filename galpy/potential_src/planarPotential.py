@@ -14,7 +14,7 @@ class planarPotential:
            __call__
         PURPOSE:
            evaluate the potential
-        INPUT:
+        INPUT: 
            Either: R or R,phi [rad]
         OUTPUT:
            Phi(R(,phi)))
@@ -71,3 +71,70 @@ class planarAxiPotential(planarPotential):
     
     def _phiforce(self,*args):
         return 0.
+
+class planarPotentialFromRZPotential(planarAxiPotential):
+    """Class that represents an axisymmetic planar potential derived from a 
+    RZPotential"""
+    def __init__(self,RZPot):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize
+        INPUT:
+           RZPot - RZPotential instance
+        OUTPUT:
+           planarAxiPotential instance
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        planarAxiPotential.__init__(self,amp=1.)
+        self._RZPot= RZPot
+        return None
+
+    def _evaluate(self,*args):
+        """
+        NAME:
+           _evaluate
+        PURPOSE:
+           evaluate the potential
+        INPUT:
+           Either: R or R,phi [rad]      
+        OUTPUT:
+          Pot(R(,\phi))
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        R= args[0]
+        return self._RZPot(R,0.)
+            
+    def _Rforce(self,*args):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the radial force
+        INPUT:
+           Either: R or R,phi [rad]      
+        OUTPUT:
+          F_R(R(,\phi))
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        R= args[0]
+        return self._RZPot.Rforce(R,0.)
+            
+def RZToplanarPotential(RZPot):
+    """
+    NAME:
+       RZToPlanarPotential
+    PURPOSE:
+       convert an RZPotential to a planarPotential in the mid-plane (z=0)
+    INPUT:
+       RZPot - RZPotential instance
+    OUTPUT:
+       planarPotential instance
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    return planarPotentialFromRZPotential(RZPot)
