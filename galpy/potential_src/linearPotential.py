@@ -80,6 +80,72 @@ class linearPotential:
         return plot.bovy_plot(xs,potx,
                               xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                               xrange=[min,max])
+
+class linearPotentialFromRZPotential(linearPotential):
+    def __init__(self,RZPot,R=1.):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize
+        INPUT:
+           RZPot - RZPotential instance
+           R - Galactocentric radius at which to use the zPotential
+        OUTPUT:
+           linearAxiPotential instance
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        linearPotential.__init__(self,amp=1.)
+        self._RZPot= RZPot
+        self._R= R
+        return None
+
+    def _evaluate(self,x):
+        """
+        NAME:
+           _evaluate
+        PURPOSE:
+           evaluate the potential
+        INPUT:
+           x
+        OUTPUT:
+          Pot(x)
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        return self._RZPot(self._R,x)
+            
+    def _force(self,x):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the force
+        INPUT:
+           x
+        OUTPUT:
+          F(x)
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        return self._RZPot.Rforce(self._R,x)
+            
+def RZTolinearPotential(RZPot,R=1.):
+    """
+    NAME:
+       RZTolinearPotential
+    PURPOSE:
+       convert an RZPotential to a linearPotential at some radius R
+    INPUT:
+       RZPot - RZPotential instance
+       R - Galactocentric radius at which to evaluate the zPotential
+    OUTPUT:
+       linearPotential instance
+    HISTORY:
+       2010-07-13 - Written - Bovy (NYU)
+    """
+    return linearPotentialFromRZPotential(RZPot,R=R)
     
 def evaluatePotentials(x,Pot):
     """
