@@ -174,7 +174,7 @@ def RZToplanarPotential(RZPot):
        RZPot - RZPotential instance or list of such instances (existing 
                planarPotential instances are just copied to the output)
     OUTPUT:
-       planarPotential instance
+       planarPotential instance(s)
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
