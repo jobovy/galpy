@@ -188,6 +188,8 @@ def RZToplanarPotential(RZPot):
         return out
     elif isinstance(RZPot,Potential):
         return planarPotentialFromRZPotential(RZPot)
+    elif isinstance(RZPot,planarPotential):
+        return RZPot
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
@@ -291,7 +293,7 @@ def evaluateplanarphiforces(*args):
     else:
         potindx= 1
     Pot= args[potindx]
-    isList= ininstance(Pot,list)
+    isList= isinstance(Pot,list)
     nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if nonAxi and not hasphi:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
