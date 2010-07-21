@@ -231,4 +231,10 @@ class Orbit:
         """
         self._orb.plotvxt(*args,**kwargs)
 
-
+    def __add__(self,linOrb):
+        if not isinstance(self._orb,planarROrbit) or \
+                not isinstance(linOrb._orb,linearOrbit):
+            raise AttributeError("Only planarROrbit+linearOrbit is supported")
+        return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
+                           self._orb.vxvv[2],
+                           linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])

@@ -42,12 +42,6 @@ class planarROrbit(planarOrbitTop):
         self.vxvv= vxvv
         return None
 
-    def __add__(self,linOrb):
-        """
-        """
-        return RZOrbit(vxvv=[self.vxvv[0],self.vxvv[1],self.vxvv[2],
-                             linOrb.vxvv[0],linOrb.vxvv[1]])
-
     def integrate(self,t,pot):
         """
         NAME:
