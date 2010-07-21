@@ -1,10 +1,10 @@
 import numpy as nu
 from scipy import integrate
-from Orbit import Orbit
+from OrbitTop import OrbitTop
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces
-class planarOrbitTop(Orbit):
+class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
     def __init__(self,vxvv=None):

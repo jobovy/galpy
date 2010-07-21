@@ -1,8 +1,7 @@
 import numpy as nu
 from scipy import integrate
-from galpy.potential import evaluateRforces, evaluatezforces, evaluatePotentials
 import galpy.util.bovy_plot as plot
-class Orbit:
+class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None):
         """

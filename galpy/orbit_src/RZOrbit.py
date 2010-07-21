@@ -3,8 +3,8 @@ from scipy import integrate
 from galpy.potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials
 import galpy.util.bovy_plot as plot
-from Orbit import Orbit
-class RZOrbit(Orbit):
+from OrbitTop import OrbitTop
+class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
     in the (R,z) plane"""
     def __init__(self,vxvv=[1.,0.,0.9,0.,0.1]):
