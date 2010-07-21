@@ -1,5 +1,5 @@
 import numpy as nu
-from scipy import integrate
+from scipy import integrate, interpolate
 import galpy.util.bovy_plot as plot
 class OrbitTop:
     """General class that holds orbits and integrates them"""
@@ -65,7 +65,20 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return self.orbit[list(self.t).index(t),:]
+        if t in list(self.t):
+            return self.orbit[list(self.t).index(t),:]
+        else:
+            dim= len(self.vxvv)
+            if not hasattr(self,"_orbInterp"):
+                orbInterp= []
+                for ii in range(dim):
+                    orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                            self.t,self.orbit[:,ii]))
+                self._orbInterp= orbInterp
+            out= []
+            for ii in range(dim):
+                out.append(self._orbInterp[ii](t))
+            return nu.array(out).reshape(dim)
 
     def plotEt(self,pot,*args,**kwargs):
         """

@@ -91,3 +91,23 @@ class Orbit:
            2010-07-10 - Written - Bovy (NYU)
         """
         self._orb.plotEzt(pot,*args,**kwargs)
+
+    def __call__(self,t):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           return the orbit vector at time t
+        INPUT:
+           t - desired time
+        OUTPUT:
+           [x,vx], [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on 
+           the orbit
+        BUGS:
+           currently only works for times at which the orbit was requested
+           during integration; use interpolation in between?
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self._orb(t)
+
