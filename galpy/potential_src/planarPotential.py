@@ -167,7 +167,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
 def RZToplanarPotential(RZPot):
     """
     NAME:
-       RZToPlanarPotential
+       RZToplanarPotential
     PURPOSE:
        convert an RZPotential to a planarPotential in the mid-plane (z=0)
     INPUT:
@@ -189,7 +189,7 @@ def RZToplanarPotential(RZPot):
     elif isinstance(RZPot,Potential):
         return planarPotentialFromRZPotential(RZPot)
     else:
-        raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
+        raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
 def evaluateplanarPotentials(*args):
     """
@@ -229,7 +229,7 @@ def evaluateplanarPotentials(*args):
         else:
             return Pot(args[0])
     else:
-        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarRforces(*args):
     """
@@ -269,7 +269,7 @@ def evaluateplanarRforces(*args):
         else:
             return Pot.Rforce(args[0])
     else:
-        raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarphiforces(*args):
     """
@@ -309,7 +309,7 @@ def evaluateplanarphiforces(*args):
         else:
             return Pot.phiforce(args[0])
     else:
-        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
