@@ -75,6 +75,7 @@ class RZOrbit(OrbitTop):
                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
+
     def plotEzt(self,pot,*args,**kwargs):
         """
         NAME:
