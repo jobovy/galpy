@@ -1,6 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from Orbit import Orbit
+from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential
 class planarOrbitTop(Orbit):
@@ -39,6 +40,12 @@ class planarROrbit(planarOrbitTop):
         self.vxvv= vxvv
         return None
 
+    def __add__(self,linOrb):
+        """
+        """
+        return RZOrbit(vxvv=[self.vxvv[0],self.vxvv[1],self.vxvv[2],
+                             linOrb.vxvv[0],linOrb.vxvv[1]])
+
     def integrate(self,t,pot):
         """
         NAME:
@@ -75,7 +82,6 @@ class planarOrbit(planarOrbitTop):
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
         self.vxvv= vxvv
         return None
-    
 
 def _integrateROrbit(vxvv,pot,t):
     """
