@@ -1,5 +1,6 @@
 import numpy as nu
 from scipy import integrate
+import galpy.util.bovy_plot as plot
 from OrbitTop import OrbitTop
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
@@ -99,6 +100,12 @@ class planarOrbit(planarOrbitTop):
         """
         self.t= nu.array(t)
         self.orbit= _integrateOrbit(self.vxvv,pot,t)
+
+    def plot(self,*args,**kwargs):
+        plot.bovy_plot(self.orbit[:,0]*nu.cos(self.orbit[:,3]),
+                       self.orbit[:,0]*nu.sin(self.orbit[:,3]),
+                       *args,**kwargs)
+
 
 def _integrateROrbit(vxvv,pot,t):
     """
