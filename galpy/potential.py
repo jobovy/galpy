@@ -1,4 +1,6 @@
 from galpy.potential_src import Potential
+from galpy.potential_src import planarPotential
+from galpy.potential_src import verticalPotential
 from galpy.potential_src import MiyamotoNagaiPotential
 from galpy.potential_src import LogarithmicHaloPotential
 from galpy.potential_src import DoubleExponentialDiskPotential
@@ -9,9 +11,8 @@ from galpy.potential_src import KGPotential
 #
 # Functions
 #
-evaluatePotentials= Potential.evaluatePotentials
-evaluateRforces= Potential.evaluateRforces
-evaluatezforces= Potential.evaluatezforces
+RZToplanarPotential= planarPotential.RZToplanarPotential
+RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
 plotRotcurve= plotRotcurve.plotRotcurve
 
