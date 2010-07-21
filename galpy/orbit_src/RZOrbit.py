@@ -75,6 +75,26 @@ class RZOrbit(OrbitTop):
                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
+    def plotEzt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEzt
+        PURPOSE:
+           plot E_z(t) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self.Ez= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
+                  evaluatePotentials(self.orbit[ii,0],0.,pot)+
+                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
+        plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
+                       *args,**kwargs)
 
 def _integrateRZOrbit(vxvv,pot,t):
     """
