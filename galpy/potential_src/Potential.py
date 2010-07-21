@@ -129,6 +129,10 @@ class Potential:
         from planarPotential import RZToplanarPotential
         return RZToplanarPotential(self)
 
+    def toVertical(self,R):
+        from verticalPotential import RZToverticalPotential
+        return RZToverticalPotential(self,R)
+
     def plot(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              ncontours=21,savefilename=None):
         """
