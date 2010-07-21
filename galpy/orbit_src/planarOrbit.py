@@ -3,7 +3,7 @@ from scipy import integrate
 from Orbit import Orbit
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, RZToplanarPotential
+    planarPotential, RZToplanarPotential, evaluateplanarphiforces
 class planarOrbitTop(Orbit):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
@@ -83,10 +83,27 @@ class planarOrbit(planarOrbitTop):
         self.vxvv= vxvv
         return None
 
+    def integrate(self,t,pot):
+        """
+        NAME:
+           integrate
+        PURPOSE:
+           integrate the orbit
+        INPUT:
+           t - list of times at which to output (0 has to be in this!)
+           pot - potential instance or list of instances
+        OUTPUT:
+           (none) (get the actual orbit using getOrbit()
+        HISTORY:
+           2010-07-20
+        """
+        self.t= nu.array(t)
+        self.orbit= _integrateOrbit(self.vxvv,pot,t)
+
 def _integrateROrbit(vxvv,pot,t):
     """
     NAME:
-       _integrateRZOrbit
+       _integrateROrbit
     PURPOSE:
        integrate an orbit in a Phi(R) potential in the R-plane
     INPUT:
@@ -129,3 +146,54 @@ def _REOM(y,t,pot,l2):
     """
     return [y[1],
             l2/y[0]**3.+evaluateplanarRforces(y[0],pot)]
+
+def _integrateOrbit(vxvv,pot,t):
+    """
+    NAME:
+       _integrateOrbit
+    PURPOSE:
+       integrate an orbit in a Phi(R) potential in the (R,phi)-plane
+    INPUT:
+       vxvv - array with the initial conditions stacked like
+              [R,vR,vT,phi]; vR outward!
+       pot - Potential instance
+       t - list of times at which to output (0 has to be in this!)
+    OUTPUT:
+       [:,4] array of [R,vR,vT,phi] at each t
+    HISTORY:
+       2010-07-20 - Written - Bovy (NYU)
+    """
+    vphi= vxvv[2]/vxvv[0]
+    init= [vxvv[0],vxvv[1],vxvv[3],vphi]
+    intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+                             rtol=10.**-8.)#,mxstep=100000000)
+    out= nu.zeros((len(t),4))
+    out[:,0]= intOut[:,0]
+    out[:,1]= intOut[:,1]
+    out[:,3]= intOut[:,2]
+    out[:,2]= out[:,0]*intOut[:,3]
+    return out
+
+def _EOM(y,t,pot):
+    """
+    NAME:
+       _EOM
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential 
+       equation
+    INPUT:
+       y - current phase-space position
+       t - current time
+       pot - (list of) Potential instance(s)
+       l2 - angular momentum squared
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2010-07-20 - Written - Bovy (NYU)
+    """
+    l2= (y[0]**2.*y[3])**2.
+    return [y[1],
+            l2/y[0]**3.+evaluateplanarRforces(y[0],y[2],pot),
+            y[3],
+            1./y[0]**2.*(evaluateplanarphiforces(y[0],y[2],pot)-
+                         2.*y[0]*y[1]*y[3])]
