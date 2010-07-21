@@ -4,7 +4,8 @@ import galpy.util.bovy_plot as plot
 from OrbitTop import OrbitTop
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, RZToplanarPotential, evaluateplanarphiforces
+    planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
+    evaluateplanarPotentials
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
@@ -65,6 +66,28 @@ class planarROrbit(planarOrbitTop):
         self.t= nu.array(t)
         self.orbit= _integrateROrbit(self.vxvv,thispot,t)
 
+    def plotEt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEt
+        PURPOSE:
+           plot E(t) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
+                 self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                 for ii in range(len(self.t))]
+        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                       *args,**kwargs)
+
+
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
     def __init__(self,vxvv=[1.,0.,1.,0.]):
@@ -104,6 +127,28 @@ class planarOrbit(planarOrbitTop):
     def plot(self,*args,**kwargs):
         plot.bovy_plot(self.orbit[:,0]*nu.cos(self.orbit[:,3]),
                        self.orbit[:,0]*nu.sin(self.orbit[:,3]),
+                       *args,**kwargs)
+
+    def plotEt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEt
+        PURPOSE:
+           plot E(t) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self.E= [evaluateplanarPotentials(self.orbit[ii,0],
+                                          self.orbit[ii,3],pot)+
+                 self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                 for ii in range(len(self.t))]
+        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
 

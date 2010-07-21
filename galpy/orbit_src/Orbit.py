@@ -57,3 +57,20 @@ class Orbit:
            2010-07-10 - Written - Bovy (NYU)
         """
         self._orb.plot(*args,**kwargs)
+
+    def plotEt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEt
+        PURPOSE:
+           plot E(t) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self._orb.plotEt(pot,*args,**kwargs)

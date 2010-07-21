@@ -1,7 +1,8 @@
 import numpy as nu
 from scipy import integrate
 from OrbitTop import OrbitTop
-from galpy.potential_src.linearPotential import evaluatelinearForces
+from galpy.potential_src.linearPotential import evaluatelinearForces,\
+    evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
 class linearOrbit(OrbitTop):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""
@@ -52,6 +53,27 @@ class linearOrbit(OrbitTop):
         """
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,1],*args,**kwargs)
 
+    def plotEt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEt
+        PURPOSE:
+           plot E(t) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        self.E= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
+                 self.orbit[ii,1]**2./2.
+                 for ii in range(len(self.t))]
+        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                       *args,**kwargs)
+
 def _integrateLinearOrbit(vxvv,pot,t):
     """
     NAME:
@@ -84,4 +106,4 @@ def _linearEOM(y,t,pot):
     HISTORY:
        2010-07-13 - Bovy (NYU)
     """
-    return [y[1],evaluateForces(y[0],pot)]
+    return [y[1],evaluatelinearForces(y[0],pot)]
