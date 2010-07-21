@@ -74,6 +74,39 @@ class linearOrbit(OrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
+    def plotxt(self,*args,**kwargs):
+        """
+        NAME:
+           plotxt
+        PURPOSE:
+           plot a one-dimensional orbit position
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-21 - Written - Bovy (NYU)
+        """
+        plot.bovy_plot(nu.array(self.t),self.orbit[:,0],
+                       *args,**kwargs)
+
+    def plotvxt(self,*args,**kwargs):
+        """
+        NAME:
+           plotvxt
+        PURPOSE:
+           plot a one-dimensional orbit velocity
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-21 - Written - Bovy (NYU)
+        """
+        plot.bovy_plot(nu.array(self.t),self.orbit[:,1],
+                       *args,**kwargs)
+
+
 def _integrateLinearOrbit(vxvv,pot,t):
     """
     NAME:
