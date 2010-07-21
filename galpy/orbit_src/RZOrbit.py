@@ -38,7 +38,7 @@ class RZOrbit(Orbit):
            2010-07-10
         """
         self.t= nu.array(t)
-        self.orbit= integrateRZOrbit(self.vxvv,pot,t)
+        self.orbit= _integrateRZOrbit(self.vxvv,pot,t)
 
     def plot(self,*args,**kwargs):
         """
@@ -76,10 +76,10 @@ class RZOrbit(Orbit):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
-def integrateRZOrbit(vxvv,pot,t):
+def _integrateRZOrbit(vxvv,pot,t):
     """
     NAME:
-       integrateRZOrbit
+       _integrateRZOrbit
     PURPOSE:
        integrate an orbit in a Phi(R,z) potential in the (R,z) plane
     INPUT:
@@ -95,7 +95,7 @@ def integrateRZOrbit(vxvv,pot,t):
     l= vxvv[0]*vxvv[2]
     l2= l**2.
     init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
-    intOut= integrate.odeint(RZEOM,init,t,args=(pot,l2),
+    intOut= integrate.odeint(_RZEOM,init,t,args=(pot,l2),
                              rtol=10.**-8.)#,mxstep=100000000)
     out= nu.zeros((len(t),5))
     out[:,0]= intOut[:,0]
@@ -105,10 +105,10 @@ def integrateRZOrbit(vxvv,pot,t):
     out[:,2]= l/out[:,0]
     return out
 
-def RZEOM(y,t,pot,l2):
+def _RZEOM(y,t,pot,l2):
     """
     NAME:
-       RZEOM
+       _RZEOM
     PURPOSE:
        implements the EOM, i.e., the right-hand side of the differential 
        equation
