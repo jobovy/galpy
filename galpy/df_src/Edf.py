@@ -2,7 +2,7 @@
 #   Edf.py: top-level class for distribution functions that are only a 
 #           function of the energy
 ###############################################################################
-from galpy.orbit import Orbit, planarOrbitTop
+from galpy.orbit import Orbit
 class Edf:
     """Top-level class for distribution functions that are only a function of
     the energy"""
@@ -25,7 +25,7 @@ class Edf:
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
-        if isinstance(call_in,Orbit) or isinstance(call_in,planarOrbitTop):
+        if isinstance(call_in,Orbit):
             if not t == None:
                 E= call_in.E(t)
             else:

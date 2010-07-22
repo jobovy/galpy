@@ -23,7 +23,7 @@ import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from scipy import stats
 from surfaceSigmaProfile import *
-from galpy.orbit import Orbit, planarROrbit, planarOrbit, RZOrbit
+from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleFlat
@@ -338,21 +338,24 @@ class dehnendf(diskdf):
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
-    def sample(self,n=1,rrange=None,returnROrbit=False,returnOrbit=False):
+    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
+               nphi=1.):
         """
         NAME:
            sample
         PURPOSE:
-           sample from this DF
+           sample n*nphi points from this DF
         INPUT:
            n - number of desired sample (specifying this rather than calling 
                this routine n times is more efficient)
            rrange - if you only want samples in this rrange, set this keyword 
                     (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance
+           returnROrbit - if True, return a planarROrbit instance: 
+                          [R,vR,vT] (default)
            returnOrbit - if True, return a planarOrbit instance (including phi)
+           nphi - number of azimuths to sample for each E,L
         OUTPUT:
-           list of [[E,Lz],...] or list of planar(R)Orbits
+           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
                     \kappa/\omega_R discrepancy
         HISTORY:
@@ -378,45 +381,51 @@ class dehnendf(diskdf):
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
             if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True)
+                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
             for ii in range(n):
                 try:
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
                 except ValueError:
                     continue
-                #BOVY: replace this once you implement planar dynamics
                 TR= 2.*m.pi/wR
                 tr= stats.uniform.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
-                    thisOrbit= RZOrbit([rperi,0.,Lz[ii]/rperi,0.,0.])
+                    thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
                 else:
-                    thisOrbit= RZOrbit([rap,0.,Lz[ii]/rap,0.,0.])
+                    thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
-                if returnROrbit:
-                    thisOrbit= planarROrbit(thisOrbit(tr))
-                else: #planarOrbit
-                    thisOrbit= planarOrbit(thisOrbit(tr))
+                if returnOrbit:
+                    vxvv= thisOrbit(tr)
+                    thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
+                                                    stats.uniform.rvs()*m.pi*2.]).reshape(4))
+                else:
+                    thisOrbit= Orbit(thisOrbit(tr))
                 kappa= _kappa(thisOrbit.vxvv[0],self._beta)
                 if not rrange == None:
                     if thisOrbit.vxvv[0] < rrange[0] or thisOrbit.vxvv[0] > rrange[1]:
                         continue
-                mult= sc.floor(kappa/wR)
-                kappawR= kappa/wR-mult
+                mult= sc.ceil(kappa/wR*nphi)-1.
+                kappawR= kappa/wR*nphi-mult
                 while mult > 0:
-                    out.append(thisOrbit)
+                    if returnOrbit:
+                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
+                                                        vxvv[2],
+                                                        stats.uniform.rvs()*m.pi*2.]).reshape(4)))
+                    else:
+                        out.append(thisOrbit)
                     mult-= 1
                 if stats.uniform.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
-        if len(out) < n:
-            out.extend(self.sample(n=n-len(out),rrange=rrange,
+        if len(out) < n*nphi:
+            out.extend(self.sample(n=n-len(out)/nphi,rrange=rrange,
                                    returnROrbit=returnROrbit,
-                                   returnOrbit=returnOrbit))
-        if len(out) > n:
-            out= out[0:n]
+                                   returnOrbit=returnOrbit,nphi=nphi))
+        if len(out) > n*nphi:
+            out= out[0:n*nphi]
         return out
 
 class shudf(diskdf):
