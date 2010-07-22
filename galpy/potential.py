@@ -8,6 +8,7 @@ from galpy.potential_src import PowerSphericalPotential
 from galpy.potential_src import TwoPowerSphericalPotential
 from galpy.potential_src import plotRotcurve
 from galpy.potential_src import KGPotential
+from galpy.potential_src import interpRZPotential
 #
 # Functions
 #
@@ -29,3 +30,4 @@ JaffePotential= TwoPowerSphericalPotential.JaffePotential
 HernquistPotential= TwoPowerSphericalPotential.HernquistPotential
 TwoPowerSphericalPotential= TwoPowerSphericalPotential.TwoPowerSphericalPotential
 KGPotential= KGPotential.KGPotential
+interpRZPotential= interpRZPotential.interpRZPotential
