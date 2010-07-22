@@ -16,6 +16,7 @@ class Orbit:
         HISTORY:
            2010-07-20 - Written - Bovy (NYU)
         """
+        self.vxvv= vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv)
         elif len(vxvv) == 3:
@@ -232,9 +233,16 @@ class Orbit:
         self._orb.plotvxt(*args,**kwargs)
 
     def __add__(self,linOrb):
-        if not isinstance(self._orb,planarROrbit) or \
-                not isinstance(linOrb._orb,linearOrbit):
+        if (not (isinstance(self._orb,planarROrbit) and 
+                isinstance(linOrb._orb,linearOrbit)) and
+            not (isinstance(self._orb,linearOrbit) and 
+                 isinstance(linOrb._orb,planarROrbit))):
             raise AttributeError("Only planarROrbit+linearOrbit is supported")
-        return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
-                           self._orb.vxvv[2],
-                           linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])
+        if isinstance(self._orb,planarROrbit):
+            return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
+                               self._orb.vxvv[2],
+                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])
+        else:
+            return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
+                               linOrb._orb.vxvv[2],
+                               self._orb.vxvv[0],self._orb.vxvv[1]])
