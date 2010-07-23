@@ -156,7 +156,7 @@ def _onedNormalizeIntegrandRaw(x,pot,sigma2):
 def _ars_hx_1d(x,args):
     """Internal function that evaluates h(x) for ARS"""
     pot,sigma2= args
-    return - evaluatelinearPotentials(x,pot)/sigma2
+    return -evaluatelinearPotentials(x,pot)/sigma2
 
 def _ars_hpx_1d(x,args):
     """Internal function that evaluates h'(x) for ARS"""
