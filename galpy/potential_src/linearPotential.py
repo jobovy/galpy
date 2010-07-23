@@ -159,7 +159,7 @@ def RZTolinearPotential(RZPot,R=1.):
 def evaluatelinearPotentials(x,Pot):
     """
     NAME:
-       evaluatePotentials
+       evaluatelinearPotentials
     PURPOSE:
        evaluate the sum of a list of potentials
     INPUT:
@@ -178,7 +178,7 @@ def evaluatelinearPotentials(x,Pot):
     elif isinstance(Pot,linearPotential):
         return Pot(x)
     else:
-        raise PotentialError("Input to 'evaluatePotentials' is neither a linearPotential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
 def evaluatelinearForces(x,Pot):
     """
@@ -230,7 +230,7 @@ def plotlinearPotentials(Pot,min=-15.,max=15,ns=21,savefilename=None):
         xs= nu.linspace(min,max,ns)
         potx= nu.zeros(ns)
         for ii in range(ns):
-            potx[ii]= evaluatePotentials(xs[ii],Pot)
+            potx[ii]= evaluatelinearPotentials(xs[ii],Pot)
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
