@@ -97,6 +97,7 @@ class isothermdf(Edf):
         if self._dim == 1:
             vz= stats.norm.rvs(size=n)*self._sigma 
             #That was easy, now the hard part
+            #Note: this needs to be replaced, as this is not log-concave
             z= bovy_ars([0.,0.],[False,False],[-.1,0.,.1],
                         _ars_hx_1d,_ars_hpx_1d,nsamples=n,
                         hxparams=(pot,self._sigma2))
