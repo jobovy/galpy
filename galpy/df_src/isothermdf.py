@@ -89,10 +89,15 @@ class isothermdf(Edf):
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
+        #First glean the dimensionality from the potential
+        if isinstance(pot,list):
+            self._dim= pot[0].dim
+        else:
+            self._dim= pot.dim
         if self._dim == 1:
             vz= stats.norm.rvs(size=n)*self._sigma 
             #That was easy, now the hard part
-            z= bovy_ars([0.,0.],[False,False],[-1.,1.],
+            z= bovy_ars([0.,0.],[False,False],[-.1,.1],
                         _ars_hx_1d,_ars_hpx_1d,nsamples=n,
                         hxparams=(pot,self._sigma2))
             #Make linearOrbits
