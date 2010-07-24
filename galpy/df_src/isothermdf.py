@@ -2,7 +2,6 @@ import math as m
 import scipy as sc
 from scipy import integrate, stats
 from Edf import Edf
-from galpy.util.bovy_ars import bovy_ars
 from galpy.orbit_src.linearOrbit import linearOrbit
 from galpy.potential_src.linearPotential import evaluatelinearPotentials, evaluatelinearForces
 class isothermdf(Edf):
@@ -71,7 +70,7 @@ class isothermdf(Edf):
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
-        return self._norm*sc.exp(-pot(x)/self._sigma2)
+        return self._norm*sc.exp(-evaluatelinearPotentials(x,pot)/self._sigma2)
 
     def sample(self,pot,n=1):
         """
@@ -88,6 +87,8 @@ class isothermdf(Edf):
            or a single orbit if n=1
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
+        BUGS:
+           sampling is bad and inaccurate at large x
         """
         #First glean the dimensionality from the potential
         if isinstance(pot,list):
@@ -97,10 +98,17 @@ class isothermdf(Edf):
         if self._dim == 1:
             vz= stats.norm.rvs(size=n)*self._sigma 
             #That was easy, now the hard part
-            #Note: this needs to be replaced, as this is not log-concave
-            z= bovy_ars([0.,0.],[False,False],[-.1,0.,.1],
-                        _ars_hx_1d,_ars_hpx_1d,nsamples=n,
-                        hxparams=(pot,self._sigma2))
+            #For now, uniformly sample on [-10.,10.] and reject
+            h= self.density(0.,pot)
+            zmin, zmax= -10., 10.
+            z= []
+            while len(z) < n:
+                u1= stats.uniform.rvs()*(zmax-zmin)+zmin
+                u2= stats.uniform.rvs()*h
+                if u2 <= self.density(u1,pot):
+                    if m.fabs(u1) > 1.:
+                        print u1, "accepted", u2, self.density(u1,pot), h
+                    z.append(u1)                
             #Make linearOrbits
             out= []
             for ii in range(n):
