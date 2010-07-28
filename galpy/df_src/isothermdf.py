@@ -2,7 +2,7 @@ import math as m
 import scipy as sc
 from scipy import integrate, stats
 from Edf import Edf
-from galpy.orbit_src.linearOrbit import linearOrbit
+from galpy.orbit import Orbit
 from galpy.potential_src.linearPotential import evaluatelinearPotentials, evaluatelinearForces
 class isothermdf(Edf):
     """An isothermal df f(E) ~ exp(-E/sigma^2"""
@@ -112,7 +112,7 @@ class isothermdf(Edf):
             #Make linearOrbits
             out= []
             for ii in range(n):
-                out.append(linearOrbit(vxvv=[z[ii],vz[ii]]))
+                out.append(Orbit(vxvv=[z[ii],vz[ii]]))
             if n == 1:
                 return out[0]
             else:
