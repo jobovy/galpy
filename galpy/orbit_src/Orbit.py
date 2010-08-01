@@ -1,3 +1,4 @@
+from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
@@ -26,7 +27,42 @@ class Orbit:
         elif len(vxvv) == 5:
             self._orb= RZOrbit(vxvv=vxvv)
         elif len(vxvv) == 6:
-            pass
+            self._orb= FullOrbit(vxvv=vxvv)
+
+    def setphi(self,phi):
+        """
+        NAME:
+           setphi
+        PURPOSE:
+           set initial azimuth
+        INPUT:
+           phi - desired azimuth
+        OUTPUT:
+           (none)
+        HISTORY:
+           2010-08-01 - Written - Bovy (NYU)
+        BUGS:
+           Should perform check that this orbit has phi
+        """
+        if len(self.vxvv) == 2:
+            raise AttributeError("One-dimensional orbit has no azimuth")
+        elif len(self.vxvv) == 3:
+            #Upgrade
+            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],phi]
+            self.vxvv= vxvv
+            self._orb= planarROrbit(vxvv=vxvv)
+        elif len(self.vxvv) == 4:
+            self.vxvv[-1]= phi
+            self._orb.vxvv[-1]= phi
+        elif len(self.vxvv) == 5:
+            #Upgrade
+            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[3],
+                   self.vxvv[4],phi]
+            self.vxvv= vxvv
+            self._orb= FullOrbit(vxvv=vxvv)
+        elif len(self.vxvv) == 6:
+            self.vxvv[-1]= phi
+            self._orb.vxvv[-1]= phi
 
     def integrate(self,t,pot):
         """
@@ -246,3 +282,13 @@ class Orbit:
             return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
                                linOrb._orb.vxvv[2],
                                self._orb.vxvv[0],self._orb.vxvv[1]])
+
+    #4 pickling
+    def __getinitargs__(self):
+        return (self.vxvv,)
+
+    def __getstate__(self):
+        return self.vxvv
+    
+    def __setstate__(self,state):
+        self.vxvv= state
