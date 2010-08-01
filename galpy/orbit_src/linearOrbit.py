@@ -107,8 +107,8 @@ class linearOrbit(OrbitTop):
                        *args,**kwargs)
 
     def _callRect(self,*args):
-        return self.__call__(*args,rect=False)
-        
+        kwargs['rect']= False
+        vxvv= self.__call__(*args,**kwargs)     
 
 def _integrateLinearOrbit(vxvv,pot,t):
     """
