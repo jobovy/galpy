@@ -149,7 +149,8 @@ class planarOrbit(planarOrbitTop):
                        *args,**kwargs)
 
     def _callRect(self,*args):
-        vxvv= self.__call__(*args,rect=False)
+        kwargs['rect']= False
+        vxvv= self.__call__(*args,**kwargs)
         x= vxvv[0]*m.cos(vxvv[3])
         y= vxvv[0]*m.sin(vxvv[3])
         vx= vxvv[1]*m.cos(vxvv[5])-vxvv[2]*m.sin(vxvv[5])
