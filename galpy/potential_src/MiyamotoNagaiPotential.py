@@ -38,7 +38,7 @@ class MiyamotoNagaiPotential(Potential):
         if normalize:
             self.normalize(normalize)
 
-    def _evaluate(self,R,z):
+    def _evaluate(self,R,z,phi=0.):
         """
         NAME:
            _evaluate
@@ -47,6 +47,7 @@ class MiyamotoNagaiPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -54,7 +55,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         return -1./m.sqrt(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)
 
-    def _Rforce(self,R,z):
+    def _Rforce(self,R,z,phi=0.):
         """
         NAME:
            _Rforce
@@ -63,6 +64,7 @@ class MiyamotoNagaiPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            the radial force
         HISTORY:
@@ -70,7 +72,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         return -R/(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.)
 
-    def _zforce(self,R,z):
+    def _zforce(self,R,z,phi=0.):
         """
         NAME:
            _zforce
@@ -79,6 +81,7 @@ class MiyamotoNagaiPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            the vertical force
         HISTORY:
