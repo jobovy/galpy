@@ -431,7 +431,9 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                                 xrange=xrange,
                                 yrange=yrange,**kwargs)
     else:
-        return plot.bovy_plot(Rs,potR,*args,
-                              xlabel=r"$R/R_0$",ylabel=r"$\Phi(R)$",
-                              xrange=Rrange,**kwargs)
+        kwargs['xlabel']=r"$R/R_0$"
+        kwargs['ylabel']=r"$\Phi(R)$",
+        kwargs['xrange']=Rrange
+        return plot.bovy_plot(Rs,potR,*args,**kwargs)
+                              
     
