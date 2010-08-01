@@ -49,7 +49,7 @@ class OrbitTop:
         """
         return self.orbit
 
-    def __call__(self,t):
+    def __call__(self,*args):
         """
         NAME:
            __call__
@@ -65,6 +65,10 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if len(args) == 0:
+            return self.vxvv
+        else:
+            t= args
         if t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
         else:

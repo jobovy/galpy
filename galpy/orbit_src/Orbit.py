@@ -129,7 +129,7 @@ class Orbit:
         """
         self._orb.plotEzt(pot,*args,**kwargs)
 
-    def __call__(self,t):
+    def __call__(self,*args):
         """
         NAME:
            __call__
@@ -146,7 +146,7 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return self._orb(t)
+        return self._orb(*args)
 
     def plotRt(self,*args,**kwargs):
         """
