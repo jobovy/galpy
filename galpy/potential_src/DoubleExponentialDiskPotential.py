@@ -47,7 +47,7 @@ class DoubleExponentialDiskPotential(Potential):
         if normalize:
             self.normalize(normalize)
         
-    def _evaluate(self,R,z):
+    def _evaluate(self,R,z,phi=0.):
         """
         NAME:
            _evaluate
@@ -56,6 +56,7 @@ class DoubleExponentialDiskPotential(Potential):
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            potential at (R,z)
         HISTORY:
@@ -115,7 +116,7 @@ class DoubleExponentialDiskPotential(Potential):
                     notConvergedLarge= False
         return -4.*m.pi/self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
-    def _Rforce(self,R,z):
+    def _Rforce(self,R,z,phi=0.):
         """
         NAME:
            Rforce
@@ -124,6 +125,7 @@ class DoubleExponentialDiskPotential(Potential):
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            K_R (R,z)
         HISTORY:
@@ -181,7 +183,7 @@ class DoubleExponentialDiskPotential(Potential):
                 notConvergedLarge= False
         return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
-    def _zforce(self,R,z):
+    def _zforce(self,R,z,phi=0.):
         """
         NAME:
            zforce

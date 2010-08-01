@@ -30,7 +30,7 @@ class LogarithmicHaloPotential(Potential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z):
+    def _evaluate(self,R,z,phi=0.):
         """
         NAME:
            _evaluate
@@ -39,6 +39,7 @@ class LogarithmicHaloPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -47,7 +48,7 @@ class LogarithmicHaloPotential(Potential):
         """
         return 1./2.*m.log(R**2.+z**2.+self._core2)
 
-    def _Rforce(self,R,z):
+    def _Rforce(self,R,z,phi=0.):
         """
         NAME:
            _Rforce
@@ -56,13 +57,14 @@ class LogarithmicHaloPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            the radial force
         HISTORY:
         """
         return -R/(R**2.+z**2.+self._core2)
 
-    def _zforce(self,R,z):
+    def _zforce(self,R,z,phi=0.):
         """
         NAME:
            _zforce
@@ -71,6 +73,7 @@ class LogarithmicHaloPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           phi - azimuth
         OUTPUT:
            the vertical force
         HISTORY:
