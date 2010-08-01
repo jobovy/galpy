@@ -129,7 +129,7 @@ class Orbit:
         """
         self._orb.plotEzt(pot,*args,**kwargs)
 
-    def __call__(self,*args):
+    def __call__(self,*args,**kwargs):
         """
         NAME:
            __call__
@@ -137,16 +137,18 @@ class Orbit:
            return the orbit vector at time t
         INPUT:
            t - desired time
+           rect - if true, return rectangular coordinates
         OUTPUT:
            [x,vx], [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on 
            the orbit
+           if rect: [x,y(,z),vx,vy(,vz)]
         BUGS:
            currently only works for times at which the orbit was requested
            during integration; use interpolation in between?
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return self._orb(*args)
+        return self._orb(*args,**kwargs)
 
     def plotRt(self,*args,**kwargs):
         """

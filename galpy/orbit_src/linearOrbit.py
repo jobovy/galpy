@@ -106,6 +106,9 @@ class linearOrbit(OrbitTop):
         plot.bovy_plot(nu.array(self.t),self.orbit[:,1],
                        *args,**kwargs)
 
+    def _callRect(self,*args):
+        return self.__call__(*args,rect=False)
+        
 
 def _integrateLinearOrbit(vxvv,pot,t):
     """

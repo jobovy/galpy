@@ -49,7 +49,7 @@ class OrbitTop:
         """
         return self.orbit
 
-    def __call__(self,*args):
+    def __call__(self,*args,**kwargs):
         """
         NAME:
            __call__
@@ -57,6 +57,7 @@ class OrbitTop:
            return the orbit vector at time t
         INPUT:
            t - desired time
+           rect - if true, return rectangular coordinates
         OUTPUT:
            [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit
         BUGS:
@@ -65,6 +66,13 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        #Options
+        if kwargs.has_key('rect'):
+            rect= kwargs['rect']
+        else:
+            rect= False
+        if rect:
+            return self._callRect(*args)
         if len(args) == 0:
             return self.vxvv
         else:

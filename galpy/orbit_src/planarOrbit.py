@@ -1,3 +1,4 @@
+import math as m
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
@@ -81,6 +82,8 @@ class planarROrbit(planarOrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
+    def _callRect(self,*args):
+        raise AttributeError("Cannot transform R-only planar orbit to rectangular coordinates")
 
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
@@ -145,6 +148,13 @@ class planarOrbit(planarOrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
+    def _callRect(self,*args):
+        vxvv= self.__call__(*args,rect=False)
+        x= vxvv[0]*m.cos(vxvv[3])
+        y= vxvv[0]*m.sin(vxvv[3])
+        vx= vxvv[1]*m.cos(vxvv[5])-vxvv[2]*m.sin(vxvv[5])
+        vy= -vxvv[1]*m.sin(vxvv[5])-vxvv[2]*m.cos(vxvv[5])
+        return nu.array([x,y,vx,vy])
 
 def _integrateROrbit(vxvv,pot,t):
     """

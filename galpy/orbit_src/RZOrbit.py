@@ -97,6 +97,9 @@ class RZOrbit(OrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
                        *args,**kwargs)
 
+    def _callRect(self,*args):
+        raise AttributeError("Cannot transform RZ-only orbit to rectangular coordinates")
+
 def _integrateRZOrbit(vxvv,pot,t):
     """
     NAME:

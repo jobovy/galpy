@@ -1,3 +1,4 @@
+import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
@@ -97,6 +98,14 @@ class FullOrbit(OrbitTop):
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
                        *args,**kwargs)
+
+    def _callRect(self,*args):
+        vxvv= self.__call__(*args,rect=False)
+        x= vxvv[0]*m.cos(vxvv[5])
+        y= vxvv[0]*m.sin(vxvv[5])
+        vx= vxvv[1]*m.cos(vxvv[5])-vxvv[2]*m.sin(vxvv[5])
+        vy= -vxvv[1]*m.sin(vxvv[5])-vxvv[2]*m.cos(vxvv[5])
+        return nu.array([x,y,vxvv[3],vx,vy,vxvv[4]])
 
 def _integrateFullOrbit(vxvv,pot,t):
     """
