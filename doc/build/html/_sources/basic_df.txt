@@ -14,7 +14,8 @@ galpy contains distribution functions for razor-thin disks:
 distribution functions of Dehnen (`1999AJ....118.1201D
 <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_) and Shu
 (`1969ApJ...158..505S
-<http://adsabs.harvard.edu/abs/1969ApJ...158..505S>`_).
+<http://adsabs.harvard.edu/abs/1969ApJ...158..505S>`_). Everything
+shown below for ``dehnendf`` can also be done for ``shudf``.
 
 These disk distribution functions are functions of the energy and the
 angular momentum alone. They can be evaluated for orbits, or for a
