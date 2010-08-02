@@ -19,6 +19,7 @@ Contents:
 
    getting_started.rst
 
+   basic_df.rst
 
    reference.rst
 
