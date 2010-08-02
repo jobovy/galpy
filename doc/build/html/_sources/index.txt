@@ -21,7 +21,6 @@ Contents:
 
    basic_df.rst
 
-   reference.rst
 
 Indices and tables
 ==================
