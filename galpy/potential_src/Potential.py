@@ -232,7 +232,7 @@ class PotentialError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def evaluatePotentials(R,z,Pot):
+def evaluatePotentials(*args):
     """
     NAME:
        evaluatePotentials
@@ -241,19 +241,27 @@ def evaluatePotentials(R,z,Pot):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
+       phi - azimuth
        Pot - potential or list of potentials
     OUTPUT:
        Phi(R,z)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
+    hasphi= (len(args) == 4)
+    if hasphi:
+        R,z,phi,Pot= args
+        args= (R,z,phi)
+    else:
+        R,z,Pot= args
+        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(R,z)
+            sum+= pot(*args)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot(R,z)
+        return Pot(*args)
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
