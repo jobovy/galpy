@@ -4,7 +4,7 @@ Quick-start guide
 The most basic features of galpy are its ability to display rotation
 curves and perform orbit integration for arbitrary combinations of
 potentials. This section introduce the most basic features of
-galpy.potential and galpy.orbit.
+``galpy.potential`` and ``galpy.orbit``.
 
 
 Rotation curves
