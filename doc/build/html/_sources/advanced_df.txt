@@ -1,0 +1,12 @@
+Advanced usage: distribution functions
+======================================
+
+galpy contains various distribution function, both distribution
+functions for disks as well as for spheroids. This section introduces
+the basic procedures in ``galpy.df``.
+
+
+Disk distribution functions
+---------------------------
+
+
