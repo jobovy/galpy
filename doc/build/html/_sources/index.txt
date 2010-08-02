@@ -11,8 +11,8 @@ integration in a variety of potentials, evaluating and sampling
 various distribution functions, and the calculation of action-angle
 coordinates for some potentials.
 
-Contents:
----------
+Quick-start guide
+-----------------
 
 .. toctree::
    :maxdepth: 2
@@ -21,6 +21,9 @@ Contents:
 
    basic_df.rst
 
+
+Library reference
+-----------------
 
 Indices and tables
 ==================

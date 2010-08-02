@@ -1,5 +1,5 @@
-Quick-start guide
-==================
+Introduction
+=============
 
 The most basic features of galpy are its ability to display rotation
 curves and perform orbit integration for arbitrary combinations of

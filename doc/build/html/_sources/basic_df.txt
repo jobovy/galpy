@@ -21,7 +21,7 @@ These disk distribution functions are functions of the energy and the
 angular momentum alone. They can be evaluated for orbits, or for a
 given energy and angular momentum. At this point, only power-law
 rotation curves are supported. A ``dehnendf`` instance is initialized
-as followed
+as follows
 
 >>> from galpy.df import dehnendf
 >>> dfc= dehnendf(beta=0.)
@@ -97,4 +97,7 @@ and we can plot the distribution of tangential velocities
 
 The agreement between the sampled distribution and the theoretical
 curve is not as good because the sampled distribution has a finite
-radial range.
+radial range. If we sample 10,000 points in ``rrange=[0.95,1.05]`` the
+agreement is better (this takes a long time):
+
+.. image:: images/basic-df-samplevTmore.png

@@ -20,7 +20,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="galpy v0.1 documentation" href="index.html" />
-    <link rel="prev" title="Quick-start guide" href="getting_started.html" /> 
+    <link rel="prev" title="Introduction" href="getting_started.html" /> 
   </head>
   <body>
     <div class="related">
@@ -30,7 +30,7 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="getting_started.html" title="Quick-start guide"
+          <a href="getting_started.html" title="Introduction"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">galpy v0.1 documentation</a> &raquo;</li> 
       </ul>
@@ -57,7 +57,7 @@ shown below for <tt class="docutils literal"><span class="pre">dehnendf</span></
 angular momentum alone. They can be evaluated for orbits, or for a
 given energy and angular momentum. At this point, only power-law
 rotation curves are supported. A <tt class="docutils literal"><span class="pre">dehnendf</span></tt> instance is initialized
-as followed</p>
+as follows</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.df</span> <span class="kn">import</span> <span class="n">dehnendf</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">dfc</span><span class="o">=</span> <span class="n">dehnendf</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
 </pre></div>
@@ -125,7 +125,9 @@ minutes)</p>
 <img alt="_images/basic-df-samplevT.png" src="_images/basic-df-samplevT.png" />
 <p>The agreement between the sampled distribution and the theoretical
 curve is not as good because the sampled distribution has a finite
-radial range.</p>
+radial range. If we sample 10,000 points in <tt class="docutils literal"><span class="pre">rrange=[0.95,1.05]</span></tt> the
+agreement is better (this takes a long time):</p>
+<img alt="_images/basic-df-samplevTmore.png" src="_images/basic-df-samplevTmore.png" />
 </div>
 </div>
 
@@ -145,7 +147,7 @@ radial range.</p>
 
             <h4>Previous topic</h4>
             <p class="topless"><a href="getting_started.html"
-                                  title="previous chapter">Quick-start guide</a></p>
+                                  title="previous chapter">Introduction</a></p>
             <h3>This Page</h3>
             <ul class="this-page-menu">
               <li><a href="_sources/basic_df.txt"
@@ -175,7 +177,7 @@ radial range.</p>
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="getting_started.html" title="Quick-start guide"
+          <a href="getting_started.html" title="Introduction"
              >previous</a> |</li>
         <li><a href="index.html">galpy v0.1 documentation</a> &raquo;</li> 
       </ul>
