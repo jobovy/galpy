@@ -310,7 +310,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= m.sqrt(R**2.+z**2.)
-        return -R/self.a/sqrtRz/(1.+sqrtRz)**2.
+        return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
     def _zforce(self,R,z,phi=0.):
         """
@@ -327,7 +327,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= m.sqrt(R**2.+z**2.)
-        return -z/self.a/sqrtRz/(1.+sqrtRz)**2.
+        return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
@@ -469,7 +469,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         Rz= R**2.+z**2.
         sqrtRz= m.sqrt(Rz)
-        return self.a*R*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+        return R*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
     def _zforce(self,R,z,phi=0.):
         """
@@ -488,4 +488,4 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         Rz= R**2.+z**2.
         sqrtRz= m.sqrt(Rz)
-        return self.a*z*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+        return z*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
