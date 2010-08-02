@@ -7,7 +7,7 @@ the basic procedures in ``galpy.df``.
 
 
 Disk distribution functions
----------------------------
+----------------------------
 
 galpy contains distribution functions for razor-thin disks:
 ``galpy.df.dehnendf`` and ``galpy.df.shudf``. These are the
