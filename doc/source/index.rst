@@ -6,12 +6,19 @@
 Welcome to galpy's documentation!
 =================================
 
+galpy is a python package for galactic dynamics. It supports orbit
+integration in a variety of potentials, evaluating and sampling
+various distribution functions, and the calculation of action-angle
+coordinates for some potentials.
+
 Contents:
+---------
 
 .. toctree::
    :maxdepth: 2
 
    getting_started.rst
+
 
    reference.rst
 
