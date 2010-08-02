@@ -90,7 +90,7 @@ As before, we can also integrate orbits in combinations of potentials. Assuming 
 
 Energy is again approximately conserved
 
->>> o.plotEt([mp,h[,np],xlabel=r'$t$',ylabel=r'$E(t)/E(0)$'))
+>>> o.plotEt([mp,hp,np],xlabel=r'$t$',ylabel=r'$E(t)/E(0)$'))
 
 .. image:: images/mphpnp-orbit-E.png
 
