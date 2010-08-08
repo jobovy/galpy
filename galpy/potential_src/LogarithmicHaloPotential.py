@@ -79,3 +79,19 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         return -z/(R**2.+z**2.+self._core2)
+
+    def _dens(self,R,z,phi=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           the density
+        HISTORY:
+        """
+        return 1./(R**2.+z**2.+self._core2)

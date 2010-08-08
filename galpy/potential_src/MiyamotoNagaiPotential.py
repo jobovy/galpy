@@ -91,3 +91,23 @@ class MiyamotoNagaiPotential(Potential):
         asqrtbz= self._a+sqrtbz
         return (-z*asqrtbz/sqrtbz/
                  (R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.))
+
+    def _dens(self,R,z,phi=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           the density
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        sqrtbz= m.sqrt(self._b2+z**2.)
+        asqrtbz= self._a+sqrtbz
+        return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
+            (R**2.+asqrtbz)**2.5/sqrtbz**3.

@@ -93,6 +93,27 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_zforce' function not implemented for this potential")
 
+    def dens(self,*args):
+        """
+        NAME:
+           zforce
+        PURPOSE:
+           evaluate the density rho(R,z)
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth (optional)
+        OUTPUT:
+           rho (R,z,phi)
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        DOCTEST:
+        """
+        try:
+            return self._amp*self._dens(*args)
+        except AttributeError:
+            raise PotentialError("'_dens' function not implemented for this potential")
+
     def normalize(self,norm):
         """
         NAME:
@@ -264,6 +285,39 @@ def evaluatePotentials(*args):
         return Pot(*args)
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
+
+def evaluateDensities(*args):
+    """
+    NAME:
+       evaluateDensities
+    PURPOSE:
+       convenience function to evaluate a possible sum of densities
+    INPUT:
+       R - cylindrical Galactocentric distance
+       z - distance above the plane
+       phi - azimuth
+       Pot - potential or list of potentials
+    OUTPUT:
+       rho(R,z)
+    HISTORY:
+       2010-08-08 - Written - Bovy (NYU)
+    """
+    hasphi= (len(args) == 4)
+    if hasphi:
+        R,z,phi,Pot= args
+        args= (R,z,phi)
+    else:
+        R,z,Pot= args
+        args= (R,z)
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.dens(*args)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.dens(*args)
+    else:
+        raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
 def evaluateRforces(*args):
     """
