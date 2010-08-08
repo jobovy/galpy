@@ -13,6 +13,7 @@ import cPickle as pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from plotRotcurve import plotRotcurve
+from plotEscapecurve import plotEscapecurve
 class Potential:
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
@@ -246,6 +247,25 @@ class Potential:
            2010-07-10 - Written - Bovy (NYU)
         """
         plotRotcurve(self.toPlanar(),*args,**kwargs)
+
+    def plotEscapecurve(self,*args,**kwargs):
+        """
+        NAME:
+           plotEscapecurve
+        PURPOSE:
+           plot the escape velocity  curve for this potential 
+           (in the z=0 plane for non-spherical potentials)
+        INPUT:
+           Rrange - range
+           grid - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           +bovy_plot(*args,**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
 class PotentialError(Exception):
     def __init__(self, value):

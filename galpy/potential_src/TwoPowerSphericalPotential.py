@@ -468,8 +468,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            phi - azimuth
         OUTPUT:
            Phi(R,z)
-        BUGS:
-           Might not be accurate enough in all circumstances
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
