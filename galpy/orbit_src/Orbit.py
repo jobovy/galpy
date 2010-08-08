@@ -129,6 +129,23 @@ class Orbit:
         """
         self._orb.plotEzt(pot,*args,**kwargs)
 
+    def plotEzJzt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEzJzt
+        PURPOSE:
+           plot E_z(t)/sqrt(dens(R)) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        self._orb.plotEzJzt(pot,*args,**kwargs)
+
     def __call__(self,*args,**kwargs):
         """
         NAME:

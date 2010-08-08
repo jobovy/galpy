@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
-    evaluatePotentials
+    evaluatePotentials, evaluateDensities
 import galpy.util.bovy_plot as plot
 from OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
@@ -95,6 +95,29 @@ class RZOrbit(OrbitTop):
                   evaluatePotentials(self.orbit[ii,0],0.,pot)+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
+                       *args,**kwargs)
+
+    def plotEzJzt(self,pot,*args,**kwargs):
+        """
+        NAME:
+           plotEzJzt
+        PURPOSE:
+           plot E_z(t)/sqrt(dens(R)) along the orbit
+        INPUT:
+           pot - Potential instance or list of instances in which the orbit was
+                 integrated
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
+                     evaluatePotentials(self.orbit[ii,0],0.,pot)+
+                     self.orbit[ii,4]**2./2.)/\
+                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot))\
+                        for ii in range(len(self.t))]
+        plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
                        *args,**kwargs)
 
     def _callRect(self,*args):
