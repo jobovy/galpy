@@ -7,6 +7,7 @@ from galpy.potential_src import DoubleExponentialDiskPotential
 from galpy.potential_src import PowerSphericalPotential
 from galpy.potential_src import TwoPowerSphericalPotential
 from galpy.potential_src import plotRotcurve
+from galpy.potential_src import plotEscapecurve
 from galpy.potential_src import KGPotential
 from galpy.potential_src import interpRZPotential
 #
@@ -16,6 +17,7 @@ RZToplanarPotential= planarPotential.RZToplanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
 plotRotcurve= plotRotcurve.plotRotcurve
+plotEscapecurve= plotEscapecurve.plotEscapecurve
 
 #
 # Classes

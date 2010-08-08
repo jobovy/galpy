@@ -99,18 +99,18 @@ class diskdf:
         """
         if isinstance(args[0],Orbit):
             if len(args) == 1:
-                return self.eval(*vRvTRToEL(args[0].vxvv[1],
-                                            args[0].vxvv[2],
-                                            args[0].vxvv[0],
-                                            self._beta))
+                return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[1],
+                                                    args[0].vxvv[2],
+                                                    args[0].vxvv[0],
+                                                    self._beta)))
             else:
                 vxvv= args[0](args[1])
-                return self.eval(*vRvTRToEL(vxvv[1],
-                                            vxvv[2],
-                                            vxvv[0],
-                                            self._beta))
+                return sc.real(self.eval(*vRvTRToEL(vxvv[1],
+                                                    vxvv[2],
+                                                    vxvv[0],
+                                                    self._beta)))
         else:
-            return self.eval(*args)
+            return sc.real(self.eval(*args))
 
     def targetSigma2(self,R,log=False):
         """
@@ -362,9 +362,16 @@ class dehnendf(diskdf):
            2010-07-10 - Started  - Bovy (NYU)
         """
         #First sample xE
-        xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,_ars_hpx,
-                              nsamples=n,
-                              hxparams=(self._surfaceSigmaProfile,self._corr)))
+        if self._correct:
+            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            self._corr)))
+        else:
+            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            None)))
         #Calculate E
         if self._beta == 0.:
             E= sc.log(xE)+0.5
@@ -374,8 +381,9 @@ class dehnendf(diskdf):
         LCE= xE**(self._beta+1.)
         OR= xE**(self._beta-1.)
         Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
-        for ii in range(len(xE)):
-            Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
+        if self._correct:
+            for ii in range(len(xE)):
+                Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
         Lz+= LCE
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
@@ -516,9 +524,16 @@ class shudf(diskdf):
            2010-07-10 - Started  - Bovy (NYU)
         """
         #First sample xL
-        xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,_ars_hpx,
-                              nsamples=n,
-                              hxparams=(self._surfaceSigmaProfile,self._corr)))
+        if self._correct:
+            xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            self._corr)))
+        else:
+            xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            None)))
         #Calculate Lz
         Lz= xL**(self._beta+1.)
         #Then sample E
@@ -527,8 +542,9 @@ class shudf(diskdf):
         else:
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
         E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniform.rvs(size=n))
-        for ii in range(len(xL)):
-            E[ii]*= self._corr.correct(xL[ii],log=False)[1]
+        if self._correct:
+            for ii in range(len(xL)):
+                E[ii]*= self._corr.correct(xL[ii],log=False)[1]
         E+= ECL
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
@@ -874,7 +890,10 @@ def _ars_hx(x,args):
        2010-07-11 - Written - Bovy (NYU)
     """
     surfaceSigma, dfcorr= args
-    return m.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
+    if dfcorr is None:
+        return m.log(x)+surfaceSigma.surfacemass(x,log=True)
+    else:
+        return m.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
 
 def _ars_hpx(x,args):
     """
@@ -893,7 +912,10 @@ def _ars_hpx(x,args):
        2010-07-11 - Written - Bovy (NYU)
     """
     surfaceSigma, dfcorr= args
-    return 1./x+surfaceSigma.surfacemassDerivative(x,log=True)+dfcorr.derivLogcorrect(x)[0]
+    if dfcorr is None:
+        return 1./x+surfaceSigma.surfacemassDerivative(x,log=True)
+    else:
+        return 1./x+surfaceSigma.surfacemassDerivative(x,log=True)+dfcorr.derivLogcorrect(x)[0]
 
 def _kappa(R,beta):
     """Internal function to give kappa(r)"""
