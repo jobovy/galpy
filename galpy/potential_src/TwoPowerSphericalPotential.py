@@ -36,6 +36,9 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
+        self.a= a
+        self.alpha= alpha
+        self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
             integerSelf= TwoPowerIntegerSphericalPotential(amp=amp,a=a,
                                                            alpha=int(alpha),
@@ -45,9 +48,6 @@ class TwoPowerSphericalPotential(Potential):
         else:
             Potential.__init__(self,amp=amp)
             self.integerSelf= None
-            self.a= a
-            self.alpha= alpha
-            self.beta= beta
             if normalize:
                 self.normalize(normalize)
         return None
@@ -121,6 +121,24 @@ class TwoPowerSphericalPotential(Potential):
                                                   self.beta-self.alpha,
                                                   4.-self.alpha,
                                                   -r/self.a)
+
+    def _dens(self,R,z,phi=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           the density
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        r= m.sqrt(R**2.+z**2.)
+        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)
 
 def _potIntegrandTransform(t,alpha,beta):
     """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
@@ -273,6 +291,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self.alpha= 1
+        self.beta= 4
         if normalize:
             self.normalize(normalize)
         return None
@@ -350,6 +370,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self.alpha= 2
+        self.beta= 4
         if normalize:
             self.normalize(normalize)
         return None
@@ -428,6 +450,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self.alpha= 1
+        self.beta= 3
         if normalize:
             self.normalize(normalize)
         return None

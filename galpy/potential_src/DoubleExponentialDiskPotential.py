@@ -273,6 +273,22 @@ class DoubleExponentialDiskPotential(Potential):
         else:
             return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
 
+    def _dens(self,R,z,phi=0.):
+        """
+        NAME:
+           dens
+        PURPOSE:
+           evaluate the density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+        OUTPUT:
+           rho (R,z)
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        return m.exp(-self._alpha*R-self._beta*m.fabs(z))
+
 def _doubleExponentialDiskPotentialPotentialIntegrandSmallk(k,R,z,gamma):
     """Internal function that gives the integrand for the double
     exponential disk potential for k < 1/gamma"""

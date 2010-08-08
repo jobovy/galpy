@@ -96,7 +96,7 @@ class Potential:
     def dens(self,*args):
         """
         NAME:
-           zforce
+           dens
         PURPOSE:
            evaluate the density rho(R,z)
         INPUT:
