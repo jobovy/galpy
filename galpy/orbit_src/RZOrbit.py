@@ -76,28 +76,41 @@ class RZOrbit(OrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
-    def plotEzt(self,pot,*args,**kwargs):
+    def plotEz(self,pot,*args,**kwargs):
         """
         NAME:
-           plotEzt
+           plotEz
         PURPOSE:
-           plot E_z(t) along the orbit
+           plot E_z(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.Ez= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
                   evaluatePotentials(self.orbit[ii,0],0.,pot)+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.Ez)/self.Ez[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Ez)/self.Ez[0],
+                           *args,**kwargs)
 
-    def plotEzJzt(self,pot,*args,**kwargs):
+    def plotEzJz(self,pot,*args,**kwargs):
         """
         NAME:
            plotEzJzt
@@ -106,19 +119,32 @@ class RZOrbit(OrbitTop):
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
                      evaluatePotentials(self.orbit[ii,0],0.,pot)+
                      self.orbit[ii,4]**2./2.)/\
                         nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot))\
                         for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
 
     def _callRect(self,*args):
         raise AttributeError("Cannot transform RZ-only orbit to rectangular coordinates")
