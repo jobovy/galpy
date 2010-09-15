@@ -61,6 +61,23 @@ class planarROrbit(planarOrbitTop):
         self.t= nu.array(t)
         self.orbit= _integrateROrbit(self.vxvv,thispot,t)
 
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        rs= self.orbit[:,0]**2.
+        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
+
     def plotEt(self,pot,*args,**kwargs):
         """
         NAME:
@@ -120,6 +137,23 @@ class planarOrbit(planarOrbitTop):
         """
         self.t= nu.array(t)
         self.orbit= _integrateOrbit(self.vxvv,pot,t)
+
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        rs= self.orbit[:,0]**2.
+        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
 
     def plot(self,*args,**kwargs):
         plot.bovy_plot(self.orbit[:,0]*nu.cos(self.orbit[:,3]),

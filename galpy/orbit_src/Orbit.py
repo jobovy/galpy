@@ -80,6 +80,20 @@ class Orbit:
         """
         self._orb.integrate(t,pot)
 
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        return self._orb.e()
+
     def plot(self,*args,**kwargs):
         """
         NAME:

@@ -40,6 +40,23 @@ class FullOrbit(OrbitTop):
         self.t= nu.array(t)
         self.orbit= _integrateFullOrbit(self.vxvv,pot,t)
 
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
+        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
+
     def plot(self,*args,**kwargs):
         """
         NAME:

@@ -38,6 +38,20 @@ class linearOrbit(OrbitTop):
         self.t= nu.array(t)
         self.orbit= _integrateLinearOrbit(self.vxvv,pot,t)
 
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        raise AttributeError("linearOrbit does not have an eccentricity")
+
     def plot(self,*args,**kwargs):
         """
         NAME:
