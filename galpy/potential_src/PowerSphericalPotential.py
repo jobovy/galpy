@@ -13,7 +13,7 @@ class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
 
-                A
+                amp
     rho(r)= ---------
              r^\alpha
     """
@@ -39,7 +39,7 @@ class PowerSphericalPotential(Potential):
         if normalize:
             self.normalize(normalize)
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -49,6 +49,7 @@ class PowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -59,7 +60,7 @@ class PowerSphericalPotential(Potential):
         else:
             return (R**2.+z**2.)**(1.-self.alpha/2.)
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -69,6 +70,7 @@ class PowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
@@ -76,7 +78,7 @@ class PowerSphericalPotential(Potential):
         """
         return -R/(R**2.+z**2.)**(self.alpha/2.)
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -86,6 +88,7 @@ class PowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:

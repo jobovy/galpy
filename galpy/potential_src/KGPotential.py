@@ -23,8 +23,8 @@ class KGPotential(linearPotential):
         self._D= D
         self._D2= self._D**2.
         
-    def _evaluate(self,x):
+    def _evaluate(self,x,t=0.):
         return self._K*(sc.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
 
-    def _force(self,x):
+    def _force(self,x,t=0.):
         return -x*(self._K/sc.sqrt(x**2+self._D2)+2.*self._F)

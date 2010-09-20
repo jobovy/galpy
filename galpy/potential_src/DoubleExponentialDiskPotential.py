@@ -47,7 +47,7 @@ class DoubleExponentialDiskPotential(Potential):
         if normalize:
             self.normalize(normalize)
         
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -57,6 +57,7 @@ class DoubleExponentialDiskPotential(Potential):
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            potential at (R,z)
         HISTORY:
@@ -64,7 +65,7 @@ class DoubleExponentialDiskPotential(Potential):
         DOCTEST:
            >>> doubleExpPot= DoubleExponentialDiskPotential()
            >>> r= doubleExpPot(1.,0) #doctest: +ELLIPSIS
-           maxiter ...
+           ...
            >>> assert( r+1.89595350484)**2.< 10.**-6.
         """
         notConvergedSmall= True
@@ -116,7 +117,7 @@ class DoubleExponentialDiskPotential(Potential):
                     notConvergedLarge= False
         return -4.*m.pi/self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            Rforce
@@ -126,6 +127,7 @@ class DoubleExponentialDiskPotential(Potential):
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            K_R (R,z)
         HISTORY:
@@ -183,7 +185,7 @@ class DoubleExponentialDiskPotential(Potential):
                 notConvergedLarge= False
         return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            zforce
@@ -192,6 +194,8 @@ class DoubleExponentialDiskPotential(Potential):
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
+           phi - azimuth
+           t - time
         OUTPUT:
            K_z (R,z)
         HISTORY:
@@ -273,7 +277,7 @@ class DoubleExponentialDiskPotential(Potential):
         else:
             return -4.*m.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
 
-    def _dens(self,R,z,phi=0.):
+    def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
            dens
@@ -282,6 +286,8 @@ class DoubleExponentialDiskPotential(Potential):
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
+           phi - azimuth
+           t - time
         OUTPUT:
            rho (R,z)
         HISTORY:

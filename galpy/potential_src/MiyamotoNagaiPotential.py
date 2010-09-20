@@ -38,7 +38,7 @@ class MiyamotoNagaiPotential(Potential):
         if normalize:
             self.normalize(normalize)
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -48,6 +48,7 @@ class MiyamotoNagaiPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -55,7 +56,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         return -1./m.sqrt(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -65,6 +66,7 @@ class MiyamotoNagaiPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
@@ -72,7 +74,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         return -R/(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.)
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -82,6 +84,7 @@ class MiyamotoNagaiPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
@@ -92,7 +95,7 @@ class MiyamotoNagaiPotential(Potential):
         return (-z*asqrtbz/sqrtbz/
                  (R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.))
 
-    def _dens(self,R,z,phi=0.):
+    def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _dens
@@ -102,6 +105,7 @@ class MiyamotoNagaiPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the density
         HISTORY:

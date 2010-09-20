@@ -22,7 +22,7 @@ class verticalPotential(linearPotential):
         self._R= R
         return None
 
-    def _evaluate(self,z):
+    def _evaluate(self,z,t=0.):
         """
         NAME:
            _evaluate
@@ -30,14 +30,15 @@ class verticalPotential(linearPotential):
            evaluate the potential
         INPUT:
            z
+           t
         OUTPUT:
-          Pot(z;R)
+          Pot(z,t;R)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(self._R,z)-self._RZPot(self._R,0.)
+        return self._RZPot(self._R,z,t=t)-self._RZPot(self._R,0.,t=t)
             
-    def _force(self,z):
+    def _force(self,z,t=0.):
         """
         NAME:
            _force
@@ -45,12 +46,14 @@ class verticalPotential(linearPotential):
            evaluate the force
         INPUT:
            z
+           t
         OUTPUT:
-          F_z(z
+          F_z(z,t;R)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.zforce(self._R,z)-self._RZPot.zforce(self._R,0.)
+        return self._RZPot.zforce(self._R,z,t=t)\
+            -self._RZPot.zforce(self._R,0.,t=t)
 
 def RZToverticalPotential(RZPot,R):
     """

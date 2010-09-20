@@ -52,7 +52,7 @@ class TwoPowerSphericalPotential(Potential):
                 self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -62,20 +62,21 @@ class TwoPowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
         if not self.integerSelf == None:
-            return self.integerSelf._evaluate(R,z,phi=phi)
+            return self.integerSelf._evaluate(R,z,phi=phi,t=t)
         else:
             r= m.sqrt(R**2.+z**2.)
             return integrate.quadrature(_potIntegrandTransform,
                                         0.,self.a/r,
                                         args=(self.alpha,self.beta))[0]
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -85,20 +86,21 @@ class TwoPowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
         if not self.integerSelf == None:
-            return self.integerSelf._Rforce(R,z,phi=phi)
+            return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= m.sqrt(R**2.+z**2.)
             return R/r**self.alpha*special.hyp2f1(3.-self.alpha,
                                                   self.beta-self.alpha,
                                                   4.-self.alpha,
                                                   -r/self.a)
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -108,13 +110,14 @@ class TwoPowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
         if not self.integerSelf == None:
-            return self.integerSelf._zforce(R,z,phi=phi)
+            return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= m.sqrt(R**2.+z**2.)
             return z/r**self.alpha*special.hyp2f1(3.-self.alpha,
@@ -122,7 +125,7 @@ class TwoPowerSphericalPotential(Potential):
                                                   4.-self.alpha,
                                                   -r/self.a)
 
-    def _dens(self,R,z,phi=0.):
+    def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _dens
@@ -132,6 +135,7 @@ class TwoPowerSphericalPotential(Potential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the density
         HISTORY:
@@ -198,7 +202,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
                 self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -208,21 +212,22 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
         if not self.HernquistSelf == None:
-            return self.HernquistSelf._evaluate(R,z,phi=phi)
+            return self.HernquistSelf._evaluate(R,z,phi=phi,t=t)
         elif not self.JaffeSelf == None:
-            return self.JaffeSelf._evaluate(R,z,phi=phi)
+            return self.JaffeSelf._evaluate(R,z,phi=phi,t=t)
         elif not self.NFWSelf == None:
-            return self.NFWSelf._evaluate(R,z,phi=phi)
+            return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
         else:
             raise AttributeError
 
-    def _Rforce(self,R,z,phi):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -232,21 +237,22 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
         if not self.HernquistSelf == None:
-            return self.HernquistSelf._Rforce(R,z,phi=phi)
+            return self.HernquistSelf._Rforce(R,z,phi=phi,t=t)
         elif not self.JaffeSelf == None:
-            return self.JaffeSelf._Rforce(R,z,phi=phi)
+            return self.JaffeSelf._Rforce(R,z,phi=phi,t=t)
         elif not self.NFWSelf == None:
-            return self.NFWSelf._Rforce(R,z,phi=phi)
+            return self.NFWSelf._Rforce(R,z,phi=phi,t=t)
         else:
             raise AttributeError
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -256,17 +262,18 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
         if not self.HernquistSelf == None:
-            return self.HernquistSelf._zforce(R,z,phi=0.)
+            return self.HernquistSelf._zforce(R,z,phi=phi,t=t)
         elif not self.JaffeSelf == None:
-            return self.JaffeSelf._zforce(R,z,phi=0.)
+            return self.JaffeSelf._zforce(R,z,phi=phi,t=t)
         elif not self.NFWSelf == None:
-            return self.NFWSelf._zforce(R,z,phi=0.)
+            return self.NFWSelf._zforce(R,z,phi=phi,t=t)
         else:
             raise AttributeError
 
@@ -297,7 +304,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -307,6 +314,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -314,7 +322,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         """
         return -1./(1.+m.sqrt(R**2.+z**2.)/self.a)
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -324,6 +332,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t- time
         OUTPUT:
            the radial force
         HISTORY:
@@ -332,7 +341,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= m.sqrt(R**2.+z**2.)
         return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -341,6 +350,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
@@ -376,7 +386,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -386,6 +396,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -393,7 +404,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         return -m.log(1.+self.a/m.sqrt(R**2.+z**2.))
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -403,6 +414,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
@@ -411,7 +423,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= m.sqrt(R**2.+z**2.)
         return -self.a*R/sqrtRz**3./(1.+self.a/sqrtRz)
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -421,6 +433,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
@@ -456,7 +469,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -466,6 +479,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            Phi(R,z)
         HISTORY:
@@ -474,7 +488,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         r= m.sqrt(R**2.+z**2.)
         return -m.log(1.+r/self.a)/r
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -484,6 +498,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the radial force
         HISTORY:
@@ -493,7 +508,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= m.sqrt(Rz)
         return R*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -503,6 +518,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
+           t - time
         OUTPUT:
            the vertical force
         HISTORY:
