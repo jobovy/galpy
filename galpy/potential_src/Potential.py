@@ -32,7 +32,7 @@ class Potential:
         self.isNonAxi= False
         return None
 
-    def __call__(self,*args):
+    def __call__(self,R,z,phi=0.,t=0.):
         """
         NAME:
            __call__
@@ -42,17 +42,18 @@ class Potential:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (optional)
+           t - time (optional)
         OUTPUT:
-           Phi(z;R)
+           Phi(R,z,t)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._evaluate(*args)
+            return self._amp*self._evaluate(R,z,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
-    def Rforce(self,*args):
+    def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            Rforce
@@ -62,60 +63,63 @@ class Potential:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (optional)
+           t - time (optional)
         OUTPUT:
-           K_R (R,z,phi)
+           K_R (R,z,phi,t)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         DOCTEST:
         """
         try:
-            return self._amp*self._Rforce(*args)
+            return self._amp*self._Rforce(R,z,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_Rforce' function not implemented for this potential")
         
-    def zforce(self,*args):
+    def zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            zforce
         PURPOSE:
-           evaluate the vertical force K_R  (R,z)
+           evaluate the vertical force K_R  (R,z,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (optional)
+           t - time (optional)
         OUTPUT:
-           K_z (R,z,phi)
+           K_z (R,z,phi,t)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         DOCTEST:
         """
         try:
-            return self._amp*self._zforce(*args)
+            return self._amp*self._zforce(R,z,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_zforce' function not implemented for this potential")
 
-    def dens(self,*args):
+    def dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
            dens
         PURPOSE:
-           evaluate the density rho(R,z)
+           evaluate the density rho(R,z,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (optional)
+           t - time (optional)
         OUTPUT:
-           rho (R,z,phi)
+           rho (R,z,phi,t)
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         DOCTEST:
         """
         try:
-            return self._amp*self._dens(*args)
+            return self._amp*self._dens(R,z,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_dens' function not implemented for this potential")
 
-    def normalize(self,norm):
+    def normalize(self,norm,t=0.):
         """
         NAME:
            normalize
@@ -132,38 +136,40 @@ class Potential:
         """
         self._amp*= norm/nu.fabs(self.Rforce(1.,0.))
 
-    def phiforce(self,*args):
+    def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            phiforce
         PURPOSE:
-           evaluate the azimuthal force K_R  (R,z,phi)
+           evaluate the azimuthal force K_R  (R,z,phi,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (rad)
+           t - time (optional)
         OUTPUT:
-           K_phi (R,z,phi)
+           K_phi (R,z,phi,t)
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._phiforce(*args)
+            return self._amp*self._phiforce(R,z,phi=phi,t=t)
         except AttributeError:
             return 0.
 
-    def _phiforce(self,*args):
+    def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _phiforce
         PURPOSE:
-           evaluate the azimuthal force K_R  (R,z,phi)
+           evaluate the azimuthal force K_R  (R,z,phi,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (rad)
+           t - time (optional)
         OUTPUT:
-           K_phi (R,z,phi)
+           K_phi (R,z,phi,t)
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
@@ -177,7 +183,7 @@ class Potential:
         from verticalPotential import RZToverticalPotential
         return RZToverticalPotential(self,R)
 
-    def plot(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+    def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -185,6 +191,7 @@ class Potential:
         PURPOSE:
            plot the potential
         INPUT:
+           t - time tp plot potential at
            rmin - minimum R
            rmax - maximum R
            nrs - grid in R
@@ -211,7 +218,7 @@ class Potential:
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj])
+                    potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj],t=t)
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
@@ -273,7 +280,7 @@ class PotentialError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def evaluatePotentials(*args):
+def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluatePotentials
@@ -282,31 +289,25 @@ def evaluatePotentials(*args):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
-       phi - azimuth
        Pot - potential or list of potentials
+       phi - azimuth
+       t - time
     OUTPUT:
        Phi(R,z)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
-    hasphi= (len(args) == 4)
-    if hasphi:
-        R,z,phi,Pot= args
-        args= (R,z,phi)
-    else:
-        R,z,Pot= args
-        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(*args)
+            sum+= pot(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot(*args)
+        return Pot(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateDensities(*args):
+def evaluateDensities(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateDensities
@@ -315,31 +316,25 @@ def evaluateDensities(*args):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
-       phi - azimuth
        Pot - potential or list of potentials
+       phi - azimuth
+       t - time
     OUTPUT:
        rho(R,z)
     HISTORY:
        2010-08-08 - Written - Bovy (NYU)
     """
-    hasphi= (len(args) == 4)
-    if hasphi:
-        R,z,phi,Pot= args
-        args= (R,z,phi)
-    else:
-        R,z,Pot= args
-        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.dens(*args)
+            sum+= pot.dens(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.dens(*args)
+        return Pot.dens(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
-def evaluateRforces(*args):
+def evaluateRforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateRforce
@@ -348,31 +343,25 @@ def evaluateRforces(*args):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
-       phi - azimuth (optional)
        Pot - a potential or list of potentials
+       phi - azimuth (optional)
+       t - time (optional)
     OUTPUT:
-       K_R(R,z,phi)
+       K_R(R,z,phi,t)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
-    hasphi= (len(args) == 4)
-    if hasphi:
-        R,z,phi,Pot= args
-        args= (R,z,phi)
-    else:
-        R,z,Pot= args
-        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.Rforce(*args)
+            sum+= pot.Rforce(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.Rforce(*args)
+        return Pot.Rforce(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
 
-def evaluatephiforces(*args):
+def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateRforce
@@ -381,31 +370,25 @@ def evaluatephiforces(*args):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
-       phi - azimuth (optional)
        Pot - a potential or list of potentials
+       phi - azimuth (optional)
+       t - time (optional)
     OUTPUT:
-       K_R(R,z,phi)
+       K_R(R,z,phi,t)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
-    hasphi= (len(args) == 4)
-    if hasphi:
-        R,z,phi,Pot= args
-        args= (R,z,phi)
-    else:
-        R,z,Pot= args
-        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.phiforce(*args)
+            sum+= pot.phiforce(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.phiforce(*args)
+        return Pot.phiforce(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
 
-def evaluatezforces(*args):
+def evaluatezforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluatezforces
@@ -414,27 +397,21 @@ def evaluatezforces(*args):
     INPUT:
        R - cylindrical Galactocentric distance
        z - distance above the plane
-       phi - azimuth (optional)
        Pot - a potential or list of potentials
+       phi - azimuth (optional)
+       t - time (optional)
     OUTPUT:
-       K_z(R,z)
+       K_z(R,z,phi,t)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
-    hasphi= (len(args) == 4)
-    if hasphi:
-        R,z,phi,Pot= args
-        args= (R,z,phi)
-    else:
-        R,z,Pot= args
-        args= (R,z)
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.zforce(*args)
+            sum+= pot.zforce(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.zforce(*args)
+        return Pot.zforce(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
