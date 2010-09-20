@@ -230,9 +230,9 @@ def _FullEOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(y[0],y[4],pot,phi=y[2]),
+            l2/y[0]**3.+evaluateRforces(y[0],y[4],pot,phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(evaluatephiforces(y[0],y[4],pot,phi=y[2])-
+            1./y[0]**2.*(evaluatephiforces(y[0],y[4],pot,phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3]),
             y[5],
-            evaluatezforces(y[0],y[4],pot,phi=y[2])]
+            evaluatezforces(y[0],y[4],pot,phi=y[2],t=t)]

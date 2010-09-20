@@ -270,6 +270,6 @@ def _RZEOM(y,t,pot,l2):
        2010-04-16 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(y[0],y[2],pot),
+            l2/y[0]**3.+evaluateRforces(y[0],y[2],pot,t=t),
             y[3],
-            evaluatezforces(y[0],y[2],pot)]
+            evaluatezforces(y[0],y[2],pot,t=t)]
