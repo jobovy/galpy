@@ -145,7 +145,7 @@ class FullOrbit(OrbitTop):
            2010-07-10 - Written - Bovy (NYU)
         """
         self.E= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                    self.orbit[ii,5],pot)+
+                                    pot,phi=self.orbit[ii,5])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
@@ -167,8 +167,9 @@ class FullOrbit(OrbitTop):
            2010-07-10 - Written - Bovy (NYU)
         """
         self.Ez= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                     self.orbit[ii,5],pot)-
-                  evaluatePotentials(self.orbit[ii,0],0.,self.orbit[ii,5],pot)+
+                                     pot,phi=self.orbit[ii,5])-
+                  evaluatePotentials(self.orbit[ii,0],0.,pot,
+                                     phi=self.orbit[ii,5])+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
                        *args,**kwargs)
