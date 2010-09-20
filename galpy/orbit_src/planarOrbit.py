@@ -318,7 +318,7 @@ def _REOM(y,t,pot,l2):
        2010-07-20 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(y[0],pot)]
+            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,t=t)]
 
 def _integrateOrbit(vxvv,pot,t):
     """
@@ -366,7 +366,7 @@ def _EOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,phi=y[2]),
+            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(evaluateplanarphiforces(y[0],pot,phi=y[2])-
+            1./y[0]**2.*(evaluateplanarphiforces(y[0],pot,phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
