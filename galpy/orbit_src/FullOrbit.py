@@ -54,8 +54,61 @@ class FullOrbit(OrbitTop):
         """
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
-        rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
-        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
+        if not hasattr(self,'rs'):
+            self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
+        return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
+
+    def rap(self):
+        """
+        NAME:
+           rap
+        PURPOSE:
+           return the apocenter radius
+        INPUT:
+        OUTPUT:
+           R_ap
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        if not hasattr(self,'rs'):
+            self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
+        return nu.amax(self.rs)
+
+    def rperi(self):
+        """
+        NAME:
+           rperi
+        PURPOSE:
+           return the pericenter radius
+        INPUT:
+        OUTPUT:
+           R_peri
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        if not hasattr(self,'rs'):
+            self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
+        return nu.amin(self.rs)
+
+    def zmax(self):
+        """
+        NAME:
+           zmax
+        PURPOSE:
+           return the maximum vertical height
+        INPUT:
+        OUTPUT:
+           Z_max
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        return nu.amax(nu.fabs(self.orbit[:,3]))
 
     def plot(self,*args,**kwargs):
         """

@@ -94,6 +94,48 @@ class Orbit:
         """
         return self._orb.e()
 
+    def rap(self):
+        """
+        NAME:
+           rap
+        PURPOSE:
+           calculate the apocenter radius
+        INPUT:
+        OUTPUT:
+           R_ap
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        return self._orb.rap()
+
+    def rperi(self):
+        """
+        NAME:
+           rperi
+        PURPOSE:
+           calculate the pericenter radius
+        INPUT:
+        OUTPUT:
+           R_peri
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        return self._orb.rperi()
+
+    def zmax(self):
+        """
+        NAME:
+           zmax
+        PURPOSE:
+           calculate the maximum vertical height
+        INPUT:
+        OUTPUT:
+           Z_max
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        return self._orb.zmax()
+
     def plot(self,*args,**kwargs):
         """
         NAME:

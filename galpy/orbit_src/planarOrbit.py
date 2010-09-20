@@ -24,6 +24,60 @@ class planarOrbitTop(OrbitTop):
         """
         return None
 
+    def e(self):
+        """
+        NAME:
+           e
+        PURPOSE:
+           calculate the eccentricity
+        INPUT:
+        OUTPUT:
+           eccentricity
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        if not hasattr(self,'rs'):
+            self.rs= self.orbit[:,0]**2.
+        return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
+
+    def rap(self):
+        """
+        NAME:
+           rap
+        PURPOSE:
+           return the apocenter radius
+        INPUT:
+        OUTPUT:
+           R_ap
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        if not hasattr(self,'rs'):
+            self.rs= self.orbit[:,0]**2.
+        return nu.amax(self.rs)
+
+    def rperi(self):
+        """
+        NAME:
+           rperi
+        PURPOSE:
+           return the pericenter radius
+        INPUT:
+        OUTPUT:
+           R_peri
+        HISTORY:
+           2010-09-20 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first")
+        if not hasattr(self,'rs'):
+            self.rs= self.orbit[:,0]**2.
+        return nu.amin(self.rs)
+
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
     orbit-integration in axisymmetric potentials when you don't care about the
@@ -61,22 +115,9 @@ class planarROrbit(planarOrbitTop):
         self.t= nu.array(t)
         self.orbit= _integrateROrbit(self.vxvv,thispot,t)
 
-    def e(self):
-        """
-        NAME:
-           e
-        PURPOSE:
-           calculate the eccentricity
-        INPUT:
-        OUTPUT:
-           eccentricity
-        HISTORY:
-           2010-09-15 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first")
-        rs= self.orbit[:,0]**2.
-        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
+    def plot(self,*args,**kwargs):
+        plot.bovy_plot(self.orbit[:,0],
+                       self.orbit[:,1],*args,**kwargs)
 
     def plotEt(self,pot,*args,**kwargs):
         """
