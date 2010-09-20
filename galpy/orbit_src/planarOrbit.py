@@ -7,6 +7,7 @@ from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials
+from galpy.potential_src.Potential import Potential
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
@@ -176,8 +177,12 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-20
         """
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        else:
+            thispot= pot
         self.t= nu.array(t)
-        self.orbit= _integrateOrbit(self.vxvv,pot,t)
+        self.orbit= _integrateOrbit(self.vxvv,thispot,t)
 
     def e(self):
         """
