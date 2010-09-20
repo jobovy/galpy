@@ -12,6 +12,34 @@
 #                         bovy_text
 #                         
 #############################################################################
+#############################################################################
+#Copyright (c) 2010, Jo Bovy
+#All rights reserved.
+#
+#Redistribution and use in source and binary forms, with or without 
+#modification, are permitted provided that the following conditions are met:
+#
+#   Redistributions of source code must retain the above copyright notice, 
+#      this list of conditions and the following disclaimer.
+#   Redistributions in binary form must reproduce the above copyright notice, 
+#      this list of conditions and the following disclaimer in the 
+#      documentation and/or other materials provided with the distribution.
+#   The name of the author may not be used to endorse or promote products 
+#      derived from this software without specific prior written permission.
+#
+#THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+#HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+#INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+#BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+#OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+#AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+#WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#POSSIBILITY OF SUCH DAMAGE.
+#############################################################################
 import re
 import math as m
 import scipy as sc
@@ -20,6 +48,7 @@ from scipy import interpolate
 import matplotlib
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
+import matplotlib.cm as cm
 from matplotlib import rc
 _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
@@ -183,7 +212,7 @@ def bovy_dens2d(X,**kwargs):
         ylabel=None
     if kwargs.has_key('extent'):
         extent= kwargs['extent']
-        kwargs.pop['extent']
+        kwargs.pop('extent')
     else:
         if kwargs.has_key('xrange'):
             xlimits=list(kwargs['xrange'])
@@ -420,12 +449,12 @@ def scatterplot(x,y,*args,**kwargs):
         xrange=kwargs['xrange']
         kwargs.pop('xrange')
     else:
-        xrange=[args[0].min(),args[0].max()]
+        xrange=[x.min(),x.max()]
     if kwargs.has_key('yrange'):
         yrange=kwargs['yrange']
         kwargs.pop('yrange')
     else:
-        yrange=[args[1].min(),args[1].max()]
+        yrange=[y.min(),y.max()]
     ndata= len(x)
     if kwargs.has_key('bins'):
         bins= kwargs['bins']
@@ -446,12 +475,12 @@ def scatterplot(x,y,*args,**kwargs):
         aspect= kwargs['aspect']
         kwargs.pop('aspect')
     else:
-        aspect= None
+        aspect= (xrange[1]-xrange[0])/(yrange[1]-yrange[0])
     data= sc.array([x,y]).T
     hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
                                 weights=weights)
     cumimage= bovy_dens2d(hist.T,contours=True,levels=levels,cntrmass=True,
-                          cntrcolors='k',cmap='gist_yarg',origin='lower',
+                          cntrcolors='k',cmap=cm.gist_yarg,origin='lower',
                           xrange=xrange,yrange=yrange,xlabel=xlabel,
                           ylabel=ylabel,interpolation='nearest',
                           retCumImage=True,aspect=aspect)
