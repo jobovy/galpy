@@ -9,7 +9,7 @@ class linearPotential:
         self.isRZ= False
         return None
 
-    def __call__(self,x):
+    def __call__(self,x,t=0.):
         """
         NAME:
            __call__
@@ -17,17 +17,18 @@ class linearPotential:
            evaluate the potential
         INPUT:
            x
+           t
         OUTPUT:
-           Phi(x)
+           Phi(x,t)
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._evaluate(x)
+            return self._amp*self._evaluate(x,t=t)
         except AttributeError:
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
-    def force(self,x):
+    def force(self,x,t=0.):
         """
         NAME:
            force
@@ -35,23 +36,25 @@ class linearPotential:
            evaluate the force
         INPUT:
            x
+           t
         OUTPUT:
-           F(x)
+           F(x,t)
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._force(x)
+            return self._amp*self._force(x,t=t)
         except AttributeError:
             raise PotentialError("'_force' function not implemented for this potential")
 
-    def plot(self,min=-15.,max=15,ns=21,savefilename=None):
+    def plot(self,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         """
         NAME:
            plot
         PURPOSE:
            plot the potential
         INPUT:
+           t - time to evaluate the potential at
            min - minimum x
            max - maximum x
            ns - grid in x
@@ -71,7 +74,7 @@ class linearPotential:
             xs= nu.linspace(min,max,ns)
             potx= nu.zeros(ns)
             for ii in range(ns):
-                potx[ii]= self._evaluate(xs[ii])
+                potx[ii]= self._evaluate(xs[ii],t=t)
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
@@ -102,7 +105,7 @@ class linearPotentialFromRZPotential(linearPotential):
         self._R= R
         return None
 
-    def _evaluate(self,x):
+    def _evaluate(self,x,t=0.):
         """
         NAME:
            _evaluate
@@ -110,27 +113,29 @@ class linearPotentialFromRZPotential(linearPotential):
            evaluate the potential
         INPUT:
            x
+           t
         OUTPUT:
-          Pot(x)
+          Pot(x,t)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(self._R,x)
+        return self._RZPot(self._R,x,t=t)
             
-    def _force(self,x):
+    def _force(self,x,t=0.):
         """
         NAME:
-           _Rforce
+           _force
         PURPOSE:
            evaluate the force
         INPUT:
            x
+           t
         OUTPUT:
-          F(x)
+          F(x,t)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.Rforce(self._R,x)
+        return self._RZPot.Rforce(self._R,x,t=t)
             
 def RZTolinearPotential(RZPot,R=1.):
     """
@@ -156,7 +161,7 @@ def RZTolinearPotential(RZPot,R=1.):
     else:
         raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
     
-def evaluatelinearPotentials(x,Pot):
+def evaluatelinearPotentials(x,Pot,t=0.):
     """
     NAME:
        evaluatelinearPotentials
@@ -165,22 +170,23 @@ def evaluatelinearPotentials(x,Pot):
     INPUT:
        x - evaluate potentials at this position
        Pot - (list of) linearPotential instance(s)
+       t - time to evaluate at
     OUTPUT:
-       pot(x)
+       pot(x,t)
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(x)
+            sum+= pot(x,t=t)
         return sum
     elif isinstance(Pot,linearPotential):
-        return Pot(x)
+        return Pot(x,t=t)
     else:
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
-def evaluatelinearForces(x,Pot):
+def evaluatelinearForces(x,Pot,t=0.):
     """
     NAME:
        evaluatelinearForces
@@ -189,28 +195,30 @@ def evaluatelinearForces(x,Pot):
     INPUT:
        x - evaluate forces at this position
        Pot - (list of) linearPotential instance(s)
+       t - time to evaluate at
     OUTPUT:
-       force(x)
+       force(x,t)
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.force(x)
+            sum+= pot.force(x,t=t)
         return sum
     elif isinstance(Pot,linearPotential):
-        return Pot.force(x)
+        return Pot.force(x,t=t)
     else:
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 
-def plotlinearPotentials(Pot,min=-15.,max=15,ns=21,savefilename=None):
+def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
     """
     NAME:
        plotlinearPotentials
     PURPOSE:
        plot a combination of potentials
     INPUT:
+       t - time to evaluate potential at
        min - minimum x
        max - maximum x
        ns - grid in x
@@ -230,7 +238,7 @@ def plotlinearPotentials(Pot,min=-15.,max=15,ns=21,savefilename=None):
         xs= nu.linspace(min,max,ns)
         potx= nu.zeros(ns)
         for ii in range(ns):
-            potx[ii]= evaluatelinearPotentials(xs[ii],Pot)
+            potx[ii]= evaluatelinearPotentials(xs[ii],Pot,t=t)
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
