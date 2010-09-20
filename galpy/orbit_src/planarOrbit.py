@@ -366,7 +366,7 @@ def _EOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(y[0],y[2],pot),
+            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,phi=y[2]),
             y[3],
-            1./y[0]**2.*(evaluateplanarphiforces(y[0],y[2],pot)-
+            1./y[0]**2.*(evaluateplanarphiforces(y[0],pot,phi=y[2])-
                          2.*y[0]*y[1]*y[3])]
