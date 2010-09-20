@@ -134,7 +134,7 @@ class Potential:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._amp*= norm/nu.fabs(self.Rforce(1.,0.))
+        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t))
 
     def phiforce(self,R,z,phi=0.,t=0.):
         """
