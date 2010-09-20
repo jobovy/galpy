@@ -169,4 +169,4 @@ def _linearEOM(y,t,pot):
     HISTORY:
        2010-07-13 - Bovy (NYU)
     """
-    return [y[1],evaluatelinearForces(y[0],pot)]
+    return [y[1],evaluatelinearForces(y[0],pot,t=t)]
