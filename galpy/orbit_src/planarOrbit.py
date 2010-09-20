@@ -79,6 +79,9 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]**2.
         return nu.amin(self.rs)
 
+    def zmax(self):
+        raise AttributeError("planarOrbit does not have a zmax")
+
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
     orbit-integration in axisymmetric potentials when you don't care about the

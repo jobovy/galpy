@@ -52,6 +52,15 @@ class linearOrbit(OrbitTop):
         """
         raise AttributeError("linearOrbit does not have an eccentricity")
 
+    def rap(self):
+        raise AttributeError("linearOrbit does not have an apocenter")
+
+    def rperi(self):
+        raise AttributeError("linearOrbit does not have a pericenter")
+
+    def zmax(self):
+        raise AttributeError("linearOrbit does not have a zmax")
+
     def plot(self,*args,**kwargs):
         """
         NAME:
