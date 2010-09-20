@@ -47,7 +47,7 @@ class interpRZPotential(Potential):
         self._interpzforce= interpolate.interp2d(R,z,zforce,bounds_error=True)
                                                  
 
-    def _Rforce(self,R,z,phi=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         if R < self._rgrid[0] or R > self._rgrid[-1] \
                 or z < self._zgrid[0] or z > self._zgrid[-1]:
             print "Current position out of range of interpolation, consider interpolating on a larger range"
@@ -55,7 +55,7 @@ class interpRZPotential(Potential):
         else:
             return self._interpRforce(R,z)
 
-    def _zforce(self,R,z,phi=0.):
+    def _zforce(self,R,z,phi=0.,t=0.):
         if R < self._rgrid[0] or R > self._rgrid[-1] \
                 or z < self._zgrid[0] or z > self._zgrid[-1]:
             print "Current position out of range of interpolation, consider interpolating on a larger range"
