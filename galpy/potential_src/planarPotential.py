@@ -11,57 +11,63 @@ class planarPotential:
         self.isRZ= False
         return None
 
-    def __call__(self,R,phi=0.):
+    def __call__(self,R,phi=0.,t=0.):
         """
         NAME:
            __call__
         PURPOSE:
            evaluate the potential
         INPUT: 
-           Either: R or R,phi [rad]
+           R
+           phi
+           t
         OUTPUT:
-           Phi(R(,phi)))
+           Phi(R(,phi,t)))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._evaluate(R,phi=phi)
+            return self._amp*self._evaluate(R,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
-    def Rforce(self,R,phi=0.):
+    def Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
            Rforce
         PURPOSE:
            evaluate the radial force
         INPUT:
-           Either: R or R,phi [rad]         
+           R
+           phi
+           t
         OUTPUT:
-           F_R(R,(\phi)))
+           F_R(R,(\phi,t)))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._Rforce(R,phi=phi)
+            return self._amp*self._Rforce(R,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
-    def phiforce(self,R,phi=0.):
+    def phiforce(self,R,phi=0.,t=0.):
         """
         NAME:
            phiforce
         PURPOSE:
            evaluate the phi force
         INPUT:
-           Either: R or R,phi [rad]         
+           R
+           phi
+           t
         OUTPUT:
-           F_\phi(R,(\phi)))
+           F_\phi(R,(\phi,t)))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._phiforce(R,phi=phi)
+            return self._amp*self._phiforce(R,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
@@ -73,7 +79,7 @@ class planarAxiPotential(planarPotential):
         self.isNonAxi= False
         return None
     
-    def _phiforce(self,R,phi=0.):
+    def _phiforce(self,R,phi=0.,t=0.):
         return 0.
 
     def plot(self,*args,**kwargs):
@@ -132,35 +138,39 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._RZPot= RZPot
         return None
 
-    def _evaluate(self,R,phi=0.):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
         PURPOSE:
            evaluate the potential
         INPUT:
-           Either: R or R,phi [rad]      
+           R
+           phi
+           t
         OUTPUT:
-          Pot(R(,\phi))
+          Pot(R(,\phi,t))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.)
+        return self._RZPot(R,0.,t=t)
             
-    def _Rforce(self,R,phi=0.):
+    def _Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
            _Rforce
         PURPOSE:
            evaluate the radial force
         INPUT:
-           Either: R or R,phi [rad]      
+           R
+           phi
+           t
         OUTPUT:
-          F_R(R(,\phi))
+          F_R(R(,\phi,t))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.Rforce(R,0.)
+        return self._RZPot.Rforce(R,0.,t=t)
             
 def RZToplanarPotential(RZPot):
     """
@@ -191,7 +201,7 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
-def evaluateplanarPotentials(R,Pot,phi=0.):
+def evaluateplanarPotentials(R,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateplanarPotentials
@@ -200,8 +210,9 @@ def evaluateplanarPotentials(R,Pot,phi=0.):
     INPUT:
        R (+phi optional)
        Pot - (list of) planarPotential instance(s)
+       t - time (optional)
     OUTPUT:
-       Phi(R(,phi))
+       Phi(R(,phi,t))
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
@@ -213,19 +224,19 @@ def evaluateplanarPotentials(R,Pot,phi=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot(R,phi=phi)
+                sum+= pot(R,phi=phi,t=t)
             else:
-                sum+= pot(R)
+                sum+= pot(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot(R,phi=phi)
+            return Pot(R,phi=phi,t=t)
         else:
-            return Pot(R)
+            return Pot(R,t=t)
     else:
         raise PotentialError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarRforces(R,Pot,phi=0.):
+def evaluateplanarRforces(R,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateplanarRforces
@@ -234,8 +245,9 @@ def evaluateplanarRforces(R,Pot,phi=0.):
     INPUT:
        R (+phi optional)
        Pot - (list of) planarPotential instance(s)
+       t - time (optional)
     OUTPUT:
-       F_R(R(,phi))
+       F_R(R(,phi,t))
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
@@ -247,19 +259,19 @@ def evaluateplanarRforces(R,Pot,phi=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.Rforce(R,phi=phi)
+                sum+= pot.Rforce(R,phi=phi,t=t)
             else:
-                sum+= pot.Rforce(R)
+                sum+= pot.Rforce(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.Rforce(R,phi=phi)
+            return Pot.Rforce(R,phi=phi,t=t)
         else:
-            return Pot.Rforce(R)
+            return Pot.Rforce(R,t=t)
     else:
         raise PotentialError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarphiforces(R,Pot,phi=0.):
+def evaluateplanarphiforces(R,Pot,phi=0.,t=0.):
     """
     NAME:
        evaluateplanarphiforces
@@ -268,8 +280,9 @@ def evaluateplanarphiforces(R,Pot,phi=0.):
     INPUT:
        R (+phi optional)
        Pot - (list of) planarPotential instance(s)
+       t - time (optional)
     OUTPUT:
-       F_phi(R(,phi))
+       F_phi(R(,phi,t))
     HISTORY:
        2010-07-13 - Written - Bovy (NYU)
     """
@@ -281,15 +294,15 @@ def evaluateplanarphiforces(R,Pot,phi=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.phiforce(R,phi=phi)
+                sum+= pot.phiforce(R,phi=phi,t=t)
             else:
-                sum+= pot.phiforce(R)
+                sum+= pot.phiforce(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.phiforce(R,phi=phi)
+            return Pot.phiforce(R,phi=phi,t=t)
         else:
-            return Pot.phiforce(R)
+            return Pot.phiforce(R,t=t)
     else:
         raise PotentialError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
 
