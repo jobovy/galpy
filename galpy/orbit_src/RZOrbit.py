@@ -123,6 +123,10 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= r'$R$'
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= r'$z$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,3],*args,**kwargs)
 
     def plotEt(self,pot,*args,**kwargs):

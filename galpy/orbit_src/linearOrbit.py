@@ -74,6 +74,10 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= r'$x$'
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= r'$v_x$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,1],*args,**kwargs)
 
     def plotEt(self,pot,*args,**kwargs):
