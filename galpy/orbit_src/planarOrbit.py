@@ -307,8 +307,8 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self.E= [evaluateplanarPotentials(self.orbit[ii,0],
-                                          self.orbit[ii,3],pot)+
+        self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot,
+                                          phi=self.orbit[ii,3])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                  for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
