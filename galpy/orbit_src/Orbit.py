@@ -166,31 +166,31 @@ class Orbit:
         """
         self._orb.plot(*args,**kwargs)
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotEt(self,*args,**kwargs):
         """
         NAME:
            plotEt
         PURPOSE:
            plot E(t) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
+           pot= - Potential instance or list of instances in which the orbit 
+                 was integrated
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotEt(pot,*args,**kwargs)
+        self._orb.plotEt(*args,**kwargs)
 
-    def plotEz(self,pot,*args,**kwargs):
+    def plotEz(self,*args,**kwargs):
         """
         NAME:
            plotEz
         PURPOSE:
            plot E_z(.) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
+           po= - Potential instance or list of instances in which the orbit was
                  integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
            +bovy_plot.bovy_plot inputs
@@ -199,9 +199,9 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotEz(pot,*args,**kwargs)
+        self._orb.plotEz(*args,**kwargs)
 
-    def plotEzJz(self,pot,*args,**kwargs):
+    def plotEzJz(self,*args,**kwargs):
         """
         NAME:
            plotEzJzt
@@ -217,7 +217,7 @@ class Orbit:
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        self._orb.plotEzJz(pot,*args,**kwargs)
+        self._orb.plotEzJz(*args,**kwargs)
 
     def __call__(self,*args,**kwargs):
         """

@@ -117,6 +117,7 @@ class planarROrbit(planarOrbitTop):
         """
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
+        self._pot= thispot
         self.orbit= _integrateROrbit(self.vxvv,thispot,t)
 
     def plot(self,*args,**kwargs):
@@ -163,7 +164,7 @@ class planarROrbit(planarOrbitTop):
         return evaluateplanarPotentials(self.vxvv[0],thispot)+\
             self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotEt(self,*args,**kwargs):
         """
         NAME:
            plotEt
@@ -178,6 +179,14 @@ class planarROrbit(planarOrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                  for ii in range(len(self.t))]
@@ -292,7 +301,7 @@ class planarOrbit(planarOrbitTop):
                        self.orbit[:,0]*nu.sin(self.orbit[:,3]),
                        *args,**kwargs)
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotEt(self,*args,**kwargs):
         """
         NAME:
            plotEt
@@ -307,6 +316,14 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot,
                                           phi=self.orbit[ii,3])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.

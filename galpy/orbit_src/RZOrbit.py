@@ -151,14 +151,14 @@ class RZOrbit(OrbitTop):
             kwargs['ylabel']= r'$z$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,3],*args,**kwargs)
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotEt(self,*args,**kwargs):
         """
         NAME:
            plotEt
         PURPOSE:
            plot E(t) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
+           pot= - Potential instance or list of instances in which the orbit was
                  integrated
            +bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -166,20 +166,28 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         self.E= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
-    def plotEz(self,pot,*args,**kwargs):
+    def plotEz(self,*args,**kwargs):
         """
         NAME:
            plotEz
         PURPOSE:
            plot E_z(.) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
+           pot= Potential instance or list of instances in which the orbit was
                  integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
            +bovy_plot.bovy_plot inputs
@@ -188,6 +196,14 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         if kwargs.has_key('d1'):
             d1= kwargs['d1']
             kwargs.pop('d1')
@@ -206,14 +222,14 @@ class RZOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,0],nu.array(self.Ez)/self.Ez[0],
                            *args,**kwargs)
 
-    def plotEzJz(self,pot,*args,**kwargs):
+    def plotEzJz(self,*args,**kwargs):
         """
         NAME:
            plotEzJzt
         PURPOSE:
            plot E_z(t)/sqrt(dens(R)) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
+           pot= Potential instance or list of instances in which the orbit was
                  integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
            +bovy_plot.bovy_plot inputs
@@ -222,6 +238,14 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         if kwargs.has_key('d1'):
             d1= kwargs['d1']
             kwargs.pop('d1')

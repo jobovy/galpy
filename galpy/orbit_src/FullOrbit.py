@@ -152,7 +152,7 @@ class FullOrbit(OrbitTop):
             kwargs['ylabel']= r'$z$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,3],*args,**kwargs)
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotEt(self,*args,**kwargs):
         """
         NAME:
            plotEt
@@ -167,6 +167,14 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         self.E= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                     pot,phi=self.orbit[ii,5])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
@@ -174,7 +182,7 @@ class FullOrbit(OrbitTop):
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 
-    def plotEzt(self,pot,*args,**kwargs):
+    def plotEzt(self,*args,**kwargs):
         """
         NAME:
            plotEzt
@@ -189,6 +197,14 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         self.Ez= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                      pot,phi=self.orbit[ii,5])-
                   evaluatePotentials(self.orbit[ii,0],0.,pot,
