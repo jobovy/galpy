@@ -60,7 +60,7 @@ take two minutes)
 
 We can then plot the histogram of the sampled radii and compare it to the input surface-mass density profile
 
->>> Rs= [e.vxvv[0] for e in o]
+>>> Rs= [e.R() for e in o]
 >>> hists, bins, edges= hist(Rs,range=[0,2],normed=True,bins=30)
 >>> xs= numpy.array([(bins[ii+1]+bins[ii])/2. for ii in range(len(bins)-1)])
 >>> plot(xs, xs*exp(-xs*3.)*9.,'r-')
@@ -71,8 +71,8 @@ E.g.,
 
 We can also plot the spatial distribution of the sampled disk
 
->>> xs= [e.vxvv[0]*nu.cos(e.vxvv[3]) for e in o]
->>> ys= [e.vxvv[0]*nu.sin(e.vxvv[3]) for e in o]
+>>> xs= [e.x() for e in o]
+>>> ys= [e.y() for e in o]
 >>> figure()
 >>> plot(xs,ys,',')
 
