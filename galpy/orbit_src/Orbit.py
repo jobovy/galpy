@@ -151,6 +151,141 @@ class Orbit:
         """
         return self._orb.zmax()
 
+    def R(self,*args,**kwargs):
+        """
+        NAME:
+           R
+        PURPOSE:
+           return cylindrical radius at time t
+        INPUT:
+           t - (optional) time at which to get the radius
+        OUTPUT:
+           R(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.R(*args,**kwargs)
+
+    def vR(self,*args,**kwargs):
+        """
+        NAME:
+           vR
+        PURPOSE:
+           return radial velocity at time t
+        INPUT:
+           t - (optional) time at which to get the radial velocity
+        OUTPUT:
+           vR(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.vR(*args,**kwargs)
+
+    def vT(self,*args,**kwargs):
+        """
+        NAME:
+           vT
+        PURPOSE:
+           return tangential velocity at time t
+        INPUT:
+           t - (optional) time at which to get the tangential velocity
+        OUTPUT:
+           vT(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.vT(*args,**kwargs)
+
+    def z(self,*args,**kwargs):
+        """
+        NAME:
+           z
+        PURPOSE:
+           return vertical height
+        INPUT:
+           t - (optional) time at which to get the vertical height
+        OUTPUT:
+           z(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.z(*args,**kwargs)
+
+    def vz(self,*args,**kwargs):
+        """
+        NAME:
+           vz
+        PURPOSE:
+           return vertical velocity
+        INPUT:
+           t - (optional) time at which to get the vertical velocity
+        OUTPUT:
+           vz(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.vz(*args,**kwargs)
+
+    def phi(self,*args,**kwargs):
+        """
+        NAME:
+           phi
+        PURPOSE:
+           return azimuth
+        INPUT:
+           t - (optional) time at which to get the azimuth
+        OUTPUT:
+           phi(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.phi(*args,**kwargs)
+
+    def vphi(self,*args,**kwargs):
+        """
+        NAME:
+           vphi
+        PURPOSE:
+           return angular velocity
+        INPUT:
+           t - (optional) time at which to get the angular velocity
+        OUTPUT:
+           vphi(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.vphi(*args,**kwargs)
+
+    def x(self,*args,**kwargs):
+        """
+        NAME:
+           x
+        PURPOSE:
+           return x
+        INPUT:
+           t - (optional) time at which to get x
+        OUTPUT:
+           x(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.x(*args,**kwargs)
+
+    def y(self,*args,**kwargs):
+        """
+        NAME:
+           y
+        PURPOSE:
+           return y
+        INPUT:
+           t - (optional) time at which to get y
+        OUTPUT:
+           y(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        return self._orb.y(*args,**kwargs)
+
     def __call__(self,*args,**kwargs):
         """
         NAME:

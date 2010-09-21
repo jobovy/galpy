@@ -1,3 +1,4 @@
+import math as m
 import numpy as nu
 from scipy import integrate, interpolate
 import galpy.util.bovy_plot as plot
@@ -48,6 +49,169 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
         """
         return self.orbit
+
+    def R(self,*args,**kwargs):
+        """
+        NAME:
+           R
+        PURPOSE:
+           return cylindrical radius at time t
+        INPUT:
+           t - (optional) time at which to get the radius
+        OUTPUT:
+           R(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        return thiso[0]
+
+    def vR(self,*args,**kwargs):
+        """
+        NAME:
+           vR
+        PURPOSE:
+           return radial velocity at time t
+        INPUT:
+           t - (optional) time at which to get the radial velocity
+        OUTPUT:
+           vR(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        return thiso[1]
+
+    def vT(self,*args,**kwargs):
+        """
+        NAME:
+           vT
+        PURPOSE:
+           return tangential velocity at time t
+        INPUT:
+           t - (optional) time at which to get the tangential velocity
+        OUTPUT:
+           vT(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        return thiso[2]
+
+    def z(self,*args,**kwargs):
+        """
+        NAME:
+           z
+        PURPOSE:
+           return vertical height
+        INPUT:
+           t - (optional) time at which to get the vertical height
+        OUTPUT:
+           z(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) < 5:
+            raise AttributeError("linear and planar orbits do not have z()")
+        return thiso[3]
+
+    def vz(self,*args,**kwargs):
+        """
+        NAME:
+           vz
+        PURPOSE:
+           return vertical velocity
+        INPUT:
+           t - (optional) time at which to get the vertical velocity
+        OUTPUT:
+           vz(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) < 5:
+            raise AttributeError("linear and planar orbits do not have vz()")
+        return thiso[4]
+
+    def phi(self,*args,**kwargs):
+        """
+        NAME:
+           phi
+        PURPOSE:
+           return azimuth
+        INPUT:
+           t - (optional) time at which to get the azimuth
+        OUTPUT:
+           phi(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) != 4 and len(thiso) != 6:
+            raise AttributeError("orbit must track azimuth to use phi()")
+        elif len(thiso) == 4:
+            return thiso[3]
+        else:
+            return thiso[5]
+
+    def x(self,*args,**kwargs):
+        """
+        NAME:
+           x
+        PURPOSE:
+           return x
+        INPUT:
+           t - (optional) time at which to get x
+        OUTPUT:
+           x(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) != 4 and len(thiso) != 6:
+            raise AttributeError("orbit must track azimuth to use x()")
+        elif len(thiso) == 4:
+            return thiso[0]*m.cos(thiso[3])
+        else:
+            return thiso[0]*m.cos(thiso[5])
+
+    def y(self,*args,**kwargs):
+        """
+        NAME:
+           y
+        PURPOSE:
+           return y
+        INPUT:
+           t - (optional) time at which to get y
+        OUTPUT:
+           y(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) != 4 and len(thiso) != 6:
+            raise AttributeError("orbit must track azimuth to use y()")
+        elif len(thiso) == 4:
+            return thiso[0]*m.sin(thiso[3])
+        else:
+            return thiso[0]*m.sin(thiso[5])
+
+    def vphi(self,*args,**kwargs):
+        """
+        NAME:
+           vphi
+        PURPOSE:
+           return angular velocity
+        INPUT:
+           t - (optional) time at which to get the angular velocity
+        OUTPUT:
+           vphi(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        return thiso[2]/thiso[0]
 
     def __call__(self,*args,**kwargs):
         """
