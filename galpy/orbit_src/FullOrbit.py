@@ -38,7 +38,30 @@ class FullOrbit(OrbitTop):
            2010-08-01 - Written - Bovy (NYU)
         """
         self.t= nu.array(t)
+        self._pot= pot
         self.orbit= _integrateFullOrbit(self.vxvv,pot,t)
+
+    def E(self,pot=None):
+        """
+        NAME:
+           E
+        PURPOSE:
+           calculate the energy
+        INPUT:
+        OUTPUT:
+           energy
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot,
+                                  phi=self.vxvv[5])+\
+            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
+            self.vxvv[4]**2./2.
 
     def e(self):
         """

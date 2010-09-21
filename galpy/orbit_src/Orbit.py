@@ -80,6 +80,21 @@ class Orbit:
         """
         self._orb.integrate(t,pot)
 
+    def E(self,pot=None):
+        """
+        NAME:
+           E
+        PURPOSE:
+           calculate the energy
+        INPUT:
+           pot=
+        OUTPUT:
+           energy
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        return self._orb.E(pot=pot)
+
     def e(self):
         """
         NAME:

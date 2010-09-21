@@ -139,6 +139,30 @@ class planarROrbit(planarOrbitTop):
         plot.bovy_plot(self.orbit[:,0],
                        self.orbit[:,1],*args,**kwargs)
 
+    def E(self,pot=None):
+        """
+        NAME:
+           E
+        PURPOSE:
+           calculate the energy
+        INPUT:
+        OUTPUT:
+           energy
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        else:
+            thispot= pot
+        return evaluateplanarPotentials(self.vxvv[0],thispot)+\
+            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+
     def plotEt(self,pot,*args,**kwargs):
         """
         NAME:
@@ -201,7 +225,34 @@ class planarOrbit(planarOrbitTop):
         else:
             thispot= pot
         self.t= nu.array(t)
+        self._pot= thispot
         self.orbit= _integrateOrbit(self.vxvv,thispot,t)
+
+    def E(self,pot=None):
+        """
+        NAME:
+           E
+        PURPOSE:
+           calculate the energy
+        INPUT:
+           pot=
+        OUTPUT:
+           energy
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        else:
+            thispot= pot
+        return evaluateplanarPotentials(self.vxvv[0],thispot,
+                                        phi=self.vxvv[3])+\
+            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
     def e(self):
         """

@@ -38,7 +38,29 @@ class RZOrbit(OrbitTop):
            2010-07-10
         """
         self.t= nu.array(t)
+        self._pot= pot
         self.orbit= _integrateRZOrbit(self.vxvv,pot,t)
+
+    def E(self,pot=None):
+        """
+        NAME:
+           E
+        PURPOSE:
+           calculate the energy
+        INPUT:
+        OUTPUT:
+           energy
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot)+\
+            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
+            self.vxvv[4]**2./2.
 
     def e(self):
         """
