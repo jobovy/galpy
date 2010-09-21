@@ -151,6 +151,27 @@ class Orbit:
         """
         return self._orb.zmax()
 
+    def __call__(self,*args,**kwargs):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           return the orbit vector at time t
+        INPUT:
+           t - desired time
+           rect - if true, return rectangular coordinates
+        OUTPUT:
+           [x,vx], [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on 
+           the orbit
+           if rect: [x,y(,z),vx,vy(,vz)]
+        BUGS:
+           currently only works for times at which the orbit was requested
+           during integration; use interpolation in between?
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self._orb(*args,**kwargs)
+
     def plot(self,*args,**kwargs):
         """
         NAME:
@@ -218,27 +239,6 @@ class Orbit:
            2010-08-08 - Written - Bovy (NYU)
         """
         self._orb.plotEzJz(*args,**kwargs)
-
-    def __call__(self,*args,**kwargs):
-        """
-        NAME:
-           __call__
-        PURPOSE:
-           return the orbit vector at time t
-        INPUT:
-           t - desired time
-           rect - if true, return rectangular coordinates
-        OUTPUT:
-           [x,vx], [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on 
-           the orbit
-           if rect: [x,y(,z),vx,vy(,vz)]
-        BUGS:
-           currently only works for times at which the orbit was requested
-           during integration; use interpolation in between?
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        return self._orb(*args,**kwargs)
 
     def plotRt(self,*args,**kwargs):
         """
