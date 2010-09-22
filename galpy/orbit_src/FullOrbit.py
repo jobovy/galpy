@@ -203,6 +203,9 @@ class FullOrbit(OrbitTop):
         elif d1 == 'vz':
             plot.bovy_plot(self.orbit[:,4],nu.array(self.E)/self.E[0],
                            *args,**kwargs)
+        elif d1 == 'phi':
+            plot.bovy_plot(self.orbit[:,5],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
 
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
