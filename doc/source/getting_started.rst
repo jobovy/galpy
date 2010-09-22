@@ -16,8 +16,9 @@ The following code example shows how to initialize a Miyamoto-Nagai disk potenti
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001)
 
-The ``normalize=1.`` option normalizes the potential such that its
-circular velocity is 1 at R=1.
+The ``normalize=1.`` option normalizes the potential such that the
+radial force is a fraction ``normalize=1.`` of the radial force
+necessary to make the circular velocity 1 at R=1.
 
 Similarly we can initialize other potentials and plot the combined
 rotation curve
@@ -29,8 +30,10 @@ rotation curve
 >>> from galpy.potential import plotRotcurve
 >>> plotRotcurve([hp,mp,np],Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
 
-The resulting rotation curve is approximately flat. To show the
-rotation curves of the three components do
+Note that the ``normalize`` values add up to 1. such that the circular
+velocity will be 1 at R=1. The resulting rotation curve is
+approximately flat. To show the rotation curves of the three
+components do
 
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
 >>> hp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
@@ -51,7 +54,10 @@ simple Miyamoto-Nagai potential, we initialize an orbit as follows
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
 
-Since we gave ``Orbit()`` a five-dimensional initial condition, we assume we are dealing with a three-dimensional axisymmetric potential in which we do not wish to track the azimuth. We then integrate the orbit for a set of times ``ts``
+Since we gave ``Orbit()`` a five-dimensional initial condition
+``[R,vR,vT,z,vz]``, we assume we are dealing with a three-dimensional
+axisymmetric potential in which we do not wish to track the
+azimuth. We then integrate the orbit for a set of times ``ts``
 
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
