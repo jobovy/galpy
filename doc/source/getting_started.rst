@@ -67,7 +67,7 @@ Which gives
 
 The integrator used is not symplectic, so the energy error grows with time, but is small nonetheless
 
->>> o.plotEt(pot=mp,xlabel=r'$t$',ylabel=r'$E(t)/E(0)$'))
+>>> o.plotE(xlabel=r'$t$',ylabel=r'$E(t)/E(0)$')
 
 .. image:: images/mp-orbit-E.png
 
@@ -90,7 +90,7 @@ As before, we can also integrate orbits in combinations of potentials. Assuming 
 
 Energy is again approximately conserved
 
->>> o.plotEt(pot=[mp,hp,np],xlabel=r'$t$',ylabel=r'$E(t)/E(0)$'))
+>>> o.plotE(xlabel=r'$t$',ylabel=r'$E(t)/E(0)$')
 
 .. image:: images/mphpnp-orbit-E.png
 
