@@ -102,15 +102,16 @@ class linearOrbit(OrbitTop):
             kwargs['ylabel']= r'$v_x$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,1],*args,**kwargs)
 
-    def plotEt(self,*args,**kwargs):
+    def plotE(self,*args,**kwargs):
         """
         NAME:
-           plotEt
+           plotE
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'x', 'vx'
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -125,11 +126,23 @@ class linearOrbit(OrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.E= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
                  self.orbit[ii,1]**2./2.
                  for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'x':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vx':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
 
     def plotxt(self,*args,**kwargs):
         """

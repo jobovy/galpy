@@ -152,15 +152,16 @@ class FullOrbit(OrbitTop):
             kwargs['ylabel']= r'$z$'
         plot.bovy_plot(self.orbit[:,0],self.orbit[:,3],*args,**kwargs)
 
-    def plotEt(self,*args,**kwargs):
+    def plotE(self,*args,**kwargs):
         """
         NAME:
            plotEt
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
-           pot - Potential instance or list of instances in which the orbit was
+           pot= - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -175,10 +176,34 @@ class FullOrbit(OrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.E= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                     pot,phi=self.orbit[ii,5])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vz':
+            plot.bovy_plot(self.orbit[:,4],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+
         plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
                        *args,**kwargs)
 

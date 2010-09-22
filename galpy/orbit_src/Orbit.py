@@ -322,22 +322,23 @@ class Orbit:
         """
         self._orb.plot(*args,**kwargs)
 
-    def plotEt(self,*args,**kwargs):
+    def plotE(self,*args,**kwargs):
         """
         NAME:
            plotEt
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
            pot= - Potential instance or list of instances in which the orbit 
                  was integrated
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotEt(*args,**kwargs)
+        self._orb.plotE(*args,**kwargs)
 
     def plotEz(self,*args,**kwargs):
         """

@@ -164,15 +164,16 @@ class planarROrbit(planarOrbitTop):
         return evaluateplanarPotentials(self.vxvv[0],thispot)+\
             self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
-    def plotEt(self,*args,**kwargs):
+    def plotE(self,*args,**kwargs):
         """
         NAME:
-           plotEt
+           plotE
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT'
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -187,11 +188,26 @@ class planarROrbit(planarOrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                  for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
 
     def _callRect(self,*args):
         raise AttributeError("Cannot transform R-only planar orbit to rectangular coordinates")
@@ -301,15 +317,16 @@ class planarOrbit(planarOrbitTop):
                        self.orbit[:,0]*nu.sin(self.orbit[:,3]),
                        *args,**kwargs)
 
-    def plotEt(self,*args,**kwargs):
+    def plotE(self,*args,**kwargs):
         """
         NAME:
-           plotEt
+           plotE
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT', 'phi'
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -324,12 +341,31 @@ class planarOrbit(planarOrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
         self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot,
                                           phi=self.orbit[ii,3])+
                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                  for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+        elif d1 == 'phi':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.E)/self.E[0],
+                           *args,**kwargs)
+
 
     def _callRect(self,*args):
         kwargs= {}
