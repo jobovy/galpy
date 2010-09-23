@@ -193,20 +193,20 @@ class planarROrbit(planarOrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
-                 self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                 for ii in range(len(self.t))]
+        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
+                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                  for ii in range(len(self.t))]
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
 
     def _callRect(self,*args):
@@ -346,24 +346,24 @@ class planarOrbit(planarOrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.E= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                          phi=self.orbit[ii,3])+
-                 self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                 for ii in range(len(self.t))]
+        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
+                                           phi=self.orbit[ii,3])+
+                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                  for ii in range(len(self.t))]
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'phi':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
 
 

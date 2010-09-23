@@ -131,17 +131,17 @@ class linearOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.E= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
+        self.Es= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
                  self.orbit[ii,1]**2./2.
                  for ii in range(len(self.t))]
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'x':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vx':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
 
     def plotxt(self,*args,**kwargs):

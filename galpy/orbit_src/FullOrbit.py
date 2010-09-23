@@ -155,7 +155,7 @@ class FullOrbit(OrbitTop):
     def plotE(self,*args,**kwargs):
         """
         NAME:
-           plotEt
+           plotE
         PURPOSE:
            plot E(.) along the orbit
         INPUT:
@@ -181,41 +181,38 @@ class FullOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.E= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                    pot,phi=self.orbit[ii,5])+
-                 self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
-                 self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
+        self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
+                                     pot,phi=self.orbit[ii,5])+
+                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
+                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,4],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
         elif d1 == 'phi':
-            plot.bovy_plot(self.orbit[:,5],nu.array(self.E)/self.E[0],
+            plot.bovy_plot(self.orbit[:,5],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
 
-        plot.bovy_plot(nu.array(self.t),nu.array(self.E)/self.E[0],
-                       *args,**kwargs)
-
-    def plotEzt(self,*args,**kwargs):
+    def plotEz(self,*args,**kwargs):
         """
         NAME:
-           plotEzt
+           plotEz
         PURPOSE:
-           plot E_z(t) along the orbit
+           plot E_z(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
@@ -233,13 +230,38 @@ class FullOrbit(OrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
-        self.Ez= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                     pot,phi=self.orbit[ii,5])-
-                  evaluatePotentials(self.orbit[ii,0],0.,pot,
-                                     phi=self.orbit[ii,5])+
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
+        self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
+                                      pot,phi=self.orbit[ii,5])-
+                   evaluatePotentials(self.orbit[ii,0],0.,pot,
+                                      phi=self.orbit[ii,5])+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        plot.bovy_plot(nu.array(self.t),nu.array(self.Ez)/self.Ez[0],
-                       *args,**kwargs)
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'vz':
+            plot.bovy_plot(self.orbit[:,4],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+        elif d1 == 'phi':
+            plot.bovy_plot(self.orbit[:,5],nu.array(self.Ezs)/self.Ezs[0],
+                           *args,**kwargs)
+
 
     def _callRect(self,*args):
         kwargs= {}
