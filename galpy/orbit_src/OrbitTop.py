@@ -256,15 +256,16 @@ class OrbitTop:
                 out.append(self._orbInterp[ii](t))
             return nu.array(out).reshape(dim)
 
-    def plotEt(self,pot,*args,**kwargs):
+    def plotE(self,pot,*args,**kwargs):
         """
         NAME:
-           plotEt
+           plotE
         PURPOSE:
-           plot E(t) along the orbit
+           plot E(.) along the orbit
         INPUT:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
+           d1= - plot E vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -346,9 +347,12 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        if self.orbit.shape[1] < 6:
+        if self.orbit.shape[1] != 4 and self.orbit.shape[1] != 6:
             raise AttributeError
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,5],*args,**kwargs)
+        elif self.orbit.shape[1] == 4:
+            plot.bovy_plot(nu.array(self.t),self.orbit[:,3],*args,**kwargs)
+        else:
+            plot.bovy_plot(nu.array(self.t),self.orbit[:,5],*args,**kwargs)
 
     def plotvzt(self,*args,**kwargs):
         """
