@@ -132,25 +132,6 @@ class RZOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
-    def plot(self,*args,**kwargs):
-        """
-        NAME:
-           plot
-        PURPOSE:
-           plot a previously calculated orbit
-        INPUT:
-           matplotlib.plot inputs+bovy_plot.plot inputs
-        OUTPUT:
-           sends plot to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= r'$R$'
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$z$'
-        plot.bovy_plot(self.orbit[:,0],self.orbit[:,3],*args,**kwargs)
-
     def plotE(self,*args,**kwargs):
         """
         NAME:
@@ -160,7 +141,7 @@ class RZOrbit(OrbitTop):
         INPUT:
            pot= - Potential instance or list of instances in which the orbit was
                  integrated
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+           d1= - plot E vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device

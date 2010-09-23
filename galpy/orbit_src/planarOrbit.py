@@ -120,26 +120,6 @@ class planarROrbit(planarOrbitTop):
         self._pot= thispot
         self.orbit= _integrateROrbit(self.vxvv,thispot,t)
 
-    def plot(self,*args,**kwargs):
-        """
-        NAME:
-           plot
-        PURPOSE:
-           plot a planar Orbit
-        INPUT:
-           bovy_plot args and kwargs
-        OUTPUT:
-           plot
-        HISTORY:
-           2010-07-26 - Written - Bovy (NYU)
-        """
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= r'$R$'
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$v_R$'
-        plot.bovy_plot(self.orbit[:,0],
-                       self.orbit[:,1],*args,**kwargs)
-
     def E(self,pot=None):
         """
         NAME:
@@ -295,27 +275,6 @@ class planarOrbit(planarOrbitTop):
             raise AttributeError("Integrate the orbit first")
         rs= self.orbit[:,0]**2.
         return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
-
-    def plot(self,*args,**kwargs):
-        """
-        NAME:
-           plot
-        PURPOSE:
-           plot a planar Orbit
-        INPUT:
-           bovy_plot args and kwargs
-        OUTPUT:
-           plpt
-        HISTORY:
-           2010-09-20 - Written - Bovy (NYU)
-        """
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= r'$x$'
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$y$'
-        plot.bovy_plot(self.orbit[:,0]*nu.cos(self.orbit[:,3]),
-                       self.orbit[:,0]*nu.sin(self.orbit[:,3]),
-                       *args,**kwargs)
 
     def plotE(self,*args,**kwargs):
         """
