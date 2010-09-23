@@ -376,12 +376,12 @@ class Orbit:
         """
         self._orb.plotEzJz(*args,**kwargs)
 
-    def plotRt(self,*args,**kwargs):
+    def plotR(self,*args,**kwargs):
         """
         NAME:
-           plotRt
+           plotR
         PURPOSE:
-           plot R(t) along the orbit
+           plot R(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -389,14 +389,14 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotRt(*args,**kwargs)
+        self._orb.plotR(*args,**kwargs)
 
-    def plotzt(self,*args,**kwargs):
+    def plotz(self,*args,**kwargs):
         """
         NAME:
-           plotzt
+           plotz
         PURPOSE:
-           plot z(t) along the orbit
+           plot z(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -404,14 +404,14 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotzt(*args,**kwargs)
+        self._orb.plotz(*args,**kwargs)
 
-    def plotvRt(self,*args,**kwargs):
+    def plotvR(self,*args,**kwargs):
         """
         NAME:
-           plotvRt
+           plotvR
         PURPOSE:
-           plot vR(t) along the orbit
+           plot vR(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -419,14 +419,14 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotvRt(*args,**kwargs)
+        self._orb.plotvR(*args,**kwargs)
 
-    def plotvTt(self,*args,**kwargs):
+    def plotvT(self,*args,**kwargs):
         """
         NAME:
-           plotvTt
+           plotvT
         PURPOSE:
-           plot vT(t) along the orbit
+           plot vT(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -434,14 +434,14 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotvTt(*args,**kwargs)
+        self._orb.plotvT(*args,**kwargs)
 
-    def plotphit(self,*args,**kwargs):
+    def plotphi(self,*args,**kwargs):
         """
         NAME:
-           plotphit
+           plotphi
         PURPOSE:
-           plot \phi(t) along the orbit
+           plot \phi(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -449,14 +449,14 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotphit(*args,**kwargs)
+        self._orb.plotphi(*args,**kwargs)
 
-    def plotvzt(self,*args,**kwargs):
+    def plotvz(self,*args,**kwargs):
         """
         NAME:
-           plotvzt
+           plotvz
         PURPOSE:
-           plot vz(t) along the orbit
+           plot vz(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -464,12 +464,12 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self._orb.plotvzt(*args,**kwargs)
+        self._orb.plotvz(*args,**kwargs)
 
-    def plotxt(self,*args,**kwargs):
+    def plotx(self,*args,**kwargs):
         """
         NAME:
-           plotxt
+           plotx
         PURPOSE:
            plot a one-dimensional orbit position
         INPUT:
@@ -479,12 +479,12 @@ class Orbit:
         HISTORY:
            2010-07-21 - Written - Bovy (NYU)
         """
-        self._orb.plotxt(*args,**kwargs)
+        self._orb.plotx(*args,**kwargs)
 
-    def plotvxt(self,*args,**kwargs):
+    def plotvx(self,*args,**kwargs):
         """
         NAME:
-           plotvxt
+           plotvx
         PURPOSE:
            plot a one-dimensional orbit velocity
         INPUT:
@@ -494,7 +494,37 @@ class Orbit:
         HISTORY:
            2010-07-21 - Written - Bovy (NYU)
         """
-        self._orb.plotvxt(*args,**kwargs)
+        self._orb.plotvx(*args,**kwargs)
+
+    def ploty(self,*args,**kwargs):
+        """
+        NAME:
+           ploty
+        PURPOSE:
+           plot a one-dimensional orbit position
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-21 - Written - Bovy (NYU)
+        """
+        self._orb.ploty(*args,**kwargs)
+
+    def plotvy(self,*args,**kwargs):
+        """
+        NAME:
+           plotvy
+        PURPOSE:
+           plot a one-dimensional orbit velocity
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-21 - Written - Bovy (NYU)
+        """
+        self._orb.plotvy(*args,**kwargs)
 
     def __add__(self,linOrb):
         if (not (isinstance(self._orb,planarROrbit) and 

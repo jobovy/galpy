@@ -288,7 +288,7 @@ class OrbitTop:
            2010-07-26 - Written - Bovy (NYU)
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
         """
-        labeldict= {'R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                     'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
         #Defaults
@@ -392,12 +392,12 @@ class OrbitTop:
             kwargs['ylabel']= labeldict[d2]
         plot.bovy_plot(x,y,*args,**kwargs)
 
-    def plotRt(self,*args,**kwargs):
+    def plotR(self,*args,**kwargs):
         """
         NAME:
-           plotRt
+           plotR
         PURPOSE:
-           plot R(t) along the orbit
+           plot R(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -405,14 +405,15 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,0],*args,**kwargs)
+        kwargs['d2']= 'R'
+        self.plot(*args,**kwargs)
 
-    def plotzt(self,*args,**kwargs):
+    def plotz(self,*args,**kwargs):
         """
         NAME:
-           plotzt
+           plotz
         PURPOSE:
-           plot z(t) along the orbit
+           plot z(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -420,14 +421,15 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,3],*args,**kwargs)
+        kwargs['d2']= 'z'
+        self.plot(*args,**kwargs)
 
-    def plotvRt(self,*args,**kwargs):
+    def plotx(self,*args,**kwargs):
         """
         NAME:
-           plotvRt
+           plotx
         PURPOSE:
-           plot vR(t) along the orbit
+           plot x(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -435,14 +437,15 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,1],*args,**kwargs)
+        kwargs['d2']= 'x'
+        self.plot(*args,**kwargs)
 
-    def plotvTt(self,*args,**kwargs):
+    def plotvx(self,*args,**kwargs):
         """
         NAME:
-           plotvTt
+           plotvx
         PURPOSE:
-           plot vT(t) along the orbit
+           plot vx(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -450,14 +453,15 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,2],*args,**kwargs)
+        kwargs['d2']= 'vx'
+        self.plot(*args,**kwargs)
 
-    def plotphit(self,*args,**kwargs):
+    def ploty(self,*args,**kwargs):
         """
         NAME:
-           plotphit
+           ploty
         PURPOSE:
-           plot \phi(t) along the orbit
+           plot y(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -465,19 +469,15 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        if self.orbit.shape[1] != 4 and self.orbit.shape[1] != 6:
-            raise AttributeError
-        elif self.orbit.shape[1] == 4:
-            plot.bovy_plot(nu.array(self.t),self.orbit[:,3],*args,**kwargs)
-        else:
-            plot.bovy_plot(nu.array(self.t),self.orbit[:,5],*args,**kwargs)
+        kwargs['d2']= 'y'
+        self.plot(*args,**kwargs)
 
-    def plotvzt(self,*args,**kwargs):
+    def plotvy(self,*args,**kwargs):
         """
         NAME:
-           plotvzt
+           plotvy
         PURPOSE:
-           plot vz(t) along the orbit
+           plot vy(.) along the orbit
         INPUT:
            bovy_plot.bovy_plot inputs
         OUTPUT:
@@ -485,5 +485,70 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plot.bovy_plot(nu.array(self.t),self.orbit[:,4],*args,**kwargs)
+        kwargs['d2']= 'vy'
+        self.plot(*args,**kwargs)
 
+    def plotvR(self,*args,**kwargs):
+        """
+        NAME:
+           plotvR
+        PURPOSE:
+           plot vR(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        kwargs['d2']= 'vR'
+        self.plot(*args,**kwargs)
+
+    def plotvT(self,*args,**kwargs):
+        """
+        NAME:
+           plotvT
+        PURPOSE:
+           plot vT(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        kwargs['d2']= 'vT'
+        self.plot(*args,**kwargs)
+        
+    def plotphi(self,*args,**kwargs):
+        """
+        NAME:
+           plotphi
+        PURPOSE:
+           plot \phi(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        kwargs['d2']= 'phi'
+        self.plot(*args,**kwargs)
+
+    def plotvz(self,*args,**kwargs):
+        """
+        NAME:
+           plotvz
+        PURPOSE:
+           plot vz(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        kwargs['d2']= 'phi'
+        self.plot(*args,**kwargs)
+        
