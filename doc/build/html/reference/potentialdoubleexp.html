@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Double exponential disk potential &mdash; galpy v0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1 documentation" href="../index.html" />
+    <link rel="up" title="Potential" href="potential.html" />
+    <link rel="next" title="Double power-law density spherical potential" href="potentialdoublepowerspher.html" />
+    <link rel="prev" title="galpy.potential.plotRotcurve" href="potentialplotrotcurves.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="potentialdoublepowerspher.html" title="Double power-law density spherical potential"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="potentialplotrotcurves.html" title="galpy.potential.plotRotcurve"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1 documentation</a> &raquo;</li>
+          <li><a href="potential.html" accesskey="U">Potential</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="double-exponential-disk-potential">
+<h1>Double exponential disk potential<a class="headerlink" href="#double-exponential-disk-potential" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="galpy.potential.DoubleExponentialDiskPotential">
+<em class="property">class </em><tt class="descclassname">galpy.potential.</tt><tt class="descname">DoubleExponentialDiskPotential</tt><big>(</big><em>amp=1.0</em>, <em>ro=1.0</em>, <em>hr=0.33333333333333331</em>, <em>hz=0.0625</em>, <em>maxiter=20</em>, <em>tol=0.001</em>, <em>normalize=False</em><big>)</big><a class="headerlink" href="#galpy.potential.DoubleExponentialDiskPotential" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class that implements the double exponential disk potential
+rho(R,z) = rho_0 e^-R/h_R e^-<a href="#id1"><span class="problematic" id="id2">|z|</span></a>/h_z</p>
+<dl class="method">
+<dt id="galpy.potential.DoubleExponentialDiskPotential.__init__">
+<tt class="descname">__init__</tt><big>(</big><em>amp=1.0</em>, <em>ro=1.0</em>, <em>hr=0.33333333333333331</em>, <em>hz=0.0625</em>, <em>maxiter=20</em>, <em>tol=0.001</em>, <em>normalize=False</em><big>)</big><a class="headerlink" href="#galpy.potential.DoubleExponentialDiskPotential.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>NAME:</dt>
+<dd>__init__</dd>
+<dt>PURPOSE:</dt>
+<dd>initialize a double-exponential disk potential</dd>
+<dt>INPUT:</dt>
+<dd><p class="first">amp - amplitude to be applied to the potential (default: 1)
+hr - disk scale-length in terms of ro
+hz - scale-height
+ro - representative disk-radius at which rhoo is given
+tol - relative accuracy of potential-evaluations
+maxiter - scipy.integrate keyword
+normalize - if True, normalize such that vc(1.,0.)=1., or, if</p>
+<blockquote class="last">
+given as a number, such that the force is this fraction 
+of the force necessary to make vc(1.,0.)=1.</blockquote>
+</dd>
+<dt>OUTPUT:</dt>
+<dd>DoubleExponentialDiskPotential object</dd>
+<dt>HISTORY:</dt>
+<dd>2010-04-16 - Written - Bovy (NYU)</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="potentialplotrotcurves.html"
+                                  title="previous chapter">galpy.potential.plotRotcurve</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="potentialdoublepowerspher.html"
+                                  title="next chapter">Double power-law density spherical potential</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="../_sources/reference/potentialdoubleexp.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="../search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="potentialdoublepowerspher.html" title="Double power-law density spherical potential"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="potentialplotrotcurves.html" title="galpy.potential.plotRotcurve"
+             >previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1 documentation</a> &raquo;</li>
+          <li><a href="potential.html" >Potential</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2010, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.3.
+    </div>
+  </body>
+</html>
