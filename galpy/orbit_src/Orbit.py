@@ -310,15 +310,29 @@ class Orbit:
     def plot(self,*args,**kwargs):
         """
         NAME:
+
            plot
+
         PURPOSE:
-           plot a previously calculated orbit
+
+           plot a previously calculated orbit (with reasonable defaults)
+
         INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
            matplotlib.plot inputs+bovy_plot.plot inputs
+
         OUTPUT:
+
            sends plot to output device
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         self._orb.plot(*args,**kwargs)
 
