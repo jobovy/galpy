@@ -1,5 +1,5 @@
-Orbit.z()
-=================
+galpy.orbit.Orbit.z
+=====================
 
 .. automethod:: galpy.orbit.Orbit.z
 
