@@ -25,6 +25,14 @@ Quick-start guide
 Library reference
 -----------------
 
+.. toctree::
+   :maxdepth: 1
+
+   reference/orbit.rst
+
+   reference/potential.rst
+
+
 Indices and tables
 ==================
 
