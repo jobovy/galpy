@@ -100,3 +100,21 @@ Energy is again approximately conserved
 
 .. image:: images/mphpnp-orbit-E.png
 
+Escape velocity curves
+----------------------
+
+Just like we can plot the rotation curve for a potential or a
+combination of potentials, we can plot the escape velocity curve. For
+example, the escape velocity curve for the Miyamoto-Nagai disk defined
+above
+
+>>> mp.plotEscapecurve(Rrange=[0.01,10.],grid=1001)
+
+.. image:: images/esc-miyamoto.png
+
+or of the combination of potentials defined above
+
+>>> from galpy.potential import plotEscapecurve
+>>> plotEscapecurve([mp,hp,np],Rrange=[0.01,10.],grid=1001)
+
+.. image:: images/esc-comb.png
