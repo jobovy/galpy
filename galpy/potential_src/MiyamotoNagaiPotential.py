@@ -16,20 +16,33 @@ class MiyamotoNagaiPotential(Potential):
     def __init__(self,amp=1.,a=0.,b=0.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a Miyamoto-Nagai potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            a - "disk scale" (in terms of Ro)
+
            b - "disk height" (in terms of Ro)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Started - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self._a= a
