@@ -14,6 +14,8 @@ Orbit
    orbitplote.rst
    orbitplotEz.rst
    orbitplotEzJz.rst
+   orbitplotvx.rst
+   orbitplotvy.rst
    orbitr.rst
    orbitrap.rst
    orbitrperi.rst
