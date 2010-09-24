@@ -9,8 +9,11 @@ def plotRotcurve(Pot,*args,**kwargs):
        non-spherical potentials)
     INPUT:
        Pot - Potential or list of Potential instances
+
        Rrange - 
+
        grid - grid in R
+
        savefilename - save to or restore from this savefile (pickle)
        +bovy_plot.bovy_plot args and kwargs
     OUTPUT:

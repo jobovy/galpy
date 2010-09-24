@@ -37,11 +37,14 @@ class Potential:
         NAME:
            __call__
         PURPOSE:
-           evaluate the (R,z)
+           evaluate the potential at (R,z,phi,t)
         INPUT:
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
         OUTPUT:
            Phi(R,z,t)
@@ -176,10 +179,32 @@ class Potential:
         return 0.
 
     def toPlanar(self):
+        """
+        NAME:
+           toPlanar
+        PURPOSE:
+           convert a 3D potential into a planar potential in the mid-plane
+        INPUT:
+           (none)
+        OUTPUT:
+           planarPotential
+        HISTORY
+        """
         from planarPotential import RZToplanarPotential
         return RZToplanarPotential(self)
 
     def toVertical(self,R):
+        """
+        NAME:
+           toVertical
+        PURPOSE:
+           convert a 3D potential into a linear (vertical) potential at R
+        INPUT:
+           R - Galactocentric radius at which to create the vertical potential
+        OUTPUT:
+           linear (vertical) potential
+        HISTORY
+        """
         from verticalPotential import RZToverticalPotential
         return RZToverticalPotential(self,R)
 
@@ -288,9 +313,13 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of potentials
     INPUT:
        R - cylindrical Galactocentric distance
+
        z - distance above the plane
+
        Pot - potential or list of potentials
+
        phi - azimuth
+
        t - time
     OUTPUT:
        Phi(R,z)
@@ -315,9 +344,13 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of densities
     INPUT:
        R - cylindrical Galactocentric distance
+
        z - distance above the plane
+
        Pot - potential or list of potentials
+
        phi - azimuth
+
        t - time
     OUTPUT:
        rho(R,z)
@@ -342,9 +375,13 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of potentials
     INPUT:
        R - cylindrical Galactocentric distance
+
        z - distance above the plane
+
        Pot - a potential or list of potentials
+
        phi - azimuth (optional)
+
        t - time (optional)
     OUTPUT:
        K_R(R,z,phi,t)
@@ -369,9 +406,13 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of potentials
     INPUT:
        R - cylindrical Galactocentric distance
+
        z - distance above the plane
+
        Pot - a potential or list of potentials
+
        phi - azimuth (optional)
+
        t - time (optional)
     OUTPUT:
        K_R(R,z,phi,t)
@@ -396,9 +437,13 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of potentials
     INPUT:
        R - cylindrical Galactocentric distance
+
        z - distance above the plane
+
        Pot - a potential or list of potentials
+
        phi - azimuth (optional)
+
        t - time (optional)
     OUTPUT:
        K_z(R,z,phi,t)
@@ -424,13 +469,21 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            plot a set of potentials
         INPUT:
            Pot - Potential or list of Potential instances
+
            rmin - minimum R
+
            rmax - maximum R
+
            nrs - grid in R
+
            zmin - minimum z
+
            zmax - maximum z
+
            nzs - grid in z
+
            ncontours - number of contours
+
            savefilename - save to or restore from this savefile (pickle)
         OUTPUT:
            plot to output device
