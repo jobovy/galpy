@@ -29,6 +29,7 @@ plotEscapecurve= plotEscapecurve.plotEscapecurve
 # Classes
 #
 Potential= Potential.Potential
+planarAxiPotential= planarPotential.planarAxiPotential
 planarPotential= planarPotential.planarPotential
 linearPotential= linearPotential.linearPotential
 MiyamotoNagaiPotential= MiyamotoNagaiPotential.MiyamotoNagaiPotential
