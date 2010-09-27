@@ -2,6 +2,7 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential
 from plotRotcurve import plotRotcurve
+from plotEscapecurve import plotEscapecurve
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
@@ -117,6 +118,24 @@ class planarAxiPotential(planarPotential):
            2010-07-13 - Written - Bovy (NYU)
         """
         plotRotcurve(self,*args,**kwargs)
+
+    def plotEscapecurve(self,*args,**kwargs):
+        """
+        NAME:
+           plotEscapecurve
+        PURPOSE:
+           plot the escape velocity curve for this potential
+        INPUT:
+           Rrange - range
+           grid - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           +bovy_plot(*args,**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        plotEscapecurve(self,*args,**kwargs)
 
 class planarPotentialFromRZPotential(planarAxiPotential):
     """Class that represents an axisymmetic planar potential derived from a 
