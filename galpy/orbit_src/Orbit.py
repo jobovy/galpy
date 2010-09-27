@@ -1,22 +1,56 @@
+import numpy as nu
+import galpy.util.bovy_coords as coords
 from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
 class Orbit:
     """General orbit class representing an orbit"""
-    def __init__(self,vxvv=None):
+    def __init__(self,vxvv=None,
+                 radec=False,vo=235.,ro=8.5,
+                 solarmotion='hogg'):
         """
         NAME:
            __init__
         PURPOSE:
            Initialize an Orbit instance
         INPUT:
-           vxvv - initial conditions
+           vxvv - initial conditions 
+                  3D can be either
+              1) in Galactocentric cylindrical coordinates
+              2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all 2000.0)
+        OPTIONAL INPUTS:
+           radec - if True, input is 2) above
+           vo - circular velocity at ro
+           ro - distance from vantage point to GC
+           solarmotion - 'hogg' or ...
         OUTPUT:
            instance
         HISTORY:
            2010-07-20 - Written - Bovy (NYU)
         """
+        if solarmotion.lower() == 'hogg':
+            vsolar= nu.array([-10.1,4.0,6.7])/vo
+        if radec:
+            l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
+            pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
+                                                     vxvv[0],vxvv[1],
+                                                     degree=True)
+            X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,vxvv[2],
+                                                       vxvv[5],pmll, pmbb,
+                                                       degree=True)
+            X/= ro
+            Y/= ro
+            Z/= ro
+            vx/= vo
+            vy/= vo
+            vz/= vo
+            vsun= nu.array([0.,1.,0.,])+vsolar
+            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z)
+            vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
+                                                  R,phi,z,
+                                                  vsun=vsun,galcen=True)
+            vxvv= [R,vR,vT,z,vz,phi]          
         self.vxvv= vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv)
@@ -72,6 +106,7 @@ class Orbit:
            integrate the orbit
         INPUT:
            t - list of times at which to output (0 has to be in this!)
+
            pot - potential instance or list of instances
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
@@ -79,6 +114,21 @@ class Orbit:
            2010-07-10
         """
         self._orb.integrate(t,pot)
+
+    def getOrbit(self):
+        """
+        NAME:
+           getOrbit
+        PURPOSE:
+           return a previously calculated orbit
+        INPUT:
+           (none)
+        OUTPUT:
+           array orbit[nt,nd]
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self._orb.getOrbit(self)
 
     def E(self,pot=None):
         """
@@ -346,6 +396,7 @@ class Orbit:
            pot= - Potential instance or list of instances in which the orbit 
                  was integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -364,6 +415,7 @@ class Orbit:
            po= - Potential instance or list of instances in which the orbit was
                  integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -382,6 +434,7 @@ class Orbit:
            pot - Potential instance or list of instances in which the orbit was
                  integrated
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+
            +bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -397,6 +450,8 @@ class Orbit:
         PURPOSE:
            plot R(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -412,6 +467,8 @@ class Orbit:
         PURPOSE:
            plot z(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -427,6 +484,8 @@ class Orbit:
         PURPOSE:
            plot vR(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -442,6 +501,8 @@ class Orbit:
         PURPOSE:
            plot vT(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -457,6 +518,8 @@ class Orbit:
         PURPOSE:
            plot \phi(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -472,6 +535,8 @@ class Orbit:
         PURPOSE:
            plot vz(.) along the orbit
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -487,6 +552,8 @@ class Orbit:
         PURPOSE:
            plot a one-dimensional orbit position
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -502,6 +569,8 @@ class Orbit:
         PURPOSE:
            plot a one-dimensional orbit velocity
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -517,6 +586,8 @@ class Orbit:
         PURPOSE:
            plot a one-dimensional orbit position
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -532,6 +603,8 @@ class Orbit:
         PURPOSE:
            plot a one-dimensional orbit velocity
         INPUT:
+           d1= plot vs d1: e.g., 't', 'z', 'R'
+
            bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
@@ -541,6 +614,18 @@ class Orbit:
         self._orb.plotvy(*args,**kwargs)
 
     def __add__(self,linOrb):
+        """
+        NAME:
+           __add__
+        PURPOSE:
+           add a linear orbit and a planar orbit to make a 3D orbit
+        INPUT:
+           linear or plane orbit instance
+        OUTPUT:
+           3D orbit
+        HISTORY:
+           2010-07-21 - Written - Bovy (NYU)
+        """
         if (not (isinstance(self._orb,planarROrbit) and 
                 isinstance(linOrb._orb,linearOrbit)) and
             not (isinstance(self._orb,linearOrbit) and 
