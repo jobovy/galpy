@@ -13,7 +13,7 @@ Rotation curves
 The following code example shows how to initialize a Miyamoto-Nagai disk potential and plot its rotation curve
 
 >>> from galpy.potential import MiyamotoNagaiPotential
->>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
+>>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=1.)
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001)
 
 The ``normalize=1.`` option normalizes the potential such that the
@@ -24,7 +24,7 @@ Similarly we can initialize other potentials and plot the combined
 rotation curve
 
 >>> from galpy.potential import NFWPotential, HernquistPotential
->>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=.6)
+>>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> from galpy.potential import plotRotcurve
