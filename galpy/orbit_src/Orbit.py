@@ -23,7 +23,7 @@ class Orbit:
            radec - if True, input is 2) above
            vo - circular velocity at ro
            ro - distance from vantage point to GC
-           solarmotion - 'hogg' or ...
+           solarmotion - 'hogg' or 'dehnen', or 'schoenrich'
         OUTPUT:
            instance
         HISTORY:
@@ -31,6 +31,10 @@ class Orbit:
         """
         if solarmotion.lower() == 'hogg':
             vsolar= nu.array([-10.1,4.0,6.7])/vo
+        elif solarmotion.lower() == 'dehnen':
+            vsolar= nu.array([-10.,5.25,7.17])/vo
+        elif solarmotion.lower() == 'schoenrich':
+            vsolar= nu.array([-11.1,12.24,7.25])/vo
         if radec:
             l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
             pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
