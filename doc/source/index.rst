@@ -33,6 +33,12 @@ Library reference
    reference/potential.rst
 
 
+Acknowledging galpy
+--------------------
+
+Please link back to ``http://code.google.com/p/galpy/`` .
+
+
 Indices and tables
 ==================
 
