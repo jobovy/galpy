@@ -259,7 +259,7 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
        2009-10-25 - Written - Bovy (NYU)
     """
     XYZ= lbd_to_XYZ(l,b,d,degree=degree)
-    vxvyvz= vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False)
+    vxvyvz= vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=degree)
     if sc.array(l).shape == ():
         return sc.array([XYZ[0],XYZ[1],XYZ[2],vxvyvz[0],vxvyvz[1],vxvyvz[2]])
     else:
@@ -317,7 +317,7 @@ def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
        2009-10-24 - Written - Bovy (NYU)
     """
     if XYZ:
-        lbd= XYZ_to_lbd(l,b,d,degree)
+        lbd= XYZ_to_lbd(l,b,d,degree=degree)
         if degree:
             l= lbd[0]*_DEGTORAD
             b= lbd[1]*_DEGTORAD
@@ -325,6 +325,10 @@ def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
             l= lbd[0]
             b= lbd[1]
         d= lbd[2]
+    else:
+        if degree:
+            l*= _DEGTORAD
+            b*= _DEGTORAD
     R=sc.zeros((3,3))
     R[0,0]= m.cos(l)*m.cos(b)
     R[1,0]= -m.sin(l)
@@ -394,6 +398,10 @@ def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
             l= lbd[0]
             b= lbd[1]
         d= lbd[2]
+    else:
+        if degree:
+            l*= _DEGTORAD
+            b*= _DEGTORAD
     R=sc.zeros((3,3))
     R[0,0]= m.cos(l)*m.cos(b)
     R[1,0]= -m.sin(l)
@@ -877,7 +885,7 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
         R,phi,Z= rect_to_cyl(X,Y,Z)
     else:
         phi= Y
-    vr=-vx*sc.cos(phi)-vy*sc.sin(phi)
+    vr=+vx*sc.cos(phi)+vy*sc.sin(phi)
     vt= -vx*sc.sin(phi)+vy*sc.cos(phi)
     return (vr,vt,vz)
 
