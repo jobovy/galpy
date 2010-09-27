@@ -1,5 +1,0 @@
-Orbit.vy()
-=================
-
-.. automethod:: galpy.orbit.Orbit.vy
-
