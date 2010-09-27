@@ -404,8 +404,8 @@ def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     R[0,2]= m.sin(b)
     R[2,2]= m.cos(b)
     vrvlvb= sc.dot(R,sc.array([vx,vy,vz]))
-    pmll= vrvlvb[1]/d/k
-    pmbb= vrvlvb[2]/d/k
+    pmll= vrvlvb[1]/d/_K
+    pmbb= vrvlvb[2]/d/_K
     return (vrvlvb[0],pmll,pmbb)
 
 def XYZ_to_lbd(X,Y,Z,degree=False):
@@ -851,10 +851,8 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],
     HISTORY:
        2010-09-24 - Written - Bovy (NYU)
     """
-    vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun)
-    if not galcen:
-        X,Y,Z= XYZ_to_galcencyl(X,Y,Z,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
-    return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=True)
+    vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun)
+    return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=galcen)
 
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
@@ -879,8 +877,8 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
         R,phi,Z= rect_to_cyl(X,Y,Z)
     else:
         phi= Y
-    vr= vx*sc.cos(phi)-vy*sc.sin(phi)
-    vt= vx*sc.sin(phi)+vy*sc.cos(phi)
+    vr=-vx*sc.cos(phi)-vy*sc.sin(phi)
+    vt= -vx*sc.sin(phi)+vy*sc.cos(phi)
     return (vr,vt,vz)
 
 def get_epoch_angles(epoch=2000.0):
