@@ -48,7 +48,58 @@ Specific potentials
    potentialdoublepowerspher.rst
    potentialjaffe.rst
    potentialhernquist.rst
+   potentialkepler.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
    potentialnfw.rst
    potentialpowerspher.rst
+
+
+2D potentials
+-------------
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <potential2dcall.rst>
+   phiforce <potential2dphiforce.rst>
+   Rforce <potential2drforce.rst>
+
+General axisymmetric potential instance routines
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   plot <potential2dplot.rst>
+   plotEscapecurve <potential2dplotescapecurve.rst>
+   plotRotcurve <potential2dplotrotcurve.rst>
+
+
+General 2D potential routines
++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   evaluateplanarphiforces <potential2dphiforces.rst>
+   evaluateplanarPotentials <potential2devaluate.rst>
+   evaluateplanarRforces <potential2drforces.rst>
+   plotEscapecurve <potentialplotescapecurves.rst>
+   plotplanarPotentials <potential2dplots.rst>
+   plotRotcurve <potentialplotrotcurves.rst>
+
+Specific potentials
+++++++++++++++++++++
+
+No specifically two-dimensional potentials are available at this time,
+but all of the 3D potentials above can be used as two-dimensional
+potentials in the mid-plane. 
+
+.. toctree::
+   :maxdepth: 2
+
+   RZToplanarPotential <potential2dRZtoplanar.rst>
