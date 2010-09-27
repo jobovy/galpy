@@ -1,5 +1,6 @@
 from galpy.potential_src import Potential
 from galpy.potential_src import planarPotential
+from galpy.potential_src import linearPotential
 from galpy.potential_src import verticalPotential
 from galpy.potential_src import MiyamotoNagaiPotential
 from galpy.potential_src import LogarithmicHaloPotential
@@ -13,6 +14,11 @@ from galpy.potential_src import interpRZPotential
 #
 # Functions
 #
+evaluatePotentials= Potential.evaluatePotentials
+evaluateDensities= Potential.evaluateDensities
+evaluateRforces= Potential.evaluateRforces
+evaluatephiforces= Potential.evaluatephiforces
+evaluatezforces= Potential.evaluatezforces
 RZToplanarPotential= planarPotential.RZToplanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
@@ -23,6 +29,8 @@ plotEscapecurve= plotEscapecurve.plotEscapecurve
 # Classes
 #
 Potential= Potential.Potential
+planarPotential= planarPotential.planarPotential
+linearPotential= linearPotential.linearPotential
 MiyamotoNagaiPotential= MiyamotoNagaiPotential.MiyamotoNagaiPotential
 DoubleExponentialDiskPotential= DoubleExponentialDiskPotential.DoubleExponentialDiskPotential
 LogarithmicHaloPotential= LogarithmicHaloPotential.LogarithmicHaloPotential
