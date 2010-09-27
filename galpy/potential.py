@@ -22,9 +22,12 @@ evaluatezforces= Potential.evaluatezforces
 RZToplanarPotential= planarPotential.RZToplanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
+plotplanarPotentials= planarPotential.plotplanarPotentials
 plotRotcurve= plotRotcurve.plotRotcurve
 plotEscapecurve= plotEscapecurve.plotEscapecurve
-
+evaluateplanarPotentials= planarPotential.evaluateplanarPotentials
+evaluateplanarRforces= planarPotential.evaluateplanarRforces
+evaluateplanarphiforces= planarPotential.evaluateplanarphiforces
 #
 # Classes
 #
