@@ -103,3 +103,44 @@ potentials in the mid-plane.
    :maxdepth: 2
 
    RZToplanarPotential <potential2dRZtoplanar.rst>
+
+
+
+1D potentials
+-------------
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <potential1dcall.rst>
+   force <potential1dforce.rst>
+   plot <potential1dplot.rst>
+
+
+General 1D potential routines
++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   evaluatelinearForces <potential1dforces.rst>
+   evaluatelinearPotentials <potential1devaluate.rst>
+   plotlinearPotentials <potential1dplots.rst>
+
+Specific potentials
+++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   KGPotential <potentialkg.rst>
+
+One-dimensional potentials can also be derived from 3D axisymmetric potentials as the vertical potential at a certain Galactocentric radius
+
+.. toctree::
+   :maxdepth: 2
+
+   RZToverticalPotential <potential1dRZtolinear.rst>
