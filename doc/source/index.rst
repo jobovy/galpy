@@ -32,6 +32,7 @@ Library reference
 
    reference/potential.rst
 
+   reference/df.rst
 
 Acknowledging galpy
 --------------------
