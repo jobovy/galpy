@@ -5,7 +5,7 @@ from Edf import Edf
 from galpy.orbit import Orbit
 from galpy.potential_src.linearPotential import evaluatelinearPotentials, evaluatelinearForces
 class isothermdf(Edf):
-    """An isothermal df f(E) ~ exp(-E/sigma^2"""
+    """An isothermal df f(E) ~ exp(-E/sigma^2)"""
     def __init__(self,normalize=None,pot=None,**kwargs):
         """
         NAME:

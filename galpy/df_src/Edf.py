@@ -46,3 +46,23 @@ class Edf:
            2010-07-12 - Written - Bovy (NYU)
         """
         raise AttributeError("eval() function of this DF is not implemented")
+
+    def sample(self,pot,n=1):
+        """
+        NAME:
+           sample
+        PURPOSE:
+           sample from this df
+        INPUT:
+           pot - potential
+           n - number of samples desired
+        OUTPUT:
+           depending on the dimension, 
+           list of [linearOrbit,planarOrbit,Orbit]s
+           or a single orbit if n=1
+        HISTORY:
+           2010-07-12 - Written - Bovy (NYU)
+        BUGS:
+           sampling is bad and inaccurate at large x
+        """
+        raise AttributeError("'sample' method for this ergodic df is not implemented")

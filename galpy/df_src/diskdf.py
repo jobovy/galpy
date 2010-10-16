@@ -275,6 +275,31 @@ class diskdf:
         TR= aA.TR()[0]
         return (2.*m.pi/TR, rap, rperi)
 
+    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
+               nphi=1.):
+        """
+        NAME:
+           sample
+        PURPOSE:
+           sample n*nphi points from this DF
+        INPUT:
+           n - number of desired sample (specifying this rather than calling 
+               this routine n times is more efficient)
+           rrange - if you only want samples in this rrange, set this keyword 
+                    (only works when asking for an (RZ)Orbit
+           returnROrbit - if True, return a planarROrbit instance: 
+                          [R,vR,vT] (default)
+           returnOrbit - if True, return a planarOrbit instance (including phi)
+           nphi - number of azimuths to sample for each E,L
+        OUTPUT:
+           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
+           CAUTION: lists of EL need to be post-processed to account for the 
+                    \kappa/\omega_R discrepancy
+        HISTORY:
+           2010-07-10 - Started  - Bovy (NYU)
+        """
+        raise AttributeError("'sample' method for this disk df is not implemented")
+
 class dehnendf(diskdf):
     """Dehnen's 'new' df"""
     def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
@@ -292,13 +317,20 @@ class dehnendf(diskdf):
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
+
                         xD - disk surface mass scalelength / Ro
+
                         xS - disk velocity dispersion scalelength / Ro
+
                         Sro - disk velocity dispersion at Ro (/vo)
+
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
+
            beta - power-law index of the rotation curve
+
            correct - if True, correct the DF
+
            + DFcorrection kwargs (except for those already specified)
         OUTPUT:
         HISTORY:
@@ -453,13 +485,20 @@ class shudf(diskdf):
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
+          
                         xD - disk surface mass scalelength / Ro
+              
                         xS - disk velocity dispersion scalelength / Ro
+                        
                         Sro - disk velocity dispersion at Ro (/vo)
+                        
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
+
            beta - power-law index of the rotation curve
+
            correct - if True, correct the DF
+
            + DFcorrection kwargs (except for those already specified)
         OUTPUT:
         HISTORY:
