@@ -21,6 +21,8 @@ Quick-start guide
 
    basic_df.rst
 
+   orbit.rst
+
 
 Library reference
 -----------------
