@@ -59,3 +59,20 @@ ADD EXAMPLE INITIALIZATION.
 
 Orbit integration
 ---------------------
+
+After an orbit is initialized, we can integrate it for a set of times
+``ts``, given as a numpy array. For example, in a simple logarithmic
+potential we can do the following
+
+>>> from galpy.potential import LogarithmicHaloPotential
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> import numpy
+>>> ts= numpy.linspace(0,100,10000)
+>>> o.integrate(ts,lp)
+
+to integrate the orbit from ``t=0`` to ``t=100``, saving the orbit at
+10000 instances.
+
+Displaying the orbit
+---------------------
