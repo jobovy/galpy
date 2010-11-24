@@ -55,7 +55,6 @@ distance between the Galactic center and the Sun can be given as
 orbit is initialized assuming a circular velocity of one at the
 distance of the Sun.
 
-ADD EXAMPLE INITIALIZATION.
 
 Orbit integration
 ---------------------
