@@ -220,7 +220,7 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
-def evaluateplanarPotentials(R,Pot,phi=0.,t=0.):
+def evaluateplanarPotentials(R,Pot,phi=None,t=0.):
     """
     NAME:
        evaluateplanarPotentials
@@ -236,8 +236,12 @@ def evaluateplanarPotentials(R,Pot,phi=0.,t=0.):
        2010-07-13 - Written - Bovy (NYU)
     """
     isList= isinstance(Pot,list)
-    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if nonAxi and not hasphi:
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
         sum= 0.
@@ -255,7 +259,7 @@ def evaluateplanarPotentials(R,Pot,phi=0.,t=0.):
     else:
         raise PotentialError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarRforces(R,Pot,phi=0.,t=0.):
+def evaluateplanarRforces(R,Pot,phi=None,t=0.):
     """
     NAME:
        evaluateplanarRforces
@@ -271,8 +275,12 @@ def evaluateplanarRforces(R,Pot,phi=0.,t=0.):
        2010-07-13 - Written - Bovy (NYU)
     """
     isList= isinstance(Pot,list)
-    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if nonAxi and not hasphi:
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
         sum= 0.
@@ -290,7 +298,7 @@ def evaluateplanarRforces(R,Pot,phi=0.,t=0.):
     else:
         raise PotentialError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarphiforces(R,Pot,phi=0.,t=0.):
+def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
     """
     NAME:
        evaluateplanarphiforces
@@ -306,8 +314,12 @@ def evaluateplanarphiforces(R,Pot,phi=0.,t=0.):
        2010-07-13 - Written - Bovy (NYU)
     """
     isList= isinstance(Pot,list)
-    nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if nonAxi and not hasphi:
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list):
         sum= 0.
