@@ -2,7 +2,7 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
-    evaluatePotentials, evaluatephiforces
+    evaluatePotentials, evaluatephiforces, evaluateDensities
 import galpy.util.bovy_plot as plot
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
@@ -242,7 +242,59 @@ class FullOrbit(OrbitTop):
         elif d1 == 'phi':
             plot.bovy_plot(self.orbit[:,5],nu.array(self.Ezs)/self.Ezs[0],
                            *args,**kwargs)
-
+    def plotEzJz(self,*args,**kwargs):
+        """
+        NAME:
+           plotEzJz
+        PURPOSE:
+           plot E_z(.)/sqrt(dens(R)) along the orbit
+        INPUT:
+           pot= Potential instance or list of instances in which the orbit was
+                 integrated
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2010-08-08 - Written - Bovy (NYU)
+        """
+        if not kwargs.has_key('pot'):
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
+        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
+                     evaluatePotentials(self.orbit[ii,0],0.,pot,
+                                        phi= self.orbit[ii,5])+
+                     self.orbit[ii,4]**2./2.)/\
+                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5]))\
+                        for ii in range(len(self.t))]
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
+        elif d1 == 'vz':
+            plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
+                           *args,**kwargs)
 
     def _callRect(self,*args):
         kwargs= {}
