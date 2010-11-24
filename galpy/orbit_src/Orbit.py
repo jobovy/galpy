@@ -345,21 +345,16 @@ class Orbit:
         NAME:
            __call__
         PURPOSE:
-           return the orbit vector at time t
+           return the orbit at time t
         INPUT:
            t - desired time
            rect - if true, return rectangular coordinates
         OUTPUT:
-           [x,vx], [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on 
-           the orbit
-           if rect: [x,y(,z),vx,vy(,vz)]
-        BUGS:
-           currently only works for times at which the orbit was requested
-           during integration; use interpolation in between?
+           an Orbit instance with initial condition set to the phase-space at time t
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return self._orb(*args,**kwargs)
+        return Orbit(vxvv=self._orb(*args,**kwargs))
 
     def plot(self,*args,**kwargs):
         """

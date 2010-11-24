@@ -224,9 +224,6 @@ class OrbitTop:
            rect - if true, return rectangular coordinates
         OUTPUT:
            [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit
-        BUGS:
-           currently only works for times at which the orbit was requested
-           during integration; use interpolation in between?
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
