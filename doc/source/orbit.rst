@@ -144,7 +144,7 @@ as a function of R
 
 .. image:: images/lp-orbit-integration-Ez.png
 
-A better approximation to an integral of the motion is given by
+Often, a better approximation to an integral of the motion is given by
 Ez/sqrt(density[R]). We refer to this quantity as ``EzJz`` and we can plot its
 behavior
 
