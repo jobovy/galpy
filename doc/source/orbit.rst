@@ -66,7 +66,7 @@ potential we can do the following
 
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
 >>> o.integrate(ts,lp)
@@ -76,3 +76,78 @@ to integrate the orbit from ``t=0`` to ``t=100``, saving the orbit at
 
 Displaying the orbit
 ---------------------
+
+After integrating the orbit, it can be displayed by using the
+``plot()`` function. The quantities that are plotted when ``plot()``
+is called depend on the dimensionality of the orbit: in 3D the (R,z)
+projection of the orbit is shown; in 2D either (X,Y) is plotted if the
+azimuth is tracked and (R,vR) is shown otherwise; in 1D (x,vx) is
+shown. E.g., for the example given above,
+
+>>> o.plot()
+
+gives
+
+.. image:: images/lp-orbit-integration.png
+
+Other projections of the orbit can be displayed by specifying the
+quantities to plot. E.g., 
+
+>>> o.plot(d1='x',d2='y')
+
+gives the projection onto the plane of the orbit:
+
+.. image:: images/lp-orbit-integration-xy.png
+
+while
+
+>>> o.plot(d1='R',d2='vR')
+
+gives the projection onto (R,vR):
+
+.. image:: images/lp-orbit-integration-RvR.png
+
+
+Orbit characterization
+------------------------
+
+The properties of the orbit can also be found using galpy. For
+example, we can calculate the peri- and apocenter radii of an orbit,
+its eccentricity, and the maximal height above the plane of the orbit
+
+>>> o.rap(), o.rperi(), o.e(), o.zmax()
+(1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
+
+We can also calculate the energy of the orbit, either in the potential
+that the orbit was integrated in, or in another potential:
+
+>>> o.E(), o.E(pot=mp)
+(0.6150000000000001, -0.67390625000000015)
+
+where ``mp`` is the Miyamoto-Nagai potential of :ref:`Introduction:
+Rotation curves <rotcurves>`.
+
+We can also show the energy as a function of time (to check energy
+conservation)
+
+>>> o.plotE()
+
+gives
+
+.. image:: images/lp-orbit-integration-E.png
+
+We can specify another quantity to plot the energy against by
+specifying ``d1=``. We can also show the vertical energy, for example,
+as a function of R
+
+>>> o.plotEz(d1='R')
+
+.. image:: images/lp-orbit-integration-Ez.png
+
+A better approximation to an integral of the motion is given by
+Ez/sqrt(density[R]). We refer to this quantity as ``EzJz`` and we can plot its
+behavior
+
+>>> o.plotEzJz(d1='R')
+
+.. image:: images/lp-orbit-integration-EzJz.png

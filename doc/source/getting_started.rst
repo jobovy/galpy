@@ -7,6 +7,8 @@ potentials. This section introduce the most basic features of
 ``galpy.potential`` and ``galpy.orbit``.
 
 
+.. _rotcurves:
+
 Rotation curves
 ---------------
 
