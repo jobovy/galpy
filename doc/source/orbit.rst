@@ -173,3 +173,44 @@ The whole orbit can also be obtained using the function ``getOrbit``
 >>> o.getOrbit()
 
 which returns a matrix of phase-space points with dimensions [ntimes,ndim].
+
+
+
+Example: The eccentricity distribution of the Milky Way's thick disk
+---------------------------------------------------------------------
+
+A straightforward application of galpy's orbit initialization and
+integration capabilities is to derive the eccentricity distribution of
+a set of thick disk stars. We start by downloading the sample of SDSS
+SEGUE (`2009AJ....137.4377Y
+<http://adsabs.harvard.edu/abs/2009AJ....137.4377Y>`_) thick disk
+stars compiled by Dierickx et al. (`2010arXiv1009.1616D
+<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) at
+
+http://www.mpia-hd.mpg.de/homes/rix/Data/Dierickx-etal-tab2.txt
+
+After reading in the data (RA,Dec,distance,pmRA,pmDec,vlos; see above)
+as a vector ``vxvv`` with dimensions [6,ndata] we (a) define the
+potential in which we want to integrate the orbits, and (b) integrate
+each orbit and save its eccentricity (running this for all 30,000-ish
+stars will take about half an hour)
+
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> ts= nu.linspace(0.,20.,10000)
+>>> mye= nu.zeros(ndata)
+>>> for ii in range(len(e)):
+...         o= Orbit(vxvv[ii,:],radec=True,vo=220.,ro=8.) #Initialize
+...         o.integrate(ts,lp) #Integrate
+...         mye[ii]= o.e() #Calculate eccentricity
+
+We then find the following eccentricity distribution
+
+.. image:: images/dierickx-myehist.png
+
+The eccentricity calculated by galpy compare well with those
+calculated by Dierickx et al., except for a few objects
+
+.. image:: images/dierickx-myee.png
+
+The script that calculates and plots everything can be downloaded
+:download:`here <examples/dierickx-edist.py>`.
