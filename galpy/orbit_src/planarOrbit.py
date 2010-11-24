@@ -232,10 +232,7 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-20
         """
-        if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
-        else:
-            thispot= pot
+        thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
         self.orbit= _integrateOrbit(self.vxvv,thispot,t)
