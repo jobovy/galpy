@@ -151,3 +151,25 @@ behavior
 >>> o.plotEzJz(d1='R')
 
 .. image:: images/lp-orbit-integration-EzJz.png
+
+
+Accessing the raw orbit
+-----------------------
+
+The value of ``R``, ``vR``, ``vT``, ``z``, ``vz``, ``x``, ``vx``,
+``y``, ``vy``, ``phi``, and ``vphi`` at any time can be obtained by
+calling the corresponding function with as argument the time. If no
+time is given the initial condition is returned, and if a time is
+requested at which the orbit was not saved spline interpolation is
+used to return the value. Examples include
+
+>>> o.R(1.)
+1.1545076874679474
+>>> o.phi(99.)
+88.105603035901169
+
+The whole orbit can also be obtained using the function ``getOrbit``
+
+>>> o.getOrbit()
+
+which returns a matrix of phase-space points with dimensions [ntimes,ndim].
