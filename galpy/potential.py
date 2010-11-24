@@ -11,6 +11,7 @@ from galpy.potential_src import plotRotcurve
 from galpy.potential_src import plotEscapecurve
 from galpy.potential_src import KGPotential
 from galpy.potential_src import interpRZPotential
+from galpy.potential_src import DehnenBarPotential
 #
 # Functions
 #
@@ -49,3 +50,4 @@ HernquistPotential= TwoPowerSphericalPotential.HernquistPotential
 TwoPowerSphericalPotential= TwoPowerSphericalPotential.TwoPowerSphericalPotential
 KGPotential= KGPotential.KGPotential
 interpRZPotential= interpRZPotential.interpRZPotential
+DehnenBarPotential= DehnenBarPotential.DehnenBarPotential
