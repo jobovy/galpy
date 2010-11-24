@@ -99,6 +99,9 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
         if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
@@ -115,6 +118,10 @@ class linearOrbit(OrbitTop):
         self.Es= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
                  self.orbit[ii,1]**2./2.
                  for ii in range(len(self.t))]
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= r'$E$'
         if d1 == 't':
             plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
