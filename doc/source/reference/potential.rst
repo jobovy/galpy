@@ -95,14 +95,20 @@ General 2D potential routines
 Specific potentials
 ++++++++++++++++++++
 
-No specifically two-dimensional potentials are available at this time,
-but all of the 3D potentials above can be used as two-dimensional
+All of the 3D potentials above can be used as two-dimensional
 potentials in the mid-plane. 
 
 .. toctree::
    :maxdepth: 2
 
    RZToplanarPotential <potential2dRZtoplanar.rst>
+
+In addition, a two-dimensional bar potential is included
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdehnenbar.rst
 
 
 
