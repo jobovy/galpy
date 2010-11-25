@@ -5,6 +5,7 @@ galpy contains various distribution function, both distribution
 functions for disks as well as for spheroids. This section introduces
 the basic procedures in ``galpy.df``.
 
+.. _usagediskdfs:
 
 Disk distribution functions
 ----------------------------

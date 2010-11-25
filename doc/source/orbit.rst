@@ -167,6 +167,14 @@ used to return the value. Examples include
 >>> o.phi(99.)
 88.105603035901169
 
+We can also initialize an ``Orbit`` instance using the phase-space
+position of another ``Orbit`` instance evaulated at time t. For
+example,
+
+>>> newOrbit= o(10.)
+
+will initialize a new Orbit instance with as initial condition the phase-space position of orbit ``o`` at ``time=10.``.
+
 The whole orbit can also be obtained using the function ``getOrbit``
 
 >>> o.getOrbit()

@@ -23,6 +23,7 @@ Quick-start guide
 
    orbit.rst
 
+   diskdf.rst
 
 Library reference
 -----------------
