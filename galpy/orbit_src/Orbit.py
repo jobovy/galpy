@@ -6,7 +6,7 @@ from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
 class Orbit:
     """General orbit class representing an orbit"""
-    def __init__(self,vxvv=None,
+    def __init__(self,vxvv=None,uvw=False,
                  radec=False,vo=235.,ro=8.5,
                  solarmotion='hogg'):
         """
@@ -19,8 +19,10 @@ class Orbit:
                   3D can be either
               1) in Galactocentric cylindrical coordinates
               2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all 2000.0)
+              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]
         OPTIONAL INPUTS:
-           radec - if True, input is 2) above
+           radec - if True, input is 2) (or 3) above
+           uvw - if True, velocities are UVW
            vo - circular velocity at ro
            ro - distance from vantage point to GC
            solarmotion - 'hogg' or 'dehnen', or 'schoenrich'
@@ -37,12 +39,18 @@ class Orbit:
             vsolar= nu.array([-11.1,12.24,7.25])/vo
         if radec:
             l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
-            pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
-                                                     vxvv[0],vxvv[1],
-                                                     degree=True)
-            X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,vxvv[2],
-                                                       vxvv[5],pmll, pmbb,
-                                                       degree=True)
+            if uvw:
+                X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2])
+                vx= vxvv[3]
+                vy= vxvv[4]
+                vz= vxvv[5]
+            else:
+                pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
+                                                         vxvv[0],vxvv[1],
+                                                         degree=True)
+                X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,vxvv[2],
+                                                           vxvv[5],pmll, pmbb,
+                                                           degree=True)
             X/= ro
             Y/= ro
             Z/= ro
@@ -54,7 +62,9 @@ class Orbit:
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,galcen=True)
-            vxvv= [R,vR,vT,z,vz,phi]          
+            vxvv= [R,vR,vT,z,vz,phi]
+        elif radec and uvw:
+            pass
         self.vxvv= vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv)
