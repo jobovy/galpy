@@ -18,7 +18,7 @@ class actionAngle:
             self._vT= vT
         else:
             if len(args) == 2:
-                vxvv= args[0](args[1])
+                vxvv= args[0](args[1]).vxvv
             else:
                 vxvv= args[0].vxvv
             self._R= vxvv[0]
