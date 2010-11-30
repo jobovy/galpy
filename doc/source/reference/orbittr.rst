@@ -1,5 +1,5 @@
-galpy.orbit.Orbit.tr
+galpy.orbit.Orbit.Tr
 ======================
 
-.. automethod:: galpy.orbit.Orbit.tr
+.. automethod:: galpy.orbit.Orbit.Tr
 
