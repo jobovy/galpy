@@ -21,6 +21,8 @@ Methods
    e <orbitecc.rst>
    integrate <orbitint.rst>
    getOrbit <orbitgetorbit.rst>
+   jp <orbitjp.rst>
+   jr <orbitjr.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
    plotE <orbitplote.rst>
@@ -42,10 +44,15 @@ Methods
    setphi <orbitsetphi.rst>
    toLinear <orbittolinear.rst>
    toPlanar <orbittoplanar.rst>
+   Tp <orbittp.rst>
+   Tr <orbittr.rst>
+   TrTp <orbittrtp.rst>
    vphi <orbitvphi.rst>
    vR <orbitvr.rst>
    vT <orbitvt.rst>
    vz <orbitvz.rst>
+   wp <orbitwr.rst>
+   wr <orbitwp.rst>
    x <orbitx.rst>
    y <orbity.rst>
    z <orbitz.rst>
