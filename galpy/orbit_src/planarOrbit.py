@@ -92,7 +92,7 @@ class planarOrbitTop(OrbitTop):
            calculate the radial action
         INPUT:
            pot - potential
-           +scipy.integrate.quad keywords
+           +scipy.integrate.quadrature keywords
         OUTPUT:
            jr
         HISTORY:
@@ -102,7 +102,115 @@ class planarOrbitTop(OrbitTop):
             self._setupaA(pot=pot)
         return self._aA.JR(**kwargs)
 
-    def _setupaA(self,pot=None):
+    def jp(self,pot=None,**kwargs):
+        """
+        NAME:
+           jp
+        PURPOSE:
+           calculate the azimuthal action
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           jp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.JPhi(**kwargs)
+
+    def wr(self,pot=None,**kwargs):
+        """
+        NAME:
+           wr
+        PURPOSE:
+           calculate the radial angle
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           wr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.angleR(**kwargs)
+
+    def wp(self,pot=None):
+        """
+        NAME:
+           wp
+        PURPOSE:
+           calculate the azimuthal angle
+        INPUT:
+           pot - potential
+        OUTPUT:
+           wp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if len(self.vxvv) < 4:
+            raise AttributeError("'Orbit' does not track azimuth")
+        else:
+            return self.vxvv[-1]
+
+    def Tr(self,pot=None,**kwargs):
+        """
+        NAME:
+           Tr
+        PURPOSE:
+           calculate the radial period
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.TR(**kwargs)
+
+    def Tp(self,pot=None,**kwargs):
+        """
+        NAME:
+           Tp
+        PURPOSE:
+           calculate the radial period
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.TPhi(**kwargs)
+
+    def TrTp(self,pot=None,**kwargs):
+        """
+        NAME:
+           TrTp
+        PURPOSE:
+           the 'ratio' between the radial and azimutha period Tr/Tphi*pi
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tr/Tp*pi
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.I(**kwargs)
+ 
+   def _setupaA(self,pot=None):
         """
         NAME:
            _setupaA

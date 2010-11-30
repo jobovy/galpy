@@ -215,6 +215,117 @@ class Orbit:
         """
         return self._orb.zmax()
 
+    def jr(self,pot=None,**kwargs):
+        """
+        NAME:
+           jr
+        PURPOSE:
+           calculate the radial action
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           jr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.jr(pot=pot,**kwargs)
+
+    def jp(self,pot=None,**kwargs):
+        """
+        NAME:
+           jp
+        PURPOSE:
+           calculate the azimuthal action
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           jp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.jp(pot=pot,**kwargs)
+
+    def wr(self,pot=None,**kwargs):
+        """
+        NAME:
+           wr
+        PURPOSE:
+           calculate the radial angle
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           wr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.wr(pot=pot,**kwargs)
+
+    def wp(self,pot=None):
+        """
+        NAME:
+           wp
+        PURPOSE:
+           calculate the azimuthal angle
+        INPUT:
+           pot - potential
+        OUTPUT:
+           wp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.wp(pot=pot,**kwargs)
+
+    def Tr(self,pot=None,**kwargs):
+        """
+        NAME:
+           Tr
+        PURPOSE:
+           calculate the radial period
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.Tr(pot=pot,**kwargs)
+
+    def Tp(self,pot=None,**kwargs):
+        """
+        NAME:
+           Tp
+        PURPOSE:
+           calculate the radial period
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tp
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.Tp(pot=pot,**kwargs)
+
+    def TrTp(self,pot=None,**kwargs):
+        """
+        NAME:
+           TrTp
+        PURPOSE:
+           the 'ratio' between the radial and azimutha period Tr/Tphi*pi
+        INPUT:
+           pot - potential
+           +scipy.integrate.quadrature keywords
+        OUTPUT:
+           Tr/Tp*pi
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.TrTp(pot=pot,**kwargs)
+
     def R(self,*args,**kwargs):
         """
         NAME:
