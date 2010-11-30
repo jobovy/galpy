@@ -4,15 +4,13 @@
 #      class: actionAngleFlat
 #
 #      methods:
-#              JRFlat
-#              JphiFlat
-#              angleRFlat
-#              TRFlat
-#              TphiFlat
-#              IFlat
-#              calcRapRperiFlat
-#              potentialFlat
-#              calcELFlat
+#              JR
+#              Jphi
+#              angleR
+#              TR
+#              Tphi
+#              I
+#              calcRapRperi
 ###############################################################################
 import math as m
 import numpy as nu
