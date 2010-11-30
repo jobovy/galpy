@@ -213,13 +213,13 @@ class actionAngleFlat(actionAngle):
         (rperi,rap)= self.calcRapRperi()
         self._JR= (2.*m.sqrt(2.)*rperi*
                    nu.array(integrate.quad(_JRFlatIntegrand,1.,rap/rperi,
-                                           args=((self._R*self._vT)**2/rperi**2.),**kwargs)))
+                                           args=((self._R*self._vT)**2./rperi**2.),**kwargs)))
         return self._JR
 
     def calcRapRperi(self):
         """
         NAME:
-           calcRapRperiFlat
+           calcRapRperi
         PURPOSE:
            calculate the apocenter and pericenter radii for a flat rotation 
            curve
