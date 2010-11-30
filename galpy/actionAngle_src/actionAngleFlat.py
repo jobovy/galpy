@@ -191,7 +191,7 @@ class actionAngleFlat(actionAngle):
         HISTORY:
            2010-05-13 - Written - Bovy (NYU)
         """
-        return (self._R*self._vT,0.)
+        return nu.array([self._R*self._vT,0.])
 
     def JR(self,**kwargs):
         """

@@ -38,7 +38,7 @@ class actionAnglePower(actionAngle):
         """
         actionAngle.__init__(self,*args,**kwargs)
         if not kwargs.has_key('beta'):
-            raise InputError("Must specify beta= for actionAnglePower")
+            raise IOError("Must specify beta= for actionAnglePower")
         self._beta= kwargs['beta']
         if self._beta < 0.:
             self._signbeta= -1
@@ -47,10 +47,14 @@ class actionAnglePower(actionAngle):
         self._absbeta= nu.fabs(self._beta)
         (rperi,rap)= self.calcRapRperi()
         self._e= (rap-rperi)/(rap+rperi)
-        self._X= (1.-self._e)**2./4./self._e\
-            *(((1.+self._e)/(1.-self._e))**(2.self._beta+2.)-1.)
-        self._Y= (1.+self._e)**2./4./self._e\
-            *(1.-((1.-self._e)/(1.+self._e))**(2.self._beta+2.))
+        if self._e == 0.:
+            self._X= 0.
+            self._Y= 0.
+        else:
+            self._X= (1.-self._e)**2./4./self._e\
+                *(((1.+self._e)/(1.-self._e))**(2.*self._beta+2.)-1.)
+            self._Y= (1.+self._e)**2./4./self._e\
+                *(1.-((1.-self._e)/(1.+self._e))**(2.*self._beta+2.))
         return None
     
     def angleR(self,**kwargs):
@@ -65,7 +69,7 @@ class actionAnglePower(actionAngle):
            w_R(R,vT,vT) in radians + 
            estimate of the error (does not include TR error)
         HISTORY:
-           2010-05-13 - Written - Bovy (NYU)
+           2010-11-30 - Written - Bovy (NYU)
         """
         if hasattr(self,'_angleR'):
             return self._angleR
@@ -74,21 +78,24 @@ class actionAnglePower(actionAngle):
             return 0.
         TR= self.TR(**kwargs)[0]
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        if self._R < Rmean:BOVY
+        if self._R < Rmean:
             if self._R > rperi:
                 wR= (2.*m.pi/TR*m.sqrt(self._absbeta)*rperi**(1.-self._beta)*
                      nu.array(integrate.quadrature(_TRPowerIntegrandSmall,
                                                    0.,m.sqrt(self._R/rperi-1.),
-                                                   args=((self._R*self._vT)**2/rperi**2.,),
-                                                   **kwargs)))+nu.array([m.pi,0.])
+                                                   args=(self._X,self._beta,
+                                                         self._signbeta),
+                                                   **kwargs)))\
+                                                   +nu.array([m.pi,0.])
             else:
                 wR= nu.array([m.pi,0.])
         else:
             if self._R < rap:
-                wR= -(2.*m.pi/TR*m.sqrt(2.)*rap*
-                      nu.array(integrate.quadrature(_TRFlatIntegrandLarge,
+                wR= -(2.*m.pi/TR*m.sqrt(self._absbeta)*rap**(1.-self._beta)*
+                      nu.array(integrate.quadrature(_TRPowerIntegrandLarge,
                                                     0.,m.sqrt(1.-self._R/rap),
-                                                    args=((self._R*self._vT)**2/rap**2.,),
+                                                    args=(self._Y,self._beta,
+                                                          self._signbeta),
                                                     **kwargs)))
             else:
                 wR= nu.array([0.,0.])
@@ -102,35 +109,40 @@ class actionAnglePower(actionAngle):
         NAME:
            TR
         PURPOSE:
-           Calculate the radial period for a flat rotation curve
+           Calculate the radial period for a power-law rotation curve
         INPUT:
            scipy.integrate.quadrature keywords
         OUTPUT:
            T_R(R,vT,vT)*vc/ro + estimate of the error
         HISTORY:
-           2010-05-13 - Written - Bovy (NYU)
+           2010-11-30 - Written - Bovy (NYU)
         """
         if hasattr(self,'_TR'):
             return self._TR
         (rperi,rap)= self.calcRapRperi()
         if rap == rperi: #Rough limit
             #TR=kappa
-            kappa= m.sqrt(2.)/self._R
+            gamma= m.sqrt(2./(1.+self._beta))
+            kappa= 2.*self._R**(self._beta-1.)/gamma
             self._TR= nu.array([2.*m.pi/kappa,0.])
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         TR= 0.
         if Rmean > rperi:
-            TR+= rperi*nu.array(integrate.quadrature(_TRFlatIntegrandSmall,
-                                                     0.,m.sqrt(Rmean/rperi-1.),
-                                                     args=((self._R*self._vT)**2/rperi**2.,),
-                                                     **kwargs))
+            TR+= rperi**(1.-self._beta)\
+                *nu.array(integrate.quadrature(_TRPowerIntegrandSmall,
+                                               0.,m.sqrt(Rmean/rperi-1.),
+                                               args=(self._X,self._beta,
+                                                     self._signbeta),
+                                               **kwargs))
         if Rmean < rap:
-            TR+= rap*nu.array(integrate.quadrature(_TRFlatIntegrandLarge,
-                                                   0.,m.sqrt(1.-Rmean/rap),
-                                                   args=((self._R*self._vT)**2/rap**2.,),
-                                                   **kwargs))
-        self._TR= m.sqrt(2.)*TR
+            TR+= rap**(1.-self._beta)\
+                *nu.array(integrate.quadrature(_TRPowerIntegrandLarge,
+                                               0.,m.sqrt(1.-Rmean/rap),
+                                               args=(self._Y,self._beta,
+                                                     self._signbeta),
+                                               **kwargs))
+        self._TR= 2.*m.sqrt(self._absbeta)*TR
         return self._TR
 
     def Tphi(self,**kwargs):
@@ -138,18 +150,18 @@ class actionAnglePower(actionAngle):
         NAME:
            Tphi
         PURPOSE:
-           Calculate the azimuthal period for a flat rotation curve
+           Calculate the azimuthal period for a power-law rotation curve
         INPUT:
            +scipy.integrate.quadrature keywords
         OUTPUT:
            T_phi(R,vT,vT)/ro/vc + estimate of the error
         HISTORY:
-           2010-05-13 - Written - Bovy (NYU)
+           2010-11-30 - Written - Bovy (NYU)
         """
         if hasattr(self,'_Tphi'):
             return self._Tphi
         (rperi,rap)= self.calcRapRperi()
-        if rap == rperi:
+        if rap == rperi:#Circular orbit
             return nu.array([2.*m.pi*self._R/self._vT,0.])
         TR= self.TR(**kwargs)
         I= self.I(**kwargs)
@@ -165,13 +177,13 @@ class actionAnglePower(actionAngle):
            I
         PURPOSE:
            Calculate I, the 'ratio' between the radial and azimutha period, 
-           for a flat rotation curve
+           for a power-law rotation curve
         INPUT:
            +scipy.integrate.quadrature keywords
         OUTPUT:
            I(R,vT,vT) + estimate of the error
         HISTORY:
-           2010-05-13 - Written - Bovy (NYU)
+           2010-11-30 - Written - Bovy (NYU)
         """
         if hasattr(self,'_I'):
             return self._I
@@ -184,16 +196,20 @@ class actionAnglePower(actionAngle):
             return self._I
         I= 0.
         if Rmean > rperi:
-            I+= nu.array(integrate.quadrature(_IFlatIntegrandSmall,
-                                              0.,m.sqrt(Rmean/rperi-1.),
-                                              args=((self._R*self._vT)**2/rperi**2.,),
-                                              **kwargs))/rperi
+            I+= rperi**(-1.-self._beta)\
+                *nu.array(integrate.quadrature(_IPowerIntegrandSmall,
+                                               0.,m.sqrt(Rmean/rperi-1.),
+                                               args=(self._X,self._beta,
+                                                     self._signbeta),
+                                               **kwargs))
         if Rmean < rap:
-            I+= nu.array(integrate.quadrature(_IFlatIntegrandLarge,
-                                              0.,m.sqrt(1.-Rmean/rap),
-                                              args=((self._R*self._vT)**2/rap**2.,),
-                                              **kwargs))/rap
-        self._I= I/m.sqrt(2.)*self._R*self._vT
+            I+= rap**(-1.-self._beta)\
+                *nu.array(integrate.quadrature(_IPowerIntegrandLarge,
+                                               0.,m.sqrt(1.-Rmean/rap),
+                                               args=(self._Y,self._beta,
+                                                     self._signbeta),
+                                               **kwargs))
+        self._I= I*self._R*self._vT*m.sqrt(self._absbeta)
         return self._I
 
     def Jphi(self):
@@ -208,27 +224,29 @@ class actionAnglePower(actionAngle):
         HISTORY:
            2010-05-13 - Written - Bovy (NYU)
         """
-        return (self._R*self._vT,0.)
+        return nu.array([self._R*self._vT,0.])
 
     def JR(self,**kwargs):
         """
         NAME:
            JR
         PURPOSE:
-           Calculate the radial action for a flat rotation curve
+           Calculate the radial action for a power-law rotation curve
         INPUT:
            +scipy.integrate.quad keywords
         OUTPUT:
            J_R(R,vT,vT)/ro/vc + estimate of the error
         HISTORY:
-           2010-05-13 - Written - Bovy (NYU)
+           2010-11-30 - Written - Bovy (NYU)
         """
         if hasattr(self,'_JR'):
             return self._JR
         (rperi,rap)= self.calcRapRperi()
-        self._JR= (2.*m.sqrt(2.)*rperi*
-                   nu.array(integrate.quad(_JRFlatIntegrand,1.,rap/rperi,
-                                           args=((self._R*self._vT)**2./rperi**2.),**kwargs)))
+        self._JR= (2./m.sqrt(self._absbeta)*rperi**(self._beta+1.)*
+                   nu.array(integrate.quad(_JRPowerIntegrand,1.,rap/rperi,
+                                           args=(self._X,self._beta,
+                                                 self._signbeta),
+                                           **kwargs)))
         return self._JR
 
     def calcRapRperi(self):
@@ -246,7 +264,7 @@ class actionAnglePower(actionAngle):
         """
         if hasattr(self,'_rperirap'):
             return self._rperirap
-        EL= calcELFlat(self._R,self._vR,self._vT,self._beta,vc=1.,ro=1.)
+        EL= calcELPower(self._R,self._vR,self._vT,self._beta,vc=1.,ro=1.)
         E, L= EL
         if self._vR == 0. and self._vT > 1.: #We are exactly at pericenter
             rperi= self._R
@@ -272,10 +290,10 @@ class actionAnglePower(actionAngle):
         self._rperirap= (rperi,rap)
         return self._rperirap
 
-def calcELpower(R,vR,vT,beta,vc=1.,ro=1.):
+def calcELPower(R,vR,vT,beta,vc=1.,ro=1.):
     """
     NAME:
-       calcELFlat
+       calcELPower
     PURPOSE:
        calculate the energy and angular momentum for a flat rotation curve
     INPUT:
@@ -309,25 +327,25 @@ def potentialPower(R,beta,vc=1.,ro=1.):
     """
     return vc**2./2./beta*(R/ro)**(2.*beta)
 
-def _JRFlatIntegrand(r,L2rperi2):
+def _JRPowerIntegrand(r,X,beta,signbeta):
     """The J_R integrand for a flat rotation curve"""
-    return nu.sqrt(L2rperi2*(1.-1./r**2)/2.-nu.log(r))
+    return nu.sqrt(signbeta*(1.-X-r**(2.*beta+2.)+r**2.*X))/r
 
-def _TRFlatIntegrandSmall(t,L2rperi2):
+def _TRPowerIntegrandSmall(t,X,beta,signbeta):
     r= 1.+t**2.#part of the transformation
-    return 2.*t/_JRFlatIntegrand(r,L2rperi2)
+    return 2.*t/_JRPowerIntegrand(r,X,beta,signbeta)
 
-def _TRPowerIntegrandLarge(t,L2rap2):
+def _TRPowerIntegrandLarge(t,Y,beta,signbeta):
     r= 1.-t**2.#part of the transformation
-    return 2.*t/_JRFlatIntegrand(r,L2rap2) #same integrand
+    return 2.*t/_JRPowerIntegrand(r,Y,beta,signbeta) #same integrand
 
-def _IFlatIntegrandSmall(t,L2rperi2):
+def _IPowerIntegrandSmall(t,X,beta,signbeta):
     r= 1.+t**2.#part of the transformation
-    return 2.*t/_JRFlatIntegrand(r,L2rperi2)/r**2.
+    return 2.*t/_JRPowerIntegrand(r,X,beta,signbeta)/r**2.
 
-def _IFlatIntegrandLarge(t,L2rap2):
+def _IPowerIntegrandLarge(t,Y,beta,signbeta):
     r= 1.-t**2.#part of the transformation
-    return 2.*t/_JRFlatIntegrand(r,L2rap2)/r**2.
+    return 2.*t/_JRPowerIntegrand(r,Y,beta,signbeta)/r**2.
 
 def _rapRperiPowerEq(R,E,L,beta):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
@@ -338,7 +356,7 @@ def _rapRperiPowerDeriv(R,E,L,beta):
     apo- and pericenter"""
     return -R**(2.*beta-1.)+L**2./R**3.
 
-def _rapRperiFlatPowerStart(R,E,L,beta,rap=False):
+def _rapRperiPowerFindStart(R,E,L,beta,rap=False):
     """
     NAME:
        _rapRperiPowerFindStart
