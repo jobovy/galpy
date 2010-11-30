@@ -2,11 +2,13 @@ import math as m
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
+from galpy import actionAngle
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
 from OrbitTop import OrbitTop
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
-    evaluateplanarPotentials
+    evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
@@ -81,6 +83,69 @@ class planarOrbitTop(OrbitTop):
 
     def zmax(self):
         raise AttributeError("planarOrbit does not have a zmax")
+    
+    def jr(self,pot=None,**kwargs):
+        """
+        NAME:
+           jr
+        PURPOSE:
+           calculate the radial action
+        INPUT:
+           pot - potential
+           +scipy.integrate.quad keywords
+        OUTPUT:
+           jr
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if not hasattr(self,'aA'):
+            self._setupaA(pot=pot)
+        return self._aA.JR(**kwargs)
+
+    def _setupaA(self,pot=None):
+        """
+        NAME:
+           _setupaA
+        PURPOSE:
+           set up an actionAngle module for this Orbit
+        INPUT:
+           pot - potential
+        OUTPUT:
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        else:
+            thispot= pot
+        if isinstance(thispot,LogarithmicHaloPotential) or \
+                (isinstance(thispot,planarPotentialFromRZPotential) and \
+                     isinstance(thispot._RZPot,LogarithmicHaloPotential)):
+            self._aA= actionAngle.actionAngleFlat(self.vxvv[0],
+                                                  self.vxvv[1],
+                                                  self.vxvv[2])
+        elif isinstance(thispot,PowerSphericalPotential) or \
+                (isinstance(thispot,planarPotentialFromRZPotential) and \
+                     isinstance(thispot._RZPot,PowerSphericalPotential)):
+            if isinstance(thispot,planarPotentialFromRZPotential) and \
+                    isinstance(thispot._RZPot,PowerSphericalPotential):
+                thispot= thispot._RZPot
+            if thispot.alpha == 2.:
+                self._aA= actionAngle.actionAngleFlat(self.vxvv[0],
+                                                      self.vxvv[1],
+                                                      self.vxvv[2])
+            else:
+                self._aA= actionAngle.actionAnglePower(self.vxvv[0],
+                                                       self.vxvv[1],
+                                                       self.vxvv[2],
+                                                       beta=0.5-thispot.alpha/4.)
+        else:
+            raise AttributeError("Potential not implemented yet/not supported")
 
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
