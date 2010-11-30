@@ -40,6 +40,8 @@ Methods
    rap <orbitrap.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
+   toLinear <orbittolinear.rst>
+   toPlanar <orbittoplanar.rst>
    vphi <orbitvphi.rst>
    vR <orbitvr.rst>
    vT <orbitvt.rst>
