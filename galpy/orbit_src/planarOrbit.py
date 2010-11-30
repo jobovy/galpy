@@ -3,7 +3,8 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 from galpy import actionAngle
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
+    KeplerPotential
 from OrbitTop import OrbitTop
 from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
@@ -84,60 +85,6 @@ class planarOrbitTop(OrbitTop):
     def zmax(self):
         raise AttributeError("planarOrbit does not have a zmax")
     
-    def jr(self,pot=None,**kwargs):
-        """
-        NAME:
-           jr
-        PURPOSE:
-           calculate the radial action
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           jr
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.JR(**kwargs)
-
-    def jp(self,pot=None,**kwargs):
-        """
-        NAME:
-           jp
-        PURPOSE:
-           calculate the azimuthal action
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           jp
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.JPhi(**kwargs)
-
-    def wr(self,pot=None,**kwargs):
-        """
-        NAME:
-           wr
-        PURPOSE:
-           calculate the radial angle
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           wr
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.angleR(**kwargs)
-
     def wp(self,pot=None):
         """
         NAME:
@@ -156,61 +103,7 @@ class planarOrbitTop(OrbitTop):
         else:
             return self.vxvv[-1]
 
-    def Tr(self,pot=None,**kwargs):
-        """
-        NAME:
-           Tr
-        PURPOSE:
-           calculate the radial period
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           Tr
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.TR(**kwargs)
-
-    def Tp(self,pot=None,**kwargs):
-        """
-        NAME:
-           Tp
-        PURPOSE:
-           calculate the radial period
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           Tp
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.TPhi(**kwargs)
-
-    def TrTp(self,pot=None,**kwargs):
-        """
-        NAME:
-           TrTp
-        PURPOSE:
-           the 'ratio' between the radial and azimutha period Tr/Tphi*pi
-        INPUT:
-           pot - potential
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           Tr/Tp*pi
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if not hasattr(self,'aA'):
-            self._setupaA(pot=pot)
-        return self._aA.I(**kwargs)
- 
-   def _setupaA(self,pot=None):
+    def _setupaA(self,pot=None):
         """
         NAME:
            _setupaA
@@ -237,6 +130,13 @@ class planarOrbitTop(OrbitTop):
             self._aA= actionAngle.actionAngleFlat(self.vxvv[0],
                                                   self.vxvv[1],
                                                   self.vxvv[2])
+        elif isinstance(thispot,KeplerPotential) or \
+                (isinstance(thispot,planarPotentialFromRZPotential) and \
+                     isinstance(thispot._RZPot,KeplerPotential)):
+            self._aA= actionAngle.actionAnglePower(self.vxvv[0],
+                                                   self.vxvv[1],
+                                                   self.vxvv[2],
+                                                   beta=-0.25)
         elif isinstance(thispot,PowerSphericalPotential) or \
                 (isinstance(thispot,planarPotentialFromRZPotential) and \
                      isinstance(thispot._RZPot,PowerSphericalPotential)):
