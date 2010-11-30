@@ -622,6 +622,46 @@ class Orbit:
         """
         self._orb.plotvy(*args,**kwargs)
 
+    def toPlanar(self):
+        """
+        NAME:
+           toPlanar
+        PURPOSE:
+           convert a 3D orbit into a 2D orbit
+        INPUT:
+           (none)
+        OUTPUT:
+           planarOrbit
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if len(self.vxvv) == 6:
+            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[5]]
+        elif len(self.vxvv) == 5:
+            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2]]
+        else:
+            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
+        return Orbit(vxvv=vxvv)
+
+    def toLinear(self):
+        """
+        NAME:
+           toLinear
+        PURPOSE:
+           convert a 3D orbit into a 1D orbit (z)
+        INPUT:
+           (none)
+        OUTPUT:
+           linearOrbit
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if len(self.vxvv) == 6 or len(self.vxvv) == 5:
+            vxvv= [self.vxvv[3],self.vxvv[4]]
+        else:
+            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
+        return Orbit(vxvv=vxvv)
+
     def __add__(self,linOrb):
         """
         NAME:
