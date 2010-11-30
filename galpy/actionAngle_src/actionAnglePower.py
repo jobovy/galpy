@@ -290,6 +290,30 @@ class actionAnglePower(actionAngle):
         self._rperirap= (rperi,rap)
         return self._rperirap
 
+def calcRapRperiFromELPower(E,L,beta,vc=1.,ro=1.):
+    """
+    NAME:
+       calcRapRperiFromELPower
+    PURPOSE:
+       calculate the apocenter and pericenter radii for a power-law 
+       rotation curve
+    INPUT:
+       E - energy
+       L - angular momemtum
+       beta - power-law index of rotation curve
+       vc - circular velocity
+       ro - reference radius
+    OUTPUT:
+       (rperi,rap)
+    HISTORY:
+       2010-11-30 - Written - Bovy (NYU)
+    """
+    rstart= _rapRperiPowerFindStart(L,E,L)
+    rperi= optimize.brentq(_rapRperiPowerEq,rstart,L,(E,L,beta))
+    rend= _rapRperiPowerFindStart(L,E,L,rap=True)
+    rap= optimize.brentq(_rapRperiPowerEq,L,rend,(E,L,beta))
+    return (rperi,rap)
+
 def calcELPower(R,vR,vT,beta,vc=1.,ro=1.):
     """
     NAME:

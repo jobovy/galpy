@@ -26,8 +26,10 @@ from surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.potential import PowerSphericalPotential
-from galpy.actionAngle import actionAngleFlat
+from galpy.actionAngle import actionAngleFlat, actionAnglePower
 from galpy.actionAngle_src.actionAngleFlat import calcRapRperiFromELFlat #HACK
+from galpy.actionAngle_src.actionAnglePower import \
+    calcRapRperiFromELPower #HACK
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 class diskdf:
     """Class that represents a disk DF"""
@@ -272,6 +274,9 @@ class diskdf:
         if self._beta == 0.:
             rperi, rap= calcRapRperiFromELFlat(E,L,vc=1.,ro=1.)
             aA= actionAngleFlat(rperi,0.,L/rperi)
+        else:
+            rperi, rap= calcRapRperiFromELPower(E,L,vc=1.,ro=1.)
+            aA= actionAnglePower(rperi,0.,L/rperi,beta=self._beta)
         TR= aA.TR()[0]
         return (2.*m.pi/TR, rap, rperi)
 
