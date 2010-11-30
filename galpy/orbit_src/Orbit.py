@@ -631,7 +631,7 @@ class Orbit:
         INPUT:
            (none)
         OUTPUT:
-           planarOrbit
+           planar Orbit
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
@@ -652,7 +652,7 @@ class Orbit:
         INPUT:
            (none)
         OUTPUT:
-           linearOrbit
+           linear Orbit
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
