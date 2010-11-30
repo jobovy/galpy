@@ -1,4 +1,4 @@
-galpy.orbit.Orbit.trtp
+galpy.orbit.Orbit.TrTp
 ========================
 
 .. automethod:: galpy.orbit.Orbit.TrTp
