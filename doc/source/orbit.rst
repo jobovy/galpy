@@ -55,6 +55,10 @@ distance between the Galactic center and the Sun can be given as
 orbit is initialized assuming a circular velocity of one at the
 distance of the Sun.
 
+When ``radec=True`` is set, velocities can also be specified in
+Galactic coordinates if ``UVW=True`` is set. The input is then
+``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
+in km/s. U is, as usual, defined as -vR (minus vR).
 
 Orbit integration
 ---------------------
