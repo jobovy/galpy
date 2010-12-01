@@ -23,6 +23,7 @@ Methods
    getOrbit <orbitgetorbit.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
+   L <orbitl.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
    plotE <orbitplote.rst>
