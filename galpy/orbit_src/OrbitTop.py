@@ -424,10 +424,9 @@ class OrbitTop:
             else:
                 x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d1 == 'vx':
-            if len(self.vxvv) == 2:
-                x= self.orbit[:,1]
-            else:
-                raise AttributeError("This v_x not implemented, ask me")
+            x= self.vx()
+        elif d1 == 'vy':
+            x= self.vy()
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -457,10 +456,10 @@ class OrbitTop:
             else:
                 y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d2 == 'vx':
-            if len(self.vxvv) == 2:
-                y= self.orbit[:,1]
-            else:
-                raise AttributeError("This v_x not implemented, ask me")
+            y= self.vx()
+        elif d2 == 'vy':
+            y= self.vy()
+
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
