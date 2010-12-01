@@ -6,7 +6,7 @@
 #                          rho(r)= ---------
 #                                   r^\alpha
 ###############################################################################
-import math as m
+import numpy as nu
 from scipy import special, integrate
 from Potential import Potential
 class PowerSphericalPotential(Potential):
@@ -56,7 +56,7 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Started - Bovy (NYU)
         """
         if self.alpha == 2.:
-            return m.log(R**2.+z**2.)/2. 
+            return nu.log(R**2.+z**2.)/2. 
         else:
             return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
 

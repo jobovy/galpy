@@ -2,7 +2,7 @@
 #   LogarithmicHaloPotential.py: class that implements the logarithmic halo
 #                                halo potential Phi(r) = vc**2 ln(r)
 ###############################################################################
-import math as m
+import numpy as nu
 from Potential import Potential
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
@@ -49,7 +49,7 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
            2010-04-30 - Adapted for R,z - Bovy (NYU)
         """
-        return 1./2.*m.log(R**2.+(z/self._q)**2.+self._core2)
+        return 1./2.*nu.log(R**2.+(z/self._q)**2.+self._core2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

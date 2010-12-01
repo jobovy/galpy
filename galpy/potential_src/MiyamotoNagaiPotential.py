@@ -5,7 +5,7 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
-import math as m
+import numpy as nu
 from Potential import Potential
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
@@ -67,7 +67,7 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -1./m.sqrt(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)
+        return -1./nu.sqrt(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -85,7 +85,7 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        return -R/(R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.)
+        return -R/(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -103,10 +103,10 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtbz= m.sqrt(self._b2+z**2.)
+        sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
         return (-z*asqrtbz/sqrtbz/
-                 (R**2.+(self._a+m.sqrt(z**2.+self._b2))**2.)**(3./2.))
+                 (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -124,7 +124,7 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        sqrtbz= m.sqrt(self._b2+z**2.)
+        sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
         return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
             (R**2.+asqrtbz)**2.5/sqrtbz**3.
