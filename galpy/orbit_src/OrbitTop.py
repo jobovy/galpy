@@ -63,7 +63,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         return thiso[0]
 
     def vR(self,*args,**kwargs):
@@ -79,7 +79,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         return thiso[1]
 
     def vT(self,*args,**kwargs):
@@ -95,7 +95,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         return thiso[2]
 
     def z(self,*args,**kwargs):
@@ -111,7 +111,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) < 5:
             raise AttributeError("linear and planar orbits do not have z()")
         return thiso[3]
@@ -129,7 +129,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) < 5:
             raise AttributeError("linear and planar orbits do not have vz()")
         return thiso[4]
@@ -147,7 +147,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) != 4 and len(thiso) != 6:
             raise AttributeError("orbit must track azimuth to use phi()")
         elif len(thiso) == 4:
@@ -168,7 +168,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) == 2:
             return thiso[0]
         if len(thiso) != 4 and len(thiso) != 6:
@@ -191,7 +191,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) != 4 and len(thiso) != 6:
             raise AttributeError("orbit must track azimuth to use y()")
         elif len(thiso) == 4:
@@ -212,7 +212,7 @@ class OrbitTop:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) == 2:
             return thiso[1]
         if len(thiso) != 4 and len(thiso) != 6:
@@ -236,7 +236,7 @@ class OrbitTop:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         if len(thiso) == 2:
             return thiso[1]
         if len(thiso) != 4 and len(thiso) != 6:
@@ -260,8 +260,37 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs).vxvv
+        thiso= self(*args,**kwargs)
         return thiso[2]/thiso[0]
+
+    def L(self,*args,**kwargs):
+        """
+        NAME:
+           L
+        PURPOSE:
+           calculate the angular momentum
+        INPUT:
+           (none)
+        OUTPUT:
+           angular momentum
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs)
+        if len(thiso) < 3:
+            raise AttributeError("'linearOrbit has no angular momentum")
+        elif len(thiso) == 3 or len(thiso) == 4:
+            return thiso[0]*thiso[2]
+        elif len(thiso) == 5:
+            raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
+        else: #len(thiso)==6
+            vx= self.vx()
+            vy= self.vy()
+            vz= self.vz()
+            x= self.x()
+            y= self.y()
+            z= self.z()
+            return nu.array([y*vz-z*vy,z*vx-x*vz,x*vy-y*vx])
 
     def __call__(self,*args,**kwargs):
         """

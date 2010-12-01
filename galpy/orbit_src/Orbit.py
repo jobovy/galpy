@@ -159,6 +159,21 @@ class Orbit:
         """
         return self._orb.E(pot=pot)
 
+    def L(self,*args,**kwargs):
+        """
+        NAME:
+           L
+        PURPOSE:
+           calculate the angular momentum at time t
+        INPUT:
+           (none)
+        OUTPUT:
+           angular momentum
+        HISTORY:
+           2010-09-15 - Written - Bovy (NYU)
+        """
+        return self._orb.L(*args,**kwargs)
+
     def e(self):
         """
         NAME:
