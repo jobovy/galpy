@@ -63,7 +63,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         return thiso[0]
 
     def vR(self,*args,**kwargs):
@@ -79,7 +79,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         return thiso[1]
 
     def vT(self,*args,**kwargs):
@@ -95,7 +95,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         return thiso[2]
 
     def z(self,*args,**kwargs):
@@ -111,7 +111,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         if len(thiso) < 5:
             raise AttributeError("linear and planar orbits do not have z()")
         return thiso[3]
@@ -129,7 +129,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         if len(thiso) < 5:
             raise AttributeError("linear and planar orbits do not have vz()")
         return thiso[4]
@@ -147,7 +147,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         if len(thiso) != 4 and len(thiso) != 6:
             raise AttributeError("orbit must track azimuth to use phi()")
         elif len(thiso) == 4:
@@ -168,7 +168,9 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
+        if len(thiso) == 2:
+            return thiso[0]
         if len(thiso) != 4 and len(thiso) != 6:
             raise AttributeError("orbit must track azimuth to use x()")
         elif len(thiso) == 4:
@@ -189,13 +191,61 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         if len(thiso) != 4 and len(thiso) != 6:
             raise AttributeError("orbit must track azimuth to use y()")
         elif len(thiso) == 4:
             return thiso[0]*m.sin(thiso[3])
         else:
             return thiso[0]*m.sin(thiso[5])
+
+    def vx(self,*args,**kwargs):
+        """
+        NAME:
+           vx
+        PURPOSE:
+           return x velocity at time t
+        INPUT:
+           t - (optional) time at which to get the velocity
+        OUTPUT:
+           vx(t)
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs).vxvv
+        if len(thiso) == 2:
+            return thiso[1]
+        if len(thiso) != 4 and len(thiso) != 6:
+            raise AttributeError("orbit must track azimuth to use vx()")
+        elif len(thiso) == 4:
+            theta= thiso[3]
+        else:
+            theta= thiso[5]
+        return thiso[1]*m.cos(theta)-thiso[2]*m.sin(theta)
+
+    def vy(self,*args,**kwargs):
+        """
+        NAME:
+           vy
+        PURPOSE:
+           return y velocity at time t
+        INPUT:
+           t - (optional) time at which to get the velocity
+        OUTPUT:
+           vy(t)
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        thiso= self(*args,**kwargs).vxvv
+        if len(thiso) == 2:
+            return thiso[1]
+        if len(thiso) != 4 and len(thiso) != 6:
+            raise AttributeError("orbit must track azimuth to use vx()")
+        elif len(thiso) == 4:
+            theta= thiso[3]
+        else:
+            theta= thiso[5]
+        return thiso[2]*m.cos(theta)+thiso[1]*m.sin(theta)
 
     def vphi(self,*args,**kwargs):
         """
@@ -210,7 +260,7 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
+        thiso= self(*args,**kwargs).vxvv
         return thiso[2]/thiso[0]
 
     def __call__(self,*args,**kwargs):

@@ -473,6 +473,36 @@ class Orbit:
         """
         return self._orb.y(*args,**kwargs)
 
+    def vx(self,*args,**kwargs):
+        """
+        NAME:
+           vx
+        PURPOSE:
+           return x velocity at time t
+        INPUT:
+           t - (optional) time at which to get the velocity
+        OUTPUT:
+           vx(t)
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.vx(*args,**kwargs)
+
+    def vy(self,*args,**kwargs):
+        """
+        NAME:
+           vy
+        PURPOSE:
+           return y velocity at time t
+        INPUT:
+           t - (optional) time at which to get the velocity
+        OUTPUT:
+           vy(t)
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        return self._orb.vy(*args,**kwargs)
+
     def __call__(self,*args,**kwargs):
         """
         NAME:
