@@ -243,7 +243,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        return self._orb.wp(pot=pot,**kwargs)
+        return self._orb.wp(pot=pot)
 
     def jr(self,pot=None,**kwargs):
         """
@@ -259,7 +259,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.JR(**kwargs)
 
@@ -277,7 +277,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.Jphi(**kwargs)
 
@@ -295,7 +295,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.angleR(**kwargs)
 
@@ -313,7 +313,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.TR(**kwargs)
 
@@ -331,7 +331,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.Tphi(**kwargs)
 
@@ -349,7 +349,7 @@ class Orbit:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
-        if not hasattr(self,'aA'):
+        if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.I(**kwargs)
  
