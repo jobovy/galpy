@@ -1,6 +1,9 @@
 import math as m
 import numpy as nu
 from scipy import integrate
+from galpy import actionAngle
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
+    KeplerPotential
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 import galpy.util.bovy_plot as plot
@@ -132,6 +135,41 @@ class FullOrbit(OrbitTop):
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
+
+    def _setupaA(self,pot=None):
+        """
+        NAME:
+           _setupaA
+        PURPOSE:
+           set up an actionAngle module for this Orbit
+        INPUT:
+           pot - potential
+        OUTPUT:
+        HISTORY:
+           2010-11-30 - Written - Bovy (NYU)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        L= self.L()
+        r= m.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
+        vT= m.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/r
+        vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/r
+        if isinstance(pot,LogarithmicHaloPotential):
+            self._aA= actionAngle.actionAngleFlat(r,vR,vT)
+        elif isinstance(pot,KeplerPotential):
+            self._aA= actionAngle.actionAnglePower(r,vR,vT,beta=-0.25)
+        elif isinstance(pot,PowerSphericalPotential):
+            if pot.alpha == 2.:
+                self._aA= actionAngle.actionAngleFlat(r,vR,vT)
+            else:
+                self._aA= actionAngle.actionAnglePower(r,vR,vT,
+                                                       beta=0.5\
+                                                           -thispot.alpha/4.)
+        else:
+            raise AttributeError("Potential not implemented yet/not supported")
 
     def plotE(self,*args,**kwargs):
         """
