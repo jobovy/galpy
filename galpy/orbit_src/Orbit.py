@@ -528,7 +528,8 @@ class Orbit:
            t - desired time
            rect - if true, return rectangular coordinates
         OUTPUT:
-           an Orbit instance with initial condition set to the phase-space at time t
+           an Orbit instance with initial condition set to the 
+           phase-space at time t
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
