@@ -50,6 +50,8 @@ Methods
    vphi <orbitvphi.rst>
    vR <orbitvr.rst>
    vT <orbitvt.rst>
+   vx <orbitvx.rst>
+   vy <orbitvy.rst>
    vz <orbitvz.rst>
    wp <orbitwr.rst>
    wr <orbitwp.rst>
