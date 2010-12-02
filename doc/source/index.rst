@@ -25,6 +25,8 @@ Quick-start guide
 
    diskdf.rst
 
+   actionAngle.rst
+
 Library reference
 -----------------
 
