@@ -167,9 +167,9 @@ class FullOrbit(OrbitTop):
             else:
                 self._aA= actionAngle.actionAnglePower(r,vR,vT,
                                                        beta=0.5\
-                                                           -thispot.alpha/4.)
+                                                           -pot.alpha/4.)
         else:
-            raise AttributeError("Potential not implemented yet/not supported")
+            self._aA= actionAngle.actionAngleAxi(r,vR,vT,pot=pot)
 
     def plotE(self,*args,**kwargs):
         """

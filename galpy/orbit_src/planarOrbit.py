@@ -153,7 +153,8 @@ class planarOrbitTop(OrbitTop):
                                                        self.vxvv[2],
                                                        beta=0.5-thispot.alpha/4.)
         else:
-            raise AttributeError("Potential not implemented yet/not supported")
+            self._aA= actionAngle.actionAngleAxi(self.vxvv[0],self.vxvv[1],
+                                                 self.vxvv[2],pot=thispot)
 
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
