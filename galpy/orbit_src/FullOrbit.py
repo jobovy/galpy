@@ -169,7 +169,11 @@ class FullOrbit(OrbitTop):
                                                        beta=0.5\
                                                            -pot.alpha/4.)
         else:
-            self._aA= actionAngle.actionAngleAxi(r,vR,vT,pot=pot)
+            if isinstance(pot,list):
+                thispot= [p.toPlanar() for p in pot]
+            else:
+                thispot= pot
+            self._aA= actionAngle.actionAngleAxi(r,vR,vT,pot=thispot)
 
     def plotE(self,*args,**kwargs):
         """

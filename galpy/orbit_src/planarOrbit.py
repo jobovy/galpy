@@ -120,7 +120,7 @@ class planarOrbitTop(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        if isinstance(pot,Potential):
+        if isinstance(pot,Potential) or isinstance(pot,list):
             thispot= RZToplanarPotential(pot)
         else:
             thispot= pot
@@ -153,6 +153,7 @@ class planarOrbitTop(OrbitTop):
                                                        self.vxvv[2],
                                                        beta=0.5-thispot.alpha/4.)
         else:
+            
             self._aA= actionAngle.actionAngleAxi(self.vxvv[0],self.vxvv[1],
                                                  self.vxvv[2],pot=thispot)
 
