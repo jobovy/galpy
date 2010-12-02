@@ -59,7 +59,7 @@ class actionAngleFlat(actionAngle):
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         if self._R < Rmean:
             if self._R > rperi:
-                wR= (2.*m.pi/TR*m.sqrt(2.)*rperi*
+                wR= (2.*m.pi/TR/m.sqrt(2.)*rperi*
                      nu.array(integrate.quadrature(_TRFlatIntegrandSmall,
                                                    0.,m.sqrt(self._R/rperi-1.),
                                                    args=((self._R*self._vT)**2/rperi**2.,),
@@ -68,7 +68,7 @@ class actionAngleFlat(actionAngle):
                 wR= nu.array([m.pi,0.])
         else:
             if self._R < rap:
-                wR= -(2.*m.pi/TR*m.sqrt(2.)*rap*
+                wR= -(2.*m.pi/TR/m.sqrt(2.)*rap*
                       nu.array(integrate.quadrature(_TRFlatIntegrandLarge,
                                                     0.,m.sqrt(1.-self._R/rap),
                                                     args=((self._R*self._vT)**2/rap**2.,),

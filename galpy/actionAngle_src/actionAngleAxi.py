@@ -71,7 +71,7 @@ class actionAngleAxi(actionAngle):
                 wR= (2.*m.pi/TR*
                      nu.array(integrate.quadrature(_TRAxiIntegrandSmall,
                                                    0.,m.sqrt(self._R-rperi),
-                                                   args=(E,L,self._pot)
+                                                   args=(E,L,self._pot,rperi),
                                                    **kwargs)))\
                                                    +nu.array([m.pi,0.])
             else:
@@ -80,8 +80,8 @@ class actionAngleAxi(actionAngle):
             if self._R < rap:
                 wR= -(2.*m.pi/TR*
                       nu.array(integrate.quadrature(_TRAxiIntegrandLarge,
-                                                    0.,m.sqrt(rap--self._R),
-                                                    args=(E,L,self._pot)
+                                                    0.,m.sqrt(rap-self._R),
+                                                    args=(E,L,self._pot,rap),
                                                     **kwargs)))
             else:
                 wR= nu.array([0.,0.])
