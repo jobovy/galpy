@@ -82,4 +82,22 @@ at `viZier
 <http://vizier.cfa.harvard.edu/viz-bin/VizieR?-source=V/130/>`_). Since
 the velocities in this catalog are given as U,V, and W, we use the
 ``radec`` and ``UVW`` keywords to initialize the orbits from the raw
-data.
+data. For each object ``ii``
+
+>>> o= Orbit(vxvv[ii,:],radec=True,uvw=True,vo=220.,ro=8.)
+
+We then calculate the actions and angles for each object in a flat
+rotation curve potential
+
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> myjr[ii]= o.jr(pp)[0]
+
+etc.
+
+Plotting the radial action versus the angular momentum
+
+>>> plot.bovy_plot(myjp,myjr/2./nu.pi,'k,',xlabel=r'$J_{\phi}$',ylabel=r'$J_R/2\pi$',xrange=[0.7,1.3],yrange=[0.,0.05])
+
+shows a feature in the distribution
+
+.. image:: images/actionAngle-jrjp.png
