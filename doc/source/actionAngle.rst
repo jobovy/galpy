@@ -15,7 +15,7 @@ Actions, angles, and orbital frequencies for spherical potentials can
 be calculated by first instantiating an ``Orbit`` object and then
 calling the action-angle functions. Since some of the methods assume
 that orbits are given in re-normalized coordinates, i.e.,
-``vc(ro)=1``, it is prudent to only call these methods with orbits
+``vc(1)=1``, it is prudent to only call these methods with orbits
 that are initialized in this way. For example, we initialized
 everything with
 
