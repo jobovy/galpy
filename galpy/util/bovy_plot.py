@@ -560,10 +560,10 @@ def scatterplot(x,y,*args,**kwargs):
     #Add onedhists
     if not onedhists:
         return
-    axHistx.hist(x, bins=bins,normed=True,histtype=onedhisttype,
+    axHistx.hist(x, bins=bins,normed=True,histtype=onedhisttype,range=xrange,
                  color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
     axHisty.hist(y, bins=bins, orientation='horizontal',normed=True,
-                 histtype=onedhisttype,
+                 histtype=onedhisttype,range=yrange,
                  color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
