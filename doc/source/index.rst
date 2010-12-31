@@ -39,6 +39,8 @@ Library reference
 
    reference/df.rst
 
+   reference/util.rst
+
 Acknowledging galpy
 --------------------
 
