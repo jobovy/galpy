@@ -169,14 +169,17 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) == 2:
-            return thiso[0]
-        if len(thiso) != 4 and len(thiso) != 6:
+        print thiso.shape, len(thiso.shape)
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        print thiso.shape, len(thiso.shape)
+        if len(thiso[:,0]) == 2:
+            return thiso[:,0]
+        if len(thiso[:,0]) != 4 and len(thiso[0,:]) != 6:
             raise AttributeError("orbit must track azimuth to use x()")
-        elif len(thiso) == 4:
-            return thiso[0]*m.cos(thiso[3])
+        elif len(thiso[:,0]) == 4:
+            return thiso[0,:]*nu.cos(thiso[3,:])
         else:
-            return thiso[0]*m.cos(thiso[5])
+            return thiso[0,:]*nu.cos(thiso[5,:])
 
     def y(self,*args,**kwargs):
         """
@@ -316,10 +319,12 @@ class OrbitTop:
         if len(args) == 0:
             return self.vxvv
         else:
-            t= args
-        if t in list(self.t):
-            return self.orbit[list(self.t).index(t),:]
+            t= args[0]
+        if isinstance(t,(int,float)) and t in list(self.t):
+                return self.orbit[list(self.t).index(t),:]
         else:
+            if isinstance(t,(int,float)): nt= 1
+            else: nt= len(t)
             dim= len(self.vxvv)
             if not hasattr(self,"_orbInterp"):
                 orbInterp= []
@@ -330,7 +335,10 @@ class OrbitTop:
             out= []
             for ii in range(dim):
                 out.append(self._orbInterp[ii](t))
-            return nu.array(out).reshape(dim)
+            if nt == 1:
+                return nu.array(out).reshape(dim)
+            else:
+                return nu.array(out)
 
     def plotE(self,pot,*args,**kwargs):
         """
