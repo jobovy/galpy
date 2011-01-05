@@ -142,7 +142,7 @@ class Orbit:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return self._orb.getOrbit(self)
+        return self._orb.getOrbit()
 
     def E(self,pot=None):
         """
