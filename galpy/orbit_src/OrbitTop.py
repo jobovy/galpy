@@ -1,6 +1,6 @@
 import math as m
 import numpy as nu
-from scipy import integrate, interpolate, fftpack
+from scipy import integrate, interpolate
 import galpy.util.bovy_plot as plot
 class OrbitTop:
     """General class that holds orbits and integrates them"""
@@ -308,7 +308,7 @@ class OrbitTop:
         """
         #BOVY: REPLACE WITH CALCULATION FUNCTION
         x= self.x(self.t)
-        xw= fftpack.fft(x-nu.mean(x))
+        xw= nu.fft.fft(x-nu.mean(x))
         xw= nu.abs(xw[0:len(xw)/2])*(self.t[1]-self.t[0])/(self.t[-1]-self.t[0])
         return xw
 
