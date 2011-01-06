@@ -1,6 +1,6 @@
 import math as m
 import numpy as nu
-from scipy import integrate, interpolate
+from scipy import integrate, interpolate, fftpack
 import galpy.util.bovy_plot as plot
 class OrbitTop:
     """General class that holds orbits and integrates them"""
@@ -169,9 +169,7 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        print thiso.shape, len(thiso.shape)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        print thiso.shape, len(thiso.shape)
         if len(thiso[:,0]) == 2:
             return thiso[:,0]
         if len(thiso[:,0]) != 4 and len(thiso[0,:]) != 6:
@@ -294,6 +292,44 @@ class OrbitTop:
             y= self.y()
             z= self.z()
             return nu.array([y*vz-z*vy,z*vx-x*vz,x*vy-y*vx])
+
+    def xw(self,*args,**kwargs):
+        """
+        NAME:
+           xw
+        PURPOSE:
+           return the Fourier transform of xx
+        INPUT:
+           t - (optional) time at which to get xw
+        OUTPUT:
+           xw(t)
+        HISTORY:
+           2011-01-04 - Written - Bovy (NYU)
+        """
+        #BOVY: REPLACE WITH CALCULATION FUNCTION
+        x= self.x(self.t)
+        xw= fftpack.fft(x-nu.mean(x))
+        xw= nu.abs(xw[0:len(xw)/2])*(self.t[1]-self.t[0])/(self.t[-1]-self.t[0])
+        return xw
+
+    def plotxw(self,*args,**kwargs):
+        """
+        NAME:
+           plotxw
+        PURPOSE:
+           plot the spectrum of x
+        INPUT:
+           bovy_plot.bovy_plot args and kwargs
+        OUTPUT:
+           x(t)
+        HISTORY:
+           2010-09-21 - Written - Bovy (NYU)
+        """
+        xw= self.xw()
+        #BOVY: CHECK THAT THIS IS CORRECT
+        plot.bovy_plot(nu.linspace(0.,2.*m.pi/(self.t[1]-self.t[0]),
+                                   len(xw)),
+                       xw,*args,**kwargs)
 
     def __call__(self,*args,**kwargs):
         """
