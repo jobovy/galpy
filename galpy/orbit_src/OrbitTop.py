@@ -308,7 +308,7 @@ class OrbitTop:
         """
         #BOVY: REPLACE WITH CALCULATION FUNCTION
         x= self.x(self.t)
-        xw= nu.fft.fft(x-nu.mean(x))
+        xw= nu.fft.fft(x)#-nu.mean(x))
         xw= nu.abs(xw[0:len(xw)/2])*(self.t[1]-self.t[0])/(self.t[-1]-self.t[0])
         return xw
 
@@ -327,8 +327,9 @@ class OrbitTop:
         """
         xw= self.xw()
         #BOVY: CHECK THAT THIS IS CORRECT
-        plot.bovy_plot(nu.linspace(0.,2.*m.pi/(self.t[1]-self.t[0]),
-                                   len(xw)),
+        plot.bovy_plot(2.*m.pi*nu.fft.fftfreq(len(self.t),
+                                              d=(self.t[1]-self.t[0]))\
+                           [0:len(xw)],
                        xw,*args,**kwargs)
 
     def __call__(self,*args,**kwargs):
