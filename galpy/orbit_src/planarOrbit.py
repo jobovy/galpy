@@ -35,6 +35,8 @@ class planarOrbitTop(OrbitTop):
         PURPOSE:
            calculate the eccentricity
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            eccentricity
         HISTORY:
@@ -44,7 +46,6 @@ class planarOrbitTop(OrbitTop):
             if not hasattr(self,'_aA'):
                 self._setupaA(pot=pot)
             (rperi,rap)= self._aA.calcRapRperi()
-            print rap, rperi
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -52,36 +53,50 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def rap(self):
+    def rap(self,analytic=False,pot=None):
         """
         NAME:
            rap
         PURPOSE:
            return the apocenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_ap
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
             self.rs= self.orbit[:,0]
         return nu.amax(self.rs)
 
-    def rperi(self):
+    def rperi(self,analytic=False,pot=None):
         """
         NAME:
            rperi
         PURPOSE:
            return the pericenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_peri
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
