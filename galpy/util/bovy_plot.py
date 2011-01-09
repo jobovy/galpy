@@ -51,6 +51,7 @@ import matplotlib.ticker as ticker
 import matplotlib.cm as cm
 from matplotlib import rc
 from matplotlib.ticker import NullFormatter
+from mpl_toolkits.mplot3d import Axes3D
 _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
     """
@@ -160,6 +161,92 @@ def bovy_plot(*args,**kwargs):
         pyplot.ylim(*ylimits)
         _add_axislabels(xlabel,ylabel)
         _add_ticks()
+    return out
+
+def bovy_plot3d(*args,**kwargs):
+    """
+    NAME:
+       bovy_plot3d
+    PURPOSE:
+       plot in 3d much as in 2d
+    INPUT:
+       see http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot
+       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+       xrange
+       yrange
+       overplot=True does not start a new figure
+    OUTPUT:
+    HISTORY:
+       2011-01-08 - Written - Bovy (NYU)
+    """
+    if kwargs.has_key('overplot') and kwargs['overplot']:
+        kwargs.pop('overplot')
+        overplot=True
+    elif kwargs.has_key('overplot'):
+        kwargs.pop('overplot')
+        pyplot.figure()
+        overplot=False
+    else:
+        pyplot.figure()
+        overplot=False
+    ax=pyplot.gca(projection='3d')
+    ax.set_autoscale_on(False)
+    if kwargs.has_key('xlabel'):
+        xlabel= kwargs['xlabel']
+        kwargs.pop('xlabel')
+    else:
+        xlabel=None
+    if kwargs.has_key('ylabel'):
+        ylabel= kwargs['ylabel']
+        kwargs.pop('ylabel')
+    else:
+        ylabel=None
+    if kwargs.has_key('zlabel'):
+        ylabel= kwargs['zlabel']
+        kwargs.pop('zlabel')
+    else:
+        zlabel=None
+    if kwargs.has_key('xrange'):
+        xlimits=kwargs['xrange']
+        kwargs.pop('xrange')
+    else:
+        xlimits=(args[0].min(),args[0].max())
+    if kwargs.has_key('yrange'):
+        ylimits=kwargs['yrange']
+        kwargs.pop('yrange')
+    else:
+        ylimits=(args[1].min(),args[1].max())
+    if kwargs.has_key('zrange'):
+        ylimits=kwargs['zrange']
+        kwargs.pop('zrange')
+    else:
+        zlimits=(args[1].min(),args[1].max())
+    out= pyplot.plot(*args,**kwargs)
+    if overplot:
+        pass
+    else:
+        if xlabel != None:
+            if xlabel[0] != '$':
+                thisxlabel=r'$'+xlabel+'$'
+            else:
+                thisxlabel=xlabel
+            ax.set_xlabel(thisxlabel)
+        if ylabel != None:
+            if ylabel[0] != '$':
+                thisylabel=r'$'+ylabel+'$'
+            else:
+                thisylabel=ylabel
+            ax.set_ylabel(thisylabel)
+        if zlabel != None:
+            if zlabel[0] != '$':
+                thiszlabel=r'$'+zlabel+'$'
+            else:
+                thiszlabel=zlabel
+            ax.set_zlabel(thisylabel)
+        ax.set_xlim3d(*xlimits)
+        ax.set_ylim3d(*xlimits)
+        ax.set_zlim3d(*xlimits)
     return out
 
 def bovy_dens2d(X,**kwargs):
