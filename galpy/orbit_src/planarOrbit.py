@@ -28,7 +28,7 @@ class planarOrbitTop(OrbitTop):
         """
         return None
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
@@ -40,10 +40,16 @@ class planarOrbitTop(OrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            print rap, rperi
+            return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
-            self.rs= self.orbit[:,0]**2.
+            self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
     def rap(self):
@@ -61,7 +67,7 @@ class planarOrbitTop(OrbitTop):
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
-            self.rs= self.orbit[:,0]**2.
+            self.rs= self.orbit[:,0]
         return nu.amax(self.rs)
 
     def rperi(self):
@@ -79,7 +85,7 @@ class planarOrbitTop(OrbitTop):
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
-            self.rs= self.orbit[:,0]**2.
+            self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
     def zmax(self):
