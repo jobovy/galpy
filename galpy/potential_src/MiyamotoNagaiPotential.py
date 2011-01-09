@@ -105,8 +105,12 @@ class MiyamotoNagaiPotential(Potential):
         """
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
-        return (-z*asqrtbz/sqrtbz/
-                 (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
+        if sqrtbz == asqrtbz:
+            return (-z/
+                     (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
+        else:
+            return (-z*asqrtbz/sqrtbz/
+                     (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
