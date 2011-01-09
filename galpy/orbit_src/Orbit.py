@@ -174,47 +174,62 @@ class Orbit:
         """
         return self._orb.L(*args,**kwargs)
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
         PURPOSE:
            calculate the eccentricity
         INPUT:
+
+           analytic - compute this analytically
+
+           pot - potential to use for analytical calculation
+
         OUTPUT:
            eccentricity
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        return self._orb.e()
+        return self._orb.e(analytic=analytic,pot=pot)
 
-    def rap(self):
+    def rap(self,analytic=False,pot=None):
         """
         NAME:
            rap
         PURPOSE:
            calculate the apocenter radius
         INPUT:
+
+           analytic - compute this analytically
+
+           pot - potential to use for analytical calculation
+
         OUTPUT:
            R_ap
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
-        return self._orb.rap()
+        return self._orb.rap(analytic=analytic,pot=pot)
 
-    def rperi(self):
+    def rperi(self,analytic=False,pot=None):
         """
         NAME:
            rperi
         PURPOSE:
            calculate the pericenter radius
         INPUT:
+
+           analytic - compute this analytically
+
+           pot - potential to use for analytical calculation
+
         OUTPUT:
            R_peri
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
-        return self._orb.rperi()
+        return self._orb.rperi(analytic=analytic,pot=pot)
 
     def zmax(self):
         """

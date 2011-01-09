@@ -60,7 +60,7 @@ class linearOrbit(OrbitTop):
         return evaluatelinearPotentials(self.vxvv[0],pot)+\
             self.vxvv[1]**2./2.
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
@@ -74,10 +74,10 @@ class linearOrbit(OrbitTop):
         """
         raise AttributeError("linearOrbit does not have an eccentricity")
 
-    def rap(self):
+    def rap(self,analytic=False,pot=None):
         raise AttributeError("linearOrbit does not have an apocenter")
 
-    def rperi(self):
+    def rperi(self,analytic=False,pot=None):
         raise AttributeError("linearOrbit does not have a pericenter")
 
     def zmax(self):

@@ -172,7 +172,7 @@ class OrbitTop:
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) == 2:
             return thiso[:,0]
-        if len(thiso[:,0]) != 4 and len(thiso[0,:]) != 6:
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use x()")
         elif len(thiso[:,0]) == 4:
             return thiso[0,:]*nu.cos(thiso[3,:])
@@ -354,7 +354,7 @@ class OrbitTop:
         if rect:
             return self._callRect(*args)
         if len(args) == 0:
-            return self.vxvv
+            return nu.array(self.vxvv)
         else:
             t= args[0]
         if isinstance(t,(int,float)) and t in list(self.t):

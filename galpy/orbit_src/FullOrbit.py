@@ -66,54 +66,75 @@ class FullOrbit(OrbitTop):
             self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
             self.vxvv[4]**2./2.
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
         PURPOSE:
            calculate the eccentricity
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            eccentricity
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def rap(self):
+    def rap(self,analytic=False,pot=None):
         """
         NAME:
            rap
         PURPOSE:
            return the apocenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_ap
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
 
-    def rperi(self):
+    def rperi(self,analytic=False,pot=None):
         """
         NAME:
            rperi
         PURPOSE:
            return the pericenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_peri
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -172,8 +193,8 @@ class FullOrbit(OrbitTop):
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
         L= self.L()
-        r= m.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
-        vT= m.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/r
+        r= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
+        vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/r
         vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/r
         if isinstance(pot,LogarithmicHaloPotential):
             self._aA= actionAngle.actionAngleFlat(r,vR,vT)
@@ -190,7 +211,7 @@ class FullOrbit(OrbitTop):
             if isinstance(pot,list):
                 thispot= [p.toPlanar() for p in pot]
             else:
-                thispot= pot
+                thispot= pot.toPlanar()
             self._aA= actionAngle.actionAngleAxi(r,vR,vT,pot=thispot)
 
     def plotE(self,*args,**kwargs):
@@ -381,10 +402,10 @@ class FullOrbit(OrbitTop):
         kwargs= {}
         kwargs['rect']= False
         vxvv= self.__call__(*args,**kwargs)
-        x= vxvv[0]*m.cos(vxvv[5])
-        y= vxvv[0]*m.sin(vxvv[5])
-        vx= vxvv[1]*m.cos(vxvv[5])-vxvv[2]*m.sin(vxvv[5])
-        vy= -vxvv[1]*m.sin(vxvv[5])-vxvv[2]*m.cos(vxvv[5])
+        x= vxvv[0]*nu.cos(vxvv[5])
+        y= vxvv[0]*nu.sin(vxvv[5])
+        vx= vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5])
+        vy= -vxvv[1]*nu.sin(vxvv[5])-vxvv[2]*nu.cos(vxvv[5])
         return nu.array([x,y,vxvv[3],vx,vy,vxvv[4]])
 
 def _integrateFullOrbit(vxvv,pot,t):

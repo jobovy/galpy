@@ -63,54 +63,66 @@ class RZOrbit(OrbitTop):
             self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
             self.vxvv[4]**2./2.
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
         PURPOSE:
            calculate the eccentricity
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            eccentricity
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        if analytic:
+            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def rap(self):
+    def rap(self,analytic=False,pot=None):
         """
         NAME:
            rap
         PURPOSE:
            return the apocenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_ap
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
 
-    def rperi(self):
+    def rperi(self,analytic=False,pot=None):
         """
         NAME:
            rperi
         PURPOSE:
            return the pericenter radius
         INPUT:
+           analytic - compute this analytically
+           pot - potential to use for analytical calculation
         OUTPUT:
            R_peri
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
