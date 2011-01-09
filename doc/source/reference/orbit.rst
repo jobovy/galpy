@@ -26,6 +26,7 @@ Methods
    L <orbitl.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
+   plot3d <orbitplot3d.rst>
    plotE <orbitplote.rst>
    plotEz <orbitplotEz.rst>
    plotEzJz <orbitplotEzJz.rst>
