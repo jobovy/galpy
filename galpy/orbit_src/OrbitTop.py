@@ -512,6 +512,160 @@ class OrbitTop:
             kwargs['ylabel']= labeldict[d2]
         plot.bovy_plot(x,y,*args,**kwargs)
 
+    def plot3d(self,*args,**kwargs):
+        """
+        NAME:
+           plot3d
+        PURPOSE:
+           plot 3D aspects of an Orbit
+        INPUT:
+           bovy_plot args and kwargs
+        OUTPUT:
+           plot
+        HISTORY:
+           2010-07-26 - Written - Bovy (NYU)
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+           2010-01-08 - Adapted to 3D - Bovy (NYU)
+        """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        #Defaults
+        if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
+                and not kwargs.has_key('d3'):
+            if len(self.vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif len(self.vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif len(self.vxvv) == 2:
+                raise AttributeError("Cannot plot 3D aspects of 1D orbits")
+            elif len(self.vxvv) == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif len(self.vxvv) == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not (kwargs.has_key('d1') and kwargs.has_key('d2') \
+                      and kwargs.has_key('d3')):
+            raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
+        else:
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+            d2= kwargs['d2']
+            kwargs.pop('d2')
+            d3= kwargs['d3']
+            kwargs.pop('d3')
+        #Get x, y, and z
+        if d1 == 't':
+            x= nu.array(self.t)
+        elif d1 == 'R':
+            x= self.orbit[:,0]
+        elif d1 == 'z':
+            x= self.orbit[:,3]
+        elif d1 == 'vz':
+            x= self.orbit[:,4]
+        elif d1 == 'vR':
+            x= self.orbit[:,1]
+        elif d1 == 'vT':
+            x= self.orbit[:,2]
+        elif d1 == 'x':
+            if len(self.vxvv) == 2:
+                x= self.orbit[:,0]
+            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want x you need to track phi")
+            elif len(self.vxvv) == 4:
+                x= self.orbit[:,0]*nu.cos(self.orbit[:,3])
+            else:
+                x= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+        elif d1 == 'y':
+            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want y you need to track phi")
+            elif len(self.vxvv) == 4:
+                x= self.orbit[:,0]*nu.sin(self.orbit[:,3])
+            else:
+                x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+        elif d1 == 'vx':
+            x= self.vx()
+        elif d1 == 'vy':
+            x= self.vy()
+        if d2 == 't':
+            y= nu.array(self.t)
+        elif d2 == 'R':
+            y= self.orbit[:,0]
+        elif d2 == 'z':
+            y= self.orbit[:,3]
+        elif d2 == 'vz':
+            y= self.orbit[:,4]
+        elif d2 == 'vR':
+            y= self.orbit[:,1]
+        elif d2 == 'vT':
+            y= self.orbit[:,2]
+        elif d2 == 'x':
+            if len(self.vxvv) == 2:
+                y= self.orbit[:,0]
+            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want x you need to track phi")
+            elif len(self.vxvv) == 4:
+                y= self.orbit[:,0]*nu.cos(self.orbit[:,3])
+            else:
+                y= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+        elif d2 == 'y':
+            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want y you need to track phi")
+            elif len(self.vxvv) == 4:
+                y= self.orbit[:,0]*nu.sin(self.orbit[:,3])
+            else:
+                y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+        elif d2 == 'vx':
+            y= self.vx()
+        elif d2 == 'vy':
+            y= self.vy()
+        if d3 == 't':
+            z= nu.array(self.t)
+        elif d3 == 'R':
+            z= self.orbit[:,0]
+        elif d3 == 'z':
+            z= self.orbit[:,3]
+        elif d3 == 'vz':
+            z= self.orbit[:,4]
+        elif d3 == 'vR':
+            z= self.orbit[:,1]
+        elif d3 == 'vT':
+            z= self.orbit[:,2]
+        elif d3 == 'x':
+            if len(self.vxvv) == 2:
+                z= self.orbit[:,0]
+            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want x you need to track phi")
+            elif len(self.vxvv) == 4:
+                z= self.orbit[:,0]*nu.cos(self.orbit[:,3])
+            else:
+                z= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+        elif d3 == 'y':
+            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
+                raise AttributeError("If you want y you need to track phi")
+            elif len(self.vxvv) == 4:
+                z= self.orbit[:,0]*nu.sin(self.orbit[:,3])
+            else:
+                z= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+        elif d3 == 'vx':
+            z= self.vx()
+        elif d3 == 'vy':
+            z= self.vy()
+
+        #Plot
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= labeldict[d2]
+        plot.bovy_plot3d(x,y,z,*args,**kwargs)
+
     def plotR(self,*args,**kwargs):
         """
         NAME:

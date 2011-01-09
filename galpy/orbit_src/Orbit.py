@@ -564,6 +564,34 @@ class Orbit:
         """
         self._orb.plot(*args,**kwargs)
 
+    def plot3d(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot3d
+
+        PURPOSE:
+
+           plot 3D aspects of an Orbit
+
+        INPUT:
+
+           bovy_plot3d args and kwargs
+
+        OUTPUT:
+
+           plot
+
+        HISTORY:
+
+           2010-07-26 - Written - Bovy (NYU)
+
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+
+           2010-01-08 - Adapted to 3D - Bovy (NYU)
+        """
+        self._orb.plot3d(*args,**kwargs)
+
     def plotE(self,*args,**kwargs):
         """
         NAME:
