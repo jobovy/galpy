@@ -64,7 +64,8 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        return thiso[0]
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        return thiso[0,:]
 
     def vR(self,*args,**kwargs):
         """
@@ -80,7 +81,8 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        return thiso[1]
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        return thiso[1,:]
 
     def vT(self,*args,**kwargs):
         """
@@ -96,7 +98,8 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        return thiso[2]
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        return thiso[2,:]
 
     def z(self,*args,**kwargs):
         """
@@ -112,9 +115,10 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) < 5:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) < 5:
             raise AttributeError("linear and planar orbits do not have z()")
-        return thiso[3]
+        return thiso[3,:]
 
     def vz(self,*args,**kwargs):
         """
@@ -130,9 +134,10 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) < 5:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) < 5:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return thiso[4]
+        return thiso[4,:]
 
     def phi(self,*args,**kwargs):
         """
@@ -148,12 +153,13 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) != 4 and len(thiso) != 6:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use phi()")
-        elif len(thiso) == 4:
-            return thiso[3]
+        elif len(thiso[:,0]) == 4:
+            return thiso[3,:]
         else:
-            return thiso[5]
+            return thiso[5,:]
 
     def x(self,*args,**kwargs):
         """
@@ -193,12 +199,13 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) != 4 and len(thiso) != 6:
-            raise AttributeError("orbit must track azimuth to use y()")
-        elif len(thiso) == 4:
-            return thiso[0]*m.sin(thiso[3])
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+            raise AttributeError("orbit must track azimuth to use x()")
+        elif len(thiso[:,0]) == 4:
+            return thiso[0,:]*nu.sin(thiso[3,:])
         else:
-            return thiso[0]*m.sin(thiso[5])
+            return thiso[0,:]*nu.sin(thiso[5,:])
 
     def vx(self,*args,**kwargs):
         """
@@ -214,15 +221,16 @@ class OrbitTop:
            2010-11-30 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) == 2:
-            return thiso[1]
-        if len(thiso) != 4 and len(thiso) != 6:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) == 2:
+            return thiso[:,1]
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use vx()")
-        elif len(thiso) == 4:
-            theta= thiso[3]
+        elif len(thiso[:,0]) == 4:
+            theta= thiso[3,:]
         else:
-            theta= thiso[5]
-        return thiso[1]*m.cos(theta)-thiso[2]*m.sin(theta)
+            theta= thiso[5,:]
+        return thiso[1,:]*nu.cos(theta)-thiso[2,:]*nu.sin(theta)
 
     def vy(self,*args,**kwargs):
         """
@@ -238,15 +246,14 @@ class OrbitTop:
            2010-11-30 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) == 2:
-            return thiso[1]
-        if len(thiso) != 4 and len(thiso) != 6:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use vx()")
-        elif len(thiso) == 4:
-            theta= thiso[3]
+        elif len(thiso[:,0]) == 4:
+            theta= thiso[3,:]
         else:
-            theta= thiso[5]
-        return thiso[2]*m.cos(theta)+thiso[1]*m.sin(theta)
+            theta= thiso[5,:]
+        return thiso[2,:]*nu.cos(theta)+thiso[1,:]*nu.sin(theta)
 
     def vphi(self,*args,**kwargs):
         """
@@ -262,7 +269,8 @@ class OrbitTop:
            2010-09-21 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        return thiso[2]/thiso[0]
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        return thiso[2,:]/thiso[0,:]
 
     def L(self,*args,**kwargs):
         """
@@ -278,20 +286,25 @@ class OrbitTop:
            2010-09-15 - Written - Bovy (NYU)
         """
         thiso= self(*args,**kwargs)
-        if len(thiso) < 3:
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) < 3:
             raise AttributeError("'linearOrbit has no angular momentum")
-        elif len(thiso) == 3 or len(thiso) == 4:
-            return thiso[0]*thiso[2]
-        elif len(thiso) == 5:
+        elif len(thiso[:,0]) == 3 or len(thiso[:,0]) == 4:
+            return thiso[0,:]*thiso[2,:]
+        elif len(thiso[:,0]) == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
-        else: #len(thiso)==6
-            vx= self.vx()
-            vy= self.vy()
-            vz= self.vz()
-            x= self.x()
-            y= self.y()
-            z= self.z()
-            return nu.array([y*vz-z*vy,z*vx-x*vz,x*vy-y*vx])
+        else: #len(thiso[:,0]) == 6
+            vx= self.vx(*args,**kwargs)
+            vy= self.vy(*args,**kwargs)
+            vz= self.vz(*args,**kwargs)
+            x= self.x(*args,**kwargs)
+            y= self.y(*args,**kwargs)
+            z= self.z(*args,**kwargs)
+            out= nu.zeros((len(x),3))
+            out[:,0]= y*vz-z*vy
+            out[:,1]= z*vx-x*vz
+            out[:,2]= x*vy-y*vx
+            return out
 
     def xw(self,*args,**kwargs):
         """
@@ -469,9 +482,9 @@ class OrbitTop:
             else:
                 x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d1 == 'vx':
-            x= self.vx()
+            x= self.vx(self.t)
         elif d1 == 'vy':
-            x= self.vy()
+            x= self.vy(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -501,9 +514,9 @@ class OrbitTop:
             else:
                 y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d2 == 'vx':
-            y= self.vx()
+            y= self.vx(self.t)
         elif d2 == 'vy':
-            y= self.vy()
+            y= self.vy(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):
@@ -591,9 +604,9 @@ class OrbitTop:
             else:
                 x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d1 == 'vx':
-            x= self.vx()
+            x= self.vx(self.t)
         elif d1 == 'vy':
-            x= self.vy()
+            x= self.vy(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -623,9 +636,9 @@ class OrbitTop:
             else:
                 y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d2 == 'vx':
-            y= self.vx()
+            y= self.vx(self.t)
         elif d2 == 'vy':
-            y= self.vy()
+            y= self.vy(self.t)
         if d3 == 't':
             z= nu.array(self.t)
         elif d3 == 'R':
@@ -655,9 +668,9 @@ class OrbitTop:
             else:
                 z= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
         elif d3 == 'vx':
-            z= self.vx()
+            z= self.vx(self.t)
         elif d3 == 'vy':
-            z= self.vy()
+            z= self.vy(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):

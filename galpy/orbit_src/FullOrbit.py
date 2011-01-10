@@ -199,14 +199,14 @@ class FullOrbit(OrbitTop):
         if isinstance(pot,LogarithmicHaloPotential):
             self._aA= actionAngle.actionAngleFlat(r,vR,vT)
         elif isinstance(pot,KeplerPotential):
-            self._aA= actionAngle.actionAnglePower(r,vR,vT,beta=-0.25)
+            self._aA= actionAngle.actionAnglePower(r,vR,vT,beta=-0.5)
         elif isinstance(pot,PowerSphericalPotential):
             if pot.alpha == 2.:
                 self._aA= actionAngle.actionAngleFlat(r,vR,vT)
             else:
                 self._aA= actionAngle.actionAnglePower(r,vR,vT,
-                                                       beta=0.5\
-                                                           -pot.alpha/4.)
+                                                       beta=1.\
+                                                           -pot.alpha/2.)
         else:
             if isinstance(pot,list):
                 thispot= [p.toPlanar() for p in pot]

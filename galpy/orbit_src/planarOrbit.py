@@ -157,7 +157,7 @@ class planarOrbitTop(OrbitTop):
             self._aA= actionAngle.actionAnglePower(self.vxvv[0],
                                                    self.vxvv[1],
                                                    self.vxvv[2],
-                                                   beta=-0.25)
+                                                   beta=-0.5)
         elif isinstance(thispot,PowerSphericalPotential) or \
                 (isinstance(thispot,planarPotentialFromRZPotential) and \
                      isinstance(thispot._RZPot,PowerSphericalPotential)):
@@ -172,7 +172,7 @@ class planarOrbitTop(OrbitTop):
                 self._aA= actionAngle.actionAnglePower(self.vxvv[0],
                                                        self.vxvv[1],
                                                        self.vxvv[2],
-                                                       beta=0.5-thispot.alpha/4.)
+                                                       beta=1.-thispot.alpha/2.)
         else:
             
             self._aA= actionAngle.actionAngleAxi(self.vxvv[0],self.vxvv[1],
@@ -359,22 +359,30 @@ class planarOrbit(planarOrbitTop):
                                         phi=self.vxvv[3])+\
             self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
-    def e(self):
+    def e(self,analytic=False,pot=None):
         """
         NAME:
            e
         PURPOSE:
            calculate the eccentricity
         INPUT:
+           analytic - calculate e analytically
+           pot - potential used to analytically calculate e
         OUTPUT:
            eccentricity
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        if analytic:
+            if not hasattr(self,'_aA'):
+                self._setupaA(pot=pot)
+            (rperi,rap)= self._aA.calcRapRperi()
+            return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
-        rs= self.orbit[:,0]**2.
-        return (nu.amax(rs)-nu.amin(rs))/(nu.amax(rs)+nu.amin(rs))
+        if not hasattr(self,'rs'):
+            self.rs= self.orbit[:,0]
+        return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
     def plotE(self,*args,**kwargs):
         """
