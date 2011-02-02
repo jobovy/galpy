@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to galpy's documentation!
+Welcome to galpy's documentation
 =================================
 
 galpy is a python package for galactic dynamics. It supports orbit
