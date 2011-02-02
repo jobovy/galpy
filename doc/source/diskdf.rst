@@ -7,8 +7,8 @@ Calculating the surface-mass density and velocity dispersion profiles
 For a disk distribution function (i.e., a ``dehnendf`` or a ``shudf``
 object) we can calculate the resulting surface-mass density profile
 using ``surfacemass``, ``sigma2``, and ``sigma2surfacemass``. The
-latter calculates the product of the velocity dispersion and the
-surface-mass density. E.g.,
+latter calculates the product of the velocity dispersion squared and
+the surface-mass density. E.g.,
 
 >>> from galpy.df import dehnendf
 >>> dfc= dehnendf(beta=0.)
@@ -127,7 +127,7 @@ This gives
 
 For more information see `2000AJ....119..800D
 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_ and
-`2010arXiv1006.0736B
-<http://adsabs.harvard.edu/abs/2010arXiv1006.0736B>`_. Note that the
+`2010ApJ...725.1676B
+<http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_. Note that the
 x-axis in the Figure above is defined as minus the x-axis in these
 papers.

@@ -54,8 +54,8 @@ Or we can plot the two-dimensional density at R=1.
 
 We can sample from the disk distribution functions using
 ``sample``. ``sample`` can return either an energy--angular-momentum
-pair, or a full orbit. We can sample 4000 orbits for example as (could
-take two minutes)
+pair, or a full orbit initialization. We can sample 4000 orbits for
+example as (could take two minutes)
 
 >>> o= dfc.sample(n=4000,returnOrbit=True,nphi=1)
 
