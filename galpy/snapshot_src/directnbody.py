@@ -16,8 +16,8 @@ def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
     PURPOSE:
        N-body code using direct summation for force evaluation
     INPUT:
-       q - list of initial positions
-       p - list of initial momenta
+       q - list of initial positions (numpy.ndarrays)
+       p - list of initial momenta (numpy.ndarrays)
        m - list of masses
        t - times at which output is desired
        pot= external potential (galpy.potential or list of galpy.potentials)
@@ -39,25 +39,35 @@ def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
     dt= t[1]-t[0]
     ndt= 1
     to= t[0]
+    #determine appropriate softening length if not given
+    if softening_length is None:
+        softening_length= 0.01
     #Run simulation
     for ii in range(1,len(t)):
+        print ii
         for jj in range(ndt): #loop over number of sub-intervals
-            _direct_nbody_step(qo,po,m,to,dt,pot,softening,(softening_length,))
-            to++ dt
-        out.append([q,p])
+            (qo,po)= _direct_nbody_step(qo,po,m,to,dt,pot,
+                                        softening,(softening_length,))
+            #print qo
+            to+= dt
+        out.append([qo,po])
     #Return output
     return out
 
 def _direct_nbody_step(q,p,m,t,dt,pot,softening,softening_args):
     """One N-body step: drift-kick-drift"""
     #drift
-    q12= symplecticode.leapfrog_leapq(q,p,dt/2.)
+    q12= [symplecticode.leapfrog_leapq(q[ii],p[ii],dt/2.) \
+              for ii in range(len(q))]
     #kick
     force= _direct_nbody_force(q12,m,t+dt/2.,pot,softening,softening_args)
-    p= symplecticode_leapfrog_leapp(p,dt,force)
+    #print force
+    p= [symplecticode.leapfrog_leapp(p[ii],dt,force[ii]) \
+            for ii in range(len(p))]
     #drift
-    q= symplecticode.leapfrog_leapq(q12,p,dt/2.)
-    return None
+    q= [symplecticode.leapfrog_leapq(q12[ii],p[ii],dt/2.) \
+            for ii in range(len(q12))]
+    return (q,p)
 
 def _direct_nbody_force(q,m,t,pot,softening,softening_args):
     """Calculate the force"""
@@ -65,8 +75,8 @@ def _direct_nbody_force(q,m,t,pot,softening,softening_args):
     #Calculate all the distances
     nq= len(q)
     dim= len(q[0])
-    dist= nu.zeros((nq,nq,dim))
-    dist_vec= nu.zeros((nq,nq))
+    dist_vec= nu.zeros((nq,nq,dim))
+    dist= nu.zeros((nq,nq))
     for ii in range(nq):
         for jj in range(ii+1,nq):
             dist_vec[ii,jj,:]= q[jj]-q[ii]
@@ -76,7 +86,7 @@ def _direct_nbody_force(q,m,t,pot,softening,softening_args):
     #Calculate all the forces
     force= []
     for ii in range(nq):
-        thisforce= [0. for ii in range(dim)]
+        thisforce= nu.zeros(dim)
         for jj in range(nq):
             if ii == jj: continue
             thisforce+= m[jj]*softening(dist[ii,jj],*softening_args)\
@@ -89,7 +99,7 @@ def _direct_nbody_force(q,m,t,pot,softening,softening_args):
     return force
 
 def _external_force(x,t,pot):
-    dim= len(q)
+    dim= len(x)
     if dim == 3:
         #x is rectangular so calculate R and phi
         R= nu.sqrt(x[0]**2.+x[1]**2.)
