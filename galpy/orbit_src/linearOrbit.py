@@ -4,6 +4,7 @@ from OrbitTop import OrbitTop
 from galpy.potential_src.linearPotential import evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
+import galpy.util.bovy_symplecticode as symplecticode
 class linearOrbit(OrbitTop):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""
     def __init__(self,vxvv=[1.,0.]):
@@ -21,7 +22,7 @@ class linearOrbit(OrbitTop):
         self.vxvv= vxvv
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -30,6 +31,7 @@ class linearOrbit(OrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
+           method= 'odeint'= scipy's odeint, or 'leapfrog'
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -37,7 +39,7 @@ class linearOrbit(OrbitTop):
         """
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateLinearOrbit(self.vxvv,pot,t)
+        self.orbit= _integrateLinearOrbit(self.vxvv,pot,t,method)
 
     def E(self,pot=None):
         """
@@ -136,7 +138,7 @@ class linearOrbit(OrbitTop):
         kwargs['rect']= False
         vxvv= self.__call__(*args,**kwargs)     
 
-def _integrateLinearOrbit(vxvv,pot,t):
+def _integrateLinearOrbit(vxvv,pot,t,method):
     """
     NAME:
        integrateLinearOrbit
@@ -146,12 +148,17 @@ def _integrateLinearOrbit(vxvv,pot,t):
        vxvv - initial condition [x,vx]
        pot - linearPotential or list of linearPotentials
        t - list of times at which to output (0 has to be in this!)
+       method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,2] array of [x,vx] at each t
     HISTORY:
        2010-07-13- Written - Bovy (NYU)
     """
-    return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=10.**-8.)
+    if method.lower() == 'leapfrog':
+        return symplecticode.leapfrog(evaluatelinearForces,nu.array(vxvv),
+                                      t,args=(pot,))
+    elif method.lower() == 'odeint':
+        return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=10.**-8.)
 
 def _linearEOM(y,t,pot):
     """

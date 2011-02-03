@@ -112,7 +112,7 @@ class Orbit:
             self.vxvv[-1]= phi
             self._orb.vxvv[-1]= phi
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -122,12 +122,14 @@ class Orbit:
            t - list of times at which to output (0 has to be in this!)
 
            pot - potential instance or list of instances
+           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple
+                   leapfrog implementation
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
            2010-07-10
         """
-        self._orb.integrate(t,pot)
+        self._orb.integrate(t,pot,method=method)
 
     def getOrbit(self):
         """

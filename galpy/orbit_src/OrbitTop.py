@@ -19,7 +19,7 @@ class OrbitTop:
         """
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
