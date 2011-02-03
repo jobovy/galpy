@@ -2,6 +2,7 @@ import math as m
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
+import galpy.util.bovy_symplecticode as symplecticode
 from galpy import actionAngle
 from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
     KeplerPotential
@@ -197,7 +198,7 @@ class planarROrbit(planarOrbitTop):
         self.vxvv= vxvv
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -206,6 +207,8 @@ class planarROrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
+           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple 
+                   leapfrog implementation
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -214,7 +217,7 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit= _integrateROrbit(self.vxvv,thispot,t)
+        self.orbit= _integrateROrbit(self.vxvv,thispot,t,method)
 
     def E(self,pot=None):
         """
@@ -314,7 +317,7 @@ class planarOrbit(planarOrbitTop):
         self.vxvv= vxvv
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -323,6 +326,8 @@ class planarOrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
+           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
+                   leapfrog implementation
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -331,7 +336,7 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit= _integrateOrbit(self.vxvv,thispot,t)
+        self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
 
     def E(self,pot=None):
         """
@@ -451,7 +456,7 @@ class planarOrbit(planarOrbitTop):
         vy= -vxvv[1]*m.sin(vxvv[5])-vxvv[2]*m.cos(vxvv[5])
         return nu.array([x,y,vx,vy])
 
-def _integrateROrbit(vxvv,pot,t):
+def _integrateROrbit(vxvv,pot,t,method):
     """
     NAME:
        _integrateROrbit
@@ -462,20 +467,28 @@ def _integrateROrbit(vxvv,pot,t):
               [R,vR,vT]; vR outward!
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
+       method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,3] array of [R,vR,vT] at each t
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
     """
-    l= vxvv[0]*vxvv[2]
-    l2= l**2.
-    init= [vxvv[0],vxvv[1]]
-    intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
-                             rtol=10.**-8.)#,mxstep=100000000)
-    out= nu.zeros((len(t),3))
-    out[:,0]= intOut[:,0]
-    out[:,1]= intOut[:,1]
-    out[:,2]= l/out[:,0]
+    if method.lower() == 'leapfrog':
+        #We hack this by putting in a dummy phi
+        this_vxvv= nu.array([vxvv,0.]).flatten()
+        tmp_out= _integrateROrbit(this_vxvv,pot,t,method)
+        #tmp_out is (nt,4)
+        out= tmp_out[:,0:3]
+    elif method.lower() == 'odeint':
+        l= vxvv[0]*vxvv[2]
+        l2= l**2.
+        init= [vxvv[0],vxvv[1]]
+        intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
+                                 rtol=10.**-8.)#,mxstep=100000000)
+        out= nu.zeros((len(t),3))
+        out[:,0]= intOut[:,0]
+        out[:,1]= intOut[:,1]
+        out[:,2]= l/out[:,0]
     return out
 
 def _REOM(y,t,pot,l2):
@@ -498,7 +511,7 @@ def _REOM(y,t,pot,l2):
     return [y[1],
             l2/y[0]**3.+evaluateplanarRforces(y[0],pot,t=t)]
 
-def _integrateOrbit(vxvv,pot,t):
+def _integrateOrbit(vxvv,pot,t,method):
     """
     NAME:
        _integrateOrbit
@@ -509,20 +522,42 @@ def _integrateOrbit(vxvv,pot,t):
               [R,vR,vT,phi]; vR outward!
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
+       method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,4] array of [R,vR,vT,phi] at each t
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
     """
-    vphi= vxvv[2]/vxvv[0]
-    init= [vxvv[0],vxvv[1],vxvv[3],vphi]
-    intOut= integrate.odeint(_EOM,init,t,args=(pot,),
-                             rtol=10.**-8.)#,mxstep=100000000)
-    out= nu.zeros((len(t),4))
-    out[:,0]= intOut[:,0]
-    out[:,1]= intOut[:,1]
-    out[:,3]= intOut[:,2]
-    out[:,2]= out[:,0]*intOut[:,3]
+    if method.lower() == 'leapfrog':
+        #go to the rectangular frame
+        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
+                             vxvv[0]*nu.sin(vxvv[3]),
+                             vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
+                             vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
+        #integrate
+        tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                         t,args=(pot,))
+        #go back to the cylindrical frame
+        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
+        phi= nu.arccos(tmp_out[:,0]/R)
+        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
+        vR= tmp_out[:,2]*nu.cos(phi)-tmp_out[:,3]*nu.sin(phi)
+        vT= -tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
+        out= nu.zeros((len(t),4))
+        out[:,0]= R
+        out[:,1]= vR
+        out[:,2]= vT
+        out[:,3]= phi
+    elif method.lower() == 'odeint':
+        vphi= vxvv[2]/vxvv[0]
+        init= [vxvv[0],vxvv[1],vxvv[3],vphi]
+        intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+                                 rtol=10.**-8.)#,mxstep=100000000)
+        out= nu.zeros((len(t),4))
+        out[:,0]= intOut[:,0]
+        out[:,1]= intOut[:,1]
+        out[:,3]= intOut[:,2]
+        out[:,2]= out[:,0]*intOut[:,3]
     return out
 
 def _EOM(y,t,pot):
@@ -548,3 +583,31 @@ def _EOM(y,t,pot):
             y[3],
             1./y[0]**2.*(evaluateplanarphiforces(y[0],pot,phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
+
+def _rectForce(x,pot,t=0.):
+    """
+    NAME:
+       _rectForce
+    PURPOSE:
+       returns the force in the rectangular frame
+    INPUT:
+       x - current position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       force
+    HISTORY:
+       2011-02-02 - Written - Bovy (NYU)
+    """
+    #x is rectangular so calculate R and phi
+    R= nu.sqrt(x[0]**2.+x[1]**2.)
+    phi= nu.arccos(x[0]/R)
+    sinphi= x[1]/R
+    cosphi= x[0]/R
+    if x[1] < 0.: phi= 2.*nu.pi-phi
+    #calculate forces
+    Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
+    phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
+    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
+                     sinphi*Rforce+1./R*cosphi*phiforce])
+
