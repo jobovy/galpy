@@ -43,6 +43,7 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-08-01 - Written - Bovy (NYU)
         """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         self.t= nu.array(t)
         self._pot= pot
         self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)

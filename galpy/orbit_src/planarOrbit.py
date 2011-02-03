@@ -214,6 +214,7 @@ class planarROrbit(planarOrbitTop):
         HISTORY:
            2010-07-20
         """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
@@ -333,6 +334,7 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-20
         """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
