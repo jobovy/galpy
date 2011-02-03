@@ -536,7 +536,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                         t,args=(pot,))
+                                         t,args=(pot,),rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)

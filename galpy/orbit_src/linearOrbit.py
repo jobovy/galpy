@@ -156,7 +156,7 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
     """
     if method.lower() == 'leapfrog':
         return symplecticode.leapfrog(evaluatelinearForces,nu.array(vxvv),
-                                      t,args=(pot,))
+                                      t,args=(pot,),rtol=10.**-8)
     elif method.lower() == 'odeint':
         return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=10.**-8.)
 
