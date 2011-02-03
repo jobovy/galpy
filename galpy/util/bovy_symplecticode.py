@@ -20,9 +20,10 @@ def leapfrog(func,yo,t,args=(),rtol=None,atol=None):
     HISTORY:
        2011-02-02 - Written - Bovy (NYU)
     """
-    if rtol is None and atol is None:
+    if rtol is None:
         rtol= 1.49012e-8
-        atol= 0.
+    if atol is None:
+        atol= 0.       
     #Initialize
     qo= yo[0:len(yo)/2]
     po= yo[len(yo)/2:len(yo)]
