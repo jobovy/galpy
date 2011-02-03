@@ -7,6 +7,7 @@ from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 import galpy.util.bovy_plot as plot
+import galpy.util.bovy_symplecticode as symplecticode
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
@@ -26,7 +27,7 @@ class FullOrbit(OrbitTop):
         self.vxvv= vxvv
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -35,6 +36,8 @@ class FullOrbit(OrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
+           method= 'odeint' for scipy's odeint integration, 'leapfrog' for
+                    a simple symplectic integrator
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -42,7 +45,7 @@ class FullOrbit(OrbitTop):
         """
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateFullOrbit(self.vxvv,pot,t)
+        self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)
 
     def E(self,pot=None):
         """
@@ -408,7 +411,7 @@ class FullOrbit(OrbitTop):
         vy= -vxvv[1]*nu.sin(vxvv[5])-vxvv[2]*nu.cos(vxvv[5])
         return nu.array([x,y,vxvv[3],vx,vy,vxvv[4]])
 
-def _integrateFullOrbit(vxvv,pot,t):
+def _integrateFullOrbit(vxvv,pot,t,method):
     """
     NAME:
        _integrateFullOrbit
@@ -419,22 +422,47 @@ def _integrateFullOrbit(vxvv,pot,t):
               [R,vR,vT,z,vz,phi]; vR outward!
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
+       method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,5] array of [R,vR,vT,z,vz,phi] at each t
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
     """
-    vphi= vxvv[2]/vxvv[0]
-    init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
-    intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
-                             rtol=10.**-8.)#,mxstep=100000000)
-    out= nu.zeros((len(t),6))
-    out[:,0]= intOut[:,0]
-    out[:,1]= intOut[:,1]
-    out[:,2]= out[:,0]*intOut[:,3]
-    out[:,3]= intOut[:,4]
-    out[:,4]= intOut[:,5]
-    out[:,5]= intOut[:,2]
+    if method.lower() == 'leapfrog':
+        #go to the rectangular frame
+        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
+                             vxvv[0]*nu.sin(vxvv[5]),
+                             vxvv[3],
+                             vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5]),
+                             vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
+                             vxvv[4]])
+        #integrate
+        out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                    t,args=(pot,),rtol=10.**-8)
+        #go back to the cylindrical frame
+        R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
+        phi= nu.arccos(out[:,0]/R)
+        phi[(out[:,1] < 0.)]= 2.*nu.pi-phi[(out[:,1] < 0.)]
+        vR= out[:,3]*nu.cos(phi)-out[:,4]*nu.sin(phi)
+        vT= -out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
+        out[:,3]= out[:,2]
+        out[:,4]= out[:,5]
+        out[:,0]= R
+        out[:,1]= vR
+        out[:,2]= vT
+        out[:,5]= phi
+    elif method.lower() == 'odeint':
+        vphi= vxvv[2]/vxvv[0]
+        init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
+        intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
+                                 rtol=10.**-8.)#,mxstep=100000000)
+        out= nu.zeros((len(t),6))
+        out[:,0]= intOut[:,0]
+        out[:,1]= intOut[:,1]
+        out[:,2]= out[:,0]*intOut[:,3]
+        out[:,3]= intOut[:,4]
+        out[:,4]= intOut[:,5]
+        out[:,5]= intOut[:,2]
     return out
 
 def _FullEOM(y,t,pot):
@@ -461,3 +489,32 @@ def _FullEOM(y,t,pot):
                          2.*y[0]*y[1]*y[3]),
             y[5],
             evaluatezforces(y[0],y[4],pot,phi=y[2],t=t)]
+
+def _rectForce(x,pot,t=0.):
+    """
+    NAME:
+       _rectForce
+    PURPOSE:
+       returns the force in the rectangular frame
+    INPUT:
+       x - current position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       force
+    HISTORY:
+       2011-02-02 - Written - Bovy (NYU)
+    """
+    #x is rectangular so calculate R and phi
+    R= nu.sqrt(x[0]**2.+x[1]**2.)
+    phi= nu.arccos(x[0]/R)
+    sinphi= x[1]/R
+    cosphi= x[0]/R
+    if x[1] < 0.: phi= 2.*nu.pi-phi
+    #calculate forces
+    Rforce= evaluateRforces(R,x[2],pot,phi=phi,t=t)
+    phiforce= evaluatephiforces(R,x[2],pot,phi=phi,t=t)
+    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
+                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     evaluatezforces(R,x[2],pot,phi=phi,t=t)])
+
