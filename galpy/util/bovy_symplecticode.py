@@ -27,14 +27,13 @@ def leapfrog(func,yo,t,args=(),rtol=None,atol=None):
     #Initialize
     qo= yo[0:len(yo)/2]
     po= yo[len(yo)/2:len(yo)]
-    out= nu.zeros((len(yo),len(t)))
-    out[:,0]= yo
+    out= nu.zeros((len(t),len(yo)))
+    out[0,:]= yo
     #Estimate necessary step size
     dt= t[1]-t[0] #assumes that the steps are equally spaced
     init_dt= dt
     dt= _leapfrog_estimate_step(func,qo,po,dt,t[0],args,rtol,atol)
     ndt= int(init_dt/dt)
-    print dt, ndt
     #Integrate
     to= t[0]
     for ii in range(1,len(t)):
@@ -49,9 +48,9 @@ def leapfrog(func,yo,t,args=(),rtol=None,atol=None):
             qo= leapfrog_leapq(q12,po,dt/2.)
             #Get ready for next
             to+= dt
-        out[0:len(yo)/2,ii]= qo
-        out[len(yo)/2:len(yo),ii]= po
-    return out.T
+        out[ii,0:len(yo)/2]= qo
+        out[ii,len(yo)/2:len(yo)]= po
+    return out
 
 def leapfrog_leapq(q,p,dt):
     return q+dt*p
@@ -63,7 +62,6 @@ def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
     qmax= nu.amax(nu.fabs(qo))+nu.zeros(len(qo))
     pmax= nu.amax(nu.fabs(po))+nu.zeros(len(po))
     scale= atol+rtol*nu.array([qmax,pmax]).flatten()
-    print scale
     err= 2.
     dt*= 2.
     while err > 1.:
@@ -84,7 +82,6 @@ def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
         #Norm
         delta= nu.array([nu.fabs(q11-q12),nu.fabs(p11-p12)]).flatten()
         err= nu.sqrt(nu.mean((delta/scale)**2.))
-        print err
         dt/= 2.
     return dt
 
