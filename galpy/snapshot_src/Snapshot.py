@@ -26,7 +26,8 @@ class Snapshot:
                 self.masses= nu.ones(len(self.orbits))
         return None
 
-    def integrate(self,t,pot=None,method='test-particle'):
+    def integrate(self,t,pot=None,method='test-particle',
+                  **kwargs):
         """
         NAME:
            integrate
@@ -44,7 +45,7 @@ class Snapshot:
         if method.lower() == 'test-particle':
             return self._integrate_test_particle(t,pot)
         elif method.lower() == 'direct-python':
-            raise AttributeError("'direct-python' not implemented yet")
+            raise AttributeError("method='direct-python' not implemented yet")
 
     def _integrate_test_particle(self,t,pot):
         """Integrate the snapshot as a set of test particles in an external \
@@ -60,3 +61,8 @@ class Snapshot:
                 outOrbits.append(o(t[ii]))
             out.append(Snapshot(outOrbits,self.masses))
         return out
+
+    def _integrate_direct_python(self,t,pot,**kwargs):
+        """Integrate the snapshot using a direct force summation method \
+        written entirely in python"""
+        
