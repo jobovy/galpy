@@ -1,7 +1,7 @@
 import numpy as nu
 from galpy.orbit import Orbit
 class Snapshot:
-    """Generatl snapshot = collection of particles class"""
+    """General snapshot = collection of particles class"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
