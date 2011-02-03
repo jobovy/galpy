@@ -59,7 +59,9 @@ def leapfrog_leapp(p,dt,force):
     return p+dt*force
 
 def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
-    scale= atol+rtol*nu.array([nu.fabs(qo),nu.fabs(po)]).flatten()
+    qmax= nu.amax(nu.fabs(qo))+nu.zeros(len(qo))
+    pmax= nu.amax(nu.fabs(po))+nu.zeros(len(po))
+    scale= atol+rtol*nu.array([qmax,pmax]).flatten()
     print scale
     err= 2.
     dt*= 2.
