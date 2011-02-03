@@ -442,7 +442,7 @@ class dehnendf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)
+                    vxvv= thisOrbit(tr).vxvv
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()*m.pi*2.]).reshape(4))
                 else:
@@ -610,7 +610,7 @@ class shudf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)
+                    vxvv= thisOrbit(tr).vxvv
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()*m.pi*2.]).reshape(4))
                 else:
