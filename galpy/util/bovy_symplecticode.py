@@ -1,7 +1,6 @@
 #Symplectic ODE integrators
 #Follows scipy.integrate.odeint inputs
 import numpy as nu
-from numpy import linalg
 def leapfrog(func,yo,t,args=(),rtol=None,atol=None):
     """
     NAME:
