@@ -544,8 +544,8 @@ def _integrateOrbit(vxvv,pot,t,method):
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
         phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-        vR= tmp_out[:,2]*nu.cos(phi)-tmp_out[:,3]*nu.sin(phi)
-        vT= -tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
+        vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
+        vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
         out= nu.zeros((len(t),4))
         out[:,0]= R
         out[:,1]= vR

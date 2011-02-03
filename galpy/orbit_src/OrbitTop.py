@@ -490,6 +490,8 @@ class OrbitTop:
             x= self.vx(self.t)
         elif d1 == 'vy':
             x= self.vy(self.t)
+        elif d1 == 'phi':
+            x= self.phi(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -522,6 +524,8 @@ class OrbitTop:
             y= self.vx(self.t)
         elif d2 == 'vy':
             y= self.vy(self.t)
+        elif d2 == 'phi':
+            y= self.phi(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):
@@ -612,6 +616,8 @@ class OrbitTop:
             x= self.vx(self.t)
         elif d1 == 'vy':
             x= self.vy(self.t)
+        elif d1 == 'phi':
+            x= self.phi(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -644,6 +650,8 @@ class OrbitTop:
             y= self.vx(self.t)
         elif d2 == 'vy':
             y= self.vy(self.t)
+        elif d2 == 'phi':
+            y= self.phi(self.t)
         if d3 == 't':
             z= nu.array(self.t)
         elif d3 == 'R':
@@ -676,6 +684,8 @@ class OrbitTop:
             z= self.vx(self.t)
         elif d3 == 'vy':
             z= self.vy(self.t)
+        elif d3 == 'phi':
+            z= self.phi(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):

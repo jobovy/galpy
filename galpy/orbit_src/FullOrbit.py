@@ -444,8 +444,8 @@ def _integrateFullOrbit(vxvv,pot,t,method):
         R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
         phi= nu.arccos(out[:,0]/R)
         phi[(out[:,1] < 0.)]= 2.*nu.pi-phi[(out[:,1] < 0.)]
-        vR= out[:,3]*nu.cos(phi)-out[:,4]*nu.sin(phi)
-        vT= -out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
+        vR= out[:,3]*nu.cos(phi)+out[:,4]*nu.sin(phi)
+        vT= out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
         out[:,3]= out[:,2]
         out[:,4]= out[:,5]
         out[:,0]= R
