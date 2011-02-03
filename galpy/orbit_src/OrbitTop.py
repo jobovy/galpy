@@ -63,9 +63,12 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        return thiso[0,:]
+        if len(args) == 0:
+            t= 0.
+        else:
+            t= args[0]
+        self._setupOrbitInterp()
+        return self._orbInterp[0](t)
 
     def vR(self,*args,**kwargs):
         """
@@ -80,9 +83,12 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        return thiso[1,:]
+        if len(args) == 0:
+            t= 0.
+        else:
+            t= args[0]
+        self._setupOrbitInterp()
+        return self._orbInterp[1](t)
 
     def vT(self,*args,**kwargs):
         """
@@ -97,9 +103,12 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        return thiso[2,:]
+        if len(args) == 0:
+            t= 0.
+        else:
+            t= args[0]
+        self._setupOrbitInterp()
+        return self._orbInterp[2](t)
 
     def z(self,*args,**kwargs):
         """
@@ -114,11 +123,14 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) < 5:
+        if len(self.vxvv) < 5:
             raise AttributeError("linear and planar orbits do not have z()")
-        return thiso[3,:]
+        if len(args) == 0:
+            t= 0.
+        else:
+            t= args[0]
+        self._setupOrbitInterp()
+        return self._orbInterp[3](t)
 
     def vz(self,*args,**kwargs):
         """
@@ -133,11 +145,14 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) < 5:
+        if len(self.vxvv) < 5:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return thiso[4,:]
+        if len(args) == 0:
+            t= 0.
+        else:
+            t= args[0]
+        self._setupOrbitInterp()
+        return self._orbInterp[4](t)
 
     def phi(self,*args,**kwargs):
         """
@@ -152,14 +167,17 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+        if len(self.vxvv) != 4 and len(self.vxvv) != 6:
             raise AttributeError("orbit must track azimuth to use phi()")
-        elif len(thiso[:,0]) == 4:
-            return thiso[3,:]
+        if len(args) == 0:
+            t= 0.
         else:
-            return thiso[5,:]
+            t= args[0]
+        self._setupOrbitInterp()
+        if len(self.vxvv) == 4:
+            return self._orbInterp[3](t)
+        else:
+            return self._orbInterp[5](t)
 
     def x(self,*args,**kwargs):
         """
@@ -368,19 +386,14 @@ class OrbitTop:
             if isinstance(t,(int,float)): nt= 1
             else: nt= len(t)
             dim= len(self.vxvv)
-            if not hasattr(self,"_orbInterp"):
-                orbInterp= []
-                for ii in range(dim):
-                    orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                            self.t,self.orbit[:,ii]))
-                self._orbInterp= orbInterp
+            self._setupOrbitInterp()
             out= []
             for ii in range(dim):
                 out.append(self._orbInterp[ii](t))
             if nt == 1:
                 return nu.array(out).reshape(dim)
             else:
-                return nu.array(out)
+                return nu.array(out).reshape((dim,nt))
 
     def plotE(self,pot,*args,**kwargs):
         """
@@ -831,3 +844,11 @@ class OrbitTop:
         kwargs['d2']= 'phi'
         self.plot(*args,**kwargs)
         
+    def _setupOrbitInterp(self):
+        if not hasattr(self,"_orbInterp"):
+            orbInterp= []
+            for ii in range(len(self.vxvv)):
+                orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                        self.t,self.orbit[:,ii]))
+            self._orbInterp= orbInterp
+        return None
