@@ -4,6 +4,8 @@ from scipy import integrate
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluateDensities
 import galpy.util.bovy_plot as plot
+import galpy.util.bovy_symplecticode as symplecticode
+from galpy.orbit_src.FullOrbit import _integrateFullOrbit
 from OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
@@ -24,7 +26,7 @@ class RZOrbit(OrbitTop):
         self.vxvv= vxvv
         return None
 
-    def integrate(self,t,pot):
+    def integrate(self,t,pot,method='odeint'):
         """
         NAME:
            integrate
@@ -33,6 +35,8 @@ class RZOrbit(OrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
+           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
+                   a simple symplectic integrator
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -40,7 +44,7 @@ class RZOrbit(OrbitTop):
         """
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateRZOrbit(self.vxvv,pot,t)
+        self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)
 
     def E(self,pot=None):
         """
@@ -325,7 +329,7 @@ class RZOrbit(OrbitTop):
     def _callRect(self,*args):
         raise AttributeError("Cannot transform RZ-only orbit to rectangular coordinates")
 
-def _integrateRZOrbit(vxvv,pot,t):
+def _integrateRZOrbit(vxvv,pot,t,method):
     """
     NAME:
        _integrateRZOrbit
@@ -336,22 +340,31 @@ def _integrateRZOrbit(vxvv,pot,t):
               [R,vR,vT,z,vz]; vR outward!
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
+       method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,5] array of [R,vR,vT,z,vz] at each t
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
-    l= vxvv[0]*vxvv[2]
-    l2= l**2.
-    init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
-    intOut= integrate.odeint(_RZEOM,init,t,args=(pot,l2),
-                             rtol=10.**-8.)#,mxstep=100000000)
-    out= nu.zeros((len(t),5))
-    out[:,0]= intOut[:,0]
-    out[:,1]= intOut[:,1]
-    out[:,3]= intOut[:,2]
-    out[:,4]= intOut[:,3]
-    out[:,2]= l/out[:,0]
+    if method.lower() == 'leapfrog':
+        #We hack this by upgrading to a FullOrbit
+        this_vxvv= nu.zeros(len(vxvv)+1)
+        this_vxvv[0:len(vxvv)]= vxvv
+        tmp_out= _integrateFullOrbit(this_vxvv,pot,t,method)
+        #tmp_out is (nt,6)
+        out= tmp_out[:,0:5]
+    elif method.lower() == 'odeint':
+        l= vxvv[0]*vxvv[2]
+        l2= l**2.
+        init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
+        intOut= integrate.odeint(_RZEOM,init,t,args=(pot,l2),
+                                 rtol=10.**-8.)#,mxstep=100000000)
+        out= nu.zeros((len(t),5))
+        out[:,0]= intOut[:,0]
+        out[:,1]= intOut[:,1]
+        out[:,3]= intOut[:,2]
+        out[:,4]= intOut[:,3]
+        out[:,2]= l/out[:,0]
     return out
 
 def _RZEOM(y,t,pot,l2):

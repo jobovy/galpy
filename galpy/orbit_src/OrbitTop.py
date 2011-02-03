@@ -353,19 +353,11 @@ class OrbitTop:
            return the orbit vector at time t
         INPUT:
            t - desired time
-           rect - if true, return rectangular coordinates
         OUTPUT:
            [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        #Options
-        if kwargs.has_key('rect'):
-            rect= kwargs['rect']
-        else:
-            rect= False
-        if rect:
-            return self._callRect(*args)
         if len(args) == 0:
             return nu.array(self.vxvv)
         else:
@@ -456,13 +448,13 @@ class OrbitTop:
         if d1 == 't':
             x= nu.array(self.t)
         elif d1 == 'R':
-            x= self.orbit[:,0]
+            x= self.R(self.t)
         elif d1 == 'z':
             x= self.orbit[:,3]
         elif d1 == 'vz':
             x= self.orbit[:,4]
         elif d1 == 'vR':
-            x= self.orbit[:,1]
+            x= self.vR(self.t)
         elif d1 == 'vT':
             x= self.orbit[:,2]
         elif d1 == 'x':
@@ -488,13 +480,13 @@ class OrbitTop:
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
-            y= self.orbit[:,0]
+            y= self.R(self.t)
         elif d2 == 'z':
             y= self.orbit[:,3]
         elif d2 == 'vz':
             y= self.orbit[:,4]
         elif d2 == 'vR':
-            y= self.orbit[:,1]
+            y= self.vR(self.t)
         elif d2 == 'vT':
             y= self.orbit[:,2]
         elif d2 == 'x':

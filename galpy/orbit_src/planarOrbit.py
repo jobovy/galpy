@@ -475,8 +475,9 @@ def _integrateROrbit(vxvv,pot,t,method):
     """
     if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
-        this_vxvv= nu.array([vxvv,0.]).flatten()
-        tmp_out= _integrateROrbit(this_vxvv,pot,t,method)
+        this_vxvv= nu.zeros(len(vxvv)+1)
+        this_vxvv[0:len(vxvv)]= vxvv
+        tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'odeint':
