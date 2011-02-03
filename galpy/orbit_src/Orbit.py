@@ -112,6 +112,25 @@ class Orbit:
             self.vxvv[-1]= phi
             self._orb.vxvv[-1]= phi
 
+    def dim(self):
+        """
+        NAME:
+           dim
+        PURPOSE:
+           return the dimension of the problem
+        INPUT:
+        OUTPUT:
+           dimension
+        HISTORY:
+           2011-02-03 - Written - Bovy (NYU)
+        """
+        if len(self.vxvv) == 2:
+            return 1
+        elif len(self.vxvv) == 3 or len(self.vxvv) == 4:
+            return 2
+        elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
+            return 3
+
     def integrate(self,t,pot,method='odeint'):
         """
         NAME:
