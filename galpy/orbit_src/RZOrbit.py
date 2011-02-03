@@ -43,6 +43,7 @@ class RZOrbit(OrbitTop):
            2010-07-10
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
         self._pot= pot
         self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)

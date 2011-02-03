@@ -43,7 +43,9 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-08-01 - Written - Bovy (NYU)
         """
+        #Reset things that may have been defined by a previous integration
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
         self._pot= pot
         self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)
@@ -196,7 +198,7 @@ class FullOrbit(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        L= self.L()
+        L= self.L().flatten()
         r= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
         vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/r
         vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/r
