@@ -147,12 +147,18 @@ def bovy_plot(*args,**kwargs):
         xlimits=kwargs['xrange']
         kwargs.pop('xrange')
     else:
-        xlimits=(args[0].min(),args[0].max())
+        if isinstance(args[0],list):
+            xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
+        else:
+            xlimits=(args[0].min(),args[0].max())           
     if kwargs.has_key('yrange'):
         ylimits=kwargs['yrange']
         kwargs.pop('yrange')
     else:
-        ylimits=(args[1].min(),args[1].max())
+        if isinstance(args[1],list):
+            ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
+        else:
+            ylimits=(args[1].min(),args[1].max())
     out= pyplot.plot(*args,**kwargs)
     if overplot:
         pass
@@ -203,7 +209,7 @@ def bovy_plot3d(*args,**kwargs):
     else:
         ylabel=None
     if kwargs.has_key('zlabel'):
-        ylabel= kwargs['zlabel']
+        zlabel= kwargs['zlabel']
         kwargs.pop('zlabel')
     else:
         zlabel=None
@@ -211,17 +217,26 @@ def bovy_plot3d(*args,**kwargs):
         xlimits=kwargs['xrange']
         kwargs.pop('xrange')
     else:
-        xlimits=(args[0].min(),args[0].max())
+        if isinstance(args[0],list):
+            xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
+        else:
+            xlimits=(args[0].min(),args[0].max())
     if kwargs.has_key('yrange'):
         ylimits=kwargs['yrange']
         kwargs.pop('yrange')
     else:
-        ylimits=(args[1].min(),args[1].max())
+        if isinstance(args[1],list):
+            ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
+        else:
+            ylimits=(args[1].min(),args[1].max())
     if kwargs.has_key('zrange'):
-        ylimits=kwargs['zrange']
+        zlimits=kwargs['zrange']
         kwargs.pop('zrange')
     else:
-        zlimits=(args[1].min(),args[1].max())
+        if isinstance(args[2],list):
+            zlimits=(sc.array(args[2]).min(),sc.array(args[2]).max())
+        else:
+            zlimits=(args[1].min(),args[2].max())
     out= pyplot.plot(*args,**kwargs)
     if overplot:
         pass
