@@ -1,6 +1,7 @@
 import numpy as nu
 from galpy.orbit import Orbit
 from galpy.potential_src.planarPotential import RZToplanarPotential
+import galpy.util.bovy_plot as plot
 from directnbody import direct_nbody
 class Snapshot:
     """General snapshot = collection of particles class"""
@@ -142,6 +143,116 @@ class Snapshot:
                 snap_orbits.append(Orbit(vxvv))
             out.append(Snapshot(snap_orbits,self.masses))
         return out
+
+    #Plotting
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot
+
+        PURPOSE:
+
+           plot the snapshot (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
+           matplotlib.plot inputs+bovy_plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2011-02-06 - Written based on Orbit's plot
+
+        """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        #Defaults
+        if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
+            if len(self.orbits[0].vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif len(self.orbits[0].vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+            elif len(self.orbits[0].vxvv) == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif len(self.orbits[0].vxvv) == 5 \
+                    or len(self.orbits[0].vxvv) == 6:
+                d1= 'R'
+                d2= 'z'
+        elif not kwargs.has_key('d1'):
+            d2= kwargs['d2']
+            kwargs.pop('d2')
+            d1= 't'
+        elif not kwargs.has_key('d2'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+            d2= kwargs['d2']
+            kwargs.pop('d2')
+        #Get x and y
+        if d1 == 'R':
+            x= [o.R() for o in self.orbits]
+        elif d1 == 'z':
+            x= [o.z() for o in self.orbits]
+        elif d1 == 'vz':
+            x= [o.vz() for o in self.orbits]
+        elif d1 == 'vR':
+            x= [o.vR() for o in self.orbits]
+        elif d1 == 'vT':
+            x= [o.vT() for o in self.orbits]
+        elif d1 == 'x':
+            x= [o.x() for o in self.orbits]
+        elif d1 == 'y':
+            x= [o.y() for o in self.orbits]
+        elif d1 == 'vx':
+            x= [o.vx() for o in self.orbits]
+        elif d1 == 'vy':
+            x= [o.vy() for o in self.orbits]
+        elif d1 == 'phi':
+            x= [o.phi() for o in self.orbits]
+        if d2 == 'R':
+            y= [o.R() for o in self.orbits]
+        elif d2 == 'z':
+            y= [o.z() for o in self.orbits]
+        elif d2 == 'vz':
+            y= [o.vz() for o in self.orbits]
+        elif d2 == 'vR':
+            y= [o.vR() for o in self.orbits]
+        elif d2 == 'vT':
+            y= [o.vT() for o in self.orbits]
+        elif d2 == 'x':
+            y= [o.x() for o in self.orbits]
+        elif d2 == 'y':
+            y= [o.y() for o in self.orbits]
+        elif d2 == 'vx':
+            y= [o.vx() for o in self.orbits]
+        elif d2 == 'vy':
+            y= [o.vy() for o in self.orbits]
+        elif d2 == 'phi':
+            y= [o.phi() for o in self.orbits]
+
+        #Plot
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= labeldict[d2]
+        if len(args) == 0:
+            args= (',',)
+        plot.bovy_plot(x,y,*args,**kwargs)
 
     #Pickling
     def __getstate__(self):
