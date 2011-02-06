@@ -142,3 +142,10 @@ class Snapshot:
                 snap_orbits.append(Orbit(vxvv))
             out.append(Snapshot(snap_orbits,self.masses))
         return out
+
+    #Pickling
+    def __getstate__(self):
+        return (self.orbits, self.masses)
+    def __setstate__(self,state):
+        self.orbits= state[0]
+        self.masses= state[1]
