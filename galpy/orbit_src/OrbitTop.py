@@ -860,7 +860,18 @@ class OrbitTop:
         if not hasattr(self,"_orbInterp"):
             orbInterp= []
             for ii in range(len(self.vxvv)):
-                orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                        self.t,self.orbit[:,ii]))
+                if not hasattr(self,"t"): #Orbit has not been integrated
+                    orbInterp.append(_fakeInterp(self.vxvv[ii]))
+                else:
+                    orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                            self.t,self.orbit[:,ii]))
             self._orbInterp= orbInterp
         return None
+
+
+class _fakeInterp: 
+    """Fake class to simulate interpolation when orbit was not integrated"""
+    def __init__(self,x):
+        self.x= x
+    def __call__(self,t):
+        return self.x
