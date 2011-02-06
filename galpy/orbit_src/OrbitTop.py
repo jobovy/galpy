@@ -692,6 +692,8 @@ class OrbitTop:
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):
             kwargs['ylabel']= labeldict[d2]
+        if not kwargs.has_key('zlabel'):
+            kwargs['zlabel']= labeldict[d3]
         plot.bovy_plot3d(x,y,z,*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
