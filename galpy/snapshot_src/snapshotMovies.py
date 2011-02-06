@@ -41,6 +41,17 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
 
        this procedure uses ffmpeg and convert
 
+    BUGS:
+    
+       matplotlib's 'Agg' backend has a memory leak that prevents it from 
+       creating hundred's of figures. It is recommended to call
+       
+       import matplotlib
+       matplotlib.use('PDF')
+
+       at the beginning of the movie creating script as the PDF backend does 
+       not have the same memory leak.
+
     HISTORY:
 
        2011-02-06 - Written - Bovy (NYU)
