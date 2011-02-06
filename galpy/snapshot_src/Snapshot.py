@@ -254,6 +254,142 @@ class Snapshot:
             args= (',',)
         plot.bovy_plot(x,y,*args,**kwargs)
 
+    def plot3d(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot3d
+
+        PURPOSE:
+
+           plot the snapshot in 3D (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
+           d3= third dimension to plot
+
+           matplotlib.plot inputs+bovy_plot.plot3d inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2011-02-06 - Written based on Orbit's plot3d
+
+        """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        #Defaults
+        if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
+                and not kwargs.has_key('d3'):
+            if len(self.orbits[0].vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif len(self.orbits[0].vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif len(self.orbits[0].vxvv) == 2:
+                raise AttributeError("Cannot plot 3D aspects of 1D orbits")
+            elif len(self.orbits[0].vxvv) == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif len(self.orbits[0].vxvv) == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not (kwargs.has_key('d1') and kwargs.has_key('d2') \
+                      and kwargs.has_key('d3')):
+            raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
+        else:
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+            d2= kwargs['d2']
+            kwargs.pop('d2')
+            d3= kwargs['d3']
+            kwargs.pop('d3')
+        #Get x, y, and z
+        if d1 == 'R':
+            x= [o.R() for o in self.orbits]
+        elif d1 == 'z':
+            x= [o.z() for o in self.orbits]
+        elif d1 == 'vz':
+            x= [o.vz() for o in self.orbits]
+        elif d1 == 'vR':
+            x= [o.vR() for o in self.orbits]
+        elif d1 == 'vT':
+            x= [o.vT() for o in self.orbits]
+        elif d1 == 'x':
+            x= [o.x() for o in self.orbits]
+        elif d1 == 'y':
+            x= [o.y() for o in self.orbits]
+        elif d1 == 'vx':
+            x= [o.vx() for o in self.orbits]
+        elif d1 == 'vy':
+            x= [o.vy() for o in self.orbits]
+        elif d1 == 'phi':
+            x= [o.phi() for o in self.orbits]
+        if d2 == 'R':
+            y= [o.R() for o in self.orbits]
+        elif d2 == 'z':
+            y= [o.z() for o in self.orbits]
+        elif d2 == 'vz':
+            y= [o.vz() for o in self.orbits]
+        elif d2 == 'vR':
+            y= [o.vR() for o in self.orbits]
+        elif d2 == 'vT':
+            y= [o.vT() for o in self.orbits]
+        elif d2 == 'x':
+            y= [o.x() for o in self.orbits]
+        elif d2 == 'y':
+            y= [o.y() for o in self.orbits]
+        elif d2 == 'vx':
+            y= [o.vx() for o in self.orbits]
+        elif d2 == 'vy':
+            y= [o.vy() for o in self.orbits]
+        elif d2 == 'phi':
+            y= [o.phi() for o in self.orbits]
+        if d3 == 'R':
+            z= [o.R() for o in self.orbits]
+        elif d3 == 'z':
+            z= [o.z() for o in self.orbits]
+        elif d3 == 'vz':
+            z= [o.vz() for o in self.orbits]
+        elif d3 == 'vR':
+            z= [o.vR() for o in self.orbits]
+        elif d3 == 'vT':
+            z= [o.vT() for o in self.orbits]
+        elif d3 == 'x':
+            z= [o.x() for o in self.orbits]
+        elif d3 == 'y':
+            z= [o.y() for o in self.orbits]
+        elif d3 == 'vx':
+            z= [o.vx() for o in self.orbits]
+        elif d3 == 'vy':
+            z= [o.vy() for o in self.orbits]
+        elif d3 == 'phi':
+            z= [o.phi() for o in self.orbits]
+
+        #Plot
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= labeldict[d2]
+        if not kwargs.has_key('zlabel'):
+            kwargs['zlabel']= labeldict[d3]
+        if len(args) == 0: args= (',',)
+        plot.bovy_plot3d(x,y,z,*args,**kwargs)
+
+
     #Pickling
     def __getstate__(self):
         return (self.orbits, self.masses)
