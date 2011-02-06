@@ -88,7 +88,7 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
                                      str(ii).zfill(file_length)))
         bovy_plot.bovy_print()
         snap[ii].plot(*args,**kwargs)
-        b= bovy_plot.bovy_end_print(tmpfiles[ii]+'.png')
+        bovy_plot.bovy_end_print(tmpfiles[ii]+'.png')
         #Convert to jpeg
         try:
             subprocess.check_call(['convert',
@@ -97,14 +97,14 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
         except subprocess.CalledProcessError:
             print "'convert' failed"
             raise subprocess.CalledProcessError
-        del b
     #turn them into a movie
     try:
         subprocess.check_call(['ffmpeg',
                                '-r',str(framerate),
                                '-b', str(bitrate),
                               '-i',
-                              os.path.join(tempdir,'%'+'0%id.jpg' % file_length),
+                              os.path.join(tempdir,
+                                           '%'+'0%id.jpg' % file_length),
                               '-y',
                               filename])
         if thumbnail:
