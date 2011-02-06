@@ -72,7 +72,8 @@ def bovy_end_print(filename,**kwargs):
         pyplot.savefig(filename,format=kwags['format'])
     else:
         pyplot.savefig(filename,format=re.split(r'\.',filename)[-1])
-    
+    pyplot.close()
+
 def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     """
     NAME:
