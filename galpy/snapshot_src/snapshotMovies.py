@@ -88,11 +88,11 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
                                      str(ii).zfill(file_length)))
         bovy_plot.bovy_print()
         snap[ii].plot(*args,**kwargs)
-        bovy_plot.bovy_end_print(tmpfiles[ii]+'.png')
+        bovy_plot.bovy_end_print(tmpfiles[ii]+'.pdf')
         #Convert to jpeg
         try:
             subprocess.check_call(['convert',
-                                   tmpfiles[ii]+'.png',
+                                   tmpfiles[ii]+'.pdf',
                                    tmpfiles[ii]+'.jpg'])
         except subprocess.CalledProcessError:
             print "'convert' failed"
@@ -109,10 +109,11 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
                               filename])
         if thumbnail:
             thumbnameTemp= re.split(r'\.',filename)
-            thumbnameTemp= thumbnameTemp[0:len(thumbnameTemp)-2]
+            thumbnameTemp= thumbnameTemp[0:len(thumbnameTemp)-1]
             thumbname= ''
             for t in thumbnameTemp:
-                thumbname+= t            
+                thumbname+= t
+            thumbname+= '.jpg'
             subprocess.check_call(['ffmpeg',
                                    '-itsoffset','-4','-y',
                                    '-i',filename,
@@ -128,6 +129,8 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
         print "'ffmpeg' failed"
         _cleanupMovieTempdir(tempdir)
         raise subprocess.CalledProcessError
+    finally:
+        _cleanupMovieTempdir(tempdir)
 
 def _cleanupMovieTempdir(tempdir):
     shutil.rmtree(tempdir)
