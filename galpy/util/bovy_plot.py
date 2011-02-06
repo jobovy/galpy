@@ -258,7 +258,7 @@ def bovy_plot3d(*args,**kwargs):
                 thiszlabel=r'$'+zlabel+'$'
             else:
                 thiszlabel=zlabel
-            ax.set_zlabel(thisylabel)
+            ax.set_zlabel(thiszlabel)
         ax.set_xlim3d(*xlimits)
         ax.set_ylim3d(*xlimits)
         ax.set_zlim3d(*xlimits)
