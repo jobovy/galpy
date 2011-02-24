@@ -56,17 +56,29 @@ _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
     """
     NAME:
+
        bovy_end_print
+
     PURPOSE:
+
        saves the current figure(s) to filename
+
     INPUT:
+
        filename - filename for plot (with extension)
+
     OPTIONAL INPUTS:
+
        format - file-format
+
     OUTPUT:
+
        (none)
+
     HISTORY:
+
        2009-12-23 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('format'):
         pyplot.savefig(filename,format=kwags['format'])
@@ -77,22 +89,35 @@ def bovy_end_print(filename,**kwargs):
 def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     """
     NAME:
+
        bovy_hist
+
     PURPOSE:
+
        wrapper around matplotlib's hist function
+
     INPUT:
+
        x - array to histogram
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
        + all pyplot.hist keywords
+
     OUTPUT:
        (from the matplotlib docs:
        http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.hist)
+
        The return value is a tuple (n, bins, patches)
        or ([n0, n1, ...], bins, [patches0, patches1,...])
        if the input contains multiple data
+
     HISTORY:
+
        2009-12-23 - Written - Bovy (NYU)
+
     """
     if not overplot:
         pyplot.figure()
@@ -108,19 +133,33 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
 def bovy_plot(*args,**kwargs):
     """
     NAME:
+
        bovy_plot
+
     PURPOSE:
+
        wrapper around matplotlib's plot function
+
     INPUT:
+
        see http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
        xrange
+
        yrange
+
        overplot=True does not start a new figure
+
     OUTPUT:
+
     HISTORY:
+
        2009-12-28 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('overplot') and kwargs['overplot']:
         kwargs.pop('overplot')
@@ -173,19 +212,33 @@ def bovy_plot(*args,**kwargs):
 def bovy_plot3d(*args,**kwargs):
     """
     NAME:
+
        bovy_plot3d
+
     PURPOSE:
+
        plot in 3d much as in 2d
+
     INPUT:
+
        see http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
        xrange
+
        yrange
+
        overplot=True does not start a new figure
+
     OUTPUT:
+
     HISTORY:
+
        2011-01-08 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('overplot') and kwargs['overplot']:
         kwargs.pop('overplot')
@@ -268,32 +321,55 @@ def bovy_plot3d(*args,**kwargs):
 def bovy_dens2d(X,**kwargs):
     """
     NAME:
+
        bovy_dens2d
+
     PURPOSE:
+
        plot a 2d density with optional contours
+
     INPUT:
+
        first argument is the density
+
        matplotlib.pyplot.imshow keywords (see http://matplotlib.sourceforge.net/api/axes_api.html#matplotlib.axes.Axes.imshow)
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
        xrange
+
        yrange
+
        noaxes - don't plot any axes
+
        overplot - if True, overplot
-       
+    
+
        Contours:
        
        contours - if True, draw contours (10 by default)
+
        levels - contour-levels
+
        cntrmass - if True, the density is a probability and the levels 
                   are probability masses contained within the contour
+
        cntrcolors - colors for contours (single color or array)
+
        cntrlabel - label the contours
+
        cntrlw, cntrls - linewidths and linestyles for contour
+
        cntrlabelsize, cntrlabelcolors,cntrinline - contour arguments
+
     OUTPUT:
+
     HISTORY:
+
        2010-03-09 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('overplot'):
         overplot= kwargs['overplot']
@@ -441,23 +517,41 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
                xtick_major_size=4,ytick_major_size=4):
     """
     NAME:
+
        bovy_print
+
     PURPOSE:
+
        setup a figure for plotting
+
     INPUT:
+
        fig_width - width in inches
+
        fig_height - height in inches
+
        axes_labelsize - size of the axis-labels
+
        text_fontsize - font-size of the text (if any)
+
        legend_fontsize - font-size of the legend (if any)
+
        xtick_labelsize - size of the x-axis labels
+
        ytick_labelsize - size of the y-axis labels
+
        xtick_minor_size - size of the minor x-ticks
+
        ytick_minor_size - size of the minor y-ticks
+
     OUTPUT:
+
        (none)
+
     HISTORY:
+
        2009-12-23 - Written - Bovy (NYU)
+
     """
     fig_size =  [fig_width,fig_height]
     params = {'axes.labelsize': axes_labelsize,
@@ -477,23 +571,35 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
 def bovy_text(*args,**kwargs):
     """
     NAME:
+
        bovy_text
+
     PURPOSE:
+
        thin wrapper around matplotlib's text and annotate
+
        use keywords:
           'bottom_left=True'
           'bottom_right=True'
           'top_left=True'
           'top_right=True'
           'title=True'
+
        to place the text in one of the corners or use it as the title
+
     INPUT:
+
        see matplotlib's text
           (http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.text)
+
     OUTPUT:
+
        prints text on the current figure
+
     HISTORY:
+
        2010-01-26 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('title'):
         kwargs.pop('title')
@@ -522,24 +628,42 @@ def bovy_text(*args,**kwargs):
 def scatterplot(x,y,*args,**kwargs):
     """
     NAME:
+
        scatterplot
+
     PURPOSE:
+
        make a 'smart' scatterplot that is a density plot in high-density
        regions and a regular scatterplot for outliers
+
     INPUT:
+
        x, y
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
        xrange
+
        yrange
+
        bins - number of bins to use in each dimension
+
        weights - data-weights
+
        aspect - aspect ratio
+
        onedhists - if True, make one-d histograms on the sides
+
        onedhistcolor, onedhistfc, onedhistec
+
     OUTPUT:
+
     HISTORY:
+
        2010-04-15 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('xlabel'):
         xlabel= kwargs['xlabel']
@@ -674,16 +798,27 @@ def scatterplot(x,y,*args,**kwargs):
 def _add_axislabels(xlabel,ylabel):
     """
     NAME:
+
        _add_axislabels
+
     PURPOSE:
+
        add axis labels to the current figure
+
     INPUT:
+
        xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
+
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
+
     OUTPUT:
+
        (none; works on the current axes)
+
     HISTORY:
+
        2009-12-23 - Written - Bovy (NYU)
+
     """
     if xlabel != None:
         if xlabel[0] != '$':
@@ -701,15 +836,25 @@ def _add_axislabels(xlabel,ylabel):
 def _add_ticks():
     """
     NAME:
+
        _add_ticks
+
     PURPOSE:
+
        add minor axis ticks to a plot
+
     INPUT:
+
        (none; works on the current axes)
+
     OUTPUT:
+
        (none; works on the current axes)
+
     HISTORY:
+
        2009-12-23 - Written - Bovy (NYU)
+
     """
     ax=pyplot.gca()
     xstep= ax.xaxis.get_majorticklocs()

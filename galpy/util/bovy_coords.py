@@ -1,7 +1,3 @@
-import math as m
-import scipy as sc
-_DEGTORAD= m.pi/180.
-_K=4.74047
 ###############################################################################
 #
 #   bovy_coords: module for coordinate transformations between the equatorial
@@ -12,22 +8,61 @@ _K=4.74047
 #            radec_to_lb
 #            lb_to_radec
 #            lbd_to_XYZ
+#            XYZ_to_lbd
 #            rectgal_to_sphergal
 #            sphergal_to_rectgal
 #            vrpmllpmbb_to_vxvyvz
 #            vxvyvz_to_vrpmllpmbb
-#            XYZ_to_lbd
 #            pmrapmdec_to_pmllpmbb
 #            pmllpmbb_to_pmrapmdec
 #            cov_pmrapmdec_to_pmllpmbb
 #            cov_dvrpmllbb_to_vxyz
 #            XYZ_to_galcenrect
 #            XYZ_to_galcencyl
+#            galcenrect_to_XYZ
+#            galcencyl_to_XYZ
 #            rect_to_cyl
+#            cyl_to_rect
+#            rect_to_cyl_vec
+#            cyl_to_rect_vec
 #            vxvyvz_to_galcenrect
 #            vxvyvz_to_galcencyl
+#            galcenrect_to_vxvyvz
+#            galcencyl_to_vxvyvz
 #
 ##############################################################################
+#############################################################################
+#Copyright (c) 2010 - 2011, Jo Bovy
+#All rights reserved.
+#
+#Redistribution and use in source and binary forms, with or without 
+#modification, are permitted provided that the following conditions are met:
+#
+#   Redistributions of source code must retain the above copyright notice, 
+#      this list of conditions and the following disclaimer.
+#   Redistributions in binary form must reproduce the above copyright notice, 
+#      this list of conditions and the following disclaimer in the 
+#      documentation and/or other materials provided with the distribution.
+#   The name of the author may not be used to endorse or promote products 
+#      derived from this software without specific prior written permission.
+#
+#THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+#HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+#INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+#BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+#OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+#AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+#WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#POSSIBILITY OF SUCH DAMAGE.
+#############################################################################
+import math as m
+import scipy as sc
+_DEGTORAD= m.pi/180.
+_K=4.74047
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
@@ -147,16 +182,16 @@ def lb_to_radec_single(l,b,T,degree=False):
     else:
         thisl= l
         thisb= b
-    XYZ=sc.array([sc.cos(thisb)*sc.cos(thisl),sc.cos(thisb)*sc.sin(thisl),sc.sin(thisb)])
+    XYZ=sc.array([m.cos(thisb)*m.cos(thisl),m.cos(thisb)*m.sin(thisl),m.sin(thisb)])
     eqXYZ= sc.dot(T,XYZ)
     dec= m.asin(eqXYZ[2])
     ra= m.atan(eqXYZ[1]/eqXYZ[0])
-    if eqXYZ[0]/sc.cos(dec) < 0.:
-        ra+= sc.pi
-    if ra < 0.:
-        ra+= 2.*sc.pi
+    if eqXYZ[0] < 0.:
+        ra+= m.pi
+    elif ra < 0.:
+        ra+= 2.*m.pi
     if degree:
-        return (ra/sc.pi*180.,dec/sc.pi*180.)
+        return (ra/m.pi*180.,dec/m.pi*180.)
     else:
         return (ra,dec)
 
@@ -452,7 +487,7 @@ def XYZ_to_lbd_single(X,Y,Z,degree):
        Z - component towards the North Galactic Pole
        degree - (Bool) if True, return l and b in degrees
     OUTPUT:
-       [l,b,d] in (rad,,rad,kpc)
+       [l,b,d] in (rad,rad,kpc)
     HISTORY:
        2009-10-24 - Written - Bovy (NYU)
     """
@@ -778,6 +813,22 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
     return (-X+Xsun,Y+Ysun,Z+Zsun)
 
+def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+    """
+    NAME:
+       galcenrect_to_XYZ
+    PURPOSE:
+       transform rectangular Galactocentric to XYZ coordinates (wrt Sun)
+       coordinates
+    INPUT:
+       X, Y, Z - Galactocentric rectangular coordinates
+    OUTPUT:
+       (X, Y, Z)
+    HISTORY:
+       2011-02-23 - Written - Bovy (NYU)
+    """
+    return (-X+Xsun,Y-Ysun,Z-Zsun)
+
 def rect_to_cyl(X,Y,Z):
     """
     NAME:
@@ -796,6 +847,21 @@ def rect_to_cyl(X,Y,Z):
     if X < 0.:
         phi= m.pi-phi
     return (R,phi,Z)
+
+def cyl_to_rect(R,phi,Z):
+    """
+    NAME:
+       cyl_to_rect
+    PURPOSE:
+       convert from cylindrical to rectangular coordinates
+    INPUT:
+       R, phi, Z - cylindrical coordinates
+    OUTPUT:
+       [:,3] X,Y,Z
+    HISTORY:
+       2011-02-23 - Written - Bovy (NYU)
+    """
+    return (R*sc.cos(phi),R*sc.sin(phi),Z)
 
 def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
@@ -816,13 +882,30 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     Xg,Yg,Zg= XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
     return rect_to_cyl(Xg,Yg,Zg)
     
+def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+    """
+    NAME:
+       galcencyl_to_XYZ
+    PURPOSE:
+       transform cylindrical Galactocentric coordinates to XYZ coordinates 
+       (wrt Sun)
+    INPUT:
+       R, phi, Z - Galactocentric cylindrical coordinates
+    OUTPUT:
+       [:,3]= X,Y,Z
+    HISTORY:
+       2011-02-23 - Written - Bovy (NYU)
+    """
+    Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
+    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
+    
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
     """
     NAME:
-       XYZ_to_galcenrect
+       vxvyvz_to_galcenrect
     PURPOSE:
        transform XYZ coordinates (wrt Sun) to rectangular Galactocentric 
-       coordinates
+       coordinates for velocities
     INPUT:
        vx - U
        vy - V
@@ -835,14 +918,13 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
     """
     return sc.array([-vx+vsun[0],vy+vsun[1],vz+vsun[2]])
 
-def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],
-                        Xsun=1.,Ysun=0.,Zsun=0.,galcen=False):
+def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
     """
     NAME:
-       XYZ_to_galcencyl
+       vxvyvz_to_galcencyl
     PURPOSE:
-       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric 
-       coordinates
+       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric 
+       coordinates for velocities
     INPUT:
        vx - U
        vy - V
@@ -851,7 +933,6 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],
        Y - Y
        Z - Z
        vsun - velocity of the sun ndarray[3]
-       Xsun, Ysun, Zsun - coordinates of the sun
        galcen - if True, then X,Y,Z are in cylindrical 
                 Galactocentric coordinates
     OUTPUT:
@@ -861,6 +942,46 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],
     """
     vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun)
     return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=galcen)
+
+def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
+    """
+    NAME:
+       galcenrect_to_vxvyvz
+    PURPOSE:
+       transform rectangular Galactocentric coordinates to XYZ coordinates 
+       (wrt Sun) for velocities
+    INPUT:
+       vXg - Galactocentric x-velocity
+       vYg - Galactocentric y-velocity
+       vZg - Galactocentric z-velocity
+       vsun - velocity of the sun ndarray[3]
+    OUTPUT:
+       [:,3]= vx, vy, vz
+    HISTORY:
+       2011-02-24 - Written - Bovy (NYU)
+    """
+    return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
+
+def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
+    """
+    NAME:
+       galcencyl_to_vxvyvz
+    PURPOSE:
+       transform cylindrical Galactocentric coordinates to XYZ (wrt Sun)
+       coordinates for velocities
+    INPUT:
+       vR - Galactocentric radial velocity
+       vT - Galactocentric tangential velocity
+       vZ - Galactocentric vertical velocity
+       phi - Galactocentric azimuth
+       vsun - velocity of the sun ndarray[3]
+    OUTPUT:
+       vx,vy,vz
+    HISTORY:
+       2011-02-24 - Written - Bovy (NYU)
+    """
+    vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
+    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun)
 
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
@@ -888,6 +1009,26 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     vr=+vx*sc.cos(phi)+vy*sc.sin(phi)
     vt= -vx*sc.sin(phi)+vy*sc.cos(phi)
     return (vr,vt,vz)
+
+def cyl_to_rect_vec(vr,vt,vz,phi):
+    """
+    NAME:
+       cyl_to_rect_vec
+    PURPOSE:
+       transform vectors from cylindrical to rectangular coordinate vectors
+    INPUT:
+       vr - radial velocity
+       vt - tangential velocity
+       vz - vertical velocity
+       phi - azimuth
+    OUTPUT:
+       vx,vy,vz
+    HISTORY:
+       2011-02-24 - Written - Bovy (NYU)
+    """
+    vx= vr*sc.cos(phi)-vt*sc.sin(phi)
+    vy= vr*sc.sin(phi)+vt*sc.cos(phi)
+    return (vx,vy,vz)
 
 def get_epoch_angles(epoch=2000.0):
     """
