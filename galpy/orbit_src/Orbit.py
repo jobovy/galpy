@@ -1222,7 +1222,7 @@ class Orbit:
            2011-02-24 - Written - Bovy (NYU)
 
         """
-o        return self._orb.helioX(*args,**kwargs)
+        return self._orb.helioX(*args,**kwargs)
 
     def helioY(self,*args,**kwargs):
         """
@@ -1409,14 +1409,17 @@ o        return self._orb.helioX(*args,**kwargs)
         OUTPUT:
 
            an Orbit instance with initial condition set to the 
-           phase-space at time t
+           phase-space at time t or list of Orbit instances if multiple 
+           times are given
 
         HISTORY:
 
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        return Orbit(vxvv=self._orb(*args,**kwargs))
+        thiso= self._orb(*args,**kwargs)
+        if len(thiso.shape) == 1: return Orbit(vxvv=thiso)
+        else: return [Orbit(vxvv=thiso[:,ii]) for ii in range(thiso.shape[1])]
 
     def plot(self,*args,**kwargs):
         """

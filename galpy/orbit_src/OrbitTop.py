@@ -650,6 +650,7 @@ class OrbitTop:
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
+        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z= self._helioXYZ(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -660,8 +661,6 @@ class OrbitTop:
         """Calculate heliocentric rectangular coordinates"""
         obs, ro, vo= _parse_radec_kwargs(kwargs)
         thiso= self(*args,**kwargs)
-        if not isinstance(obs,(nu.ndarray,list)): #Orbit instance
-            thisobs= obs(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use radeclbd functions")
@@ -674,14 +673,14 @@ class OrbitTop:
             else: #Orbit instance
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
                                                     Zsun=0.)
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
-                                                    Zsun=thisobs.z())
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
+                                                    Zsun=obs.z(*args,**kwargs))
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
@@ -693,19 +692,20 @@ class OrbitTop:
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
                                                     Zsun=0.)
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
-                                                    Zsun=thisobs.z())
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
+                                                    Zsun=obs.z(*args,**kwargs))
         return (X,Y,Z)
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
+        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -716,8 +716,6 @@ class OrbitTop:
         """Calculate X,Y,Z,U,V,W"""
         obs, ro, vo= _parse_radec_kwargs(kwargs,vel=True)
         thiso= self(*args,**kwargs)
-        if not isinstance(obs,(nu.ndarray,list)): #Orbit instance
-            thisobs= obs(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
@@ -734,27 +732,29 @@ class OrbitTop:
             else: #Orbit instance
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
                                                     Zsun=0.)
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
                                                           thiso[3,:],
                                                           vsun=nu.array([\
-                                thisobs.vx(),thisobs.vy(),
+                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
                                 nu.zeros(len(thiso[0,:]))]))
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
-                                                    Zsun=thisobs.z())
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
+                                                    Zsun=obs.z(*args,**kwargs))
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
                                                           thiso[3,:],
                                                           vsun=nu.array([\
-                                thisobs.vx(),thisobs.vy(),thisobs.vz()]))
+                                obs.vx(*args,**kwargs),
+                                obs.vy(*args,**kwargs),
+                                obs.vz(*args,**kwargs)]))
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
@@ -772,28 +772,30 @@ class OrbitTop:
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
                                                     Zsun=0.)
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
                                                           thiso[5,:],
                                                           vsun=nu.array([\
-                                thisobs.vx(),thisobs.vy(),
+                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
                                 nu.zeros(len(thiso[0,:]))]))
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
-                                                    Xsun=thisobs.x(),
-                                                    Ysun=thisobs.y(),
-                                                    Zsun=thisobs.z())
+                                                    Xsun=obs.x(*args,**kwargs),
+                                                    Ysun=obs.y(*args,**kwargs),
+                                                    Zsun=obs.z(*args,**kwargs))
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
                                                           thiso[5,:],
                                                           vsun=nu.array([\
-                                thisobs.vx(),thisobs.vy(),thisobs.vx()]))
+                                obs.vx(*args,**kwargs),
+                                obs.vy(*args,**kwargs),
+                                obs.vx(*args,**kwargs)]))
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
     def L(self,*args,**kwargs):
@@ -1442,10 +1444,11 @@ class _fakeInterp:
     def __call__(self,t):
         return self.x
 
-def _parse_radec_kwargs(kwargs,vel=False):
+def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
     if kwargs.has_key('obs'):
         obs= kwargs['obs']
-        kwargs.pop('obs')
+        if not dontpop:
+            kwargs.pop('obs')
         if isinstance(obs,(list,nu.ndarray)):
             if len(obs) == 2:
                 obs= [obs[0],obs[1],0.]
@@ -1458,12 +1461,14 @@ def _parse_radec_kwargs(kwargs,vel=False):
             obs= [8.5,0.,0.]
     if kwargs.has_key('ro'):
         ro= kwargs['ro']
-        kwargs.pop('ro')
+        if not dontpop:
+            kwargs.pop('ro')
     else:
         ro= 8.5
     if kwargs.has_key('vo'):
         ro= kwargs['vo']
-        kwargs.pop('vo')
+        if not dontpop:
+            kwargs.pop('vo')
     else:
         vo= 235.
     return (obs,ro,vo)
