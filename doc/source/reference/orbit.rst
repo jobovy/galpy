@@ -17,12 +17,19 @@ Methods
 
    __add__ <orbitadd.rst>
    __call__ <orbitcall.rst>
+   bb <orbitbb.rst>
+   dec <orbitdec.rst>
+   dist <orbitdist.rst>
    E <orbitE.rst>
    e <orbitecc.rst>
    integrate <orbitint.rst>
    getOrbit <orbitgetorbit.rst>
+   helioX <orbitheliox.rst>
+   helioY <orbithelioy.rst>
+   helioZ <orbithelioz.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
+   ll <orbitll.rst>
    L <orbitl.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
@@ -40,7 +47,12 @@ Methods
    plotx <orbitplotx.rst>
    ploty <orbitploty.rst>
    plotz <orbitplotz.rst>
+   pmbb <orbitpmbb.rst>
+   pmdec <orbitpmdec.rst>
+   pmll <orbitpmll.rst>
+   pmra <orbitpmra.rst>
    R <orbitr.rst>
+   ra <orbitra.rst>
    rap <orbitrap.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
@@ -49,12 +61,16 @@ Methods
    Tp <orbittp.rst>
    Tr <orbittr.rst>
    TrTp <orbittrtp.rst>
+   U <orbitu.rst>
+   V <orbitv.rst>
+   vlos <orbitvlos.rst>
    vphi <orbitvphi.rst>
    vR <orbitvr.rst>
    vT <orbitvt.rst>
    vx <orbitvx.rst>
    vy <orbitvy.rst>
    vz <orbitvz.rst>
+   W <orbitw.rst>
    wp <orbitwr.rst>
    wr <orbitwp.rst>
    x <orbitx.rst>
