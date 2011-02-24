@@ -2,6 +2,7 @@ import math as m
 import numpy as nu
 from scipy import integrate, interpolate
 import galpy.util.bovy_plot as plot
+import galpy.util.bovy_coords as coords
 class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None):
@@ -290,6 +291,511 @@ class OrbitTop:
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         return thiso[2,:]/thiso[0,:]
 
+    def ra(self,*args,**kwargs):
+        """
+        NAME:
+           ra
+        PURPOSE:
+           return the right ascension
+        INPUT:
+           t - (optional) time at which to get ra
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=[8.5,0.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)
+        OUTPUT:
+           ra(t)
+        HISTORY:
+           2011-02-23 - Written - Bovy (NYU)
+        """
+        radec= self._radec(*args,**kwargs)
+        return radec[:,0]
+
+    def dec(self,*args,**kwargs):
+        """
+        NAME:
+           dec
+        PURPOSE:
+           return the declination
+        INPUT:
+           t - (optional) time at which to get dec
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=[8.5,0.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)
+        OUTPUT:
+           dec(t)
+        HISTORY:
+           2011-02-23 - Written - Bovy (NYU)
+        """
+        radec= self._radec(*args,**kwargs)
+        return radec[:,1]
+
+    def ll(self,*args,**kwargs):
+        """
+        NAME:
+           ll
+        PURPOSE:
+           return Galactic longitude
+        INPUT:
+           t - (optional) time at which to get ll
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=[8.5,0.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           l(t)
+        HISTORY:
+           2011-02-23 - Written - Bovy (NYU)
+        """
+        lbd= self._lbd(*args,**kwargs)
+        return lbd[:,0]
+
+    def bb(self,*args,**kwargs):
+        """
+        NAME:
+           bb
+        PURPOSE:
+           return Galactic latitude
+        INPUT:
+           t - (optional) time at which to get bb
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=[8.5,0.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           b(t)
+        HISTORY:
+           2011-02-23 - Written - Bovy (NYU)
+        """
+        lbd= self._lbd(*args,**kwargs)
+        return lbd[:,1]
+
+    def dist(self,*args,**kwargs):
+        """
+        NAME:
+           dist
+        PURPOSE:
+           return distance from the observer
+        INPUT:
+           t - (optional) time at which to get dist
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=[8.5,0.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           dist(t)
+        HISTORY:
+           2011-02-23 - Written - Bovy (NYU)
+        """
+        lbd= self._lbd(*args,**kwargs)
+        return lbd[:,2]
+
+    def pmra(self,*args,**kwargs):
+        """
+        NAME:
+           pmra
+        PURPOSE:
+           return proper motion in right ascension (in mas/yr)
+        INPUT:
+           t - (optional) time at which to get pmra
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           pm_ra(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        pmrapmdec= self._pmrapmdec(*args,**kwargs)
+        return pmrapmdec[:,0]
+
+    def pmdec(self,*args,**kwargs):
+        """
+        NAME:
+           pmdec
+        PURPOSE:
+           return proper motion in declination (in mas/yr)
+        INPUT:
+           t - (optional) time at which to get pmdec
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           pm_dec(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        pmrapmdec= self._pmrapmdec(*args,**kwargs)
+        return pmrapmdec[:,1]
+
+    def pmll(self,*args,**kwargs):
+        """
+        NAME:
+           pmll
+        PURPOSE:
+           return proper motion in Galactic longitude (in mas/yr)
+        INPUT:
+           t - (optional) time at which to get pmll
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           pm_l(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
+        return lbdvrpmllpmbb[:,4]
+
+    def pmbb(self,*args,**kwargs):
+        """
+        NAME:
+           pmbb
+        PURPOSE:
+           return proper motion in Galactic latitude (in mas/yr)
+        INPUT:
+           t - (optional) time at which to get pmbb
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           pm_b(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
+        return lbdvrpmllpmbb[:,5]
+
+    def vlos(self,*args,**kwargs):
+        """
+        NAME:
+           vlos
+        PURPOSE:
+           return the line-of-sight velocity (in km/s)
+        INPUT:
+           t - (optional) time at which to get vlos
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           vlos(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
+        return lbdvrpmllpmbb[:,3]
+
+    def helioX(self,*args,**kwargs):
+        """
+        NAME:
+           helioX
+        PURPOSE:
+           return Heliocentric Galactic rectangular x-coordinate (aka "X")
+        INPUT:
+           t - (optional) time at which to get X
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           helioX(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z= self._helioXYZ(*args,**kwargs)
+        return X
+
+    def helioY(self,*args,**kwargs):
+        """
+        NAME:
+           helioY
+        PURPOSE:
+           return Heliocentric Galactic rectangular y-coordinate (aka "Y")
+        INPUT:
+           t - (optional) time at which to get Y
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           helioY(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z= self._helioXYZ(*args,**kwargs)
+        return Y
+
+    def helioZ(self,*args,**kwargs):
+        """
+        NAME:
+           helioZ
+        PURPOSE:
+           return Heliocentric Galactic rectangular z-coordinate (aka "Z")
+        INPUT:
+           t - (optional) time at which to get Z
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+        OUTPUT:
+           helioZ(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z= self._helioXYZ(*args,**kwargs)
+        return Z
+
+    def U(self,*args,**kwargs):
+        """
+        NAME:
+           U
+        PURPOSE:
+           return Heliocentric Galactic rectangular x-velocity (aka "U")
+        INPUT:
+           t - (optional) time at which to get U
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           U(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
+        return U
+
+    def V(self,*args,**kwargs):
+        """
+        NAME:
+           V
+        PURPOSE:
+           return Heliocentric Galactic rectangular y-velocity (aka "V")
+        INPUT:
+           t - (optional) time at which to get U
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           V(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
+        return V
+
+    def W(self,*args,**kwargs):
+        """
+        NAME:
+           W
+        PURPOSE:
+           return Heliocentric Galactic rectangular z-velocity (aka "W")
+        INPUT:
+           t - (optional) time at which to get W
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+        OUTPUT:
+           W(t)
+        HISTORY:
+           2011-02-24 - Written - Bovy (NYU)
+        """
+        X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
+        return W
+
+    def _radec(self,*args,**kwargs):
+        """Calculate ra and dec"""
+        lbd= self._lbd(*args,**kwargs)
+        return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True)
+
+    def _pmrapmdec(self,*args,**kwargs):
+        """Calculate pmra and pmdec"""
+        lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
+        return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                            lbdvrpmllpmbb[:,5],
+                                            lbdvrpmllpmbb[:,0],
+                                            lbdvrpmllpmbb[:,1],degree=True)
+
+    def _lbd(self,*args,**kwargs):
+        """Calculate l,b, and d"""
+        X,Y,Z= self._helioXYZ(*args,**kwargs)
+        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+        if True in bad_indx:
+            X[bad_indx]+= ro/10000.
+        return coords.XYZ_to_lbd(X*ro,Y*ro,Z*ro,degree=True)
+
+    def _helioXYZ(self,*args,**kwargs):
+        """Calculate heliocentric rectangular coordinates"""
+        obs, ro, vo= _parse_radec_kwargs(kwargs)
+        thiso= self(*args,**kwargs)
+        if not isinstance(obs,(nu.ndarray,list)): #Orbit instance
+            thisobs= obs(*args,**kwargs)
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+            raise AttributeError("orbit must track azimuth to use radeclbd functions")
+        elif len(thiso[:,0]) == 4: #planarOrbit
+            if isinstance(obs,(nu.ndarray,list)):
+                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                Xsun=obs[0]/ro,
+                                                Ysun=obs[1]/ro,
+                                                Zsun=obs[2]/ro)
+            else: #Orbit instance
+                if obs.dim() == 2:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=0.)
+                else:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=thisobs.z())
+        else: #FullOrbit
+            if isinstance(obs,(nu.ndarray,list)):
+                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                thiso[3,:],
+                                                Xsun=obs[0]/ro,
+                                                Ysun=obs[1]/ro,
+                                                Zsun=obs[2]/ro)
+            else: #Orbit instance
+                if obs.dim() == 2:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                    thiso[3,:],
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=0.)
+                else:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                    thiso[3,:],
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=thisobs.z())
+        return (X,Y,Z)
+
+    def _lbdvrpmllpmbb(self,*args,**kwargs):
+        """Calculate l,b,d,vr,pmll,pmbb"""
+        X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
+        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+        if True in bad_indx:
+            X[bad_indx]+= ro/10000.
+        return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+
+    def _XYZvxvyvz(self,*args,**kwargs):
+        """Calculate X,Y,Z,U,V,W"""
+        obs, ro, vo= _parse_radec_kwargs(kwargs,vel=True)
+        thiso= self(*args,**kwargs)
+        if not isinstance(obs,(nu.ndarray,list)): #Orbit instance
+            thisobs= obs(*args,**kwargs)
+        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+            raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
+        elif len(thiso[:,0]) == 4: #planarOrbit
+            if isinstance(obs,(nu.ndarray,list)):
+                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                Xsun=obs[0]/ro,
+                                                Ysun=obs[1]/ro,
+                                                Zsun=obs[2]/ro)
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],thiso[2,:],0.,
+                                                      thiso[3,:],
+                                                      vsun=nu.array(\
+                        obs[3:6])/vo)
+            else: #Orbit instance
+                if obs.dim() == 2:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=0.)
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
+                                                          thiso[2,:],
+                                                          0.,
+                                                          thiso[3,:],
+                                                          vsun=nu.array([\
+                                thisobs.vx(),thisobs.vy(),
+                                nu.zeros(len(thiso[0,:]))]))
+                else:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=thisobs.z())
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
+                                                          thiso[2,:],
+                                                          0.,
+                                                          thiso[3,:],
+                                                          vsun=nu.array([\
+                                thisobs.vx(),thisobs.vy(),thisobs.vz()]))
+        else: #FullOrbit
+            if isinstance(obs,(nu.ndarray,list)):
+                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                thiso[3,:],
+                                                Xsun=obs[0]/ro,
+                                                Ysun=obs[1]/ro,
+                                                Zsun=obs[2]/ro)
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
+                                                      thiso[2,:],
+                                                      thiso[4,:],
+                                                      thiso[5,:],
+                                                      vsun=nu.array(\
+                        obs[3:6])/vo)
+            else: #Orbit instance
+                if obs.dim() == 2:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                    thiso[3,:],
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=0.)
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
+                                                          thiso[2,:],
+                                                          thiso[4,:],
+                                                          thiso[5,:],
+                                                          vsun=nu.array([\
+                                thisobs.vx(),thisobs.vy(),
+                                nu.zeros(len(thiso[0,:]))]))
+                else:
+                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
+                                                    thiso[3,:],
+                                                    Xsun=thisobs.x(),
+                                                    Ysun=thisobs.y(),
+                                                    Zsun=thisobs.z())
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
+                                                          thiso[2,:],
+                                                          thiso[4,:],
+                                                          thiso[5,:],
+                                                          vsun=nu.array([\
+                                thisobs.vx(),thisobs.vy(),thisobs.vx()]))
+        return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
     def L(self,*args,**kwargs):
         """
         NAME:
@@ -429,7 +935,12 @@ class OrbitTop:
         """
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                    'ra':r'$\alpha\ [\mathrm{deg}]$',
+                    'dec':r'$\delta\ [\mathrm{deg}]$',
+                    'll':r'$l\ [\mathrm{deg}]$',
+                    'bb':r'$b\ [\mathrm{deg}]$',
+                    'dist':r'$d\ [\mathrm{kpc}]$'}
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
             if len(self.vxvv) == 3:
@@ -492,6 +1003,16 @@ class OrbitTop:
             x= self.vy(self.t)
         elif d1 == 'phi':
             x= self.phi(self.t)
+        elif d1.lower() == 'ra':
+            x= self.ra(self.t)
+        elif d1.lower() == 'dec':
+            x= self.dec(self.t)
+        elif d1 == 'll':
+            x= self.ll(self.t)
+        elif d1 == 'bb':
+            x= self.bb(self.t)
+        elif d1 == 'dist':
+            x= self.dist(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -526,6 +1047,16 @@ class OrbitTop:
             y= self.vy(self.t)
         elif d2 == 'phi':
             y= self.phi(self.t)
+        elif d2.lower() == 'ra':
+            y= self.ra(self.t)
+        elif d2.lower() == 'dec':
+            y= self.dec(self.t)
+        elif d2 == 'll':
+            y= self.ll(self.t)
+        elif d2 == 'bb':
+            y= self.bb(self.t)
+        elif d2 == 'dist':
+            y= self.dist(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):
@@ -551,7 +1082,12 @@ class OrbitTop:
         """
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                    'ra':r'$\alpha\ [\mathrm{deg}]$',
+                    'dec':r'$\delta\ [\mathrm{deg}]$',
+                    'll':r'$l\ [\mathrm{deg}]$',
+                    'bb':r'$b\ [\mathrm{deg}]$',
+                    'dist':r'$d\ [\mathrm{kpc}]$'}
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
                 and not kwargs.has_key('d3'):
@@ -618,6 +1154,16 @@ class OrbitTop:
             x= self.vy(self.t)
         elif d1 == 'phi':
             x= self.phi(self.t)
+        elif d1.lower() == 'ra':
+            x= self.ra(self.t)
+        elif d1.lower() == 'dec':
+            x= self.dec(self.t)
+        elif d1 == 'll':
+            x= self.ll(self.t)
+        elif d1 == 'bb':
+            x= self.bb(self.t)
+        elif d1 == 'dist':
+            x= self.dist(self.t)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -652,6 +1198,16 @@ class OrbitTop:
             y= self.vy(self.t)
         elif d2 == 'phi':
             y= self.phi(self.t)
+        elif d2.lower() == 'ra':
+            y= self.ra(self.t)
+        elif d2.lower() == 'dec':
+            y= self.dec(self.t)
+        elif d2 == 'll':
+            y= self.ll(self.t)
+        elif d2 == 'bb':
+            y= self.bb(self.t)
+        elif d2 == 'dist':
+            y= self.dist(self.t)
         if d3 == 't':
             z= nu.array(self.t)
         elif d3 == 'R':
@@ -686,6 +1242,16 @@ class OrbitTop:
             z= self.vy(self.t)
         elif d3 == 'phi':
             z= self.phi(self.t)
+        elif d3.lower() == 'ra':
+            z= self.ra(self.t)
+        elif d3.lower() == 'dec':
+            z= self.dec(self.t)
+        elif d3 == 'll':
+            z= self.ll(self.t)
+        elif d3 == 'bb':
+            z= self.bb(self.t)
+        elif d3 == 'dist':
+            z= self.dist(self.t)
 
         #Plot
         if not kwargs.has_key('xlabel'):
@@ -875,3 +1441,29 @@ class _fakeInterp:
         self.x= x
     def __call__(self,t):
         return self.x
+
+def _parse_radec_kwargs(kwargs,vel=False):
+    if kwargs.has_key('obs'):
+        obs= kwargs['obs']
+        kwargs.pop('obs')
+        if isinstance(obs,(list,nu.ndarray)):
+            if len(obs) == 2:
+                obs= [obs[0],obs[1],0.]
+            elif len(obs) == 4:
+                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+    else:
+        if vel:
+            obs= [8.5,0.,0.,0.,235.,0.]
+        else:
+            obs= [8.5,0.,0.]
+    if kwargs.has_key('ro'):
+        ro= kwargs['ro']
+        kwargs.pop('ro')
+    else:
+        ro= 8.5
+    if kwargs.has_key('vo'):
+        ro= kwargs['vo']
+        kwargs.pop('vo')
+    else:
+        vo= 235.
+    return (obs,ro,vo)
