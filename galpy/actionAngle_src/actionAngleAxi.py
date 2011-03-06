@@ -176,7 +176,7 @@ class actionAngleAxi(actionAngle):
         if rap == rperi: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
-            self._I= nu.array([TR/Tphi,0.])
+            self._I= nu.array([TR/Tphi*m.pi,0.])
             return self._I
         EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
         E, L= EL

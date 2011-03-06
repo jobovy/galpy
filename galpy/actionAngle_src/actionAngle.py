@@ -1,3 +1,4 @@
+import math as m
 class actionAngle:
     """Top-level class for actionAngle classes"""
     def __init__(self,*args,**kwargs):
@@ -16,6 +17,14 @@ class actionAngle:
             self._R= R
             self._vR= vR
             self._vT= vT
+        elif len(args) == 3: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+            self._R= R
+            self._vR= vR
+            self._vT= vT
+            self._z= z
+            self._vz= vz
+            self._phi= phi
         else:
             if len(args) == 2:
                 vxvv= args[0](args[1]).vxvv
@@ -24,4 +33,10 @@ class actionAngle:
             self._R= vxvv[0]
             self._vR= vxvv[1]
             self._vT= vxvv[2]
+            if len(vxvv) > 3:
+                self._z= vxvv[3]
+                self.vz= vxvv[4]
+                self._phi= vxvv[5]
+        if hasattr(self,'_z'): #calculate the polar angle
+            self._theta= m.atan(self._R/self._z)
         return None
