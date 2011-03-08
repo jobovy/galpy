@@ -178,3 +178,17 @@ class DehnenBarPotential(planarPotential):
             return -2.*self._af*smooth*m.sin(2.*(phi-self._omegab*t-
                                                  self._barphi))\
                                                  *(self._rb/R)**3.
+
+    def tform(self):
+        """
+        NAME:
+           tform
+        PURPOSE:
+           return formation time of the bar
+        INPUT:
+        OUTPUT:
+           tform in normalized units
+        HISTORY:
+           2011-03-08 - Written - Bovy (NYU)
+        """
+        return dp._tform
