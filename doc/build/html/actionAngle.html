@@ -1,0 +1,219 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Action-angle coordinates &mdash; galpy v0.1_alpha documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1_alpha',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1_alpha documentation" href="index.html" />
+    <link rel="next" title="Orbit" href="reference/orbit.html" />
+    <link rel="prev" title="More on disk distribution functions" href="diskdf.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="reference/orbit.html" title="Orbit"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="diskdf.html" title="More on disk distribution functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="action-angle-coordinates">
+<h1>Action-angle coordinates<a class="headerlink" href="#action-angle-coordinates" title="Permalink to this headline">¶</a></h1>
+<p>galpy can calculate actions and angles for spherical and axisymmetric
+potentials. These are implemented in a separate module
+<tt class="docutils literal"><span class="pre">galpy.actionAngle</span></tt>, but the preferred method for accessing these is
+as methods of the <tt class="docutils literal"><span class="pre">Orbit</span></tt> class. This Section briefly explains how
+to do this.</p>
+<div class="section" id="action-angle-coordinates-for-spherical-potentials">
+<h2>Action-angle coordinates for spherical potentials<a class="headerlink" href="#action-angle-coordinates-for-spherical-potentials" title="Permalink to this headline">¶</a></h2>
+<p>Actions, angles, and orbital frequencies for spherical potentials can
+be calculated by first instantiating an <tt class="docutils literal"><span class="pre">Orbit</span></tt> object and then
+calling the action-angle functions. Since some of the methods assume
+that orbits are given in re-normalized coordinates, i.e.,
+<tt class="docutils literal"><span class="pre">vc(1)=1</span></tt>, it is prudent to only call these methods with orbits
+that are initialized in this way. For example, we initialized
+everything with</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.potential</span> <span class="kn">import</span> <span class="n">LogarithmicHaloPotential</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lp</span><span class="o">=</span> <span class="n">LogarithmicHaloPotential</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="mf">1.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.orbit</span> <span class="kn">import</span> <span class="n">Orbit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">Orbit</span><span class="p">(</span><span class="n">vxvv</span><span class="o">=</span><span class="p">[</span><span class="mf">1.</span><span class="p">,</span><span class="mf">0.1</span><span class="p">,</span><span class="mf">1.1</span><span class="p">,</span><span class="mf">0.</span><span class="p">,</span><span class="mf">0.</span><span class="p">,</span><span class="mf">0.</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>and then compute the radial action, specifying the potential to use</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">lp</span><span class="p">)</span>
+<span class="go">array([  7.22774128e-02,   5.06312577e-11])</span>
+</pre></div>
+</div>
+<p>The return value is the value for jr, as well as an estimate for the
+integration error.</p>
+<p>Once a call to any of the action-angle methods of <tt class="docutils literal"><span class="pre">Orbit</span></tt> is done,
+the potential used to evaluate the action-angle coordinates cannot be
+changed (since various parts of the calculation of these coordinates
+get cached for re-use). Therefore, we can compute the radial angle
+then as follows</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">wr</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>and the other relevant methods</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">jp</span><span class="p">()</span> <span class="c">#J_phi = L</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">Tr</span><span class="p">()</span> <span class="c">#The radial period</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">Tp</span><span class="p">()</span> <span class="c">#The azimuthal period</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">TrTp</span><span class="p">()</span> <span class="c">#pi*Tr/Tp</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="action-angle-coordinates-for-axisymmetric-potentials">
+<h2>Action-angle coordinates for axisymmetric potentials<a class="headerlink" href="#action-angle-coordinates-for-axisymmetric-potentials" title="Permalink to this headline">¶</a></h2>
+<p>Action-angle coordinates in the symmetry plane can also be computed
+for all axisymmetric potentials. Starting where we began for the
+previous example, we can initialize</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">Orbit</span><span class="p">(</span><span class="n">vxvv</span><span class="o">=</span><span class="p">[</span><span class="mf">1.</span><span class="p">,</span><span class="mf">0.1</span><span class="p">,</span><span class="mf">1.1</span><span class="p">,</span><span class="mf">0.</span><span class="p">,</span><span class="mf">0.</span><span class="p">,</span><span class="mf">0.</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Now we explicitly make this a planar orbit in the symmetry plane</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">toPlanar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>and then we can again calculate action-angle coordinates. E.g.,</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">lp</span><span class="p">)</span>
+<span class="go">array([  7.22774128e-02,   5.06312577e-11])</span>
+</pre></div>
+</div>
+<p>As expected, this agrees with the value in the example above, since
+the orbit is entirely in the symmetry plane.</p>
+</div>
+<div class="section" id="example-evidence-for-a-lindblad-resonance-in-the-solar-neighborhood">
+<h2>Example: Evidence for a Lindblad resonance in the Solar neighborhood<a class="headerlink" href="#example-evidence-for-a-lindblad-resonance-in-the-solar-neighborhood" title="Permalink to this headline">¶</a></h2>
+<p>We can use galpy to calculate action-angle coordinates for a set of
+stars in the Solar neighborhood and look for unexplained features. For
+this we download the data from the Geneva-Copenhagen Survey
+(<a class="reference external" href="http://adsabs.harvard.edu/abs/2009A&amp;A...501..941H">2009A&amp;A...501..941H</a>; data available
+at <a class="reference external" href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-source=V/130/">viZier</a>). Since
+the velocities in this catalog are given as U,V, and W, we use the
+<tt class="docutils literal"><span class="pre">radec</span></tt> and <tt class="docutils literal"><span class="pre">UVW</span></tt> keywords to initialize the orbits from the raw
+data. For each object <tt class="docutils literal"><span class="pre">ii</span></tt></p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">Orbit</span><span class="p">(</span><span class="n">vxvv</span><span class="p">[</span><span class="n">ii</span><span class="p">,:],</span><span class="n">radec</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">uvw</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">vo</span><span class="o">=</span><span class="mf">220.</span><span class="p">,</span><span class="n">ro</span><span class="o">=</span><span class="mf">8.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">toPlanar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>We then calculate the actions and angles for each object in a flat
+rotation curve potential</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">lp</span><span class="o">=</span> <span class="n">LogarithmicHaloPotential</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="mf">1.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myjr</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span><span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">lp</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>etc.</p>
+<p>Plotting the radial action versus the angular momentum</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">plot</span><span class="o">.</span><span class="n">bovy_plot</span><span class="p">(</span><span class="n">myjp</span><span class="p">,</span><span class="n">myjr</span><span class="o">/</span><span class="mf">2.</span><span class="o">/</span><span class="n">nu</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="s">&#39;k,&#39;</span><span class="p">,</span><span class="n">xlabel</span><span class="o">=</span><span class="s">r&#39;$J_{\phi}$&#39;</span><span class="p">,</span><span class="n">ylabel</span><span class="o">=</span><span class="s">r&#39;$J_R/2\pi$&#39;</span><span class="p">,</span><span class="nb">xrange</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">,</span><span class="mf">1.3</span><span class="p">],</span><span class="n">yrange</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span><span class="mf">0.05</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>shows a feature in the distribution</p>
+<img alt="_images/actionAngle-jrjp.png" src="_images/actionAngle-jrjp.png" />
+<p>If instead we use a power-law rotation curve with power-law index 1</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">pp</span><span class="o">=</span> <span class="n">PowerSphericalPotential</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span><span class="n">alpha</span><span class="o">=-</span><span class="mf">2.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myjr</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span><span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">pp</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>We find that the distribution is stretched, but the feature remains</p>
+<img alt="_images/actionAngle-jrjp-power.png" src="_images/actionAngle-jrjp-power.png" />
+<p>Code for this example can be found <a class="reference download internal" href="_downloads/sellwood-jrjp.py"><tt class="xref download docutils literal"><span class="pre">here</span></tt></a>. For more information see
+<a class="reference external" href="http://adsabs.harvard.edu/abs/2010MNRAS.409..145S">2010MNRAS.409..145S</a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Action-angle coordinates</a><ul>
+<li><a class="reference internal" href="#action-angle-coordinates-for-spherical-potentials">Action-angle coordinates for spherical potentials</a></li>
+<li><a class="reference internal" href="#action-angle-coordinates-for-axisymmetric-potentials">Action-angle coordinates for axisymmetric potentials</a></li>
+<li><a class="reference internal" href="#example-evidence-for-a-lindblad-resonance-in-the-solar-neighborhood">Example: Evidence for a Lindblad resonance in the Solar neighborhood</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="diskdf.html"
+                        title="previous chapter">More on disk distribution functions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="reference/orbit.html"
+                        title="next chapter">Orbit</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/actionAngle.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="reference/orbit.html" title="Orbit"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="diskdf.html" title="More on disk distribution functions"
+             >previous</a> |</li>
+        <li><a href="index.html">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 - 2011, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+    </div>
+  </body>
+</html>

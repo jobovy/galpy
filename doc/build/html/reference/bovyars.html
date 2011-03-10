@@ -1,0 +1,136 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>galpy.util.bovy_ars.bovy_ars &mdash; galpy v0.1_alpha documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1_alpha',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1_alpha documentation" href="../index.html" />
+    <link rel="up" title="Utilities" href="util.html" />
+    <link rel="prev" title="galpy.util.bovy_coords.XYZ_to_galcenrect" href="coordsxyztogalcenrect.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="coordsxyztogalcenrect.html" title="galpy.util.bovy_coords.XYZ_to_galcenrect"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1_alpha documentation</a> &raquo;</li>
+          <li><a href="util.html" accesskey="U">Utilities</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="galpy-util-bovy-ars-bovy-ars">
+<h1>galpy.util.bovy_ars.bovy_ars<a class="headerlink" href="#galpy-util-bovy-ars-bovy-ars" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="galpy.util.bovy_ars.bovy_ars">
+<tt class="descclassname">galpy.util.bovy_ars.</tt><tt class="descname">bovy_ars</tt><big>(</big><em>domain</em>, <em>isDomainFinite</em>, <em>abcissae</em>, <em>hx</em>, <em>hpx</em>, <em>nsamples=1</em>, <em>hxparams=()</em>, <em>maxn=100</em><big>)</big><a class="headerlink" href="#galpy.util.bovy_ars.bovy_ars" title="Permalink to this definition">¶</a></dt>
+<dd><p>bovy_ars: Implementation of the Adaptive-Rejection Sampling
+algorithm by Gilks &amp; Wild (1992): Adaptive Rejection Sampling
+for Gibbs Sampling, Applied Statistics, 41, 337
+Based on Wild &amp; Gilks (1993), Algorithm AS 287: Adaptive Rejection
+Sampling from Log-concave Density Functions, Applied Statistics, 42, 701</p>
+<dl class="docutils">
+<dt>Input:</dt>
+<dd><p class="first">domain          - [.,.] upper and lower limit to the domain
+isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
+abcissae        - initial list of abcissae (must lie on either side</p>
+<blockquote>
+of the peak in hx if the domain is unbounded</blockquote>
+<p>hx              - function that evaluates h(x)
+hpx             - function that evaluates hp(x)
+nsamples        - (optional) number of desired samples (default=1)
+hxparams        - (optional) a tuple of parameters for h(x) and h&#8217;(x)
+maxn            - (optional) maximum number of updates to the hull</p>
+<blockquote class="last">
+(default=100)</blockquote>
+</dd>
+<dt>Output:</dt>
+<dd>list with nsamples of samples from exp(h(x))</dd>
+<dt>External dependencies:</dt>
+<dd>math
+scipy
+scipy.stats</dd>
+<dt>History:</dt>
+<dd>2009-05-21 - Written - Bovy (NYU)</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="coordsxyztogalcenrect.html"
+                        title="previous chapter">galpy.util.bovy_coords.XYZ_to_galcenrect</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/reference/bovyars.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="coordsxyztogalcenrect.html" title="galpy.util.bovy_coords.XYZ_to_galcenrect"
+             >previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1_alpha documentation</a> &raquo;</li>
+          <li><a href="util.html" >Utilities</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 - 2011, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to galpy’s documentation &mdash; galpy v0.1_alpha documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1_alpha',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1_alpha documentation" href="#" />
+    <link rel="next" title="Introduction" href="getting_started.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="getting_started.html" title="Introduction"
+             accesskey="N">next</a> |</li>
+        <li><a href="#">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="welcome-to-galpy-s-documentation">
+<h1>Welcome to galpy&#8217;s documentation<a class="headerlink" href="#welcome-to-galpy-s-documentation" title="Permalink to this headline">¶</a></h1>
+<p>galpy is a python package for galactic dynamics. It supports orbit
+integration in a variety of potentials, evaluating and sampling
+various distribution functions, and the calculation of action-angle
+coordinates for some potentials.</p>
+<div class="section" id="quick-start-guide">
+<h2>Quick-start guide<a class="headerlink" href="#quick-start-guide" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#rotation-curves">Rotation curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#orbit-integration">Orbit integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#escape-velocity-curves">Escape velocity curves</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="basic_df.html">Basic usage: distribution functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="basic_df.html#disk-distribution-functions">Disk distribution functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="orbit.html">A closer look at orbit integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#orbit-initialization">Orbit initialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#orbit-integration">Orbit integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#displaying-the-orbit">Displaying the orbit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#orbit-characterization">Orbit characterization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#accessing-the-raw-orbit">Accessing the raw orbit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orbit.html#example-the-eccentricity-distribution-of-the-milky-way-s-thick-disk">Example: The eccentricity distribution of the Milky Way&#8217;s thick disk</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="diskdf.html">More on disk distribution functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="diskdf.html#calculating-the-surface-mass-density-and-velocity-dispersion-profiles">Calculating the surface-mass density and velocity dispersion profiles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diskdf.html#using-corrected-disk-distribution-functions">Using corrected disk distribution functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diskdf.html#example-the-hercules-stream-in-the-solar-neighborhood-as-a-result-of-the-galactic-bar">Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="actionAngle.html">Action-angle coordinates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="actionAngle.html#action-angle-coordinates-for-spherical-potentials">Action-angle coordinates for spherical potentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="actionAngle.html#action-angle-coordinates-for-axisymmetric-potentials">Action-angle coordinates for axisymmetric potentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="actionAngle.html#example-evidence-for-a-lindblad-resonance-in-the-solar-neighborhood">Example: Evidence for a Lindblad resonance in the Solar neighborhood</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="library-reference">
+<h2>Library reference<a class="headerlink" href="#library-reference" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="reference/orbit.html">Orbit</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/orbit.html#class">Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/orbit.html#methods">Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/potential.html">Potential</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/potential.html#d-potentials">3D potentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/potential.html#id1">2D potentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/potential.html#id4">1D potentials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/df.html">DF</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/df.html#disk-distribution-functions">Disk distribution functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/df.html#ergodic-distribution-functions">Ergodic distribution functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/util.html">Utilities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/bovyplot.html">bovy_plot: general wrappers for matplotlib plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/bovycoords.html">bovy_coords: coordinate transformation functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/bovyars.html">bovy_ars: adaptive-rejection sampling</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="acknowledging-galpy">
+<h2>Acknowledging galpy<a class="headerlink" href="#acknowledging-galpy" title="Permalink to this headline">¶</a></h2>
+<p>Please link back to <tt class="docutils literal"><span class="pre">http://code.google.com/p/galpy/</span></tt> .</p>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to galpy&#8217;s documentation</a><ul>
+<li><a class="reference internal" href="#quick-start-guide">Quick-start guide</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#library-reference">Library reference</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#acknowledging-galpy">Acknowledging galpy</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="getting_started.html"
+                        title="next chapter">Introduction</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="getting_started.html" title="Introduction"
+             >next</a> |</li>
+        <li><a href="#">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 - 2011, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+    </div>
+  </body>
+</html>

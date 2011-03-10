@@ -1,0 +1,155 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Dehnen DF &mdash; galpy v0.1_alpha documentation</title>
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1_alpha',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1_alpha documentation" href="../index.html" />
+    <link rel="up" title="DF" href="df.html" />
+    <link rel="next" title="Shu DF" href="dfshu.html" />
+    <link rel="prev" title="galpy.df.diskdf.surfacemass" href="diskdfsurfacemass.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="dfshu.html" title="Shu DF"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="diskdfsurfacemass.html" title="galpy.df.diskdf.surfacemass"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1_alpha documentation</a> &raquo;</li>
+          <li><a href="df.html" accesskey="U">DF</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="dehnen-df">
+<h1>Dehnen DF<a class="headerlink" href="#dehnen-df" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="galpy.df.dehnendf">
+<em class="property">class </em><tt class="descclassname">galpy.df.</tt><tt class="descname">dehnendf</tt><big>(</big><em>surfaceSigma=&lt;class galpy.df_src.surfaceSigmaProfile.expSurfaceSigmaProfile at 0x63d9f00&gt;</em>, <em>profileParams=(0.33333333333333331</em>, <em>1.0</em>, <em>0.20000000000000001)</em>, <em>correct=False</em>, <em>beta=0.0</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#galpy.df.dehnendf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dehnen&#8217;s &#8216;new&#8217; df</p>
+<dl class="method">
+<dt id="galpy.df.dehnendf.__init__">
+<tt class="descname">__init__</tt><big>(</big><em>surfaceSigma=&lt;class galpy.df_src.surfaceSigmaProfile.expSurfaceSigmaProfile at 0x63d9f00&gt;</em>, <em>profileParams=(0.33333333333333331</em>, <em>1.0</em>, <em>0.20000000000000001)</em>, <em>correct=False</em>, <em>beta=0.0</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#galpy.df.dehnendf.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>NAME:</dt>
+<dd>__init__</dd>
+<dt>PURPOSE:</dt>
+<dd>Initialize a Dehnen &#8216;new&#8217; DF</dd>
+<dt>INPUT:</dt>
+<dd><dl class="first docutils">
+<dt>surfaceSigma - instance or class name of the target </dt>
+<dd>surface density and sigma_R profile 
+(default: both exponential)</dd>
+<dt>profileParams - parameters of the surface and sigma_R profile:</dt>
+<dd><p class="first">(xD,xS,Sro) where</p>
+<blockquote class="last">
+<p>xD - disk surface mass scalelength / Ro</p>
+<p>xS - disk velocity dispersion scalelength / Ro</p>
+<p>Sro - disk velocity dispersion at Ro (/vo)</p>
+<p>Directly given to the &#8216;surfaceSigmaProfile class, so
+could be anything that class takes</p>
+</blockquote>
+</dd>
+</dl>
+<p>beta - power-law index of the rotation curve</p>
+<p>correct - if True, correct the DF</p>
+<ul class="last simple">
+<li>DFcorrection kwargs (except for those already specified)</li>
+</ul>
+</dd>
+</dl>
+<p>OUTPUT:
+HISTORY:</p>
+<blockquote>
+2010-03-10 - Written - Bovy (NYU)</blockquote>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="diskdfsurfacemass.html"
+                        title="previous chapter">galpy.df.diskdf.surfacemass</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="dfshu.html"
+                        title="next chapter">Shu DF</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/reference/dfdehnen.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="dfshu.html" title="Shu DF"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="diskdfsurfacemass.html" title="galpy.df.diskdf.surfacemass"
+             >previous</a> |</li>
+        <li><a href="../index.html">galpy v0.1_alpha documentation</a> &raquo;</li>
+          <li><a href="df.html" >DF</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 - 2011, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+    </div>
+  </body>
+</html>

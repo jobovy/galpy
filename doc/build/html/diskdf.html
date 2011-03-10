@@ -1,0 +1,232 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>More on disk distribution functions &mdash; galpy v0.1_alpha documentation</title>
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1_alpha',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="galpy v0.1_alpha documentation" href="index.html" />
+    <link rel="next" title="Action-angle coordinates" href="actionAngle.html" />
+    <link rel="prev" title="A closer look at orbit integration" href="orbit.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="actionAngle.html" title="Action-angle coordinates"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="orbit.html" title="A closer look at orbit integration"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="more-on-disk-distribution-functions">
+<h1>More on disk distribution functions<a class="headerlink" href="#more-on-disk-distribution-functions" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="calculating-the-surface-mass-density-and-velocity-dispersion-profiles">
+<h2>Calculating the surface-mass density and velocity dispersion profiles<a class="headerlink" href="#calculating-the-surface-mass-density-and-velocity-dispersion-profiles" title="Permalink to this headline">¶</a></h2>
+<p>For a disk distribution function (i.e., a <tt class="docutils literal"><span class="pre">dehnendf</span></tt> or a <tt class="docutils literal"><span class="pre">shudf</span></tt>
+object) we can calculate the resulting surface-mass density profile
+using <tt class="docutils literal"><span class="pre">surfacemass</span></tt>, <tt class="docutils literal"><span class="pre">sigma2</span></tt>, and <tt class="docutils literal"><span class="pre">sigma2surfacemass</span></tt>. The
+latter calculates the product of the velocity dispersion squared and
+the surface-mass density. E.g.,</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.df</span> <span class="kn">import</span> <span class="n">dehnendf</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dfc</span><span class="o">=</span> <span class="n">dehnendf</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dfc</span><span class="o">.</span><span class="n">surfacemass</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span>
+<span class="go">    0.050820867101511534</span>
+</pre></div>
+</div>
+<p>We can plot the surface-mass density as follows</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">Rs</span><span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span><span class="mf">5.</span><span class="p">,</span><span class="mi">151</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="o">=</span> <span class="p">[</span><span class="n">dfc</span><span class="o">.</span><span class="n">surfacemass</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">Rs</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot</span><span class="p">(</span><span class="n">Rs</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+</pre></div>
+</div>
+<img alt="_images/diskdf-surfacemass.png" src="_images/diskdf-surfacemass.png" />
+<p>or</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">plot</span><span class="p">(</span><span class="n">Rs</span><span class="p">,</span><span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
+</pre></div>
+</div>
+<img alt="_images/diskdf-logsurfacemass.png" src="_images/diskdf-logsurfacemass.png" />
+<p>which shows the exponential behavior expected for an exponential
+disk. We can compare this to the input surface-mass density</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">input_out</span><span class="o">=</span> <span class="p">[</span><span class="n">dfc</span><span class="o">.</span><span class="n">targetSurfacemass</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">Rs</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot</span><span class="p">(</span><span class="n">Rs</span><span class="p">,</span><span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">input_out</span><span class="p">)</span><span class="o">-</span><span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
+</pre></div>
+</div>
+<img alt="_images/diskdf-surfacemassdiff.png" src="_images/diskdf-surfacemassdiff.png" />
+<p>which shows that there are significant differences between the desired
+surface-mass density and the actual surface-mass density. We can do
+the same for the velocity-dispersion profile</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="o">=</span> <span class="p">[</span><span class="n">dfc</span><span class="o">.</span><span class="n">sigma2</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">Rs</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_out</span><span class="o">=</span> <span class="p">[</span><span class="n">dfc</span><span class="o">.</span><span class="n">targetSigma2</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">Rs</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot</span><span class="p">(</span><span class="n">Rs</span><span class="p">,</span><span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">input_out</span><span class="p">)</span><span class="o">-</span><span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
+</pre></div>
+</div>
+<img alt="_images/diskdf-sigma2diff.png" src="_images/diskdf-sigma2diff.png" />
+</div>
+<div class="section" id="using-corrected-disk-distribution-functions">
+<h2>Using corrected disk distribution functions<a class="headerlink" href="#using-corrected-disk-distribution-functions" title="Permalink to this headline">¶</a></h2>
+<p>As shown above, for a given surface-mass density and velocity
+dispersion profile, the disk distribution functions of <a class="reference internal" href="basic_df.html#usagediskdfs"><em>Basic
+Usage: Disk distribution functions</em></a> only do a poor job
+of reproducing the desired profiles. We can correct this by
+calculating a set of <em>corrections</em> to the input profiles such that the
+output profiles more closely resemble the desired profiles (see
+<a class="reference external" href="http://adsabs.harvard.edu/abs/1999AJ....118.1201D">1999AJ....118.1201D</a>). galpy supports
+the calculation of these corrections, and comes with some
+pre-calculated corrections. For example, the following initializes a
+<tt class="docutils literal"><span class="pre">dehnendf</span></tt> with corrections up to 20th order (the default)</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">dfc</span><span class="o">=</span> <span class="n">dehnendf</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span><span class="n">correct</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The following figure shows the difference between the actual
+surface-mass density profile and the desired profile for 1, 2, 3, 4,
+5, 10, 15, and 20 iterations</p>
+<img alt="_images/testSurfacemassCorrections_sigma0_0.5.png" src="_images/testSurfacemassCorrections_sigma0_0.5.png" />
+<p>and the same for the velocity-dispersion profile</p>
+<img alt="_images/testSigmaCorrections_sigma0_0.5.png" src="_images/testSigmaCorrections_sigma0_0.5.png" />
+<p>galpy will automatically save any new corrections that you calculate.</p>
+</div>
+<div class="section" id="example-the-hercules-stream-in-the-solar-neighborhood-as-a-result-of-the-galactic-bar">
+<h2>Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar<a class="headerlink" href="#example-the-hercules-stream-in-the-solar-neighborhood-as-a-result-of-the-galactic-bar" title="Permalink to this headline">¶</a></h2>
+<p>We can combine the orbit integration capabilities of galpy with the
+provided distribution functions and see the effect of the Galactic bar
+on stellar velocities. By backward integrating orbits starting at the
+Solar position in a potential that includes the Galactic bar we can
+evaluate what the velocity distribution is that we should see today if
+the Galactic bar stirred up a steady-state disk. For this we
+initialize a flat rotation curve potential and Dehnen&#8217;s bar potential</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.potential</span> <span class="kn">import</span> <span class="n">LogarithmicHaloPotential</span><span class="p">,</span> <span class="n">DehnenBarPotential</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lp</span><span class="o">=</span> <span class="n">LogarithmicHaloPotential</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="mf">1.</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dp</span><span class="o">=</span> <span class="n">DehnenBarPotential</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The Dehnen bar potential is initialized to start bar formation four bar
+periods before the present day and to have completely formed the bar two
+bar periods ago. We can integrate back to the time before
+bar-formation:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">dp</span><span class="o">.</span><span class="n">_tform</span><span class="p">,</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where <tt class="docutils literal"><span class="pre">dp._tform</span></tt> is the time of bar-formation (in the usual
+time-coordinates).</p>
+<p>We initialize orbits on a grid in velocity space and integrate them</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">ins</span><span class="o">=</span><span class="p">[[</span><span class="n">Orbit</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span><span class="o">-</span><span class="mf">0.7</span><span class="o">+</span><span class="mf">1.4</span><span class="o">/</span><span class="mi">100</span><span class="o">*</span><span class="n">jj</span><span class="p">,</span><span class="mf">1.</span><span class="o">-</span><span class="mf">0.6</span><span class="o">+</span><span class="mf">1.2</span><span class="o">/</span><span class="mi">100</span><span class="o">*</span><span class="n">ii</span><span class="p">,</span><span class="mf">0.</span><span class="p">])</span> <span class="k">for</span> <span class="n">jj</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">)]</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">int</span><span class="o">=</span><span class="p">[[</span><span class="n">o</span><span class="o">.</span><span class="n">integrate</span><span class="p">(</span><span class="n">ts</span><span class="p">,[</span><span class="n">lp</span><span class="p">,</span><span class="n">dp</span><span class="p">])</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ins</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>We can then evaluate the weight of these orbits by assuming that the
+disk was in a steady-state before bar-formation with a Dehnen
+distribution function. We evaluate the Dehnen distribution function at
+<tt class="docutils literal"><span class="pre">dp._tform</span></tt> for each of the orbits</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">dfc</span><span class="o">=</span> <span class="n">dehnendf</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span><span class="n">correct</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="o">=</span> <span class="p">[[</span><span class="n">dfc</span><span class="p">(</span><span class="n">o</span><span class="p">(</span><span class="n">dp</span><span class="o">.</span><span class="n">_tform</span><span class="p">))</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ins</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This gives</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.util.bovy_plot</span> <span class="kn">import</span> <span class="n">bovy_dens2d</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bovy_dens2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="n">origin</span><span class="o">=</span><span class="s">&#39;lower&#39;</span><span class="p">,</span><span class="n">cmap</span><span class="o">=</span><span class="s">&#39;gist_yarg&#39;</span><span class="p">,</span><span class="n">contours</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="nb">xrange</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">0.7</span><span class="p">,</span><span class="mf">0.7</span><span class="p">],</span><span class="n">yrange</span><span class="o">=</span><span class="p">[</span><span class="mf">0.4</span><span class="p">,</span><span class="mf">1.6</span><span class="p">],</span><span class="n">xlabel</span><span class="o">=</span><span class="s">r&#39;$v_R$&#39;</span><span class="p">,</span><span class="n">ylabel</span><span class="o">=</span><span class="s">r&#39;$v_T$&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img alt="_images/diskdf-dehnenhercules.png" src="_images/diskdf-dehnenhercules.png" />
+<p>For more information see <a class="reference external" href="http://adsabs.harvard.edu/abs/2000AJ....119..800D">2000AJ....119..800D</a> and
+<a class="reference external" href="http://adsabs.harvard.edu/abs/2010ApJ...725.1676B">2010ApJ...725.1676B</a>. Note that the
+x-axis in the Figure above is defined as minus the x-axis in these
+papers.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">More on disk distribution functions</a><ul>
+<li><a class="reference internal" href="#calculating-the-surface-mass-density-and-velocity-dispersion-profiles">Calculating the surface-mass density and velocity dispersion profiles</a></li>
+<li><a class="reference internal" href="#using-corrected-disk-distribution-functions">Using corrected disk distribution functions</a></li>
+<li><a class="reference internal" href="#example-the-hercules-stream-in-the-solar-neighborhood-as-a-result-of-the-galactic-bar">Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="orbit.html"
+                        title="previous chapter">A closer look at orbit integration</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="actionAngle.html"
+                        title="next chapter">Action-angle coordinates</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/diskdf.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="actionAngle.html" title="Action-angle coordinates"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="orbit.html" title="A closer look at orbit integration"
+             >previous</a> |</li>
+        <li><a href="index.html">galpy v0.1_alpha documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 - 2011, Jo Bovy.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+    </div>
+  </body>
+</html>
