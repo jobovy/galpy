@@ -45,7 +45,8 @@ class Orbit:
 
            ro - distance from vantage point to GC
 
-           solarmotion - 'hogg' or 'dehnen', or 'schoenrich'
+           solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
+           [-U,V,W]
 
         OUTPUT:
 
@@ -56,12 +57,14 @@ class Orbit:
            2010-07-20 - Written - Bovy (NYU)
 
         """
-        if solarmotion.lower() == 'hogg':
+        if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
             vsolar= nu.array([-10.1,4.0,6.7])/vo
-        elif solarmotion.lower() == 'dehnen':
+        if isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
             vsolar= nu.array([-10.,5.25,7.17])/vo
-        elif solarmotion.lower() == 'schoenrich':
+        if isinstance(solarmotion,str) and solarmotion.lower() == 'schoenrich':
             vsolar= nu.array([-11.1,12.24,7.25])/vo
+        else:
+            vsolar= nu.array(solarmotion)/vo           
         if radec or lb:
             if radec:
                 l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
