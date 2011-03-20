@@ -410,14 +410,13 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('noaxes')
     else:
         noaxes= False
-    if kwargs.has_key('contours') and kwargs['contours']:
-        contours= True
-        kwargs.pop('contours')
-    elif kwargs.has_key('levels') or kwargs.has_key('cntrmass'):
+    if (kwargs.has_key('contours') and kwargs['contours']) or \
+            kwargs.has_key('levels') or \
+            (kwargs.has_key('cntrmass') and kwargs['cntrmass']):
         contours= True
     else:
         contours= False
-        if kwargs.has_key('contours'): kwargs.pop('contours')
+    if kwargs.has_key('contours'): kwargs.pop('contours')
     if kwargs.has_key('levels'):
         levels= kwargs['levels']
         kwargs.pop('levels')
