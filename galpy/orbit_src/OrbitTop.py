@@ -380,7 +380,7 @@ class OrbitTop:
         NAME:
            dist
         PURPOSE:
-           return distance from the observer
+           return distance from the observer in kpc
         INPUT:
            t - (optional) time at which to get dist
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
@@ -389,7 +389,7 @@ class OrbitTop:
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
         OUTPUT:
-           dist(t) in ?
+           dist(t) in kpc
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
@@ -411,7 +411,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           pm_ra(t)
+           pm_ra(t) in mas / yr
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -433,7 +433,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           pm_dec(t)
+           pm_dec(t) in mas/yr
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -455,7 +455,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           pm_l(t)
+           pm_l(t) in mas/yr
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -477,7 +477,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           pm_b(t)
+           pm_b(t) in mas/yr
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -499,7 +499,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           vlos(t)
+           vlos(t) in km/s
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -520,7 +520,7 @@ class OrbitTop:
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
         OUTPUT:
-           helioX(t)
+           helioX(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -541,7 +541,7 @@ class OrbitTop:
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
         OUTPUT:
-           helioY(t)
+           helioY(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -562,7 +562,7 @@ class OrbitTop:
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
         OUTPUT:
-           helioZ(t)
+           helioZ(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -584,7 +584,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           U(t)
+           U(t) in km/s
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -606,7 +606,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           V(t)
+           V(t) in km/s
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
@@ -628,7 +628,7 @@ class OrbitTop:
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
            vo= velocity in km/s corresponding to v=1. (default: 235.)
         OUTPUT:
-           W(t)
+           W(t) in km/s
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
