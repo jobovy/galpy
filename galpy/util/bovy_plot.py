@@ -678,12 +678,14 @@ def scatterplot(x,y,*args,**kwargs):
         xrange=kwargs['xrange']
         kwargs.pop('xrange')
     else:
-        xrange=[x.min(),x.max()]
+        if isinstance(x,list): xrange=[sc.amin(x),sc.amax(x)]
+        else: xrange=[x.min(),x.max()]
     if kwargs.has_key('yrange'):
         yrange=kwargs['yrange']
         kwargs.pop('yrange')
     else:
-        yrange=[y.min(),y.max()]
+        if isinstance(y,list): yrange=[sc.amin(y),sc.amax(y)]
+        else: yrange=[y.min(),y.max()]
     ndata= len(x)
     if kwargs.has_key('bins'):
         bins= kwargs['bins']
