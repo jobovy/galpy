@@ -961,7 +961,6 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
        2011-02-24 - Written - Bovy (NYU)
     """
     try:
-        print vXg, vYg,sc.array(vZg)
         return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
     except ValueError: #annoying bug for one-d, make sure they are arrays
         return sc.array([-sc.array([vXg]).flatten()[0]+vsun[0],
