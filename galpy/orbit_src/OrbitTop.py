@@ -389,12 +389,12 @@ class OrbitTop:
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
         OUTPUT:
-           dist(t)
+           dist(t) in ?
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
         lbd= self._lbd(*args,**kwargs)
-        return lbd[:,2]
+        return lbd[:,2].astype('float64')
 
     def pmra(self,*args,**kwargs):
         """
