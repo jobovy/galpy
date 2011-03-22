@@ -59,9 +59,10 @@ class Orbit:
         """
         if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
             vsolar= nu.array([-10.1,4.0,6.7])/vo
-        if isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
+        elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
             vsolar= nu.array([-10.,5.25,7.17])/vo
-        if isinstance(solarmotion,str) and solarmotion.lower() == 'schoenrich':
+        elif isinstance(solarmotion,str) \
+                and solarmotion.lower() == 'schoenrich':
             vsolar= nu.array([-11.1,12.24,7.25])/vo
         else:
             vsolar= nu.array(solarmotion)/vo           
