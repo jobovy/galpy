@@ -69,7 +69,7 @@ def bovy_ars(domain,isDomainFinite,abcissae,hx,hpx,nsamples=1,
     #Then start  sampling: call sampleone repeatedly
     out= []
     nupdates= 0
-    for ii in range(nsamples):
+    for ii in range(int(nsamples)):
         thissample, hull, nupdates= sampleone(hull,hx,hpx,domain,isDomainFinite,maxn,nupdates,hxparams)
         out.append(thissample)
     return out
