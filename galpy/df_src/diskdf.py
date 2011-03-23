@@ -482,51 +482,58 @@ class dehnendf(diskdf):
                     if thisOrbit.vxvv[0] < rrange[0] \
                             or thisOrbit.vxvv[0] > rrange[1]:
                         continue
-                mult= sc.ceil(kappa/wR*nphi)-1.
-                kappawR= kappa/wR*nphi-mult
-                while mult > 0:
-                    if returnOrbit:
-                        if not los is None: #Sample along a given line of sight
-                            if losdeg: l= los*_DEGTORAD
-                            else: l= los
-                            if l > (2.*m.pi): l-= 2.*m.pi
-                            if l < 0: l+= 2.*m.pi
-                            sinphil= 1./vxvv[0]*m.sin(l)
-                            if m.fabs(sinphil) > 1.: continue
-                            if stats.uniform.rvs() < 0.5:
-                                phil= m.asin(sinphil)
-                            else:
-                                phil= m.pi-m.asin(sinphil)
-                            phi= phil-l
-                            if phi > (2.*m.pi): phi-= 2.*m.pi
-                            if phi < 0: phi+= 2.*m.pi
-                            #make sure this is on the right side of the los
-                            if l >= 0. and l <= m.pi/2. and phi > m.pi: continue
-                            elif l >= m.pi/2. and l <= m.pi and phi > m.pi/2.: \
-                                    continue
-                            elif l >= m.pi and l <= 3.*m.pi/2. and phi < 3.*m.pi/2.: continue
-                            elif l >= 3.*m.pi/2. and phi < m.pi: continue
-                            
-                            out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
-                                                            vxvv[2],
-                                                            phi]).reshape(4)))
-                        else:
+                if los is None:
+                    mult= sc.ceil(kappa/wR*nphi)-1.
+                    kappawR= kappa/wR*nphi-mult
+                    while mult > 0:
+                        if returnOrbit:
                             out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                             vxvv[2],
                                                             stats.uniform.rvs()*m.pi*2.]).reshape(4)))
+                        else:
+                            out.append(thisOrbit)
+                        mult-= 1
+                else:
+                    if losdeg: l= los*_DEGTORAD
+                    else: l= los
+                    if l > (2.*m.pi): l-= 2.*m.pi
+                    if l < 0: l+= 2.*m.pi
+                    sinphil= 1./vxvv[0]*m.sin(l)
+                    if m.fabs(sinphil) > 1.: continue
+                    if stats.uniform.rvs() < 0.5:
+                        phil= m.asin(sinphil)
                     else:
-                        out.append(thisOrbit)
-                    mult-= 1
+                        phil= m.pi-m.asin(sinphil)
+                    phi= phil-l
+                    if phi > (2.*m.pi): phi-= 2.*m.pi
+                    if phi < 0: phi+= 2.*m.pi
+                                #make sure this is on the right side of the los
+                    if l >= 0. and l <= m.pi/2. and phi > m.pi: continue
+                    elif l >= m.pi/2. and l <= m.pi and phi > m.pi/2.: \
+                            continue
+                    elif l >= m.pi and l <= 3.*m.pi/2. and phi < 3.*m.pi/2.: \
+                            continue
+                    elif l >= 3.*m.pi/2. and phi < m.pi: continue
+                    #Calcualte dphidl
+                    dphidl= m.fabs(1./vxvv[0]*m.cos(l)/m.cos(l+phi)-1.)
+                    mult= sc.ceil(dphidl*kappa/wR*nphi)-1.
+                    kappawR= kappa/wR*nphi-mult
+                    while mult > 0:
+                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
+                                                        vxvv[2],
+                                                        phi]).reshape(4)))
+                        mult-= 1
                 if stats.uniform.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
         if len(out) < n*nphi:
-            out.extend(self.sample(n=n-len(out)/nphi,rrange=rrange,
+            out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
                                    returnROrbit=returnROrbit,
-                                   returnOrbit=returnOrbit,nphi=nphi,
+                                   returnOrbit=returnOrbit,nphi=int(nphi),
                                    los=los,losdeg=losdeg))
         if len(out) > n*nphi:
+            print n, nphi, n*nphi
             out= out[0:n*nphi]
         return out
 
