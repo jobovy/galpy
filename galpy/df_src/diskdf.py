@@ -14,10 +14,12 @@ _EPSREL=10.**-14.
 _NSIGMA= 4.
 _INTERPDEGREE= 3
 _RMIN=10.**-10.
+_MAXD_REJECTLOS= 4.
 import copy
 import os, os.path
 import cPickle as pickle
 import math as m
+import numpy as nu
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
@@ -211,7 +213,52 @@ class diskdf:
         return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                 relative=relative)\
                                 *m.fabs(jac)*R
-        
+
+    def sampleTargetSurfacemassLOSd(self,l,n=1,maxd=None):
+        """sample a distance along the line-of-sight using the target surface mass density"""
+        #First calculate where the maximum is
+        if l == 0.:
+            maxSM= self.targetSurfacemass(0.)
+        elif l >= m.pi/2. and l <= 3.*m.pi/2.:
+            maxSM= self.targetSurfacemass(1.)
+        elif l < m.pi/2. or l > 3.*m.pi/2.:
+            minR= m.fabs(m.sin(l))
+            maxSM= self.targetSurfacemass(minR)
+        #Now rejection-sample
+        if maxd is None:
+            maxd= _MAXD_REJECTLOS
+        out= []
+        while len(out) < n:
+            #sample
+            prop= nu.random.random()*maxd
+            surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
+            if surfmassatprop/maxSM > nu.random.random(): #accept
+                out.append(prop)
+        return nu.array(out)
+
+    def sampleSurfacemassLOSd(self,l,romberg=False,nsigma=None,relative=None):
+        """sample a distance along the line-of-sight
+        BOVY: SHOULD USE CORRECTIONS?"""
+        #First calculate where the maximum is
+        if l == 0.:
+            maxSM= self.surfacemass(0.)
+        elif l >= m.pi/2. and l <= 3.*m.pi/2.:
+            maxSM= self.surfacemass(1.)
+        elif l < m.pi/2. or l > 3.*m.pi/2.:
+            minR= m.fabs(m.sin(l))
+            maxSM= self.surfacemass(minR)
+        #Now rejection-sample
+        if maxd is None:
+            maxd= _MAXD_REJECTLOS
+        out= []
+        while len(out) < n:
+            #sample
+            prop= nu.random.random()*maxd
+            surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
+            if surfmassatprop/maxSM > nu.random.random(): #accept
+                out.append(prop)
+        return nu.array(out)
+
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
