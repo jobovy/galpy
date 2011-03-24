@@ -174,11 +174,11 @@ class diskdf:
         jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +m.log(m.fabs(jac))+m.log(R)-m.log(d)
+                +m.log(m.fabs(jac))+m.log(R)
             pass
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                *m.fabs(jac)*R/d
+                *m.fabs(jac)*R
         
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
@@ -1065,7 +1065,7 @@ def _kappa(R,beta):
     return m.sqrt(2.*(1.+beta))*R**(beta-1)
 
 def _jacobian_rphi_dl(d,l,R=None,phi=None):
-    """Compute the jacobian for transforming Galactocentric coordinates to Galactic coordinates"""
+    """Compute the jacobian for transforming Galactocentric coordinates to Galactic coordinates, /d"""
     if R is None or phi is None:
         R, phi= _dlToRphi(d,l)
     matrix= sc.zeros((2,2))
@@ -1073,13 +1073,13 @@ def _jacobian_rphi_dl(d,l,R=None,phi=None):
     sinphi= m.sin(phi)
     sinl= m.sin(l)
     cosl= m.cos(l)
-    matrix[0,0]= d/R*sinl
+    matrix[0,0]= 1./R*sinl
     matrix[1,0]= 1./R*(d-cosl)
     if m.fabs(cosphi) > m.sqrt(2.)/2.: #use 1./cosphi expression       
-        matrix[0,1]= 1./cosphi*(d/R*cosl-d**2./R**3.*sinl**2.)
+        matrix[0,1]= 1./cosphi*(1./R*cosl-d/R**3.*sinl**2.)
         matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl)
     else:
-        matrix[0,1]= -(R-cosphi)/R**2./sinphi*d*sinl
+        matrix[0,1]= -(R-cosphi)/R**2./sinphi*sinl
         matrix[1,1]= 1./R/sinphi*(d-(R-cosphi)/R*(d-cosl))
     return linalg.det(matrix)
 
