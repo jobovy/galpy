@@ -21,6 +21,7 @@ import math as m
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
+from scipy import linalg
 from scipy import stats
 from surfaceSigmaProfile import *
 from galpy.orbit import Orbit
@@ -146,6 +147,38 @@ class diskdf:
            2010-03-28 - Written - Bovy (NYU)
         """
         return self._surfaceSigmaProfile.surfacemass(R,log=log)
+        
+    def targetSurfacemassLOS(self,d,l,log=False,deg=True):
+        """
+        NAME:
+           targetSurfacemassLOS
+        PURPOSE:
+           evaluate the target surface mass along the LOS given l and d
+        INPUT:
+           d - distance along the line of sight
+           l - Galactic longitude (in deg, unless deg=False)
+           deg= if False, l is in radians
+           log - if True, return the log (default: False)
+        OUTPUT:
+           Sigma(d,l)
+        HISTORY:
+           2011-03-23 - Written - Bovy (NYU)
+        """
+        #Calculate R and phi
+        if deg:
+            lrad= l*_DEGTORAD
+        else:
+            lrad= l
+        R, phi= _dlToRphi(d,lrad)
+        #Evaluate Jacobian
+        jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
+        if log:
+            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
+                +m.log(m.fabs(jac))+m.log(R)-m.log(d)
+            pass
+        else:
+            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
+                *m.fabs(jac)*R/d
         
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
@@ -534,7 +567,7 @@ class dehnendf(diskdf):
                                    los=los,losdeg=losdeg))
         if len(out) > n*nphi:
             print n, nphi, n*nphi
-            out= out[0:n*nphi]
+            out= out[0:int(n*nphi)]
         return out
 
 class shudf(diskdf):
@@ -1031,3 +1064,31 @@ def _kappa(R,beta):
     """Internal function to give kappa(r)"""
     return m.sqrt(2.*(1.+beta))*R**(beta-1)
 
+def _jacobian_rphi_dl(d,l,R=None,phi=None):
+    """Compute the jacobian for transforming Galactocentric coordinates to Galactic coordinates"""
+    if R is None or phi is None:
+        R, phi= _dlToRphi(d,l)
+    matrix= sc.zeros((2,2))
+    cosphi= m.cos(phi)
+    sinphi= m.sin(phi)
+    sinl= m.sin(l)
+    cosl= m.cos(l)
+    matrix[0,0]= d/R*sinl
+    matrix[1,0]= 1./R*(d-cosl)
+    if m.fabs(cosphi) > m.sqrt(2.)/2.: #use 1./cosphi expression       
+        matrix[0,1]= 1./cosphi*(d/R*cosl-d**2./R**3.*sinl**2.)
+        matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl)
+    else:
+        matrix[0,1]= -(R-cosphi)/R**2./sinphi*d*sinl
+        matrix[1,1]= 1./R/sinphi*(d-(R-cosphi)/R*(d-cosl))
+    return linalg.det(matrix)
+
+def _dlToRphi(d,l):
+    """Convert d and l to R and phi, l is in radians"""
+    R= m.sqrt(1.+d**2.-2.*d*m.cos(l))
+    if 1./m.cos(l) < d and m.cos(l) > 0.:
+        theta= m.pi-m.asin(d/R*m.sin(l))
+    else:
+        theta= m.asin(d/R*m.sin(l))
+    return (R,theta)
+    
