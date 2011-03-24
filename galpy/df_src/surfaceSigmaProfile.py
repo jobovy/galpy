@@ -155,6 +155,26 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         else:
             return self._params[2]**2.*sc.exp(-2.*(R-1.)/self._params[1])
 
+    def sigma2Derivative(self,R,log=False):
+        """
+        NAME:
+           sigmaDerivative
+        PURPOSE:
+           return the derivative wrt R of the sigma_R^2 profile at this R
+        INPUT:
+           R - Galactocentric radius (/ro)
+           log - if True, return the derivative of the log (default: False)
+        OUTPUT:
+           Sigma_R^2'(R) or (log Sigma_R^2(r) )'
+        HISTORY:
+           2011-03-24 - Written - Bovy (NYU)
+        """
+        if log:
+            return -2./self._params[1]
+        else:
+            return self._params[2]**2.*sc.exp(-2.*(R-1.)/self._params[1])\
+                *(-2./self._params[1])
+
 class surfaceSigmaProfileError(Exception):
     def __init__(self, value):
         self.value = value
