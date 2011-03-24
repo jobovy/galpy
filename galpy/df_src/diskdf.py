@@ -180,6 +180,38 @@ class diskdf:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *m.fabs(jac)*R
         
+    def surfacemassLOS(self,d,l,deg=True,
+                       romberg=False,nsigma=None,relative=None):
+        """
+        NAME:
+           surfacemassLOS
+        PURPOSE:
+           evaluate the surface mass along the LOS given l and d
+        INPUT:
+           d - distance along the line of sight
+           l - Galactic longitude (in deg, unless deg=False)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+           deg= if False, l is in radians
+        OUTPUT:
+           Sigma(d,l)
+        HISTORY:
+           2011-03-24 - Written - Bovy (NYU)
+        """
+        #Calculate R and phi
+        if deg:
+            lrad= l*_DEGTORAD
+        else:
+            lrad= l
+        R, phi= _dlToRphi(d,lrad)
+        #Evaluate Jacobian
+        jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
+        return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                relative=relative)\
+                                *m.fabs(jac)*R
+        
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
