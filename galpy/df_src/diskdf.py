@@ -25,6 +25,7 @@ import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from scipy import linalg
 from scipy import stats
+from scipy import optimize
 from surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
@@ -214,16 +215,27 @@ class diskdf:
                                 relative=relative)\
                                 *m.fabs(jac)*R
 
-    def sampleTargetSurfacemassLOSd(self,l,n=1,maxd=None):
-        """sample a distance along the line-of-sight using the target surface mass density"""
+    def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
+        """sample a distance along the line-of-sight
+        BOVY: SHOULD USE CORRECTIONS?"""
         #First calculate where the maximum is
         if l == 0.:
             maxSM= self.targetSurfacemass(0.)
         elif l >= m.pi/2. and l <= 3.*m.pi/2.:
             maxSM= self.targetSurfacemass(1.)
         elif l < m.pi/2. or l > 3.*m.pi/2.:
-            minR= m.fabs(m.sin(l))
-            maxSM= self.targetSurfacemass(minR)
+            if target:
+                minR= optimize.fmin_bfgs(lambda x: \
+                                             -x*self.targetSurfacemassLOS(x,l,
+                                                                          deg=False),
+                                         0.,disp=False)[0]
+                maxSM= self.targetSurfacemassLOS(minR,l,deg=False)*minR
+            else:
+                minR= optimize.fmin_bfgs(lambda x: \
+                                             -x*self.surfacemassLOS(x,l,
+                                                                    deg=False),
+                                         0.,disp=False)[0]
+                maxSM= self.surfacemassLOS(minR,l,deg=False)*minR
         #Now rejection-sample
         if maxd is None:
             maxd= _MAXD_REJECTLOS
@@ -231,33 +243,73 @@ class diskdf:
         while len(out) < n:
             #sample
             prop= nu.random.random()*maxd
-            surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
+            if target:
+                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)*prop
+            else:
+                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)*prop
             if surfmassatprop/maxSM > nu.random.random(): #accept
                 out.append(prop)
         return nu.array(out)
 
-    def sampleSurfacemassLOSd(self,l,romberg=False,nsigma=None,relative=None):
-        """sample a distance along the line-of-sight
-        BOVY: SHOULD USE CORRECTIONS?"""
-        #First calculate where the maximum is
-        if l == 0.:
-            maxSM= self.surfacemass(0.)
-        elif l >= m.pi/2. and l <= 3.*m.pi/2.:
-            maxSM= self.surfacemass(1.)
-        elif l < m.pi/2. or l > 3.*m.pi/2.:
-            minR= m.fabs(m.sin(l))
-            maxSM= self.surfacemass(minR)
+    def sampleVRVTVdistdR(self,R,n=1,nsigma=None,target=True):
+        """sample a radial and tangential velocity at R
+        BOVY: USE THE FACT THAT THIS CAN BE SEPARATED INTO vR and vT"""
+        #Determine where the max of the v-distribution is using asymmetric drift
+        maxVR= 0.
+        gamma= sc.sqrt(2./(1.+self._beta))           
+        maxVT= optimize.brentq(_vtmaxEq,0.,1.,(R,self))
+        maxVD= self(Orbit([R,maxVR,maxVT]))
         #Now rejection-sample
-        if maxd is None:
-            maxd= _MAXD_REJECTLOS
+        if nsigma == None:
+            nsigma= _NSIGMA
         out= []
+        if target:
+            sigma= m.sqrt(self.targetSigma2(R))
+        else:
+            sigma= m.sqrt(self.sigma2(R))
         while len(out) < n:
             #sample
-            prop= nu.random.random()*maxd
-            surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
-            if surfmassatprop/maxSM > nu.random.random(): #accept
-                out.append(prop)
+            propvR= nu.random.normal()*_NSIGMA*sigma
+            propvT= nu.random.normal()*_NSIGMA*sigma/gamma+1.
+            VDatprop= self(Orbit([R,propvR,propvT]))
+            if VDatprop/maxVD > nu.random.random(): #accept
+                out.append(sc.array([propvR,propvT]))
         return nu.array(out)
+
+    def sampleLOS(self,los,n=1,deg=True,maxd=None,nsigma=None,
+                  target=True):
+        """
+        NAME:
+           sampleLOS
+        PURPOSE:
+           sample along a given LOS
+        INPUT:
+           los - line of sight (in deg, unless deg=False)
+           n= number of desired samples
+           deg= los in degrees? (default=True)
+           target= if True, use target surface mass and sigma2 profiles
+                   (default=True)
+        OUTPUT:
+           returns list of Orbits
+        BUGS:
+           target=False uses target distribution for derivatives (this is a detail)
+        HISTORY:
+           2011-03-24 - Started  - Bovy (NYU)
+        """
+        if deg:
+            l= los*_DEGTORAD
+        else:
+            l= los
+        out= []
+        #sample distances
+        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=target)
+        for ii in range(int(n)):
+            #Calculate R and phi
+            thisR,thisphi= _dlToRphi(ds[ii],l)
+            #sample velocities
+            vv= self.sampleVRVTVdistdR(thisR,n=1,nsigma=nsigma,target=target)[0]
+            out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
+        return out
 
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
@@ -1171,3 +1223,28 @@ def _dlToRphi(d,l):
         theta= m.asin(d/R*m.sin(l))
     return (R,theta)
     
+def _vtmaxEq(vT,R,diskdf):
+    """Equation to solve to find the max vT at R"""
+    #Calculate a bunch of stuff that we need
+    if diskdf._beta == 0.:
+        E= vT**2./2.+sc.log(R)
+        xE= sc.exp(E-.5)
+        OE= xE**-1.
+        LCE= xE
+        dxEdvT= xE*vT
+    else: #non-flat rotation curve
+        E= vT**2./2.+1./2./diskdf._beta*R**(2.*diskdf._beta)
+        xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+        OE= xE**(diskdf._beta-1.)
+        LCE= xE**(diskdf._beta+1.)
+        dxEdvT= xE/2./diskdf._beta/E*vT
+    L= R*vT
+    sigma2xE= diskdf._surfaceSigmaProfile.sigma2(xE,log=False)
+    return OE*R/sigma2xE+\
+        (diskdf._surfaceSigmaProfile.surfacemassDerivative(xE,log=True)\
+             -(1.+OE*(L-LCE)/sigma2xE)*diskdf._surfaceSigmaProfile.sigma2Derivative(xE,log=True)\
+             +(L-LCE)/sigma2xE*(diskdf._beta-1.)*xE**(diskdf._beta-2.)\
+             -OE*(diskdf._beta+1.)/sigma2xE*xE**diskdf._beta)\
+             *dxEdvT
+
+
