@@ -4,6 +4,7 @@ from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
+_K=4.74047
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -1017,7 +1018,7 @@ class Orbit:
 
         OUTPUT:
 
-           dist(t)
+           dist(t) in kpc
 
         HISTORY:
 
@@ -1195,6 +1196,146 @@ class Orbit:
 
         """
         return self._orb.vlos(*args,**kwargs)
+
+    def va(self,*args,**kwargs):
+        """
+        NAME:
+
+           vra
+
+        PURPOSE:
+
+           return velocity in right ascension (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get pmra
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+
+        OUTPUT:
+
+           v_ra(t) in km/s
+
+        HISTORY:
+
+           2011-03-27 - Written - Bovy (NYU)
+
+        """
+        return self._orb.dist(*args,**kwargs)*_K*\
+            self._orb.pmra(*args,**kwargs)
+
+    def vdec(self,*args,**kwargs):
+        """
+        NAME:
+
+           vdec
+
+        PURPOSE:
+
+           return velocity in declination (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get pmdec
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+
+        OUTPUT:
+
+           v_dec(t) in km/s
+
+        HISTORY:
+
+           2011-03-27 - Written - Bovy (NYU)
+
+        """
+        return self._orb.dist(*args,**kwargs)*_K*\
+            self._orb.pmdec(*args,**kwargs)
+
+    def vll(self,*args,**kwargs):
+        """
+        NAME:
+
+           vll
+
+        PURPOSE:
+
+           return the velocity in Galactic longitude (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get pmll
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+
+        OUTPUT:
+
+           v_l(t) in km/s
+
+        HISTORY:
+
+           2011-03-27 - Written - Bovy (NYU)
+
+        """
+        return self._orb.dist(*args,**kwargs)*_K*\
+            self._orb.pmll(*args,**kwargs)
+
+    def vbb(self,*args,**kwargs):
+        """
+        NAME:
+
+           vbb
+
+        PURPOSE:
+
+            return velocity in Galactic latitude (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get pmbb
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+
+           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+
+           vo= velocity in km/s corresponding to v=1. (default: 235.)
+
+        OUTPUT:
+
+           v_b(t) in km/s
+
+        HISTORY:
+
+           2011-02-24 - Written - Bovy (NYU)
+
+        """
+        return self._orb.dist(*args,**kwargs)*_K*\
+            self._orb.pmbb(*args,**kwargs)
 
     def helioX(self,*args,**kwargs):
         """
