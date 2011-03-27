@@ -1197,7 +1197,7 @@ class Orbit:
         """
         return self._orb.vlos(*args,**kwargs)
 
-    def va(self,*args,**kwargs):
+    def vra(self,*args,**kwargs):
         """
         NAME:
 
