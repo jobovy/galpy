@@ -63,9 +63,13 @@ Methods
    TrTp <orbittrtp.rst>
    U <orbitu.rst>
    V <orbitv.rst>
+   vbb <orbitvbb.rst>
+   vdec <orbitvdec.rst>
+   vll <orbitvll.rst>
    vlos <orbitvlos.rst>
    vphi <orbitvphi.rst>
    vR <orbitvr.rst>
+   vra <orbitvra.rst>
    vT <orbitvt.rst>
    vx <orbitvx.rst>
    vy <orbitvy.rst>
