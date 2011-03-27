@@ -216,8 +216,22 @@ class diskdf:
                                 *m.fabs(jac)*R
 
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
-        """sample a distance along the line-of-sight
-        BOVY: SHOULD USE CORRECTIONS?"""
+        """
+        NAME:
+           sampledSurfacemassLOS
+        PURPOSE:
+           sample a distance along the line of sight
+        INPUT:
+           l - Galactic longitude (in rad)
+           n= number of distances to sample
+           maxd= maximum distance to consider (for the rejection sampling)
+           target= if True, sample from the 'target' surface mass density,
+                   rather than the actual surface mass density (default=True)
+        OUTPUT:
+           list of samples
+        HISTORY:
+           2011-03-24 - Written - Bovy (NYU)
+        """
         #First calculate where the maximum is
         if l == 0.:
             maxSM= self.targetSurfacemass(0.)
@@ -251,9 +265,25 @@ class diskdf:
                 out.append(prop)
         return nu.array(out)
 
-    def sampleVRVTVdistdR(self,R,n=1,nsigma=None,target=True):
-        """sample a radial and tangential velocity at R
-        BOVY: USE THE FACT THAT THIS CAN BE SEPARATED INTO vR and vT"""
+    def sampleVRVT(self,R,n=1,nsigma=None,target=True):
+        """
+        NAME:
+           sampleVRVT
+        PURPOSE:
+           sample a radial and azimuthal velocity at R
+        INPUT:
+           R - Galactocentric distance
+           n= number of distances to sample
+           nsigma= number of sigma to rejection-sample on
+           target= if True, sample using the 'target' sigma_R
+                   rather than the actual sigma_R (default=True)
+        OUTPUT:
+           list of samples
+        BUGS:
+           should use the fact that vR and vT separate
+        HISTORY:
+           2011-03-24 - Written - Bovy (NYU)
+        """
         #Determine where the max of the v-distribution is using asymmetric drift
         maxVR= 0.
         gamma= sc.sqrt(2./(1.+self._beta))           
@@ -307,7 +337,7 @@ class diskdf:
             #Calculate R and phi
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
-            vv= self.sampleVRVTVdistdR(thisR,n=1,nsigma=nsigma,target=target)[0]
+            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=target)[0]
             out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
@@ -446,7 +476,7 @@ class diskdf:
         return (2.*m.pi/TR, rap, rperi)
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.):
+               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
         """
         NAME:
            sample
@@ -461,6 +491,12 @@ class diskdf:
                           [R,vR,vT] (default)
            returnOrbit - if True, return a planarOrbit instance (including phi)
            nphi - number of azimuths to sample for each E,L
+           los= line of sight sampling along this line of sight
+           losdeg= los in degrees? (default=True)
+           target= if True, use target surface mass and sigma2 profiles
+                   (default=True)
+           nsigma= number of sigma to rejection-sample on
+           maxd= maximum distance to consider (for the rejection sampling)
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
@@ -541,7 +577,8 @@ class dehnendf(diskdf):
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True):
+               nphi=1.,los=None,losdeg=True,nsigma=None,target=True,
+               maxd=None):
         """
         NAME:
            sample
@@ -558,6 +595,10 @@ class dehnendf(diskdf):
            nphi - number of azimuths to sample for each E,L
            los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
            losdeg= if False, los is in radians (default=True)
+           target= if True, use target surface mass and sigma2 profiles
+                   (default=True)
+           nsigma= number of sigma to rejection-sample on
+           maxd= maximum distance to consider (for the rejection sampling)
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
@@ -565,6 +606,9 @@ class dehnendf(diskdf):
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
+        if not los is None:
+            return self.sampleLOS(los,deg=losdeg,n=n,maxd=maxd,
+                                  nsigma=nsigma,target=target)
         #First sample xE
         if self._correct:
             xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
@@ -773,7 +817,7 @@ class shudf(diskdf):
         return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True):
+               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
         """
         NAME:
            sample
@@ -788,8 +832,12 @@ class shudf(diskdf):
                           [R,vR,vT] (default)
            returnOrbit - if True, return a planarOrbit instance (including phi)
            nphi - number of azimuths to sample for each E,L
-           los= if set, sample along this line of sight (deg)
+           los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
            losdeg= if False, los is in radians (default=True)
+           target= if True, use target surface mass and sigma2 profiles
+                   (default=True)
+           nsigma= number of sigma to rejection-sample on
+           maxd= maximum distance to consider (for the rejection sampling)
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
@@ -797,6 +845,8 @@ class shudf(diskdf):
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
+        if not los is None:
+            return self.sampleLOS(los,n=n,maxd=maxd,nsigma=nsigma,target=target)
         #First sample xL
         if self._correct:
             xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
