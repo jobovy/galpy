@@ -103,13 +103,14 @@ potentials in the mid-plane.
 
    RZToplanarPotential <potential2dRZtoplanar.rst>
 
-In addition, a two-dimensional bar potential and a spiral potential is included
+In addition, a two-dimensional bar potential and a two spiral potentials are included
 
 .. toctree::
    :maxdepth: 2
 
    potentialdehnenbar.rst
    potentialsteadylogspiral.rst
+   potentialtransientlogspiral.rst
 
 
 
