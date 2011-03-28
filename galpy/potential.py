@@ -12,6 +12,7 @@ from galpy.potential_src import plotEscapecurve
 from galpy.potential_src import KGPotential
 from galpy.potential_src import interpRZPotential
 from galpy.potential_src import DehnenBarPotential
+from galpy.potential_src import SteadyLogSpiralPotential
 #
 # Functions
 #
@@ -51,3 +52,4 @@ TwoPowerSphericalPotential= TwoPowerSphericalPotential.TwoPowerSphericalPotentia
 KGPotential= KGPotential.KGPotential
 interpRZPotential= interpRZPotential.interpRZPotential
 DehnenBarPotential= DehnenBarPotential.DehnenBarPotential
+SteadyLogSpiralPotential= SteadyLogSpiralPotential.SteadyLogSpiralPotential
