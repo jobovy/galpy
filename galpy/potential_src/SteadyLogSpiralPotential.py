@@ -40,7 +40,7 @@ class SteadyLogSpiralPotential(planarPotential):
 
               a) alpha=
                
-              b) p= pitch angle
+              b) p= pitch angle (rad)
               
         OUTPUT:
 
@@ -57,7 +57,7 @@ class SteadyLogSpiralPotential(planarPotential):
         self._m= m
         self._gamma= gamma
         if not p is None:
-            self._alpha= self._m*m.cot(p)
+            self._alpha= self._m/m.tan(p)
         else:
             self._alpha= alpha
 

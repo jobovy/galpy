@@ -50,7 +50,7 @@ class TransientLogSpiralPotential(planarPotential):
 
               a) alpha=
                
-              b) p= pitch angle
+              b) p= pitch angle (rad)
               
         OUTPUT:
 
@@ -69,7 +69,7 @@ class TransientLogSpiralPotential(planarPotential):
         self._to= to
         self._sigma2= sigma**2.
         if not p is None:
-            self._alpha= self._m*m.cot(p)
+            self._alpha= self._m/m.tan(p)
         else:
             self._alpha= alpha
 
