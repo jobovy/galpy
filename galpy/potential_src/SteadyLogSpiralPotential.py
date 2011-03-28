@@ -1,5 +1,5 @@
 ###############################################################################
-#   WKBSteadySpiralPotential: a steady-state spiral potential
+#   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import math as m
 from planarPotential import planarPotential
@@ -7,7 +7,7 @@ _degtorad= m.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A cos(alpha ln(r) + m(phi - Omegas*t-gamma))
+    V(r,phi,t) = A/alpha cos(alpha ln(r) + m(phi - Omegas*t-gamma))
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=0.035,
