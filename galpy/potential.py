@@ -13,6 +13,7 @@ from galpy.potential_src import KGPotential
 from galpy.potential_src import interpRZPotential
 from galpy.potential_src import DehnenBarPotential
 from galpy.potential_src import SteadyLogSpiralPotential
+from galpy.potential_src import TransientLogSpiralPotential
 #
 # Functions
 #
@@ -53,3 +54,4 @@ KGPotential= KGPotential.KGPotential
 interpRZPotential= interpRZPotential.interpRZPotential
 DehnenBarPotential= DehnenBarPotential.DehnenBarPotential
 SteadyLogSpiralPotential= SteadyLogSpiralPotential.SteadyLogSpiralPotential
+TransientLogSpiralPotential= TransientLogSpiralPotential.TransientLogSpiralPotential
