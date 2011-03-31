@@ -103,6 +103,7 @@ class evolveddiskdf:
         meanvT= self._initdf.meanvT(R)
         #Calculate the initdf moment and then calculate the ratio
         initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma)
+        if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
         return integrate.dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
