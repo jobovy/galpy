@@ -12,6 +12,7 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.orbit import Orbit
+from galpy.util.bovy_quadpack import dblquad
 _DEGTORAD= m.pi/180.
 class evolveddiskdf:
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
@@ -104,11 +105,13 @@ class evolveddiskdf:
         initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma)
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
-        return integrate.dblquad(_vmomentsurfaceIntegrand,
+        return dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
-                                 lambda x: meanvR/sigmaR1-nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
-                                 lambda x: meanvR/sigmaR1+nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
+                                 lambda x: meanvR/sigmaR1
+                                 -nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
+                                 lambda x: meanvR/sigmaR1
+                                 +nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
