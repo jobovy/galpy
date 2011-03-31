@@ -1,5 +1,6 @@
 ###############################################################################
-#   evolveddiskdf.py: module that interprets builds a distribution function as a steady-state DF + subsequent evolution
+#   evolveddiskdf.py: module that builds a distribution function as a 
+#                     steady-state DF + subsequent evolution
 #
 #   This module contains the following classes:
 #
