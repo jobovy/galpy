@@ -58,7 +58,7 @@ class evolveddiskdf:
             else:
                 t= args[1]
         else:
-            return IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
+            raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
         #Integrate back
         if self._to == t:
             return self._initdf(args[0])
