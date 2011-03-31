@@ -191,4 +191,4 @@ class DehnenBarPotential(planarPotential):
         HISTORY:
            2011-03-08 - Written - Bovy (NYU)
         """
-        return dp._tform
+        return self._tform
