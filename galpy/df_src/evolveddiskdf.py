@@ -64,10 +64,12 @@ class evolveddiskdf:
         #integrate orbit
         o.integrate(ts,self._pot)
         #Now evaluate the DF
-        return self._initdf(o(self._to-t))
+        retval= self._initdf(o(self._to-t))
+        if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
+        return retval
 
     def vmomentsurfacemass(self,R,phi,n,m,t=0.,nsigma=None,deg=False,
-                           epsrel=-1.e-02,epsabs=1.e-05):
+                           epsrel=1.e-02,epsabs=1.e-05):
         """
         NAME:
            vmomentsurfacemass
@@ -105,8 +107,8 @@ class evolveddiskdf:
         return integrate.dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
-                                 lambda x: meanvR/sigmaR1-nsigma, 
-                                 lambda x: meanvR/sigmaR1+nsigma, 
+                                 lambda x: meanvR/sigmaR1-nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
+                                 lambda x: meanvR/sigmaR1+nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
