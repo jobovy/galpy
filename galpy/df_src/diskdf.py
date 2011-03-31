@@ -73,6 +73,7 @@ class diskdf:
         else:
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
+        self._gamma= sc.sqrt(2./(1.+self._beta))
         if correct or kwargs.has_key('corrections') or kwargs.has_key('rmax') or kwargs.has_key('niter') or kwargs.has_key('npoints'):
             self._correct= True
             #Load corrections
@@ -286,7 +287,6 @@ class diskdf:
         """
         #Determine where the max of the v-distribution is using asymmetric drift
         maxVR= 0.
-        gamma= sc.sqrt(2./(1.+self._beta))           
         maxVT= optimize.brentq(_vtmaxEq,0.,1.,(R,self))
         maxVD= self(Orbit([R,maxVR,maxVT]))
         #Now rejection-sample
@@ -300,7 +300,7 @@ class diskdf:
         while len(out) < n:
             #sample
             propvR= nu.random.normal()*_NSIGMA*sigma
-            propvT= nu.random.normal()*_NSIGMA*sigma/gamma+1.
+            propvT= nu.random.normal()*_NSIGMA*sigma/self._gamma+1.
             VDatprop= self(Orbit([R,propvR,propvT]))
             if VDatprop/maxVD > nu.random.random(): #accept
                 out.append(sc.array([propvR,propvT]))
@@ -364,29 +364,29 @@ class diskdf:
         sigmaR2= self.targetSigma2(R)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
-        gamma= sc.sqrt(2./(1.+self._beta))
         if relative:
             norm= 1.
         else:
             norm= sc.exp(logSigmaR)
         #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./gamma**2.-1.
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
         if romberg:
             return bovy_dblquad(_surfaceIntegrand,
-                                gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                 lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,gamma],
+                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                 self._gamma],
                                 tol=10.**-8)/sc.pi*norm
         else:
             return integrate.dblquad(_surfaceIntegrand,
-                                     gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                      lambda x: 0., lambda x: nsigma,
                                      (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      gamma),
+                                      self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
     def sigma2surfacemass(self,R,romberg=False,nsigma=None,
@@ -415,29 +415,29 @@ class diskdf:
         sigmaR2= self.targetSigma2(R)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
-        gamma= sc.sqrt(2./(1.+self._beta))
         if relative:
             norm= 1.
         else:
             norm= sc.exp(logSigmaR+logsigmaR2)
         #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./gamma**2.-1.
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
         if romberg:
             return bovy_dblquad(_sigma2surfaceIntegrand,
-                                gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                 lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,gamma],
+                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                 self._gamma],
                                 tol=10.**-8)/sc.pi*norm
         else:
             return integrate.dblquad(_sigma2surfaceIntegrand,
-                                     gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                      lambda x: 0., lambda x: nsigma,
                                      (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      gamma),
+                                      self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
     def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
@@ -470,30 +470,29 @@ class diskdf:
         sigmaR2= self.targetSigma2(R)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
-        gamma= sc.sqrt(2./(1.+self._beta))
         if relative:
             norm= 1.
         else:
-            norm= sc.exp(logSigmaR+logsigmaR2*(n+m)/2.)/gamma**m
+            norm= sc.exp(logSigmaR+logsigmaR2*(n+m)/2.)/self._gamma**m
         #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./gamma**2.-1.
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
         if romberg:
             return bovy_dblquad(_vmomentsurfaceIntegrand,
-                                gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                 lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,gamma,
-                                 n,m],
+                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                 self._gamma,n,m],
                                 tol=10.**-8)/sc.pi*norm
         else:
             return integrate.dblquad(_vmomentsurfaceIntegrand,
-                                     gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                      lambda x: 0., lambda x: nsigma,
                                      (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      gamma,n,m),
+                                      self._gamma,n,m),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
     def sigma2(self,R,romberg=False,nsigma=None):
@@ -538,6 +537,25 @@ class diskdf:
                     **2.\
                     /surfmass)/surfmass
 
+    def sigmaR2(self,R,romberg=False,nsigma=None):
+        """
+        NAME:
+           sigmaR2 (duplicate of sigma2 for consistency)
+        PURPOSE:
+           calculate sigma_R^2 at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate sigma_R^2 (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           sigma_R^2 at R
+        HISTORY:
+           2011-03-30 - Written - Bovy (NYU)
+        """
+        return self.sigma2(R,romberg=romberg,nsigma=nsigma)
+
     def meanvT(self,R,romberg=False,nsigma=None):
         """
         NAME:
@@ -556,6 +574,26 @@ class diskdf:
            2011-03-30 - Written - Bovy (NYU)
         """
         return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+
+    def meanvR(self,R,romberg=False,nsigma=None):
+        """
+        NAME:
+           meanvR
+        PURPOSE:
+           calculate <vR> at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate <vR> (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           <vR> at R
+        HISTORY:
+           2011-03-30 - Written - Bovy (NYU)
+        """
+        return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
     def _ELtowRRapRperi(self,E,L):
@@ -681,7 +719,7 @@ class dehnendf(diskdf):
         else:
             correction= sc.zeros(2)
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
-        return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])
+        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,target=True,
@@ -921,7 +959,7 @@ class shudf(diskdf):
         else:
             correction= sc.zeros(2)
         SRE2= self.targetSigma2(xL,log=True)+correction[1]
-        return sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])
+        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
@@ -1031,20 +1069,20 @@ class shudf(diskdf):
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
-    return df.eval(E,L,logSigmaR,logsigmaR2)
+    return df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _sigma2surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
-    return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)
+    return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
                              n,m):
     """Internal function that is the integrand for the velocity moment times
     surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
-    return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)
+    return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma):
     """Internal function that calculates E and L given velocities normalized by the velocity dispersion"""
