@@ -6,11 +6,8 @@
 #
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
-_EPSREL=10.**-14.
 _NSIGMA= 4.
 _NTS= 1000
-_RMIN=10.**-10.
-_MAXD_REJECTLOS= 4.
 import math as m
 import numpy as nu
 from scipy import integrate
