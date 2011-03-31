@@ -7,7 +7,7 @@ def _infunc(x,func,gfun,hfun,more_args,epsrel,epsabs):
     b = hfun(x)
     myargs = (x,) + more_args
     retval= quad(func,a,b,args=myargs,epsrel=epsrel,epsabs=epsabs)
-    print x, a, b, retval
+    #print x, a, b, retval
     return retval[0]
 
 def dblquad(func, a, b, gfun, hfun, args=(), epsabs=1.49e-8, epsrel=1.49e-8):
