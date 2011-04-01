@@ -577,7 +577,7 @@ class evolveddiskdf:
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
                                                  returnGrid=False)
-        out= (sigmaRT-meanvR*meanvT./surfacemass)/surfacemass
+        out= (sigmaRT-meanvR*meanvT/surfacemass)/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
             return (out,grido)
