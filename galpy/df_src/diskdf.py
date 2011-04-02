@@ -341,6 +341,25 @@ class diskdf:
             out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
+    def asymmetricdrift(self,R):
+        """
+        NAME:
+           asymmetricdrift
+        PURPOSE:
+           calculate the asymmetric drift (vc-mean-vphi)
+        INPUT:
+           R - radius at which to calculate the asymmetric drift (/ro)
+        OUTPUT:
+           asymmetric drift at R
+        HISTORY:
+           2011-04-02 - Written - Bovy (NYU)
+        """
+        sigmaR2= self.targetSigma2(R)
+        return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                         -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                         -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+
+
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
