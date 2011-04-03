@@ -16,6 +16,7 @@ _INTERPDEGREE= 3
 _RMIN=10.**-10.
 _MAXD_REJECTLOS= 4.
 import copy
+import re
 import os, os.path
 import cPickle as pickle
 import math as m
@@ -34,6 +35,12 @@ from galpy.actionAngle import actionAngleFlat, actionAnglePower
 from galpy.actionAngle_src.actionAngleFlat import calcRapRperiFromELFlat #HACK
 from galpy.actionAngle_src.actionAnglePower import \
     calcRapRperiFromELPower #HACK
+#scipy version
+try:
+    sversion=re.split(r'\.',sc.__version__)
+    _SCIPYVERSION=float(sversion[0])+float(sversion[1])/10.
+except:
+    raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= m.pi/180.
 class diskdf:
@@ -1252,8 +1259,12 @@ class DFcorrection:
         elif R > (2.*self._rmax):
             out= sc.array([0.,0.])
         else:
-            out= sc.array([self._surfaceInterpolate(R)[0],
-                           self._sigma2Interpolate(R)[0]])
+            if _SCIPYVERSION >= 0.9:
+                out= sc.array([self._surfaceInterpolate(R),
+                               self._sigma2Interpolate(R)])
+            else:
+                out= sc.array([self._surfaceInterpolate(R)[0],
+                               self._sigma2Interpolate(R)[0]])
         if log:
             return out
         else:
@@ -1280,8 +1291,12 @@ class DFcorrection:
         elif R > (2.*self._rmax):
             out= sc.array([0.,0.])
         else:
-            out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
-                           self._sigma2Interpolate(R,nu=1)[0]])
+            if _SCIPYVERSION >= 0.9:
+                out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
+                               self._sigma2Interpolate(R,nu=1)[0]])
+            else:
+                out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
+                               self._sigma2Interpolate(R,nu=1)[0]])
         return out
             
 
