@@ -348,6 +348,8 @@ def bovy_dens2d(X,**kwargs):
 
        colorbar - if True, add colorbar
 
+       shrink= colorbar argument: shrink the colorbar by the factor (optional)
+
        Contours:
        
        contours - if True, draw contours (10 by default)
@@ -485,16 +487,22 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('colorbar')
     else:
         cb= False
+    if kwargs.has_key('shrink'):
+        shrink= kwargs['shrink']
+        kwargs.pop('shrink')
+    else:
+        shrink= None
     out= pyplot.imshow(X,extent=extent,**kwargs)
     pyplot.axis(extent)
     _add_axislabels(xlabel,ylabel)
     _add_ticks()
     #Add colorbar
     if cb:
-        if kwargs.has_key('aspect'):
-            shrink= sc.amin([float(kwargs['aspect'])*0.87,1.])
-        else:
-            shrink= 0.87
+        if shrink is None:
+            if kwargs.has_key('aspect'):
+                shrink= sc.amin([float(kwargs['aspect'])*0.87,1.])
+            else:
+                shrink= 0.87
         CB1= pyplot.colorbar(out,shrink=shrink)
         if not zlabel is None:
             if zlabel[0] != '$':
