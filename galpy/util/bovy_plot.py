@@ -345,7 +345,8 @@ def bovy_dens2d(X,**kwargs):
        noaxes - don't plot any axes
 
        overplot - if True, overplot
-    
+
+       colorbar - if True, add colorbar
 
        Contours:
        
@@ -390,6 +391,11 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('ylabel')
     else:
         ylabel=None
+    if kwargs.has_key('zlabel'):
+        zlabel= kwargs['zlabel']
+        kwargs.pop('zlabel')
+    else:
+        zlabel=None   
     if kwargs.has_key('extent'):
         extent= kwargs['extent']
         kwargs.pop('extent')
@@ -474,10 +480,28 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('retCumImage')
     else:
         retCumImage= False
+    if kwargs.has_key('colorbar'):
+        cb= kwargs['colorbar']
+        kwargs.pop('colorbar')
+    else:
+        cb= False
     out= pyplot.imshow(X,extent=extent,**kwargs)
     pyplot.axis(extent)
     _add_axislabels(xlabel,ylabel)
     _add_ticks()
+    #Add colorbar
+    if cb:
+        if kwargs.has_key('aspect'):
+            shrink= sc.amin([float(kwargs['aspect'])*0.87,1.])
+        else:
+            shrink= 0.87
+        CB1= pyplot.colorbar(out,shrink=shrink)
+        if not zlabel is None:
+            if zlabel[0] != '$':
+                thiszlabel=r'$'+zlabel+'$'
+            else:
+                thiszlabel=zlabel
+            CB1.set_label(zlabel)
     if contours:
         if kwargs.has_key('aspect'):
             aspect= kwargs['aspect']
