@@ -1466,7 +1466,7 @@ def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
     else:
         ro= 8.5
     if kwargs.has_key('vo'):
-        ro= kwargs['vo']
+        vo= kwargs['vo']
         if not dontpop:
             kwargs.pop('vo')
     else:
