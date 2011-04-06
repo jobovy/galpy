@@ -91,13 +91,18 @@ class diskdf:
             self._correct= False
         return None
     
-    def __call__(self,*args):
+    def __call__(self,*args,**kwargs):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the distribution function
+
         INPUT:
+
            either an orbit instance or E,Lz
 
            1) Orbit instance:
@@ -107,17 +112,31 @@ class diskdf:
            2)
               E - energy (/vo^2)
               L - angular momentun (/ro/vo)
+
+        KWARGS:
+
+           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+
         OUTPUT:
+
            DF(orbit/E,L)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         if isinstance(args[0],Orbit):
             if len(args) == 1:
-                return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[1],
-                                                    args[0].vxvv[2],
-                                                    args[0].vxvv[0],
-                                                    self._beta)))
+                if kwargs.has_key('marginalizeVperp') and \
+                        kwargs['marginalizeVperp']:
+                    kwargs.pop('marginalizeVperp')
+                    return self._call_marginalizevperp(args[0],**kwargs)
+                else:
+                    return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[1],
+                                                        args[0].vxvv[2],
+                                                        args[0].vxvv[0],
+                                                        self._beta)))
             else:
                 vxvv= args[0](args[1])
                 return sc.real(self.eval(*vRvTRToEL(vxvv[1],
@@ -127,6 +146,50 @@ class diskdf:
         else:
             return sc.real(self.eval(*args))
 
+    def _call_marginalizevperp(self,o,**kwargs):
+        """Call the DF, marginalizing over perpendicular velocity"""
+        #Get d, l, vlos
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the los
+        vcirc= R**self._beta
+        vcirclos= vcirc*m.sin(phi+l)
+        #Marginalize
+        alphalos= phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        sigmaR2= self.targetSigma2(R)
+        sigmaR1= sc.sqrt(sigmaR2)
+        #Use the asymmetric drift equation to estimate va
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
+            cosalphalos= m.cos(alphalos)
+            tanalphalos= m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -self._gamma*va/sigmaR1-nsigma,
+                                  -self._gamma*va/sigmaR1+nsigma,
+                                  args=(self,R,cosalphalos,tanalphalos,
+                                        vlos-vcirclos,vcirc,
+                                        sigmaR1/self._gamma),
+                                  **kwargs)[0]/m.fabs(cosalphalos)
+        else:
+            sinalphalos= m.sin(alphalos)
+            cotalphalos= 1./m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphalos,cotalphalos,
+                                        vlos-vcirclos,vcirc,sigmaR1),
+                                  **kwargs)[0]/m.fabs(sinalphalos)
+        
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -1483,4 +1546,13 @@ def _vtmaxEq(vT,R,diskdf):
              -OE*(diskdf._beta+1.)/sigma2xE*xE**diskdf._beta)\
              *dxEdvT
 
+def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
+                                            vlos,vcirc,sigma):
+    return df(*vRvTRToEL(vR*sigma,cotalpha*vR*sigma+vlos/sinalpha+vcirc,
+                        R,df._beta))
+
+def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
+                                            vlos,vcirc,sigma):
+    return df(*vRvTRToEL(tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,
+                        R,df._beta))
 
