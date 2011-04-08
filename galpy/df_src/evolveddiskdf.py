@@ -612,7 +612,7 @@ class evolveddiskdf:
             for jj in range(gridpoints):
                 thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                 out.df[ii,jj]= self(thiso,t)
-                if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0.
+                if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
         return out
 
 class evolveddiskdfGrid:
