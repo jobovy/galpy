@@ -14,6 +14,7 @@ from galpy.potential_src import interpRZPotential
 from galpy.potential_src import DehnenBarPotential
 from galpy.potential_src import SteadyLogSpiralPotential
 from galpy.potential_src import TransientLogSpiralPotential
+from galpy.potential_src import MovingObjectPotential
 #
 # Functions
 #
@@ -55,3 +56,4 @@ interpRZPotential= interpRZPotential.interpRZPotential
 DehnenBarPotential= DehnenBarPotential.DehnenBarPotential
 SteadyLogSpiralPotential= SteadyLogSpiralPotential.SteadyLogSpiralPotential
 TransientLogSpiralPotential= TransientLogSpiralPotential.TransientLogSpiralPotential
+MovingObjectPotential= MovingObjectPotential.MovingObjectPotential
