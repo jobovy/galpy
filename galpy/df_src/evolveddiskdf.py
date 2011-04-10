@@ -70,8 +70,8 @@ class evolveddiskdf:
         if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
         return retval
 
-    def vmomentsurfacemass(self,R,phi,n,m,t=0.,nsigma=None,deg=False,
-                           epsrel=1.e-02,epsabs=1.e-05,
+    def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
+                           epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False):
         """
         NAME:
@@ -111,10 +111,10 @@ class evolveddiskdf:
         if deg: az= phi*_DEGTORAD
         else: az= phi
         if nsigma == None: nsigma= _NSIGMA
-        sigmaR1= nu.sqrt(self._initdf.sigmaR2(R))
-        sigmaT1= nu.sqrt(self._initdf.sigmaT2(R))
-        meanvR= self._initdf.meanvR(R)
-        meanvT= self._initdf.meanvT(R)
+        sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+        sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
+        meanvR= self._initdf.meanvR(R,phi=phi)
+        meanvT= self._initdf.meanvT(R,phi=phi)
         if not grid is None and isinstance(grid,bool) and grid:
             grido= self._buildvgrid(R,az,nsigma,t,
                                     sigmaR1,sigmaT1,meanvR,meanvT,gridpoints)
@@ -123,7 +123,8 @@ class evolveddiskdf:
             else:
                 return self._vmomentsurfacemassGrid(n,m,grido)
         #Calculate the initdf moment and then calculate the ratio
-        initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma)
+        initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma,
+                                                     phi=phi)
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
         return dblquad(_vmomentsurfaceIntegrand,
@@ -136,8 +137,8 @@ class evolveddiskdf:
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
-    def vertexdev(self,R,phi,t=0.,nsigma=None,deg=False,
-                  epsrel=1.e-02,epsabs=1.e-05,
+    def vertexdev(self,R,t=0.,nsigma=None,deg=False,
+                  epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
                   sigmaR2=None,sigmaT2=None,sigmaRT=None):
         """
@@ -175,13 +176,13 @@ class evolveddiskdf:
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid and the surfacemass
-            (sigmaR2,grido)= self.vmomentsurfacemass(R,phi,2,0,deg=deg,t=t,
-                                                     nsigma=nsigma,
+            (sigmaR2,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
+                                                     nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
                                                      returnGrid=True)
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -189,19 +190,19 @@ class evolveddiskdf:
         else:
             grido= False
         if sigmaR2 is None:
-            sigmaR2= self.sigmaR2(R,phi,deg=deg,t=t,
+            sigmaR2= self.sigmaR2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
                                   returnGrid=False)/surfacemass
         if sigmaT2 is None:
-            sigmaT2= self.sigmaT2(R,phi,deg=deg,t=t,
+            sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
                                   returnGrid=False)/surfacemass
         if sigmaRT is None:
-            sigmaRT= self.sigmaRT(R,phi,deg=deg,t=t,
+            sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
@@ -213,7 +214,7 @@ class evolveddiskdf:
         else:
             return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG
 
-    def meanvR(self,R,phi,t=0.,nsigma=None,deg=False,
+    def meanvR(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None):
@@ -246,7 +247,7 @@ class evolveddiskdf:
         """
         if isinstance(grid,evolveddiskdfGrid):
             grido= grid           
-            vmomentR= self.vmomentsurfacemass(R,phi,1,0,deg=deg,t=t,
+            vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
@@ -254,22 +255,22 @@ class evolveddiskdf:
                                               returnGrid=False)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (vmomentR,grido)= self.vmomentsurfacemass(R,phi,1,0,deg=deg,t=t,
-                                                      nsigma=nsigma,
+            (vmomentR,grido)= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,
+                                                      nsigma=nsigma,phi=phi,
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
                                                       gridpoints=gridpoints,
                                                       returnGrid=True)
         else:
             grido= False
-            vmomentR= self.vmomentsurfacemass(R,phi,1,0,deg=deg,t=t,
+            vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
                                               returnGrid=False)
         if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -281,7 +282,7 @@ class evolveddiskdf:
         else:
             return out
 
-    def meanvT(self,R,phi,t=0.,nsigma=None,deg=False,
+    def meanvT(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None):
@@ -314,30 +315,30 @@ class evolveddiskdf:
         """
         if isinstance(grid,evolveddiskdfGrid):
             grido= grid           
-            vmomentT= self.vmomentsurfacemass(R,phi,0,1,deg=deg,t=t,
-                                              nsigma=nsigma,
+            vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
+                                              nsigma=nsigma,phi=phi,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
                                               returnGrid=False)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (vmomentT,grido)= self.vmomentsurfacemass(R,phi,0,1,deg=deg,t=t,
-                                                      nsigma=nsigma,
+            (vmomentT,grido)= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
+                                                      nsigma=nsigma,phi=phi,
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
                                                       gridpoints=gridpoints,
                                                       returnGrid=True)
         else:
             grido= False
-            vmomentT= self.vmomentsurfacemass(R,phi,0,1,deg=deg,t=t,
-                                              nsigma=nsigma,
+            vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
+                                              nsigma=nsigma,phi=phi,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
                                               returnGrid=False)
         if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -349,7 +350,7 @@ class evolveddiskdf:
         else:
             return out
 
-    def sigmaR2(self,R,phi,t=0.,nsigma=None,deg=False,
+    def sigmaR2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None):
@@ -385,7 +386,7 @@ class evolveddiskdf:
         #times the surface-mass density
         if isinstance(grid,evolveddiskdfGrid):
             grido= grid
-            sigmaR2= self.vmomentsurfacemass(R,phi,2,0,deg=deg,t=t,
+            sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -394,28 +395,28 @@ class evolveddiskdf:
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaR2,grido)= self.vmomentsurfacemass(R,phi,2,0,deg=deg,t=t,
-                                                     nsigma=nsigma,
+            (sigmaR2,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
+                                                     nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
                                                      returnGrid=True)
         else:
             grido= False
-            sigmaR2= self.vmomentsurfacemass(R,phi,2,0,deg=deg,t=t,
-                                             nsigma=nsigma,
+            sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
+                                             nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
                                              returnGrid=False)
         if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
                                                  returnGrid=False)
         if meanvR is None:
-            meanvR= self.vmomentsurfacemass(R,phi,1,0,deg=deg,t=t,
+            meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
@@ -427,7 +428,7 @@ class evolveddiskdf:
         else:
             return out
 
-    def sigmaT2(self,R,phi,t=0.,nsigma=None,deg=False,
+    def sigmaT2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvT=None):
@@ -459,11 +460,9 @@ class evolveddiskdf:
         HISTORY:
            2011-03-31 - Written - Bovy (NYU)
         """
-        #The following aren't actually the moments, but they are the moments
-        #times the surface-mass density
         if isinstance(grid,evolveddiskdfGrid):
             grido= grid
-            sigmaT2= self.vmomentsurfacemass(R,phi,0,2,deg=deg,t=t,
+            sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -472,28 +471,28 @@ class evolveddiskdf:
         elif (meanvT is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaT2,grido)= self.vmomentsurfacemass(R,phi,0,2,deg=deg,t=t,
-                                                     nsigma=nsigma,
+            (sigmaT2,grido)= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
+                                                     nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
                                                      returnGrid=True)
         else:
             grido= False
-            sigmaT2= self.vmomentsurfacemass(R,phi,0,2,deg=deg,t=t,
-                                             nsigma=nsigma,
+            sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
+                                             nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
                                              returnGrid=False)
         if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
                                                  returnGrid=False)
         if meanvT is None:
-            meanvT= self.vmomentsurfacemass(R,phi,0,1,deg=deg,t=t,
+            meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
@@ -505,8 +504,8 @@ class evolveddiskdf:
         else:
             return out
 
-    def sigmaRT(self,R,phi,t=0.,nsigma=None,deg=False,
-                epsrel=1.e-02,epsabs=1.e-05,
+    def sigmaRT(self,R,t=0.,nsigma=None,deg=False,
+                epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None,meanvT=None):
         """
@@ -541,7 +540,7 @@ class evolveddiskdf:
         #times the surface-mass density
         if isinstance(grid,evolveddiskdfGrid):
             grido= grid
-            sigmaRT= self.vmomentsurfacemass(R,phi,1,1,deg=deg,t=t,
+            sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -550,34 +549,34 @@ class evolveddiskdf:
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaRT,grido)= self.vmomentsurfacemass(R,phi,1,1,deg=deg,t=t,
-                                                     nsigma=nsigma,
+            (sigmaRT,grido)= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
+                                                     nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
                                                      returnGrid=True)
         else:
             grido= False
-            sigmaRT= self.vmomentsurfacemass(R,phi,1,1,deg=deg,t=t,
-                                             nsigma=nsigma,
+            sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
+                                             nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
                                              returnGrid=False)
         if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,phi,0,0,deg=deg,t=t,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
                                                  returnGrid=False)
         if meanvR is None:
-            meanvR= self.vmomentsurfacemass(R,phi,1,0,deg=deg,t=t,
+            meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
                                              returnGrid=False)/surfacemass
         if meanvT is None:
-            meanvT= self.vmomentsurfacemass(R,phi,0,1,deg=deg,t=t,
+            meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,

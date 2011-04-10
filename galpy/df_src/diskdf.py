@@ -530,7 +530,7 @@ class diskdf:
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
     def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
-                           relative=False):
+                           relative=False,phi=0.):
         """
         NAME:
            vmomentsurfacemass
@@ -584,7 +584,7 @@ class diskdf:
                                       self._gamma,n,m),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
-    def sigma2(self,R,romberg=False,nsigma=None):
+    def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
            sigma2
@@ -603,7 +603,7 @@ class diskdf:
         """
         return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
 
-    def sigmaT2(self,R,romberg=False,nsigma=None):
+    def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
            sigmaT2
@@ -626,7 +626,7 @@ class diskdf:
                     **2.\
                     /surfmass)/surfmass
 
-    def sigmaR2(self,R,romberg=False,nsigma=None):
+    def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
            sigmaR2 (duplicate of sigma2 for consistency)
@@ -645,7 +645,7 @@ class diskdf:
         """
         return self.sigma2(R,romberg=romberg,nsigma=nsigma)
 
-    def meanvT(self,R,romberg=False,nsigma=None):
+    def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
            meanvT
@@ -665,7 +665,7 @@ class diskdf:
         return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
-    def meanvR(self,R,romberg=False,nsigma=None):
+    def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
            meanvR
