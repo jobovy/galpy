@@ -117,6 +117,8 @@ class diskdf:
 
            marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
 
+           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+
         OUTPUT:
 
            DF(orbit/E,L)
@@ -132,6 +134,10 @@ class diskdf:
                         kwargs['marginalizeVperp']:
                     kwargs.pop('marginalizeVperp')
                     return self._call_marginalizevperp(args[0],**kwargs)
+                elif kwargs.has_key('marginalizeVlos') and \
+                        kwargs['marginalizeVlos']:
+                    kwargs.pop('marginalizeVlos')
+                    return self._call_marginalizevlos(args[0],**kwargs)
                 else:
                     return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[1],
                                                         args[0].vxvv[2],
@@ -189,6 +195,53 @@ class diskdf:
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1),
                                   **kwargs)[0]/m.fabs(sinalphalos)
+        
+    def _call_marginalizevlos(self,o,**kwargs):
+        """Call the DF, marginalizing over line-of-sight velocity"""
+        #Get d, l, vperp
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the perpendicular 
+        #direction
+        vcirc= R**self._beta
+        vcircperp= vcirc*m.cos(phi+l)
+        #Marginalize
+        alphaperp= m.pi/2.+phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        sigmaR2= self.targetSigma2(R)
+        sigmaR1= sc.sqrt(sigmaR2)
+        #Use the asymmetric drift equation to estimate va
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
+            cosalphaperp= m.cos(alphaperp)
+            tanalphaperp= m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -self._gamma*va/sigmaR1-nsigma,
+                                  -self._gamma*va/sigmaR1+nsigma,
+                                  args=(self,R,cosalphaperp,tanalphaperp,
+                                        vperp-vcircperp,vcirc,
+                                        sigmaR1/self._gamma),
+                                  **kwargs)[0]/m.fabs(cosalphaperp)
+        else:
+            sinalphaperp= m.sin(alphaperp)
+            cotalphaperp= 1./m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphaperp,cotalphaperp,
+                                        vperp-vcircperp,vcirc,sigmaR1),
+                                  **kwargs)[0]/m.fabs(sinalphaperp)
         
     def targetSigma2(self,R,log=False):
         """
