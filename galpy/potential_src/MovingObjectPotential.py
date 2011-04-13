@@ -79,6 +79,7 @@ class MovingObjectPotential(Potential):
         dist= _cyldist(R,phi,z,
                        self._orb.R(t),self._orb.phi(t),self._orb.z(t))
         #Evaluate potential
+        raise AttributeEror("Softening in evaluation not implemented yet...")
         return -self._gm/dist #BOVY: ADAPT FOR SOFTENING
 
     def _Rforce(self,R,z,phi=0.,t=0.):
