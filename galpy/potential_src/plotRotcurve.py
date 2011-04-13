@@ -18,6 +18,8 @@ def plotRotcurve(Pot,*args,**kwargs):
        +bovy_plot.bovy_plot args and kwargs
     OUTPUT:
        plot to output device
+    BUGS:
+       Should use calcRotcurve
     HISTORY:
        2010-07-10 - Written - Bovy (NYU)
     """
@@ -71,4 +73,36 @@ def plotRotcurve(Pot,*args,**kwargs):
     kwargs['xrange']= Rrange
     return plot.bovy_plot(Rs,rotcurve,*args,
                           **kwargs)
+
+def calcRotcurve(Pot,Rs):
+    """
+    NAME:
+       calctRotcurve
+    PURPOSE:
+       calculate the rotation curve for this potential (in the z=0 plane for
+       non-spherical potentials)
+    INPUT:
+       Pot - Potential or list of Potential instances
+
+       Rs - (array of) radius(i)
+    OUTPUT:
+       array of vc
+    HISTORY:
+       2011-04-13 - Written - Bovy (NYU)
+    """
+    isList= isinstance(Pot,list)
+    isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
+    if isNonAxi:
+        raise AttributeError("Rotation curve plotting for non-axisymmetric potentials is not currently supported")
+    grid= len(Rs)
+    rotcurve= nu.zeros(grid)
+    from planarPotential import evaluateplanarRforces
+    for ii in range(grid):
+        try:
+            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
+        except TypeError:
+            from planarPotential import RZToplanarPotential
+            Pot= RZToplanarPotential(Pot)
+            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
+    return rotcurve
 

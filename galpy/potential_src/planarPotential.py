@@ -257,7 +257,7 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.):
         else:
             return Pot(R,t=t)
     else:
-        raise PotentialError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
+        raise TypeError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarRforces(R,Pot,phi=None,t=0.):
     """
@@ -296,7 +296,7 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
         else:
             return Pot.Rforce(R,t=t)
     else:
-        raise PotentialError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
+        raise TypeError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
     """
@@ -335,7 +335,7 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
         else:
             return Pot.phiforce(R,t=t)
     else:
-        raise PotentialError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
+        raise TypeError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
