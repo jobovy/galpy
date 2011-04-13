@@ -130,3 +130,4 @@ def _external_force(x,t,pot):
 
 def _plummer_soft(d,eps):
     return d/(d**2.+eps**2.)**1.5
+

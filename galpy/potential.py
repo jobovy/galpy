@@ -15,6 +15,7 @@ from galpy.potential_src import DehnenBarPotential
 from galpy.potential_src import SteadyLogSpiralPotential
 from galpy.potential_src import TransientLogSpiralPotential
 from galpy.potential_src import MovingObjectPotential
+from galpy.potential_src import ForceSoftening
 #
 # Functions
 #
@@ -57,3 +58,5 @@ DehnenBarPotential= DehnenBarPotential.DehnenBarPotential
 SteadyLogSpiralPotential= SteadyLogSpiralPotential.SteadyLogSpiralPotential
 TransientLogSpiralPotential= TransientLogSpiralPotential.TransientLogSpiralPotential
 MovingObjectPotential= MovingObjectPotential.MovingObjectPotential
+#Softenings
+PlummerSoftening= ForceSoftening.PlummerSoftening
