@@ -94,7 +94,11 @@ def calcRotcurve(Pot,Rs):
     isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if isNonAxi:
         raise AttributeError("Rotation curve plotting for non-axisymmetric potentials is not currently supported")
-    grid= len(Rs)
+    try:
+        grid= len(Rs)
+    except TypeError:
+        grid=1
+        Rs= nu.array([Rs])
     rotcurve= nu.zeros(grid)
     from planarPotential import evaluateplanarRforces
     for ii in range(grid):
