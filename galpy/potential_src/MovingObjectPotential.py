@@ -8,6 +8,7 @@
 import numpy as nu
 from Potential import Potential
 from galpy.snapshot_src.directnbody import _plummer_soft
+from galpy.potential_src.ForceSoftening import PlummerSoftening
 class MovingObjectPotential(Potential):
     """Class that implements the potential coming from a moving object
                                  GM
@@ -15,6 +16,7 @@ class MovingObjectPotential(Potential):
                                distance
     """
     def __init__(self,orbit,amp=1.,GM=1.,normalize=False,
+                 softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
         NAME:
@@ -37,9 +39,13 @@ class MovingObjectPotential(Potential):
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1. (at t=0)
 
-           softening_model=  type of softening to use ('plummer')
+           Softening: either provide
 
-           softening_length= (optional)
+              a) softening= with a ForceSoftening-type object
+
+              b) softening_model=  type of softening to use ('plummer')
+
+                 softening_length= (optional)
 
         OUTPUT:
 
@@ -53,9 +59,11 @@ class MovingObjectPotential(Potential):
         Potential.__init__(self,amp=amp)
         self._gm= GM
         self._orb= orbit
-        if softening_model.lower() == 'plummer':
-            self._softening= _plummer_soft
-        self._softening_length= softening_length
+        if softening is None:
+            if softening_model.lower() == 'plummer':
+                self._softening= PlummerSoftening(softening_length=softening_length)
+        else:
+            self._softening= softening
         if normalize:
             self.normalize(normalize)
 
@@ -79,8 +87,7 @@ class MovingObjectPotential(Potential):
         dist= _cyldist(R,phi,z,
                        self._orb.R(t),self._orb.phi(t),self._orb.z(t))
         #Evaluate potential
-        raise AttributeEror("Softening in evaluation not implemented yet...")
-        return -self._gm/dist #BOVY: ADAPT FOR SOFTENING
+        return -self._gm*self._softening.potential(dist)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -105,7 +112,7 @@ class MovingObjectPotential(Potential):
                                    
         #Evaluate force
         return self._gm*(nu.cos(phi)*xd+nu.sin(phi)*yd)/dist\
-            *self._softening(dist,self._softening_length)
+            *self._softening(dist)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -129,8 +136,7 @@ class MovingObjectPotential(Potential):
                                    R,phi,z)
                                    
         #Evaluate force
-        return self._gm*zd/dist\
-            *self._softening(dist,self._softening_length)
+        return self._gm*zd/dist*self._softening(dist)
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -155,8 +161,7 @@ class MovingObjectPotential(Potential):
                                    
         #Evaluate force
         return self._gm*R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/dist\
-            *self._softening(dist,self._softening_length)
-
+            *self._softening(dist)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -174,7 +179,9 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        raise AttributeError("This is a delta function, not implemented yet")
+        dist= _cyldist(R,phi,z,
+                       self._orb.R(t),self._orb.phi(t),self._orb.z(t))
+        return self._gm*self._softening.density(dist)
 
 def _cyldist(R1,phi1,z1,R2,phi2,z2):
     return nu.sqrt( (R1*nu.cos(phi1)-R2*nu.cos(phi2))**2.
