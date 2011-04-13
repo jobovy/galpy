@@ -15,7 +15,7 @@ class MovingObjectPotential(Potential):
     phi(R,z) = -  ---------------------------------
                                distance
     """
-    def __init__(self,orbit,amp=1.,GM=1.,normalize=False,
+    def __init__(self,orbit,amp=1.,GM=.06,normalize=False,
                  softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
