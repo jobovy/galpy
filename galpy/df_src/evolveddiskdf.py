@@ -12,6 +12,7 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.orbit import Orbit
+from galpy.potential import calcRotcurve
 from galpy.util.bovy_quadpack import dblquad
 _DEGTORAD= m.pi/180.
 _RADTODEG= 180./m.pi
@@ -36,7 +37,7 @@ class evolveddiskdf:
         self._pot= pot
         self._to= to
 
-    def __call__(self,*args):
+    def __call__(self,*args,**kwargs):
         """
         NAME:
            __call__
@@ -46,6 +47,12 @@ class evolveddiskdf:
            Orbit instance:
               a) Orbit instance alone: use initial state and t=0
               b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself)
+        KWARGS:
+
+           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+
+           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+
         OUTPUT:
            DF(orbit,t)
         HISTORY:
@@ -58,6 +65,14 @@ class evolveddiskdf:
                 t= args[1]
         else:
             raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
+        if kwargs.has_key('marginalizeVperp') and \
+                kwargs['marginalizeVperp']:
+            kwargs.pop('marginalizeVperp')
+            return self._call_marginalizevperp(args[0],**kwargs)
+        elif kwargs.has_key('marginalizeVlos') and \
+                kwargs['marginalizeVlos']:
+            kwargs.pop('marginalizeVlos')
+            return self._call_marginalizevlos(args[0],**kwargs)      
         #Integrate back
         if self._to == t:
             return self._initdf(args[0])
@@ -70,6 +85,96 @@ class evolveddiskdf:
         if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
         return retval
 
+    def _call_marginalizevperp(self,o,**kwargs):
+        """Call the DF, marginalizing over perpendicular velocity"""
+        #Get d, l, vlos
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the los
+        if isinstance(self._pot,list):
+            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
+        else:
+            vcirc= calcRotcurve(self._pot,R)[0]
+        vcirclos= vcirc*m.sin(phi+l)
+        print R, vlos, vlos-vcirclos
+        #Marginalize
+        alphalos= phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        #BOVY: add asymmetric drift here?
+        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
+            cosalphalos= m.cos(alphalos)
+            tanalphalos= m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -nsigma,nsigma,
+                                  args=(self,R,cosalphalos,tanalphalos,
+                                        vlos-vcirclos,vcirc,
+                                        sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(cosalphalos)
+        else:
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sinalphalos= m.sin(alphalos)
+            cotalphalos= 1./m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphalos,cotalphalos,
+                                        vlos-vcirclos,vcirc,sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(sinalphalos)
+        
+    def _call_marginalizevlos(self,o,**kwargs):
+        """Call the DF, marginalizing over line-of-sight velocity"""
+        #Get d, l, vperp
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the perpendicular 
+        #direction
+        if isinstance(self._pot,list):
+            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
+        else:
+            vcirc= calcRotcurve(self._pot,R)[0]
+        vcirclos= vcirc*m.sin(phi+l)
+        #Marginalize
+        alphaperp= m.pi/2.+phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        #BOVY: Put asymmetric drift in here?
+        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
+            cosalphaperp= m.cos(alphaperp)
+            tanalphaperp= m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -nsigma,nsigma,
+                                  args=(self,R,cosalphaperp,tanalphaperp,
+                                        vperp-vcircperp,vcirc,
+                                        sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(cosalphaperp)
+        else:
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sinalphaperp= m.sin(alphaperp)
+            cotalphaperp= 1./m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphaperp,cotalphaperp,
+                                        vperp-vcircperp,vcirc,sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(sinalphaperp)
+        
     def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False):
@@ -623,4 +728,13 @@ def _vmomentsurfaceIntegrand(vR,vT,R,az,df,n,m,sigmaR1,sigmaT1,t,initvmoment):
     surface mass integration"""
     o= Orbit([R,vR*sigmaR1,vT*sigmaT1,az])
     return vR**n*vT**m*df(o,t)/initvmoment
+
+def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
+                                            vlos,vcirc,sigma,phi):
+    return df(Orbit([R,vR*sigma,cotalpha*vR*sigma+vlos/sinalpha+vcirc,phi]))
+                     
+
+def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
+                                            vlos,vcirc,sigma,phi):
+    return df(Orbit([R,tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,phi]))
 
