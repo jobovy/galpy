@@ -219,6 +219,36 @@ class Orbit:
         """
         self._orb.integrate(t,pot,method=method)
 
+    def reverse(self):
+        """
+        NAME:
+
+           reverse
+
+        PURPOSE:
+
+           reverse an already integrated orbit (that is, make it go from end to beginning in t=0 to tend)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+           2011-04-13 - Written - Bovy (NYU)
+        """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
+        sortindx = range(len(self._orb.t))
+        sortindx.sort(lambda x,y: cmp(self._orb.t[x],self._orb.t[y]),
+                      reverse=True)
+        for ii in range(self._orb.orbit.shape[1]):
+            self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
+        return None
+
     def getOrbit(self):
         """
 
