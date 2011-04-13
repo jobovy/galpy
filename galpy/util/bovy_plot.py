@@ -314,8 +314,8 @@ def bovy_plot3d(*args,**kwargs):
                 thiszlabel=zlabel
             ax.set_zlabel(thiszlabel)
         ax.set_xlim3d(*xlimits)
-        ax.set_ylim3d(*xlimits)
-        ax.set_zlim3d(*xlimits)
+        ax.set_ylim3d(*ylimits)
+        ax.set_zlim3d(*zlimits)
     return out
 
 def bovy_dens2d(X,**kwargs):
