@@ -76,7 +76,7 @@ class evolveddiskdf:
         #Integrate back
         if self._to == t:
             return self._initdf(args[0])
-        ts= nu.linspace(0.,self._to-t,_NTS)
+        ts= nu.linspace(t,self._to,_NTS)
         o= args[0]
         #integrate orbit
         o.integrate(ts,self._pot)
