@@ -105,108 +105,6 @@ class evolveddiskdf:
             if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
         return retval
 
-    def _create_ts_tlist(self,t):
-        #Check input
-        if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
-        #Initialize
-        ts= nu.linspace(t[0],self._to,_NTS)
-        #Add other t
-        ts= list(ts)
-        ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
-        #sort
-        ts.sort(reverse=True)
-        return nu.array(ts)
-
-    def _call_marginalizevperp(self,o,**kwargs):
-        """Call the DF, marginalizing over perpendicular velocity"""
-        #Get d, l, vlos
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
-        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
-        R= o.R()
-        phi= o.phi()
-        #Get local circular velocity, projected onto the los
-        if isinstance(self._pot,list):
-            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
-        else:
-            vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*m.sin(phi+l)
-        print R, vlos, vlos-vcirclos
-        #Marginalize
-        alphalos= phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
-            nsigma= _NSIGMA
-        else:
-            nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
-        #BOVY: add asymmetric drift here?
-        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
-            cosalphalos= m.cos(alphalos)
-            tanalphalos= m.tan(alphalos)
-            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
-                                  -nsigma,nsigma,
-                                  args=(self,R,cosalphalos,tanalphalos,
-                                        vlos-vcirclos,vcirc,
-                                        sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(cosalphalos)
-        else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-            sinalphalos= m.sin(alphalos)
-            cotalphalos= 1./m.tan(alphalos)
-            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
-                                  -nsigma,nsigma,
-                                  args=(self,R,sinalphalos,cotalphalos,
-                                        vlos-vcirclos,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(sinalphalos)
-        
-    def _call_marginalizevlos(self,o,**kwargs):
-        """Call the DF, marginalizing over line-of-sight velocity"""
-        #Get d, l, vperp
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
-        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
-        R= o.R()
-        phi= o.phi()
-        #Get local circular velocity, projected onto the perpendicular 
-        #direction
-        if isinstance(self._pot,list):
-            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
-        else:
-            vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*m.sin(phi+l)
-        #Marginalize
-        alphaperp= m.pi/2.+phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
-            nsigma= _NSIGMA
-        else:
-            nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
-        #BOVY: Put asymmetric drift in here?
-        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
-            cosalphaperp= m.cos(alphaperp)
-            tanalphaperp= m.tan(alphaperp)
-            #we can reuse the VperpIntegrand, since it is just another angle
-            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
-                                  -nsigma,nsigma,
-                                  args=(self,R,cosalphaperp,tanalphaperp,
-                                        vperp-vcircperp,vcirc,
-                                        sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(cosalphaperp)
-        else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-            sinalphaperp= m.sin(alphaperp)
-            cotalphaperp= 1./m.tan(alphaperp)
-            #we can reuse the VperpIntegrand, since it is just another angle
-            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
-                                  -nsigma,nsigma,
-                                  args=(self,R,sinalphaperp,cotalphaperp,
-                                        vperp-vcircperp,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(sinalphaperp)
-        
     def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False):
@@ -751,6 +649,108 @@ class evolveddiskdf:
                 if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
         return out
 
+    def _create_ts_tlist(self,t):
+        #Check input
+        if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
+        #Initialize
+        ts= nu.linspace(t[0],self._to,_NTS)
+        #Add other t
+        ts= list(ts)
+        ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
+        #sort
+        ts.sort(reverse=True)
+        return nu.array(ts)
+
+    def _call_marginalizevperp(self,o,**kwargs):
+        """Call the DF, marginalizing over perpendicular velocity"""
+        #Get d, l, vlos
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the los
+        if isinstance(self._pot,list):
+            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
+        else:
+            vcirc= calcRotcurve(self._pot,R)[0]
+        vcirclos= vcirc*m.sin(phi+l)
+        print R, vlos, vlos-vcirclos
+        #Marginalize
+        alphalos= phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        #BOVY: add asymmetric drift here?
+        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
+            cosalphalos= m.cos(alphalos)
+            tanalphalos= m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -nsigma,nsigma,
+                                  args=(self,R,cosalphalos,tanalphalos,
+                                        vlos-vcirclos,vcirc,
+                                        sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(cosalphalos)
+        else:
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sinalphalos= m.sin(alphalos)
+            cotalphalos= 1./m.tan(alphalos)
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphalos,cotalphalos,
+                                        vlos-vcirclos,vcirc,sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(sinalphalos)
+        
+    def _call_marginalizevlos(self,o,**kwargs):
+        """Call the DF, marginalizing over line-of-sight velocity"""
+        #Get d, l, vperp
+        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R()
+        phi= o.phi()
+        #Get local circular velocity, projected onto the perpendicular 
+        #direction
+        if isinstance(self._pot,list):
+            vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
+        else:
+            vcirc= calcRotcurve(self._pot,R)[0]
+        vcirclos= vcirc*m.sin(phi+l)
+        #Marginalize
+        alphaperp= m.pi/2.+phi+l
+        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
+                                                kwargs['nsigma'] is None):
+            nsigma= _NSIGMA
+        else:
+            nsigma= kwargs['nsigma']
+        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        #BOVY: Put asymmetric drift in here?
+        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
+            cosalphaperp= m.cos(alphaperp)
+            tanalphaperp= m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
+                                  -nsigma,nsigma,
+                                  args=(self,R,cosalphaperp,tanalphaperp,
+                                        vperp-vcircperp,vcirc,
+                                        sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(cosalphaperp)
+        else:
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sinalphaperp= m.sin(alphaperp)
+            cotalphaperp= 1./m.tan(alphaperp)
+            #we can reuse the VperpIntegrand, since it is just another angle
+            return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
+                                  -nsigma,nsigma,
+                                  args=(self,R,sinalphaperp,cotalphaperp,
+                                        vperp-vcircperp,vcirc,sigmaR1,phi),
+                                  **kwargs)[0]/m.fabs(sinalphaperp)
+        
 class evolveddiskdfGrid:
     """Empty class since it is only used to store some stuff"""
     pass
