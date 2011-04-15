@@ -47,6 +47,8 @@ class evolveddiskdf:
            Orbit instance:
               a) Orbit instance alone: use initial state and t=0
               b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself)
+                 If t is a list of t, DF is returned for each t, times must be in descending order (does not work with marginalize...)
+
         KWARGS:
 
            marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
@@ -57,6 +59,7 @@ class evolveddiskdf:
            DF(orbit,t)
         HISTORY:
            2011-03-30 - Written - Bovy (NYU)
+           2011-04-15 - Added list of times option - BOVY (NYU)
         """
         if isinstance(args[0],Orbit):
             if len(args) == 1:
@@ -65,25 +68,54 @@ class evolveddiskdf:
                 t= args[1]
         else:
             raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
+        if isinstance(t,(list,nu.ndarray)): tlist= True
+        else: tlist= False
         if kwargs.has_key('marginalizeVperp') and \
                 kwargs['marginalizeVperp']:
             kwargs.pop('marginalizeVperp')
+            if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             return self._call_marginalizevperp(args[0],**kwargs)
         elif kwargs.has_key('marginalizeVlos') and \
                 kwargs['marginalizeVlos']:
-            kwargs.pop('marginalizeVlos')
-            return self._call_marginalizevlos(args[0],**kwargs)      
+            kwargs.pop('marginalizeVlos') 
+            if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
+            return self._call_marginalizevlos(args[0],**kwargs)   
         #Integrate back
-        if self._to == t:
-            return self._initdf(args[0])
-        ts= nu.linspace(t,self._to,_NTS)
-        o= args[0]
-        #integrate orbit
-        o.integrate(ts,self._pot)
-        #Now evaluate the DF
-        retval= self._initdf(o(self._to-t))
-        if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
+        if tlist:
+            if self._to == t[0]:
+                return [self._initdf(args[0])]
+            ts= self._create_ts_tlist(t)
+            o= args[0]
+            #integrate orbit
+            o.integrate(ts,self._pot)
+            #Now evaluate the DF
+            retval= []
+            for time in t:
+                retval.append(self._initdf(o(self._to+t[0]-time)))
+            if isinstance(t,nu.ndarray): retval= nu.array(retval)
+        else:
+            if self._to == t:
+                return self._initdf(args[0])
+            ts= nu.linspace(t,self._to,_NTS)
+            o= args[0]
+            #integrate orbit
+            o.integrate(ts,self._pot)
+            #Now evaluate the DF
+            retval= self._initdf(o(self._to-t))
+            if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
         return retval
+
+    def _create_ts_tlist(self,t):
+        #Check input
+        if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
+        #Initialize
+        ts= nu.linspace(t[0],self._to,_NTS)
+        #Add other t
+        ts= list(ts)
+        ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
+        #sort
+        ts.sort(reverse=True)
+        return nu.array(ts)
 
     def _call_marginalizevperp(self,o,**kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
