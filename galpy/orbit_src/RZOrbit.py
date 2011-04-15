@@ -367,6 +367,9 @@ def _integrateRZOrbit(vxvv,pot,t,method):
         out[:,3]= intOut[:,2]
         out[:,4]= intOut[:,3]
         out[:,2]= l/out[:,0]
+    #post-process to remove negative radii
+    neg_radii= (out[:,0] < 0.)
+    out[neg_radii,0]= -out[neg_radii,0]
     return out
 
 def _RZEOM(y,t,pot,l2):

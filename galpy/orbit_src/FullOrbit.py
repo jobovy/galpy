@@ -466,6 +466,10 @@ def _integrateFullOrbit(vxvv,pot,t,method):
         out[:,3]= intOut[:,4]
         out[:,4]= intOut[:,5]
         out[:,5]= intOut[:,2]
+    #post-process to remove negative radii
+    neg_radii= (out[:,0] < 0.)
+    out[neg_radii,0]= -out[neg_radii,0]
+    out[neg_radii,5]+= m.pi
     return out
 
 def _FullEOM(y,t,pot):

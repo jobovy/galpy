@@ -494,6 +494,9 @@ def _integrateROrbit(vxvv,pot,t,method):
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]
         out[:,2]= l/out[:,0]
+    #post-process to remove negative radii
+    neg_radii= (out[:,0] < 0.)
+    out[neg_radii,0]= -out[neg_radii,0]
     return out
 
 def _REOM(y,t,pot,l2):
@@ -563,6 +566,10 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= intOut[:,1]
         out[:,3]= intOut[:,2]
         out[:,2]= out[:,0]*intOut[:,3]
+    #post-process to remove negative radii
+    neg_radii= (out[:,0] < 0.)
+    out[neg_radii,0]= -out[neg_radii,0]
+    out[neg_radii,3]+= m.pi
     return out
 
 def _EOM(y,t,pot):
