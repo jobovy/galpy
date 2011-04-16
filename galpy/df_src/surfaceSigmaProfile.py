@@ -32,7 +32,7 @@ class surfaceSigmaProfile:
         """
         out= []
         for param in self._params:
-            out.append('%4.2f')
+            out.append('%6.4f')
         return out
 
     def outputParams(self):

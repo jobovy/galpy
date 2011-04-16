@@ -119,7 +119,7 @@ class evolveddiskdf:
            phi= azimuth (rad unless deg=True)
            n - vR^n
            m - vT^m
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
            deg= azimuth is in degree (default=False)

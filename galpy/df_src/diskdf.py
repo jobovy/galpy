@@ -1352,7 +1352,7 @@ class DFcorrection:
                             self._dftype.__name__+'_'+
                             self._surfaceSigmaProfile.__class__.__name__+'_'+
                             sspString % self._surfaceSigmaProfile.outputParams()+
-                            '%4.2f_%i_%4.2f_%i.sav'
+                            '%6.4f_%i_%6.4f_%i.sav'
                             % (self._beta,self._npoints,self._rmax,niter))
 
     def correct(self,R,log=False):
