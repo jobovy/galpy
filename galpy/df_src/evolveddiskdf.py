@@ -128,7 +128,8 @@ class evolveddiskdf:
                             of the initial DF)
            grid= if set to True, build a grid and use that to evaluate 
                  integrals; if set to a grid-objects (such as returned by this 
-                 procedure), use this grid
+                 procedure), use this grid; if this was created for a list of 
+                 times, moments are calculated for each time
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
         OUTPUT:
@@ -162,6 +163,8 @@ class evolveddiskdf:
                                                      phi=phi)
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
+        if isinstance(t,(list,nu.ndarray)):
+            raise IOError("list of times is only supported with grid-based calculation")            
         return dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
@@ -185,7 +188,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list)
         OPTIONAL INPUT:
            sigmaR2, sigmaT2, sigmaRT= if set the vertex deviation is simply 
                                       calculated using these
@@ -626,8 +629,18 @@ class evolveddiskdf:
     def _vmomentsurfacemassGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a grid 
         rather than direct integration"""
-        return nu.dot(grid.vRgrid**n,nu.dot(grid.df,grid.vTgrid**m))*\
-            (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
+        if len(grid.df.shape) == 3: tlist= True
+        else: tlist= False
+        if tlist: 
+            nt= grid.df.shape[2]
+            out= []
+            for ii in range(nt):
+                out.append(nu.dot(grid.vRgrid**n,nu.dot(grid.df[:,:,ii],grid.vTgrid**m))*\
+                    (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0]))
+            return nu.array(out)
+        else:
+            return nu.dot(grid.vRgrid**n,nu.dot(grid.df,grid.vTgrid**m))*\
+                (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
                     gridpoints):
@@ -641,12 +654,21 @@ class evolveddiskdf:
                                 gridpoints)
         out.vTgrid= nu.linspace(meanvT-nsigma*sigmaT1,meanvT+nsigma*sigmaT1,
                                 gridpoints)
-        out.df= nu.zeros((gridpoints,gridpoints))
-        for ii in range(gridpoints):
-            for jj in range(gridpoints):
-                thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                out.df[ii,jj]= self(thiso,t)
-                if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
+        if isinstance(t,(list,nu.ndarray)):
+            nt= len(t)
+            out.df= nu.zeros((gridpoints,gridpoints,nt))
+            for ii in range(gridpoints):
+                for jj in range(gridpoints):
+                    thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
+                    out.df[ii,jj,:]= self(thiso,nu.array(t).flatten())
+                    out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
+        else:
+            out.df= nu.zeros((gridpoints,gridpoints))
+            for ii in range(gridpoints):
+                for jj in range(gridpoints):
+                    thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
+                    out.df[ii,jj]= self(thiso,t)
+                    if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
         return out
 
     def _create_ts_tlist(self,t):
