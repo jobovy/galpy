@@ -178,7 +178,7 @@ class evolveddiskdf:
     def vertexdev(self,R,t=0.,nsigma=None,deg=False,
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
-                  sigmaR2=None,sigmaT2=None,sigmaRT=None):
+                  sigmaR2=None,sigmaT2=None,sigmaRT=None,surfacemass=None):
         """
         NAME:
            vertexdev
@@ -213,20 +213,21 @@ class evolveddiskdf:
             grido= grid           
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
-            #Precalculate the grid and the surfacemass
+            #Precalculate the grid
             (sigmaR2,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
                                                      nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
                                                      returnGrid=True)
+        else:
+            grido= False
+        if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
                                                  returnGrid=False)
-        else:
-            grido= False
         if sigmaR2 is None:
             sigmaR2= self.sigmaR2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
