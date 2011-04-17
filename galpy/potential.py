@@ -31,6 +31,7 @@ plotplanarPotentials= planarPotential.plotplanarPotentials
 plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
 plotRotcurve= plotRotcurve.plotRotcurve
+calcEscapecurve= plotEscapecurve.calcEscapecurve
 plotEscapecurve= plotEscapecurve.plotEscapecurve
 evaluateplanarPotentials= planarPotential.evaluateplanarPotentials
 evaluateplanarRforces= planarPotential.evaluateplanarRforces
