@@ -64,12 +64,10 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        return self._orbInterp[0](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[0]
+        else: return thiso[0,:]
 
     def vR(self,*args,**kwargs):
         """
@@ -84,12 +82,10 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        return self._orbInterp[1](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[1]
+        else: return thiso[1,:]
 
     def vT(self,*args,**kwargs):
         """
@@ -104,12 +100,10 @@ class OrbitTop:
         HISTORY:
            2010-09-21 - Written - Bovy (NYU)
         """
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        return self._orbInterp[2](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[2]
+        else: return thiso[2,:]
 
     def z(self,*args,**kwargs):
         """
@@ -126,12 +120,10 @@ class OrbitTop:
         """
         if len(self.vxvv) < 5:
             raise AttributeError("linear and planar orbits do not have z()")
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        return self._orbInterp[3](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[3]
+        else: return thiso[3,:]
 
     def vz(self,*args,**kwargs):
         """
@@ -148,12 +140,10 @@ class OrbitTop:
         """
         if len(self.vxvv) < 5:
             raise AttributeError("linear and planar orbits do not have vz()")
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        return self._orbInterp[4](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[4]
+        else: return thiso[4,:]
 
     def phi(self,*args,**kwargs):
         """
@@ -170,15 +160,10 @@ class OrbitTop:
         """
         if len(self.vxvv) != 4 and len(self.vxvv) != 6:
             raise AttributeError("orbit must track azimuth to use phi()")
-        if len(args) == 0:
-            t= 0.
-        else:
-            t= args[0]
-        self._setupOrbitInterp()
-        if len(self.vxvv) == 4:
-            return self._orbInterp[3](t)
-        else:
-            return self._orbInterp[5](t)
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return thiso[-1]
+        else: return thiso[-1,:]
 
     def x(self,*args,**kwargs):
         """
@@ -891,10 +876,27 @@ class OrbitTop:
         if isinstance(t,(int,float)) and t in list(self.t):
                 return self.orbit[list(self.t).index(t),:]
         else:
-            if isinstance(t,(int,float)): nt= 1
-            else: nt= len(t)
+            if isinstance(t,(int,float)): 
+                nt= 1
+                t= [t]
+            else: 
+                nt= len(t)
             dim= len(self.vxvv)
-            self._setupOrbitInterp()
+            try:
+                self._setupOrbitInterp()
+            except:
+                out= nu.zeros((dim,nt))
+                for jj in range(nt):
+                    try:
+                        indx= list(self.t).index(t[jj])
+                    except ValueError:
+                        raise LookupError("Orbit interpolaton failed; integrate on finer grid")
+                    for ii in range(dim):
+                        out[ii,jj]= self.orbit[indx,ii]
+                if nt == 1:
+                    return nu.array(out).reshape(dim)
+                else:
+                    return out
             out= []
             for ii in range(dim):
                 out.append(self._orbInterp[ii](t))
