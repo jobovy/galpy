@@ -34,7 +34,7 @@ class OrbitTop:
         HISTORY:
            2010-07-10
         """
-        raise AttributeError
+        raise NotImplementedError
 
     def getOrbit(self):
         """
@@ -921,7 +921,7 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        raise AttributeError
+        raise NotImplementedError
 
     def plot(self,*args,**kwargs):
         """
