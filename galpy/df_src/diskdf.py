@@ -1495,6 +1495,7 @@ def axipotential(R,beta=0.):
        2010-03-01 - Written - Bovy (NYU)
     """
     if beta == 0.:
+        if R == 0.: return m.log(_RMIN)
         return m.log(R)
     else: #non-flat rotation curve
         return R**(2.*beta)/2./beta
