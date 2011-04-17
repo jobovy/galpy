@@ -38,10 +38,6 @@ def plotRotcurve(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    isList= isinstance(Pot,list)
-    isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if isNonAxi:
-        raise AttributeError("Rotation curve plotting for non-axisymmetric potentials is not currently supported")
     if not savefilename == None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
@@ -50,16 +46,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         savefile.close()
     else:
         Rs= nu.linspace(Rrange[0],Rrange[1],grid)
-        rotcurve= nu.zeros(grid)
-        from planarPotential import evaluateplanarRforces
-        for ii in range(grid):
-            try:
-                rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
-
-            except TypeError:
-                from planarPotential import RZToplanarPotential
-                Pot= RZToplanarPotential(Pot)
-                rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
+        rotcurve= calcRotcurve(Pot,Rs)
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
@@ -77,7 +64,7 @@ def plotRotcurve(Pot,*args,**kwargs):
 def calcRotcurve(Pot,Rs):
     """
     NAME:
-       calctRotcurve
+       calcRotcurve
     PURPOSE:
        calculate the rotation curve for this potential (in the z=0 plane for
        non-spherical potentials)
