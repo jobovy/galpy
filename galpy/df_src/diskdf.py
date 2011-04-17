@@ -791,7 +791,7 @@ class diskdf:
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
-        raise AttributeError("'sample' method for this disk df is not implemented")
+        raise NotImplementedError("'sample' method for this disk df is not implemented")
 
 class dehnendf(diskdf):
     """Dehnen's 'new' df"""
