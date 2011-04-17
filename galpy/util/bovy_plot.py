@@ -10,6 +10,10 @@
 #                         bovy_print
 #                         scatterplot (like hogg_scatterplot)
 #                         bovy_text
+#
+#                         this module also defines a custom matplotlib 
+#                         projection in which the polar azimuth increases
+#                         clockwise (as in, the Galaxy viewed from the NGP)
 #                         
 #############################################################################
 #############################################################################
@@ -51,6 +55,8 @@ import matplotlib.ticker as ticker
 import matplotlib.cm as cm
 from matplotlib import rc
 from matplotlib.ticker import NullFormatter
+from matplotlib.projections import PolarAxes, register_projection
+from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D
 _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
@@ -898,4 +904,59 @@ def _add_ticks():
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(ystep/5.))
 
 
-    
+class GalPolarAxes(PolarAxes):
+    '''
+    A variant of PolarAxes where theta increases clockwise
+    '''
+    name = 'galpolar'
+
+    class GalPolarTransform(PolarAxes.PolarTransform):
+        def transform(self, tr):
+            xy   = sc.zeros(tr.shape, sc.float_)
+            t    = tr[:, 0:1]
+            r    = tr[:, 1:2]
+            x    = xy[:, 0:1]
+            y    = xy[:, 1:2]
+            x[:] = r * sc.cos(t)
+            y[:] = -r * sc.sin(t)
+            return xy
+
+        transform_non_affine = transform
+
+        def inverted(self):
+            return GalPolarAxes.InvertedGalPolarTransform()
+
+    class InvertedGalPolarTransform(PolarAxes.InvertedPolarTransform):
+        def transform(self, xy):
+            x = xy[:, 0:1]
+            y = xy[:, 1:]
+            r = sc.sqrt(x*x + y*y)
+            theta = sc.arctan2(y, x)
+            return sc.concatenate((theta, r), 1)
+
+        def inverted(self):
+            return GalPolarAxes.GalPolarTransform()
+
+    def _set_lim_and_transforms(self):
+        PolarAxes._set_lim_and_transforms(self)
+        self.transProjection = self.GalPolarTransform()
+        self.transData = (
+            self.transScale + 
+            self.transProjection + 
+            (self.transProjectionAffine + self.transAxes))
+        self._xaxis_transform = (
+            self.transProjection +
+            self.PolarAffine(IdentityTransform(), Bbox.unit()) +
+            self.transAxes)
+        self._xaxis_text1_transform = (
+            self._theta_label1_position +
+            self._xaxis_transform)
+        self._yaxis_transform = (
+            Affine2D().scale(sc.pi * 2.0, 1.0) +
+            self.transData)
+        self._yaxis_text1_transform = (
+            self._r_label1_position +
+            Affine2D().scale(1.0 / 360.0, 1.0) +
+            self._yaxis_transform)
+
+register_projection(GalPolarAxes)    
