@@ -37,31 +37,19 @@ def plotEscapecurve(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    isList= isinstance(Pot,list)
-    isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if isNonAxi:
-        raise AttributeError("Escape velocity curve plotting for non-axisymmetric potentials is not currently supported")
     if not savefilename == None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
-        rotcurve= pickle.load(savefile)
+        esccurve= pickle.load(savefile)
         Rs= pickle.load(savefile)
         savefile.close()
     else:
         Rs= nu.linspace(Rrange[0],Rrange[1],grid)
-        rotcurve= nu.zeros(grid)
-        from planarPotential import evaluateplanarPotentials
-        for ii in range(grid):
-            try:
-                rotcurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
-            except TypeError:
-                from planarPotential import RZToplanarPotential
-                Pot= RZToplanarPotential(Pot)
-                rotcurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
+        esccurve= calcEscapecurve(Pot,Rs)
         if not savefilename == None:
             print "Writing savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
-            pickle.dump(rotcurve,savefile)
+            pickle.dump(esccurve,savefile)
             pickle.dump(Rs,savefile)
             savefile.close()
     if not kwargs.has_key('xlabel'):
@@ -69,6 +57,41 @@ def plotEscapecurve(Pot,*args,**kwargs):
     if not kwargs.has_key('ylabel'):
         kwargs['ylabel']= r"$v_e(R)/v_c(R_0)$"
     kwargs['xrange']= Rrange
-    return plot.bovy_plot(Rs,rotcurve,*args,
+    return plot.bovy_plot(Rs,esccurve,*args,
                           **kwargs)
 
+def calcEscapecurve(Pot,Rs):
+    """
+    NAME:
+       calcEscapecurve
+    PURPOSE:
+       calculate the escape velocity curve for this potential (in the 
+       z=0 plane for non-spherical potentials)
+    INPUT:
+       Pot - Potential or list of Potential instances
+
+       Rs - (array of) radius(i)
+    OUTPUT:
+       array of v_esc
+    HISTORY:
+       2011-04-16 - Written - Bovy (NYU)
+    """
+    isList= isinstance(Pot,list)
+    isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
+    if isNonAxi:
+        raise AttributeError("Escape velocity curve plotting for non-axisymmetric potentials is not currently supported")
+    try:
+        grid= len(Rs)
+    except TypeError:
+        grid=1
+        Rs= nu.array([Rs])
+    esccurve= nu.zeros(grid)
+    from planarPotential import evaluateplanarPotentials
+    for ii in range(grid):
+        try:
+            esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
+        except TypeError:
+            from planarPotential import RZToplanarPotential
+            Pot= RZToplanarPotential(Pot)
+            esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
+    return esccurve

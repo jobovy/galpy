@@ -18,8 +18,6 @@ def plotRotcurve(Pot,*args,**kwargs):
        +bovy_plot.bovy_plot args and kwargs
     OUTPUT:
        plot to output device
-    BUGS:
-       Should use calcRotcurve
     HISTORY:
        2010-07-10 - Written - Bovy (NYU)
     """
