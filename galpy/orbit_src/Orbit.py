@@ -325,6 +325,34 @@ class Orbit:
         """
         return self._orb.L(*args,**kwargs)
 
+    def Jacobi(self,Omega,pot=None):
+        """
+        NAME:
+
+           Jacobi
+
+        PURPOSE:
+
+           calculate the Jacobi integral E - Omega Lz
+
+        INPUT:
+
+           Omega - pattern speed
+
+           Pot= potential instance or list of such instances
+
+        OUTPUT:
+
+           Jacobi integral
+
+        HISTORY:
+
+           2011-04-18 - Written - Bovy (NYU)
+
+        """
+        if self.dim() == 2: return self.E(pot=pot)-Omega*self.L()
+        else: return self.E(pot=pot)-Omega*self.L()[2]
+
     def e(self,analytic=False,pot=None):
         """
         NAME:

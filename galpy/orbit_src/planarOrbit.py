@@ -242,8 +242,13 @@ class planarROrbit(planarOrbitTop):
             thispot= RZToplanarPotential(pot)
         else:
             thispot= pot
-        return evaluateplanarPotentials(self.vxvv[0],thispot)+\
-            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+        if len(self.vxvv) == 4:
+            return evaluateplanarPotentials(self.vxvv[0],thispot,
+                                            phi=self.vxvv[3])+\
+                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+        else:
+            return evaluateplanarPotentials(self.vxvv[0],thispot)+\
+                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
     def plotE(self,*args,**kwargs):
         """
@@ -277,9 +282,15 @@ class planarROrbit(planarOrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                  for ii in range(len(self.t))]
+        if len(self.vxvv) == 4:
+            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
+                                               phi=self.orbit[ii,3])+
+                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                      for ii in range(len(self.t))]
+        else:
+            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
+                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                      for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):

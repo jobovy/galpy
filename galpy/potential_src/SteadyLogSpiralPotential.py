@@ -95,7 +95,7 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A/R*m.cos(self._alpha*m.log(R)
+        return self._A/R*m.sin(self._alpha*m.log(R)
                                +self._m*(phi-self._omegas*t
                                          -self._gamma))
         
@@ -114,6 +114,6 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A/self._alpha*self._m*m.cos(self._alpha*m.log(R)
+        return self._A/self._alpha*self._m*m.sin(self._alpha*m.log(R)
                                                  +self._m*(phi-self._omegas*t
                                                            -self._gamma))
