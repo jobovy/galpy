@@ -50,13 +50,37 @@ class FullOrbit(OrbitTop):
         self._pot= pot
         self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)
 
-    def E(self,pot=None):
+    def Jacobi(self,Omega,t=0.,pot=None):
+        """
+        NAME:
+           Jacobi
+        PURPOSE:
+           calculate the Jacobi integral of the motion
+        INPUT:
+           Omega - pattern speed of rotating frame
+           t= time
+           pot= potential instance or list of such instances
+        OUTPUT:
+           Jacobi integral
+        HISTORY:
+           2011-04-18 - Written - Bovy (NYU)
+        """
+        if len(Omega) == 3:
+            if isinstance(Omega,list): thisOmega= nu.array(Omega)
+            else: thisOmega= Omega
+            return self.E(pot=pot,t=t)-nu.dot(thisOmega,self.L())
+        else:
+            return self.E(pot=pot,t=t)-Omega*self.L()[2]
+
+    def E(self,pot=None,t=0.):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
+           pot= potential instance or list of such instances
+           t= time at which to evaluate L and t
         OUTPUT:
            energy
         HISTORY:
@@ -68,9 +92,9 @@ class FullOrbit(OrbitTop):
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
         return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot,
-                                  phi=self.vxvv[5])+\
-            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
-            self.vxvv[4]**2./2.
+                                  phi=self.vxvv[5],t=t)+\
+                                  self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
+                                  self.vxvv[4]**2./2.
 
     def e(self,analytic=False,pot=None):
         """

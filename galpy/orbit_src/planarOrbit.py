@@ -54,6 +54,23 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
+    def Jacobi(self,Omega,t=0.,pot=None):
+        """
+        NAME:
+           Jacobi
+        PURPOSE:
+           calculate the Jacobi integral of the motion
+        INPUT:
+           Omega - pattern speed of rotating frame
+           t= time
+           pot= potential instance or list of such instances
+        OUTPUT:
+           Jacobi integral
+        HISTORY:
+           2011-04-18 - Written - Bovy (NYU)
+        """
+        return self.E(pot=pot,t=t)-Omega*self.L()
+
     def rap(self,analytic=False,pot=None):
         """
         NAME:
@@ -221,17 +238,20 @@ class planarROrbit(planarOrbitTop):
         self._pot= thispot
         self.orbit= _integrateROrbit(self.vxvv,thispot,t,method)
 
-    def E(self,pot=None):
+    def E(self,pot=None,t=0.):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
+           pot= potential instance or list of such instances
+           t= time
         OUTPUT:
            energy
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
+           2011-04-18 - Added t - Bovy (NYU)
         """
         if pot is None:
             try:
@@ -240,16 +260,22 @@ class planarROrbit(planarOrbitTop):
                 raise AttributeError("Integrate orbit or specify pot=")
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
+        elif isinstance(pot,list):
+            thispot= []
+            for p in pot:
+                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                else: thispot.append(p)
         else:
             thispot= pot
         if len(self.vxvv) == 4:
             return evaluateplanarPotentials(self.vxvv[0],thispot,
-                                            phi=self.vxvv[3])+\
-                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+                                            phi=self.vxvv[3],t=t)+\
+                                            self.vxvv[1]**2./2.\
+                                            +self.vxvv[2]**2./2.
         else:
-            return evaluateplanarPotentials(self.vxvv[0],thispot)+\
+            return evaluateplanarPotentials(self.vxvv[0],thispot,t=t)+\
                 self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
-
+        
     def plotE(self,*args,**kwargs):
         """
         NAME:
@@ -353,7 +379,7 @@ class planarOrbit(planarOrbitTop):
         self._pot= thispot
         self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
 
-    def E(self,pot=None):
+    def E(self,pot=None,t=0.):
         """
         NAME:
            E
@@ -361,6 +387,7 @@ class planarOrbit(planarOrbitTop):
            calculate the energy
         INPUT:
            pot=
+           t= time at which to evaluate E
         OUTPUT:
            energy
         HISTORY:
@@ -373,11 +400,16 @@ class planarOrbit(planarOrbitTop):
                 raise AttributeError("Integrate orbit or specify pot=")
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
+        elif isinstance(pot,list):
+            thispot= []
+            for p in pot:
+                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                else: thispot.append(p)
         else:
             thispot= pot
         return evaluateplanarPotentials(self.vxvv[0],thispot,
-                                        phi=self.vxvv[3])+\
-            self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+                                        phi=self.vxvv[3],t=t)+\
+                                        self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
 
     def e(self,analytic=False,pot=None):
         """

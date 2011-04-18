@@ -783,6 +783,23 @@ class OrbitTop:
                                 obs.vx(*args,**kwargs)]))
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
+    def Jacobi(self,Omega,t=0.,pot=None):
+        """
+        NAME:
+           Jacobi
+        PURPOSE:
+           calculate the Jacobi integral E - Omega L
+        INPUT:
+           Omega - pattern speed         
+           t= time at which to evaluate the Jacobi integral
+           Pot= potential instance or list of such instances
+        OUTPUT:
+           Jacobi integral
+        HISTORY:
+           2011-04-18 - Written - Bovy (NYU)
+        """
+        raise NotImplementedError("'Jacobi' for this Orbit type is not implemented yet")
+
     def L(self,*args,**kwargs):
         """
         NAME:
@@ -796,12 +813,23 @@ class OrbitTop:
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        if kwargs.has_key('Omega'):
+            Omega= kwargs['Omega']
+            kwargs.pop('Omega')
+        else:
+            Omega= None
+        if kwargs.has_key('t'):
+            t= kwargs['t']
+            kwargs.pop('t')
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) < 3:
             raise AttributeError("'linearOrbit has no angular momentum")
         elif len(thiso[:,0]) == 3 or len(thiso[:,0]) == 4:
-            return thiso[0,:]*thiso[2,:]
+            if Omega is None:
+                return thiso[0,:]*thiso[2,:]
+            else:
+                return thiso[0,:]*(thiso[2,:]-Omega*t*thiso[0,:])
         elif len(thiso[:,0]) == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
         else: #len(thiso[:,0]) == 6
