@@ -1,9 +1,9 @@
 ###############################################################################
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
-import math as m
+import math
 from planarPotential import planarPotential
-_degtorad= m.pi/180.
+_degtorad= math.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
@@ -11,7 +11,8 @@ class SteadyLogSpiralPotential(planarPotential):
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=0.035,
-                 alpha=7.,m=2,gamma=m.pi/4.,p=None):
+                 alpha=7.,m=2,gamma=math.pi/4.,p=None,
+                 tform=None,tsteady=None):
         """
         NAME:
 
@@ -42,6 +43,11 @@ class SteadyLogSpiralPotential(planarPotential):
                
               b) p= pitch angle (rad)
               
+           tform - start of spiral growth / spiral period (default: -Infinity)
+
+           tsteady - time from tform at which the spiral is fully grown 
+                     / spiral period (default: tform+2 periods)
+
         OUTPUT:
 
            (none)
@@ -57,9 +63,18 @@ class SteadyLogSpiralPotential(planarPotential):
         self._m= m
         self._gamma= gamma
         if not p is None:
-            self._alpha= self._m/m.tan(p)
+            self._alpha= self._m/math.tan(p)
         else:
             self._alpha= alpha
+        self._ts= 2.*math.pi/self._omegas
+        if not tform is None:
+            self._tform= tform*self._ts
+        else:
+            self._tform= None
+        if not tsteady is None:
+            self._tsteady= self._tform+tsteady*self._ts
+        else:
+            self._tsteady= self._tform+2.*self._ts
 
     def _evaluate(self,R,phi=0.,t=0.):
         """
@@ -76,9 +91,20 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        return self._A/self._alpha*m.cos(self._alpha*m.log(R)
-                                         +self._m*(phi-self._omegas*t
-                                                   -self._gamma))
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #spiral is fully on
+                smooth= 1.
+        else:
+            smooth= 1.
+        return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
+                                                   +self._m*(phi-self._omegas*t
+                                                             -self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -95,10 +121,21 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A/R*m.sin(self._alpha*m.log(R)
-                               +self._m*(phi-self._omegas*t
-                                         -self._gamma))
-        
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #spiral is fully on
+                smooth= 1.
+        else:
+            smooth= 1.
+        return smooth*self._A/R*math.sin(self._alpha*math.log(R)
+                                         +self._m*(phi-self._omegas*t
+                                                   -self._gamma))
+       
     def _phiforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -114,6 +151,19 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A/self._alpha*self._m*m.sin(self._alpha*m.log(R)
-                                                 +self._m*(phi-self._omegas*t
-                                                           -self._gamma))
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #spiral is fully on
+                smooth= 1.
+        else:
+            smooth= 1.
+        return smooth*self._A/self._alpha*self._m*math.sin(self._alpha*math.log(R)
+                                                           +self._m*(phi
+                                                                     -self._omegas*t
+                                                                     -self._gamma))
+    
