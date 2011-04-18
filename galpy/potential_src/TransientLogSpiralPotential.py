@@ -108,7 +108,7 @@ class TransientLogSpiralPotential(planarPotential):
            2010-11-24 - Written - Bovy (NYU)
         """
         return self._A*m.exp(-(t-self._to)**2./2./self._sigma2)\
-            /R*m.cos(self._alpha*m.log(R)
+            /R*m.sin(self._alpha*m.log(R)
                      +self._m*(phi-self._omegas*t-self._gamma))
     
     def _phiforce(self,R,phi=0.,t=0.):
@@ -127,6 +127,6 @@ class TransientLogSpiralPotential(planarPotential):
            2010-11-24 - Written - Bovy (NYU)
         """
         return self._A*m.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*self._m*m.cos(self._alpha*m.log(R)
+            /self._alpha*self._m*m.sin(self._alpha*m.log(R)
                                        +self._m*(phi-self._omegas*t
                                                  -self._gamma))
