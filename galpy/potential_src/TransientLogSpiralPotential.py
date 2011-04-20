@@ -3,7 +3,7 @@
 ###############################################################################
 import math
 from planarPotential import planarPotential
-_degtorad= m.pi/180.
+_degtorad= math.pi/180.
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
