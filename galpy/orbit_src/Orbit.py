@@ -34,6 +34,8 @@ class Orbit:
 
               5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]
 
+           4) and 5) also work when leaving out b and mu_b/W
+
         OPTIONAL INPUTS:
 
            radec - if True, input is 2) (or 3) above
@@ -70,6 +72,8 @@ class Orbit:
         if radec or lb:
             if radec:
                 l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
+            elif len(vxvv) == 4:
+                l, b= vxvv[0], 0.
             else:
                 l,b= vxvv[0],vxvv[1]
             if uvw:
@@ -82,10 +86,15 @@ class Orbit:
                     pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
                                                              vxvv[0],vxvv[1],
                                                              degree=True)
+                    d, vlos= vxvv[2], vxvv[6]
+                elif len(vxvv) == 4:
+                    pmll, pmbb= vxvv[2], 0.
+                    d, vlos= vxvv[1], vxvv[3]
                 else:
                     pmll, pmbb= vxvv[3], vxvv[4]
-                X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,vxvv[2],
-                                                           vxvv[5],pmll, pmbb,
+                    d, vlos= vxvv[2], vxvv[6]
+                X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
+                                                           vlos,pmll, pmbb,
                                                            degree=True)
             X/= ro
             Y/= ro
@@ -98,7 +107,8 @@ class Orbit:
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,galcen=True)
-            vxvv= [R,vR,vT,z,vz,phi]
+            if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
+            else: vxvv= [R,vR,vT,z,vz,phi]
         self.vxvv= vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv)
