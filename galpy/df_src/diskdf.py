@@ -243,6 +243,58 @@ class diskdf:
                                         vperp-vcircperp,vcirc,sigmaR1),
                                   **kwargs)[0]/m.fabs(sinalphaperp)
         
+    def _dlnfdR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        if self._beta == 0.:
+            E= vR**2./2.+vT**2./2.+sc.log(R)
+            xE= sc.exp(E-.5)
+            OE= xE**-1.
+            LCE= xE
+            dRedR= xE/R
+        else: #non-flat rotation curve
+            E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+            OE= xE**(self._beta-1.)
+            LCE= xE**(self._beta+1.)
+            dRedR= xE/2./self._beta/E*R**(2.*self._beta-1.)
+        return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedR\
+            +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*vT
+            
+    def _dlnfdRe(self,R,vR,vT,E=None,xE=None,OE=None,LCE=None):
+        """d ln f(x,v) / d R_e"""
+        #Calculate a bunch of stuff that we need
+        if E is None or xE is None or OE is None or LCE is None:
+            if self._beta == 0.:
+                E= vR**2./2.+vT**2./2.+sc.log(R)
+                xE= sc.exp(E-.5)
+                OE= xE**-1.
+                LCE= xE
+            else: #non-flat rotation curve
+                E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
+                xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+                OE= xE**(self._beta-1.)
+                LCE= xE**(self._beta+1.)
+        L= R*vT
+        sigma2xE= self._surfaceSigmaProfile.sigma2(xE,log=False)
+        return (self._surfaceSigmaProfile.surfacemassDerivative(xE,log=True)\
+                 -(1.+OE*(L-LCE)/sigma2xE)*self._surfaceSigmaProfile.sigma2Derivative(xE,log=True)\
+                 +(L-LCE)/sigma2xE*(self._beta-1.)*xE**(self._beta-2.)\
+                 -OE*(self._beta+1.)/sigma2xE*xE**self._beta)
+
+    def _dlnfdl(self,R,vR,vT,E=None,xE=None,OE=None):
+        #Calculate a bunch of stuff that we need
+        if E is None or xE is None or OE is None:
+            if self._beta == 0.:
+                E= vR**2./2.+vT**2./2.+sc.log(R)
+                xE= sc.exp(E-.5)
+                OE= xE**-1.
+            else: #non-flat rotation curve
+                E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
+                xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+                OE= xE**(self._beta-1.)
+        sigma2xE= self._surfaceSigmaProfile.sigma2(xE,log=False)
+        return OE/sigma2xE
+        
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -583,7 +635,7 @@ class diskdf:
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
     def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
-                           relative=False,phi=0.):
+                           relative=False,phi=0.,deriv=None):
         """
         NAME:
            vmomentsurfacemass
@@ -598,6 +650,8 @@ class diskdf:
            nsigma - number of sigma to integrate the velocities over
         KEYWORDS:
            romberg - if True, use a romberg integrator (default: False)
+           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
+                                       R or phi
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R
         HISTORY:
@@ -620,22 +674,156 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if romberg:
-            return bovy_dblquad(_vmomentsurfaceIntegrand,
-                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                 self._gamma,n,m],
-                                tol=10.**-8)/sc.pi*norm
+        if deriv is None:
+            if romberg:
+                return bovy_dblquad(_vmomentsurfaceIntegrand,
+                                    self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                    self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                    lambda x: -nsigma, lambda x: nsigma,
+                                    [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                     self._gamma,n,m],
+                                    tol=10.**-8)/sc.pi*norm/2.
+            else:
+                return integrate.dblquad(_vmomentsurfaceIntegrand,
+                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                         lambda x: -nsigma, lambda x: nsigma,
+                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                          self._gamma,n,m),
+                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
         else:
-            return integrate.dblquad(_vmomentsurfaceIntegrand,
-                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                     lambda x: 0., lambda x: nsigma,
-                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      self._gamma,n,m),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
+            if romberg:
+                return bovy_dblquad(_vmomentderivsurfaceIntegrand,
+                                    self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                    self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                    lambda x: -nsigma, lambda x: nsigma,
+                                    [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                     self._gamma,n,m,deriv],
+                                    tol=10.**-8)/sc.pi*norm/2.
+            else:
+                return integrate.dblquad(_vmomentderivsurfaceIntegrand,
+                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                         lambda x: -nsigma, lambda x: nsigma,
+                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                          self._gamma,n,m,deriv),
+                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
+
+    def oortA(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           oortA
+        PURPOSE:
+           calculate the Oort function A
+        INPUT:
+           R - radius at which to calculate A (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           Oort A at R
+        HISTORY:
+           2011-04-19 - Written - Bovy (NYU)
+        BUGS:
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+        """
+        #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass\
+            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            /surfmass**2.\
+            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+        return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
+
+    def oortB(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           oortB
+        PURPOSE:
+           calculate the Oort function B
+        INPUT:
+           R - radius at which to calculate B (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           Oort B at R
+        HISTORY:
+           2011-04-19 - Written - Bovy (NYU)
+        BUGS:
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+        """
+        #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass\
+            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            /surfmass**2.\
+            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+        return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
+
+    def oortC(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           oortC
+        PURPOSE:
+           calculate the Oort function C
+        INPUT:
+           R - radius at which to calculate C (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           Oort C at R
+        HISTORY:
+           2011-04-19 - Written - Bovy (NYU)
+        BUGS:
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+           we know this is zero, but it is calculated anyway (bug or feature?)
+        """
+        #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass #other terms is zero because f is even in vR
+        return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
+
+    def oortK(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           oortK
+        PURPOSE:
+           calculate the Oort function K
+        INPUT:
+           R - radius at which to calculate K (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           Oort K at R
+        HISTORY:
+           2011-04-19 - Written - Bovy (NYU)
+        BUGS:
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+           we know this is zero, but it is calculated anyway (bug or feature?)
+        """
+        #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass #other terms is zero because f is even in vR
+        return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
 
     def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
@@ -1225,6 +1413,16 @@ def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
     surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
     return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
+
+def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
+                                  gamma,n,m,deriv):
+    """Internal function that is the integrand for the derivative of velocity 
+    moment times surface mass integration"""
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    if deriv.lower() == 'r':
+        return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma*df._dlnfdR(R,vR*sigmaR1,vT*sigmaR1/gamma) #correct
+    else:
+        return 0.
 
 def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma):
     """Internal function that calculates E and L given velocities normalized by the velocity dispersion"""
