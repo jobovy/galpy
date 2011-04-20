@@ -1,7 +1,7 @@
 ###############################################################################
 #   TransientLogSpiralPotential: a transient spiral potential
 ###############################################################################
-import math as m
+import math
 from planarPotential import planarPotential
 _degtorad= m.pi/180.
 class TransientLogSpiralPotential(planarPotential):
@@ -15,7 +15,7 @@ class TransientLogSpiralPotential(planarPotential):
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=0.035,
-                 alpha=7.,m=2,gamma=m.pi/4.,p=None,
+                 alpha=7.,m=2,gamma=math.pi/4.,p=None,
                  sigma=1.,to=0.):
         """
         NAME:
@@ -69,7 +69,7 @@ class TransientLogSpiralPotential(planarPotential):
         self._to= to
         self._sigma2= sigma**2.
         if not p is None:
-            self._alpha= self._m/m.tan(p)
+            self._alpha= self._m/math.tan(p)
         else:
             self._alpha= alpha
 
@@ -88,8 +88,8 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
            """
-        return self._A*m.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*m.cos(self._alpha*m.log(R)
+        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+            /self._alpha*math.cos(self._alpha*math.log(R)
                                +self._m*(phi-self._omegas*t-self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
@@ -107,8 +107,8 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A*m.exp(-(t-self._to)**2./2./self._sigma2)\
-            /R*m.sin(self._alpha*m.log(R)
+        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+            /R*math.sin(self._alpha*math.log(R)
                      +self._m*(phi-self._omegas*t-self._gamma))
     
     def _phiforce(self,R,phi=0.,t=0.):
@@ -126,7 +126,7 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A*m.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*self._m*m.sin(self._alpha*m.log(R)
+        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+            /self._alpha*self._m*math.sin(self._alpha*math.log(R)
                                        +self._m*(phi-self._omegas*t
                                                  -self._gamma))
