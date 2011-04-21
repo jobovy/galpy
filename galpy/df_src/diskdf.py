@@ -1759,10 +1759,10 @@ def _jacobian_rphi_dl(d,l,R=None,phi=None):
     matrix[1,0]= 1./R*(d-cosl)
     if m.fabs(cosphi) > m.sqrt(2.)/2.: #use 1./cosphi expression       
         matrix[0,1]= 1./cosphi*(1./R*cosl-d/R**3.*sinl**2.)
-        matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl)
+        matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl) #dphi/dd
     else:
         matrix[0,1]= -(R-cosphi)/R**2./sinphi*sinl
-        matrix[1,1]= 1./R/sinphi*(d-(R-cosphi)/R*(d-cosl))
+        matrix[1,1]= 1./R/sinphi*(d-(R-cosphi)/R*(d-cosl)) #dphi/dd
     return linalg.det(matrix)
 
 def _dlToRphi(d,l):
