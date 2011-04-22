@@ -359,7 +359,7 @@ class diskdf:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *m.fabs(jac)*R
         
-    def surfacemassLOS(self,d,l,deg=True,
+    def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
         """
         NAME:
@@ -372,6 +372,7 @@ class diskdf:
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
         KEYWORDS:
+           target= if True, use target surfacemass (default)
            romberg - if True, use a romberg integrator (default: False)
            deg= if False, l is in radians
         OUTPUT:
@@ -387,9 +388,12 @@ class diskdf:
         R, phi= _dlToRphi(d,lrad)
         #Evaluate Jacobian
         jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
-        return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
-                                relative=relative)\
-                                *m.fabs(jac)*R
+        if target:
+            return self.targetSurfacemass(R)*m.fabs(jac)*R
+        else:
+            return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                    relative=relative)\
+                                    *m.fabs(jac)*R
 
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
