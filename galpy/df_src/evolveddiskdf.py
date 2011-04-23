@@ -201,7 +201,8 @@ class evolveddiskdf:
     def vertexdev(self,R,t=0.,nsigma=None,deg=False,
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
-                  sigmaR2=None,sigmaT2=None,sigmaRT=None,surfacemass=None):
+                  sigmaR2=None,sigmaT2=None,sigmaRT=None,surfacemass=None,
+                  hierarchgrid=False,nlevels=2):
         """
         NAME:
            vertexdev
@@ -225,6 +226,8 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            vertex deviation in degree
         HISTORY:
@@ -242,7 +245,9 @@ class evolveddiskdf:
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
-                                                     returnGrid=True)
+                                                     returnGrid=True,
+                                                     hierarchgrid=hierarchgrid,
+                                                     nlevels=nlevels)
         else:
             grido= False
         if surfacemass is None:
@@ -250,25 +255,33 @@ class evolveddiskdf:
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         if sigmaR2 is None:
             sigmaR2= self.sigmaR2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
-                                  returnGrid=False)/surfacemass
+                                  returnGrid=False,
+                                  hierarchgrid=hierarchgrid,
+                                  nlevels=nlevels)/surfacemass
         if sigmaT2 is None:
             sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
-                                  returnGrid=False)/surfacemass
+                                  returnGrid=False,
+                                  hierarchgrid=hierarchgrid,
+                                  nlevels=nlevels)/surfacemass
         if sigmaRT is None:
             sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
                                   epsabs=epsabs,grid=grido,
                                   gridpoints=gridpoints,
-                                  returnGrid=False)/surfacemass
+                                  returnGrid=False,
+                                  hierarchgrid=hierarchgrid,
+                                  nlevels=nlevels)/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
             return (-nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG,
@@ -279,7 +292,8 @@ class evolveddiskdf:
     def meanvR(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
-               surfacemass=None):
+               surfacemass=None,
+               hierarchgrid=False,nlevels=2):
         """
         NAME:
            meanvR
@@ -302,6 +316,8 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            mean vR
         HISTORY:
@@ -314,7 +330,9 @@ class evolveddiskdf:
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
-                                              returnGrid=False)
+                                              returnGrid=False,
+                                              hierarchgrid=hierarchgrid,
+                                              nlevels=nlevels)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
             (vmomentR,grido)= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,
@@ -322,7 +340,9 @@ class evolveddiskdf:
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
                                                       gridpoints=gridpoints,
-                                                      returnGrid=True)
+                                                      returnGrid=True,
+                                                      hierarchgrid=hierarchgrid,
+                                                      nlevels=nlevels)
         else:
             grido= False
             vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
@@ -330,13 +350,17 @@ class evolveddiskdf:
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
-                                              returnGrid=False)
+                                              returnGrid=False,
+                                              hierarchgrid=hierarchgrid,
+                                              nlevels=nlevels)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         out= vmomentR/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
@@ -347,7 +371,8 @@ class evolveddiskdf:
     def meanvT(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
-               surfacemass=None):
+               surfacemass=None,
+               hierarchgrid=False,nlevels=2):
         """
         NAME:
            meanvT
@@ -370,6 +395,8 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            mean vT
         HISTORY:
@@ -382,7 +409,9 @@ class evolveddiskdf:
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
-                                              returnGrid=False)
+                                              returnGrid=False,
+                                              hierarchgrid=hierarchgrid,
+                                              nlevels=nlevels)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
             (vmomentT,grido)= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
@@ -390,7 +419,9 @@ class evolveddiskdf:
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
                                                       gridpoints=gridpoints,
-                                                      returnGrid=True)
+                                                      returnGrid=True,
+                                                      hierarchgrid=hierarchgrid,
+                                                      nlevels=nlevels)
         else:
             grido= False
             vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
@@ -398,13 +429,17 @@ class evolveddiskdf:
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
                                               gridpoints=gridpoints,
-                                              returnGrid=False)
+                                              returnGrid=False,
+                                              hierarchgrid=hierarchgrid,
+                                              nlevels=nlevels)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         out= vmomentT/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
@@ -415,7 +450,8 @@ class evolveddiskdf:
     def sigmaR2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
-                surfacemass=None,meanvR=None):
+                surfacemass=None,meanvR=None,
+                hierarchgrid=False,nlevels=2):
         """
         NAME:
            sigmaR2
@@ -439,6 +475,8 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            variance of vR
         HISTORY:
@@ -453,7 +491,9 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -462,7 +502,9 @@ class evolveddiskdf:
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
-                                                     returnGrid=True)
+                                                     returnGrid=True,
+                                                     hierarchgrid=hierarchgrid,
+                                                     nlevels=nlevels)
         else:
             grido= False
             sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
@@ -470,19 +512,25 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         if meanvR is None:
             meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)/surfacemass
+                                             returnGrid=False,
+                                            hierarchgrid=hierarchgrid,
+                                            nlevels=nlevels)/surfacemass
         out= sigmaR2/surfacemass-meanvR**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
@@ -493,7 +541,8 @@ class evolveddiskdf:
     def sigmaT2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
-                surfacemass=None,meanvT=None):
+                surfacemass=None,meanvT=None,
+                hierarchgrid=False,nlevels=2):
         """
         NAME:
            sigmaT2
@@ -517,6 +566,8 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            variance of vT
         HISTORY:
@@ -529,7 +580,9 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         elif (meanvT is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -538,7 +591,9 @@ class evolveddiskdf:
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
-                                                     returnGrid=True)
+                                                     returnGrid=True,
+                                                     hierarchgrid=hierarchgrid,
+                                                     nlevels=nlevels)
         else:
             grido= False
             sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
@@ -546,19 +601,25 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         if meanvT is None:
             meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
-                                             nsigma=nsigma,epsrel=epsrel,
-                                             epsabs=epsabs,grid=grido,
-                                             gridpoints=gridpoints,
-                                             returnGrid=False)/surfacemass
+                                            nsigma=nsigma,epsrel=epsrel,
+                                            epsabs=epsabs,grid=grido,
+                                            gridpoints=gridpoints,
+                                            returnGrid=False,
+                                            hierarchgrid=hierarchgrid,
+                                            nlevels=nlevels)/surfacemass
         out= sigmaT2/surfacemass-meanvT**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
@@ -569,7 +630,8 @@ class evolveddiskdf:
     def sigmaRT(self,R,t=0.,nsigma=None,deg=False,
                 epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                 grid=None,gridpoints=101,returnGrid=False,
-                surfacemass=None,meanvR=None,meanvT=None):
+                surfacemass=None,meanvR=None,meanvT=None,
+                hierarchgrid=False,nlevels=2):
         """
         NAME:
            sigmaRT
@@ -593,8 +655,10 @@ class evolveddiskdf:
                  procedure), use this grid
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
-           variance of vR
+           covariance of vR and vT
         HISTORY:
            2011-03-31 - Written - Bovy (NYU)
         """
@@ -607,7 +671,9 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -616,7 +682,9 @@ class evolveddiskdf:
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
                                                      gridpoints=gridpoints,
-                                                     returnGrid=True)
+                                                     returnGrid=True,
+                                                     hierarchgrid=hierarchgrid,
+                                                     nlevels=nlevels)
         else:
             grido= False
             sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
@@ -624,25 +692,33 @@ class evolveddiskdf:
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
                                              gridpoints=gridpoints,
-                                             returnGrid=False)
+                                             returnGrid=False,
+                                             hierarchgrid=hierarchgrid,
+                                             nlevels=nlevels)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
-                                                 returnGrid=False)
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels)
         if meanvR is None:
             meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
-                                             nsigma=nsigma,epsrel=epsrel,
-                                             epsabs=epsabs,grid=grido,
-                                             gridpoints=gridpoints,
-                                             returnGrid=False)/surfacemass
+                                            nsigma=nsigma,epsrel=epsrel,
+                                            epsabs=epsabs,grid=grido,
+                                            gridpoints=gridpoints,
+                                            returnGrid=False,
+                                            hierarchgrid=hierarchgrid,
+                                            nlevels=nlevels)/surfacemass
         if meanvT is None:
             meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
-                                             nsigma=nsigma,epsrel=epsrel,
-                                             epsabs=epsabs,grid=grido,
-                                             gridpoints=gridpoints,
-                                             returnGrid=False)/surfacemass
+                                            nsigma=nsigma,epsrel=epsrel,
+                                            epsabs=epsabs,grid=grido,
+                                            gridpoints=gridpoints,
+                                            returnGrid=False,
+                                            hierarchgrid=hierarchgrid,
+                                            nlevels=nlevels)/surfacemass
         out= sigmaRT/surfacemass-meanvR*meanvT
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid)):
