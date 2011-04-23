@@ -235,7 +235,8 @@ class evolveddiskdf:
         """
         #The following aren't actually the moments, but they are the moments
         #times the surface-mass density; that drops out
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid           
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
