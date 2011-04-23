@@ -8,14 +8,14 @@
 ###############################################################################
 _NSIGMA= 4.
 _NTS= 1000
-import math as m
+import math
 import numpy as nu
 from scipy import integrate
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
 from galpy.util.bovy_quadpack import dblquad
-_DEGTORAD= m.pi/180.
-_RADTODEG= 180./m.pi
+_DEGTORAD= math.pi/180.
+_RADTODEG= 180./math.pi
 class evolveddiskdf:
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
@@ -107,7 +107,8 @@ class evolveddiskdf:
 
     def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
-                           grid=None,gridpoints=101,returnGrid=False):
+                           grid=None,gridpoints=101,returnGrid=False,
+                           hierarchgrid=False,nlevels=2):
         """
         NAME:
            vmomentsurfacemass
@@ -132,6 +133,8 @@ class evolveddiskdf:
                  times, moments are calculated for each time
            gridpoints= number of points to use for the grid in 1D (default=101)
            returnGrid= if True, return the grid object (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -143,6 +146,13 @@ class evolveddiskdf:
                 return (self._vmomentsurfacemassGrid(n,m,grid),grid)
             else:
                 return self._vmomentsurfacemassGrid(n,m,grid)
+        elif not grid is None \
+                and isinstance(grid,evolveddiskdfHierarchicalGrid):
+            if returnGrid:
+                return (self._vmomentsurfacemassHierarchicalGrid(n,m,grid),
+                        grid)
+            else:
+                return self._vmomentsurfacemassHierarchicalGrid(n,m,grid)
         #Otherwise we need to do some more work
         if deg: az= phi*_DEGTORAD
         else: az= phi
@@ -152,12 +162,25 @@ class evolveddiskdf:
         meanvR= self._initdf.meanvR(R,phi=phi)
         meanvT= self._initdf.meanvT(R,phi=phi)
         if not grid is None and isinstance(grid,bool) and grid:
-            grido= self._buildvgrid(R,az,nsigma,t,
-                                    sigmaR1,sigmaT1,meanvR,meanvT,gridpoints)
-            if returnGrid:
-                return (self._vmomentsurfacemassGrid(n,m,grido),grido)
-            else:
-                return self._vmomentsurfacemassGrid(n,m,grido)
+            if not hierarchgrid:
+                grido= self._buildvgrid(R,az,nsigma,t,
+                                        sigmaR1,sigmaT1,meanvR,meanvT,
+                                        gridpoints)
+                if returnGrid:
+                    return (self._vmomentsurfacemassGrid(n,m,grido),grido)
+                else:
+                    return self._vmomentsurfacemassGrid(n,m,grido)
+            else: #hierarchical grid
+                grido= evolveddiskdfHierarchicalGrid(self,R,az,nsigma,t,
+                                                     sigmaR1,sigmaT1,meanvR,
+                                                     meanvT,
+                                                     gridpoints,nlevels)
+                if returnGrid:
+                    return (self._vmomentsurfacemassHierarchicalGrid(n,m,
+                                                                     grido),
+                            grido)
+                else:
+                    return self._vmomentsurfacemassHierarchicalGrid(n,m,grido)
         #Calculate the initdf moment and then calculate the ratio
         initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma,
                                                      phi=phi)
@@ -697,7 +720,7 @@ class evolveddiskdf:
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*m.sin(phi+l)
+        vcirclos= vcirc*math.sin(phi+l)
         print R, vlos, vlos-vcirclos
         #Marginalize
         alphalos= phi+l
@@ -708,25 +731,25 @@ class evolveddiskdf:
             nsigma= kwargs['nsigma']
         if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
         #BOVY: add asymmetric drift here?
-        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
+        if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
-            cosalphalos= m.cos(alphalos)
-            tanalphalos= m.tan(alphalos)
+            cosalphalos= math.cos(alphalos)
+            tanalphalos= math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -nsigma,nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(cosalphalos)
+                                  **kwargs)[0]/math.fabs(cosalphalos)
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-            sinalphalos= m.sin(alphalos)
-            cotalphalos= 1./m.tan(alphalos)
+            sinalphalos= math.sin(alphalos)
+            cotalphalos= 1./math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(sinalphalos)
+                                  **kwargs)[0]/math.fabs(sinalphalos)
         
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
@@ -742,9 +765,9 @@ class evolveddiskdf:
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*m.sin(phi+l)
+        vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
-        alphaperp= m.pi/2.+phi+l
+        alphaperp= math.pi/2.+phi+l
         if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
                                                 kwargs['nsigma'] is None):
             nsigma= _NSIGMA
@@ -752,31 +775,179 @@ class evolveddiskdf:
             nsigma= kwargs['nsigma']
         if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
         #BOVY: Put asymmetric drift in here?
-        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
+        if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
-            cosalphaperp= m.cos(alphaperp)
-            tanalphaperp= m.tan(alphaperp)
+            cosalphaperp= math.cos(alphaperp)
+            tanalphaperp= math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -nsigma,nsigma,
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(cosalphaperp)
+                                  **kwargs)[0]/math.fabs(cosalphaperp)
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-            sinalphaperp= m.sin(alphaperp)
-            cotalphaperp= 1./m.tan(alphaperp)
+            sinalphaperp= math.sin(alphaperp)
+            cotalphaperp= 1./math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/m.fabs(sinalphaperp)
+                                  **kwargs)[0]/math.fabs(sinalphaperp)
+
+    def _vmomentsurfacemassHierarchicalGrid(self,n,m,grid):
+        """Internal function to evaluate vmomentsurfacemass using a 
+        hierarchical grid rather than direct integration,
+        rather unnecessary""" 
+        return grid(n,m)       
         
 class evolveddiskdfGrid:
     """Empty class since it is only used to store some stuff"""
     pass
+
+class evolveddiskdfHierarchicalGrid:
+    """Class that holds a hierarchical velocity grid"""
+    def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
+                 gridpoints,nlevels,upperdxdy=None):
+        """
+        NAME:
+            __init__
+        PURPOSE:
+            Initialize a hierarchical grid
+        INPUT:
+            edf - evolveddiskdf instance
+            R - Radius
+            phi- azimuth
+            nsigma - number of sigma to integrate over
+            t- time
+            sigmaR1 - radial dispersion
+            sigmaT1 - tangential dispersion
+            meanvR - mean of radial velocity
+            meanvT - mean of tangential velocity
+            gridpoints- number of gridpoints
+            nlevels- number of levels to build
+            upperdxdy= area element of previous hierarchical level
+        OUTPUT:
+           object
+        HISTORY:
+           2011-04-21 - Written - Bovy (NYU)
+        """
+        self.sigmaR1= sigmaR1
+        self.sigmaT1= sigmaT1
+        self.meanvR= meanvR
+        self.meanvT= meanvT
+        self.gridpoints= gridpoints
+        self.vRgrid= nu.linspace(self.meanvR-nsigma*self.sigmaR1,
+                                 self.meanvR+nsigma*self.sigmaR1,
+                                 self.gridpoints)
+        self.vTgrid= nu.linspace(self.meanvT-nsigma*self.sigmaT1,
+                                 self.meanvT+nsigma*self.sigmaT1,
+                                 self.gridpoints)
+        self.t= t
+        if isinstance(t,(list,nu.ndarray)):
+            nt= len(t)
+            self.df= nu.zeros((gridpoints,gridpoints,nt))
+            dxdy= (self.vRgrid[1]-self.vRgrid[0])\
+                *(self.vTgrid[1]-self.vTgrid[0])
+            if nlevels > 0:
+                xsubmin= int(gridpoints)/4
+                xsubmax= gridpoints-int(gridpoints)/4
+            else:
+                xsubmin= gridpoints
+                xsubmax= 0
+            ysubmin, ysubmax= xsubmin, xsubmax
+            for ii in range(gridpoints):
+                for jj in range(gridpoints):
+                    #If this is part of a subgrid, ignore
+                    if nlevels > 1 and ii >= xsubmin and ii < xsubmax \
+                            and jj >= ysubmin and jj < ysubmax:
+                        continue
+                    thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
+                    self.df[ii,jj,:]= edf(thiso,nu.array(t).flatten())
+                    self.df[ii,jj,nu.isnan(self.df[ii,jj,:])]= 0.#BOVY: for now
+                    #Multiply in area, somewhat tricky for edge objects
+                    if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
+                                                 and jj != 0 
+                                             and jj != gridpoints-1):
+                        self.df[ii,jj,:]*= dxdy
+                    elif ((ii == 0 or ii == gridpoints-1) and \
+                            (jj != 0 and jj != gridpoints-1))\
+                            or \
+                            ((jj == 0 or jj == gridpoints-1) and \
+                                 (ii != 0 and ii != gridpoints-1)): #edge
+                        self.df[ii,jj,:]*= 1.5*dxdy
+                    else: #corner
+                        self.df[ii,jj,:]*= 2.25*dxdy
+        else:
+            self.df= nu.zeros((gridpoints,gridpoints))
+            dxdy= (self.vRgrid[1]-self.vRgrid[0])\
+                *(self.vTgrid[1]-self.vTgrid[0])
+            if nlevels > 0:
+                xsubmin= int(gridpoints)/4
+                xsubmax= gridpoints-int(gridpoints)/4
+            else:
+                xsubmin= gridpoints
+                xsubmax= 0
+            ysubmin, ysubmax= xsubmin, xsubmax
+            for ii in range(gridpoints):
+                for jj in range(gridpoints):
+                    #If this is part of a subgrid, ignore
+                    if nlevels > 1 and ii >= xsubmin and ii < xsubmax \
+                            and jj >= ysubmin and jj < ysubmax:
+                        continue
+                    thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
+                    self.df[ii,jj]= edf(thiso,t)
+                    if nu.isnan(self.df[ii,jj]): self.df[ii,jj]= 0. #BOVY: for now
+                    #Multiply in area, somewhat tricky for edge objects
+                    if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
+                                                 and jj != 0 
+                                             and jj != gridpoints-1):
+                        self.df[ii,jj]*= dxdy
+                    elif ((ii == 0 or ii == gridpoints-1) and \
+                            (jj != 0 and jj != gridpoints-1))\
+                            or \
+                            ((jj == 0 or jj == gridpoints-1) and \
+                                 (ii != 0 and ii != gridpoints-1)): #edge
+                        self.df[ii,jj]*= 1.5*dxdy
+                    else: #corner
+                        self.df[ii,jj]*= 2.25*dxdy
+        if nlevels > 1:
+            #Set up subgrid
+            subnsigma= (self.meanvR-self.vRgrid[xsubmin])/self.sigmaR1
+            self.subgrid= evolveddiskdfHierarchicalGrid(edf,R,phi,
+                                                        subnsigma,t,
+                                                        sigmaR1,
+                                                        sigmaT1,
+                                                        meanvR,
+                                                        meanvT,
+                                                        gridpoints,
+                                                        nlevels-1,
+                                                        upperdxdy=dxdy)
+        else:
+            self.subgrid= None
+        return None
+                
+    def __call__(self,n,m):
+        """Call"""
+        if isinstance(self.t,(list,nu.ndarray)): tlist= True
+        else: tlist= False
+        if tlist: 
+            nt= self.df.shape[2]
+            out= []
+            for ii in range(nt):
+                #We already multiplied in the area
+                out.append(nu.dot(self.vRgrid**n,nu.dot(self.df[:,:,ii],
+                                                        self.vTgrid**m)))
+
+            if self.subgrid is None: return nu.array(out)
+            else: return nu.array(out)+ self.subgrid(n,m)
+        else:
+           #We already multiplied in the area
+            thislevel= nu.dot(self.vRgrid**n,nu.dot(self.df,self.vTgrid**m))
+            if self.subgrid is None: return thislevel
+            else: return thislevel+self.subgrid(n,m)
 
 def _vmomentsurfaceIntegrand(vR,vT,R,az,df,n,m,sigmaR1,sigmaT1,t,initvmoment):
     """Internal function that is the integrand for the velocity moment times
