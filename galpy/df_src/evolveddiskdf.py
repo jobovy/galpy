@@ -156,7 +156,7 @@ class evolveddiskdf:
         #Otherwise we need to do some more work
         if deg: az= phi*_DEGTORAD
         else: az= phi
-        if nsigma == None: nsigma= _NSIGMA
+        if nsigma is None: nsigma= _NSIGMA
         sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
         sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
         meanvR= self._initdf.meanvR(R,phi=phi)
@@ -283,7 +283,8 @@ class evolveddiskdf:
                                   hierarchgrid=hierarchgrid,
                                   nlevels=nlevels)/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (-nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG,
                      grido)
         else:
@@ -323,7 +324,8 @@ class evolveddiskdf:
         HISTORY:
            2011-03-31 - Written - Bovy (NYU)
         """
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid           
             vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
@@ -361,9 +363,11 @@ class evolveddiskdf:
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
                                                  nlevels=nlevels)
+        print vmomentR, surfacemass
         out= vmomentR/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
         else:
             return out
@@ -402,7 +406,8 @@ class evolveddiskdf:
         HISTORY:
            2011-03-31 - Written - Bovy (NYU)
         """
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid           
             vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
                                               nsigma=nsigma,phi=phi,
@@ -442,7 +447,8 @@ class evolveddiskdf:
                                                  nlevels=nlevels)
         out= vmomentT/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
         else:
             return out
@@ -484,7 +490,8 @@ class evolveddiskdf:
         """
         #The following aren't actually the moments, but they are the moments
         #times the surface-mass density
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
             sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
@@ -533,7 +540,8 @@ class evolveddiskdf:
                                             nlevels=nlevels)/surfacemass
         out= sigmaR2/surfacemass-meanvR**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
         else:
             return out
@@ -573,7 +581,8 @@ class evolveddiskdf:
         HISTORY:
            2011-03-31 - Written - Bovy (NYU)
         """
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
             sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
@@ -622,7 +631,8 @@ class evolveddiskdf:
                                             nlevels=nlevels)/surfacemass
         out= sigmaT2/surfacemass-meanvT**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
         else:
             return out
@@ -664,7 +674,8 @@ class evolveddiskdf:
         """
         #The following aren't actually the moments, but they are the moments
         #times the surface-mass density
-        if isinstance(grid,evolveddiskdfGrid):
+        if isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
             sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
@@ -721,7 +732,8 @@ class evolveddiskdf:
                                             nlevels=nlevels)/surfacemass
         out= sigmaRT/surfacemass-meanvR*meanvT
         if returnGrid and ((isinstance(grid,bool) and grid) or 
-                           isinstance(grid,evolveddiskdfGrid)):
+                           isinstance(grid,evolveddiskdfGrid) or
+                           isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
         else:
             return out
