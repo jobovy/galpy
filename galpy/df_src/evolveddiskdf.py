@@ -363,7 +363,6 @@ class evolveddiskdf:
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
                                                  nlevels=nlevels)
-        print vmomentR, surfacemass
         out= vmomentR/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
