@@ -14,8 +14,8 @@ class TransientLogSpiralPotential(planarPotential):
     A(t) = A_max exp(- [t-to]^2/sigma^2/2.)
 
     """
-    def __init__(self,amp=1.,omegas=0.65,A=0.035,
-                 alpha=7.,m=2,gamma=math.pi/4.,p=None,
+    def __init__(self,amp=1.,omegas=0.65,A=-0.035,
+                 alpha=-7.,m=2,gamma=math.pi/4.,p=None,
                  sigma=1.,to=0.):
         """
         NAME:

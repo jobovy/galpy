@@ -10,8 +10,8 @@ class SteadyLogSpiralPotential(planarPotential):
     V(r,phi,t) = A/alpha cos(alpha ln(r) + m(phi - Omegas*t-gamma))
 
     """
-    def __init__(self,amp=1.,omegas=0.65,A=0.035,
-                 alpha=7.,m=2,gamma=math.pi/4.,p=None,
+    def __init__(self,amp=1.,omegas=0.65,A=-0.035,
+                 alpha=-7.,m=2,gamma=math.pi/4.,p=None,
                  tform=None,tsteady=None):
         """
         NAME:
