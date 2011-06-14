@@ -816,13 +816,14 @@ def scatterplot(x,y,*args,**kwargs):
     cums= sc.array(cums)
     plotx= x[cums > levels[-1]]
     ploty= y[cums > levels[-1]]
-    if not weights == None:
-        w8= weights[cums > levels[-1]]
-        for ii in range(len(plotx)):
-            bovy_plot(plotx[ii],ploty[ii],overplot=True,
-                      color='%.2f'%(1.-w8[ii]),*args,**kwargs)
-    else:
-        bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
+    if not len(plotx) == 0:
+        if not weights == None:
+            w8= weights[cums > levels[-1]]
+            for ii in range(len(plotx)):
+                bovy_plot(plotx[ii],ploty[ii],overplot=True,
+                          color='%.2f'%(1.-w8[ii]),*args,**kwargs)
+            else:
+                bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
     #Add onedhists
     if not onedhists:
         return
