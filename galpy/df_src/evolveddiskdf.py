@@ -8,6 +8,7 @@
 ###############################################################################
 _NSIGMA= 4.
 _NTS= 1000
+import sys
 import math
 import numpy as nu
 from scipy import integrate
@@ -108,7 +109,8 @@ class evolveddiskdf:
     def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False,
-                           hierarchgrid=False,nlevels=2):
+                           hierarchgrid=False,nlevels=2,
+                           print_progress=False):
         """
         NAME:
            vmomentsurfacemass
@@ -135,6 +137,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           print_progress= if True, print progress updates
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -165,7 +168,7 @@ class evolveddiskdf:
             if not hierarchgrid:
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
-                                        gridpoints)
+                                        gridpoints,print_progress)
                 if returnGrid:
                     return (self._vmomentsurfacemassGrid(n,m,grido),grido)
                 else:
@@ -174,7 +177,8 @@ class evolveddiskdf:
                 grido= evolveddiskdfHierarchicalGrid(self,R,az,nsigma,t,
                                                      sigmaR1,sigmaT1,meanvR,
                                                      meanvT,
-                                                     gridpoints,nlevels)
+                                                     gridpoints,nlevels,
+                                                     print_progress)
                 if returnGrid:
                     return (self._vmomentsurfacemassHierarchicalGrid(n,m,
                                                                      grido),
@@ -755,7 +759,7 @@ class evolveddiskdf:
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                    gridpoints):
+                    gridpoints,print_progress):
         """Internal function to grid the vDF at a given location"""
         out= evolveddiskdfGrid()
         out.sigmaR1= sigmaR1
@@ -771,16 +775,26 @@ class evolveddiskdf:
             out.df= nu.zeros((gridpoints,gridpoints,nt))
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
+                    if print_progress:
+                        sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
+                                             (jj+ii*gridpoints+1,gridpoints*gridpoints))
+                        sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj,:]= self(thiso,nu.array(t).flatten())
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
+            if print_progress: sys.stdout.write('\n')
         else:
             out.df= nu.zeros((gridpoints,gridpoints))
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
+                    if print_progress:
+                        sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
+                                             (jj+ii*gridpoints+1,gridpoints*gridpoints))
+                        sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj]= self(thiso,t)
                     if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
+            if print_progress: sys.stdout.write('\n')
         return out
 
     def _create_ts_tlist(self,t):
@@ -898,7 +912,7 @@ class evolveddiskdfGrid:
 class evolveddiskdfHierarchicalGrid:
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                 gridpoints,nlevels,upperdxdy=None):
+                 gridpoints,nlevels,upperdxdy=None,print_progress=False):
         """
         NAME:
             __init__
@@ -917,6 +931,7 @@ class evolveddiskdfHierarchicalGrid:
             gridpoints- number of gridpoints
             nlevels- number of levels to build
             upperdxdy= area element of previous hierarchical level
+            print_progress= if True, print progress on building the grid
         OUTPUT:
            object
         HISTORY:
@@ -948,6 +963,10 @@ class evolveddiskdfHierarchicalGrid:
             ysubmin, ysubmax= xsubmin, xsubmax
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
+                    if print_progress:
+                        sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
+                                             (jj+ii*gridpoints+1,gridpoints*gridpoints))
+                        sys.stdout.flush()
                     #If this is part of a subgrid, ignore
                     if nlevels > 1 and ii >= xsubmin and ii < xsubmax \
                             and jj >= ysubmin and jj < ysubmax:
@@ -968,6 +987,7 @@ class evolveddiskdfHierarchicalGrid:
                         self.df[ii,jj,:]*= 1.5*dxdy
                     else: #corner
                         self.df[ii,jj,:]*= 2.25*dxdy
+            if print_progress: sys.stdout.write('\n')
         else:
             self.df= nu.zeros((gridpoints,gridpoints))
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
@@ -981,6 +1001,10 @@ class evolveddiskdfHierarchicalGrid:
             ysubmin, ysubmax= xsubmin, xsubmax
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
+                    if print_progress:
+                        sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
+                                             (jj+ii*gridpoints+1,gridpoints*gridpoints))
+                        sys.stdout.flush()
                     #If this is part of a subgrid, ignore
                     if nlevels > 1 and ii >= xsubmin and ii < xsubmax \
                             and jj >= ysubmin and jj < ysubmax:
@@ -1001,6 +1025,7 @@ class evolveddiskdfHierarchicalGrid:
                         self.df[ii,jj]*= 1.5*dxdy
                     else: #corner
                         self.df[ii,jj]*= 2.25*dxdy
+            if print_progress: sys.stdout.write('\n')
         if nlevels > 1:
             #Set up subgrid
             subnsigma= (self.meanvR-self.vRgrid[xsubmin])/self.sigmaR1
