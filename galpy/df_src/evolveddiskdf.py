@@ -178,7 +178,7 @@ class evolveddiskdf:
                                                      sigmaR1,sigmaT1,meanvR,
                                                      meanvT,
                                                      gridpoints,nlevels,
-                                                     print_progress)
+                                                     print_progress=print_progress)
                 if returnGrid:
                     return (self._vmomentsurfacemassHierarchicalGrid(n,m,
                                                                      grido),
@@ -1037,7 +1037,8 @@ class evolveddiskdfHierarchicalGrid:
                                                         meanvT,
                                                         gridpoints,
                                                         nlevels-1,
-                                                        upperdxdy=dxdy)
+                                                        upperdxdy=dxdy,
+                                                        print_progress=print_progress)
         else:
             self.subgrid= None
         return None
