@@ -527,6 +527,7 @@ def bovy_dens2d(X,**kwargs):
             origin= None
         if cntrmass:
             #Sum from the top down!
+            X[sc.isnan(X)]= 0.
             sortindx= sc.argsort(X.flatten())[::-1]
             cumul= sc.cumsum(sc.sort(X.flatten())[::-1])/sc.sum(X.flatten())
             cntrThis= sc.zeros(sc.prod(X.shape))
@@ -695,6 +696,11 @@ def scatterplot(x,y,*args,**kwargs):
 
        onedhistcolor, onedhistfc, onedhistec
 
+       hist= and edges= - you can supply the histogram of the data yourself,
+                          this can be useful if you want to censor the data,
+                          both need to be set and calculated using 
+                          scipy.histogramdd with the given range
+
     OUTPUT:
 
     HISTORY:
@@ -790,14 +796,20 @@ def scatterplot(x,y,*args,**kwargs):
         axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
     data= sc.array([x,y]).T
-    hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
-                                weights=weights)
+    if kwargs.has_key('hist') and kwargs.has_key('edges'):
+        hist=kwargs['hist']
+        kwargs.pop('hist')
+        edges=kwargs['edges']
+        kwargs.pop('edges')
+    else:
+        hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
+                                    weights=weights)
     cumimage= bovy_dens2d(hist.T,contours=True,levels=levels,cntrmass=True,
                           cntrcolors='k',cmap=cm.gist_yarg,origin='lower',
                           xrange=xrange,yrange=yrange,xlabel=xlabel,
                           ylabel=ylabel,interpolation='nearest',
                           retCumImage=True,aspect=aspect,
-                          overplot=onedhists)
+                          overplot=(onedhists or overplot))
     binxs= []
     xedge= edges[0]
     for ii in range(len(xedge)-1):
