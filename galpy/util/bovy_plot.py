@@ -696,6 +696,12 @@ def scatterplot(x,y,*args,**kwargs):
 
        onedhistcolor, onedhistfc, onedhistec
 
+       onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
+       
+       onedhistxweights, onedhistyweights - weights keyword for one-d histograms
+
+       cmap= cmap for density plot
+
        hist= and edges= - you can supply the histogram of the data yourself,
                           this can be useful if you want to censor the data,
                           both need to be set and calculated using 
@@ -776,8 +782,39 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('onedhistec')
     else:
         onedhistec= 'k'
+    if kwargs.has_key('overplot'):
+        overplot= kwargs['overplot']
+        kwargs.pop('overplot')
+    else:
+        overplot= False
+    if kwargs.has_key('cmap'):
+        cmap= kwargs['cmap']
+        kwargs.pop('cmap')
+    else:
+        cmap= cm.gist_yarg
+    if kwargs.has_key('onedhistxnormed'):
+        onedhistxnormed= kwargs['onedhistxnormed']
+        kwargs.pop('onedhistxnormed')
+    else:
+        onedhistxnormed= True
+    if kwargs.has_key('onedhistynormed'):
+        onedhistynormed= kwargs['onedhistynormed']
+        kwargs.pop('onedhistynormed')
+    else:
+        onedhistynormed= True
+    if kwargs.has_key('onedhistxweights'):
+        onedhistxweights= kwargs['onedhistxweights']
+        kwargs.pop('onedhistxweights')
+    else:
+        onedhistxweights= None
+    if kwargs.has_key('onedhistyweights'):
+        onedhistyweights= kwargs['onedhistyweights']
+        kwargs.pop('onedhistyweights')
+    else:
+        onedhistyweights= None
     if onedhists:
-        fig= pyplot.figure()
+        if overplot: fig= pyplot.gcf()
+        else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
         # definitions for the axes
         left, width = 0.1, 0.65
@@ -805,7 +842,7 @@ def scatterplot(x,y,*args,**kwargs):
         hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
                                     weights=weights)
     cumimage= bovy_dens2d(hist.T,contours=True,levels=levels,cntrmass=True,
-                          cntrcolors='k',cmap=cm.gist_yarg,origin='lower',
+                          cntrcolors='k',cmap=cmap,origin='lower',
                           xrange=xrange,yrange=yrange,xlabel=xlabel,
                           ylabel=ylabel,interpolation='nearest',
                           retCumImage=True,aspect=aspect,
@@ -839,9 +876,13 @@ def scatterplot(x,y,*args,**kwargs):
     #Add onedhists
     if not onedhists:
         return
-    axHistx.hist(x, bins=bins,normed=True,histtype=onedhisttype,range=xrange,
+    axHistx.hist(x, bins=bins,normed=onedhistxnormed,
+                 weights=onedhistxweights,
+                 histtype=onedhisttype,range=xrange,
                  color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
-    axHisty.hist(y, bins=bins, orientation='horizontal',normed=True,
+    axHisty.hist(y, bins=bins, orientation='horizontal',
+                 weights=onedhistyweights,
+                 normed=onedhistynormed,
                  histtype=onedhisttype,range=yrange,
                  color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
