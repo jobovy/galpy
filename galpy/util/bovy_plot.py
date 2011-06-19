@@ -871,8 +871,8 @@ def scatterplot(x,y,*args,**kwargs):
             for ii in range(len(plotx)):
                 bovy_plot(plotx[ii],ploty[ii],overplot=True,
                           color='%.2f'%(1.-w8[ii]),*args,**kwargs)
-            else:
-                bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
+        else:
+            bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
     #Add onedhists
     if not onedhists:
         return
