@@ -160,6 +160,16 @@ def bovy_plot(*args,**kwargs):
 
        overplot=True does not start a new figure
 
+       onedhists - if True, make one-d histograms on the sides
+
+       onedhistcolor, onedhistfc, onedhistec
+
+       onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
+       
+       onedhistxweights, onedhistyweights - weights keyword for one-d histograms
+
+       bins= number of bins for onedhists
+
     OUTPUT:
 
     HISTORY:
@@ -177,6 +187,76 @@ def bovy_plot(*args,**kwargs):
     else:
         pyplot.figure()
         overplot=False
+    if kwargs.has_key('onedhists'):
+        onedhists= kwargs['onedhists']
+        kwargs.pop('onedhists')
+    else:
+        onedhists= False
+    if kwargs.has_key('onedhisttype'):
+        onedhisttype= kwargs['onedhisttype']
+        kwargs.pop('onedhisttype')
+    else:
+        onedhisttype= 'step'
+    if kwargs.has_key('onedhistcolor'):
+        onedhistcolor= kwargs['onedhistcolor']
+        kwargs.pop('onedhistcolor')
+    else:
+        onedhistcolor= 'k'
+    if kwargs.has_key('onedhistfc'):
+        onedhistfc=kwargs['onedhistfc']
+        kwargs.pop('onedhistfc')
+    else:
+        onedhistfc= 'w'
+    if kwargs.has_key('onedhistec'):
+        onedhistec=kwargs['onedhistec']
+        kwargs.pop('onedhistec')
+    else:
+        onedhistec= 'k'
+    if kwargs.has_key('onedhistxnormed'):
+        onedhistxnormed= kwargs['onedhistxnormed']
+        kwargs.pop('onedhistxnormed')
+    else:
+        onedhistxnormed= True
+    if kwargs.has_key('onedhistynormed'):
+        onedhistynormed= kwargs['onedhistynormed']
+        kwargs.pop('onedhistynormed')
+    else:
+        onedhistynormed= True
+    if kwargs.has_key('onedhistxweights'):
+        onedhistxweights= kwargs['onedhistxweights']
+        kwargs.pop('onedhistxweights')
+    else:
+        onedhistxweights= None
+    if kwargs.has_key('onedhistyweights'):
+        onedhistyweights= kwargs['onedhistyweights']
+        kwargs.pop('onedhistyweights')
+    else:
+        onedhistyweights= None
+    if kwargs.has_key('bins'):
+        bins= kwargs['bins']
+        kwargs.pop('bins')
+    else:
+        bins= round(0.3*sc.sqrt(ndata))
+    if onedhists:
+        if overplot: fig= pyplot.gcf()
+        else: fig= pyplot.figure()
+        nullfmt   = NullFormatter()         # no labels
+        # definitions for the axes
+        left, width = 0.1, 0.65
+        bottom, height = 0.1, 0.65
+        bottom_h = left_h = left+width
+        rect_scatter = [left, bottom, width, height]
+        rect_histx = [left, bottom_h, width, 0.2]
+        rect_histy = [left_h, bottom, 0.2, height]
+        axScatter = pyplot.axes(rect_scatter)
+        axHistx = pyplot.axes(rect_histx)
+        axHisty = pyplot.axes(rect_histy)
+        # no labels
+        axHistx.xaxis.set_major_formatter(nullfmt)
+        axHistx.yaxis.set_major_formatter(nullfmt)
+        axHisty.xaxis.set_major_formatter(nullfmt)
+        axHisty.yaxis.set_major_formatter(nullfmt)
+        fig.sca(axScatter)
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
     if kwargs.has_key('xlabel'):
@@ -213,6 +293,20 @@ def bovy_plot(*args,**kwargs):
         pyplot.ylim(*ylimits)
         _add_axislabels(xlabel,ylabel)
         _add_ticks()
+    #Add onedhists
+    if not onedhists:
+        return
+    axHistx.hist(args[0], bins=bins,normed=onedhistxnormed,
+                 weights=onedhistxweights,
+                 histtype=onedhisttype,range=xlimits,
+                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
+    axHisty.hist(args[1], bins=bins, orientation='horizontal',
+                 weights=onedhistyweights,
+                 normed=onedhistynormed,
+                 histtype=onedhisttype,range=ylimits,
+                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
+    axHistx.set_xlim( axScatter.get_xlim() )
+    axHisty.set_ylim( axScatter.get_ylim() )
     return out
 
 def bovy_plot3d(*args,**kwargs):
