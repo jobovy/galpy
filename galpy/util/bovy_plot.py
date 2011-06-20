@@ -236,7 +236,12 @@ def bovy_plot(*args,**kwargs):
         bins= kwargs['bins']
         kwargs.pop('bins')
     else:
-        bins= round(0.3*sc.sqrt(ndata))
+        if isinstance(args[0],sc.ndarray):
+            bins= round(0.3*sc.sqrt(args[0].shape[0]))
+        elif isinstance(args[0],list):
+            bins= round(0.3*sc.sqrt(len(args[0])))
+        else:
+            bins= 30
     if onedhists:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
