@@ -10,6 +10,7 @@ _NSIGMA= 4.
 _NTS= 1000
 import sys
 import math
+import copy
 import numpy as nu
 from scipy import integrate
 from galpy.orbit import Orbit
@@ -18,6 +19,7 @@ from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
+_NAN= nu.nan
 class evolveddiskdf:
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
@@ -1073,7 +1075,7 @@ class evolveddiskdfHierarchicalGrid:
                                                         nlevels-1,
                                                         upperdxdy=dxdy,
                                                         print_progress=print_progress,
-                                                        nlevelsTotal=nlevels)
+                                                        nlevelsTotal=nlevelsTotal)
         else:
             self.subgrid= None
         return None
@@ -1118,18 +1120,23 @@ class evolveddiskdfHierarchicalGrid:
         dvT= (self.vTgrid[1]-self.vTgrid[0])
         nvR= len(self.vRgrid)
         nvT= len(self.vTgrid)
-        nUpperLevels= self.nlevelsTotal=self.nlevels
-        for ii in range(nUpperlevels):
-            nvR*= 2.
-            nvT*= 2.
+        nUpperLevels= self.nlevelsTotal-self.nlevels
+        print nUpperLevels, self.nlevelsTotal, self.nlevels
+        for ii in range(nUpperLevels):
+            nvR*= 2
+            nvT*= 2
         plotthis= nu.zeros((nvR,nvT))
         if len(self.df.shape) == 3:
-            plotdf= self.df[:,:,tt]
+            plotdf= copy.copy(self.df[:,:,tt])
         else:
-            plotdf= self.df
+            plotdf= copy.copy(self.df)
+        print plotdf
         plotdf[(plotdf == 0.)]= _NAN
         #Fill up the grid
-        _NAN= nu.nan
+        xsubmin= 0
+        xsubmax= nvR
+        ysubmin= 0
+        ysubmax= nvT
         for ii in range(nUpperLevels):
             xsubmin= int(nvR)/4
             xsubmax= nvR-int(nvR)/4
@@ -1142,10 +1149,11 @@ class evolveddiskdfHierarchicalGrid:
                             and kk >= ysubmin and kk < ysubmax:
                         continue
                     plotthis[jj,kk]= _NAN
-            nvR/= 2.
-            nvT/= 2.
+            nvR/= 2
+            nvT/= 2
         #Fill in this level
         plotthis[xsubmin:xsubmax,ysubmin:ysubmax]= plotdf
+        #print plotthis
         #Plot
         if nUpperLevels == 0:
             xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
@@ -1155,19 +1163,24 @@ class evolveddiskdfHierarchicalGrid:
                                       (yrange[1]-yrange[0]),
                                   extent=[xrange[0],xrange[1],
                                           yrange[0],yrange[1]],
+                                  interpolation='nearest',
                                   xlabel=r'$v_R / v_0$',
                                   ylabel=r'$v_T / v_0$',
                                   vmin=0.,vmax=vmax)
+            print "Here"
         else:
             xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
             yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
             bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
                                   aspect=(xrange[1]-xrange[0])/\
                                       (yrange[1]-yrange[0]),
+                                  interpolation='nearest',
                                   overplot=True,vmin=0.,vmax=vmax)
+        if not self.subgrid is None:
+            self.subgrid.plot(tt=tt,vmax=vmax)
 
     def max(self,tt=0):
-        if hasattr(self,subgrid):
+        if not self.subgrid is None:
             if len(self.df.shape) == 3:
                 return nu.amax([nu.amax(self.df[:,:,tt]),
                                 self.subgrid.max(tt)])
