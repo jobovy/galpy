@@ -15,6 +15,7 @@ from scipy import integrate
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
 from galpy.util.bovy_quadpack import dblquad
+from galpy.util import bovy_plot
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 class evolveddiskdf:
@@ -906,13 +907,42 @@ class evolveddiskdf:
         return grid(n,m)       
         
 class evolveddiskdfGrid:
-    """Empty class since it is only used to store some stuff"""
-    pass
+    """(not quite) Empty class since it is only used to store some stuff"""
+    def __init__(self):
+        return None
+
+    def plot(self,tt=0):
+        """
+        NAME:
+           plot
+        PURPOSE:
+           plot the velocity distribution
+        INPUT:
+           t= optional time index
+        OUTPUT:
+           plot of velocity distribution to output device
+        HISTORY:
+           2011-06-27 - Written - Bovy (NYU)
+        """
+        xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
+        yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
+        if len(self.df.shape) == 3:
+            plotthis= self.df[:,:,tt]
+        else:
+            plotthis= self.df
+        bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                              aspect=(xrange[1]-xrange[0])/\
+                                  (yrange[1]-yrange[0]),
+                              extent=[xrange[0],xrange[1],
+                                      yrange[0],yrange[1]],
+                              xlabel=r'$v_R / v_0$',
+                              ylabel=r'$v_T / v_0$')
 
 class evolveddiskdfHierarchicalGrid:
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                 gridpoints,nlevels,upperdxdy=None,print_progress=False):
+                 gridpoints,nlevels,upperdxdy=None,print_progress=False,
+                 nlevelsTotal=None):
         """
         NAME:
             __init__
@@ -949,6 +979,10 @@ class evolveddiskdfHierarchicalGrid:
                                  self.meanvT+nsigma*self.sigmaT1,
                                  self.gridpoints)
         self.t= t
+        if nlevelsTotal is None:
+            nlevelsTotal= nlevels
+        self.nlevels= nlevels
+        self.nlevelsTotal= nlevelsTotal
         if isinstance(t,(list,nu.ndarray)):
             nt= len(t)
             self.df= nu.zeros((gridpoints,gridpoints,nt))
@@ -1038,7 +1072,8 @@ class evolveddiskdfHierarchicalGrid:
                                                         gridpoints,
                                                         nlevels-1,
                                                         upperdxdy=dxdy,
-                                                        print_progress=print_progress)
+                                                        print_progress=print_progress,
+                                                        nlevelsTotal=nlevels)
         else:
             self.subgrid= None
         return None
@@ -1062,6 +1097,89 @@ class evolveddiskdfHierarchicalGrid:
             thislevel= nu.dot(self.vRgrid**n,nu.dot(self.df,self.vTgrid**m))
             if self.subgrid is None: return thislevel
             else: return thislevel+self.subgrid(n,m)
+
+    def plot(self,tt=0,vmax=None):
+        """
+        NAME:
+           plot
+        PURPOSE:
+           plot the velocity distribution
+        INPUT:
+           t= optional time index
+        OUTPUT:
+           plot of velocity distribution to output device
+        HISTORY:
+           2011-06-27 - Written - Bovy (NYU)
+        """
+        if vmax is None:
+            print "You want to figure out a good vmax= using the max(tt=) member function ..."
+        #Figure out how big of a grid we need
+        dvR= (self.vRgrid[1]-self.vRgrid[0])
+        dvT= (self.vTgrid[1]-self.vTgrid[0])
+        nvR= len(self.vRgrid)
+        nvT= len(self.vTgrid)
+        nUpperLevels= self.nlevelsTotal=self.nlevels
+        for ii in range(nUpperlevels):
+            nvR*= 2.
+            nvT*= 2.
+        plotthis= nu.zeros((nvR,nvT))
+        if len(self.df.shape) == 3:
+            plotdf= self.df[:,:,tt]
+        else:
+            plotdf= self.df
+        plotdf[(plotdf == 0.)]= _NAN
+        #Fill up the grid
+        _NAN= nu.nan
+        for ii in range(nUpperLevels):
+            xsubmin= int(nvR)/4
+            xsubmax= nvR-int(nvR)/4
+            ysubmin= int(nvT)/4
+            ysubmax= nvT-int(nvT)/4
+            for jj in range(nvR):
+                for kk in range(nvT):
+                    #If this is part of a subgrid, ignore
+                    if jj >= xsubmin and jj < xsubmax \
+                            and kk >= ysubmin and kk < ysubmax:
+                        continue
+                    plotthis[jj,kk]= _NAN
+            nvR/= 2.
+            nvT/= 2.
+        #Fill in this level
+        plotthis[xsubmin:xsubmax,ysubmin:ysubmax]= plotdf
+        #Plot
+        if nUpperLevels == 0:
+            xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
+            yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
+            bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                                  aspect=(xrange[1]-xrange[0])/\
+                                      (yrange[1]-yrange[0]),
+                                  extent=[xrange[0],xrange[1],
+                                          yrange[0],yrange[1]],
+                                  xlabel=r'$v_R / v_0$',
+                                  ylabel=r'$v_T / v_0$',
+                                  vmin=0.,vmax=vmax)
+        else:
+            xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
+            yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
+            bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                                  aspect=(xrange[1]-xrange[0])/\
+                                      (yrange[1]-yrange[0]),
+                                  overplot=True,vmin=0.,vmax=vmax)
+
+    def max(self,tt=0):
+        if hasattr(self,subgrid):
+            if len(self.df.shape) == 3:
+                return nu.amax([nu.amax(self.df[:,:,tt]),
+                                self.subgrid.max(tt)])
+            else:
+                return nu.amax([nu.amax(self.df[:,:]),
+                                self.subgrid.max()])
+        else:
+            if len(self.df.shape) == 3:
+                return nu.amax(self.df[:,:,tt])
+            else:
+                return nu.amax(self.df[:,:])
+
 
 def _vmomentsurfaceIntegrand(vR,vT,R,az,df,n,m,sigmaR1,sigmaT1,t,initvmoment):
     """Internal function that is the integrand for the velocity moment times
