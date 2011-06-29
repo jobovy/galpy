@@ -1100,7 +1100,7 @@ class evolveddiskdfHierarchicalGrid:
             if self.subgrid is None: return thislevel
             else: return thislevel+self.subgrid(n,m)
 
-    def plot(self,tt=0,vmax=None):
+    def plot(self,tt=0,vmax=None,aspect=None,extent=None):
         """
         NAME:
            plot
@@ -1121,7 +1121,6 @@ class evolveddiskdfHierarchicalGrid:
         nvR= len(self.vRgrid)
         nvT= len(self.vTgrid)
         nUpperLevels= self.nlevelsTotal-self.nlevels
-        print nUpperLevels, self.nlevelsTotal, self.nlevels
         for ii in range(nUpperLevels):
             nvR*= 2
             nvT*= 2
@@ -1158,26 +1157,24 @@ class evolveddiskdfHierarchicalGrid:
         if nUpperLevels == 0:
             xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
             yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
+            aspect=(xrange[1]-xrange[0])/\
+                (yrange[1]-yrange[0])
+            extent=[xrange[0],xrange[1],
+                    yrange[0],yrange[1]]
             bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
-                                  aspect=(xrange[1]-xrange[0])/\
-                                      (yrange[1]-yrange[0]),
-                                  extent=[xrange[0],xrange[1],
-                                          yrange[0],yrange[1]],
-                                  interpolation='nearest',
+                                          interpolation='nearest',
+                                  aspect=aspect,
+                                  extent=extent,
                                   xlabel=r'$v_R / v_0$',
                                   ylabel=r'$v_T / v_0$',
                                   vmin=0.,vmax=vmax)
-            print "Here"
         else:
-            xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
-            yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
             bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
-                                  aspect=(xrange[1]-xrange[0])/\
-                                      (yrange[1]-yrange[0]),
+                                  aspect=aspect,extent=extent,
                                   interpolation='nearest',
                                   overplot=True,vmin=0.,vmax=vmax)
         if not self.subgrid is None:
-            self.subgrid.plot(tt=tt,vmax=vmax)
+            self.subgrid.plot(tt=tt,vmax=vmax,aspect=aspect,extent=extent)
 
     def max(self,tt=0):
         if not self.subgrid is None:
