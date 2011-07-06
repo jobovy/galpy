@@ -615,7 +615,7 @@ def bovy_dens2d(X,**kwargs):
             else:
                 thiszlabel=zlabel
             CB1.set_label(zlabel)
-    if contours:
+    if contours or retCumImage:
         if kwargs.has_key('aspect'):
             aspect= kwargs['aspect']
         else:
@@ -634,12 +634,14 @@ def bovy_dens2d(X,**kwargs):
             cntrThis= sc.reshape(cntrThis,X.shape)
         else:
             cntrThis= X
-        cont= pyplot.contour(cntrThis,levels,colors=cntrcolors,
-                             linewidths=cntrlw,extent=extent,aspect=aspect,
-                             linestyles=cntrls,origin=origin)
-        if cntrlabel:
-            pyplot.clabel(cont,fontsize=cntrlabelsize,colors=cntrlabelcolors,
-                          inline=cntrinline)
+        if contours:
+            cont= pyplot.contour(cntrThis,levels,colors=cntrcolors,
+                                 linewidths=cntrlw,extent=extent,aspect=aspect,
+                                 linestyles=cntrls,origin=origin)
+            if cntrlabel:
+                pyplot.clabel(cont,fontsize=cntrlabelsize,
+                              colors=cntrlabelcolors,
+                              inline=cntrinline)
     if noaxes:
         ax.set_axis_off()
     if retCumImage:
@@ -791,6 +793,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        aspect - aspect ratio
 
+       contours - if False, don't plot contours
+
        onedhists - if True, make one-d histograms on the sides
 
        onedhistcolor, onedhistfc, onedhistec
@@ -856,6 +860,11 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('aspect')
     else:
         aspect= (xrange[1]-xrange[0])/(yrange[1]-yrange[0])
+    if kwargs.has_key('contours'):
+        contours= kwargs['contours']
+        kwargs.pop('contours')
+    else:
+        contours= True
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
         kwargs.pop('onedhists')
@@ -940,12 +949,21 @@ def scatterplot(x,y,*args,**kwargs):
     else:
         hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
                                     weights=weights)
-    cumimage= bovy_dens2d(hist.T,contours=True,levels=levels,cntrmass=True,
-                          cntrcolors='k',cmap=cmap,origin='lower',
-                          xrange=xrange,yrange=yrange,xlabel=xlabel,
-                          ylabel=ylabel,interpolation='nearest',
-                          retCumImage=True,aspect=aspect,
-                          overplot=(onedhists or overplot))
+    if contours:
+        cumimage= bovy_dens2d(hist.T,contours=contours,levels=levels,
+                              cntrmass=contours,
+                              cntrcolors='k',cmap=cmap,origin='lower',
+                              xrange=xrange,yrange=yrange,xlabel=xlabel,
+                              ylabel=ylabel,interpolation='nearest',
+                              retCumImage=True,aspect=aspect,
+                              overplot=(onedhists or overplot))
+    else:
+        cumimage= bovy_dens2d(hist.T,contours=contours,
+                              cntrcolors='k',cmap=cmap,origin='lower',
+                              xrange=xrange,yrange=yrange,xlabel=xlabel,
+                              ylabel=ylabel,interpolation='nearest',
+                              retCumImage=True,aspect=aspect,
+                              overplot=(onedhists or overplot))
     binxs= []
     xedge= edges[0]
     for ii in range(len(xedge)-1):
