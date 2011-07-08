@@ -795,6 +795,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        contours - if False, don't plot contours
 
+       cntrcolors - color of contours (can be array as for bovy_dens2d)
+
        onedhists - if True, make one-d histograms on the sides
 
        onedhistcolor, onedhistfc, onedhistec
@@ -865,6 +867,11 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('contours')
     else:
         contours= True
+    if kwargs.has_key('cntrcolors'):
+        cntrcolors= kwargs['cntrcolors']
+        kwargs.pop('cntrcolors')
+    else:
+        cntrcolors= 'k'
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
         kwargs.pop('onedhists')
@@ -952,14 +959,15 @@ def scatterplot(x,y,*args,**kwargs):
     if contours:
         cumimage= bovy_dens2d(hist.T,contours=contours,levels=levels,
                               cntrmass=contours,
-                              cntrcolors='k',cmap=cmap,origin='lower',
+                              cntrcolors=cntrcolors,cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               overplot=(onedhists or overplot))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
-                              cntrcolors='k',cmap=cmap,origin='lower',
+                              cntrcolors=cntrcolors,
+                              cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
