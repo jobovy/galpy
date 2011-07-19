@@ -130,7 +130,10 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     out= pyplot.hist(x,**kwargs)
     _add_axislabels(xlabel,ylabel)
     if not kwargs.has_key('range'):
-        pyplot.xlim(x.min(),x.max())
+        if isinstance(x,list):
+            xlimits=(sc.array(x).min(),sc.array(x).max())
+        else:
+            pyplot.xlim(x.min(),x.max())
     else:
         pyplot.xlim(kwargs['range'])
     _add_ticks()
