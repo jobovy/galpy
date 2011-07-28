@@ -161,6 +161,12 @@ def bovy_plot(*args,**kwargs):
 
        yrange
 
+       scatter= if True, use pyplot.scatter and its options etc.
+
+       colorbar= if True, and scatter==True, add colorbar
+
+       crange - range for colorbar of scatter==True
+
        overplot=True does not start a new figure
 
        onedhists - if True, make one-d histograms on the sides
@@ -195,6 +201,16 @@ def bovy_plot(*args,**kwargs):
         kwargs.pop('onedhists')
     else:
         onedhists= False
+    if kwargs.has_key('scatter'):
+        scatter= kwargs['scatter']
+        kwargs.pop('scatter')
+    else:
+        scatter= False
+    if kwargs.has_key('colorbar'):
+        colorbar= kwargs['colorbar']
+        kwargs.pop('colorbar')
+    else:
+        colorbar= False
     if kwargs.has_key('onedhisttype'):
         onedhisttype= kwargs['onedhisttype']
         kwargs.pop('onedhisttype')
@@ -277,6 +293,11 @@ def bovy_plot(*args,**kwargs):
         kwargs.pop('ylabel')
     else:
         ylabel=None
+    if kwargs.has_key('clabel'):
+        clabel= kwargs['clabel']
+        kwargs.pop('clabel')
+    else:
+        clabel=None
     if kwargs.has_key('xrange'):
         xlimits=kwargs['xrange']
         kwargs.pop('xrange')
@@ -293,7 +314,19 @@ def bovy_plot(*args,**kwargs):
             ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
-    out= pyplot.plot(*args,**kwargs)
+    if kwargs.has_key('crange'):
+        climits=kwargs['crange']
+        kwargs.pop('crange')
+    elif not scatter:
+        pass
+    elif isinstance(kwargs['c'],list):
+        climits=(sc.array(kwargs['c']).min(),sc.array(kwargs['c']).max())
+    else:
+        climits=(kwargs['c'].min(),kwargs['c'].max())
+    if scatter:
+        out= pyplot.scatter(*args,**kwargs)
+    else:
+        out= pyplot.plot(*args,**kwargs)
     if overplot:
         pass
     else:
@@ -301,6 +334,12 @@ def bovy_plot(*args,**kwargs):
         pyplot.ylim(*ylimits)
         _add_axislabels(xlabel,ylabel)
         _add_ticks()
+    #Add colorbar
+    if colorbar:
+        cbar= pyplot.colorbar(out,fraction=0.2)
+        cbar.set_clim(*climits)
+        if not clabel is None:
+            cbar.set_label(clabel)
     #Add onedhists
     if not onedhists:
         return
