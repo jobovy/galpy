@@ -128,6 +128,7 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     if not overplot:
         pyplot.figure()
     out= pyplot.hist(x,**kwargs)
+    if overplot: return out
     _add_axislabels(xlabel,ylabel)
     if not kwargs.has_key('range'):
         if isinstance(x,list):
