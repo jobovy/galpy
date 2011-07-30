@@ -344,17 +344,23 @@ def bovy_plot(*args,**kwargs):
     #Add onedhists
     if not onedhists:
         return
-    axHistx.hist(args[0], bins=bins,normed=onedhistxnormed,
-                 weights=onedhistxweights,
-                 histtype=onedhisttype,range=xlimits,
-                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
-    axHisty.hist(args[1], bins=bins, orientation='horizontal',
-                 weights=onedhistyweights,
-                 normed=onedhistynormed,
-                 histtype=onedhisttype,range=ylimits,
-                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
+    histx, edges, patches= axHistx.hist(args[0], bins=bins,
+                                        normed=onedhistxnormed,
+                                        weights=onedhistxweights,
+                                        histtype=onedhisttype,range=xlimits,
+                                        color=onedhistcolor,fc=onedhistfc,
+                                        ec=onedhistec)
+    histy, edges, patches= axHisty.hist(args[1], bins=bins,
+                                        orientation='horizontal',
+                                        weights=onedhistyweights,
+                                        normed=onedhistynormed,
+                                        histtype=onedhisttype,range=ylimits,
+                                        color=onedhistcolor,fc=onedhistfc,
+                                        ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
+    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
+    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
     return out
 
 def bovy_plot3d(*args,**kwargs):
@@ -1044,17 +1050,21 @@ def scatterplot(x,y,*args,**kwargs):
     #Add onedhists
     if not onedhists:
         return
-    axHistx.hist(x, bins=bins,normed=onedhistxnormed,
-                 weights=onedhistxweights,
-                 histtype=onedhisttype,range=xrange,
-                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
-    axHisty.hist(y, bins=bins, orientation='horizontal',
-                 weights=onedhistyweights,
-                 normed=onedhistynormed,
-                 histtype=onedhisttype,range=yrange,
-                 color=onedhistcolor,fc=onedhistfc,ec=onedhistec)
+    histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
+                                        weights=onedhistxweights,
+                                        histtype=onedhisttype,range=xrange,
+                                        color=onedhistcolor,fc=onedhistfc,
+                                        ec=onedhistec)
+    histy, edges, patches= axHisty.hist(y, bins=bins, orientation='horizontal',
+                                        weights=onedhistyweights,
+                                        normed=onedhistynormed,
+                                        histtype=onedhisttype,range=yrange,
+                                        color=onedhistcolor,fc=onedhistfc,
+                                        ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
+    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
+    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
 
 def _add_axislabels(xlabel,ylabel):
     """
