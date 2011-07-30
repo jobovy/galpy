@@ -217,7 +217,7 @@ def lbd_to_XYZ(l,b,d,degree=False):
         return lbd_to_XYZ_single(l,b,d,degree)
     else:
         function= sc.frompyfunc(lbd_to_XYZ_single,4,3)
-        return sc.array(function(l,b,d,degree)).T
+        return sc.array(function(l,b,d,degree),dtype=sc.float64).T
 
 def lbd_to_XYZ_single(l,b,d,degree=False):
     """
