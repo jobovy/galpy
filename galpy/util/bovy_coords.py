@@ -89,7 +89,7 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
         return radec_to_lb_single(ra,dec,transform,degree)
     else:
         function= sc.frompyfunc(radec_to_lb_single,4,2)
-        return sc.array(function(ra,dec,transform,degree)).T
+        return sc.array(function(ra,dec,transform,degree),dtype=sc.float64).T
 
 def radec_to_lb_single(ra,dec,T,degree=False):
     """
@@ -155,7 +155,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
         return lb_to_radec_single(l,b,transform,degree)
     else:
         function= sc.frompyfunc(lb_to_radec_single,4,2)
-        return sc.array(function(l,b,transform,degree)).T
+        return sc.array(function(l,b,transform,degree),dtype=sc.float64).T
 
 def lb_to_radec_single(l,b,T,degree=False):
     """
@@ -328,7 +328,7 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
         return vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree)
     else:
         function= sc.frompyfunc(vrpmllpmbb_to_vxvyvz_single,8,3)
-        return sc.array(function(vr,pmll,pmbb,l,b,d,XYZ,degree)).T
+        return sc.array(function(vr,pmll,pmbb,l,b,d,XYZ,degree),dtype=sc.float64).T
     
 def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
     """
@@ -401,7 +401,7 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
         return vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ,degree)
     else:
         function= sc.frompyfunc(vxvyvz_to_vrpmllpmbb_single,8,3)
-        return sc.array(function(vx,vy,vz,l,b,d,XYZ,degree)).T
+        return sc.array(function(vx,vy,vz,l,b,d,XYZ,degree),dtype=sc.float64).T
     
 def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     """
@@ -473,7 +473,7 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
         return XYZ_to_lbd_single(X,Y,Z,degree)
     else:
         function= sc.frompyfunc(XYZ_to_lbd_single,4,3)
-        return sc.array(function(X,Y,Z,degree)).T
+        return sc.array(function(X,Y,Z,degree),dtype=sc.float64).T
 
 def XYZ_to_lbd_single(X,Y,Z,degree):
     """
@@ -529,7 +529,7 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     else:
         lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         function= sc.frompyfunc(pmrapmdec_to_pmllpmbb_single,7,2)
-        return sc.array(function(pmra,pmdec,ra,dec,lb[:,1],degree,epoch)).T
+        return sc.array(function(pmra,pmdec,ra,dec,lb[:,1],degree,epoch),dtype=sc.float64).T
 
 def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -598,7 +598,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
         radec = lb_to_radec(l,b,degree=degree,epoch=epoch)
         function= sc.frompyfunc(pmllpmbb_to_pmrapmdec_single,7,2)
         return sc.array(function(pmll,pmbb,radec[:,0],radec[:,1],b,degree,
-                                 epoch)).T
+                                 epoch),dtype=sc.float64).T
 
 def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
     """
