@@ -347,14 +347,16 @@ def bovy_plot(*args,**kwargs):
     histx, edges, patches= axHistx.hist(args[0], bins=bins,
                                         normed=onedhistxnormed,
                                         weights=onedhistxweights,
-                                        histtype=onedhisttype,range=xlimits,
+                                        histtype=onedhisttype,
+                                        range=sorted(xlimits),
                                         color=onedhistcolor,fc=onedhistfc,
                                         ec=onedhistec)
     histy, edges, patches= axHisty.hist(args[1], bins=bins,
                                         orientation='horizontal',
                                         weights=onedhistyweights,
                                         normed=onedhistynormed,
-                                        histtype=onedhisttype,range=ylimits,
+                                        histtype=onedhisttype,
+                                        range=sorted(ylimits),
                                         color=onedhistcolor,fc=onedhistfc,
                                         ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
@@ -793,23 +795,23 @@ def bovy_text(*args,**kwargs):
         kwargs.pop('title')
         pyplot.annotate(args[0],(0.5,1.05),xycoords='axes fraction',
                         horizontalalignment='center',
-                        verticalalignment='top')
+                        verticalalignment='top',**kwargs)
     elif kwargs.has_key('bottom_left'):
         kwargs.pop('bottom_left')
-        pyplot.annotate(args[0],(0.05,0.05),xycoords='axes fraction')
+        pyplot.annotate(args[0],(0.05,0.05),xycoords='axes fraction',**kwargs)
     elif kwargs.has_key('bottom_right'):
         kwargs.pop('bottom_right')
         pyplot.annotate(args[0],(0.95,0.05),xycoords='axes fraction',
-                        horizontalalignment='right')
+                        horizontalalignment='right',**kwargs)
     elif kwargs.has_key('top_right'):
         kwargs.pop('top_right')
         pyplot.annotate(args[0],(0.95,0.95),xycoords='axes fraction',
                         horizontalalignment='right',
-                        verticalalignment='top')
+                        verticalalignment='top',**kwargs)
     elif kwargs.has_key('top_left'):
         kwargs.pop('top_left')
         pyplot.annotate(args[0],(0.05,0.95),xycoords='axes fraction',
-                        verticalalignment='top')
+                        verticalalignment='top',**kwargs)
     else:
         pyplot.text(*args,**kwargs)
 
@@ -946,6 +948,16 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('onedhistec')
     else:
         onedhistec= 'k'
+    if kwargs.has_key('onedhistls'):
+        onedhistls=kwargs['onedhistls']
+        kwargs.pop('onedhistls')
+    else:
+        onedhistls= 'solid'
+    if kwargs.has_key('onedhistlw'):
+        onedhistlw=kwargs['onedhistlw']
+        kwargs.pop('onedhistlw')
+    else:
+        onedhistlw= None
     if kwargs.has_key('overplot'):
         overplot= kwargs['overplot']
         kwargs.pop('overplot')
@@ -1052,15 +1064,19 @@ def scatterplot(x,y,*args,**kwargs):
         return
     histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
                                         weights=onedhistxweights,
-                                        histtype=onedhisttype,range=xrange,
+                                        histtype=onedhisttype,
+                                        range=sorted(xrange),
                                         color=onedhistcolor,fc=onedhistfc,
-                                        ec=onedhistec)
+                                        ec=onedhistec,ls=onedhistls,
+                                        lw=onedhistlw)
     histy, edges, patches= axHisty.hist(y, bins=bins, orientation='horizontal',
                                         weights=onedhistyweights,
                                         normed=onedhistynormed,
-                                        histtype=onedhisttype,range=yrange,
+                                        histtype=onedhisttype,
+                                        range=sorted(yrange),
                                         color=onedhistcolor,fc=onedhistfc,
-                                        ec=onedhistec)
+                                        ec=onedhistec,ls=onedhistls,
+                                        lw=onedhistlw)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
     axHistx.set_ylim( 0, 1.2*sc.amax(histx))
