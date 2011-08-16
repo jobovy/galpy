@@ -54,6 +54,15 @@ Specific potentials
    potentialnfw.rst
    potentialpowerspher.rst
 
+In addition to these classes, a Milky-Way-like potential is defined as ``galpy.potential.MWPotential``. This potential is defined as
+
+>>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
+>>> np= NFWPotential(a=4.5,normalize=.35)
+>>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
+>>> MWPotential= [mp,np,hp]
+
+and can thus be used like any list of ``Potentials``.
+
 
 2D potentials
 -------------
