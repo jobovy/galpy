@@ -88,13 +88,13 @@ class Orbit:
                     pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
                                                              vxvv[0],vxvv[1],
                                                              degree=True)
-                    d, vlos= vxvv[2], vxvv[6]
+                    d, vlos= vxvv[2], vxvv[5]
                 elif len(vxvv) == 4:
                     pmll, pmbb= vxvv[2], 0.
                     d, vlos= vxvv[1], vxvv[3]
                 else:
                     pmll, pmbb= vxvv[3], vxvv[4]
-                    d, vlos= vxvv[2], vxvv[6]
+                    d, vlos= vxvv[2], vxvv[5]
                 X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
                                                            vlos,pmll, pmbb,
                                                            degree=True)
