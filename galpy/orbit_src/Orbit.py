@@ -8,7 +8,7 @@ _K=4.74047
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
-                 radec=False,vo=235.,ro=8.5,
+                 radec=False,vo=235.,ro=8.5,zo=0.025,
                  solarmotion='hogg'):
         """
         NAME:
@@ -46,7 +46,9 @@ class Orbit:
 
            vo - circular velocity at ro
 
-           ro - distance from vantage point to GC
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
 
            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
            [-U,V,W]
@@ -103,7 +105,7 @@ class Orbit:
             vy/= vo
             vz/= vo
             vsun= nu.array([0.,1.,0.,])+vsolar
-            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z)
+            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,galcen=True)
