@@ -62,3 +62,10 @@ TransientLogSpiralPotential= TransientLogSpiralPotential.TransientLogSpiralPoten
 MovingObjectPotential= MovingObjectPotential.MovingObjectPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
+
+#
+# Constants
+#
+MWPotential= [MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6),
+              NFWPotential(a=4.5,normalize=.35),
+              HernquistPotential(a=0.6/8,normalize=0.05)]
