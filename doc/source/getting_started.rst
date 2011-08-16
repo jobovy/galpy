@@ -45,6 +45,9 @@ You'll see the following
 
 .. image:: images/rotcurve.png
 
+As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
+
+>>> from galpy.potential import MWPotential
 
 Orbit integration
 -----------------
