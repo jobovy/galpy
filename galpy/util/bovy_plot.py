@@ -255,7 +255,7 @@ def bovy_plot(*args,**kwargs):
     if kwargs.has_key('bins'):
         bins= kwargs['bins']
         kwargs.pop('bins')
-    else:
+    elif onedhists:
         if isinstance(args[0],sc.ndarray):
             bins= round(0.3*sc.sqrt(args[0].shape[0]))
         elif isinstance(args[0],list):
