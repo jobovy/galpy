@@ -337,7 +337,7 @@ def bovy_plot(*args,**kwargs):
         _add_ticks()
     #Add colorbar
     if colorbar:
-        cbar= pyplot.colorbar(out,fraction=0.2)
+        cbar= pyplot.colorbar(out,fraction=0.15)
         cbar.set_clim(*climits)
         if not clabel is None:
             cbar.set_label(clabel)
