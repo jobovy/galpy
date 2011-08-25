@@ -343,7 +343,7 @@ def bovy_plot(*args,**kwargs):
             cbar.set_label(clabel)
     #Add onedhists
     if not onedhists:
-        return
+        return out
     histx, edges, patches= axHistx.hist(args[0], bins=bins,
                                         normed=onedhistxnormed,
                                         weights=onedhistxweights,
