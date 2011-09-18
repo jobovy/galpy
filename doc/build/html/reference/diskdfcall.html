@@ -54,27 +54,35 @@
 <h1>galpy.df.diskdf.__call__<a class="headerlink" href="#galpy-df-diskdf-call" title="Permalink to this headline">¶</a></h1>
 <dl class="method">
 <dt id="galpy.df.diskdf.__call__">
-<tt class="descclassname">diskdf.</tt><tt class="descname">__call__</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#galpy.df.diskdf.__call__" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="docutils">
-<dt>NAME:</dt>
-<dd>__call__</dd>
-<dt>PURPOSE:</dt>
-<dd>evaluate the distribution function</dd>
-<dt>INPUT:</dt>
-<dd><p class="first">either an orbit instance or E,Lz</p>
-<ol class="last arabic simple">
+<tt class="descclassname">diskdf.</tt><tt class="descname">__call__</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#galpy.df.diskdf.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>NAME:</p>
+<blockquote>
+<div>__call__</div></blockquote>
+<p>PURPOSE:</p>
+<blockquote>
+<div>evaluate the distribution function</div></blockquote>
+<p>INPUT:</p>
+<blockquote>
+<div><p>either an orbit instance or E,Lz</p>
+<ol class="arabic simple">
 <li>Orbit instance:
 a) Orbit instance alone: use vxvv member
 b) Orbit instance + t: call the Orbit instance</li>
 <li>E - energy (/vo^2)
 L - angular momentun (/ro/vo)</li>
 </ol>
-</dd>
-<dt>OUTPUT:</dt>
-<dd>DF(orbit/E,L)</dd>
-<dt>HISTORY:</dt>
-<dd>2010-07-10 - Written - Bovy (NYU)</dd>
-</dl>
+</div></blockquote>
+<p>KWARGS:</p>
+<blockquote>
+<div><p>marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords</p>
+<p>marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords</p>
+</div></blockquote>
+<p>OUTPUT:</p>
+<blockquote>
+<div>DF(orbit/E,L)</div></blockquote>
+<p>HISTORY:</p>
+<blockquote>
+<div>2010-07-10 - Written - Bovy (NYU)</div></blockquote>
 </dd></dl>
 
 </div>
@@ -131,7 +139,7 @@ L - angular momentun (/ro/vo)</li>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

@@ -24,7 +24,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="top" title="galpy v0.1_alpha documentation" href="../index.html" />
     <link rel="up" title="Potential" href="potential.html" />
-    <link rel="next" title="galpy.potential.linearPotential.__call__" href="potential1dcall.html" />
+    <link rel="next" title="Steady-state logarithmic spiral potential" href="potentialsteadylogspiral.html" />
     <link rel="prev" title="galpy.potential.RZToplanarPotential" href="potential2dRZtoplanar.html" /> 
   </head>
   <body>
@@ -35,7 +35,7 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="potential1dcall.html" title="galpy.potential.linearPotential.__call__"
+          <a href="potentialsteadylogspiral.html" title="Steady-state logarithmic spiral potential"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="potential2dRZtoplanar.html" title="galpy.potential.RZToplanarPotential"
@@ -54,20 +54,20 @@
 <h1>Dehnen bar potential<a class="headerlink" href="#dehnen-bar-potential" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="galpy.potential.DehnenBarPotential">
-<em class="property">class </em><tt class="descclassname">galpy.potential.</tt><tt class="descname">DehnenBarPotential</tt><big>(</big><em>amp=1.0</em>, <em>omegab=None</em>, <em>rb=None</em>, <em>chi=0.80000000000000004</em>, <em>rolr=0.90000000000000002</em>, <em>barphi=0.43633231299858238</em>, <em>tform=-4.0</em>, <em>tsteady=None</em>, <em>beta=0.0</em>, <em>alpha=0.01</em>, <em>Af=None</em><big>)</big><a class="headerlink" href="#galpy.potential.DehnenBarPotential" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">galpy.potential.</tt><tt class="descname">DehnenBarPotential</tt><big>(</big><em>amp=1.0</em>, <em>omegab=None</em>, <em>rb=None</em>, <em>chi=0.8</em>, <em>rolr=0.9</em>, <em>barphi=0.4363323129985824</em>, <em>tform=-4.0</em>, <em>tsteady=None</em>, <em>beta=0.0</em>, <em>alpha=0.01</em>, <em>Af=None</em><big>)</big><a class="headerlink" href="#galpy.potential.DehnenBarPotential" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class that implements the Dehnen bar potential (Dehnen 2000)</p>
 <dl class="method">
 <dt id="galpy.potential.DehnenBarPotential.__init__">
-<tt class="descname">__init__</tt><big>(</big><em>amp=1.0</em>, <em>omegab=None</em>, <em>rb=None</em>, <em>chi=0.80000000000000004</em>, <em>rolr=0.90000000000000002</em>, <em>barphi=0.43633231299858238</em>, <em>tform=-4.0</em>, <em>tsteady=None</em>, <em>beta=0.0</em>, <em>alpha=0.01</em>, <em>Af=None</em><big>)</big><a class="headerlink" href="#galpy.potential.DehnenBarPotential.__init__" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">__init__</tt><big>(</big><em>amp=1.0</em>, <em>omegab=None</em>, <em>rb=None</em>, <em>chi=0.8</em>, <em>rolr=0.9</em>, <em>barphi=0.4363323129985824</em>, <em>tform=-4.0</em>, <em>tsteady=None</em>, <em>beta=0.0</em>, <em>alpha=0.01</em>, <em>Af=None</em><big>)</big><a class="headerlink" href="#galpy.potential.DehnenBarPotential.__init__" title="Permalink to this definition">¶</a></dt>
 <dd><p>NAME:</p>
 <blockquote>
-__init__</blockquote>
+<div>__init__</div></blockquote>
 <p>PURPOSE:</p>
 <blockquote>
-initialize a Dehnen bar potential</blockquote>
+<div>initialize a Dehnen bar potential</div></blockquote>
 <p>INPUT:</p>
 <blockquote>
-<p>amp - amplitude to be applied to the potential (default:
+<div><p>amp - amplitude to be applied to the potential (default:
 1., see alpha or Ab below)</p>
 <p>barphi - angle between sun-GC line and the bar&#8217;s major axis
 (in rad; default=25 degree)</p>
@@ -76,7 +76,7 @@ initialize a Dehnen bar potential</blockquote>
 (default: tform/2)</p>
 <p>Either provide:</p>
 <blockquote>
-<ol class="loweralpha">
+<div><ol class="loweralpha">
 <li><p class="first">rolr - radius of the Outer Lindblad Resonance for a
 circular orbit</p>
 <p>chi - fraction R_bar / R_CR (corotation radius of bar)</p>
@@ -89,14 +89,14 @@ calculate OLR, etc.)</p>
 <p>Af - bar strength</p>
 </li>
 </ol>
-</blockquote>
-</blockquote>
+</div></blockquote>
+</div></blockquote>
 <p>OUTPUT:</p>
 <blockquote>
-(none)</blockquote>
+<div>(none)</div></blockquote>
 <p>HISTORY:</p>
 <blockquote>
-2010-11-24 - Started - Bovy (NYU)</blockquote>
+<div>2010-11-24 - Started - Bovy (NYU)</div></blockquote>
 </dd></dl>
 
 </dd></dl>
@@ -113,8 +113,8 @@ calculate OLR, etc.)</p>
   <p class="topless"><a href="potential2dRZtoplanar.html"
                         title="previous chapter">galpy.potential.RZToplanarPotential</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="potential1dcall.html"
-                        title="next chapter">galpy.potential.linearPotential.__call__</a></p>
+  <p class="topless"><a href="potentialsteadylogspiral.html"
+                        title="next chapter">Steady-state logarithmic spiral  potential</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="../_sources/reference/potentialdehnenbar.txt"
@@ -144,7 +144,7 @@ calculate OLR, etc.)</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="potential1dcall.html" title="galpy.potential.linearPotential.__call__"
+          <a href="potentialsteadylogspiral.html" title="Steady-state logarithmic spiral potential"
              >next</a> |</li>
         <li class="right" >
           <a href="potential2dRZtoplanar.html" title="galpy.potential.RZToplanarPotential"
@@ -155,7 +155,7 @@ calculate OLR, etc.)</p>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

@@ -58,23 +58,31 @@
 <tt class="descclassname">galpy.util.bovy_plot.</tt><tt class="descname">bovy_plot</tt><big>(</big><em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#galpy.util.bovy_plot.bovy_plot" title="Permalink to this definition">¶</a></dt>
 <dd><p>NAME:</p>
 <blockquote>
-bovy_plot</blockquote>
+<div>bovy_plot</div></blockquote>
 <p>PURPOSE:</p>
 <blockquote>
-wrapper around matplotlib&#8217;s plot function</blockquote>
+<div>wrapper around matplotlib&#8217;s plot function</div></blockquote>
 <p>INPUT:</p>
 <blockquote>
-<p>see <a class="reference external" href="http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot">http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot</a></p>
+<div><p>see <a class="reference external" href="http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot">http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot</a></p>
 <p>xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed</p>
 <p>ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed</p>
 <p>xrange</p>
 <p>yrange</p>
+<p>scatter= if True, use pyplot.scatter and its options etc.</p>
+<p>colorbar= if True, and scatter==True, add colorbar</p>
+<p>crange - range for colorbar of scatter==True</p>
 <p>overplot=True does not start a new figure</p>
-</blockquote>
+<p>onedhists - if True, make one-d histograms on the sides</p>
+<p>onedhistcolor, onedhistfc, onedhistec</p>
+<p>onedhistxnormed, onedhistynormed - normed keyword for one-d histograms</p>
+<p>onedhistxweights, onedhistyweights - weights keyword for one-d histograms</p>
+<p>bins= number of bins for onedhists</p>
+</div></blockquote>
 <p>OUTPUT:</p>
 <p>HISTORY:</p>
 <blockquote>
-2009-12-28 - Written - Bovy (NYU)</blockquote>
+<div>2009-12-28 - Written - Bovy (NYU)</div></blockquote>
 </dd></dl>
 
 </div>
@@ -132,7 +140,7 @@ wrapper around matplotlib&#8217;s plot function</blockquote>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

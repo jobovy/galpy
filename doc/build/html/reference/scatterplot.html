@@ -58,14 +58,14 @@
 <tt class="descclassname">galpy.util.bovy_plot.</tt><tt class="descname">scatterplot</tt><big>(</big><em>x</em>, <em>y</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#galpy.util.bovy_plot.scatterplot" title="Permalink to this definition">¶</a></dt>
 <dd><p>NAME:</p>
 <blockquote>
-scatterplot</blockquote>
+<div>scatterplot</div></blockquote>
 <p>PURPOSE:</p>
 <blockquote>
-make a &#8216;smart&#8217; scatterplot that is a density plot in high-density
-regions and a regular scatterplot for outliers</blockquote>
+<div>make a &#8216;smart&#8217; scatterplot that is a density plot in high-density
+regions and a regular scatterplot for outliers</div></blockquote>
 <p>INPUT:</p>
 <blockquote>
-<p>x, y</p>
+<div><p>x, y</p>
 <p>xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed</p>
 <p>ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed</p>
 <p>xrange</p>
@@ -73,13 +73,24 @@ regions and a regular scatterplot for outliers</blockquote>
 <p>bins - number of bins to use in each dimension</p>
 <p>weights - data-weights</p>
 <p>aspect - aspect ratio</p>
+<p>contours - if False, don&#8217;t plot contours</p>
+<p>cntrcolors - color of contours (can be array as for bovy_dens2d)</p>
 <p>onedhists - if True, make one-d histograms on the sides</p>
 <p>onedhistcolor, onedhistfc, onedhistec</p>
-</blockquote>
+<p>onedhistxnormed, onedhistynormed - normed keyword for one-d histograms</p>
+<p>onedhistxweights, onedhistyweights - weights keyword for one-d histograms</p>
+<p>cmap= cmap for density plot</p>
+<dl class="docutils">
+<dt>hist= and edges= - you can supply the histogram of the data yourself,</dt>
+<dd>this can be useful if you want to censor the data,
+both need to be set and calculated using 
+scipy.histogramdd with the given range</dd>
+</dl>
+</div></blockquote>
 <p>OUTPUT:</p>
 <p>HISTORY:</p>
 <blockquote>
-2010-04-15 - Written - Bovy (NYU)</blockquote>
+<div>2010-04-15 - Written - Bovy (NYU)</div></blockquote>
 </dd></dl>
 
 </div>
@@ -137,7 +148,7 @@ regions and a regular scatterplot for outliers</blockquote>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

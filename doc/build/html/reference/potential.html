@@ -99,6 +99,14 @@
 <li class="toctree-l1"><a class="reference internal" href="potentialpowerspher.html">Power-law density spherical potential</a></li>
 </ul>
 </div>
+<p>In addition to these classes, a Milky-Way-like potential is defined as <tt class="docutils literal"><span class="pre">galpy.potential.MWPotential</span></tt>. This potential is defined as</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">mp</span><span class="o">=</span> <span class="n">MiyamotoNagaiPotential</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="mf">0.0375</span><span class="p">,</span><span class="n">normalize</span><span class="o">=.</span><span class="mi">6</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">=</span> <span class="n">NFWPotential</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mf">4.5</span><span class="p">,</span><span class="n">normalize</span><span class="o">=.</span><span class="mi">35</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hp</span><span class="o">=</span> <span class="n">HernquistPotential</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mf">0.6</span><span class="o">/</span><span class="mi">8</span><span class="p">,</span><span class="n">normalize</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">MWPotential</span><span class="o">=</span> <span class="p">[</span><span class="n">mp</span><span class="p">,</span><span class="n">np</span><span class="p">,</span><span class="n">hp</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>and can thus be used like any list of <tt class="docutils literal"><span class="pre">Potentials</span></tt>.</p>
 </div>
 </div>
 <div class="section" id="id1">
@@ -145,10 +153,12 @@ potentials in the mid-plane.</p>
 <li class="toctree-l1"><a class="reference internal" href="potential2dRZtoplanar.html">RZToplanarPotential</a></li>
 </ul>
 </div>
-<p>In addition, a two-dimensional bar potential is included</p>
+<p>In addition, a two-dimensional bar potential and a two spiral potentials are included</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="potentialdehnenbar.html">Dehnen bar potential</a></li>
+<li class="toctree-l1"><a class="reference internal" href="potentialsteadylogspiral.html">Steady-state logarithmic spiral  potential</a></li>
+<li class="toctree-l1"><a class="reference internal" href="potentialtransientlogspiral.html">Transient logarithmic spiral  potential</a></li>
 </ul>
 </div>
 </div>
@@ -289,7 +299,7 @@ potentials in the mid-plane.</p>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

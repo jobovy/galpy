@@ -54,23 +54,23 @@
 <h1>galpy.orbit.Orbit<a class="headerlink" href="#galpy-orbit-orbit" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="galpy.orbit.Orbit">
-<em class="property">class </em><tt class="descclassname">galpy.orbit.</tt><tt class="descname">Orbit</tt><big>(</big><em>vxvv=None</em>, <em>uvw=False</em>, <em>lb=False</em>, <em>radec=False</em>, <em>vo=235.0</em>, <em>ro=8.5</em>, <em>solarmotion='hogg'</em><big>)</big><a class="headerlink" href="#galpy.orbit.Orbit" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">galpy.orbit.</tt><tt class="descname">Orbit</tt><big>(</big><em>vxvv=None</em>, <em>uvw=False</em>, <em>lb=False</em>, <em>radec=False</em>, <em>vo=235.0</em>, <em>ro=8.5</em>, <em>zo=0.025</em>, <em>solarmotion='hogg'</em><big>)</big><a class="headerlink" href="#galpy.orbit.Orbit" title="Permalink to this definition">¶</a></dt>
 <dd><p>General orbit class representing an orbit</p>
 <dl class="method">
 <dt id="galpy.orbit.Orbit.__init__">
-<tt class="descname">__init__</tt><big>(</big><em>vxvv=None</em>, <em>uvw=False</em>, <em>lb=False</em>, <em>radec=False</em>, <em>vo=235.0</em>, <em>ro=8.5</em>, <em>solarmotion='hogg'</em><big>)</big><a class="headerlink" href="#galpy.orbit.Orbit.__init__" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">__init__</tt><big>(</big><em>vxvv=None</em>, <em>uvw=False</em>, <em>lb=False</em>, <em>radec=False</em>, <em>vo=235.0</em>, <em>ro=8.5</em>, <em>zo=0.025</em>, <em>solarmotion='hogg'</em><big>)</big><a class="headerlink" href="#galpy.orbit.Orbit.__init__" title="Permalink to this definition">¶</a></dt>
 <dd><p>NAME:</p>
 <blockquote>
-__init__</blockquote>
+<div>__init__</div></blockquote>
 <p>PURPOSE:</p>
 <blockquote>
-Initialize an Orbit instance</blockquote>
+<div>Initialize an Orbit instance</div></blockquote>
 <p>INPUT:</p>
 <blockquote>
-<dl class="docutils">
+<div><dl class="docutils">
 <dt>vxvv - initial conditions </dt>
 <dd><blockquote class="first">
-3D can be either</blockquote>
+<div>3D can be either</div></blockquote>
 <ol class="last arabic simple">
 <li>in Galactocentric cylindrical coordinates</li>
 <li>[ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec)</li>
@@ -80,22 +80,27 @@ Initialize an Orbit instance</blockquote>
 </ol>
 </dd>
 </dl>
-</blockquote>
+<ol class="arabic simple" start="4">
+<li>and 5) also work when leaving out b and mu_b/W</li>
+</ol>
+</div></blockquote>
 <p>OPTIONAL INPUTS:</p>
 <blockquote>
-<p>radec - if True, input is 2) (or 3) above</p>
+<div><p>radec - if True, input is 2) (or 3) above</p>
 <p>uvw - if True, velocities are UVW</p>
 <p>lb - if True, input is 4) or 5) above</p>
 <p>vo - circular velocity at ro</p>
-<p>ro - distance from vantage point to GC</p>
-<p>solarmotion - &#8216;hogg&#8217; or &#8216;dehnen&#8217;, or &#8216;schoenrich&#8217;</p>
-</blockquote>
+<p>ro - distance from vantage point to GC (kpc)</p>
+<p>zo - offset toward the NGP of the Sun wrt the plane (kpc)</p>
+<p>solarmotion - &#8216;hogg&#8217; or &#8216;dehnen&#8217;, or &#8216;schoenrich&#8217;, or value in 
+[-U,V,W]</p>
+</div></blockquote>
 <p>OUTPUT:</p>
 <blockquote>
-instance</blockquote>
+<div>instance</div></blockquote>
 <p>HISTORY:</p>
 <blockquote>
-2010-07-20 - Written - Bovy (NYU)</blockquote>
+<div>2010-07-20 - Written - Bovy (NYU)</div></blockquote>
 </dd></dl>
 
 </dd></dl>
@@ -154,7 +159,7 @@ instance</blockquote>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>

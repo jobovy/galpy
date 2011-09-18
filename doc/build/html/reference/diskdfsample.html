@@ -54,7 +54,7 @@
 <h1>galpy.df.diskdf.sample<a class="headerlink" href="#galpy-df-diskdf-sample" title="Permalink to this headline">¶</a></h1>
 <dl class="method">
 <dt id="galpy.df.diskdf.sample">
-<tt class="descclassname">diskdf.</tt><tt class="descname">sample</tt><big>(</big><em>n=1</em>, <em>rrange=None</em>, <em>returnROrbit=True</em>, <em>returnOrbit=False</em>, <em>nphi=1.0</em><big>)</big><a class="headerlink" href="#galpy.df.diskdf.sample" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">diskdf.</tt><tt class="descname">sample</tt><big>(</big><em>n=1</em>, <em>rrange=None</em>, <em>returnROrbit=True</em>, <em>returnOrbit=False</em>, <em>nphi=1.0</em>, <em>los=None</em>, <em>losdeg=True</em>, <em>nsigma=None</em>, <em>maxd=None</em>, <em>target=True</em><big>)</big><a class="headerlink" href="#galpy.df.diskdf.sample" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="docutils">
 <dt>NAME:</dt>
 <dd>sample</dd>
@@ -69,14 +69,21 @@
 <dt>returnROrbit - if True, return a planarROrbit instance: </dt>
 <dd>[R,vR,vT] (default)</dd>
 </dl>
-<p class="last">returnOrbit - if True, return a planarOrbit instance (including phi)
-nphi - number of azimuths to sample for each E,L</p>
+<p>returnOrbit - if True, return a planarOrbit instance (including phi)
+nphi - number of azimuths to sample for each E,L
+los= line of sight sampling along this line of sight
+losdeg= los in degrees? (default=True)
+target= if True, use target surface mass and sigma2 profiles</p>
+<blockquote>
+<div>(default=True)</div></blockquote>
+<p class="last">nsigma= number of sigma to rejection-sample on
+maxd= maximum distance to consider (for the rejection sampling)</p>
 </dd>
 <dt>OUTPUT:</dt>
 <dd><p class="first">n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
 CAUTION: lists of EL need to be post-processed to account for the</p>
 <blockquote class="last">
-kappa/omega_R discrepancy</blockquote>
+<div>kappa/omega_R discrepancy</div></blockquote>
 </dd>
 <dt>HISTORY:</dt>
 <dd>2010-07-10 - Started  - Bovy (NYU)</dd>
@@ -137,7 +144,7 @@ kappa/omega_R discrepancy</blockquote>
     </div>
     <div class="footer">
         &copy; Copyright 2010 - 2011, Jo Bovy.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.4.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
     </div>
   </body>
 </html>
