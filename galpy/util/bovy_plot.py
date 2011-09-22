@@ -320,10 +320,12 @@ def bovy_plot(*args,**kwargs):
         kwargs.pop('crange')
     elif not scatter:
         pass
-    elif isinstance(kwargs['c'],list):
+    elif kwargs.has_key('c') and isinstance(kwargs['c'],list):
         climits=(sc.array(kwargs['c']).min(),sc.array(kwargs['c']).max())
-    else:
+    elif kwargs.has_key('c'):
         climits=(kwargs['c'].min(),kwargs['c'].max())
+    else:
+        climits= None
     if scatter:
         out= pyplot.scatter(*args,**kwargs)
     else:
