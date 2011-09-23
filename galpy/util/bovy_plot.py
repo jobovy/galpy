@@ -180,6 +180,8 @@ def bovy_plot(*args,**kwargs):
 
        bins= number of bins for onedhists
 
+       semilogx=, semilogy=, loglog= if True, plot logs
+
     OUTPUT:
 
     HISTORY:
@@ -207,6 +209,21 @@ def bovy_plot(*args,**kwargs):
         kwargs.pop('scatter')
     else:
         scatter= False
+    if kwargs.has_key('loglog'):
+        loglog= kwargs['loglog']
+        kwargs.pop('loglog')
+    else:
+        loglog= False
+    if kwargs.has_key('semilogx'):
+        semilogx= kwargs['semilogx']
+        kwargs.pop('semilogx')
+    else:
+        semilogx= False
+    if kwargs.has_key('semilogy'):
+        semilogy= kwargs['semilogy']
+        kwargs.pop('semilogy')
+    else:
+        semilogy= False
     if kwargs.has_key('colorbar'):
         colorbar= kwargs['colorbar']
         kwargs.pop('colorbar')
@@ -328,15 +345,32 @@ def bovy_plot(*args,**kwargs):
         climits= None
     if scatter:
         out= pyplot.scatter(*args,**kwargs)
+    elif loglog:
+        out= pyplot.loglog(*args,**kwargs)
+    elif semilogx:
+        out= pyplot.semilogx(*args,**kwargs)
+    elif semilogy:
+        out= pyplot.semilogy(*args,**kwargs)
     else:
         out= pyplot.plot(*args,**kwargs)
     if overplot:
         pass
     else:
+        if semilogy:
+            ax= pyplot.gca()
+            ax.set_yscale('log')
+        elif semilogx:
+            ax= pyplot.gca()
+            ax.set_xscale('log')
+        elif loglog:
+            ax= pyplot.gca()
+            ax.set_xscale('log')
+            ax.set_yscale('log')
         pyplot.xlim(*xlimits)
         pyplot.ylim(*ylimits)
         _add_axislabels(xlabel,ylabel)
-        _add_ticks()
+        if not semilogy and not semilogx and not loglog:
+            _add_ticks()
     #Add colorbar
     if colorbar:
         cbar= pyplot.colorbar(out,fraction=0.15)
