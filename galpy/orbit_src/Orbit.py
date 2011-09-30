@@ -11,9 +11,9 @@ def _vzEqZeroBC(ar):
     return ar[4]
 def _REqZeroBC(ar):
     return ar[0]
-def _vRzEqZeroBC(ar):
+def _vREqZeroBC(ar):
     return ar[1]
-def _vTzEqZeroBC(ar):
+def _vTEqZeroBC(ar):
     return ar[2]
 def _phiEqZeroBC(ar):
     if len(ar) > 4: return ar[5]
