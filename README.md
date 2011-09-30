@@ -14,7 +14,7 @@ See [here](http://jobovy.github.com/galpy)
 
 ##INSTALLATION
 
-There is no installation at this time
+Standard python setup.py build/install
 
 
 ##DEPENDENCIES
