@@ -64,10 +64,33 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2011-09-30
         """
-        tout= optimize.newton(_integrateBCFuncRZ,0.,
-                              args=(self.vxvv,pot,method,bc))
-        t= nu.array([0.,tout])
-        return _integrateRZOrbit(self.vxvv,pot,t,method)
+        #First find the interval; initialize
+        dt= 1.
+        a,b= 0., dt
+        vxvv_a= self.vxvv
+        bc_a= bc(vxvv_a)
+        if bc_a == 0.:
+            return nu.array([vxvv_a,vxvv_a])
+        tmp_orb= _integrateRZOrbit(vxvv_a,pot,nu.array([0.,b-a]),method)
+        vxvv_b= tmp_orb[1,:]
+        bc_b= bc(vxvv_b)
+        if bc_b*bc_a < 0.: found_init_interval= True
+        else: found_init_interval= False
+        while not found_init_interval:
+            #Repeat!
+            a= b
+            b= a+1.
+            bc_a= bc_b
+            vxvv_a= vxvv_b
+            tmp_orb= _integrateRZOrbit(vxvv_a,pot,nu.array([0.,b-a]),method)
+            vxvv_b= tmp_orb[1,:]
+            bc_b= bc(vxvv_b)
+            if bc_b*bc_a < 0.: found_init_interval= True
+        print a, b, bc_a, bc_b
+        tout= optimize.brentq(_integrateBCFuncRZ,a,b,
+                              args=(vxvv_a,pot,method,bc,a))
+        t= nu.array([a,tout])
+        return _integrateRZOrbit(vxvv_a,pot,t,method)
 
     def E(self,pot=None):
         """
@@ -442,14 +465,13 @@ def _RZEOM(y,t,pot,l2):
             y[3],
             evaluatezforces(y[0],y[2],pot,t=t)]
 
-def _integrateBCFuncRZ(t,vxvv,pot,method,bc):
-    print t
-    if t == 0.: return bc(vxvv)
+def _integrateBCFuncRZ(t,vxvv,pot,method,bc,to):
+    if t == to: return bc(vxvv)
     #Determine number of ts
-    nts= int(nu.ceil(t))+1 #very simple estimate
-    print nts
-    tin= nu.linspace(0.,t,nts)
+    nts= int(nu.ceil(t-to))+1 #very simple estimate
+    tin= nu.linspace(to,t,nts)
     orb= _integrateRZOrbit(vxvv,pot,tin,method)
+    print bc(orb[nts-1,:])
     return bc(orb[nts-1,:])
 
 
