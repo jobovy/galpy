@@ -1,6 +1,6 @@
 import math as m
 import numpy as nu
-from scipy import integrate
+from scipy import integrate, optimize
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluateDensities
 import galpy.util.bovy_plot as plot
@@ -47,6 +47,27 @@ class RZOrbit(OrbitTop):
         self.t= nu.array(t)
         self._pot= pot
         self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)
+
+    def integrateBC(self,pot,bc=None,method='odeint'):
+        """
+        NAME:
+           integrateBC
+        PURPOSE:
+           integrate the orbit subject to a final boundary condition
+        INPUT:
+           pot - potential instance or list of instances
+           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
+           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
+                   a simple symplectic integrator
+        OUTPUT:
+           Another Orbit instance
+        HISTORY:
+           2011-09-30
+        """
+        tout= optimize.newton(_integrateBCFunc,0.,
+                              args=(self.vxvv,pot,method,bc))
+        t= nu.array([0.,tout])
+        return _integrateRZOrbit(self.vxvv,pot,t,method)
 
     def E(self,pot=None):
         """
@@ -420,3 +441,10 @@ def _RZEOM(y,t,pot,l2):
             l2/y[0]**3.+evaluateRforces(y[0],y[2],pot,t=t),
             y[3],
             evaluatezforces(y[0],y[2],pot,t=t)]
+
+def _integrateBCFunc(t,vxvv,pot,method,bc):
+    tin= nu.array([0.,t])
+    orb= _integrateRZOrbit(vxvv,pot,tin,method)
+    return bc(orb[1,:])
+
+
