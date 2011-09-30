@@ -11,10 +11,14 @@ def _vzEqZeroBC(ar):
     return ar[4]
 def _REqZeroBC(ar):
     return ar[0]
+def _REqOneBC(ar):
+    return ar[0]-1
 def _vREqZeroBC(ar):
     return ar[1]
 def _vTEqZeroBC(ar):
     return ar[2]
+def _vTEqZOneBC(ar):
+    return ar[2]-1
 def _phiEqZeroBC(ar):
     if len(ar) > 4: return ar[5]
     else: return ar[3]
@@ -272,7 +276,7 @@ class Orbit:
            2011-09-30
 
         """
-        o= self._orb.integrateBC(pot,bc=_zEqZero,method=method)
+        o= self._orb.integrateBC(pot,bc=bc,method=method)
         return Orbit(vxvv=o[1,:])
 
     def reverse(self):
