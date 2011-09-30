@@ -5,6 +5,8 @@ from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
 _K=4.74047
+def _zEqZero(ar):
+    return ar[3]
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -230,6 +232,37 @@ class Orbit:
 
         """
         self._orb.integrate(t,pot,method=method)
+
+    def integrateBC(self,pot,bc=_zEqZero,method='odeint'):
+        """
+        NAME:
+
+           integrateBC
+
+        PURPOSE:
+
+           integrate the orbit subject to a final boundary condition
+
+        INPUT:
+
+           pot - potential instance or list of instances
+
+           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
+
+           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
+                   a simple symplectic integrator
+
+        OUTPUT:
+
+           Another Orbit instance
+
+        HISTORY:
+
+           2011-09-30
+
+        """
+        o= self._orb.integrateBC(pot,bc=_zEqZero,method=method)
+        return Orbit(vxvv=o[1,:])
 
     def reverse(self):
         """
