@@ -64,7 +64,7 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2011-09-30
         """
-        tout= optimize.newton(_integrateBCFunc,0.,
+        tout= optimize.newton(_integrateBCFuncRZ,0.,
                               args=(self.vxvv,pot,method,bc))
         t= nu.array([0.,tout])
         return _integrateRZOrbit(self.vxvv,pot,t,method)
@@ -442,9 +442,14 @@ def _RZEOM(y,t,pot,l2):
             y[3],
             evaluatezforces(y[0],y[2],pot,t=t)]
 
-def _integrateBCFunc(t,vxvv,pot,method,bc):
-    tin= nu.array([0.,t])
+def _integrateBCFuncRZ(t,vxvv,pot,method,bc):
+    print t
+    if t == 0.: return bc(vxvv)
+    #Determine number of ts
+    nts= int(nu.ceil(t))+1 #very simple estimate
+    print nts
+    tin= nu.linspace(0.,t,nts)
     orb= _integrateRZOrbit(vxvv,pot,tin,method)
-    return bc(orb[1,:])
+    return bc(orb[nts-1,:])
 
 
