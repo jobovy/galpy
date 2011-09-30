@@ -9,7 +9,7 @@ def _zEqZeroBC(ar):
     return ar[3]
 def _vzEqZeroBC(ar):
     return ar[4]
-def _RzEqZeroBC(ar):
+def _REqZeroBC(ar):
     return ar[0]
 def _vRzEqZeroBC(ar):
     return ar[1]
