@@ -12,13 +12,13 @@ def _vzEqZeroBC(ar):
 def _REqZeroBC(ar):
     return ar[0]
 def _REqOneBC(ar):
-    return ar[0]-1
+    return ar[0]-1.
 def _vREqZeroBC(ar):
     return ar[1]
 def _vTEqZeroBC(ar):
     return ar[2]
-def _vTEqZOneBC(ar):
-    return ar[2]-1
+def _vTEqOneBC(ar):
+    return ar[2]-1.
 def _phiEqZeroBC(ar):
     if len(ar) > 4: return ar[5]
     else: return ar[3]
