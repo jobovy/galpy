@@ -1,6 +1,6 @@
 import math as m
 import numpy as nu
-from scipy import integrate, interpolate
+from scipy import integrate, interpolate, optimize
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 class OrbitTop:
@@ -35,6 +35,49 @@ class OrbitTop:
            2010-07-10
         """
         raise NotImplementedError
+
+    def integrateBC(self,pot,bc=None,method='odeint'):
+        """
+        NAME:
+           integrateBC
+        PURPOSE:
+           integrate the orbit subject to a final boundary condition
+        INPUT:
+           pot - potential instance or list of instances
+           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
+           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
+                   a simple symplectic integrator
+        OUTPUT:
+           Another Orbit instance
+        HISTORY:
+           2011-09-30
+        """
+        #First find the interval; initialize
+        dt= 1.
+        a,b= 0., dt
+        vxvv_a= self.vxvv
+        bc_a= bc(vxvv_a)
+        if bc_a == 0.:
+            return nu.array([vxvv_a,vxvv_a])
+        tmp_orb= self._BCIntegrateFunction(vxvv_a,pot,nu.array([0.,b-a]),method)
+        vxvv_b= tmp_orb[1,:]
+        bc_b= bc(vxvv_b)
+        if bc_b*bc_a < 0.: found_init_interval= True
+        else: found_init_interval= False
+        while not found_init_interval:
+            #Repeat!
+            a= b
+            b= a+1.
+            bc_a= bc_b
+            vxvv_a= vxvv_b
+            tmp_orb= self._BCIntegrateFunction(vxvv_a,pot,nu.array([0.,b-a]),method)
+            vxvv_b= tmp_orb[1,:]
+            bc_b= bc(vxvv_b)
+            if bc_b*bc_a < 0.: found_init_interval= True
+        tout= optimize.brentq(self._BCZeroFunction,a,b,
+                              args=(vxvv_a,pot,method,bc,a))
+        t= nu.array([a,tout])
+        return self._BCIntegrateFunction(vxvv_a,pot,t,method)
 
     def getOrbit(self):
         """
