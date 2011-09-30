@@ -5,8 +5,19 @@ from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit
 from linearOrbit import linearOrbit
 _K=4.74047
-def _zEqZero(ar):
+def _zEqZeroBC(ar):
     return ar[3]
+def _vzEqZeroBC(ar):
+    return ar[4]
+def _RzEqZeroBC(ar):
+    return ar[0]
+def _vRzEqZeroBC(ar):
+    return ar[1]
+def _vTzEqZeroBC(ar):
+    return ar[2]
+def _phiEqZeroBC(ar):
+    if len(ar) > 4: return ar[5]
+    else: return ar[3]
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -233,7 +244,7 @@ class Orbit:
         """
         self._orb.integrate(t,pot,method=method)
 
-    def integrateBC(self,pot,bc=_zEqZero,method='odeint'):
+    def integrateBC(self,pot,bc=_zEqZeroBC,method='odeint'):
         """
         NAME:
 
