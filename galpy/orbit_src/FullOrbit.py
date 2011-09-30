@@ -25,6 +25,8 @@ class FullOrbit(OrbitTop):
            2010-08-01 - Written - Bovy (NYU)
         """
         self.vxvv= vxvv
+        #For boundary-condition integration
+        self._BCIntegrateFunction= _integrateFullOrbit
         return None
 
     def integrate(self,t,pot,method='odeint'):
@@ -548,4 +550,5 @@ def _rectForce(x,pot,t=0.):
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
+
 

@@ -213,6 +213,8 @@ class planarROrbit(planarOrbitTop):
            2010-07-12 - Written - Bovy (NYU)
         """
         self.vxvv= vxvv
+        #For boundary-condition integration
+        self._BCIntegrateFunction= _integrateROrbit
         return None
 
     def integrate(self,t,pot,method='odeint'):
@@ -354,6 +356,8 @@ class planarOrbit(planarOrbitTop):
         if len(vxvv) == 3:
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
         self.vxvv= vxvv
+        #For boundary-condition integration
+        self._BCIntegrateFunction= _integrateOrbit
         return None
 
     def integrate(self,t,pot,method='odeint'):

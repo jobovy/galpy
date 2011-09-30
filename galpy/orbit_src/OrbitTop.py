@@ -3,6 +3,7 @@ import numpy as nu
 from scipy import integrate, interpolate, optimize
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
+from galpy.potential_src.planarPotential import RZToplanarPotential
 class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None):
@@ -52,6 +53,11 @@ class OrbitTop:
         HISTORY:
            2011-09-30
         """
+        #Parse potential
+        if len(self.vxvv) == 3 or len(self.vxvv) == 4:
+            thispot= RZToplanarPotential(pot)
+        else:
+            thispot= pot
         #First find the interval; initialize
         dt= 1.
         a,b= 0., dt
@@ -59,7 +65,7 @@ class OrbitTop:
         bc_a= bc(vxvv_a)
         if bc_a == 0.:
             return nu.array([vxvv_a,vxvv_a])
-        tmp_orb= self._BCIntegrateFunction(vxvv_a,pot,nu.array([0.,b-a]),method)
+        tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
         vxvv_b= tmp_orb[1,:]
         bc_b= bc(vxvv_b)
         if bc_b*bc_a < 0.: found_init_interval= True
@@ -70,14 +76,14 @@ class OrbitTop:
             b= a+1.
             bc_a= bc_b
             vxvv_a= vxvv_b
-            tmp_orb= self._BCIntegrateFunction(vxvv_a,pot,nu.array([0.,b-a]),method)
+            tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
             vxvv_b= tmp_orb[1,:]
             bc_b= bc(vxvv_b)
             if bc_b*bc_a < 0.: found_init_interval= True
-        tout= optimize.brentq(self._BCZeroFunction,a,b,
-                              args=(vxvv_a,pot,method,bc,a))
+        tout= optimize.brentq(_BCZeroFunction,a,b,
+                              args=(vxvv_a,thispot,method,bc,a,self._BCIntegrateFunction))
         t= nu.array([a,tout])
-        return self._BCIntegrateFunction(vxvv_a,pot,t,method)
+        return self._BCIntegrateFunction(vxvv_a,thispot,t,method)
 
     def getOrbit(self):
         """
@@ -1545,3 +1551,11 @@ def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
     else:
         vo= 235.
     return (obs,ro,vo)
+
+def _BCZeroFunction(t,vxvv,pot,method,bc,to,BCIntegrateFunc):
+    if t == to: return bc(vxvv)
+    #Determine number of ts
+    nts= int(nu.ceil(t-to))+1 #very simple estimate
+    tin= nu.linspace(to,t,nts)
+    orb= BCIntegrateFunc(vxvv,pot,tin,method)
+    return bc(orb[nts-1,:])

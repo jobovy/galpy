@@ -20,6 +20,8 @@ class linearOrbit(OrbitTop):
            2010-07-13 - Written - Bovy (NYU)
         """
         self.vxvv= vxvv
+        #For boundary-condition integration
+        self._BCIntegrateFunction= _integrateLinearOrbit
         return None
 
     def integrate(self,t,pot,method='odeint'):

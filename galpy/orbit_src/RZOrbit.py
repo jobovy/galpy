@@ -26,7 +26,6 @@ class RZOrbit(OrbitTop):
         self.vxvv= vxvv
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateRZOrbit
-        self._BCZeroFunction= _integrateBCFuncRZ
         return None
 
     def integrate(self,t,pot,method='odeint'):
@@ -423,7 +422,7 @@ def _RZEOM(y,t,pot,l2):
             l2/y[0]**3.+evaluateRforces(y[0],y[2],pot,t=t),
             y[3],
             evaluatezforces(y[0],y[2],pot,t=t)]
-
+"""
 def _integrateBCFuncRZ(t,vxvv,pot,method,bc,to):
     if t == to: return bc(vxvv)
     #Determine number of ts
@@ -431,5 +430,5 @@ def _integrateBCFuncRZ(t,vxvv,pot,method,bc,to):
     tin= nu.linspace(to,t,nts)
     orb= _integrateRZOrbit(vxvv,pot,tin,method)
     return bc(orb[nts-1,:])
-
+"""
 
