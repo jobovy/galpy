@@ -13,6 +13,11 @@ import math
 import copy
 import numpy as nu
 from scipy import integrate
+try:
+    import bovy_mcmc
+    _BOVY_MCMC_LOADED= True
+except ImportError:
+    _BOVY_MCMC_LOADED= False
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
 from galpy.util.bovy_quadpack import dblquad
@@ -59,6 +64,8 @@ class evolveddiskdf:
 
            marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
 
+           log= if True, return the log
+
         OUTPUT:
            DF(orbit,t)
         HISTORY:
@@ -78,16 +85,25 @@ class evolveddiskdf:
                 kwargs['marginalizeVperp']:
             kwargs.pop('marginalizeVperp')
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
-            return self._call_marginalizevperp(args[0],**kwargs)
+            if kwargs.has_key('log') and kwargs['log']:
+                return nu.log(self._call_marginalizevperp(args[0],**kwargs))
+            else:
+                return self._call_marginalizevperp(args[0],**kwargs)
         elif kwargs.has_key('marginalizeVlos') and \
                 kwargs['marginalizeVlos']:
             kwargs.pop('marginalizeVlos') 
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
-            return self._call_marginalizevlos(args[0],**kwargs)   
+            if kwargs.has_key('log') and kwargs['log']:
+                return nu.log(self._call_marginalizevlos(args[0],**kwargs))
+            else:
+                return self._call_marginalizevlos(args[0],**kwargs)   
         #Integrate back
         if tlist:
             if self._to == t[0]:
-                return [self._initdf(args[0])]
+                if kwargs.has_key('log') and kwargs['log']:
+                    return numpy.log([self._initdf(args[0])])
+                else:
+                    return [self._initdf(args[0])]
             ts= self._create_ts_tlist(t)
             o= args[0]
             #integrate orbit
@@ -99,21 +115,34 @@ class evolveddiskdf:
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
             if self._to == t:
-                return self._initdf(args[0])
+                if kwargs['log']:
+                    return nu.log(self._initdf(args[0]))
+                else:
+                    return self._initdf(args[0])
             ts= nu.linspace(t,self._to,_NTS)
             o= args[0]
             #integrate orbit
             o.integrate(ts,self._pot)
             #Now evaluate the DF
+            if o.R(self._to-t) <= 0.: 
+                if kwargs.has_key('log') and kwargs['log']:
+                    return -nu.finfo(nu.dtype(nu.float64)).max
+                else:
+                    return nu.finfo(nu.dtype(nu.float64)).eps
             retval= self._initdf(o(self._to-t))
             if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
-        return retval
+        if kwargs.has_key('log') and kwargs['log']:
+            return nu.log(retval)
+        else:
+            return retval
 
     def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False,
                            hierarchgrid=False,nlevels=2,
-                           print_progress=False):
+                           print_progress=False,
+                           sample=None,nsamples=100,
+                           returnSamples=False):
         """
         NAME:
            vmomentsurfacemass
@@ -141,6 +170,10 @@ class evolveddiskdf:
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
            print_progress= if True, print progress updates
+           sample= if True, calculate vmomentsurfacemass using a sampling,
+                   if set to a sampling, use this sampling
+           returnSamples= of True, return the sampling (default=False)
+           nsamples= if sample then use this many samples
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -188,6 +221,32 @@ class evolveddiskdf:
                             grido)
                 else:
                     return self._vmomentsurfacemassHierarchicalGrid(n,m,grido)
+        if not sample is None and isinstance(sample,list):
+            if returnSamples:
+                return (self._vmomentsurfacemassSampling(n,m,sample),sample)
+            else:
+                return self._vmomentsurfacemassSampling(n,m,sample)
+        elif sample and _BOVY_MCMC_LOADED:
+            #Use sampling
+            if isinstance(t,(list,nu.ndarray)):
+                raise IOError("list of times is only supported with grid-based calculation")            
+
+            #Initial value
+            initial_theta= nu.array([meanvR,meanvT])
+            step= 0.01
+            tsampling= bovy_mcmc.markovpy(initial_theta,step,_vmomentlnPDF,(self,R,az,t),
+                                          isDomainFinite=[[False,False],[False,False]],
+                                          domain=[[0.,0.],[0.,0.]],
+                                          nsamples=nsamples)
+            sampling= nu.zeros((nsamples,2))
+            sampling[:,0]= nu.array([s[0] for s in tsampling])
+            sampling[:,1]= nu.array([s[1] for s in tsampling])
+            if returnSamples:
+                return (self._vmomentsurfacemassSampling(n,m,sampling),sampling)
+            else:
+                return self._vmomentsurfacemassSampling(n,m,sampling)
+        elif not _BOVY_MCMC_LOADED:
+            raise ImportError( "Error: could not load bovy_mcmc module, which is necessary in order to create the sampling")
         #Calculate the initdf moment and then calculate the ratio
         initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma,
                                                      phi=phi)
@@ -800,6 +859,11 @@ class evolveddiskdf:
             if print_progress: sys.stdout.write('\n')
         return out
 
+    def _vmomentsurfacemassSampling(self,n,m,sample):
+        """Internal function to evaluate vmomentsurfacemass using a sampling
+        rather than direct integration"""
+        return nu.mean(sample[:,0]**n*sample[:,1]**m)
+        
     def _create_ts_tlist(self,t):
         #Check input
         if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
@@ -1206,3 +1270,7 @@ def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma,phi):
     return df(Orbit([R,tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,phi]))
 
+def _vmomentlnPDF(theta,edf,R,phi,t):
+    thiso= Orbit([R,theta[0],theta[1],phi])
+    return edf(thiso,t,log=True)
+    
