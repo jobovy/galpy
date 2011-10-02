@@ -114,6 +114,7 @@ class evolveddiskdf:
                 retval.append(self._initdf(o(self._to+t[0]-time)))
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
+            print "Here"
             if self._to == t:
                 if kwargs['log']:
                     return nu.log(self._initdf(args[0]))
@@ -122,14 +123,19 @@ class evolveddiskdf:
             ts= nu.linspace(t,self._to,_NTS)
             o= args[0]
             #integrate orbit
+            #import time
+            #start= time.time()
             o.integrate(ts,self._pot)
+            #int_time= (time.time()-start)
             #Now evaluate the DF
             if o.R(self._to-t) <= 0.: 
                 if kwargs.has_key('log') and kwargs['log']:
                     return -nu.finfo(nu.dtype(nu.float64)).max
                 else:
                     return nu.finfo(nu.dtype(nu.float64)).eps
+            #start= time.time()
             retval= self._initdf(o(self._to-t))
+            #print int_time/(time.time()-start)
             if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
         if kwargs.has_key('log') and kwargs['log']:
             return nu.log(retval)
