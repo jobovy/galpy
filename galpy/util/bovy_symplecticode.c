@@ -122,24 +122,14 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
 
 void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
   int ii;
-  for (ii=0; ii < dim; ii++){
-    *qn= *q+dt*(*p);
-    qn++;
-    q++;
-    p++;
-  }
+  for (ii=0; ii < dim; ii++) *qn++= *q++ +dt * (*p++);
   qn-= dim;
   q-= dim;
   p-= dim;
 }
 void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
   int ii;
-  for (ii=0; ii< dim; ii++){
-    *pn= *p+dt*(*a);
-    pn++;
-    p++;
-    a++;
-  }
+  for (ii=0; ii< dim; ii++) *pn++= *p++ + dt * (*a++);
   pn-= dim;
   p-= dim;
   a-= dim;
@@ -147,17 +137,9 @@ void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
 
 inline void save_qp(int dim, double *qo, double *po, double *result){
   int ii;
-  for (ii=0; ii < dim; ii++){
-    *result= *qo;
-    result++;
-    qo++;
-  }
+  for (ii=0; ii < dim; ii++) *result++= *qo++;
   qo-= dim;
-  for (ii=0; ii < dim; ii++){
-    *result= *po;
-    result++;
-    po++;
-  }
+  for (ii=0; ii < dim; ii++) *result++= *po++;
   po-= dim;
 }
 
