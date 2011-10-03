@@ -30,22 +30,39 @@ WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 /*
+  Structure declarations
+*/
+struct leapFuncArg{
+  void (*Rforce)(double R, double Z, double phi, 
+		 int nargs, double * args, int dim,
+		 double * result);
+  void (*zforce)(double R, double Z, double phi,
+		 int nargs, double * args, int dim,
+		 double * result);
+  void (*phiforce)(double R, double Z, double phi,
+		   int nargs, double * args, int dim,
+		   double * result);
+  int nargs;
+  double * args;
+  int dim;
+};
+/*
   Function declarations
 */
 void leapfrog(void (*func)(int, double, double *, double *,
-			   int, double *),
+			   int, struct leapFuncArg *),
 	      int,
 	      double *,
 	      int, double *,
-	      int, double *,
+	      int, struct leapFuncArg *,
 	      double, double,
 	      double *);
 void leapfrog_leapq(int, double *,double *,double,double *);
 void leapfrog_leapp(int,double *,double,double *,double *);
 inline void save_qp(int dim, double *qo, double *po, double *result);
-double leapfrog_estimate_step(void (*func)(int, double , double *, double *,int, double *),
+double leapfrog_estimate_step(void (*func)(int, double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
 			      double, double,
-			      int,double *,
+			      int,struct leapFuncArg *,
 			      double,double);
 

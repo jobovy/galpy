@@ -29,26 +29,7 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
-/*
-  Function declarations
-*/
-void leapfrog(void (*func)(int, double, double *, double *,
-			   int, double *),
-	      int,
-	      double *,
-	      int, double *,
-	      int, double *,
-	      double, double,
-	      double *);
-void leapfrog_leapq(int, double *,double *,double,double *);
-void leapfrog_leapp(int,double *,double,double *,double *);
-inline void save_qp(int dim, double *qo, double *po, double *result);
-double leapfrog_estimate_step(void (*func)(int, double , double *, double *,int, double *),
-			      int, double *,double *,
-			      double, double,
-			      int,double *,
-			      double,double);
-
+#include <bovy_symplecticode.h>
 /*
 Leapfrog integrator
 Usage:
@@ -73,11 +54,11 @@ Usage:
        double *result: result (nt blocks of size 2dim)
 */
 void leapfrog(void (*func)(int dim, double t, double *q, double *a,
-			   int nargs, double *args),
+			   int nargs, struct leapFuncArg * leapFuncArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, double *args,
+	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
 	      double *result){
   //Initialize
@@ -89,7 +70,8 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= *(t+1)-*t;
   double init_dt= dt;
-  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,*t,nargs,args,rtol,atol);
+  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,*t,nargs,leapFuncArgs,
+			     rtol,atol);
   int ndt= (int) init_dt/dt;
   //Integrate the system
   double to= *t;
@@ -100,7 +82,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
     //now drift full for a while
     for (jj=0; jj < (ndt-1); jj++){
       //kick
-      func(dim,to+dt/2.,q12,a,nargs,args);
+      func(dim,to+dt/2.,q12,a,nargs,leapFuncArgs);
       leapfrog_leapp(dim,po,dt,a,po);
       //drift
       leapfrog_leapq(dim,q12,po,dt,qo);
@@ -108,7 +90,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
     }
     //end with one last kick and drift
     //kick
-    func(dim,to+dt/2.,q12,a,nargs,args);
+    func(dim,to+dt/2.,q12,a,nargs,leapFuncArgs);
     leapfrog_leapp(dim,po,dt,a,po);
     //drift
     leapfrog_leapq(dim,q12,po,dt,qo);
@@ -143,10 +125,10 @@ inline void save_qp(int dim, double *qo, double *po, double *result){
   po-= dim;
 }
 
-double leapfrog_estimate_step(void (*func)(int dim, double t, double *q, double *a,int nargs, double *args),
+double leapfrog_estimate_step(void (*func)(int dim, double t, double *q, double *a,int nargs, struct leapFuncArg *),
 			      int dim, double *qo,double *po,
 			      double dt, double t,
-			      int nargs,double *args,
+			      int nargs,struct leapFuncArg * leapFuncArgs,
 			      double rtol,double atol){
   return dt;
 }
