@@ -30,5 +30,6 @@ void integratePlanarOrbit(int dim,
       *(leapFuncArgs->args)++= *lpargs++;
     leapFuncArgs->args-= leapFuncArgs->nargs;
     lpargs-= leapFuncArgs->nargs;
-  }
+  
+}
 }
