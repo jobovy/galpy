@@ -1,4 +1,4 @@
-
+//LogarithmicHaloPotential
 double Rforce(double R,double z,double *args, int nargs){
   //Get args
   double q= *args;
