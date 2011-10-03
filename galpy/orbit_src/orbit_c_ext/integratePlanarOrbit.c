@@ -16,11 +16,19 @@ void integratePlanarOrbit(int dim,
 			  double atol,
 			  double *result){
   //Set up the forces, first count
+  int ii;
   int npot= 0;
   bool lp= (bool) lp;
   if ( lp ) npot++;
   struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct  leapFuncArg) );
   if ( lp ){
-    leapFuncArgs->
+    leapFuncArgs->Rforce= &LogarithmicHaloPotentialRforce;
+    leapFuncArgs->zforce= &LogarithmicHaloPotentialzforce;
+    //phiforce needs to be set to zero somehow
+    leapFuncArgs->nargs= 2;
+    for (ii=0; ii < leapFuncArgs->nargs; ii++)
+      *(leapFuncArgs->args)++= *lpargs++;
+    leapFuncArgs->args-= leapFuncArgs->nargs;
+    lpargs-= leapFuncArgs->nargs;
   }
 }
