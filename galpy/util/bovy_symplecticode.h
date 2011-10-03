@@ -44,7 +44,6 @@ struct leapFuncArg{
 		   double * result);
   int nargs;
   double * args;
-  int dim;
 };
 /*
   Function declarations
