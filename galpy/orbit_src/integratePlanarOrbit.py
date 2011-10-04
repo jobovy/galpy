@@ -3,7 +3,7 @@ import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
-from galpy import potential
+from galpy import potential, potential_src
 #Find and load the library
 _lib = None
 _libname = ctypes.util.find_library('galpy_integrate_c')
@@ -47,15 +47,22 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
-    #Initialize everythin
-    logp= chr(False)
-    nlpargs= 0
-    lpargs= nu.zeros(1)
+    #Initialize everything
+    pot_type= []
+    pot_args= []
+    npot= len(pot)
     for p in pot:
         if isinstance(p,potential.LogarithmicHaloPotential):
-            logp= chr(True)
-            nlpargs= 1
-            lpargs= nu.zeros(1)+p._q
+            pot_type.append(0)
+            pot_args.append(p._q)
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.LogarithmicHaloPotential):
+            pot_type.append(0)
+            pot_args.append(p._RZPot._q)
+    pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
+    pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+
+    print pot_type, pot_args
             
     #Set up result array
     result= nu.empty((len(t),4))
@@ -66,8 +73,8 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ctypes.c_char_p,
                                ctypes.c_int,
+                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
@@ -75,25 +82,23 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
-             t.flags['F_CONTIGUOUS'],
-             lpargs.flags['F_CONTIGUOUS']]
+             t.flags['F_CONTIGUOUS']]
     yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    lpargs= nu.require(lpargs,dtype=nu.float64,requirements=['C','W'])
     result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(yo,
                     ctypes.c_int(len(t)),
                     t,
-                    ctypes.byref(ctypes.c_char(logp)),
-                    ctypes.c_int(nlpargs),lpargs,
+                    ctypes.c_int(npot),
+                    pot_type,
+                    pot_args,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result)
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
-    if f_cont[2]: lpargs= nu.asfortranarray(lpargs)
 
     return result
