@@ -67,6 +67,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
   double *out;
   *out= *yo;
   double *q12, *a;
+  double * force;
   //Estimate necessary stepsize
   double dt= *(t+1)-*t;
   double init_dt= dt;
