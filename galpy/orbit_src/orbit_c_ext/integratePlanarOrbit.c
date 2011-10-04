@@ -41,7 +41,7 @@ void integratePlanarOrbit(double *yo,
     case 0: //LogarithmicHaloPotential
       leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
       leapFuncArgs->planarphiforce= &ZeroPlanarForce;
-      leapFuncArgs->nargs= 1;
+      leapFuncArgs->nargs= 2;
       leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
       for (jj=0; jj < leapFuncArgs->nargs; jj++){
 	*(leapFuncArgs->args)= *pot_args++;
