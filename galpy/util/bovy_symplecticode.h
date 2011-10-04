@@ -33,15 +33,15 @@ POSSIBILITY OF SUCH DAMAGE.
   Structure declarations
 */
 struct leapFuncArg{
-  double (*Rforce)(double R, double Z, double phi, 
+  double (*Rforce)(double R, double Z, double phi, double t,
 		   int nargs, double * args);
-  double (*zforce)(double R, double Z, double phi,
+  double (*zforce)(double R, double Z, double phi, double t,
 		   int nargs, double * args);
-  double (*phiforce)(double R, double Z, double phi,
+  double (*phiforce)(double R, double Z, double phi, double t,
 		     int nargs, double * args);
-  double (*planarRforce)(double R,double phi, 
+  double (*planarRforce)(double R,double phi, double t,
 			 int nargs, double * args);
-  double (*planarphiforce)(double R,double phi,
+  double (*planarphiforce)(double R,double phi, double t,
 			   int nargs, double * args);
   int nargs;
   double * args;
