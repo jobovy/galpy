@@ -2,6 +2,7 @@
 //LogarithmicHaloPotential
 //3 (2)  arguments: amp, c2, (and q)
 double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
+				      double t,
 				      int nargs, double *args){
   //Get args
   double amp= *args++;
@@ -12,6 +13,7 @@ double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
   return - amp * R/(R*R+zq*zq+c);
 }
 double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
+				      double t,
 					    int nargs, double *args){
   //Get args
   double amp= *args++;
@@ -20,6 +22,7 @@ double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
   return -amp * R/(R*R+c);
 }
 double LogarithmicHaloPotentialzforce(double R,double z,double phi,
+				      double t,
 				      int nargs, double *args){
   //Get args
   double amp= *args++;
