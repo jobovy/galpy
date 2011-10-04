@@ -54,15 +54,13 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     for p in pot:
         if isinstance(p,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.append(p._q)
+            pot_args.extend([p._amp,p._core2])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.append(p._RZPot._q)
+            pot_args.extend([p._RZPot._amp,p._RZPot._core2])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
-
-    print pot_type, pot_args
             
     #Set up result array
     result= nu.empty((len(t),4))
