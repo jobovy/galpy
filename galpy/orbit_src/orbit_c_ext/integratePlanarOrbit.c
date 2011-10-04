@@ -53,6 +53,13 @@ void integratePlanarOrbit(double *yo,
   }
   //Integrate
   leapfrog(&evalPlanarRectForce,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  //Free allocated memory
+  for (ii=0; ii < npot; ii++) {
+    free(leapFuncArgs->args);
+    leapFuncArgs++;
+  }
+  leapFuncArgs-= npot;
+  free(leapFuncArgs);
   //Done!
 }
 
@@ -62,6 +69,8 @@ void evalPlanarRectForce(double t, double *q, double *a,
   //q is rectangular so calculate R and phi
   x= *q;
   y= *(q+1);
+  //printf("%f,%f\n",x,y);
+  //fflush(stdout);
   R= sqrt(x*x+y*y);
   phi= acos(x/R);
   sinphi= y/R;
