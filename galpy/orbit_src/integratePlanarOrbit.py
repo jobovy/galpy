@@ -1,5 +1,8 @@
-import numpy
+import numpy as nu
 import ctypes
+import ctypes.util
+from numpy.ctypeslib import ndpointer
+import os
 from galpy import potential
 #Find and load the library
 _lib = None
@@ -36,24 +39,31 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     HISTORY:
        2011-10-03 - Written - Bovy (NYU)
     """
+    #Process atol and rtol
+    if rtol is None:
+        rtol= 1.49012e-8
+    if atol is None:
+        atol= 0.  
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
     #Initialize everythin
     logp= chr(False)
     nlpargs= 0
-    lpargs= numpy.zeros(1)
+    lpargs= nu.zeros(1)
     for p in pot:
         if isinstance(p,potential.LogarithmicHaloPotential):
             logp= chr(True)
             nlpargs= 1
-            lpargs= numpy.zeros(1)+p._q
+            lpargs= nu.zeros(1)+p._q
+            
+    #Set up result array
+    result= nu.empty((len(t),4))
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integratePlanarOrbit
-    integrationFunc.argtypes= [ctypes.c_int,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+    integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_char_p,
