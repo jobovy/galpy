@@ -13,17 +13,16 @@
 /*
   Function Declarations
 */
-void evalPlanarRectForce(int, double, double *, double *,
+void evalPlanarRectForce(double, double *, double *,
 			 int, struct leapFuncArg *);
-double calcPlanarRforce(int,double, double, double, 
+double calcPlanarRforce(double, double, double, 
 			int, struct leapFuncArg *);
-double calcPlanarphiforce(int,double, double, double, 
+double calcPlanarphiforce(double, double, double, 
 			int, struct leapFuncArg *);
 /*
   Actual functions
 */
-void integratePlanarOrbit(int dim,
-			  double *yo,
+void integratePlanarOrbit(double *yo,
 			  int nt, 
 			  double *t,
 			  char logp, //LogarithmicHaloPotential?
@@ -49,11 +48,11 @@ void integratePlanarOrbit(int dim,
     lpargs-= leapFuncArgs->nargs;
   }
   //Integrate
-  leapfrog(&evalPlanarRectForce,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  leapfrog(&evalPlanarRectForce,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Done!
 }
 
-void evalPlanarRectForce(int dim, double t, double *q, double *a,
+void evalPlanarRectForce(double t, double *q, double *a,
 			 int nargs, struct leapFuncArg * leapFuncArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce;
   //q is rectangular so calculate R and phi
@@ -65,13 +64,13 @@ void evalPlanarRectForce(int dim, double t, double *q, double *a,
   cosphi= x/R;
   if ( y < 0. ) phi= phi+2.*M_PI;
   //Calculate the forces
-  Rforce= calcPlanarRforce(dim,R,phi,t,nargs,leapFuncArgs);
-  phiforce= calcPlanarphiforce(dim,R,phi,t,nargs,leapFuncArgs);
+  Rforce= calcPlanarRforce(R,phi,t,nargs,leapFuncArgs);
+  phiforce= calcPlanarphiforce(R,phi,t,nargs,leapFuncArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a--= sinphi*Rforce+1./R*cosphi*phiforce;
 }
 
-double calcPlanarRforce(int dim,double R, double phi, double t, 
+double calcPlanarRforce(double R, double phi, double t, 
 			int nargs, struct leapFuncArg * leapFuncArgs){
   int ii;
   double Rforce= 0.;
@@ -84,7 +83,7 @@ double calcPlanarRforce(int dim,double R, double phi, double t,
   leapFuncArgs-= nargs;
   return Rforce;
 }
-double calcPlanarphiforce(int dim,double R, double phi, double t, 
+double calcPlanarphiforce(double R, double phi, double t, 
 			  int nargs, struct leapFuncArg * leapFuncArgs){
   int ii;
   double phiforce= 0.;
