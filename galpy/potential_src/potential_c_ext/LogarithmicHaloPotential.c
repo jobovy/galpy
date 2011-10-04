@@ -1,6 +1,6 @@
 #include <galpy_potentials.h>
 //LogarithmicHaloPotential
-//2 arguments: q and c2
+//3 (2)  arguments: amp, c2, (and q)
 double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
 				      int nargs, double *args){
   //Get args
