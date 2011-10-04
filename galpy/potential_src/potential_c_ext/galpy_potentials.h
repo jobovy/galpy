@@ -3,8 +3,8 @@
   Function declarations
 */
 //ZeroForce
-double ZeroPlanarForce(double, double,int, double *);
-double ZeroForce(double,double,double,int, double *);
+double ZeroPlanarForce(double, double,double,int, double *);
+double ZeroForce(double,double,double,double,int, double *);
 //LogarithmicHaloPotential
 double LogarithmicHaloPotentialRforce(double ,double , double, double,
 				      int , double *);
