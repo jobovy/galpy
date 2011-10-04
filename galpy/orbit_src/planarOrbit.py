@@ -12,6 +12,7 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
+from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_leapfrog
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
@@ -592,6 +593,26 @@ def _integrateOrbit(vxvv,pot,t,method):
         #integrate
         tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
                                          t,args=(pot,),rtol=10.**-8)
+        #go back to the cylindrical frame
+        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
+        phi= nu.arccos(tmp_out[:,0]/R)
+        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
+        vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
+        vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
+        out= nu.zeros((len(t),4))
+        out[:,0]= R
+        out[:,1]= vR
+        out[:,2]= vT
+        out[:,3]= phi
+    if method.lower() == 'c':
+        #go to the rectangular frame
+        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
+                             vxvv[0]*nu.sin(vxvv[3]),
+                             vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
+                             vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
+        #integrate
+        tmp_out= integratePlanarOrbit_leapfrog(pot,this_vxvv,
+                                               t,rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
