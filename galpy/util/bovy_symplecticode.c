@@ -29,6 +29,8 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
+#include <stdio.h>
+#include <stdlib.h>
 #include <bovy_symplecticode.h>
 /*
 Leapfrog integrator
@@ -61,21 +63,25 @@ void leapfrog(void (*func)(double t, double *q, double *a,
 	      double rtol, double atol,
 	      double *result){
   //Initialize
-  double *qo= yo;
-  double *po= yo+dim;
-  double *out;
-  *out= *yo;
-  double *q12, *a;
-  double * force;
+  double *qo= (double *) malloc ( dim * sizeof(double) );
+  double *po= (double *) malloc ( dim * sizeof(double) );
+  double *q12= (double *) malloc ( dim * sizeof(double) );
+  double *a= (double *) malloc ( dim * sizeof(double) );
+  double *force= (double *) malloc ( dim * sizeof(double) );
+  qo= yo;
+  po= yo+dim;
+  int ii, jj;
+  for (ii=0; ii < 2*dim; ii++)
+    *result++= *yo++;
+  yo-= 2*dim;
   //Estimate necessary stepsize
-  double dt= *(t+1)-*t;
+  double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,*t,nargs,leapFuncArgs,
+  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
 			     rtol,atol);
   long ndt= (long) init_dt/dt;
   //Integrate the system
   double to= *t;
-  int ii, jj;
   for (ii=0; ii < (nt-1); ii++){
     //drift half
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
@@ -104,14 +110,14 @@ void leapfrog(void (*func)(double t, double *q, double *a,
 
 void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
   int ii;
-  for (ii=0; ii < dim; ii++) *qn++= *q++ +dt * (*p++);
+  for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
   qn-= dim;
   q-= dim;
   p-= dim;
 }
 void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
   int ii;
-  for (ii=0; ii< dim; ii++) *pn++= *p++ + dt * (*a++);
+  for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
   pn-= dim;
   p-= dim;
   a-= dim;
@@ -127,7 +133,7 @@ inline void save_qp(int dim, double *qo, double *po, double *result){
 
 double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
 			      int dim, double *qo,double *po,
-			      double dt, double t,
+			      double dt, double *t,
 			      int nargs,struct leapFuncArg * leapFuncArgs,
 			      double rtol,double atol){
   return dt;

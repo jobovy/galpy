@@ -98,4 +98,4 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     if f_cont[2]: lpargs= nu.asfortranarray(lpargs)
     if f_cont[3]: result= nu.asfortranarray(result)
 
-                    
+    return result

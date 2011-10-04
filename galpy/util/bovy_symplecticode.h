@@ -62,7 +62,7 @@ void leapfrog_leapp(int,double *,double,double *,double *);
 inline void save_qp(int dim,double *qo, double *po, double *result);
 double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
-			      double, double,
+			      double, double *,
 			      int,struct leapFuncArg *,
 			      double,double);
 

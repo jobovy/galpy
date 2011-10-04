@@ -1,6 +1,7 @@
 /*
   Wrappers around the C integration code for planar Orbits
 */
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
@@ -34,16 +35,19 @@ void integratePlanarOrbit(double *yo,
   //Set up the forces, first count
   int ii;
   int npot= 0;
-  bool lp= (bool) lp;
+  bool lp= (bool) logp;
   if ( lp ) npot++;
   struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
   //LogarithmicHaloPotential
   if ( lp ){
     leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
     leapFuncArgs->planarphiforce= &ZeroPlanarForce;
-    leapFuncArgs->nargs= 2;
-    for (ii=0; ii < leapFuncArgs->nargs; ii++)
-      *(leapFuncArgs->args)++= *lpargs++;
+    leapFuncArgs->nargs= 1;
+    leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
+    for (ii=0; ii < leapFuncArgs->nargs; ii++){
+      *(leapFuncArgs->args)= *lpargs++;
+      leapFuncArgs->args++;
+    }
     leapFuncArgs->args-= leapFuncArgs->nargs;
     lpargs-= leapFuncArgs->nargs;
   }
