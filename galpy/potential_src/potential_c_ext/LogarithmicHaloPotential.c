@@ -7,7 +7,7 @@ double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
   double q= *args++;
   double c= *args--;
   //Calculate Rforce
-  double zq= z/q;
+  double zq= Z/q;
   return -R/(R*R+zq*zq+c);
 }
 double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
