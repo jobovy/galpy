@@ -2,8 +2,8 @@
 #include <galpy_potentials.h>
 //DehnenBarPotential
 //
-inline double calcSmooth(double tform, double tsteady){
-  double smooth, xi;
+inline double calcSmooth(double t,double tform, double tsteady){
+  double smooth, xi,deltat;
   if ( t < tform )
     smooth= 0.;
   else if ( t < tsteady ) {
@@ -28,7 +28,7 @@ double DehnenBarPotentialRforce(double R,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate Rforce
-  smooth= calc_smooth(tform,tsteady);
+  smooth= calcSmooth(t,tform,tsteady);
   if (R <= rb )
     return -3.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else
@@ -47,7 +47,7 @@ double DehnenBarPotentialphiforce(double R,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate phiforce
-  smooth= calc_smooth(tform,tsteady);
+  smooth= calcSmooth(t,tform,tsteady);
   if (R <= rb )
     return 2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
