@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <bovy_symplecticode.h>
 /*
 Leapfrog integrator
@@ -66,9 +67,9 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   double *qo= (double *) malloc ( dim * sizeof(double) );
   double *po= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
+  double *p12= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
-  double *force= (double *) malloc ( dim * sizeof(double) );
-  int ii, jj;
+  int ii, jj, kk;
   for (ii=0; ii < dim; ii++) {
     *qo++= *(yo+ii);
     *po++= *(yo+dim+ii);
@@ -92,10 +93,13 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     for (jj=0; jj < (ndt-1); jj++){
       //kick
       func(to+dt/2.,q12,a,nargs,leapFuncArgs);
-      leapfrog_leapp(dim,po,dt,a,po);
+      leapfrog_leapp(dim,po,dt,a,p12);
       //drift
-      leapfrog_leapq(dim,q12,po,dt,qo);
+      leapfrog_leapq(dim,q12,p12,dt,qo);
+      //reset
       to= to+dt;
+      for (kk=0; kk < dim; kk++)
+	*(po+ii)= *(p12+ii);
     }
     //end with one last kick and drift
     //kick
@@ -113,7 +117,6 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   free(po);
   free(q12);
   free(a);
-  free(force);
   //We're done
 }
 
@@ -138,4 +141,50 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
 			      int nargs,struct leapFuncArg * leapFuncArgs,
 			      double rtol,double atol){
   return dt;
+  /*
+  //scalars
+  double scale;
+  double err= 2.;
+  double max_val_q, max_val_p;
+  //allocate and initialize
+  double *qmax= (double *) malloc ( dim * sizeof(double) );
+  double *pmax= (double *) malloc ( dim * sizeof(double) );
+  double *q12= (double *) malloc ( dim * sizeof(double) );
+  double *q11= (double *) malloc ( dim * sizeof(double) );
+  double *p11= (double *) malloc ( dim * sizeof(double) );
+  double *qtmp= (double *) malloc ( dim * sizeof(double) );
+  double *ptmp= (double *) malloc ( dim * sizeof(double) );
+  double *a= (double *) malloc ( dim * sizeof(double) );
+  int ii, jj;
+  //find maximum values
+  max_val_q= *qo;
+  for (ii=1; ii < dim; ii++)
+    if ( *(qo+ii) > max_val_q )
+      max_val_q= *(qo+ii);
+  max_val_p= *po;
+  for (ii=1; ii < dim; ii++)
+    if ( *(po+ii) > max_val_p )
+      max_val_p= *(po+ii);
+  //set qmax, pmax
+  for (ii=0; ii < dim; ii+)
+    *(qmax+ii)= max_val_q;
+  for (ii=0; ii < dim; ii+)
+    *(pmax+ii)= max_val_p;
+  //find good dt
+  while ( err > 1. ){
+    //do one leapfrog step with step dt, and one with step dt/2.
+    //dt
+    leapfrog_leapq(dim,qo,po,dt/2.,q12);
+    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,dt,a,po);
+    //BOVY: YOU'RE HERE
+  }
+  //free what we allocated
+  free(qmax);
+  free(pmax);
+  free(q12);
+  free(a);
+  //return
+  return dt;
+  */
 }
