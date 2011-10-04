@@ -26,31 +26,32 @@ double calcPlanarphiforce(double, double, double,
 void integratePlanarOrbit(double *yo,
 			  int nt, 
 			  double *t,
-			  char logp, //LogarithmicHaloPotential?
-			  int nlpargs,
-			  double * lpargs,
+			  int npot,
+			  int * pot_type,
+			  double * pot_args,
 			  double rtol,
 			  double atol,
 			  double *result){
   //Set up the forces, first count
-  int ii;
-  int npot= 0;
-  bool lp= (bool) logp;
-  if ( lp ) npot++;
+  int ii, jj;
+  //  bool lp= (bool) logp;
   struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
-  //LogarithmicHaloPotential
-  if ( lp ){
-    leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
-    leapFuncArgs->planarphiforce= &ZeroPlanarForce;
-    leapFuncArgs->nargs= 1;
-    leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-    for (ii=0; ii < leapFuncArgs->nargs; ii++){
-      *(leapFuncArgs->args)= *lpargs++;
-      leapFuncArgs->args++;
+  for (ii=0; ii < npot; ii++){
+    switch ( *pot_type++ ) {
+    case 0: //LogarithmicHaloPotential
+      leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
+      leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      leapFuncArgs->nargs= 1;
+      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
+      for (jj=0; jj < leapFuncArgs->nargs; jj++){
+	*(leapFuncArgs->args)= *pot_args++;
+	leapFuncArgs->args++;
+      }
+      leapFuncArgs->args-= leapFuncArgs->nargs;
     }
-    leapFuncArgs->args-= leapFuncArgs->nargs;
-    lpargs-= leapFuncArgs->nargs;
+    leapFuncArgs++;
   }
+  leapFuncArgs-= npot;
   //Integrate
   leapfrog(&evalPlanarRectForce,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Free allocated memory
