@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <galpy_potentials.h>
 //LogarithmicHaloPotential
 //2 arguments: q and c2
