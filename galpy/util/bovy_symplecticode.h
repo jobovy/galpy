@@ -49,7 +49,7 @@ struct leapFuncArg{
 /*
   Function declarations
 */
-void leapfrog(void (*func)(int, double, double *, double *,
+void leapfrog(void (*func)(double, double *, double *,
 			   int, struct leapFuncArg *),
 	      int,
 	      double *,
@@ -59,8 +59,8 @@ void leapfrog(void (*func)(int, double, double *, double *,
 	      double *);
 void leapfrog_leapq(int, double *,double *,double,double *);
 void leapfrog_leapp(int,double *,double,double *,double *);
-inline void save_qp(int dim, double *qo, double *po, double *result);
-double leapfrog_estimate_step(void (*func)(int, double , double *, double *,int, struct leapFuncArg *),
+inline void save_qp(int dim,double *qo, double *po, double *result);
+double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
 			      double, double,
 			      int,struct leapFuncArg *,
