@@ -1,6 +1,7 @@
 /*
   Wrappers around the C integration code for planar Orbits
 */
+#include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
@@ -36,11 +37,11 @@ void integratePlanarOrbit(int dim,
   int npot= 0;
   bool lp= (bool) lp;
   if ( lp ) npot++;
-  struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct  leapFuncArg) );
+  struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
   //LogarithmicHaloPotential
   if ( lp ){
-    leapFuncArgs->Rforce= &LogarithmicHaloPotentialPlanarRforce;
-    //phiforce needs to be set to zero somehow
+    leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
+    leapFuncArgs->planarphiforce= &ZeroPlanarForce;
     leapFuncArgs->nargs= 2;
     for (ii=0; ii < leapFuncArgs->nargs; ii++)
       *(leapFuncArgs->args)++= *lpargs++;
@@ -48,13 +49,12 @@ void integratePlanarOrbit(int dim,
     lpargs-= leapFuncArgs->nargs;
   }
   //Integrate
-  leapfrog(evalPlanarRectForce,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  leapfrog(&evalPlanarRectForce,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Done!
 }
 
 void evalPlanarRectForce(int dim, double t, double *q, double *a,
-			 int nargs, struct leapFuncArg * leapFuncArgs,
-			 double * result){
+			 int nargs, struct leapFuncArg * leapFuncArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce;
   //q is rectangular so calculate R and phi
   x= *q;
@@ -67,33 +67,33 @@ void evalPlanarRectForce(int dim, double t, double *q, double *a,
   //Calculate the forces
   Rforce= calcPlanarRforce(dim,R,phi,t,nargs,leapFuncArgs);
   phiforce= calcPlanarphiforce(dim,R,phi,t,nargs,leapFuncArgs);
-  *result++= cosphi*Rforce-1./R*sinphi*phiforce;
-  *result--= sinphi*Rforce+1./R*cosphi*phiforce;
+  *a++= cosphi*Rforce-1./R*sinphi*phiforce;
+  *a--= sinphi*Rforce+1./R*cosphi*phiforce;
 }
 
 double calcPlanarRforce(int dim,double R, double phi, double t, 
 			int nargs, struct leapFuncArg * leapFuncArgs){
   int ii;
   double Rforce= 0.;
-  for (ii=0; ii < nargs, ii++){
-    Rforce+= leapFuncArgs->Rforce(R,0.,phi,
-				  leapFuncArgs->nargs,
-				  leapFuncArgs->args,
-				  dim)
-      leapFuncArgs++;
+  for (ii=0; ii < nargs; ii++){
+    Rforce+= leapFuncArgs->planarRforce(R,phi,
+					leapFuncArgs->nargs,
+					leapFuncArgs->args);
+    leapFuncArgs++;
   }
   leapFuncArgs-= nargs;
+  return Rforce;
 }
 double calcPlanarphiforce(int dim,double R, double phi, double t, 
 			  int nargs, struct leapFuncArg * leapFuncArgs){
   int ii;
   double phiforce= 0.;
-  for (ii=0; ii < nargs, ii++){
-    phiforce+= leapFuncArgs->phiforce(R,0.,phi,
-				      leapFuncArgs->nargs,
-				      leapFuncArgs->args,
-				      dim)
-      leapFuncArgs++;
+  for (ii=0; ii < nargs; ii++){
+    phiforce+= leapFuncArgs->planarphiforce(R,phi,
+					    leapFuncArgs->nargs,
+					    leapFuncArgs->args);
+    leapFuncArgs++;
   }
   leapFuncArgs-= nargs;
+  return phiforce;
 }
