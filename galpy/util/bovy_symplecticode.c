@@ -68,12 +68,15 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   double *q12= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
   double *force= (double *) malloc ( dim * sizeof(double) );
-  qo= yo;
-  po= yo+dim;
   int ii, jj;
-  for (ii=0; ii < 2*dim; ii++)
-    *result++= *yo++;
-  yo-= 2*dim;
+  for (ii=0; ii < dim; ii++) {
+    *qo++= *(yo+ii);
+    *po++= *(yo+dim+ii);
+  }
+  qo-= dim;
+  po-= dim;
+  save_qp(dim,qo,po,result);
+  result+= 2 * dim;
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
@@ -99,36 +102,34 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     func(to+dt/2.,q12,a,nargs,leapFuncArgs);
     leapfrog_leapp(dim,po,dt,a,po);
     //drift
-    leapfrog_leapq(dim,q12,po,dt,qo);
+    leapfrog_leapq(dim,q12,po,dt/2.,qo);
     to= to+dt;
     //save
     save_qp(dim,qo,po,result);
+    result+= 2 * dim;
   }
-  result-= dim*nt;
+  //Free allocated memory
+  free(qo);
+  free(po);
+  free(q12);
+  free(a);
+  free(force);
   //We're done
 }
 
 void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
   int ii;
   for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
-  qn-= dim;
-  q-= dim;
-  p-= dim;
 }
 void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
   int ii;
   for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
-  pn-= dim;
-  p-= dim;
-  a-= dim;
 }
 
 inline void save_qp(int dim, double *qo, double *po, double *result){
   int ii;
   for (ii=0; ii < dim; ii++) *result++= *qo++;
-  qo-= dim;
   for (ii=0; ii < dim; ii++) *result++= *po++;
-  po-= dim;
 }
 
 double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
