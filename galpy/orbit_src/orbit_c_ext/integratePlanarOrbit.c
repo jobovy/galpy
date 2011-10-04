@@ -89,7 +89,7 @@ double calcPlanarRforce(double R, double phi, double t,
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rforce+= leapFuncArgs->planarRforce(R,phi,
+    Rforce+= leapFuncArgs->planarRforce(R,phi,t,
 					leapFuncArgs->nargs,
 					leapFuncArgs->args);
     leapFuncArgs++;
@@ -102,7 +102,7 @@ double calcPlanarphiforce(double R, double phi, double t,
   int ii;
   double phiforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= leapFuncArgs->planarphiforce(R,phi,
+    phiforce+= leapFuncArgs->planarphiforce(R,phi,t,
 					    leapFuncArgs->nargs,
 					    leapFuncArgs->args);
     leapFuncArgs++;
