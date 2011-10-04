@@ -48,9 +48,8 @@ void integratePlanarOrbit(double *yo,
 	leapFuncArgs->args++;
       }
       leapFuncArgs->args-= leapFuncArgs->nargs;
-    }
-    leapFuncArgs++;
-    break;
+      leapFuncArgs++;
+      break;
     case 1: //DehnenBarPotential, 7 arguments
       leapFuncArgs->planarRforce= &DehnenBarPotentialRforce;
       leapFuncArgs->planarphiforce= &DehnenBarPotentialphiforce;
@@ -61,9 +60,9 @@ void integratePlanarOrbit(double *yo,
 	leapFuncArgs->args++;
       }
       leapFuncArgs->args-= leapFuncArgs->nargs;
+      leapFuncArgs++;
+      break;
     }
-    leapFuncArgs++;
-    break;
   }
   leapFuncArgs-= npot;
   //Integrate
