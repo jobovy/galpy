@@ -38,7 +38,7 @@ void integratePlanarOrbit(double *yo,
   struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
-    case 0: //LogarithmicHaloPotential
+    case 0: //LogarithmicHaloPotential, 2 arguments
       leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
       leapFuncArgs->planarphiforce= &ZeroPlanarForce;
       leapFuncArgs->nargs= 2;
@@ -50,6 +50,20 @@ void integratePlanarOrbit(double *yo,
       leapFuncArgs->args-= leapFuncArgs->nargs;
     }
     leapFuncArgs++;
+    break;
+    case 1: //DehnenBarPotential, 7 arguments
+      leapFuncArgs->planarRforce= &DehnenBarPotentialRforce;
+      leapFuncArgs->planarphiforce= &DehnenBarPotentialphiforce;
+      leapFuncArgs->nargs= 7;
+      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
+      for (jj=0; jj < leapFuncArgs->nargs; jj++){
+	*(leapFuncArgs->args)= *pot_args++;
+	leapFuncArgs->args++;
+      }
+      leapFuncArgs->args-= leapFuncArgs->nargs;
+    }
+    leapFuncArgs++;
+    break;
   }
   leapFuncArgs-= npot;
   //Integrate
@@ -70,8 +84,6 @@ void evalPlanarRectForce(double t, double *q, double *a,
   //q is rectangular so calculate R and phi
   x= *q;
   y= *(q+1);
-  //printf("%f,%f\n",x,y);
-  //fflush(stdout);
   R= sqrt(x*x+y*y);
   phi= acos(x/R);
   sinphi= y/R;
