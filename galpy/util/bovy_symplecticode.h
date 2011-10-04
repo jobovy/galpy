@@ -34,14 +34,15 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 struct leapFuncArg{
   double (*Rforce)(double R, double Z, double phi, 
-		 int nargs, double * args, int dim,
-		 double * result);
+		   int nargs, double * args);
   double (*zforce)(double R, double Z, double phi,
-		 int nargs, double * args, int dim,
-		 double * result);
+		   int nargs, double * args);
   double (*phiforce)(double R, double Z, double phi,
-		   int nargs, double * args, int dim,
-		   double * result);
+		     int nargs, double * args);
+  double (*planarRforce)(double R,double phi, 
+			 int nargs, double * args);
+  double (*planarphiforce)(double R,double phi,
+			   int nargs, double * args);
   int nargs;
   double * args;
 };
