@@ -76,8 +76,7 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS'],
-             lpargs.flags['F_CONTIGUOUS'],
-             result.flags['F_CONTIGUOUS']]
+             lpargs.flags['F_CONTIGUOUS']]
     yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
     lpargs= nu.require(lpargs,dtype=nu.float64,requirements=['C','W'])
@@ -96,6 +95,5 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
     if f_cont[2]: lpargs= nu.asfortranarray(lpargs)
-    if f_cont[3]: result= nu.asfortranarray(result)
 
     return result
