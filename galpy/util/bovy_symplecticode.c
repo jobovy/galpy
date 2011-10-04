@@ -36,14 +36,13 @@ Usage:
    Provide the acceleration function func with calling sequence
        func (im,t,q,a,nargs,args)
    where
-       int dim: dimension
        double t: time
        double * q: current position (dimension: dim)
        double * a: will be set to the derivative
        int nargs: number of arguments the function takes
        double *args: arguments
   Other arguments are:
-       int dim: see above
+       int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
        int nt: number of times at which the output is wanted
        double *t: times at which the output is wanted (EQUALLY SPACED)
@@ -53,7 +52,7 @@ Usage:
   Output:
        double *result: result (nt blocks of size 2dim)
 */
-void leapfrog(void (*func)(int dim, double t, double *q, double *a,
+void leapfrog(void (*func)(double t, double *q, double *a,
 			   int nargs, struct leapFuncArg * leapFuncArgs),
 	      int dim,
 	      double * yo,
@@ -73,7 +72,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
   double init_dt= dt;
   dt= leapfrog_estimate_step(*func,dim,qo,po,dt,*t,nargs,leapFuncArgs,
 			     rtol,atol);
-  int ndt= (int) init_dt/dt;
+  long ndt= (long) init_dt/dt;
   //Integrate the system
   double to= *t;
   int ii, jj;
@@ -83,7 +82,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
     //now drift full for a while
     for (jj=0; jj < (ndt-1); jj++){
       //kick
-      func(dim,to+dt/2.,q12,a,nargs,leapFuncArgs);
+      func(to+dt/2.,q12,a,nargs,leapFuncArgs);
       leapfrog_leapp(dim,po,dt,a,po);
       //drift
       leapfrog_leapq(dim,q12,po,dt,qo);
@@ -91,7 +90,7 @@ void leapfrog(void (*func)(int dim, double t, double *q, double *a,
     }
     //end with one last kick and drift
     //kick
-    func(dim,to+dt/2.,q12,a,nargs,leapFuncArgs);
+    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
     leapfrog_leapp(dim,po,dt,a,po);
     //drift
     leapfrog_leapq(dim,q12,po,dt,qo);
@@ -126,7 +125,7 @@ inline void save_qp(int dim, double *qo, double *po, double *result){
   po-= dim;
 }
 
-double leapfrog_estimate_step(void (*func)(int dim, double t, double *q, double *a,int nargs, struct leapFuncArg *),
+double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
 			      int dim, double *qo,double *po,
 			      double dt, double t,
 			      int nargs,struct leapFuncArg * leapFuncArgs,
