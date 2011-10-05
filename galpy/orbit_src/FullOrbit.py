@@ -45,6 +45,7 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-08-01 - Written - Bovy (NYU)
         """
+        if method == 'leapfrog_c': method= 'odeint'
         #Reset things that may have been defined by a previous integration
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
