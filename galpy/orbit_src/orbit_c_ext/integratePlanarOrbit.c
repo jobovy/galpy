@@ -87,7 +87,7 @@ void evalPlanarRectForce(double t, double *q, double *a,
   phi= acos(x/R);
   sinphi= y/R;
   cosphi= x/R;
-  if ( y < 0. ) phi= phi+2.*M_PI;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
   //Calculate the forces
   Rforce= calcPlanarRforce(R,phi,t,nargs,leapFuncArgs);
   phiforce= calcPlanarphiforce(R,phi,t,nargs,leapFuncArgs);
