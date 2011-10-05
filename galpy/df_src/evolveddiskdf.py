@@ -114,9 +114,8 @@ class evolveddiskdf:
                 retval.append(self._initdf(o(self._to+t[0]-time)))
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
-            print "Here"
             if self._to == t:
-                if kwargs['log']:
+                if kwargs.has_key('log') and kwargs['log']:
                     return nu.log(self._initdf(args[0]))
                 else:
                     return self._initdf(args[0])
@@ -874,7 +873,9 @@ class evolveddiskdf:
         #Check input
         if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
         #Initialize
-        ts= nu.linspace(t[0],self._to,_NTS)
+        #_NTS= 1
+        #ts= nu.linspace(t[0],self._to,_NTS)
+        ts= []
         #Add other t
         ts= list(ts)
         ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
