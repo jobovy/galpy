@@ -951,7 +951,7 @@ class OrbitTop:
         else:
             t= args[0]
         if isinstance(t,(int,float)) and t in list(self.t):
-                return self.orbit[list(self.t).index(t),:]
+            return self.orbit[list(self.t).index(t),:]
         else:
             if isinstance(t,(int,float)): 
                 nt= 1
