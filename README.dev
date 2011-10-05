@@ -12,4 +12,6 @@ Adding a potential to the C integrator
 
 4) Edit the code in orbit_src/integratePlanarOrbit.py to set up your new potential
 
+5) Finally, add 'self.hasC= True' to the initialization of the potential in question (after the initialization of the super class)
+
 5) It should work now!
