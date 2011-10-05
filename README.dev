@@ -14,4 +14,4 @@ Adding a potential to the C integrator
 
 5) Finally, add 'self.hasC= True' to the initialization of the potential in question (after the initialization of the super class)
 
-5) It should work now!
+6) It should work now!
