@@ -48,8 +48,8 @@ double DehnenBarPotentialphiforce(double R,double phi,double t,
   double barphi= *args++;
   //Calculate phiforce
   smooth= calcSmooth(t,tform,tsteady);
-  if (R <= rb )
+  if ( R <= rb )
     return 2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
-    return 2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
+    return -2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
 }
