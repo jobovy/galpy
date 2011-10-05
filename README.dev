@@ -4,14 +4,21 @@ Develop README
 Adding a potential to the C integrator
 --------------------------------------
 
-1) Implement the potential in a .c file under potential_src/potential_c_ext. Look at potential_src/potential_c_ext/LogarithmicHaloPotential.c for the right format
+1) Implement the potential in a .c file under
+potential_src/potential_c_ext. Look at
+potential_src/potential_c_ext/LogarithmicHaloPotential.c for the right
+format
 
-2) Add your new potential to potential_src/potential_c_ext/galpy_potentials.h
+2) Add your new potential to
+potential_src/potential_c_ext/galpy_potentials.h
 
-3) Edit the code under orbit_src/orbit_c_ext/integratePlanarOrbit.c to set up your new potential (in the 'leapfrog' function)
+3) Edit the code under orbit_src/orbit_c_ext/integratePlanarOrbit.c to
+set up your new potential (in the 'leapfrog' function)
 
-4) Edit the code in orbit_src/integratePlanarOrbit.py to set up your new potential
+4) Edit the code in orbit_src/integratePlanarOrbit.py to set up your
+new potential
 
-5) Finally, add 'self.hasC= True' to the initialization of the potential in question (after the initialization of the super class)
+5) Finally, add 'self.hasC= True' to the initialization of the
+potential in question (after the initialization of the super class)
 
 6) It should work now!
