@@ -66,12 +66,18 @@ class evolveddiskdf:
 
            log= if True, return the log
 
+           integrate_method= method argument of orbit.integrate
+
         OUTPUT:
            DF(orbit,t)
         HISTORY:
            2011-03-30 - Written - Bovy (NYU)
            2011-04-15 - Added list of times option - BOVY (NYU)
         """
+        if kwargs.has_key('integrate_method'):
+            integrate_method= kwargs['integrate_method']
+        else:
+            integrate_method= 'leapfrog_c'
         if isinstance(args[0],Orbit):
             if len(args) == 1:
                 t= 0.
@@ -104,14 +110,20 @@ class evolveddiskdf:
                     return numpy.log([self._initdf(args[0])])
                 else:
                     return [self._initdf(args[0])]
-            ts= self._create_ts_tlist(t)
+            ts= self._create_ts_tlist(t,integrate_method)
             o= args[0]
             #integrate orbit
-            o.integrate(ts,self._pot)
+            import time as time_module
+            start= time_module.time()
+            o.integrate(ts,self._pot,method=integrate_method)
+            int_time= (time_module.time()-start)
             #Now evaluate the DF
             retval= []
+            start= time_module.time()
             for time in t:
                 retval.append(self._initdf(o(self._to+t[0]-time)))
+            df_time= (time_module.time()-start)
+            print int_time, df_time, int_time/df_time
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
             if self._to == t:
@@ -119,12 +131,13 @@ class evolveddiskdf:
                     return nu.log(self._initdf(args[0]))
                 else:
                     return self._initdf(args[0])
-            ts= nu.linspace(t,self._to,_NTS)
+            if integrate_method == 'odeint':
+                ts= nu.linspace(t,self._to,_NTS)
+            else:
+                ts= nu.linspace(t,self._to,2)
             o= args[0]
             #integrate orbit
-            #import time
-            #start= time.time()
-            o.integrate(ts,self._pot)
+            o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
             #Now evaluate the DF
             if o.R(self._to-t) <= 0.: 
@@ -147,7 +160,8 @@ class evolveddiskdf:
                            hierarchgrid=False,nlevels=2,
                            print_progress=False,
                            sample=None,nsamples=100,
-                           returnSamples=False):
+                           returnSamples=False,
+                           integrate_method='leapfrog_c'):
         """
         NAME:
            vmomentsurfacemass
@@ -179,6 +193,7 @@ class evolveddiskdf:
                    if set to a sampling, use this sampling
            returnSamples= of True, return the sampling (default=False)
            nsamples= if sample then use this many samples
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -209,7 +224,8 @@ class evolveddiskdf:
             if not hierarchgrid:
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
-                                        gridpoints,print_progress)
+                                        gridpoints,print_progress,
+                                        integrate_method)
                 if returnGrid:
                     return (self._vmomentsurfacemassGrid(n,m,grido),grido)
                 else:
@@ -273,7 +289,8 @@ class evolveddiskdf:
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
                   sigmaR2=None,sigmaT2=None,sigmaRT=None,surfacemass=None,
-                  hierarchgrid=False,nlevels=2):
+                  hierarchgrid=False,nlevels=2,
+                  integrate_method='leapfrog_c'):
         """
         NAME:
            vertexdev
@@ -299,6 +316,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            vertex deviation in degree
         HISTORY:
@@ -319,7 +337,8 @@ class evolveddiskdf:
                                                      gridpoints=gridpoints,
                                                      returnGrid=True,
                                                      hierarchgrid=hierarchgrid,
-                                                     nlevels=nlevels)
+                                                     nlevels=nlevels,
+                                                     integrate_method=integrate_method)
         else:
             grido= False
         if surfacemass is None:
@@ -329,7 +348,8 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,
+                                                 integrate_method=integrate_method)
         if sigmaR2 is None:
             sigmaR2= self.sigmaR2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -337,7 +357,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
         if sigmaT2 is None:
             sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -345,7 +365,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
         if sigmaRT is None:
             sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -353,7 +373,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
@@ -366,7 +386,7 @@ class evolveddiskdf:
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None,
-               hierarchgrid=False,nlevels=2):
+               hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
         """
         NAME:
            meanvR
@@ -391,6 +411,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            mean vR
         HISTORY:
@@ -406,7 +427,8 @@ class evolveddiskdf:
                                               gridpoints=gridpoints,
                                               returnGrid=False,
                                               hierarchgrid=hierarchgrid,
-                                              nlevels=nlevels)
+                                              nlevels=nlevels,
+                                              integrate_method=integrate_method)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
             (vmomentR,grido)= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,
@@ -416,7 +438,8 @@ class evolveddiskdf:
                                                       gridpoints=gridpoints,
                                                       returnGrid=True,
                                                       hierarchgrid=hierarchgrid,
-                                                      nlevels=nlevels)
+                                                      nlevels=nlevels,
+                                                      integrate_method=integrate_method)
         else:
             grido= False
             vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
@@ -426,7 +449,7 @@ class evolveddiskdf:
                                               gridpoints=gridpoints,
                                               returnGrid=False,
                                               hierarchgrid=hierarchgrid,
-                                              nlevels=nlevels)
+                                              nlevels=nlevels,integrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -434,7 +457,7 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,integrate_method=integrate_method)
         out= vmomentR/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
@@ -447,7 +470,7 @@ class evolveddiskdf:
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None,
-               hierarchgrid=False,nlevels=2):
+               hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
         """
         NAME:
            meanvT
@@ -472,6 +495,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            mean vT
         HISTORY:
@@ -487,7 +511,8 @@ class evolveddiskdf:
                                               gridpoints=gridpoints,
                                               returnGrid=False,
                                               hierarchgrid=hierarchgrid,
-                                              nlevels=nlevels)
+                                              nlevels=nlevels,
+                                              integrate_method=integrate_method)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
             (vmomentT,grido)= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
@@ -497,7 +522,8 @@ class evolveddiskdf:
                                                       gridpoints=gridpoints,
                                                       returnGrid=True,
                                                       hierarchgrid=hierarchgrid,
-                                                      nlevels=nlevels)
+                                                      nlevels=nlevels,
+                                                      integrate_method=integrate_method)
         else:
             grido= False
             vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
@@ -507,7 +533,7 @@ class evolveddiskdf:
                                               gridpoints=gridpoints,
                                               returnGrid=False,
                                               hierarchgrid=hierarchgrid,
-                                              nlevels=nlevels)
+                                              nlevels=nlevels,integrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -515,7 +541,8 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,
+                                                 integrate_method=integrate_method)
         out= vmomentT/surfacemass
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
@@ -528,7 +555,8 @@ class evolveddiskdf:
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None,
-                hierarchgrid=False,nlevels=2):
+                hierarchgrid=False,nlevels=2,
+                integrate_method='leapfrog_c'):
         """
         NAME:
            sigmaR2
@@ -554,6 +582,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            variance of vR
         HISTORY:
@@ -571,7 +600,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             integrate_method=integrate_method)
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -582,7 +612,8 @@ class evolveddiskdf:
                                                      gridpoints=gridpoints,
                                                      returnGrid=True,
                                                      hierarchgrid=hierarchgrid,
-                                                     nlevels=nlevels)
+                                                     nlevels=nlevels,
+                                                     integrate_method=integrate_method)
         else:
             grido= False
             sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
@@ -592,7 +623,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             integrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -600,15 +632,17 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,
+                                                 integrat_method=integrate_method)
         if meanvR is None:
             meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
-                                             nsigma=nsigma,epsrel=epsrel,
-                                             epsabs=epsabs,grid=grido,
-                                             gridpoints=gridpoints,
-                                             returnGrid=False,
+                                            nsigma=nsigma,epsrel=epsrel,
+                                            epsabs=epsabs,grid=grido,
+                                            gridpoints=gridpoints,
+                                            returnGrid=False,
                                             hierarchgrid=hierarchgrid,
-                                            nlevels=nlevels)/surfacemass
+                                            nlevels=nlevels,
+                                            integrate_method=integrate_method)/surfacemass
         out= sigmaR2/surfacemass-meanvR**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
@@ -621,7 +655,8 @@ class evolveddiskdf:
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvT=None,
-                hierarchgrid=False,nlevels=2):
+                hierarchgrid=False,nlevels=2,
+                integrate_method='leapfrog_c'):
         """
         NAME:
            sigmaT2
@@ -647,6 +682,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            variance of vT
         HISTORY:
@@ -662,7 +698,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             integrate_method=integrate_method)
         elif (meanvT is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -673,7 +710,8 @@ class evolveddiskdf:
                                                      gridpoints=gridpoints,
                                                      returnGrid=True,
                                                      hierarchgrid=hierarchgrid,
-                                                     nlevels=nlevels)
+                                                     nlevels=nlevels,
+                                                     integrate_method=integrate_method)
         else:
             grido= False
             sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
@@ -683,7 +721,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             itnegrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -691,7 +730,8 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,
+                                                 integrate_method=integrate_method)
         if meanvT is None:
             meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
@@ -699,7 +739,8 @@ class evolveddiskdf:
                                             gridpoints=gridpoints,
                                             returnGrid=False,
                                             hierarchgrid=hierarchgrid,
-                                            nlevels=nlevels)/surfacemass
+                                            nlevels=nlevels,
+                                            integrate_method=integrate_method)/surfacemass
         out= sigmaT2/surfacemass-meanvT**2.
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
@@ -712,7 +753,8 @@ class evolveddiskdf:
                 epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None,meanvT=None,
-                hierarchgrid=False,nlevels=2):
+                hierarchgrid=False,nlevels=2,
+                integrate_method='leapfrog_c'):
         """
         NAME:
            sigmaRT
@@ -738,6 +780,7 @@ class evolveddiskdf:
            returnGrid= if True, return the grid object (default=False)
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
         OUTPUT:
            covariance of vR and vT
         HISTORY:
@@ -755,7 +798,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             integrate_method=integrate_method)
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -766,7 +810,8 @@ class evolveddiskdf:
                                                      gridpoints=gridpoints,
                                                      returnGrid=True,
                                                      hierarchgrid=hierarchgrid,
-                                                     nlevels=nlevels)
+                                                     nlevels=nlevels,
+                                                     integrate_method=integrate_method)
         else:
             grido= False
             sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
@@ -776,7 +821,8 @@ class evolveddiskdf:
                                              gridpoints=gridpoints,
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
-                                             nlevels=nlevels)
+                                             nlevels=nlevels,
+                                             integrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -784,7 +830,8 @@ class evolveddiskdf:
                                                  gridpoints=gridpoints,
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels)
+                                                 nlevels=nlevels,
+                                                 integrate_method=integrate_method)
         if meanvR is None:
             meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
@@ -792,7 +839,8 @@ class evolveddiskdf:
                                             gridpoints=gridpoints,
                                             returnGrid=False,
                                             hierarchgrid=hierarchgrid,
-                                            nlevels=nlevels)/surfacemass
+                                            nlevels=nlevels,
+                                            integrate_method=integrate_method)/surfacemass
         if meanvT is None:
             meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
@@ -800,7 +848,8 @@ class evolveddiskdf:
                                             gridpoints=gridpoints,
                                             returnGrid=False,
                                             hierarchgrid=hierarchgrid,
-                                            nlevels=nlevels)/surfacemass
+                                            nlevels=nlevels,
+                                            integrate_method=integrate_method)/surfacemass
         out= sigmaRT/surfacemass-meanvR*meanvT
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
@@ -826,7 +875,7 @@ class evolveddiskdf:
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                    gridpoints,print_progress):
+                    gridpoints,print_progress,integrate_method):
         """Internal function to grid the vDF at a given location"""
         out= evolveddiskdfGrid()
         out.sigmaR1= sigmaR1
@@ -847,7 +896,8 @@ class evolveddiskdf:
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                    out.df[ii,jj,:]= self(thiso,nu.array(t).flatten())
+                    out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
+                                          integrate_method=integrate_method)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n')
         else:
@@ -859,7 +909,8 @@ class evolveddiskdf:
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                    out.df[ii,jj]= self(thiso,t)
+                    out.df[ii,jj]= self(thiso,t,
+                                        integrate_method=integrate_method)
                     if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n')
         return out
@@ -869,13 +920,15 @@ class evolveddiskdf:
         rather than direct integration"""
         return nu.mean(sample[:,0]**n*sample[:,1]**m)
         
-    def _create_ts_tlist(self,t):
+    def _create_ts_tlist(self,t,integrate_method):
         #Check input
         if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
         #Initialize
-        #_NTS= 1
-        #ts= nu.linspace(t[0],self._to,_NTS)
-        ts= []
+        if integrate_method == 'odeint':
+            _NTS= 1000
+            ts= nu.linspace(t[0],self._to,_NTS)
+        else:
+            ts= []
         #Add other t
         ts= list(ts)
         ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
