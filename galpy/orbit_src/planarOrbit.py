@@ -218,7 +218,7 @@ class planarROrbit(planarOrbitTop):
         self._BCIntegrateFunction= _integrateROrbit
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
            integrate
@@ -227,8 +227,9 @@ class planarROrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple 
-                   leapfrog implementation
+           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple 
+                   leapfrog implementation, 'leapfrog_c' for a simple leapfrog
+                   in C (if possible)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -239,6 +240,16 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
+        if isinstance(pot,list):
+            c_possible= True
+            for p in pot:
+                if not p.hasC:
+                    c_possible= False
+                    break
+        else:
+            c_possible= pot.hasC
+        if '_c' in method and not c_possible:
+            method= 'odeint'
         self.orbit= _integrateROrbit(self.vxvv,thispot,t,method)
 
     def E(self,pot=None,t=0.):
@@ -361,7 +372,7 @@ class planarOrbit(planarOrbitTop):
         self._BCIntegrateFunction= _integrateOrbit
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
            integrate
@@ -371,7 +382,8 @@ class planarOrbit(planarOrbitTop):
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
            method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation
+                   leapfrog implementation, 'leapfrog_c' for a simple
+                   leapfrog implemenation in C (if possible)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -382,6 +394,16 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
+        if isinstance(pot,list):
+            c_possible= True
+            for p in pot:
+                if not p.hasC:
+                    c_possible= False
+                    break
+        else:
+            c_possible= pot.hasC
+        if '_c' in method and not c_possible:
+            method= 'odeint'
         self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
 
     def E(self,pot=None,t=0.):
@@ -532,6 +554,13 @@ def _integrateROrbit(vxvv,pot,t,method):
         tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
+    elif method.lower() == 'leapfrog_c':
+        #We hack this by putting in a dummy phi
+        this_vxvv= nu.zeros(len(vxvv)+1)
+        this_vxvv[0:len(vxvv)]= vxvv
+        tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
+        #tmp_out is (nt,4)
+        out= tmp_out[:,0:3]
     elif method.lower() == 'odeint':
         l= vxvv[0]*vxvv[2]
         l2= l**2.
@@ -604,7 +633,8 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
-    if method.lower() == 'c':
+    elif method.lower() == 'leapfrog_c':
+        print "Using C implementation"
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
