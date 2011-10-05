@@ -1,4 +1,5 @@
 import math as m
+import warnings
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
@@ -634,7 +635,7 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,2]= vT
         out[:,3]= phi
     elif method.lower() == 'leapfrog_c':
-        print "Using C implementation"
+        warnings.warn("Using C implementation to integrate orbits")
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
