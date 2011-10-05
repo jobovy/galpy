@@ -27,6 +27,7 @@ setup(name='galpy',
       packages=['galpy','galpy/orbit_src','galpy/potential_src',
                 'galpy/df_src','galpy/util','galpy/snapshot_src',
                 'galpy/actionAngle_src'],
+      package_data={'galpy/df_src':['data/*.sav']},
 #      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
       install_requires=['numpy','scipy','matplotlib'],
       ext_modules=[orbit_int_c]
