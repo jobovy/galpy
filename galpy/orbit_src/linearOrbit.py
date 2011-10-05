@@ -39,6 +39,7 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
+        if method == 'leapfrog_c': method= 'odeint'
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         self.t= nu.array(t)
         self._pot= pot
