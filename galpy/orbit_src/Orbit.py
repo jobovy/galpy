@@ -218,7 +218,7 @@ class Orbit:
         elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
             return 3
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
 
