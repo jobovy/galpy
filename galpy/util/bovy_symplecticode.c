@@ -83,7 +83,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   double init_dt= dt;
   dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
 			     rtol,atol);
-  long ndt= (long) init_dt/dt;
+  long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
@@ -98,8 +98,10 @@ void leapfrog(void (*func)(double t, double *q, double *a,
       leapfrog_leapq(dim,q12,p12,dt,qo);
       //reset
       to= to+dt;
-      for (kk=0; kk < dim; kk++)
-	*(po+ii)= *(p12+ii);
+      for (kk=0; kk < dim; kk++) {
+	*(q12+kk)= *(qo+kk);
+	*(po+kk)= *(p12+kk);
+      }
     }
     //end with one last kick and drift
     //kick
@@ -140,44 +142,67 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
 			      double dt, double *t,
 			      int nargs,struct leapFuncArg * leapFuncArgs,
 			      double rtol,double atol){
-  return dt;
-  /*
+  //return dt;
   //scalars
-  double scale;
   double err= 2.;
   double max_val_q, max_val_p;
+  double to= *t;
   //allocate and initialize
   double *qmax= (double *) malloc ( dim * sizeof(double) );
   double *pmax= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
   double *q11= (double *) malloc ( dim * sizeof(double) );
+  double *q12= (double *) malloc ( dim * sizeof(double) );
   double *p11= (double *) malloc ( dim * sizeof(double) );
+  double *p12= (double *) malloc ( dim * sizeof(double) );
   double *qtmp= (double *) malloc ( dim * sizeof(double) );
   double *ptmp= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
-  int ii, jj;
+  double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
+  int ii;
   //find maximum values
-  max_val_q= *qo;
+  max_val_q= fabs(*qo);
   for (ii=1; ii < dim; ii++)
-    if ( *(qo+ii) > max_val_q )
-      max_val_q= *(qo+ii);
-  max_val_p= *po;
+    if ( fabs(*(qo+ii)) > max_val_q )
+      max_val_q= fabs(*(qo+ii));
+  max_val_p= fabs(*po);
   for (ii=1; ii < dim; ii++)
-    if ( *(po+ii) > max_val_p )
-      max_val_p= *(po+ii);
+    if ( fabs(*(po+ii)) > max_val_p )
+      max_val_p= fabs(*(po+ii));
   //set qmax, pmax
-  for (ii=0; ii < dim; ii+)
+  for (ii=0; ii < dim; ii++)
     *(qmax+ii)= max_val_q;
-  for (ii=0; ii < dim; ii+)
+  for (ii=0; ii < dim; ii++)
     *(pmax+ii)= max_val_p;
+  //set up scale
+  for (ii=0; ii < dim; ii++) {
+    *(scale+ii)= atol + rtol * *(qmax+ii);
+    *(scale+ii+dim)= atol + rtol * *(pmax+ii);
+  }
   //find good dt
   while ( err > 1. ){
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
     func(to+dt/2.,q12,a,nargs,leapFuncArgs);
-    leapfrog_leapp(dim,po,dt,a,po);
-    //BOVY: YOU'RE HERE
+    leapfrog_leapp(dim,po,dt,a,p11);
+    leapfrog_leapq(dim,q12,p11,dt/2.,q11);
+    //dt/2.
+    leapfrog_leapq(dim,qo,po,dt/4.,q12);
+    func(to+dt/4.,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,dt/2.,a,ptmp);
+    leapfrog_leapq(dim,q12,ptmp,dt/2.,qtmp);//Take full step combining two half
+    func(to+3.*dt/4.,qtmp,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,ptmp,dt/2.,a,p12);
+    leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half   
+    //Norm
+    err= 0.;
+    for (ii=0; ii < dim; ii++) {
+      fflush(stdout);
+      err+= pow((*(q11+ii)-*(q12+ii)) / *(scale+ii),2.);
+      err+= pow((*(p11+ii)-*(p12+ii)) / *(scale+ii+dim),2.);
+    }
+    err= sqrt(err/2./dim);
+    dt/= 2.;
   }
   //free what we allocated
   free(qmax);
@@ -186,5 +211,4 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   free(a);
   //return
   return dt;
-  */
 }
