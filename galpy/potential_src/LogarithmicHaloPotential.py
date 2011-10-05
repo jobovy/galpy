@@ -26,6 +26,7 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
         """
         Potential.__init__(self,amp=amp)
+        self.hasC= True
         self._core2= core**2.
         self._q= q
         if normalize:
