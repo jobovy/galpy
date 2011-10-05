@@ -30,6 +30,7 @@ class Potential:
         self.dim= 3
         self.isRZ= True
         self.isNonAxi= False
+        self.hasC= False
         return None
 
     def __call__(self,R,z,phi=0.,t=0.):
