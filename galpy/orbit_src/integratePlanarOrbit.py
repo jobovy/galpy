@@ -37,7 +37,7 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
     HISTORY:
-       2011-10-03 - Written - Bovy (NYU)
+       2011-10-03 - Written - Bovy (IAS)
     """
     #Process atol and rtol
     if rtol is None:
