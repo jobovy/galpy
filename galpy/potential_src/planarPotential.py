@@ -10,6 +10,7 @@ class planarPotential:
         self.dim= 2
         self.isNonAxi= True #Gets reset by planarAxiPotential
         self.isRZ= False
+        self.hasC= False
         return None
 
     def __call__(self,R,phi=0.,t=0.):
