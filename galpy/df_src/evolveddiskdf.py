@@ -13,6 +13,7 @@ import sys
 import math
 import copy
 import time as time_module
+import warnings
 import numpy as nu
 from scipy import integrate
 try:
@@ -224,14 +225,20 @@ class evolveddiskdf:
         if nsigma is None: nsigma= _NSIGMA
         if _PROFILE:
             start= time_module.time()
-        #sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-        #sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
-        #meanvR= self._initdf.meanvR(R,phi=phi)
-        #meanvT= self._initdf.meanvT(R,phi=phi)
-        sigmaR1= nu.sqrt(self._initdf.targetSigma2(R))
-        sigmaT1= sigmaR1
-        meanvR= 0.
-        meanvT= 0.
+        if hasattr(self._initdf,'_estimatemeanvR') \
+           and hasattr(self._initdf,'_estimatemeanvT') \
+           and hasattr(self._initdf,'_estimateSigmaR2') \
+           and hasattr(self._initdf,'_estimateSigmaT2'):
+            sigmaR1= nu.sqrt(self._initdf._estimateSigmaR2(R,phi=phi))
+            sigmaT1= nu.sqrt(self._initdf._estimateSigmaT2(R,phi=phi))
+            meanvR= self._initdf._estimatemeanvR(R,phi=phi)
+            meanvT= self._initdf._estimatemeanvT(R,phi=phi)
+        else:
+            warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions")
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
+            meanvR= self._initdf.meanvR(R,phi=phi)
+            meanvT= self._initdf.meanvT(R,phi=phi)
         if _PROFILE:
             setup_time= (time_module.time()-start)
         if not grid is None and isinstance(grid,bool) and grid:
