@@ -124,14 +124,20 @@ class evolveddiskdf:
             #Now evaluate the DF
             if _PROFILE:
                 start= time_module.time()
-            orb_array= o.getOrbit().T
-            retval= self._initdf(orb_array)
-            #reverse to get the times in the right order
-            retval= retval[::-1]
-            #retval= self._initdf(os)
-            #retval= []
-            #for time in t:
-            #    retval.append(self._initdf(o(self._to+t[0]-time)))
+            if integrate_method == 'odeint':
+                retval= []
+            for time in t:
+                os= [o(self._to+t[0]-ti) for ti in t]
+                retval= self._initdf(os)
+            else:
+                if len(t) == 1:
+                    orb_array= o.getOrbit().T
+                    orb_array= orb_array[:,1]
+                else:
+                    orb_array= o.getOrbit().T
+                    retval= self._initdf(orb_array)
+                #reverse to get the times in the right order
+                if len(t) > 1: retval= retval[::-1]
             if _PROFILE:
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
