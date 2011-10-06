@@ -12,6 +12,7 @@ _PROFILE= False
 import sys
 import math
 import copy
+import time as time_module
 import numpy as nu
 from scipy import integrate
 try:
@@ -115,7 +116,6 @@ class evolveddiskdf:
             o= args[0]
             #integrate orbit
             if _PROFILE:
-                import time as time_module
                 start= time_module.time()
             o.integrate(ts,self._pot,method=integrate_method)
             if _PROFILE:
@@ -128,7 +128,8 @@ class evolveddiskdf:
                 retval.append(self._initdf(o(self._to+t[0]-time)))
             if _PROFILE:
                 df_time= (time_module.time()-start)
-                print int_time, df_time, int_time/df_time
+                tot_time= int_time+df_time
+                print int_time/tot_time, df_time/tot_time, tot_time
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
             if self._to == t:
@@ -221,16 +222,31 @@ class evolveddiskdf:
         if deg: az= phi*_DEGTORAD
         else: az= phi
         if nsigma is None: nsigma= _NSIGMA
-        sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
-        sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
-        meanvR= self._initdf.meanvR(R,phi=phi)
-        meanvT= self._initdf.meanvT(R,phi=phi)
+        if _PROFILE:
+            start= time_module.time()
+        #sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+        #sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi))
+        #meanvR= self._initdf.meanvR(R,phi=phi)
+        #meanvT= self._initdf.meanvT(R,phi=phi)
+        sigmaR1= nu.sqrt(self._initdf.targetSigma2(R))
+        sigmaT1= sigmaR1
+        meanvR= 0.
+        meanvT= 0.
+        if _PROFILE:
+            setup_time= (time_module.time()-start)
         if not grid is None and isinstance(grid,bool) and grid:
             if not hierarchgrid:
+                if _PROFILE:
+                    start= time_module.time()
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
                                         gridpoints,print_progress,
                                         integrate_method)
+                if _PROFILE:
+                    grid_time= (time_module.time()-start)
+                    print setup_time/(setup_time+grid_time), \
+                          grid_time/(setup_time+grid_time), \
+                          setup_time+grid_time
                 if returnGrid:
                     return (self._vmomentsurfacemassGrid(n,m,grido),grido)
                 else:
@@ -931,13 +947,18 @@ class evolveddiskdf:
         #Initialize
         if integrate_method == 'odeint':
             _NTS= 1000
-            ts= nu.linspace(t[0],self._to,_NTS)
+            tmax= nu.amax(t)
+            ts= nu.linspace(tmax,self._to,_NTS)
+            #Add other t
+            ts= list(ts)
+            ts.extend([self._to+tmax-ti for ti in t if ti != tmax])
         else:
-            ts= [self._to]
-        #Add other t
-        ts= list(ts)
-        ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
+            if len(t) == 1: #Special case this because it is confusing
+                ts= nu.array([t[0],self._to])
+            else:
+                ts= -t+self._to+nu.amax(t)
         #sort
+        ts= list(ts)
         ts.sort(reverse=True)
         return nu.array(ts)
 
