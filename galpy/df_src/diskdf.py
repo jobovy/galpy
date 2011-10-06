@@ -115,6 +115,8 @@ class diskdf:
               E - energy (/vo^2)
               L - angular momentun (/ro/vo)
 
+           3) array vxvv [3/4,nt]
+
         KWARGS:
 
            marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) for single orbits above) + nsigma, +scipy.integrate.quad keywords
@@ -157,6 +159,12 @@ class diskdf:
             vR= nu.array([o.vxvv[1] for o in args[0]])
             vT= nu.array([o.vxvv[2] for o in args[0]])
             R= nu.array([o.vxvv[0] for o in args[0]])
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
+        elif isinstance(args[0],nu.ndarray):
+            #Grab all of the vR, vT, and R
+            vR= args[0][1]
+            vT= args[0][2]
+            R= args[0][0]
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
         else:
             return sc.real(self.eval(*args))
@@ -1681,17 +1689,20 @@ class DFcorrection:
             out= nu.empty((2,len(R)))
             #R < _RMIN
             rmin_indx= (R < _RMIN)
-            out[0:rmin_indx]= m.log(self._corrections[0,0])\
-                              +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
-            out[1:rmin_indx]= m.log(self._corrections[0,1])\
-                              +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
+            if nu.sum(rmin_indx) > 0:
+                out[0,rmin_indx]= m.log(self._corrections[0,0])\
+                                  +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
+                out[1,rmin_indx]= m.log(self._corrections[0,1])\
+                                  +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
             #R > 2rmax
             rmax_indx= (R > (2.*self._rmax))
-            out[:,rmax_indx]= 0.
+            if nu.sum(rmax_indx) > 0:
+                out[:,rmax_indx]= 0.
             #'normal' R
             r_indx= (R >= _RMIN)*(R <= (2.*self._rmax))
-            out[0:r_indx]= self._surfaceInterpolate(R[r_indx])
-            out[1:r_indx]= self._sigma2Interpolate(R[r_indx])
+            if nu.sum(r_indx) > 0:
+                out[0,r_indx]= self._surfaceInterpolate(R[r_indx])
+                out[1,r_indx]= self._sigma2Interpolate(R[r_indx])
             if log: return out
             else: return nu.exp(out)
         if R < _RMIN:
