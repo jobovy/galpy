@@ -122,16 +122,21 @@ class evolveddiskdf:
             if _PROFILE:
                 int_time= (time_module.time()-start)
             #Now evaluate the DF
-            retval= []
             if _PROFILE:
                 start= time_module.time()
-            for time in t:
-                retval.append(self._initdf(o(self._to+t[0]-time)))
+            orb_array= o.getOrbit().T
+            retval= self._initdf(orb_array)
+            #reverse to get the times in the right order
+            retval= retval[::-1]
+            #retval= self._initdf(os)
+            #retval= []
+            #for time in t:
+            #    retval.append(self._initdf(o(self._to+t[0]-time)))
             if _PROFILE:
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
                 print int_time/tot_time, df_time/tot_time, tot_time
-            if isinstance(t,nu.ndarray): retval= nu.array(retval)
+            #if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
             if self._to == t:
                 if kwargs.has_key('log') and kwargs['log']:
