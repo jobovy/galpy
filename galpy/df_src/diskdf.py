@@ -15,6 +15,7 @@ _NSIGMA= 4.
 _INTERPDEGREE= 3
 _RMIN=10.**-10.
 _MAXD_REJECTLOS= 4.
+_PROFILE= False
 import copy
 import re
 import os, os.path
@@ -1041,6 +1042,9 @@ class dehnendf(diskdf):
            2010-03-10 - Written - Bovy (NYU)
            2010-03-28 - Moved to dehnenDF - Bovy (NYU)
         """
+        if _PROFILE:
+            import time
+            start= time.time()
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
             xE= sc.exp(E-.5)
@@ -1048,12 +1052,27 @@ class dehnendf(diskdf):
         else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
             logOLLE= self._beta*sc.log(xE)+sc.log(L/xE-xE**self._beta)
+        if _PROFILE:
+            one_time= (time.time()-start)
+            start= time.time()
         if self._correct: 
             correction= self._corr.correct(xE,log=True)
         else:
             correction= sc.zeros(2)
+        if _PROFILE:
+            corr_time= (time.time()-start)
+            start= time.time()
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
-        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+        if _PROFILE:
+            targSigma_time= (time.time()-start)
+            start= time.time()
+            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            out_time= (time.time()-start)
+            tot_time= one_time+corr_time+targSigma_time+out_time
+            print one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time
+            return out
+        else:
+            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,target=True,
