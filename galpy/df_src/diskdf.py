@@ -104,11 +104,12 @@ class diskdf:
 
         INPUT:
 
-           either an orbit instance or E,Lz
+           either an orbit instance, a list of such instances,  or E,Lz
 
-           1) Orbit instance:
+           1) Orbit instance or list:
               a) Orbit instance alone: use vxvv member
-              b) Orbit instance + t: call the Orbit instance
+              b) Orbit instance + t: call the Orbit instance (for list, each
+                                     instance is called at t)
 
            2)
               E - energy (/vo^2)
@@ -116,9 +117,9 @@ class diskdf:
 
         KWARGS:
 
-           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) for single orbits above) + nsigma, +scipy.integrate.quad keywords
 
-           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
+           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) for single orbits above) + nsigma, +scipy.integrate.quad keywords
 
         OUTPUT:
 
@@ -150,6 +151,13 @@ class diskdf:
                                                     vxvv[2],
                                                     vxvv[0],
                                                     self._beta)))
+        elif isinstance(args[0],list) \
+                 and isinstance(args[0][0],Orbit):
+            #Grab all of the vR, vT, and R
+            vR= nu.array([o.vxvv[1] for o in args[0]])
+            vT= nu.array([o.vxvv[2] for o in args[0]])
+            R= nu.array([o.vxvv[0] for o in args[0]])
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
         else:
             return sc.real(self.eval(*args))
 
@@ -303,7 +311,7 @@ class diskdf:
         PURPOSE:
            evaluate the target Sigma_R^2(R)
         INPUT:
-           R - radius at which to evaluate (/ro)
+            R - radius at which to evaluate (/ro)
         OUTPUT:
            target Sigma_R^2(R)
            log - if True, return the log (default: False)
@@ -311,38 +319,38 @@ class diskdf:
            2010-03-28 - Written - Bovy (NYU)
         """
         return self._surfaceSigmaProfile.sigma2(R,log=log)
-    
+
     def targetSurfacemass(self,R,log=False):
-        """
-        NAME:
-           targetSurfacemass
-        PURPOSE:
-           evaluate the target surface mass at R
-        INPUT:
-           R - radius at which to evaluate
-           log - if True, return the log (default: False)
-        OUTPUT:
-           Sigma(R)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        return self._surfaceSigmaProfile.surfacemass(R,log=log)
-        
+         """
+         NAME:
+            targetSurfacemass
+         PURPOSE:
+            evaluate the target surface mass at R
+         INPUT:
+            R - radius at which to evaluate
+            log - if True, return the log (default: False)
+         OUTPUT:
+            Sigma(R)
+         HISTORY:
+            2010-03-28 - Written - Bovy (NYU)
+         """
+         return self._surfaceSigmaProfile.surfacemass(R,log=log)
+
     def targetSurfacemassLOS(self,d,l,log=False,deg=True):
         """
         NAME:
-           targetSurfacemassLOS
+            targetSurfacemassLOS
         PURPOSE:
-           evaluate the target surface mass along the LOS given l and d
+            evaluate the target surface mass along the LOS given l and d
         INPUT:
-           d - distance along the line of sight
-           l - Galactic longitude (in deg, unless deg=False)
-           deg= if False, l is in radians
-           log - if True, return the log (default: False)
+            d - distance along the line of sight
+            l - Galactic longitude (in deg, unless deg=False)
+            deg= if False, l is in radians
+            log - if True, return the log (default: False)
         OUTPUT:
-           Sigma(d,l)
+            Sigma(d,l)
         HISTORY:
-           2011-03-23 - Written - Bovy (NYU)
+            2011-03-23 - Written - Bovy (NYU)
         """
         #Calculate R and phi
         if deg:
@@ -359,7 +367,7 @@ class diskdf:
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *m.fabs(jac)*R
-        
+
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
         """
@@ -1004,7 +1012,7 @@ class diskdf:
            2010-03-28 - Written - Bovy (NYU)
         """
         return 0.
-    
+
     def _estimatemeanvT(self,R,phi=0.,log=False):
         """
         NAME:
@@ -1022,7 +1030,7 @@ class diskdf:
            2010-03-28 - Written - Bovy (NYU)
         """
         return R**self._beta-self.asymmetricdrift(R)
-    
+
     def _estimateSigmaR2(self,R,phi=0.,log=False):
         """
         NAME:
@@ -1041,7 +1049,7 @@ class diskdf:
            2010-03-28 - Written - Bovy (NYU)
         """
         return self.targetSigma2(R,log=log)
-    
+
     def _estimateSigmaT2(self,R,phi=0.,log=False):
         """
         NAME:
@@ -1063,7 +1071,7 @@ class diskdf:
             return self.targetSigma2(R,log=log)-2.*nu.log(self._gamma)
         else:
             return self.targetSigma2(R,log=log)/self._gamma**2.
-    
+
 
 class dehnendf(diskdf):
     """Dehnen's 'new' df"""
@@ -1105,7 +1113,7 @@ class dehnendf(diskdf):
                                profileParams=profileParams,
                                correct=correct,dftype='dehnen',
                                beta=beta,**kwargs)
-        
+
     def eval(self,E,L,logSigmaR=0.,logsigmaR2=0.):
         """
         NAME:
@@ -1669,6 +1677,23 @@ class DFcorrection:
         HISTORY:
            2010-03-10 - Written - Bovy (NYU)
         """
+        if isinstance(R,nu.ndarray):
+            out= nu.empty((2,len(R)))
+            #R < _RMIN
+            rmin_indx= (R < _RMIN)
+            out[0:rmin_indx]= m.log(self._corrections[0,0])\
+                              +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
+            out[1:rmin_indx]= m.log(self._corrections[0,1])\
+                              +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
+            #R > 2rmax
+            rmax_indx= (R > (2.*self._rmax))
+            out[:,rmax_indx]= 0.
+            #'normal' R
+            r_indx= (R >= _RMIN)*(R <= (2.*self._rmax))
+            out[0:r_indx]= self._surfaceInterpolate(R[r_indx])
+            out[1:r_indx]= self._sigma2Interpolate(R[r_indx])
+            if log: return out
+            else: return nu.exp(out)
         if R < _RMIN:
             out= sc.array([sc.log(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
                            sc.log(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
@@ -1795,8 +1820,13 @@ def axipotential(R,beta=0.):
        2010-03-01 - Written - Bovy (NYU)
     """
     if beta == 0.:
-        if R == 0.: return m.log(_RMIN)
-        return m.log(R)
+        if nu.any(R == 0.):
+            out= nu.empty(R.shape)
+            out[R == 0.]= m.log(_RMIN)
+            out[R != 0.]= nu.log(R[R != 0.])
+            return out
+        else:
+            return nu.log(R)
     else: #non-flat rotation curve
         return R**(2.*beta)/2./beta
 
