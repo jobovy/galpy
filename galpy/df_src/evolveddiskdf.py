@@ -8,6 +8,7 @@
 ###############################################################################
 _NSIGMA= 4.
 _NTS= 1000
+_PROFILE= False
 import sys
 import math
 import copy
@@ -113,17 +114,21 @@ class evolveddiskdf:
             ts= self._create_ts_tlist(t,integrate_method)
             o= args[0]
             #integrate orbit
-            import time as time_module
-            start= time_module.time()
+            if _PROFILE:
+                import time as time_module
+                start= time_module.time()
             o.integrate(ts,self._pot,method=integrate_method)
-            int_time= (time_module.time()-start)
+            if _PROFILE:
+                int_time= (time_module.time()-start)
             #Now evaluate the DF
             retval= []
-            start= time_module.time()
+            if _PROFILE:
+                start= time_module.time()
             for time in t:
                 retval.append(self._initdf(o(self._to+t[0]-time)))
-            df_time= (time_module.time()-start)
-            print int_time, df_time, int_time/df_time
+            if _PROFILE:
+                df_time= (time_module.time()-start)
+                print int_time, df_time, int_time/df_time
             if isinstance(t,nu.ndarray): retval= nu.array(retval)
         else:
             if self._to == t:
@@ -722,7 +727,7 @@ class evolveddiskdf:
                                              returnGrid=False,
                                              hierarchgrid=hierarchgrid,
                                              nlevels=nlevels,
-                                             itnegrate_method=integrate_method)
+                                             integrate_method=integrate_method)
         if surfacemass is None:
             surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
@@ -928,7 +933,7 @@ class evolveddiskdf:
             _NTS= 1000
             ts= nu.linspace(t[0],self._to,_NTS)
         else:
-            ts= []
+            ts= [self._to]
         #Add other t
         ts= list(ts)
         ts.extend([self._to+t[0]-ti for ti in t[1:len(t)]])
