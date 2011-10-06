@@ -986,6 +986,85 @@ class diskdf:
         """
         raise NotImplementedError("'sample' method for this disk df is not implemented")
 
+    def _estimatemeanvR(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimatemeanvR
+        PURPOSE:
+            quickly estimate meanvR (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return 0.
+    
+    def _estimatemeanvT(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimatemeanvT
+        PURPOSE:
+            quickly estimate meanvR (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return R**self._beta-self.asymmetricdrift(R)
+    
+    def _estimateSigmaR2(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimateSigmaR2
+        PURPOSE:
+            quickly estimate SigmaR2 (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return self.targetSigma2(R,log=log)
+    
+    def _estimateSigmaT2(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimateSigmaT2
+        PURPOSE:
+            quickly estimate SigmaT2 (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        if log:
+            return self.targetSigma2(R,log=log)-2.*nu.log(self._gamma)
+        else:
+            return self.targetSigma2(R,log=log)/self._gamma**2.
+    
+
 class dehnendf(diskdf):
     """Dehnen's 'new' df"""
     def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
