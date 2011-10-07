@@ -93,7 +93,8 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags)]
+                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -110,7 +111,8 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
                     pot_type,
                     pot_args,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
-                    result)
+                    result,
+                    0)
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
