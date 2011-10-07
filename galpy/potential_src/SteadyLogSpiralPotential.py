@@ -74,7 +74,7 @@ class SteadyLogSpiralPotential(planarPotential):
         if not tsteady is None:
             self._tsteady= self._tform+tsteady*self._ts
         else:
-            if self._tform is None: pass
+            if self._tform is None: self._tsteady= None
             else: self._tsteady= self._tform+2.*self._ts
         self.hasC= True
 
