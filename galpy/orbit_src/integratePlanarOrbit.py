@@ -41,7 +41,7 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
     """
     #Process atol and rtol
     if rtol is None:
-        rtol= 1.49012e-8
+        rtol= 1.49012e-10
     if atol is None:
         atol= 0.  
     #Figure out what's in pot
