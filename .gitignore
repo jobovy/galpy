@@ -36,3 +36,7 @@ Thumbs.db
 
 #
 *~
+
+# galpy #
+#########
+galpy/df_src/data/dfcorrection*.sav
