@@ -2,8 +2,6 @@
 /*
   Function declarations
 */
-//Dehnen smoothing
-double dehnenSmooth(double,double, double);
 //ZeroForce
 double ZeroPlanarForce(double, double,double,int, double *);
 double ZeroForce(double,double,double,double,int, double *);
