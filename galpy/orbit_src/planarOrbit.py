@@ -14,6 +14,13 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
 from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_leapfrog
+def _warning(
+    message,
+    category = UserWarning,
+    filename = '',
+    lineno = -1):
+    print("galpyWarning: "+str(message))
+warnings.showwarning = _warning
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
