@@ -29,6 +29,8 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef __BOVY_SYMPLECTICODE_H__
+#define __BOVY_SYMPLECTICODE_H__
 /*
   Structure declarations
 */
@@ -65,4 +67,4 @@ double leapfrog_estimate_step(void (*func)(double , double *, double *,int, stru
 			      double, double *,
 			      int,struct leapFuncArg *,
 			      double,double);
-
+#endif /* bovy_rk.h */
