@@ -2,7 +2,7 @@
 #include <galpy_potentials.h>
 //DehnenBarPotential
 //
-double dehnenSmooth(double t,double tform, double tsteady){
+inline double dehnenSmooth(double t,double tform, double tsteady){
   double smooth, xi,deltat;
   if ( t < tform )
     smooth= 0.;
