@@ -38,7 +38,7 @@ void integratePlanarOrbit(double *yo,
 			  int odeint_type){
   //Set up the forces, first count
   int ii, jj;
-  //  bool lp= (bool) logp;
+  int dim;
   struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
@@ -87,13 +87,15 @@ void integratePlanarOrbit(double *yo,
   case 0: //leapfrog
     odeint_func= &leapfrog;
     odeint_deriv_func= &evalPlanarRectForce;
+    dim= 2;
     break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalPlanarRectDeriv;
+    dim= 4;
     break;
   }
-  odeint_func(odeint_deriv_func,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(leapFuncArgs->args);
