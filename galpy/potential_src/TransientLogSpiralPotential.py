@@ -72,6 +72,7 @@ class TransientLogSpiralPotential(planarPotential):
             self._alpha= self._m/math.tan(p)
         else:
             self._alpha= alpha
+        self.hasC= True
 
     def _evaluate(self,R,phi=0.,t=0.):
         """
