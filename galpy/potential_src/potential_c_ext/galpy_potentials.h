@@ -15,3 +15,6 @@ double LogarithmicHaloPotentialzforce(double,double,double,double,
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,int,double *);
 double DehnenBarPotentialphiforce(double,double,double,int,double *);
+//TransientLogSpiralPotential
+double TransientLogSpiralPotentialRforce(double,double,double,int,double *);
+double TransientLogSpiralPotentialphiforce(double,double,double,int,double *);
