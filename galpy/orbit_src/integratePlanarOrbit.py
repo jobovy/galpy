@@ -21,7 +21,7 @@ for path in sys.path:
 if _lib is None:
     raise IOError('galpy integration module not found')
 
-def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
+def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     """
     NAME:
        integratePlanarOrbit_leapfrog
@@ -31,6 +31,7 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
        pot - Potential or list of such instances
        yo - initial condition [q,p]
        t - set of times at which one wants the result
+       int_method= 'leapfrog_c' or 'rk4_c'
        rtol, atol
     OUTPUT:
        y : array, shape (len(y0), len(t))
@@ -78,6 +79,12 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
                                  p._omegas,p._gamma])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+
+    #Pick integrator
+    if int_method.lower() == 'rk4_c':
+        int_method_c= 1
+    else:
+        int_method_c= 0
             
     #Set up result array
     result= nu.empty((len(t),4))
@@ -112,7 +119,7 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
                     pot_args,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
-                    0)
+                    ctypes.c_int(int_method_c))
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
