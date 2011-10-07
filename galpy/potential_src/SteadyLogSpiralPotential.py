@@ -76,6 +76,7 @@ class SteadyLogSpiralPotential(planarPotential):
         else:
             if self._tform is None: pass
             else: self._tsteady= self._tform+2.*self._ts
+        self.hasC= True
 
     def _evaluate(self,R,phi=0.,t=0.):
         """
