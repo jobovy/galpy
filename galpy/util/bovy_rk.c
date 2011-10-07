@@ -81,18 +81,19 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
     for (jj=0; jj < (ndt-1); jj++) {
-      bovy_rk4_onestep(func,dim,yn,yn1,to,,dt,nargs,leapFuncArgs);
+      bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs);
       to+= dt;
       //reset yn
       for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
-  }
-    bovy_rk4_onestep(func,dim,yn,yn1,to,,dt,nargs,leapFuncArgs);
+    }
+    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs);
     to+= dt;
     //save
     save_rk(dim,yn,result);
     result+= dim;
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
+  }
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -114,15 +115,15 @@ inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 6.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii) / 2.;
   //calculate k2
-  func(to+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 3.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii) / 2.;
   //calculate k3
-  func(to+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 3.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii);
   //calculate k4
-  func(to+dt,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt,ynk,a,nargs,leapFuncArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 6.;
   //yn1 is new value
   //free memory
@@ -140,7 +141,8 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
 			int nargs,struct leapFuncArg * leapFuncArgs,
 			double rtol,double atol, double order){
   return dt;
-  /* 
+}
+/* 
   //scalars
   double err= 2.;
   double max_val_q, max_val_p;
@@ -210,4 +212,3 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
   //return
   return dt;
   */
-}
