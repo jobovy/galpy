@@ -42,51 +42,30 @@ void integratePlanarOrbit(double *yo,
       leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
       leapFuncArgs->planarphiforce= &ZeroPlanarForce;
       leapFuncArgs->nargs= 2;
-      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-      for (jj=0; jj < leapFuncArgs->nargs; jj++){
-	*(leapFuncArgs->args)= *pot_args++;
-	leapFuncArgs->args++;
-      }
-      leapFuncArgs->args-= leapFuncArgs->nargs;
-      leapFuncArgs++;
       break;
     case 1: //DehnenBarPotential, 7 arguments
       leapFuncArgs->planarRforce= &DehnenBarPotentialRforce;
       leapFuncArgs->planarphiforce= &DehnenBarPotentialphiforce;
       leapFuncArgs->nargs= 7;
-      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-      for (jj=0; jj < leapFuncArgs->nargs; jj++){
-	*(leapFuncArgs->args)= *pot_args++;
-	leapFuncArgs->args++;
-      }
-      leapFuncArgs->args-= leapFuncArgs->nargs;
-      leapFuncArgs++;
       break;
     case 2: //TransientLogSpiralPotential, 8 arguments
       leapFuncArgs->planarRforce= &TransientLogSpiralPotentialRforce;
       leapFuncArgs->planarphiforce= &TransientLogSpiralPotentialphiforce;
       leapFuncArgs->nargs= 8;
-      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-      for (jj=0; jj < leapFuncArgs->nargs; jj++){
-	*(leapFuncArgs->args)= *pot_args++;
-	leapFuncArgs->args++;
-      }
-      leapFuncArgs->args-= leapFuncArgs->nargs;
-      leapFuncArgs++;
       break;
     case 3: //SteadyLogSpiralPotential, 8 arguments
       leapFuncArgs->planarRforce= &SteadyLogSpiralPotentialRforce;
       leapFuncArgs->planarphiforce= &SteadyLogSpiralPotentialphiforce;
       leapFuncArgs->nargs= 8;
-      leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-      for (jj=0; jj < leapFuncArgs->nargs; jj++){
-	*(leapFuncArgs->args)= *pot_args++;
-	leapFuncArgs->args++;
-      }
-      leapFuncArgs->args-= leapFuncArgs->nargs;
-      leapFuncArgs++;
       break;
     }
+    leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
+    for (jj=0; jj < leapFuncArgs->nargs; jj++){
+      *(leapFuncArgs->args)= *pot_args++;
+      leapFuncArgs->args++;
+    }
+    leapFuncArgs->args-= leapFuncArgs->nargs;
+    leapFuncArgs++;
   }
   leapFuncArgs-= npot;
   //Integrate
