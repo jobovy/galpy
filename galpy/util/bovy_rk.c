@@ -66,6 +66,8 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   //Initialize
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *yn1= (double *) malloc ( dim * sizeof(double) );
+  double *ynk= (double *) malloc ( dim * sizeof(double) );
+  double *a= (double *) malloc ( dim * sizeof(double) );
   int ii, jj, kk;
   save_rk(dim,yo,result);
   result+= dim;
@@ -81,15 +83,15 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
     for (jj=0; jj < (ndt-1); jj++) {
-      bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs);
+      bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a);
       to+= dt;
       //reset yn
       for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
     }
-    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs);
+    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a);
     to+= dt;
     //save
-    save_rk(dim,yn,result);
+    save_rk(dim,yn1,result);
     result+= dim;
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
@@ -97,6 +99,8 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   //Free allocated memory
   free(yn);
   free(yn1);
+  free(ynk);
+  free(a);
   //We're done
 }
 
@@ -105,10 +109,8 @@ inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
 			     int dim,
 			     double * yn,double * yn1,
 			     double tn, double dt,
-			     int nargs, struct leapFuncArg * leapFuncArgs){
-  //allocate
-  double *ynk= (double *) malloc ( dim * sizeof(double) );
-  double *a= (double *) malloc ( dim * sizeof(double) );
+			     int nargs, struct leapFuncArg * leapFuncArgs,
+			     double * ynk, double * a){
   int ii;
   //calculate k1
   func(tn,yn,a,nargs,leapFuncArgs);
@@ -126,9 +128,6 @@ inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
   func(tn+dt,ynk,a,nargs,leapFuncArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 6.;
   //yn1 is new value
-  //free memory
-  free(ynk);
-  free(a);
 }
 
 inline void save_rk(int dim, double *yo, double *result){

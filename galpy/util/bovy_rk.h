@@ -51,7 +51,8 @@ inline void bovy_rk4_onestep(void (*func)(double, double *, double *,
 			     int,
 			     double *,double *,
 			     double, double,
-			     int, struct leapFuncArg *);
+			     int, struct leapFuncArg *,
+			     double *,double *);
 inline void save_rk(int, double *, double *);
 double rk_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			 int, double *,
