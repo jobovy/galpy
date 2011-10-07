@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
+#include <bovy_rk.h>
 //Potentials
 #include <galpy_potentials.h>
 #ifndef M_PI
@@ -15,6 +16,8 @@
   Function Declarations
 */
 void evalPlanarRectForce(double, double *, double *,
+			 int, struct leapFuncArg *);
+void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct leapFuncArg *);
 double calcPlanarRforce(double, double, double, 
 			int, struct leapFuncArg *);
@@ -31,7 +34,8 @@ void integratePlanarOrbit(double *yo,
 			  double * pot_args,
 			  double rtol,
 			  double atol,
-			  double *result){
+			  double *result,
+			  int odeint_type){
   //Set up the forces, first count
   int ii, jj;
   //  bool lp= (bool) logp;
@@ -69,7 +73,27 @@ void integratePlanarOrbit(double *yo,
   }
   leapFuncArgs-= npot;
   //Integrate
-  leapfrog(&evalPlanarRectForce,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  void (*odeint_func)(void (*func)(double, double *, double *,
+			   int, struct leapFuncArg *),
+		      int,
+		      double *,
+		      int, double *,
+		      int, struct leapFuncArg *,
+		      double, double,
+		      double *);
+  void (*odeint_deriv_func)(double, double *, double *,
+			    int,struct leapFuncArg *);
+  switch ( odeint_type ) {
+  case 0: //leapfrog
+    odeint_func= &leapfrog;
+    odeint_deriv_func= &evalPlanarRectForce;
+    break;
+  case 1: //RK4
+    odeint_func= &bovy_rk4;
+    odeint_deriv_func= &evalPlanarRectDeriv;
+    break;
+  }
+  odeint_func(odeint_deriv_func,2,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(leapFuncArgs->args);
@@ -96,6 +120,27 @@ void evalPlanarRectForce(double t, double *q, double *a,
   phiforce= calcPlanarphiforce(R,phi,t,nargs,leapFuncArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a--= sinphi*Rforce+1./R*cosphi*phiforce;
+}
+void evalPlanarRectDeriv(double t, double *q, double *a,
+			 int nargs, struct leapFuncArg * leapFuncArgs){
+  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce;
+  //first two derivatives are just the velocities
+  *a++= *(q+2);
+  *a++= *(q+3);
+  //Rest is force
+  //q is rectangular so calculate R and phi
+  x= *q;
+  y= *(q+1);
+  R= sqrt(x*x+y*y);
+  phi= acos(x/R);
+  sinphi= y/R;
+  cosphi= x/R;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
+  //Calculate the forces
+  Rforce= calcPlanarRforce(R,phi,t,nargs,leapFuncArgs);
+  phiforce= calcPlanarphiforce(R,phi,t,nargs,leapFuncArgs);
+  *a++= cosphi*Rforce-1./R*sinphi*phiforce;
+  *a= sinphi*Rforce+1./R*cosphi*phiforce;
 }
 
 double calcPlanarRforce(double R, double phi, double t, 
