@@ -67,6 +67,10 @@ def integratePlanarOrbit_leapfrog(pot,yo,t,rtol=None,atol=None):
             pot_type.append(2)
             pot_args.extend([p._amp,p._A,p._to,p._sigma2,p._alpha,p._m,
                              p._omegas,p._gamma])
+        elif isinstance(p,potential.SteadyLogSpiralPotential):
+            pot_type.append(3)
+            pot_args.extend([p._amp,p._tform,p._tsteady,p._A,p._alpha,p._m,
+                             p._omegas,p._gamma])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
             
