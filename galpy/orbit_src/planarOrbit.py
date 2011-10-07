@@ -13,7 +13,7 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
-from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_leapfrog
+from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c
 def _warning(
     message,
     category = UserWarning,
@@ -562,7 +562,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-    elif method.lower() == 'leapfrog_c':
+    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
@@ -641,7 +641,7 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
-    elif method.lower() == 'leapfrog_c':
+    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c':
         warnings.warn("Using C implementation to integrate orbits")
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
@@ -649,8 +649,8 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        tmp_out= integratePlanarOrbit_leapfrog(pot,this_vxvv,
-                                               t,rtol=10.**-8)
+        tmp_out= integratePlanarOrbit_c(pot,this_vxvv,
+                                        t,method,rtol=10.**-10)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
