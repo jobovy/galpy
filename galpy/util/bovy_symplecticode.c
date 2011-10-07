@@ -37,7 +37,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Leapfrog integrator
 Usage:
    Provide the acceleration function func with calling sequence
-       func (im,t,q,a,nargs,args)
+       func (t,q,a,nargs,args)
    where
        double t: time
        double * q: current position (dimension: dim)
