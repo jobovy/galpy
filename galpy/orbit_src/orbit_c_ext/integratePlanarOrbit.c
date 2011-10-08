@@ -94,6 +94,11 @@ void integratePlanarOrbit(double *yo,
     odeint_deriv_func= &evalPlanarRectDeriv;
     dim= 4;
     break;
+  case 2: //RK6
+    odeint_func= &bovy_rk6;
+    odeint_deriv_func= &evalPlanarRectDeriv;
+    dim= 4;
+    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Free allocated memory
