@@ -144,7 +144,6 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
   double err= 2.;
   double max_val;
   double to= *t;
-  double *ymax= (double *) malloc ( dim * sizeof(double) );
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -153,36 +152,38 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
   double *a= (double *) malloc ( dim * sizeof(double) );
   double *scale= (double *) malloc ( dim * sizeof(double) );
   int ii;
-  //copy initial codition
-  for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   //find maximum values
   max_val= fabs(*yo);
   for (ii=1; ii < dim; ii++)
     if ( fabs(*(yo+ii)) > max_val )
       max_val= fabs(*(yo+ii));
-  //set ymax
-  for (ii=0; ii < dim; ii++)
-    *(ymax+ii)= max_val;
   //set up scale
-  for (ii=0; ii < dim; ii++) *(scale+ii)= atol + rtol * *(ymax+ii);
+  double c= fmax(atol, rtol * max_val);
+  double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
+  for (ii=0; ii < dim; ii++) *(scale+ii)= s;
   //find good dt
   dt*= 2.;
   while ( err > 1. ){
     dt/= 2.;
+    //copy initial codition
+    for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
+    for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
+    for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
     //do one step with step dt, and one with step dt/2.
     //dt
     bovy_rk4_onestep(func,dim,yn,y1,to,dt,nargs,leapFuncArgs,ynk,a);
     //dt/2
     bovy_rk4_onestep(func,dim,yn,y21,to,dt/2.,nargs,leapFuncArgs,ynk,a);
+    for (ii=0; ii < dim; ii++) *(y2+ii)= *(y21+ii);
     bovy_rk4_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,leapFuncArgs,ynk,a);
     //Norm
     err= 0.;
-    for (ii=0; ii < dim; ii++) 
-      err+= pow((*(y1+ii)-*(y2+ii)) / *(scale+ii),2.);
+    for (ii=0; ii < dim; ii++) {
+      err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
+    }
     err= sqrt(err/dim);
   }
   //free what we allocated
-  free(ymax);
   free(yn);
   free(y1);
   free(y2);
