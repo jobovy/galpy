@@ -142,7 +142,7 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
   //return dt;
   //scalars
   double err= 2.;
-  double max_val_q;
+  double max_val;
   double to= *t;
   double *ymax= (double *) malloc ( dim * sizeof(double) );
   double *yn= (double *) malloc ( dim * sizeof(double) );
@@ -166,9 +166,9 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
   //set up scale
   for (ii=0; ii < dim; ii++) *(scale+ii)= atol + rtol * *(ymax+ii);
   //find good dt
-  dt*= 2.
+  dt*= 2.;
   while ( err > 1. ){
-    dt/= 2.
+    dt/= 2.;
     //do one step with step dt, and one with step dt/2.
     //dt
     bovy_rk4_onestep(func,dim,yn,y1,to,dt,nargs,leapFuncArgs,ynk,a);
