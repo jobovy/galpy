@@ -179,9 +179,9 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     *(scale+ii+dim)= atol + rtol * *(pmax+ii);
   }
   //find good dt
-  dt*= 2.
+  dt*= 2.;
   while ( err > 1. ){
-    dt/= 2.
+    dt/= 2.;
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
@@ -207,8 +207,13 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   //free what we allocated
   free(qmax);
   free(pmax);
+  free(q11);
   free(q12);
+  free(p11);
+  free(qtmp);
+  free(ptmp);
   free(a);
+  free(scale);
   //return
   return dt;
 }
