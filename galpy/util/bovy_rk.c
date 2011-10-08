@@ -139,75 +139,57 @@ double rk_estimate_step(void (*func)(double t, double *y, double *a,int nargs, s
 			double dt, double *t,
 			int nargs,struct leapFuncArg * leapFuncArgs,
 			double rtol,double atol, double order){
-  return dt;
-}
-/* 
+  //return dt;
   //scalars
   double err= 2.;
-  double max_val_q, max_val_p;
+  double max_val_q;
   double to= *t;
-  //allocate and initialize
-  double *qmax= (double *) malloc ( dim * sizeof(double) );
-  double *pmax= (double *) malloc ( dim * sizeof(double) );
-  double *q11= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
-  double *p11= (double *) malloc ( dim * sizeof(double) );
-  double *p12= (double *) malloc ( dim * sizeof(double) );
-  double *qtmp= (double *) malloc ( dim * sizeof(double) );
-  double *ptmp= (double *) malloc ( dim * sizeof(double) );
+  double *ymax= (double *) malloc ( dim * sizeof(double) );
+  double *yn= (double *) malloc ( dim * sizeof(double) );
+  double *y1= (double *) malloc ( dim * sizeof(double) );
+  double *y21= (double *) malloc ( dim * sizeof(double) );
+  double *y2= (double *) malloc ( dim * sizeof(double) );
+  double *ynk= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
-  double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
+  double *scale= (double *) malloc ( dim * sizeof(double) );
   int ii;
+  //copy initial codition
+  for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   //find maximum values
-  max_val_q= fabs(*qo);
+  max_val= fabs(*yo);
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
-  for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
-  //set qmax, pmax
+    if ( fabs(*(yo+ii)) > max_val )
+      max_val= fabs(*(yo+ii));
+  //set ymax
   for (ii=0; ii < dim; ii++)
-    *(qmax+ii)= max_val_q;
-  for (ii=0; ii < dim; ii++)
-    *(pmax+ii)= max_val_p;
+    *(ymax+ii)= max_val;
   //set up scale
-  for (ii=0; ii < dim; ii++) {
-    *(scale+ii)= atol + rtol * *(qmax+ii);
-    *(scale+ii+dim)= atol + rtol * *(pmax+ii);
-  }
+  for (ii=0; ii < dim; ii++) *(scale+ii)= atol + rtol * *(ymax+ii);
   //find good dt
+  dt*= 2.
   while ( err > 1. ){
-    //do one leapfrog step with step dt, and one with step dt/2.
+    dt/= 2.
+    //do one step with step dt, and one with step dt/2.
     //dt
-    leapfrog_leapq(dim,qo,po,dt/2.,q12);
-    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
-    leapfrog_leapp(dim,po,dt,a,p11);
-    leapfrog_leapq(dim,q12,p11,dt/2.,q11);
-    //dt/2.
-    leapfrog_leapq(dim,qo,po,dt/4.,q12);
-    func(to+dt/4.,q12,a,nargs,leapFuncArgs);
-    leapfrog_leapp(dim,po,dt/2.,a,ptmp);
-    leapfrog_leapq(dim,q12,ptmp,dt/2.,qtmp);//Take full step combining two half
-    func(to+3.*dt/4.,qtmp,a,nargs,leapFuncArgs);
-    leapfrog_leapp(dim,ptmp,dt/2.,a,p12);
-    leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half   
+    bovy_rk4_onestep(func,dim,yn,y1,to,dt,nargs,leapFuncArgs,ynk,a);
+    //dt/2
+    bovy_rk4_onestep(func,dim,yn,y21,to,dt/2.,nargs,leapFuncArgs,ynk,a);
+    bovy_rk4_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,leapFuncArgs,ynk,a);
     //Norm
     err= 0.;
-    for (ii=0; ii < dim; ii++) {
-      fflush(stdout);
-      err+= pow((*(q11+ii)-*(q12+ii)) / *(scale+ii),2.);
-      err+= pow((*(p11+ii)-*(p12+ii)) / *(scale+ii+dim),2.);
-    }
-    err= sqrt(err/2./dim);
-    dt/= 2.;
+    for (ii=0; ii < dim; ii++) 
+      err+= pow((*(y1+ii)-*(y2+ii)) / *(scale+ii),2.);
+    err= sqrt(err/dim);
   }
   //free what we allocated
-  free(qmax);
-  free(pmax);
-  free(q12);
+  free(ymax);
+  free(yn);
+  free(y1);
+  free(y2);
+  free(y21);
+  free(ynk);
   free(a);
+  free(scale);
   //return
   return dt;
-  */
+} 
