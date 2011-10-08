@@ -650,7 +650,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out= integratePlanarOrbit_c(pot,this_vxvv,
-                                        t,method,rtol=10.**-10)
+                                        t,method)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
