@@ -75,5 +75,10 @@ double rk4_estimate_step(void (*func)(double , double *, double *,int, struct le
 			 int, double *,
 			 double, double *,
 			 int,struct leapFuncArg *,
-			 double,double,double);
+			 double,double);
+double rk6_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
+			 int, double *,
+			 double, double *,
+			 int,struct leapFuncArg *,
+			 double,double);
 #endif /* bovy_rk.h */
