@@ -83,6 +83,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     #Pick integrator
     if int_method.lower() == 'rk4_c':
         int_method_c= 1
+    elif int_method.lower() == 'rk6_c':
+        int_method_c= 2
     else:
         int_method_c= 0
             
