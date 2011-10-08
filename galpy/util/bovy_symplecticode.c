@@ -197,7 +197,6 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     //Norm
     err= 0.;
     for (ii=0; ii < dim; ii++) {
-      fflush(stdout);
       err+= pow((*(q11+ii)-*(q12+ii)) / *(scale+ii),2.);
       err+= pow((*(p11+ii)-*(p12+ii)) / *(scale+ii+dim),2.);
     }
