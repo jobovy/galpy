@@ -135,7 +135,7 @@ class evolveddiskdf:
                     orb_array= orb_array[:,1]
                 else:
                     orb_array= o.getOrbit().T
-                    retval= self._initdf(orb_array)
+                retval= self._initdf(orb_array)
                 #reverse to get the times in the right order
                 if len(t) > 1: retval= retval[::-1]
             if _PROFILE:
