@@ -148,8 +148,6 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   double max_val_q, max_val_p;
   double to= *t;
   //allocate and initialize
-  double *qmax= (double *) malloc ( dim * sizeof(double) );
-  double *pmax= (double *) malloc ( dim * sizeof(double) );
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
   double *p11= (double *) malloc ( dim * sizeof(double) );
@@ -168,16 +166,13 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=1; ii < dim; ii++)
     if ( fabs(*(po+ii)) > max_val_p )
       max_val_p= fabs(*(po+ii));
-  //set qmax, pmax
-  for (ii=0; ii < dim; ii++)
-    *(qmax+ii)= max_val_q;
-  for (ii=0; ii < dim; ii++)
-    *(pmax+ii)= max_val_p;
   //set up scale
-  for (ii=0; ii < dim; ii++) {
-    *(scale+ii)= atol + rtol * *(qmax+ii);
-    *(scale+ii+dim)= atol + rtol * *(pmax+ii);
-  }
+  double c= fmax(atol, rtol * max_val_q);
+  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
+  for (ii=0; ii < dim; ii++) *(scale+ii)= s;
+  c= fmax(atol, rtol * max_val_p);
+  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
+  for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
   while ( err > 1. ){
@@ -199,14 +194,12 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     //Norm
     err= 0.;
     for (ii=0; ii < dim; ii++) {
-      err+= pow((*(q11+ii)-*(q12+ii)) / *(scale+ii),2.);
-      err+= pow((*(p11+ii)-*(p12+ii)) / *(scale+ii+dim),2.);
+      err+= exp(2.*log(fabs(*(q11+ii)-*(q12+ii)))-2.* *(scale+ii));
+      err+= exp(2.*log(fabs(*(p11+ii)-*(p12+ii)))-2.* *(scale+ii+dim));
     }
     err= sqrt(err/2./dim);
   }
   //free what we allocated
-  free(qmax);
-  free(pmax);
   free(q11);
   free(q12);
   free(p11);
