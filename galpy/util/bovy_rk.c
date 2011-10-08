@@ -172,7 +172,7 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
       //reset yn
       for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
     }
-    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a,
+    bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a,
 		     k1,k2,k3,k4,k5);
     to+= dt;
     //save
@@ -203,7 +203,7 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   k_5 = step * dxdt(start + step/2, x[i] + (-k_1 + 18*k_2 - 3*k_3 - 6*k_4)/16)
   k_6 = step * dxdt(start + step/2, x[i] + (9 * k_2 - 3*k_3 - 6*k_4 + 4*k_5)/8)
   k_7 = step * dxdt(start + step, x[i] + (9*k_1 - 36*k_2 + 63*k_3 +
-72*k_4 -64*k_5)/44)
+72*k_4 -64*k_6)/44)
 */
 inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
 					  int nargs, struct leapFuncArg * leapFuncArgs),
@@ -251,9 +251,10 @@ inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
   //calculate k6
   func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) -= 32.* dt * *(a+ii) / 120.;
+  for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //re-use k5 for k6
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( 9. * *(k1+ii)
 						     - 36. * *(k2+ii)
-						     -63.* *(k3+ii)
+						     +63.* *(k3+ii)
 						     + 72. * *(k4+ii)
 						     -64. * *(k5+ii))/44.;
   //calculate k7
@@ -324,9 +325,11 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   free(a);
   free(scale);
   //return
+  printf("%f\n",dt);
+  fflush(stdout);
   return dt;
 } 
-double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
 			 int dim, double *yo,
 			 double dt, double *t,
 			 int nargs,struct leapFuncArg * leapFuncArgs,
@@ -397,5 +400,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   free(k4);
   free(k5);
   //return
+  printf("%f\n",dt);
+  fflush(stdout);
   return dt;
 } 
