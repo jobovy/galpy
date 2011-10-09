@@ -56,7 +56,10 @@ def plotEscapecurve(Pot,*args,**kwargs):
         kwargs['xlabel']= r"$R/R_0$"
     if not kwargs.has_key('ylabel'):
         kwargs['ylabel']= r"$v_e(R)/v_c(R_0)$"
-    kwargs['xrange']= Rrange
+    if not kwargs.has_key('xrange'):
+        kwargs['xrange']= Rrange
+    if not kwargs.has_key('yrange'):
+        kwargs['yrange']= [0.,1.2*nu.amax(esccurve)]
     return plot.bovy_plot(Rs,esccurve,*args,
                           **kwargs)
 
