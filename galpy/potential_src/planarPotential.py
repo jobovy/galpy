@@ -217,11 +217,6 @@ class planarAxiPotential(planarPotential):
         """
         return lindbladR(self,OmegaP,m=m,**kwargs)
 
-def _corotationR_eq(R,Pot,OmegaP):
-    return omegac(Pot,R)-OmegaP
-def _lindbladR_eq(R,Pot,OmegaP,m):
-    return m*(omegac(Pot,R)-OmegaP)-epifreq(Pot,R)
-
     def vesc(self,R):
         """
 
