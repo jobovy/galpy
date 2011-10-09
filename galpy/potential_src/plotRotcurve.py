@@ -55,7 +55,10 @@ def plotRotcurve(Pot,*args,**kwargs):
         kwargs['xlabel']= r"$R/R_0$"
     if not kwargs.has_key('ylabel'):
         kwargs['ylabel']= r"$v_c(R)/v_c(R_0)$"
-    kwargs['xrange']= Rrange
+    if not kwargs.has_key('xrange'):
+        kwargs['xrange']= Rrange
+    if not kwargs.has_key('yrange'):
+        kwargs['yrange']= [0.,1.2*nu.amax(rotcurve)]
     return plot.bovy_plot(Rs,rotcurve,*args,
                           **kwargs)
 
