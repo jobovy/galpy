@@ -7,6 +7,7 @@ Potential
 General instance routines
 +++++++++++++++++++++++++
 
+Use as ``Potential-instance.method(...)``
 
 .. toctree::
    :maxdepth: 2
@@ -30,6 +31,8 @@ General instance routines
 
 General 3D potential routines
 +++++++++++++++++++++++++++++
+
+Use as ``method(...)``
 
 .. toctree::
    :maxdepth: 2
@@ -80,6 +83,8 @@ and can thus be used like any list of ``Potentials``.
 General instance routines
 +++++++++++++++++++++++++
 
+Use as ``Potential-instance.method(...)``
+
 .. toctree::
    :maxdepth: 2
 
@@ -89,6 +94,8 @@ General instance routines
 
 General axisymmetric potential instance routines
 ++++++++++++++++++++++++++++++++++++++++++++++++
+
+Use as ``method(...)``
 
 .. toctree::
    :maxdepth: 2
@@ -105,6 +112,8 @@ General axisymmetric potential instance routines
 
 General 2D potential routines
 +++++++++++++++++++++++++++++
+
+Use as ``method(...)``
 
 .. toctree::
    :maxdepth: 2
@@ -144,6 +153,8 @@ In addition, a two-dimensional bar potential and a two spiral potentials are inc
 General instance routines
 +++++++++++++++++++++++++
 
+Use as ``Potential-instance.method(...)``
+
 .. toctree::
    :maxdepth: 2
 
@@ -154,6 +165,8 @@ General instance routines
 
 General 1D potential routines
 +++++++++++++++++++++++++++++
+
+Use as ``method(...)``
 
 .. toctree::
    :maxdepth: 2
