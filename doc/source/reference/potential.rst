@@ -14,6 +14,7 @@ General instance routines
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
    epifreq <potentialepifreq.rst>
+   lindbladR <potentiallindbladR.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    plot <potentialplot.rst>
@@ -39,6 +40,7 @@ General 3D potential routines
    evaluatePotentials <potentialevaluate.rst>
    evaluateRforces <potentialrforces.rst>
    evaluatezforces <potentialzforces.rst>
+   lindbladR <potentiallindbladR.rst>
    omegac <potentialomegacs.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
@@ -91,9 +93,14 @@ General axisymmetric potential instance routines
 .. toctree::
    :maxdepth: 2
 
+   epifreq <potential2depifreq.rst>
+   lindbladR <potential2dlindbladR.rst>
+   omegac <potential2domegac.rst>
    plot <potential2dplot.rst>
    plotEscapecurve <potential2dplotescapecurve.rst>
    plotRotcurve <potential2dplotrotcurve.rst>
+   vcirc <potential2dvcirc.rst>
+   vesc <potential2dvesc.rst>
 
 
 General 2D potential routines
