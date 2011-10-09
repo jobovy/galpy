@@ -113,6 +113,34 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(R*-self.Rforce(R))       
 
+    def omegac(self,R):
+        """
+        
+        NAME:
+        
+            omegac
+        
+        PURPOSE:
+        
+            calculate the circular angular speed at R in potential Pot
+
+        INPUT:
+        
+            Pot - Potential instance or list of such instances
+        
+            R - Galactocentric radius
+        
+        OUTPUT:
+        
+            circular angular speed
+        
+        HISTORY:
+        
+            2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(-self.Rforce(R)/R)       
+
     def vesc(self,R):
         """
 
