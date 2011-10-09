@@ -32,6 +32,7 @@ plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
 vcirc= plotRotcurve.vcirc
 omegac= plotRotcurve.omegac
+epifreq= plotRotcurve.epifreq
 plotRotcurve= plotRotcurve.plotRotcurve
 calcEscapecurve= plotEscapecurve.calcEscapecurve
 vesc= plotEscapecurve.vesc
