@@ -1,7 +1,7 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential
-from plotRotcurve import plotRotcurve
+from plotRotcurve import plotRotcurve, lindbladR
 from plotEscapecurve import plotEscapecurve
 _INF= 1000000.
 class planarPotential:
@@ -185,6 +185,42 @@ class planarAxiPotential(planarPotential):
         
         """
         return nu.sqrt(self.R2deriv(R)-3./R*self.Rforce(R))
+
+    def lindbladR(self,OmegaP,m=2,**kwargs):
+        """
+        
+        NAME:
+        
+           lindbladR
+        
+        PURPOSE:
+        
+            calculate the radius of a Lindblad resonance
+        
+        INPUT:
+        
+           OmegaP - pattern speed
+
+           m= order of the resonance (as in m(O-Op)=kappa (negative m for 
+              outer)
+              use m='corotation' for corotation
+              +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+        
+        OUTPUT:
+        
+           radius of Linblad resonance, None if there is no resonance
+        
+        HISTORY:
+        
+           2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return lindbladR(self,OmegaP,m=m,**kwargs)
+
+def _corotationR_eq(R,Pot,OmegaP):
+    return omegac(Pot,R)-OmegaP
+def _lindbladR_eq(R,Pot,OmegaP,m):
+    return m*(omegac(Pot,R)-OmegaP)-epifreq(Pot,R)
 
     def vesc(self,R):
         """
