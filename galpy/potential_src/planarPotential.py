@@ -84,6 +84,34 @@ class planarAxiPotential(planarPotential):
     def _phiforce(self,R,phi=0.,t=0.):
         return 0.
 
+    def vcirc(self,R):
+        """
+        
+        NAME:
+        
+            vcirc
+        
+        PURPOSE:
+        
+            calculate the circular velocity at R in potential Pot
+
+        INPUT:
+        
+            Pot - Potential instance or list of such instances
+        
+            R - Galactocentric radius
+        
+        OUTPUT:
+        
+            circular rotation velocity
+        
+        HISTORY:
+        
+            2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(R*-self.Rforce(R))       
+
     def plot(self,*args,**kwargs):
         """
         NAME:
