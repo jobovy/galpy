@@ -98,3 +98,38 @@ def calcEscapecurve(Pot,Rs):
             Pot= RZToplanarPotential(Pot)
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
     return esccurve
+
+def vesc(Pot,R):
+    """
+
+    NAME:
+
+        vesc
+
+    PURPOSE:
+
+       calculate the escape velocity at R for potential Pot
+
+    INPUT:
+
+       Pot - Potential instances or list thereof
+
+       R - Galactocentric radius
+
+    OUTPUT:
+
+       escape velocity
+
+    HISTORY:
+
+       2011-10-09 - Written - Bovy (IAS)
+
+    """
+    from planarPotential import evaluateplanarPotentials
+    try:
+        return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
+    except TypeError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
+        
