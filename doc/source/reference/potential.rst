@@ -13,6 +13,7 @@ General instance routines
 
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
+   epifreq <potentialepifreq.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    plot <potentialplot.rst>
@@ -32,12 +33,13 @@ General 3D potential routines
 .. toctree::
    :maxdepth: 2
 
+   epifreq <potentialepifreqs.rst>
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
    evaluateRforces <potentialrforces.rst>
    evaluatezforces <potentialzforces.rst>
-   omegac <potentialomegas.rst>
+   omegac <potentialomegacs.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
