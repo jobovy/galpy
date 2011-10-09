@@ -326,8 +326,8 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   free(a);
   free(scale);
   //return
-  printf("%f\n",dt);
-  fflush(stdout);
+  //printf("%f\n",dt);
+  //fflush(stdout);
   return dt;
 } 
 double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
@@ -402,7 +402,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   free(k4);
   free(k5);
   //return
-  printf("%f\n",dt);
-  fflush(stdout);
+  //printf("%f\n",dt);
+  //fflush(stdout);
   return dt;
 } 
