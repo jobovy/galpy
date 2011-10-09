@@ -117,10 +117,10 @@ class LogarithmicHaloPotential(Potential):
            phi - azimuth
            t - time
         OUTPUT:
-           the radial derivative
+           the second radial derivative
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        return 1./(R**2.+(z/self._q)**2.+self._core2)\
-            -2.*R**2./(R**2.+(z/self._q)**2.+self._core2)**2.
+        denom= 1./(R**2.+(z/self._q)**2.+self._core2)
+        return denom-2.*R**2.*denom**2.
 
