@@ -33,6 +33,7 @@ calcRotcurve= plotRotcurve.calcRotcurve
 vcirc= plotRotcurve.vcirc
 omegac= plotRotcurve.omegac
 epifreq= plotRotcurve.epifreq
+lindbladR= plotRotcurve.lindbladR
 plotRotcurve= plotRotcurve.plotRotcurve
 calcEscapecurve= plotEscapecurve.calcEscapecurve
 vesc= plotEscapecurve.vesc
