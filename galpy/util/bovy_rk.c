@@ -295,9 +295,9 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
   //find good dt
-  dt*= 2.;
+  //dt*= 2.;
   while ( err > 1. ){
-    dt/= 2.;
+    //dt/= 2.;
     //copy initial codition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
@@ -315,6 +315,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
+    dt/= fmax(ceil(pow(err,1./5.)),1.);
   }
   //free what we allocated
   free(yn);
@@ -362,9 +363,9 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
   //find good dt
-  dt*= 2.;
+  //dt*= 2.;
   while ( err > 1. ){
-    dt/= 2.;
+    //dt/= 2.;
     //copy initial codition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
@@ -385,6 +386,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
+    dt/= fmax(ceil(pow(err,1./7.)),1.);
   }
   //free what we allocated
   free(yn);
