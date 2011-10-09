@@ -3,6 +3,7 @@ import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential
 from plotRotcurve import plotRotcurve
 from plotEscapecurve import plotEscapecurve
+_INF= 1000000.
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
@@ -112,6 +113,34 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(R*-self.Rforce(R))       
 
+    def vesc(self,R):
+        """
+
+        NAME:
+
+            vesc
+
+        PURPOSE:
+
+            calculate the escape velocity at R for potential Pot
+
+        INPUT:
+
+            Pot - Potential instances or list thereof
+
+            R - Galactocentric radius
+
+        OUTPUT:
+
+            escape velocity
+
+        HISTORY:
+
+            2011-10-09 - Written - Bovy (IAS)
+
+        """
+        return nu.sqrt(2.*(self(_INF)-self(R)))
+        
     def plot(self,*args,**kwargs):
         """
         NAME:
