@@ -14,6 +14,7 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from plotRotcurve import plotRotcurve
 from plotEscapecurve import plotEscapecurve
+_INF= 1000000.
 class Potential:
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
@@ -270,11 +271,9 @@ class Potential:
         
         PURPOSE:
         
-            calculate the circular velocity at R in potential Pot
+            calculate the circular velocity at R in this potential
 
         INPUT:
-        
-            Pot - Potential instance or list of such instances
         
             R - Galactocentric radius
         
@@ -289,6 +288,32 @@ class Potential:
         """
         return nu.sqrt(R*-self.Rforce(R,0.))
 
+    def vesc(self,R):
+        """
+
+        NAME:
+
+            vesc
+
+        PURPOSE:
+
+            calculate the escape velocity at R for this potential
+
+        INPUT:
+
+            R - Galactocentric radius
+
+        OUTPUT:
+
+            escape velocity
+
+        HISTORY:
+
+            2011-10-09 - Written - Bovy (IAS)
+
+        """
+        return nu.sqrt(2.*(self(_INF,0.)-self(R,0.)))
+        
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
