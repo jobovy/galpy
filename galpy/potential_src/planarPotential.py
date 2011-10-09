@@ -74,6 +74,25 @@ class planarPotential:
         except AttributeError:
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
+    def R2deriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           R2deriv
+        PURPOSE:
+           evaluate the second radial derivative
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+           d2phi/dR2
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        try:
+            return self._amp*self._R2deriv(R,phi=phi,t=t)
+        except AttributeError:
+            raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
 class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
@@ -140,6 +159,32 @@ class planarAxiPotential(planarPotential):
         
         """
         return nu.sqrt(-self.Rforce(R)/R)       
+
+    def epifreq(self,R):
+        """
+        
+        NAME:
+        
+           epifreq
+        
+        PURPOSE:
+        
+           calculate the epicycle frequency at R in this potential
+        
+        INPUT:
+        
+           R - Galactocentric radius
+        
+        OUTPUT:
+        
+           epicycle frequency
+        
+        HISTORY:
+        
+           2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(self.R2deriv(R)-3./R*self.Rforce(R))
 
     def vesc(self,R):
         """
@@ -276,6 +321,23 @@ class planarPotentialFromRZPotential(planarAxiPotential):
            2010-07-13 - Written - Bovy (NYU)
         """
         return self._RZPot.Rforce(R,0.,t=t)
+
+    def _R2deriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+           d2phi/dR2
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        return self._RZPot.R2deriv(R,0.,t=t)
             
 def RZToplanarPotential(RZPot):
     """
@@ -422,6 +484,45 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
             return Pot.phiforce(R,t=t)
     else:
         raise TypeError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
+
+def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
+    """
+    NAME:
+       evaluateplanarR2derivs
+    PURPOSE:
+       evaluate the second radial derivative of a (list of) planarPotential instance(s)
+    INPUT:
+       R (+phi optional)
+       Pot - (list of) planarPotential instance(s)
+       t - time (optional)
+    OUTPUT:
+       F_R(R(,phi,t))
+    HISTORY:
+       2010-10-09 - Written - Bovy (IAS)
+    """
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            if nonAxi:
+                sum+= pot.R2deriv(R,phi=phi,t=t)
+            else:
+                sum+= pot.R2deriv(R,t=t)
+        return sum
+    elif isinstance(Pot,planarPotential):
+        if nonAxi:
+            return Pot.R2deriv(R,phi=phi,t=t)
+        else:
+            return Pot.R2deriv(R,t=t)
+    else:
+        raise TypeError("Input to 'evaluateplanarR2derivs' is neither a Potential-instance or a list of such instances")
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
