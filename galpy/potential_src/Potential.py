@@ -5,8 +5,13 @@
 #
 #   API for Potentials:
 #      function _evaluate(self,R,z,phi) returns Phi(R,z,phi)
-#      function _Rforce(self,R,z,phi) return K_R
-#      function _zforce(self,R,z,phi) return K_z
+#    for orbit integration you need
+#      function _Rforce(self,R,z,phi) return -d Phi d R
+#      function _zforce(self,R,z,phi) return - d Phi d Z
+#    density
+#      function _dens(self,R,z,phi) return BOVY??
+#    for epicycle frequency
+#      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
 import os, os.path
 import cPickle as pickle
