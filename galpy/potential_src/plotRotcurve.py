@@ -95,3 +95,30 @@ def calcRotcurve(Pot,Rs):
             rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
     return rotcurve
 
+def vcirc(Pot,R):
+    """
+
+    NAME:
+
+       vcirc
+
+    PURPOSE:
+
+       calculate the circular velocity at R in potential Pot
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       R - Galactocentric radius
+
+    OUTPUT:
+
+       circular rotation velocity
+
+    HISTORY:
+
+       2011-10-09 - Written - Bovy (IAS)
+
+    """
+    return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
