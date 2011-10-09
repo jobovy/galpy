@@ -13,6 +13,7 @@ General instance routines
 
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
+   omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    plot <potentialplot.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
@@ -20,6 +21,8 @@ General instance routines
    Rforce <potentialrforce.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   vcirc <potentialvcirc.rst>
+   vesc <potentialvesc.rst>
    zforce <potentialzforce.rst>
 
 
@@ -34,9 +37,12 @@ General 3D potential routines
    evaluatePotentials <potentialevaluate.rst>
    evaluateRforces <potentialrforces.rst>
    evaluatezforces <potentialzforces.rst>
+   omegac <potentialomegas.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   vcirc <potentialvcircs.rst>
+   vesc <potentialvescs.rst>
 
 Specific potentials
 ++++++++++++++++++++
