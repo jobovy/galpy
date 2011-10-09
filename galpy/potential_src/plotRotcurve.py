@@ -121,4 +121,10 @@ def vcirc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
+    from planarPotential import evaluateplanarRforces
+    try:
+        return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
+    except TypeError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
