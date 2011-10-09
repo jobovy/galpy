@@ -95,7 +95,6 @@ class Potential:
            K_z (R,z,phi,t)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
-        DOCTEST:
         """
         try:
             return self._amp*self._zforce(R,z,phi=phi,t=t)
@@ -117,12 +116,32 @@ class Potential:
            rho (R,z,phi,t)
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
-        DOCTEST:
         """
         try:
             return self._amp*self._dens(R,z,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_dens' function not implemented for this potential")
+
+    def R2deriv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+           R2deriv
+        PURPOSE:
+           evaluate the second radial derivative
+        INPUT:
+           R
+           Z
+           phi
+           t
+        OUTPUT:
+           d2phi/dR2
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        try:
+            return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
+        except AttributeError:
+            raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     def normalize(self,norm,t=0.):
         """
@@ -314,6 +333,31 @@ class Potential:
         """
         return nu.sqrt(-self.Rforce(R,0.)/R)
 
+    def epifreq(self,R):
+        """
+        
+        NAME:
+        
+           epifreq
+        
+        PURPOSE:
+        
+           calculate the epicycle frequency at R in this potential
+        
+        INPUT:
+        
+           R - Galactocentric radius
+        
+        OUTPUT:
+        
+           epicycle frequency
+        
+        HISTORY:
+        
+           2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(self.R2deriv(R,0.)-3./R*self.Rforce(R,0.))
 
     def vesc(self,R):
         """
