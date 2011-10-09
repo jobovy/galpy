@@ -40,7 +40,7 @@ General 3D potential routines
    evaluatePotentials <potentialevaluate.rst>
    evaluateRforces <potentialrforces.rst>
    evaluatezforces <potentialzforces.rst>
-   lindbladR <potentiallindbladR.rst>
+   lindbladR <potentiallindbladRs.rst>
    omegac <potentialomegacs.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
