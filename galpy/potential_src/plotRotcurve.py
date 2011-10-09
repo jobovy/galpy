@@ -131,3 +131,37 @@ def vcirc(Pot,R):
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
+
+def omegac(Pot,R):
+    """
+
+    NAME:
+
+       omegac
+
+    PURPOSE:
+
+       calculate the circular angular speed velocity at R in potential Pot
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       R - Galactocentric radius
+
+    OUTPUT:
+
+       circular angular speed
+
+    HISTORY:
+
+       2011-10-09 - Written - Bovy (IAS)
+
+    """
+    from planarPotential import evaluateplanarRforces
+    try:
+        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
+    except TypeError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
