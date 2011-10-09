@@ -288,6 +288,33 @@ class Potential:
         """
         return nu.sqrt(R*-self.Rforce(R,0.))
 
+    def omegac(self,R):
+        """
+        
+        NAME:
+        
+            omegac
+        
+        PURPOSE:
+        
+            calculate the circular angular speed at R in this potential
+
+        INPUT:
+        
+            R - Galactocentric radius
+        
+        OUTPUT:
+        
+            circular angular speed
+        
+        HISTORY:
+        
+            2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(-self.Rforce(R,0.)/R)
+
+
     def vesc(self,R):
         """
 
