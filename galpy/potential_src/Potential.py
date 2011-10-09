@@ -261,6 +261,33 @@ class Potential:
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
+    def vcirc(self,R):
+        """
+        
+        NAME:
+        
+            vcirc
+        
+        PURPOSE:
+        
+            calculate the circular velocity at R in potential Pot
+
+        INPUT:
+        
+            Pot - Potential instance or list of such instances
+        
+            R - Galactocentric radius
+        
+        OUTPUT:
+        
+            circular rotation velocity
+        
+        HISTORY:
+        
+            2011-10-09 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(R*-self.Rforce(R,0.))
 
     def plotRotcurve(self,*args,**kwargs):
         """
