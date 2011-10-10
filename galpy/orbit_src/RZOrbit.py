@@ -92,27 +92,35 @@ class RZOrbit(OrbitTop):
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
-    def Jacobi(self,Omega,t=0.,pot=None):
+    def Jacobi(self,*args,**kwargs):
         """
         NAME:
            Jacobi
         PURPOSE:
            calculate the Jacobi integral of the motion
         INPUT:
-           Omega - pattern speed of rotating frame
-           t= time
+           t - (optional) time at which to get the radius
+           OmegaP= pattern speed of rotating frame
            pot= potential instance or list of such instances
         OUTPUT:
            Jacobi integral
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if len(Omega) == 3:
-            if isinstance(Omega,list): thisOmega= nu.array(Omega)
-            else: thisOmega= Omega
-            return self.E(t,pot=pot)-nu.dot(thisOmega,self.L(t))
+        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+            OmegaP= 1
+            if kwargs.has_key('OmegaP'):
+                kwargs.pop('OmegaP')         
         else:
-            return self.E(t,pot=pot)-Omega*self.L(t)[2]
+            OmegaP= kwargs['OmegaP']
+            kwargs.pop('OmegaP')
+        if len(OmegaP) == 3:
+            if isinstance(OmegaP,list): thisOmegaP= nu.array(OmegaP)
+            else: thisOmegaP= OmegaP
+            return self.E(*args,**kwargs)-nu.dot(thisOmegaP,
+                                                 self.L(*args,**kwargs))
+        else:
+            return self.E(*args,**kwargs)-Omega*self.L(*args,**kwargs)[2]
 
     def e(self,analytic=False,pot=None):
         """
