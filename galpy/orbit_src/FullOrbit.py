@@ -71,9 +71,9 @@ class FullOrbit(OrbitTop):
         if len(Omega) == 3:
             if isinstance(Omega,list): thisOmega= nu.array(Omega)
             else: thisOmega= Omega
-            return self.E(pot=pot,t=t)-nu.dot(thisOmega,self.L())
+            return self.E(t,pot=pot)-nu.dot(thisOmega,self.L(t))
         else:
-            return self.E(pot=pot,t=t)-Omega*self.L()[2]
+            return self.E(t,pot=pot)-Omega*self.L(t)[2]
 
     def E(self,*args,**kwargs):
         """
@@ -89,11 +89,13 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
