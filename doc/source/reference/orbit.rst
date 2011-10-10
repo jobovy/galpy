@@ -27,6 +27,7 @@ Methods
    helioX <orbitheliox.rst>
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>
+   Jacobi <orbitJacobi.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
    ll <orbitll.rst>
