@@ -332,11 +332,13 @@ class planarROrbit(planarOrbitTop):
             d1= 't'
         if len(self.vxvv) == 4:
             self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                               phi=self.orbit[ii,3])+
+                                               phi=self.orbit[ii,3],
+                                               t=self.t[ii])+
                       self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                       for ii in range(len(self.t))]
         else:
-            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot)+
+            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
+                                               t=self.t[ii])+
                       self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                       for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
