@@ -75,6 +75,10 @@ class RZOrbit(OrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
         #Get orbit
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
@@ -114,13 +118,13 @@ class RZOrbit(OrbitTop):
         else:
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
-        if len(OmegaP) == 3:
+        if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
             if isinstance(OmegaP,list): thisOmegaP= nu.array(OmegaP)
             else: thisOmegaP= OmegaP
             return self.E(*args,**kwargs)-nu.dot(thisOmegaP,
                                                  self.L(*args,**kwargs))
         else:
-            return self.E(*args,**kwargs)-Omega*self.L(*args,**kwargs)[2]
+            return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)[:,2]
 
     def e(self,analytic=False,pot=None):
         """
@@ -322,6 +326,56 @@ class RZOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,4],nu.array(self.Ezs)/self.Ezs[0],
                            *args,**kwargs)
          
+    def plotJacobi(self,*args,**kwargs):
+        """
+        NAME:
+           plotJacobi
+        PURPOSE:
+           plot the Jacobi integral(.) along the orbit
+        INPUT:
+           OmegaP= pattern speed
+           pot= Potential instance or list of instances in which the orbit was
+                 integrated
+           d1= - plot Jacobi vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2011-10-10 - Written - Bovy (IAS)
+        """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        Js= self.Jacobi(self.t,**kwargs)
+        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
+        if kwargs.has_key('pot'): kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= r'$E$'
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'z':
+            plot.bovy_plot(self.orbit[:,3],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'vz':
+            plot.bovy_plot(self.orbit[:,4],Js/Js[0],
+                           *args,**kwargs)
 
     def plotEzJz(self,*args,**kwargs):
         """
