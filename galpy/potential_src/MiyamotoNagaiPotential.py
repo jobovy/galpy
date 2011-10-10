@@ -132,3 +132,22 @@ class MiyamotoNagaiPotential(Potential):
         asqrtbz= self._a+sqrtbz
         return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
             (R**2.+asqrtbz)**2.5/sqrtbz**3.
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        return 1./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**1.5 \
+            -3.*R**2./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**2.5
