@@ -212,6 +212,51 @@ class planarOrbitTop(OrbitTop):
             self._aA= actionAngle.actionAngleAxi(self.vxvv[0],self.vxvv[1],
                                                  self.vxvv[2],pot=thispot)
 
+    def plotJacobi(self,*args,**kwargs):
+        """
+        NAME:
+           plotJacobi
+        PURPOSE:
+           plot Jacobi integratl(.) along the orbit
+        INPUT:
+           OmegaP= pattern speed
+           pot= Potential instance or list of instances in which the orbit was
+                 integrated
+           d1= - plot Jacobi vs d1: e.g., 't', 'R', 'vR', 'vT'
+           +bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        Js= self.Jacobi(self.t,**kwargs)
+        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
+        if kwargs.has_key('pot'): kwargs.pop('pot')
+        if kwargs.has_key('d1'):
+            d1= kwargs['d1']
+            kwargs.pop('d1')
+        else:
+            d1= 't'
+        if not kwargs.has_key('xlabel'):
+            kwargs['xlabel']= labeldict[d1]
+        if not kwargs.has_key('ylabel'):
+            kwargs['ylabel']= r'$E-\Omega_p\,L$'
+        if d1 == 't':
+            plot.bovy_plot(nu.array(self.t),Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'R':
+            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'vR':
+            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
+                           *args,**kwargs)
+        elif d1 == 'vT':
+            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
+                           *args,**kwargs)
+
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
     orbit-integration in axisymmetric potentials when you don't care about the
@@ -373,57 +418,6 @@ class planarROrbit(planarOrbitTop):
                            *args,**kwargs)
         elif d1 == 'vT':
             plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-
-    def plotJacobi(self,*args,**kwargs):
-        """
-        NAME:
-           plotJacobi
-        PURPOSE:
-           plot Jacobi integratl(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Jacobi vs d1: e.g., 't', 'R', 'vR', 'vT'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2011-10-09 - Written - Bovy (IAS)
-        """
-        raise NotImplementedError("plotJacobi not implemented yet")
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        Js= self.Jacobi(self.t)
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E-\Omega_p\,L$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
                            *args,**kwargs)
 
     def _callRect(self,*args):
