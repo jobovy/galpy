@@ -335,7 +335,7 @@ class Orbit:
         """
         return self._orb.getOrbit()
 
-    def E(self,pot=None,Omega=None,t=None):
+    def E(self,*args,**kwargs):
         """
         NAME:
 
@@ -346,6 +346,8 @@ class Orbit:
            calculate the energy
 
         INPUT:
+
+           t - (optional) time at which to get the radius
 
            pot= Potential instance or list of such instances
 
@@ -358,7 +360,7 @@ class Orbit:
            2010-09-15 - Written - Bovy (NYU)
 
         """
-        return self._orb.E(pot=pot)
+        return self._orb.E(*args,**kwargs)
 
     def L(self,*args,**kwargs):
         """
@@ -412,7 +414,7 @@ class Orbit:
            2011-04-18 - Written - Bovy (NYU)
 
         """
-        return self._orb.Jacobi(Omega,t,pot=pot)
+        return self._orb.Jacobi(Omega,t=t,pot=pot)
 
     def e(self,analytic=False,pot=None):
         """
