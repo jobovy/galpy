@@ -63,22 +63,29 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def Jacobi(self,Omega,t=0.,pot=None):
+    def Jacobi(self,*args,**kwargs):
         """
         NAME:
            Jacobi
         PURPOSE:
            calculate the Jacobi integral of the motion
         INPUT:
-           Omega - pattern speed of rotating frame
-           t= time
+           t - (optional) time at which to get the radius
+           OmegaP= pattern speed of rotating frame
            pot= potential instance or list of such instances
         OUTPUT:
            Jacobi integral
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        return self.E(t,pot=pot)-Omega*self.L(t)
+        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+            OmegaP= 1
+            if kwargs.has_key('OmegaP'):
+                kwargs.pop('OmegaP')         
+        else:
+            OmegaP= kwargs['OmegaP']
+            kwargs.pop('OmegaP')
+        return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
 
     def rap(self,analytic=False,pot=None):
         """
