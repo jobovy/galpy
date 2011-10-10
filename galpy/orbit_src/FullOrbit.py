@@ -75,29 +75,44 @@ class FullOrbit(OrbitTop):
         else:
             return self.E(pot=pot,t=t)-Omega*self.L()[2]
 
-    def E(self,pot=None,t=0.):
+    def E(self,*args,**kwargs):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
+           t - (optional) time at which to get the radius
            pot= potential instance or list of such instances
-           t= time at which to evaluate L and t
         OUTPUT:
            energy
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if pot is None:
+        if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot,
-                                  phi=self.vxvv[5],t=t)+\
-                                  self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
-                                  self.vxvv[4]**2./2.
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],thiso[3],thispot,
+                                      phi=thiso[5],t=t)\
+                                      +thiso[1]**2./2.\
+                                      +thiso[2]**2./2.\
+                                      +thiso[4]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
+                                                pot,phi=thiso[5,ii],
+                                                t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2.\
+                                 +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
         """
