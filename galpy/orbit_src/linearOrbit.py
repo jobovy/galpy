@@ -121,7 +121,7 @@ class linearOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Es= [evaluatelinearPotentials(self.orbit[ii,0],pot)+
+        self.Es= [evaluatelinearPotentials(self.orbit[ii,0],pot,t=self.t[ii])+
                  self.orbit[ii,1]**2./2.
                  for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
