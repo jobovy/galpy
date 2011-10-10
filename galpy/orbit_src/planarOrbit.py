@@ -408,32 +408,22 @@ class planarROrbit(planarOrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        if len(self.vxvv) == 4:
-            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                               phi=self.orbit[ii,3],
-                                               t=self.t[ii])+
-                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                      for ii in range(len(self.t))]
-        else:
-            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                               t=self.t[ii])+
-                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                      for ii in range(len(self.t))]
+        Js= self.Jacobi(self.t)
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
+            kwargs['ylabel']= r'$E-\Omega_p\,L$'
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
+            plot.bovy_plot(nu.array(self.t),Js/Js[0],
                            *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
+            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
                            *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
+            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
                            *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
+            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
                            *args,**kwargs)
 
     def _callRect(self,*args):
