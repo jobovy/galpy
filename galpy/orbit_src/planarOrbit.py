@@ -78,7 +78,7 @@ class planarOrbitTop(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        return self.E(pot=pot,t=t)-Omega*self.L(t)
+        return self.E(t,pot=pot)-Omega*self.L(t)
 
     def rap(self,analytic=False,pot=None):
         """
@@ -275,11 +275,13 @@ class planarROrbit(planarOrbitTop):
            2010-09-15 - Written - Bovy (NYU)
            2011-04-18 - Added t - Bovy (NYU)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
@@ -499,11 +501,13 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
