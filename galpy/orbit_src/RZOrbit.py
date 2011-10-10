@@ -51,31 +51,44 @@ class RZOrbit(OrbitTop):
         self._pot= pot
         self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)
 
-    def E(self,pot=None):
+    def E(self,*args,**kwargs):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
+           t - (optional) time at which to get the radius
+           pot= RZPotential instance or list thereof
         OUTPUT:
            energy
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if pot is None:
+        if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        if Omega is None:
-            return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot,t=t)+\
-                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
-                self.vxvv[4]**2./2.
         else:
-            return evaluatePotentials(self.vxvv[0],self.vxvv[3],pot,t=t)+\
-                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.+\
-                self.vxvv[4]**2./2.
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],thiso[3],pot,
+                                      t=t)\
+                                      +thiso[1]**2./2.\
+                                      +thiso[2]**2./2.\
+                                      +thiso[4]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
+                                                pot,
+                                                t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2.\
+                                 +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     def Jacobi(self,Omega,t=0.,pot=None):
         """
