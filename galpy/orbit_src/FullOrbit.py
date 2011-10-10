@@ -344,7 +344,7 @@ class FullOrbit(OrbitTop):
         self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                       pot,phi=self.orbit[ii,5],t=self.t[ii])-
                    evaluatePotentials(self.orbit[ii,0],0.,pot,
-                                      phi=self.orbit[ii,5])+
+                                      phi=self.orbit[ii,5],t=self.t[ii])+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
