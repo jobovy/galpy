@@ -68,12 +68,20 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if len(Omega) == 3:
-            if isinstance(Omega,list): thisOmega= nu.array(Omega)
-            else: thisOmega= Omega
-            return self.E(t,pot=pot)-nu.dot(thisOmega,self.L(t))
+        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+            OmegaP= 1
+            if kwargs.has_key('OmegaP'):
+                kwargs.pop('OmegaP')         
         else:
-            return self.E(t,pot=pot)-Omega*self.L(t)[2]
+            OmegaP= kwargs['OmegaP']
+            kwargs.pop('OmegaP')
+        if len(OmegaP) == 3:
+            if isinstance(OmegaP,list): thisOmegaP= nu.array(OmegaP)
+            else: thisOmegaP= OmegaP
+            return self.E(*args,**kwargs)-nu.dot(thisOmegaP,
+                                                 self.L(*args,**kwargs))
+        else:
+            return self.E(*args,**kwargs)-Omega*self.L(*args,**kwargs)[2]
 
     def E(self,*args,**kwargs):
         """
