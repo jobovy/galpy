@@ -359,6 +359,26 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= m.sqrt(R**2.+z**2.)
         return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        sqrtRz= m.sqrt(R**2.+z**2.)
+        return self.a*(self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
+            /(self.a+sqrtRz)**3.
+
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
     def __init__(self,amp=1.,a=1.,normalize=False):
@@ -441,6 +461,26 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         sqrtRz= m.sqrt(R**2.+z**2.)
         return -self.a*z/sqrtRz**3./(1.+self.a/sqrtRz)
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+        sqrtRz= m.sqrt(R**2.+z**2.)
+        return self.a*(self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
+            /sqrtRz**4./(self.a+sqrtRz)**2.
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
@@ -527,3 +567,28 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= m.sqrt(Rz)
         return z*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2011-10-09 - Written - Bovy (IAS)
+        """
+
+        Rz= R**2.+z**2.
+        sqrtRz= m.sqrt(Rz)
+        return (3.*R**4.+2.*R**2.*(z**2.+self.a*sqrtRz)\
+                    -z**2.*(z**2.+self.a*sqrtRz)\
+                    -(2.*R**2.-z**2.)*(self.a**2.+R**2.+z**2.+2.*self.a*sqrtRz)\
+                    *m.log(1.+sqrtRz/self.a))\
+                    /Rz**2.5/(self.a+sqrtRz)**2.
