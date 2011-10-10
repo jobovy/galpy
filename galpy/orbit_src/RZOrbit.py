@@ -213,7 +213,8 @@ class RZOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)+
+        self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot,
+                                     t=self.t[ii])+
                   self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
@@ -271,8 +272,9 @@ class RZOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
-                   evaluatePotentials(self.orbit[ii,0],0.,pot)+
+        self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot,
+                                      t=self.t[ii])-
+                   evaluatePotentials(self.orbit[ii,0],0.,pot,t=self.t[ii])+
                    self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -330,10 +332,12 @@ class RZOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
-                     evaluatePotentials(self.orbit[ii,0],0.,pot)+
+        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
+                                        pot,t=self.t[ii])-
+                     evaluatePotentials(self.orbit[ii,0],0.,pot,t=self.t[ii])+
                      self.orbit[ii,4]**2./2.)/\
-                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot))\
+                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,
+                                                  t=self.t[ii]))\
                         for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
