@@ -260,26 +260,29 @@ class planarROrbit(planarOrbitTop):
             method= 'odeint'
         self.orbit= _integrateROrbit(self.vxvv,thispot,t,method)
 
-    def E(self,pot=None,t=0.):
+    def E(self,*args,**kwargs):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
+           t - (optional) time at which to get the radius
            pot= potential instance or list of such instances
-           t= time
         OUTPUT:
            energy
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
            2011-04-18 - Added t - Bovy (NYU)
         """
-        if pot is None:
+        if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):
@@ -289,14 +292,19 @@ class planarROrbit(planarOrbitTop):
                 else: thispot.append(p)
         else:
             thispot= pot
-        if len(self.vxvv) == 4:
-            return evaluateplanarPotentials(self.vxvv[0],thispot,
-                                            phi=self.vxvv[3],t=t)+\
-                                            self.vxvv[1]**2./2.\
-                                            +self.vxvv[2]**2./2.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluateplanarPotentials(thiso[0],thispot,
+                                            t=t)\
+                                            +thiso[1]**2./2.\
+                                            +thiso[2]**2./2.
         else:
-            return evaluateplanarPotentials(self.vxvv[0],thispot,t=t)+\
-                self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+            return nu.array([evaluateplanarPotentials(thiso[0,ii],thispot,
+                                                     t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2. for ii in range(len(t))])
         
     def plotE(self,*args,**kwargs):
         """
@@ -477,7 +485,7 @@ class planarOrbit(planarOrbitTop):
             method= 'odeint'
         self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
 
-    def E(self,pot=None,t=0.):
+    def E(self,*args,**kwargs):
         """
         NAME:
            E
@@ -491,11 +499,14 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if pot is None:
+        if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):
@@ -505,9 +516,24 @@ class planarOrbit(planarOrbitTop):
                 else: thispot.append(p)
         else:
             thispot= pot
-        return evaluateplanarPotentials(self.vxvv[0],thispot,
-                                        phi=self.vxvv[3],t=t)+\
-                                        self.vxvv[1]**2./2.+self.vxvv[2]**2./2.
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluateplanarPotentials(thiso[0],thispot,
+                                            phi=thiso[3],t=t)\
+                                            +thiso[1]**2./2.\
+                                            +thiso[2]**2./2.
+        else:
+            return nu.array([evaluateplanarPotentials(thiso[0,ii],thispot,
+                                                      phi=thiso[3,ii],
+                                                      t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2. for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
         """
