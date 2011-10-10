@@ -1748,7 +1748,7 @@ class Orbit:
         """
         NAME:
 
-           plotEt
+           plotE
 
         PURPOSE:
 
@@ -1833,6 +1833,38 @@ class Orbit:
 
         """
         self._orb.plotEzJz(*args,**kwargs)
+
+    def plotJacobi(self,*args,**kwargs):
+        """
+        NAME:
+
+           plotJacobi
+
+        PURPOSE:
+
+           plot the Jacobi integral along the orbit
+
+        INPUT:
+
+           OmegaP= pattern speed
+
+           pot= - Potential instance or list of instances in which the orbit 
+                 was integrated
+
+           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+
+           +bovy_plot.bovy_plot inputs
+
+        OUTPUT:
+
+           figure to output device
+
+        HISTORY:
+
+           2011-10-10 - Written - Bovy (IAS)
+
+        """
+        self._orb.plotJacobi(*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
         """
