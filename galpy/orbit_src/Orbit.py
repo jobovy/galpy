@@ -374,7 +374,7 @@ class Orbit:
 
         INPUT:
 
-           (none)
+           t - (optional) time at which to get the radius
 
         OUTPUT:
 
@@ -387,7 +387,7 @@ class Orbit:
         """
         return self._orb.L(*args,**kwargs)
 
-    def Jacobi(self,Omega,t=0.,pot=None):
+    def Jacobi(self,*args,**kwargs):
         """
         NAME:
 
@@ -399,11 +399,11 @@ class Orbit:
 
         INPUT:
 
-           Omega - pattern speed
-           
-           t= time at which to evaluate the Jacobi integral
+           t - (optional) time at which to get the radius
 
-           Pot= potential instance or list of such instances
+           OmegaP= pattern speed
+           
+           pot= potential instance or list of such instances
 
         OUTPUT:
 
@@ -414,7 +414,7 @@ class Orbit:
            2011-04-18 - Written - Bovy (NYU)
 
         """
-        return self._orb.Jacobi(Omega,t=t,pot=pot)
+        return self._orb.Jacobi(*args,**kwargs)
 
     def e(self,analytic=False,pot=None):
         """
