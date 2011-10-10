@@ -280,7 +280,8 @@ class FullOrbit(OrbitTop):
         else:
             d1= 't'
         self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                     pot,phi=self.orbit[ii,5])+
+                                     pot,phi=self.orbit[ii,5],
+                                     t=self.t[ii])+
                   self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
@@ -341,7 +342,7 @@ class FullOrbit(OrbitTop):
         else:
             d1= 't'
         self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                      pot,phi=self.orbit[ii,5])-
+                                      pot,phi=self.orbit[ii,5],t=self.t[ii])-
                    evaluatePotentials(self.orbit[ii,0],0.,pot,
                                       phi=self.orbit[ii,5])+
                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
@@ -402,11 +403,12 @@ class FullOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot)-
+        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
+                                        pot,t=self.t[ii])-
                      evaluatePotentials(self.orbit[ii,0],0.,pot,
-                                        phi= self.orbit[ii,5])+
+                                        phi= self.orbit[ii,5],t=self.t[ii])+
                      self.orbit[ii,4]**2./2.)/\
-                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5]))\
+                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5],t=self.t[ii]))\
                         for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
