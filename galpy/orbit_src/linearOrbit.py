@@ -45,26 +45,40 @@ class linearOrbit(OrbitTop):
         self._pot= pot
         self.orbit= _integrateLinearOrbit(self.vxvv,pot,t,method)
 
-    def E(self,pot=None):
+    def E(self,*args,**kwargs):
         """
         NAME:
            E
         PURPOSE:
            calculate the energy
         INPUT:
-           pot=
+           t - (optional) time at which to get the radius
+           pot= linearPotential instance or list thereof
         OUTPUT:
            energy
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if pot is None:
+        if not kwargs.has_key('pot'):
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        return evaluatelinearPotentials(self.vxvv[0],pot)+\
-            self.vxvv[1]**2./2.
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatelinearPotentials(thiso[0],thispot,
+                                            t=t)\
+                                            +thiso[1]**2./2.
+        else:
+            return nu.array([evaluatelinearPotentials(thiso[0,ii],thispot,
+                                                      t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
         """
