@@ -346,6 +346,10 @@ class planarROrbit(planarOrbitTop):
                 else: thispot.append(p)
         else:
             thispot= pot
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
         #Get orbit
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
