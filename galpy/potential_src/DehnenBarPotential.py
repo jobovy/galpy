@@ -183,13 +183,50 @@ class DehnenBarPotential(planarPotential):
     def tform(self):
         """
         NAME:
+
            tform
+
         PURPOSE:
+
            return formation time of the bar
+
         INPUT:
+
+           (none)
+
         OUTPUT:
+
            tform in normalized units
+
         HISTORY:
+
            2011-03-08 - Written - Bovy (NYU)
+
         """
         return self._tform
+
+    def OmegaP(self):
+        """
+        NAME:
+
+
+           OmegaP
+
+        PURPOSE:
+
+           return the pattern speed
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           pattern speed
+
+        HISTORY:
+
+           2011-10-10 - Written - Bovy (IAS)
+
+        """
+        return self._omegab
