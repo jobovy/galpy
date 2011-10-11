@@ -31,7 +31,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
        pot - Potential or list of such instances
        yo - initial condition [q,p]
        t - set of times at which one wants the result
-       int_method= 'leapfrog_c' or 'rk4_c'
+       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
     OUTPUT:
        y : array, shape (len(y0), len(t))
@@ -85,6 +85,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
         int_method_c= 1
     elif int_method.lower() == 'rk6_c':
         int_method_c= 2
+    elif int_method.lower() == 'symplec4_c':
+        int_method_c= 3
     else:
         int_method_c= 0
             
