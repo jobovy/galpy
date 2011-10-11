@@ -72,4 +72,9 @@ void symplec4(void (*func)(double, double *, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
 	      double *);
+double symplec4_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
+			      int, double *,double *,
+			      double, double *,
+			      int,struct leapFuncArg *,
+			      double,double);
 #endif /* bovy_rk.h */
