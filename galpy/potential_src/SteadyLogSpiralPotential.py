@@ -194,3 +194,29 @@ class SteadyLogSpiralPotential(planarPotential):
 
         """
         return self._omegas
+
+    def tform(self):
+        """
+        NAME:
+
+           tform
+
+        PURPOSE:
+
+           return formation time of the bar
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           tform in normalized units
+
+        HISTORY:
+
+           2011-03-08 - Written - Bovy (NYU)
+
+        """
+        return self._tform
+
