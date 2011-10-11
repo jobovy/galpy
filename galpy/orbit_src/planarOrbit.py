@@ -100,7 +100,6 @@ class planarOrbitTop(OrbitTop):
         else:
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
-        print OmegaP
         return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
 
     def rap(self,analytic=False,pot=None):
