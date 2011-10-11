@@ -192,7 +192,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
 			     rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -331,5 +331,151 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   free(a);
   free(scale);
   //return
+  //printf("%f\n",dt);
+  //fflush(stdout);
+  return dt;
+}
+
+double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
+			      int dim, double *qo,double *po,
+			      double dt, double *t,
+			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      double rtol,double atol){
+  //return dt;
+  //coefficients
+  double c1= 0.6756035959798289;
+  double c4= c1;
+  double c2= -0.1756035959798288;
+  double c3= c2;
+  double d1= 1.3512071919596578;
+  double d3= d1;
+  double d2= -1.7024143839193153; //d4=0
+  //scalars
+  double err= 2.;
+  double max_val_q, max_val_p;
+  double to= *t;
+  //allocate and initialize
+  double *q11= (double *) malloc ( dim * sizeof(double) );
+  double *q12= (double *) malloc ( dim * sizeof(double) );
+  double *p11= (double *) malloc ( dim * sizeof(double) );
+  double *p12= (double *) malloc ( dim * sizeof(double) );
+  double *qtmp= (double *) malloc ( dim * sizeof(double) );
+  double *ptmp= (double *) malloc ( dim * sizeof(double) );
+  double *a= (double *) malloc ( dim * sizeof(double) );
+  double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
+  int ii;
+  //find maximum values
+  max_val_q= fabs(*qo);
+  for (ii=1; ii < dim; ii++)
+    if ( fabs(*(qo+ii)) > max_val_q )
+      max_val_q= fabs(*(qo+ii));
+  max_val_p= fabs(*po);
+  for (ii=1; ii < dim; ii++)
+    if ( fabs(*(po+ii)) > max_val_p )
+      max_val_p= fabs(*(po+ii));
+  //set up scale
+  double c= fmax(atol, rtol * max_val_q);
+  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
+  for (ii=0; ii < dim; ii++) *(scale+ii)= s;
+  c= fmax(atol, rtol * max_val_p);
+  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
+  for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
+  //find good dt
+  dt*= 2.;
+  while ( err > 1. ){
+    dt/= 2.;
+    //do one step with step dt, and one with step dt/2.
+    /*
+      dt
+    */
+    //drift for c1*dt
+    leapfrog_leapq(dim,qo,po,c1*dt,q12);
+    to+= c1*dt;
+    //kick for d1*dt
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,d1*dt,a,p12);
+    //drift for c2*dt
+    leapfrog_leapq(dim,q12,p12,c2*dt,qtmp);
+    //kick for d2*dt
+    to+= c2*dt;
+    func(to,qtmp,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,p12,d2*dt,a,ptmp);
+    //drift for c3*dt
+    leapfrog_leapq(dim,qtmp,ptmp,c3*dt,q12);
+    to+= c3*dt;
+    //kick for d3*dt
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,ptmp,d3*dt,a,p11);
+    //drift for c4*dt
+    leapfrog_leapq(dim,q12,p11,c4*dt,q11);
+    to+= c4*dt;
+    //p4=p3
+    //reset
+    to-= dt;   
+    /*
+      dt/2
+    */
+    //drift for c1*dt/2
+    leapfrog_leapq(dim,qo,po,c1*dt/2.,q12);
+    to+= c1*dt/2.;
+    //kick for d1*dt/2
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,d1*dt/2.,a,p12);
+    //drift for c2*dt/2
+    leapfrog_leapq(dim,q12,p12,c2*dt/2.,qtmp);
+    //kick for d2*dt/2
+    to+= c2*dt/2.;
+    func(to,qtmp,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,p12,d2*dt/2.,a,ptmp);
+    //drift for c3*dt/2
+    leapfrog_leapq(dim,qtmp,ptmp,c3*dt/2.,q12);
+    to+= c3*dt/2.;
+    //kick for d3*dt/2
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,ptmp,d3*dt/2.,a,p12);
+    //drift for (c4+c1)*dt/2, skipping q4/p4
+    leapfrog_leapq(dim,q12,p12,(c1+c4)*dt/2.,qtmp);
+    to+= (c1+c4)*dt/2.;
+    //kick for d1*dt/2
+    func(to,qtmp,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,p12,d1*dt/2.,a,ptmp);
+    //drift for c2*dt/2
+    leapfrog_leapq(dim,qtmp,ptmp,c2*dt/2.,q12);
+    //kick for d2*dt/2
+    to+= c2*dt/2.;
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,ptmp,d2*dt/2.,a,p12);
+    //drift for c3*dt/2
+    leapfrog_leapq(dim,q12,p12,c3*dt/2.,qtmp);
+    to+= c3*dt/2.;
+    //kick for d3*dt
+    func(to,qtmp,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,p12,d3*dt/2.,a,ptmp);
+    //drift for c4*dt/2.
+    leapfrog_leapq(dim,qtmp,ptmp,c4*dt/2.,q12);
+    to+= c4*dt/2.;
+    //p4=p3
+    for (ii=0; ii < dim; ii++) *(p12+ii)= *(ptmp+ii);
+    //Norm
+    err= 0.;
+    for (ii=0; ii < dim; ii++) {
+      err+= exp(2.*log(fabs(*(q11+ii)-*(q12+ii)))-2.* *(scale+ii));
+      err+= exp(2.*log(fabs(*(p11+ii)-*(p12+ii)))-2.* *(scale+ii+dim));
+    }
+    err= sqrt(err/2./dim);
+    //reset
+    to-= dt;
+  }
+  //free what we allocated
+  free(q11);
+  free(q12);
+  free(p11);
+  free(qtmp);
+  free(ptmp);
+  free(a);
+  free(scale);
+  //return
+  //printf("%f\n",dt);
+  //fflush(stdout);
   return dt;
 }
