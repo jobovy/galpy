@@ -122,11 +122,100 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   //We're done
 }
 
-void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
+/*
+Fourth order symplectic integrator from Kinoshika et al.
+Usage:
+   Provide the acceleration function func with calling sequence
+       func (t,q,a,nargs,args)
+   where
+       double t: time
+       double * q: current position (dimension: dim)
+       double * a: will be set to the derivative
+       int nargs: number of arguments the function takes
+       double *args: arguments
+  Other arguments are:
+       int dim: dimension
+       double *yo: initial value [qo,po], dimension: 2*dim
+       int nt: number of times at which the output is wanted
+       double *t: times at which the output is wanted (EQUALLY SPACED)
+       int nargs: see above
+       double *args: see above
+       double rtol, double atol: relative and absolute tolerance levels desired
+  Output:
+       double *result: result (nt blocks of size 2dim)
+*/
+void symplec4(void (*func)(double t, double *q, double *a,
+			   int nargs, struct leapFuncArg * leapFuncArgs),
+	      int dim,
+	      double * yo,
+	      int nt, double *t,
+	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      double rtol, double atol,
+	      double *result){
+  //Initialize
+  double *qo= (double *) malloc ( dim * sizeof(double) );
+  double *po= (double *) malloc ( dim * sizeof(double) );
+  double *q12= (double *) malloc ( dim * sizeof(double) );
+  double *p12= (double *) malloc ( dim * sizeof(double) );
+  double *a= (double *) malloc ( dim * sizeof(double) );
+  int ii, jj, kk;
+  for (ii=0; ii < dim; ii++) {
+    *qo++= *(yo+ii);
+    *po++= *(yo+dim+ii);
+  }
+  qo-= dim;
+  po-= dim;
+  save_qp(dim,qo,po,result);
+  result+= 2 * dim;
+  //Estimate necessary stepsize
+  double dt= (*(t+1))-(*t);
+  double init_dt= dt;
+  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+			     rtol,atol);
+  long ndt= (long) (init_dt/dt);
+  //Integrate the system
+  double to= *t;
+  for (ii=0; ii < (nt-1); ii++){
+    //drift half BOVY
+    leapfrog_leapq(dim,qo,po,dt/2.,q12);
+    //now drift full for a while
+    for (jj=0; jj < (ndt-1); jj++){
+      //kick
+      func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+      leapfrog_leapp(dim,po,dt,a,p12);
+      //drift
+      leapfrog_leapq(dim,q12,p12,dt,qo);
+      //reset
+      to= to+dt;
+      for (kk=0; kk < dim; kk++) {
+	*(q12+kk)= *(qo+kk);
+	*(po+kk)= *(p12+kk);
+      }
+    }
+    //end with one last kick and drift
+    //kick
+    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,dt,a,po);
+    //drift
+    leapfrog_leapq(dim,q12,po,dt/2.,qo);
+    to= to+dt;
+    //save
+    save_qp(dim,qo,po,result);
+    result+= 2 * dim;
+  }
+  //Free allocated memory
+  free(qo);
+  free(po);
+  free(q12);
+  free(a);
+  //We're done
+}
+
+inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
   int ii;
   for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
 }
-void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
+inline void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
   int ii;
   for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
 }
