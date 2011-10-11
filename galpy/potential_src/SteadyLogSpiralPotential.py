@@ -169,3 +169,28 @@ class SteadyLogSpiralPotential(planarPotential):
                                                                      -self._omegas*t
                                                                      -self._gamma))
     
+    def OmegaP(self):
+        """
+        NAME:
+
+
+           OmegaP
+
+        PURPOSE:
+
+           return the pattern speed
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           pattern speed
+
+        HISTORY:
+
+           2011-10-10 - Written - Bovy (IAS)
+
+        """
+        return self._omegas
