@@ -99,6 +99,11 @@ void integratePlanarOrbit(double *yo,
     odeint_deriv_func= &evalPlanarRectDeriv;
     dim= 4;
     break;
+  case 3: //symplec4
+    odeint_func= &symplec4;
+    odeint_deriv_func= &evalPlanarRectForce;
+    dim= 2;
+    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
   //Free allocated memory
