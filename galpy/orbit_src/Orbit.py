@@ -41,7 +41,7 @@ class Orbit:
            vxvv - initial conditions 
                   3D can be either
 
-              1) in Galactocentric cylindrical coordinates
+              1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]
 
               2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec)
 
