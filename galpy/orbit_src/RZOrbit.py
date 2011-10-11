@@ -112,7 +112,22 @@ class RZOrbit(OrbitTop):
            2011-04-18 - Written - Bovy (NYU)
         """
         if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
-            OmegaP= 1
+            OmegaP= 1.
+            if not kwargs.has_key('pot') or kwargs['pot'] is None:
+                try:
+                    pot= self._pot
+                except AttributeError:
+                    raise AttributeError("Integrate orbit or specify pot=")
+            else:
+                pot= kwargs['pot']
+            if isinstance(pot,list):
+                for p in pot:
+                    if hasattr(p,'OmegaP'):
+                        OmegaP= p.OmegaP()
+                        break
+            else:
+                if hasattr(pot,'OmegaP'):
+                    OmegaP= pot.OmegaP()
             if kwargs.has_key('OmegaP'):
                 kwargs.pop('OmegaP')         
         else:
