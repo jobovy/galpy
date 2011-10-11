@@ -33,6 +33,20 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
+inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
+  int ii;
+  for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
+}
+inline void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
+  int ii;
+  for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
+}
+
+inline void save_qp(int dim, double *qo, double *po, double *result){
+  int ii;
+  for (ii=0; ii < dim; ii++) *result++= *qo++;
+  for (ii=0; ii < dim; ii++) *result++= *po++;
+}
 /*
 Leapfrog integrator
 Usage:
@@ -152,6 +166,14 @@ void symplec4(void (*func)(double t, double *q, double *a,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
 	      double *result){
+  //coefficients
+  double c1= 0.6756035959798289;
+  double c4= c1;
+  double c2= -0.1756035959798288;
+  double c3= c2;
+  double d1= 1.3512071919596578;
+  double d3= d1;
+  double d2= -1.7024143839193153; //d4=0
   //Initialize
   double *qo= (double *) malloc ( dim * sizeof(double) );
   double *po= (double *) malloc ( dim * sizeof(double) );
@@ -170,35 +192,62 @@ void symplec4(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
 			     rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
-    //drift half BOVY
-    leapfrog_leapq(dim,qo,po,dt/2.,q12);
-    //now drift full for a while
+    //drift for c1*dt
+    leapfrog_leapq(dim,qo,po,c1*dt,q12);
+    to+= c1*dt;
+    //steps ignoring q4/p4 when output is not wanted
     for (jj=0; jj < (ndt-1); jj++){
-      //kick
-      func(to+dt/2.,q12,a,nargs,leapFuncArgs);
-      leapfrog_leapp(dim,po,dt,a,p12);
-      //drift
-      leapfrog_leapq(dim,q12,p12,dt,qo);
+      //kick for d1*dt
+      func(to,q12,a,nargs,leapFuncArgs);
+      leapfrog_leapp(dim,po,d1*dt,a,p12);
+      //drift for c2*dt
+      leapfrog_leapq(dim,q12,p12,c2*dt,qo);
+      //kick for d2*dt
+      to+= c2*dt;
+      func(to,qo,a,nargs,leapFuncArgs);
+      leapfrog_leapp(dim,p12,d2*dt,a,po);
+      //drift for c3*dt
+      leapfrog_leapq(dim,qo,po,c3*dt,q12);
+      to+= c3*dt;
+      //kick for d3*dt
+      func(to,q12,a,nargs,leapFuncArgs);
+      leapfrog_leapp(dim,po,d3*dt,a,p12);
+      //drift for (c4+c1)*dt
+      leapfrog_leapq(dim,q12,p12,(c4+c1)*dt,qo);
+      to+= (c4+c1)*dt;
       //reset
-      to= to+dt;
       for (kk=0; kk < dim; kk++) {
 	*(q12+kk)= *(qo+kk);
 	*(po+kk)= *(p12+kk);
       }
     }
-    //end with one last kick and drift
-    //kick
-    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
-    leapfrog_leapp(dim,po,dt,a,po);
-    //drift
-    leapfrog_leapq(dim,q12,po,dt/2.,qo);
-    to= to+dt;
+    //steps not ignoring q4/p4 when output is wanted
+    //kick for d1*dt
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,d1*dt,a,p12);
+    //drift for c2*dt
+    leapfrog_leapq(dim,q12,p12,c2*dt,qo);
+    //kick for d2*dt
+    to+= c2*dt;
+    func(to,qo,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,p12,d2*dt,a,po);
+    //drift for c3*dt
+    leapfrog_leapq(dim,qo,po,c3*dt,q12);
+    to+= c3*dt;
+    //kick for d3*dt
+    func(to,q12,a,nargs,leapFuncArgs);
+    leapfrog_leapp(dim,po,d3*dt,a,p12);
+    //drift for c4*dt
+    leapfrog_leapq(dim,q12,p12,c4*dt,qo);
+    to+= c4*dt;
+    //p4=p3
+    for (kk=0; kk < dim; kk++) *(po+kk)= *(p12+kk);
     //save
     save_qp(dim,qo,po,result);
     result+= 2 * dim;
@@ -209,21 +258,6 @@ void symplec4(void (*func)(double t, double *q, double *a,
   free(q12);
   free(a);
   //We're done
-}
-
-inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
-  int ii;
-  for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
-}
-inline void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
-  int ii;
-  for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
-}
-
-inline void save_qp(int dim, double *qo, double *po, double *result){
-  int ii;
-  for (ii=0; ii < dim; ii++) *result++= *qo++;
-  for (ii=0; ii < dim; ii++) *result++= *po++;
 }
 
 double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
