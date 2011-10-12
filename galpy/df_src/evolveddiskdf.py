@@ -136,6 +136,10 @@ class evolveddiskdf:
                 else:
                     orb_array= o.getOrbit().T
                 retval= self._initdf(orb_array)
+                if len(retval.shape) == 0 and nu.isnan(retval):
+                    retval= 0.
+                elif len(retval.shape) > 0:
+                    retval[(nu.isnan(retval))]= 0.
                 #reverse to get the times in the right order
                 if len(t) > 1: retval= retval[::-1]
             if _PROFILE:
