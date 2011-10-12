@@ -42,11 +42,11 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     """
     #Process atol and rtol
     if rtol is None:
-        rtol= nu.log(1.49012*10.**-8.)
+        rtol= -12.*nu.log(10.)
     else:
         rtol= nu.log(rtol)
     if atol is None:
-        atol= nu.log(1.49012*10.**-8.)
+        atol= -12.*nu.log(10.)
     else:
         atol= nu.log(atol)
     #Figure out what's in pot
