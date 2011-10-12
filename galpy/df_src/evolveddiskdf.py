@@ -933,6 +933,7 @@ class evolveddiskdf:
         if isinstance(t,(list,nu.ndarray)):
             nt= len(t)
             out.df= nu.zeros((gridpoints,gridpoints,nt))
+            cnte= 0.
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
                     if print_progress:
@@ -942,12 +943,14 @@ class evolveddiskdf:
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     dL= nu.fabs(thiso.L()-R)
                     if dL/R > 0.5: #estimate of high eccentricity
+                        cnte+= 1.
                         out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
                                               integrate_method=integrate_method_highe)
                     else:
                         out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
                                               integrate_method=integrate_method)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
+            print "%f fraction high eccentricity orbits" % (cnte/gridpoints**2.)
             if print_progress: sys.stdout.write('\n')
         else:
             out.df= nu.zeros((gridpoints,gridpoints))
