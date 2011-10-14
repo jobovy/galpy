@@ -136,10 +136,17 @@ class evolveddiskdf:
                 else:
                     orb_array= o.getOrbit().T
                 retval= self._initdf(orb_array)
-                if len(retval.shape) == 0 and nu.isnan(retval):
+                if (isinstance(retval,float) or len(retval.shape) == 0) \
+                       and nu.isnan(retval):
                     retval= 0.
-                elif len(retval.shape) > 0:
+                elif not isinstance(retval,float) and len(retval.shape) > 0:
                     retval[(nu.isnan(retval))]= 0.
+                #if isinstance(retval,float) or len(retval.shape) == 0:
+                #    if nu.amin(orb_array[0]) < 0.1:
+                #        retval= 0.
+                #else:
+                #    minR= nu.amin(orb_array,axis=0)
+                #    retval[(minR < 0.1)]= 0.
                 #reverse to get the times in the right order
                 if len(t) > 1: retval= retval[::-1]
             if _PROFILE:
@@ -937,16 +944,18 @@ class evolveddiskdf:
         if isinstance(t,(list,nu.ndarray)):
             nt= len(t)
             out.df= nu.zeros((gridpoints,gridpoints,nt))
-            cnte= 0.
+            #cnte= 0.
             for ii in range(gridpoints):
-                for jj in range(gridpoints):
+                for jj in range(gridpoints-1,-1,-1):#Reverse, so we get the peak before we get to the extreme lags NOT NECESSARY
                     if print_progress:
                         sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                    dL= nu.fabs(thiso.L()-R)
-                    if dL/R > 0.5: #estimate of high eccentricity
+                    #LR= thiso.L()#/vcirc BOVY
+                    #dL= nu.fabs(LR-R) #(2*vt-1.) < 0.2/R
+                    #if dL/R > 0.5: #estimate of high eccentricity
+                    if False: #LR < R and (LR-dL) < 0.: #estimate of high eccentricity
                         cnte+= 1.
                         out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
                                               integrate_method=integrate_method_highe)
@@ -954,7 +963,7 @@ class evolveddiskdf:
                         out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
                                               integrate_method=integrate_method)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
-            print "%f fraction high eccentricity orbits" % (cnte/gridpoints**2.)
+            #print "%f fraction high eccentricity orbits" % (cnte/gridpoints**2.)
             if print_progress: sys.stdout.write('\n')
         else:
             out.df= nu.zeros((gridpoints,gridpoints))
