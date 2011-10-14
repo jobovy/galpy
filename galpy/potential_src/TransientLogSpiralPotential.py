@@ -7,7 +7,7 @@ _degtorad= math.pi/180.
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A(t)/alpha cos(alpha ln(r) + m(phi - Omegas*t-gamma))
+    V(r,phi,t) = A(t)/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
 
     where
 
@@ -91,7 +91,7 @@ class TransientLogSpiralPotential(planarPotential):
            """
         return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
             /self._alpha*math.cos(self._alpha*math.log(R)
-                               +self._m*(phi-self._omegas*t-self._gamma))
+                                  -self._m*(phi-self._omegas*t-self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -110,7 +110,7 @@ class TransientLogSpiralPotential(planarPotential):
         """
         return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
             /R*math.sin(self._alpha*math.log(R)
-                     +self._m*(phi-self._omegas*t-self._gamma))
+                        -self._m*(phi-self._omegas*t-self._gamma))
     
     def _phiforce(self,R,phi=0.,t=0.):
         """
@@ -127,10 +127,10 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+        return -self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
             /self._alpha*self._m*math.sin(self._alpha*math.log(R)
-                                       +self._m*(phi-self._omegas*t
-                                                 -self._gamma))
+                                          -self._m*(phi-self._omegas*t
+                                                    -self._gamma))
 
     def OmegaP(self):
         """
