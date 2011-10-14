@@ -7,7 +7,7 @@ _degtorad= math.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A/alpha cos(alpha ln(r) + m(phi - Omegas*t-gamma))
+    V(r,phi,t) = A/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
@@ -105,7 +105,7 @@ class SteadyLogSpiralPotential(planarPotential):
         else:
             smooth= 1.
         return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
-                                                   +self._m*(phi-self._omegas*t
+                                                   -self._m*(phi-self._omegas*t
                                                              -self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
@@ -135,7 +135,7 @@ class SteadyLogSpiralPotential(planarPotential):
         else:
             smooth= 1.
         return smooth*self._A/R*math.sin(self._alpha*math.log(R)
-                                         +self._m*(phi-self._omegas*t
+                                         -self._m*(phi-self._omegas*t
                                                    -self._gamma))
        
     def _phiforce(self,R,phi=0.,t=0.):
@@ -164,8 +164,8 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return smooth*self._A/self._alpha*self._m*math.sin(self._alpha*math.log(R)
-                                                           +self._m*(phi
+        return -smooth*self._A/self._alpha*self._m*math.sin(self._alpha*math.log(R)
+                                                           -self._m*(phi
                                                                      -self._omegas*t
                                                                      -self._gamma))
     
