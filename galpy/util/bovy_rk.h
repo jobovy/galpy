@@ -110,5 +110,5 @@ double bovy_dopr54_actualstep(void (*func)(double, double *, double *,int, struc
 			      double *, double *,
 			      double *, double *,
 			      double *, double *,
-			      double *);
+			      double *,unsigned char);
 #endif /* bovy_rk.h */
