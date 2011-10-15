@@ -93,6 +93,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
         int_method_c= 3
     elif int_method.lower() == 'symplec6_c':
         int_method_c= 4
+    elif int_method.lower() == 'dopr54_c':
+        int_method_c= 5
     else:
         int_method_c= 0
             
