@@ -33,8 +33,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <math.h>
 #include <bovy_rk.h>
+#define _MAX_STEPCHANGE_POWERTWO 3.
+#define _MIN_STEPCHANGE_POWERTWO -3.
+#define _MAX_STEPREDUCE 100.
 /*
-Runge-Kutta 4/6 integrator
+Runge-Kutta 4 integrator
 Usage:
    Provide the acceleration function func with calling sequence
        func (t,q,a,nargs,args)
@@ -406,3 +409,239 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //fflush(stdout);
   return dt;
 } 
+/*
+Runge-Kutta Dormand-Prince 5/4 integrator
+Usage:
+   Provide the acceleration function func with calling sequence
+       func (t,q,a,nargs,args)
+   where
+       double t: time
+       double * q: current value (dimension: dim)
+       double * a: will be set to the derivative by func
+       int nargs: number of arguments the function takes
+       double *args: arguments
+  Other arguments are:
+       int dim: dimension
+       double *yo: initial value, dimension: dim
+       int nt: number of times at which the output is wanted
+       double *t: times at which the output is wanted (EQUALLY SPACED)
+       int nargs: see above
+       double *args: see above
+       double rtol, double atol: relative and absolute tolerance levels desired
+  Output:
+       double *result: result (nt blocks of size 2dim)
+*/
+void bovy_dopr54(void (*func)(double t, double *q, double *a,
+			      int nargs, struct leapFuncArg * leapFuncArgs),
+		 int dim,
+		 double * yo,
+		 int nt, double *t,
+		 int nargs, struct leapFuncArg * leapFuncArgs,
+		 double rtol, double atol,
+		 double *result){
+  //Declare and initialize
+  double *a= (double *) malloc ( dim * sizeof(double) );
+  double *a1= (double *) malloc ( dim * sizeof(double) );
+  double *k1= (double *) malloc ( dim * sizeof(double) );
+  double *k2= (double *) malloc ( dim * sizeof(double) );
+  double *k3= (double *) malloc ( dim * sizeof(double) );
+  double *k4= (double *) malloc ( dim * sizeof(double) );
+  double *k5= (double *) malloc ( dim * sizeof(double) );
+  double *k6= (double *) malloc ( dim * sizeof(double) );
+  double *yn= (double *) malloc ( dim * sizeof(double) );
+  double *yn1= (double *) malloc ( dim * sizeof(double) );
+  double *yerr= (double *) malloc ( dim * sizeof(double) );
+  double *ynk= (double *) malloc ( dim * sizeof(double) );
+  int ii;
+  save_rk(dim,yo,result);
+  result+= dim;
+  for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
+  double dt= (*(t+1))-(*t);
+  double dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,leapFuncArgs,
+				   rtol,atol);
+  //Integrate the system
+  double to= *t;
+  //set up a1
+  func(to,yn,a,nargs,leapFuncArgs);
+  for (ii=0; ii < (nt-1); ii++){
+    bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
+			nargs,leapFuncArgs,rtol,atol,
+			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk);
+    //save
+    save_rk(dim,yn,result);
+    result+= dim;
+  }
+  free(a);
+  free(a1);
+  free(k1);
+  free(k2);
+  free(k3);
+  free(k4);
+  free(k5);
+  free(k6);
+  free(yn);
+  free(yn1);
+  free(yerr);
+  free(ynk);
+}
+//one output step, consists of multiple steps potentially
+void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+			 int dim, double *yo,
+			 double dt, double *to,double * dt_one,
+			 int nargs,struct leapFuncArg * leapFuncArgs,
+			 double rtol,double atol,
+			 double * a1, double * a,
+			 double * k1, double * k2,
+			 double * k3, double * k4,
+			 double * k5, double * k6,
+			 double * yn1, double * yerr,double * ynk){
+  double init_dt_one= *dt_one;
+  double init_to= *to;
+  while ( *to < ( init_to+dt) ){
+    *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,leapFuncArgs,
+				    rtol,atol,
+				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk);
+    if ( init_dt_one/ *dt_one < _MAX_STEPREDUCE) *dt_one= init_dt_one/_MAX_STEPREDUCE;
+  }
+}
+double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+			      int dim, double *yo,
+			      double dt, double *to,
+			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      double rtol,double atol,
+			      double * a1, double * a,
+			      double * k1, double * k2,
+			      double * k3, double * k4,
+			      double * k5, double * k6,
+			      double * yn1, double * yerr,double * ynk){
+  //constant
+  static const double c2= 0.2;
+  static const double c3= 0.3;
+  static const double c4= 0.8;
+  static const double c5= 8./9.;
+  static const double a21= 0.2;
+  static const double a31= 3./40.;
+  static const double a41= 44./45.;
+  static const double a51= 19372./6561;
+  static const double a61= 9017./3168.;
+  static const double a71= 35./384.;
+  static const double a32= 9./40.;
+  static const double a42= -56./15.;
+  static const double a52= -25360./2187.;
+  static const double a62= -355./33.;
+  static const double a43= 32./9.;
+  static const double a53= 64448./6561.;
+  static const double a63= 46732./5247.;
+  static const double a73= 500./1113.;
+  static const double a54= -212./729.;
+  static const double a64= 49./176.;
+  static const double a74= 125./192.;
+  static const double a65= -5103./18656.;
+  static const double a75= -2187./6784.;
+  static const double a76= 11./84.;
+  static const double b1= 35./384.;
+  static const double b3= 500./1113.;
+  static const double b4= 125./192.;
+  static const double b5= -2187./6784.;
+  static const double b6= 11./84.;
+  //coefficients of the error estimate
+  static const double be1= b1-5179./57600.;
+  static const double be3= b3-7571./16695.;
+  static const double be4= b4-393./640.;
+  static const double be5= b5+92097./339200.;
+  static const double be6= b6-187./2100.;
+  static const double be7= -1./40.;
+  int ii;
+  //setup yn1
+  for (ii=0; ii < dim; ii++) *(yn1+ii) = *(yo+ii);
+  //calculate k1
+  for (ii=0; ii < dim; ii++) *(a+ii)= *(a1+ii);
+  for (ii=0; ii < dim; ii++){
+    *(k1+ii)= dt * *(a+ii);
+    *(yn1+ii) += b1* *(k1+ii);
+    *(yerr+ii) = be1* *(k1+ii);
+    *(ynk+ii)= *(yo+ii) + a21 * *(k1+ii);
+  }
+  //calculate k2
+  func(*to+c2*dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++){
+    *(k2+ii)= dt * *(a+ii);
+    *(ynk+ii)= *(yo+ii) + a31 * *(k1+ii) 
+      + a32 * *(k2+ii);
+  }
+  //calculate k3
+  func(*to+c3*dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++){
+    *(k3+ii)= dt * *(a+ii);
+    *(yn1+ii) += b3* *(k3+ii);
+    *(yerr+ii) += be3* *(k3+ii);
+    *(ynk+ii)= *(yo+ii) + a41 * *(k1+ii) 
+      + a42 * *(k2+ii) + a43 * *(k3+ii);
+  }
+  //calculate k4
+  func(*to+c4*dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++){
+    *(k4+ii)= dt * *(a+ii);
+    *(yn1+ii) += b4* *(k4+ii);
+    *(yerr+ii) += be4* *(k4+ii);
+    *(ynk+ii)= *(yo+ii) + a51 * *(k1+ii) 
+      + a52 * *(k2+ii) + a53 * *(k3+ii)
+      + a54 * *(k4+ii);
+  }
+  //calculate k5
+  func(*to+c5*dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++){
+    *(k5+ii)= dt * *(a+ii);
+    *(yn1+ii) += b5* *(k5+ii);
+    *(yerr+ii) += be5* *(k5+ii);
+    *(ynk+ii)= *(yo+ii) + a61 * *(k1+ii) 
+      + a62 * *(k2+ii) + a63 * *(k3+ii)
+      + a64 * *(k4+ii) + a65 * *(k5+ii);
+  }
+  //calculate k6
+  func(*to+dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++){
+    *(k6+ii)= dt * *(a+ii);
+    *(yn1+ii) += b6* *(k6+ii);
+    *(yerr+ii) += be6* *(k6+ii);
+    *(ynk+ii)= *(yo+ii) + a71 * *(k1+ii) 
+      + a73 * *(k3+ii) //a72=0
+      + a74 * *(k4+ii) + a75 * *(k5+ii)
+      + a76 * *(k6+ii);
+  }
+  //calculate k7
+  func(*to+dt,ynk,a,nargs,leapFuncArgs);
+  for (ii=0; ii < dim; ii++) *(yerr+ii) += be7 * dt * *(a+ii);
+  //yn1 is proposed new value
+  //find maximum values
+  double max_val= fabs(*yo);
+  for (ii=1; ii < dim; ii++)
+    if ( fabs(*(yo+ii)) > max_val )
+      max_val= fabs(*(yo+ii));
+  //set up scale
+  double c= fmax(atol, rtol * max_val);
+  double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
+  //Norm
+  double err= 0.;
+  for (ii=0; ii < dim; ii++) 
+    err+= exp(2.*log(fabs(*(yerr+ii)))-2.* s);
+  err= sqrt(err/dim);
+  double corr= 0.85*pow(err,1./5.);
+  //Round to the nearest power of two
+  double powertwo= round(log(corr)/log(2.));
+  if ( powertwo > _MAX_STEPCHANGE_POWERTWO )
+    powertwo= _MAX_STEPCHANGE_POWERTWO;
+  else if ( powertwo < _MIN_STEPCHANGE_POWERTWO )
+    powertwo= _MIN_STEPCHANGE_POWERTWO;
+  //accept or reject
+  double dt_one;
+  if ( powertwo <= 0. ) {//accept
+    for (ii= 0; ii < dim; ii++) {
+      *(a1+ii)= *(a+ii);
+      *(yo+ii)= *(yn1+ii);
+    }
+    *to+= dt;
+  }
+  dt_one= dt*pow(2.,powertwo);
+  return dt_one;
+}
