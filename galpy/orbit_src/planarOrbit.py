@@ -667,7 +667,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         out= tmp_out[:,0:3]
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
@@ -748,7 +748,7 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,3]= phi
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         warnings.warn("Using C implementation to integrate orbits")
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
