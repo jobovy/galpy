@@ -462,7 +462,7 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   //set up a1
-  func(to,yn,a,nargs,leapFuncArgs);
+  func(to,yn,a1,nargs,leapFuncArgs);
   for (ii=0; ii < (nt-1); ii++){
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
 			nargs,leapFuncArgs,rtol,atol,
@@ -497,11 +497,25 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
 			 double * yn1, double * yerr,double * ynk){
   double init_dt_one= *dt_one;
   double init_to= *to;
-  while ( *to < ( init_to+dt) ){
+  unsigned char accept;
+  //printf("%f,%f\n",*to,init_to+dt);
+  while ( ( dt >= 0. && *to < (init_to+dt)) 
+	  || ( dt < 0. && *to > (init_to+dt)) ) {
+    accept= 0;
+    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE) {
+      *dt_one= init_dt_one/_MAX_STEPREDUCE;
+      accept= 1;
+    }
+    if ( dt >= 0. && *dt_one > (init_to+dt - *to) ) 
+      *dt_one= (init_to + dt - *to);
+    if ( dt < 0. && *dt_one < (init_to+dt - *to) )
+      *dt_one = (init_to + dt - *to); 
+    //printf("%f,%f,%f,%f,%f\n",*dt_one,init_to+dt - *to,*to,init_to,dt);
+    //fflush(stdout);
     *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,leapFuncArgs,
 				    rtol,atol,
-				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk);
-    if ( init_dt_one/ *dt_one < _MAX_STEPREDUCE) *dt_one= init_dt_one/_MAX_STEPREDUCE;
+				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,
+				    accept);
   }
 }
 double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
@@ -513,7 +527,8 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
 			      double * k1, double * k2,
 			      double * k3, double * k4,
 			      double * k5, double * k6,
-			      double * yn1, double * yerr,double * ynk){
+			      double * yn1, double * yerr,double * ynk,
+			      unsigned char accept){
   //constant
   static const double c2= 0.2;
   static const double c3= 0.3;
@@ -626,21 +641,24 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
   for (ii=0; ii < dim; ii++) 
     err+= exp(2.*log(fabs(*(yerr+ii)))-2.* s);
   err= sqrt(err/dim);
-  double corr= 0.85*pow(err,1./5.);
+  double corr= 0.85*pow(err,-.2);
   //Round to the nearest power of two
   double powertwo= round(log(corr)/log(2.));
   if ( powertwo > _MAX_STEPCHANGE_POWERTWO )
     powertwo= _MAX_STEPCHANGE_POWERTWO;
   else if ( powertwo < _MIN_STEPCHANGE_POWERTWO )
     powertwo= _MIN_STEPCHANGE_POWERTWO;
+  //printf("%f,%f\n",powertwo,err);
+  //fflush(stdout);
   //accept or reject
   double dt_one;
-  if ( powertwo <= 0. ) {//accept
+  if ( ( powertwo >= 0. ) || accept ) {//accept, if the step is the smallest possible, always accept
     for (ii= 0; ii < dim; ii++) {
       *(a1+ii)= *(a+ii);
       *(yo+ii)= *(yn1+ii);
     }
     *to+= dt;
+    //printf("%f,%f\n",*to,dt);
   }
   dt_one= dt*pow(2.,powertwo);
   return dt_one;
