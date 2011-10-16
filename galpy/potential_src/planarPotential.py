@@ -94,6 +94,24 @@ class planarPotential:
         except AttributeError:
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+           plot
+        PURPOSE:
+           plot the potential
+        INPUT:
+           Rrange - range
+           grid - number of points to plot
+           savefilename - save to or restore from this savefile (pickle)
+           +bovy_plot(*args,**kwargs)
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2010-07-13 - Written - Bovy (NYU)
+        """
+        plotplanarPotentials(self,*args,**kwargs)
+
 class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
     def __init__(self,amp=1.):
@@ -245,24 +263,6 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(2.*(self(_INF)-self(R)))
         
-    def plot(self,*args,**kwargs):
-        """
-        NAME:
-           plot
-        PURPOSE:
-           plot the potential
-        INPUT:
-           Rrange - range
-           grid - number of points to plot
-           savefilename - save to or restore from this savefile (pickle)
-           +bovy_plot(*args,**kwargs)
-        OUTPUT:
-           plot to output device
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
-        """
-        plotplanarPotentials(self,*args,**kwargs)
-
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
@@ -592,12 +592,12 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         grid= kwargs['grid']
         kwargs.pop('grid')
     else:
-        grid= 1001
+        grid= 1000 #avoid zero
     if kwargs.has_key('gridx'):
         gridx= kwargs['gridx']
         kwargs.pop('gridx')
     else:
-        gridx= 1001
+        gridx= 1000 #avoid zero
     if kwargs.has_key('gridy'):
         gridy= kwargs['gridy']
         kwargs.pop('gridy')
@@ -633,7 +633,8 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                         thisphi= nu.arcsin(ys[jj]/thisR)
                     else:
                         thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
-                    potR[ii,jj]= evaluateplanarPotentials(thisR,thisphi,Pot)
+                    potR[ii,jj]= evaluateplanarPotentials(thisR,Pot,
+                                                          phi=thisphi)
         else:
             Rs= nu.linspace(Rrange[0],Rrange[1],grid)
             potR= nu.zeros(grid)
@@ -657,9 +658,9 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         if not kwargs.has_key('contours'):
             kwargs['contours']= True
         if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= r"$R/R_0$"
+            kwargs['xlabel']= r"$x / R_0$"
         if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= "$z/R_0$",
+            kwargs['ylabel']= "$y / R_0$"
         if not kwargs.has_key('aspect'):
             kwargs['aspect']= 1.
         if not kwargs.has_key('cntrls'):
@@ -667,6 +668,8 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         if kwargs.has_key('ncontours'):
             ncontours= kwargs['ncontours']
             kwargs.pop('ncontours')
+        else:
+            ncontours=10
         if not kwargs.has_key('levels'):
             kwargs['levels']= nu.linspace(nu.nanmin(potR),nu.nanmax(potR),ncontours)
         return plot.bovy_dens2d(potR.T,
