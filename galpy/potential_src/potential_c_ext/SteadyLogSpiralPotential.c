@@ -34,7 +34,7 @@ double SteadyLogSpiralPotentialRforce(double R,double phi,double t,
   double gamma= *args++;
   //Calculate Rforce
   smooth= dehnenSpiralSmooth(t,tform,tsteady);
-  return amp * smooth * A / R * sin(alpha * log(R) + m * (phi-omegas*t-gamma));
+  return amp * smooth * A / R * sin(alpha * log(R) - m * (phi-omegas*t-gamma));
 }
 double SteadyLogSpiralPotentialphiforce(double R,double phi,double t,
 				      int nargs, double *args){
@@ -51,6 +51,6 @@ double SteadyLogSpiralPotentialphiforce(double R,double phi,double t,
   double gamma= *args++;
   //Calculate Rforce
   smooth= dehnenSpiralSmooth(t,tform,tsteady);
-  return amp * smooth * A / alpha * m * 
-    sin(alpha * log(R) + m * (phi-omegas*t-gamma));
+  return -amp * smooth * A / alpha * m * 
+    sin(alpha * log(R) - m * (phi-omegas*t-gamma));
 }
