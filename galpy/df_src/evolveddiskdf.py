@@ -1000,6 +1000,145 @@ class evolveddiskdf:
         else:
             return out
 
+    def oortA(self,R,t=0.,nsigma=None,deg=False,phi=0.,
+              epsrel=1.e-02,epsabs=1.e-05,
+              grid=None,gridpoints=101,returnGrids=False,
+              derivGrid=None,derivGridpoints=101,
+              derivHierarchgrid=False,
+              hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+        """
+        NAME:
+           oortA
+        PURPOSE:
+           calculate the Oort function A at (R,phi,t)
+        INPUT:
+           R - radius at which to calculate A (/ro)
+           phi= azimuth (rad unless deg=True)
+           t= time at which to evaluate the DF
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
+           deg= azimuth is in degree (default=False)
+           epsrel, epsabs - scipy.integrate keywords
+           grid= if set to True, build a grid and use that to evaluate 
+                 integrals; if set to a grid-objects (such as returned by this 
+                 procedure), use this grid
+           derivGrid= if set to True, build a grid and use that to evaluate 
+                 integrals of the derivatives of the DF;
+                 if set to a grid-objects (such as returned by this 
+                 procedure), use this grid
+           gridpoints= number of points to use for the grid in 1D (default=101)
+           derivGridpoints= number of points to use for the grid in 1D (default=101)
+           returnGrid= if True, return the grid objects (default=False)
+           hierarchgrid= if True, use a hierarchical grid (default=False)
+           derivHierarchgrid= if True, use a hierarchical grid (default=False)
+           nlevels= number of hierarchical levels for the hierarchical grid
+           integrate_method= orbit.integrate method argument
+        OUTPUT:
+           Oort A at R,phi,t
+        HISTORY:
+           2011-10-16 - Written - Bovy (NYU)
+        """
+        #First calculate the grids if they are not given
+        if isinstance(grid,bool) and grid:
+            (surfacemass,grid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                                        nsigma=nsigma,epsrel=epsrel,
+                                                        epsabs=epsabs,grid=True,
+                                                        gridpoints=gridpoints,
+                                                        returnGrid=True,
+                                                        hierarchgrid=hierarchgrid,
+                                                        nlevels=nlevels,
+                                                        integrate_method=integrate_method)
+        elif isinstance(grid,evolveddiskdfGrid) or \
+                isinstance(grid,evolveddiskdfHierarchicalGrid):
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                                 nsigma=nsigma,epsrel=epsrel,
+                                                 epsabs=epsabs,grid=grid,
+                                                 gridpoints=gridpoints,
+                                                 returnGrid=False,
+                                                 hierarchgrid=hierarchgrid,
+                                                 nlevels=nlevels,
+                                                 integrate_method=integrate_method)
+        if isinstance(derivGrid,bool) and derivGrid:
+            (dsurfacemassdR,derivGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                                                nsigma=nsigma,epsrel=epsrel,
+                                                                epsabs=epsabs,grid=True,
+                                                                gridpoints=derivGridpoints,
+                                                                returnGrid=True,
+                                                                hierarchgrid=derivHierarchgrid,
+                                                                nlevels=nlevels,
+                                                                integrate_method=integrate_method,deriv='R')
+        elif isinstance(derivGrid,evolveddiskdfGrid) or \
+                isinstance(derivG,evolveddiskdfHierarchicalGrid):
+            dsurfacemassdR= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                                    nsigma=nsigma,epsrel=epsrel,
+                                                    epsabs=epsabs,grid=derivGrid,
+                                                    gridpoints=derivGridpoints,
+                                                    returnGrid=False,
+                                                    hierarchgrid=derivHierarchgrid,
+                                                    nlevels=nlevels,
+                                                    integrate_method=integrate_method,deriv='R')
+        #2A= meanvT/R-dmeanvR/R/dphi-dmeanvphi/dR
+        #meanvT
+        meanvT= self.meanvT(R,t=t,nsigma=nsigma,deg=deg,phi=phi,
+                            epsrel=epsrel,epsabs=epsabs,
+                            grid=grid,gridpoints=gridpoints,returnGrid=False,
+                            surfacemass=surfacemass,
+                            hierarchgrid=hierarchgrid,
+                            nlevels=nlevels,integrate_method=integrate_method)
+        dmeanvRdphi= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                                              nsigma=nsigma,epsrel=epsrel,
+                                              epsabs=epsabs,grid=derivGrid,
+                                              gridpoints=derivGridpoints,
+                                              returnGrid=False,
+                                              hierarchgrid=derivHierarchgrid,
+                                              nlevels=nlevels,
+                                              integrate_method=integrate_method,deriv='phi')
+                      /surfacemass
+                      -self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                                               nsigma=nsigma,epsrel=epsrel,
+                                               epsabs=epsabs,grid=grid,
+                                               gridpoints=gridpoints,
+                                               returnGrid=False,
+                                               hierarchgrid=hierarchgrid,
+                                               nlevels=nlevels,
+                                               integrate_method=integrate_method)
+                      /surfacemass**2.*
+                      self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                              nsigma=nsigma,epsrel=epsrel,
+                                              epsabs=epsabs,grid=derivGrid,
+                                              gridpoints=derivGridpoints,
+                                              returnGrid=False,
+                                              hierarchgrid=derivHierarchgrid,
+                                              nlevels=nlevels,
+                                              integrate_method=integrate_method,deriv='phi'))
+        dmeanvTdR= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                                            nsigma=nsigma,epsrel=epsrel,
+                                            epsabs=epsabs,grid=derivGrid,
+                                            gridpoints=derivGridpoints,
+                                            returnGrid=False,
+                                            hierarchgrid=derivHierarchgrid,
+                                            nlevels=nlevels,
+                                            integrate_method=integrate_method,deriv='R')
+                    /surfacemass
+                    -self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                                               nsigma=nsigma,epsrel=epsrel,
+                                               epsabs=epsabs,grid=grid,
+                                               gridpoints=gridpoints,
+                                               returnGrid=False,
+                                               hierarchgrid=hierarchgrid,
+                                               nlevels=nlevels,
+                                               integrate_method=integrate_method)
+                      /surfacemass**2.*
+                      self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+                                              nsigma=nsigma,epsrel=epsrel,
+                                              epsabs=epsabs,grid=derivGrid,
+                                              gridpoints=derivGridpoints,
+                                              returnGrid=False,
+                                              hierarchgrid=derivHierarchgrid,
+                                              nlevels=nlevels,
+                                              integrate_method=integrate_method,deriv='R'))
+        return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
+
     def _vmomentsurfacemassGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a grid 
         rather than direct integration"""
