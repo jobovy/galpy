@@ -179,10 +179,10 @@ class evolveddiskdf:
                                                               orb_array[2,ii])
                                         for ii in range(len(t))])
                 if deriv.lower() == 'r':
-                    dR= 10.**-5.
+                    dR= 10.**-2. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
                     do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
                 elif deriv.lower() == 'phi':
-                    dphi= 10.**-5.
+                    dphi= 10.**-2.
                     do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
                 do.integrate(ts,self._pot,method=integrate_method)
                 dorb_array= do.getOrbit().T
@@ -1140,6 +1140,7 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
+        print meanvT, dmeanvRdphi, dmeanvTdR
         if returnGrids:
             return (0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR),grid,
                     derivRGrid,derivphiGrid)
