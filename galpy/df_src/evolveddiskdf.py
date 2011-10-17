@@ -1140,7 +1140,6 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
-        print meanvT, dmeanvRdphi, dmeanvTdR
         if returnGrids:
             return (0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR),grid,
                     derivRGrid,derivphiGrid)
