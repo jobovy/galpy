@@ -190,8 +190,7 @@ class evolveddiskdf:
                            print_progress=False,
                            sample=None,nsamples=100,
                            returnSamples=False,
-                           integrate_method='leapfrog_c',
-                           integrate_method_highe='odeint'):
+                           integrate_method='leapfrog_c'):
         """
         NAME:
            vmomentsurfacemass
@@ -224,8 +223,6 @@ class evolveddiskdf:
            returnSamples= of True, return the sampling (default=False)
            nsamples= if sample then use this many samples
            integrate_method= orbit.integrate method argument
-           integrate_method_highe= orbit.integrate method argument for orbits
-                                   that probably have a high eccentricity
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -273,7 +270,7 @@ class evolveddiskdf:
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
                                         gridpoints,print_progress,
-                                        integrate_method,integrate_method_highe)
+                                        integrate_method)
                 if _PROFILE:
                     grid_time= (time_module.time()-start)
                     print setup_time/(setup_time+grid_time), \
@@ -928,8 +925,7 @@ class evolveddiskdf:
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                    gridpoints,print_progress,integrate_method,
-                    integrate_method_highe):
+                    gridpoints,print_progress,integrate_method):
         """Internal function to grid the vDF at a given location"""
         out= evolveddiskdfGrid()
         out.sigmaR1= sigmaR1
@@ -944,7 +940,6 @@ class evolveddiskdf:
         if isinstance(t,(list,nu.ndarray)):
             nt= len(t)
             out.df= nu.zeros((gridpoints,gridpoints,nt))
-            #cnte= 0.
             for ii in range(gridpoints):
                 for jj in range(gridpoints-1,-1,-1):#Reverse, so we get the peak before we get to the extreme lags NOT NECESSARY
                     if print_progress:
@@ -952,18 +947,9 @@ class evolveddiskdf:
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                    #LR= thiso.L()#/vcirc BOVY
-                    #dL= nu.fabs(LR-R) #(2*vt-1.) < 0.2/R
-                    #if dL/R > 0.5: #estimate of high eccentricity
-                    if False: #LR < R and (LR-dL) < 0.: #estimate of high eccentricity
-                        cnte+= 1.
-                        out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
-                                              integrate_method=integrate_method_highe)
-                    else:
-                        out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
-                                              integrate_method=integrate_method)
+                    out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
+                                          integrate_method=integrate_method)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
-            #print "%f fraction high eccentricity orbits" % (cnte/gridpoints**2.)
             if print_progress: sys.stdout.write('\n')
         else:
             out.df= nu.zeros((gridpoints,gridpoints))
