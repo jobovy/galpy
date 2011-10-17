@@ -71,6 +71,9 @@ class evolveddiskdf:
 
            integrate_method= method argument of orbit.integrate
 
+           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
+                                       R or phi NOT WITH MARGINALIZE
+
         OUTPUT:
            DF(orbit,t)
         HISTORY:
@@ -81,6 +84,10 @@ class evolveddiskdf:
             integrate_method= kwargs['integrate_method']
         else:
             integrate_method= 'leapfrog_c'
+        if kwargs.has_key('deriv'):
+            deriv= kwargs['deriv']
+        else:
+            deriv= None
         if isinstance(args[0],Orbit):
             if len(args) == 1:
                 t= 0.
@@ -141,25 +148,78 @@ class evolveddiskdf:
                     retval= 0.
                 elif not isinstance(retval,float) and len(retval.shape) > 0:
                     retval[(nu.isnan(retval))]= 0.
-                #if isinstance(retval,float) or len(retval.shape) == 0:
-                #    if nu.amin(orb_array[0]) < 0.1:
-                #        retval= 0.
-                #else:
-                #    minR= nu.amin(orb_array,axis=0)
-                #    retval[(minR < 0.1)]= 0.
-                #reverse to get the times in the right order
                 if len(t) > 1: retval= retval[::-1]
             if _PROFILE:
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
                 print int_time/tot_time, df_time/tot_time, tot_time
-            #if isinstance(t,nu.ndarray): retval= nu.array(retval)
+            if not deriv is None:
+                #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative
+                if len(t) == 1:
+                    dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0],
+                                                            orb_array[1],
+                                                            orb_array[2])])
+                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0],
+                                                              orb_array[1],
+                                                              orb_array[2])])
+                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0],
+                                                              orb_array[1],
+                                                              orb_array[2])])
+                else:
+                    dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0,ii],
+                                                            orb_array[1,ii],
+                                                            orb_array[2,ii])
+                                       for ii in range(len(t))])
+                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0,ii],
+                                                              orb_array[1,ii],
+                                                              orb_array[2,ii])
+                                        for ii in range(len(t))])
+                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0,ii],
+                                                              orb_array[1,ii],
+                                                              orb_array[2,ii])
+                                        for ii in range(len(t))])
+                if deriv.lower() == 'r':
+                    dR= 10.**-5.
+                    do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
+                elif deriv.lower() == 'phi':
+                    dphi= 10.**-5.
+                    do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
+                do.integrate(ts,self._pot,method=integrate_method)
+                dorb_array= do.getOrbit().T
+                if len(t) == 1: dorb_array= dorb_array[:,1]
+                dRo= dorb_array[0]-orb_array[0]
+                dphio= dorb_array[3]-orb_array[3]
+                dvRo= dorb_array[1]-orb_array[1]
+                dvTo= dorb_array[2]-orb_array[2]
+                dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
+                if deriv.lower() == 'r':
+                    dlnfderiv/= dR
+                elif deriv.lower() == 'phi':
+                    dlnfderiv/= dphi
+                if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
+                else: dlnfderiv= dlnfderiv[0]
+                retval*= dlnfderiv
         else:
-            if self._to == t:
+            if self._to == t and deriv is None:
                 if kwargs.has_key('log') and kwargs['log']:
                     return nu.log(self._initdf(args[0]))
                 else:
                     return self._initdf(args[0])
+            elif self._to == t and not deriv is None:
+                if kwargs.has_key('log') and kwargs['log']:
+                    if deriv.lower() == 'r':
+                        return nu.log(self._initdf(args[0])*self._initdf._dlnfdR(args[0].vxvv[0],
+                                                                                 args[0].vxvv[1],
+                                                                                 args[0].vxvv[2]))
+                    elif deriv.lower() == 'phi':
+                        return -nu.finfo(nu.dtype(nu.float64)).max
+                else:
+                    if deriv.lower() == 'r':
+                        return self._initdf(args[0])*self._initdf._dlnfdR(args[0].vxvv[0],
+                                                                          args[0].vxvv[1],
+                                                                          args[0].vxvv[2])
+                    elif deriv.lower() == 'phi':
+                        return 0.
             if integrate_method == 'odeint':
                 ts= nu.linspace(t,self._to,_NTS)
             else:
@@ -178,6 +238,35 @@ class evolveddiskdf:
             retval= self._initdf(o(self._to-t))
             #print int_time/(time.time()-start)
             if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
+            if not deriv is None:
+                thisorbit= o(self._to-t).vxvv
+                dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
+                                              thisorbit[1],
+                                              thisorbit[2])
+                dlnfdvRo= self._initdf._dlnfdvR(thisorbit[0],
+                                                thisorbit[1],
+                                                thisorbit[2])
+                dlnfdvTo= self._initdf._dlnfdvT(thisorbit[0],
+                                                thisorbit[1],
+                                                thisorbit[2])
+                if deriv.lower() == 'r':
+                    dR= 10.**-5.
+                    do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
+                elif deriv.lower() == 'phi':
+                    dphi= 10.**-5.
+                    do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
+                do.integrate(ts,self._pot,method=integrate_method)
+                dorb_array= do(self._to-t).vxvv
+                dRo= dorb_array[0]-thisorbit[0]
+                dphio= dorb_array[3]-thisorbit[3]
+                dvRo= dorb_array[1]-thisorbit[1]
+                dvTo= dorb_array[2]-thisorbit[2]
+                dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
+                if deriv.lower() == 'r':
+                    dlnfderiv/= dR
+                elif deriv.lower() == 'phi':
+                    dlnfderiv/= dphi
+                retval*= dlnfderiv
         if kwargs.has_key('log') and kwargs['log']:
             return nu.log(retval)
         else:
@@ -190,7 +279,8 @@ class evolveddiskdf:
                            print_progress=False,
                            sample=None,nsamples=100,
                            returnSamples=False,
-                           integrate_method='leapfrog_c'):
+                           integrate_method='leapfrog_c',
+                           deriv=None):
         """
         NAME:
            vmomentsurfacemass
@@ -223,6 +313,8 @@ class evolveddiskdf:
            returnSamples= of True, return the sampling (default=False)
            nsamples= if sample then use this many samples
            integrate_method= orbit.integrate method argument
+           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
+                                       R or phi ONLY WITH GRID
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
         HISTORY:
@@ -270,7 +362,7 @@ class evolveddiskdf:
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
                                         gridpoints,print_progress,
-                                        integrate_method)
+                                        integrate_method,deriv)
                 if _PROFILE:
                     grid_time= (time_module.time()-start)
                     print setup_time/(setup_time+grid_time), \
@@ -284,7 +376,7 @@ class evolveddiskdf:
                 grido= evolveddiskdfHierarchicalGrid(self,R,az,nsigma,t,
                                                      sigmaR1,sigmaT1,meanvR,
                                                      meanvT,
-                                                     gridpoints,nlevels,
+                                                     gridpoints,nlevels,deriv,
                                                      print_progress=print_progress)
                 if returnGrid:
                     return (self._vmomentsurfacemassHierarchicalGrid(n,m,
@@ -925,7 +1017,7 @@ class evolveddiskdf:
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                    gridpoints,print_progress,integrate_method):
+                    gridpoints,print_progress,integrate_method,deriv):
         """Internal function to grid the vDF at a given location"""
         out= evolveddiskdfGrid()
         out.sigmaR1= sigmaR1
@@ -936,7 +1028,6 @@ class evolveddiskdf:
                                 gridpoints)
         out.vTgrid= nu.linspace(meanvT-nsigma*sigmaT1,meanvT+nsigma*sigmaT1,
                                 gridpoints)
-        #Determine energy of a circular orbit in the axisymmetric part
         if isinstance(t,(list,nu.ndarray)):
             nt= len(t)
             out.df= nu.zeros((gridpoints,gridpoints,nt))
@@ -948,7 +1039,8 @@ class evolveddiskdf:
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
-                                          integrate_method=integrate_method)
+                                          integrate_method=integrate_method,
+                                          deriv=deriv)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n')
         else:
@@ -961,7 +1053,8 @@ class evolveddiskdf:
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj]= self(thiso,t,
-                                        integrate_method=integrate_method)
+                                        integrate_method=integrate_method,
+                                        deriv=deriv)
                     if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n')
         return out
@@ -1123,7 +1216,7 @@ class evolveddiskdfGrid:
 class evolveddiskdfHierarchicalGrid:
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
-                 gridpoints,nlevels,upperdxdy=None,print_progress=False,
+                 gridpoints,nlevels,deriv,upperdxdy=None,print_progress=False,
                  nlevelsTotal=None):
         """
         NAME:
@@ -1142,6 +1235,8 @@ class evolveddiskdfHierarchicalGrid:
             meanvT - mean of tangential velocity
             gridpoints- number of gridpoints
             nlevels- number of levels to build
+            deriv- None, 'R', or 'phi': calculates derivative of the moment wrt
+                  R or phi
             upperdxdy= area element of previous hierarchical level
             print_progress= if True, print progress on building the grid
         OUTPUT:
