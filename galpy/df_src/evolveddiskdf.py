@@ -1140,7 +1140,10 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
-        return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
+        if returnGrids:
+            return (0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR),grid,derivGrid)
+        else:
+            return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
 
     def oortB(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
@@ -1282,7 +1285,10 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
-        return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
+        if returnGrids:
+            return (0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR),grid,derivGrid)
+        else:
+            return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
 
     def oortC(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
@@ -1424,7 +1430,10 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
-        return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
+        if returnGrids:
+            return (0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR),grid,derivGrid)
+        else:
+            return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
 
     def oortK(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
@@ -1522,7 +1531,7 @@ class evolveddiskdf:
                                                       hierarchgrid=derivHierarchgrid,
                                                       nlevels=nlevels,
                                                       integrate_method=integrate_method,deriv='phi')
-        #2C= meanvR/R+dmeanvT/R/dphi+dmeanvR/dR
+        #2K= meanvR/R+dmeanvT/R/dphi+dmeanvR/dR
         #meanvR
         meanvR= self.meanvR(R,t=t,nsigma=nsigma,deg=deg,phi=phi,
                             epsrel=epsrel,epsabs=epsabs,
@@ -1566,7 +1575,10 @@ class evolveddiskdf:
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
-        return 0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR)
+        if returnGrids:
+            return (0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR),grid,derivGrid)
+        else:
+            return 0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR)
 
     def _vmomentsurfacemassGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a grid 
