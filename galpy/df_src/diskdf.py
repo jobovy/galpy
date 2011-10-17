@@ -300,13 +300,13 @@ class diskdf:
             xE= sc.exp(E-.5)
             OE= xE**-1.
             LCE= xE
-            dRedvR= xE*vT
+            dRedvT= xE*vT
         else: #non-flat rotation curve
             E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
             OE= xE**(self._beta-1.)
             LCE= xE**(self._beta+1.)
-            dRedvR= xE/2./self._beta/E*vT
+            dRedvT= xE/2./self._beta/E*vT
         return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedvT\
             +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*R
            
