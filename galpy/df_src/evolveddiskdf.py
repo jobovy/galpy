@@ -1141,7 +1141,8 @@ class evolveddiskdf:
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
         if returnGrids:
-            return (0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR),grid,derivGrid)
+            return (0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR),grid,
+                    derivRGrid,derivphiGrid)
         else:
             return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
 
@@ -1286,7 +1287,8 @@ class evolveddiskdf:
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
         if returnGrids:
-            return (0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR),grid,derivGrid)
+            return (0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR),grid,
+                    derivRGrid,derivphiGrid)
         else:
             return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
 
@@ -1431,7 +1433,8 @@ class evolveddiskdf:
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
         if returnGrids:
-            return (0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR),grid,derivGrid)
+            return (0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR),grid,
+                    derivRGrid,derivphiGrid)
         else:
             return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
 
@@ -1576,7 +1579,8 @@ class evolveddiskdf:
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdR)
         if returnGrids:
-            return (0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR),grid,derivGrid)
+            return (0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR),grid,
+                    derivRGrid,derivphiGrid)
         else:
             return 0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR)
 
