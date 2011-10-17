@@ -277,6 +277,39 @@ class diskdf:
         return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedR\
             +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*vT
             
+    def _dlnfdvR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        if self._beta == 0.:
+            E= vR**2./2.+vT**2./2.+sc.log(R)
+            xE= sc.exp(E-.5)
+            OE= xE**-1.
+            LCE= xE
+            dRedvR= xE*vR
+        else: #non-flat rotation curve
+            E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+            OE= xE**(self._beta-1.)
+            LCE= xE**(self._beta+1.)
+            dRedvR= xE/2./self._beta/E*vR
+        return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedvR
+            
+    def _dlnfdvT(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        if self._beta == 0.:
+            E= vR**2./2.+vT**2./2.+sc.log(R)
+            xE= sc.exp(E-.5)
+            OE= xE**-1.
+            LCE= xE
+            dRedvR= xE*vT
+        else: #non-flat rotation curve
+            E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+            OE= xE**(self._beta-1.)
+            LCE= xE**(self._beta+1.)
+            dRedvR= xE/2./self._beta/E*vT
+        return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedvT\
+            +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*R
+           
     def _dlnfdRe(self,R,vR,vT,E=None,xE=None,OE=None,LCE=None):
         """d ln f(x,v) / d R_e"""
         #Calculate a bunch of stuff that we need
