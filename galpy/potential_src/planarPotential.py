@@ -14,7 +14,7 @@ class planarPotential:
         self.hasC= False
         return None
 
-    def __call__(self,R,phi=0.,t=0.):
+    def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            __call__
@@ -24,13 +24,14 @@ class planarPotential:
            R
            phi
            t
+           dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative
         OUTPUT:
            Phi(R(,phi,t)))
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._evaluate(R,phi=phi,t=t)
+            return self._amp*self._evaluate(R,phi=phi,t=t,dR=dR,dphi=dphi)
         except AttributeError:
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
@@ -93,160 +94,6 @@ class planarPotential:
             return self._amp*self._R2deriv(R,phi=phi,t=t)
         except AttributeError:
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
-
-    def Rphideriv(self,R,phi=0.,t=0.):
-        """
-        NAME:
-           Rphideriv
-        PURPOSE:
-           evaluate the radial+azimuthal derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/dRdaz
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp*self._Rphideriv(R,phi=phi,t=t)
-        except AttributeError:
-            raise PotentialError("'_Rphideriv' function not implemented for this potential")      
-
-    def phi2tderiv(self,R,phi=0.,t=0.):
-        """
-        NAME:
-           phi2tderiv
-        PURPOSE:
-           evaluate the second azimuthal and also a time derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d3phi/daz2dt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp*self._phi2tderiv(R,phi=phi,t=t)
-        except AttributeError:
-            raise PotentialError("'_phi2tderiv' function not implemented for this potential")      
-
-    def R2tderiv(self,R,phi=0.,t=0.):
-        """
-        NAME:
-           R2tderiv
-        PURPOSE:
-           evaluate the second radial derivative and also a time derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d3phi/dR2dt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp*self._R2tderiv(R,phi=phi,t=t)
-        except AttributeError:
-            raise PotentialError("'_R2tderiv' function not implemented for this potential")      
-
-    def Rphitderiv(self,R,phi=0.,t=0.):
-        """
-        NAME:
-           Rphitderiv
-        PURPOSE:
-           evaluate the radial+azimuthal+time derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d3phi/dRdazdt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp*self._Rphitderiv(R,phi=phi,t=t)
-        except AttributeError:
-            raise PotentialError("'_Rphitderiv' function not implemented for this potential")      
-
-    def phi2deriv(self,R,phi=0.,t=0.):
-        """
-        NAME:
-           phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/daz2
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp*self._phi2deriv(R,phi=phi,t=t)
-        except AttributeError:
-            raise PotentialError("'_phi2deriv' function not implemented for this potential")      
-
-    def _R2tderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _R2tderiv
-        PURPOSE:
-           evaluate the second radial and also a time derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d3phi/dR2dt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        return 0.
-
-    def _phi2tderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phi2tderiv
-        PURPOSE:
-           evaluate the second azimuthal and also the time derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d3phi/daz2dt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        return 0.
-
-    def _Rphitderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rphitderiv
-        PURPOSE:
-           evaluate the radial+azimuthal+time derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d3phi/dRdazdt
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
-        """
-        return 0.
 
     def plot(self,*args,**kwargs):
         """
