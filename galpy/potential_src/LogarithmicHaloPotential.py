@@ -54,7 +54,7 @@ class LogarithmicHaloPotential(Potential):
         if dR == 0 and dphi == 0:
             return 1./2.*nu.log(R**2.+(z/self._q)**2.+self._core2)
         elif dR == 1 and dphi == 0:
-            return -self._force(R,phi=phi,t=t)
+            return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
             return 0.
         elif dR == 2 and dphi == 0:
