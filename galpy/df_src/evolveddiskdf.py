@@ -179,10 +179,14 @@ class evolveddiskdf:
                                                               orb_array[2,ii])
                                         for ii in range(len(t))])
                 if deriv.lower() == 'r':
-                    dR= 10.**-2. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
+                    dR= 5.*10.**-2. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
+                    tmp= o.R()+dR
+                    dR= tmp-o.R()
                     do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
                 elif deriv.lower() == 'phi':
-                    dphi= 10.**-2.
+                    dphi= 5.*10.**-2.
+                    tmp= o.phi()+dphi
+                    dphi= tmp-o.phi()
                     do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
                 do.integrate(ts,self._pot,method=integrate_method)
                 dorb_array= do.getOrbit().T
