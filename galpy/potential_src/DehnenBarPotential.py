@@ -180,6 +180,147 @@ class DehnenBarPotential(planarPotential):
                                                  self._barphi))\
                                                  *(self._rb/R)**3.
 
+    def _R2deriv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else: #bar is fully on
+            smooth= 1.
+        if R <= self._rb:
+            return 6.*self._af*smooth*m.cos(2.*(phi-self._omegab*t
+                                              -self._barphi))\
+                                              *(R/self._rb)**3./R**2.
+        else:
+            return -12.*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                                  self._barphi))\
+                                                  *(self._rb/R)**3./R**2.
+        
+    def _phi2deriv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else: #bar is fully on
+            smooth= 1.
+        if R <= self._rb:
+            return -4.*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                                 self._barphi))\
+                                                 *((R/self._rb)**3.-2.)
+        else:
+            return 4..*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                                 self._barphi))\
+                                                 *(self._rb/R)**3.       
+
+    def _Rphideriv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else: #bar is fully on
+            smooth= 1.
+        if R <= self._rb:
+            return -6.*self._af*smooth*m.sin(2.*(phi-self._omegab*t
+                                              -self._barphi))\
+                                              *(R/self._rb)**3./R
+        else:
+            return -6.*self._af*smooth*m.sin(2.*(phi-self._omegab*t-
+                                              self._barphi))\
+                                              *(self._rb/R)**3./R
+
+    def _R2tderiv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+            dsmooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            dsmooth= (15./16.*xi**4.-15./8.*xi**2.+15./16.)
+        else: #bar is fully on
+            smooth= 1.
+            dsmooth= 0.
+        if R <= self._rb:
+            return (6.*self._af*dsmooth*m.cos(2.*(phi-self._omegab*t
+                                              -self._barphi))\
+                                              *(R/self._rb)**3./R**2.
+                    +12.*self._omegab*self._af*smooth*m.sin(2.*(phi-self._omegab*t
+                                                  -self._barphi))\
+                        *(R/self._rb)**3./R**2.)
+        else:
+            return (-12.*self._af*dsmooth*m.cos(2.*(phi-self._omegab*t-
+                                                  self._barphi))\
+                                                  *(self._rb/R)**3./R**2.
+                     -24..*self._omegab*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                                                  self._barphi))\
+                         *(self._rb/R)**3./R**2.)
+        
+    def _phi2tderiv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+            dmsooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            dsmooth= (15./16.*xi**4.-15./8.*xi**2.+15./16.)
+        else: #bar is fully on
+            smooth= 1.
+            dsmooth= 0.
+        if R <= self._rb:
+            return (-4.*self._af*dsmooth*m.cos(2.*(phi-self._omegab*t-
+                                                 self._barphi))\
+                                                 *((R/self._rb)**3.-2.)
+                     -8.*self._af*self._omegab*smooth*m.sin(2.*(phi-self._omegab*t-
+                                                                 self._barphi))\
+                         *((R/self._rb)**3.-2.))
+        else:
+            return (4.*self._af*dsmooth*m.cos(2.*(phi-self._omegab*t-
+                                                 self._barphi))\
+                                                 *(self._rb/R)**3.
+                    +8.*self._af*self._omegab*smooth*m.sin(2.*(phi-self._omegab*t-
+                                                 self._barphi))\
+                                                 *(self._rb/R)**3.)
+
+    def _Rphitderiv(self,R,phi=0.,t=0.):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+            dsmooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            dsmooth= (15./16.*xi**4.-15./8.*xi**2.+15./16.)
+        else: #bar is fully on
+            smooth= 1.
+            dsmooth= 0.
+        if R <= self._rb:
+            return (-6.*self._af*dsmooth*m.sin(2.*(phi-self._omegab*t
+                                              -self._barphi))\
+                                              *(R/self._rb)**3./R
+                     +12.*self._omegab*self._af*smooth*m.cos(2.*(phi-self._omegab*t
+                                                                  -self._barphi))\
+                         *(R/self._rb)**3./R)
+        else:
+            return (-6.*self._af*dsmooth*m.sin(2.*(phi-self._omegab*t-
+                                              self._barphi))\
+                                              *(self._rb/R)**3./R
+                     +12.*self._omegab*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                              self._barphi))\
+                                              *(self._rb/R)**3./R)
+
     def tform(self):
         """
         NAME:
