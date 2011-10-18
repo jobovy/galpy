@@ -356,7 +356,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._RZPot= RZPot
         return None
 
-    def _evaluate(self,R,phi=0.,t=0.):
+    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -371,7 +371,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.,t=t)
+        return self._RZPot(R,0.,t=t,dR=dR,dphi=dphi)
             
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -436,7 +436,7 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
-def evaluateplanarPotentials(R,Pot,phi=None,t=0.):
+def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
     """
     NAME:
        evaluateplanarPotentials
@@ -446,6 +446,7 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.):
        R (+phi optional)
        Pot - (list of) planarPotential instance(s)
        t - time (optional)
+       dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative instead
     OUTPUT:
        Phi(R(,phi,t))
     HISTORY:
@@ -463,15 +464,15 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot(R,phi=phi,t=t)
+                sum+= pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
             else:
-                sum+= pot(R,t=t)
+                sum+= pot(R,t=t,dR=dR,dphi=dphi)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot(R,phi=phi,t=t)
+            return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
         else:
-            return Pot(R,t=t)
+            return Pot(R,t=t,dR=dR,dphi=dphi)
     else:
         raise TypeError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
 
