@@ -116,7 +116,7 @@ class DehnenBarPotential(planarPotential):
                                                   self._barphi))\
                                                   *(self._rb/R)**3.
         elif dR == 1 and dphi == 0:
-            return -self._force(R,phi=phi,t=t)
+            return -self._Rforce(R,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
             return -self._phiforce(R,phi=phi,t=t)
         elif dR == 2 and dphi == 0:
