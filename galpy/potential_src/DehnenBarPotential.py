@@ -214,7 +214,7 @@ class DehnenBarPotential(planarPotential):
                                                  self._barphi))\
                                                  *((R/self._rb)**3.-2.)
         else:
-            return 4..*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+            return 4.*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
                                                  self._barphi))\
                                                  *(self._rb/R)**3.       
 
@@ -261,7 +261,7 @@ class DehnenBarPotential(planarPotential):
             return (-12.*self._af*dsmooth*m.cos(2.*(phi-self._omegab*t-
                                                   self._barphi))\
                                                   *(self._rb/R)**3./R**2.
-                     -24..*self._omegab*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                     -24.*self._omegab*self._af*smooth*m.cos(2.*(phi-self._omegab*t-
                                                                   self._barphi))\
                          *(self._rb/R)**3./R**2.)
         
