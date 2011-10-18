@@ -828,6 +828,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     INPUT:
        vxvv - array with the initial conditions stacked like
               [R,vR,vT,phi]; vR outward!
+       dxdv - difference to integrate [dR,dvR,dvT,dphi]
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
@@ -836,46 +837,107 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     HISTORY:
        2010-10-17 - Written - Bovy (IAS)
     """
+    #go to the rectangular frame
+    this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
+                         vxvv[0]*nu.sin(vxvv[3]),
+                         vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
+                         vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
+    this_dxdv= nu.array([nu.cos(vxvv[3])*dxdv[0]-vxvv[0]*nu.sin(vxvv[3])*dxdv[3],
+                         nu.sin(vxvv[3])*dxdv[0]+vxvv[0]*nu.cos(vxvv[3])*dxdv[3],
+                         -(vxvv[1]*nu.sin(vxvv[3])+vxvv[2]*nu.cos(vxvv[3]))*dxdv[3]
+                         +nu.cos(vxvv[3])*dxdv[1]-nu.sin(vxvv[3])*dxdv[2],
+                         (vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]))*dxdv[3]
+                         +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
     if method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         raise NotImplementedError("C implementation of phase space integration not implemented yet")
         warnings.warn("Using C implementation to integrate orbits")
-        #go to the rectangular frame
-        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
-                             vxvv[0]*nu.sin(vxvv[3]),
-                             vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
-                             vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        tmp_out= integratePlanarOrbit_c(pot,this_vxvv,
-                                        t,method)
-        #go back to the cylindrical frame
-        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
-        phi= nu.arccos(tmp_out[:,0]/R)
-        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-        vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
-        vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
-        out= nu.zeros((len(t),4))
-        out[:,0]= R
-        out[:,1]= vR
-        out[:,2]= vT
-        out[:,3]= phi
+        tmp_out= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
+                                             t,method)
     elif method.lower() == 'odeint':
         raise NotImplementedError("odeint phase space integration not implemented yet")
-        vphi= vxvv[2]/vxvv[0]
-        init= [vxvv[0],vxvv[1],vxvv[3],vphi]
-        intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+        init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
+               this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
+        #integrate
+        intOut= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
                                  rtol=10.**-8.)#,mxstep=100000000)
-        out= nu.zeros((len(t),4))
-        out[:,0]= intOut[:,0]
-        out[:,1]= intOut[:,1]
-        out[:,3]= intOut[:,2]
-        out[:,2]= out[:,0]*intOut[:,3]
-    #post-process to remove negative radii
-    neg_radii= (out[:,0] < 0.)
-    out[neg_radii,0]= -out[neg_radii,0]
-    out[neg_radii,3]+= m.pi
+    #go back to the cylindrical frame
+    R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
+    phi= nu.arccos(tmp_out[:,0]/R)
+    phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
+    vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
+    vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
+    cp= nu.cos(phi)
+    sp= nu.sin(phi)
+    dR= cp*tmp_out[:,4]+sp*tmp_out[:,5]
+    dphi= (cp*tmp_out[:,5]-sp*tmp_out[:,4])/R
+    dvR= cp*tmp_out[:,6]+sp*tmp_out[:,7]+vT*dphi
+    dvT= cp*tmp_out[:,7]-sp*tmp_out[:,6]-vR*dphi
+    out= nu.zeros((len(t),8))
+    out[:,0]= R
+    out[:,1]= vR
+    out[:,2]= vT
+    out[:,3]= phi
+    out[:,4]= dR
+    out[:,5]= dphi
+    out[:,6]= dvR
+    out[:,7]= dvT
     return out
+
+def _EOM_dxdv(x,t,pot):
+    """
+    NAME:
+       _EOM_dxdv
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential 
+       equation, for integrating phase space differences, rectangular
+    INPUT:
+       x - current phase-space position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2011-10-18 - Written - Bovy (NYU)
+    """
+    #x is rectangular so calculate R and phi
+    R= nu.sqrt(x[0]**2.+x[1]**2.)
+    phi= nu.arccos(x[0]/R)
+    sinphi= x[1]/R
+    cosphi= x[0]/R
+    if x[1] < 0.: phi= 2.*nu.pi-phi
+    #calculate forces
+    Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
+    phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
+    #Calculate derivatives and derivatives+time derivatives
+    dFxdx= -cosphi**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
+           +2.*cosphi*sinphi/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
+           +sinphi**2./R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
+           +2.*sinphi*cosphi/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
+           +sinphi**2./R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    dFxdy= -sinphi*cosphi*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
+           +(sinphi**2.-cosphi**2.)/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
+           -cosphi*sinphi/R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
+           -(cosphi**2.-sinphi**2.)/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
+           +cosphi*sinphi/R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    dFydx= -cosphi*sinphi*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
+           +(sinphi**2.-cosphi**2.)/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
+           +(sinphi**2.-cosphi**2.)/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
+           -sinphi*cosphi/R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
+           +sinphi*cosphi/R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    dFydy= -sinphi**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
+           -2.*sinphi*cosphi/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
+           -2.*sinphi*cosphi/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
+           +cosphi**2./R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
+           -cosphi**2./R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    return nu.array([x[2],x[3],
+                     cosphi*Rforce-1./R*sinphi*phiforce,
+                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     x[6],x[7],
+                     dFxdx*x[4]+dFxdy*x[5],
+                     dFydx*x[4]+dFydy*x[5]])
 
 def _EOM(y,t,pot):
     """
