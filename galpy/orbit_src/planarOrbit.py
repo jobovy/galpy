@@ -857,12 +857,11 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
         tmp_out= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                              t,method)
     elif method.lower() == 'odeint':
-        raise NotImplementedError("odeint phase space integration not implemented yet")
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
         #integrate
-        intOut= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
+                                  rtol=10.**-8.)#,mxstep=100000000)
     #go back to the cylindrical frame
     R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
     phi= nu.arccos(tmp_out[:,0]/R)
