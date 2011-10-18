@@ -58,7 +58,7 @@ class LogarithmicHaloPotential(Potential):
         elif dR == 0 and dphi == 1:
             return 0.
         elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
+            return self._R2deriv(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 2:
             return 0.
         elif dR == 1 and dphi == 1:
