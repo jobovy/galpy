@@ -62,6 +62,11 @@ void integratePlanarOrbit(double *yo,
       leapFuncArgs->planarphiforce= &SteadyLogSpiralPotentialphiforce;
       leapFuncArgs->nargs= 8;
       break;
+    case 4: //EllipticalDiskPotential, 6 arguments
+      leapFuncArgs->planarRforce= &EllipticalDiskPotentialRforce;
+      leapFuncArgs->planarphiforce= &EllipticalDiskPotentialphiforce;
+      leapFuncArgs->nargs= 6;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
