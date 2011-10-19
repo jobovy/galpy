@@ -87,7 +87,8 @@ class EllipticalDiskPotential(planarPotential):
         else: #fully on
             smooth= 1.
         if dR == 0 and dphi == 0:
-            return smooth*self._twophio*R**self._p*m.cos(2.*(phi-self._phib))
+            return smooth*self._twophio/2.*R**self._p\
+                *m.cos(2.*(phi-self._phib))
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
