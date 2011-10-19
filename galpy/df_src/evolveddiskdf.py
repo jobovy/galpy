@@ -125,7 +125,21 @@ class evolveddiskdf:
             #integrate orbit
             if _PROFILE:
                 start= time_module.time()
-            o.integrate(ts,self._pot,method=integrate_method)
+            if not deriv is None:
+                #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
+                if deriv.lower() == 'r':
+                    dderiv= 10.**-10.
+                    tmp= o.R()+dderiv
+                    dderiv= tmp-o.R()
+                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method='odeint')#integrate_method)
+                elif deriv.lower() == 'phi':
+                    dderiv= 10.**-10.
+                    tmp= o.phi()+dderiv
+                    dderiv= tmp-o.phi()
+                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method='odeint')#integrate_method)
+                o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
+            else:
+                o.integrate(ts,self._pot,method=integrate_method)
             if _PROFILE:
                 int_time= (time_module.time()-start)
             #Now evaluate the DF
@@ -154,7 +168,6 @@ class evolveddiskdf:
                 tot_time= int_time+df_time
                 print int_time/tot_time, df_time/tot_time, tot_time
             if not deriv is None:
-                #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative
                 if len(t) == 1:
                     dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0],
                                                             orb_array[1],
@@ -178,29 +191,14 @@ class evolveddiskdf:
                                                               orb_array[1,ii],
                                                               orb_array[2,ii])
                                         for ii in range(len(t))])
-                if deriv.lower() == 'r':
-                    dR= 10.**-10. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
-                    tmp= o.R()+dR
-                    dR= tmp-o.R()
-                    #do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
-                    o._orb.integrate_dxdv([dR,0.,0.,0.],ts,self._pot,method='odeint')#integrate_method)
-                elif deriv.lower() == 'phi':
-                    dR= 10.**-10.
-                    tmp= o.phi()+dphi
-                    dphi= tmp-o.phi()
-                    #do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
-                    o._orb.integrate_dxdv([0.,0.,0.,dR],ts,self._pot,method='odeint')#integrate_method)
-                dorb_array= do._orb.orbit_dxdv.T
+                dorb_array= o._orb.orbit_dxdv.T
                 if len(t) == 1: dorb_array= dorb_array[:,1]
-                dRo= dorb_array[4]/dR#-orb_array[0]
-                dphio= dorb_array[7]/dR#-orb_array[3]
-                dvRo= dorb_array[5]/dR#-orb_array[1]
-                dvTo= dorb_array[6]/dR#-orb_array[2]
+                dRo= dorb_array[4]/dderiv
+                dphio= dorb_array[7]/dderiv
+                dvRo= dorb_array[5]/dderiv
+                dvTo= dorb_array[6]/dderiv
+                print dRo, dphio, dvRo, dvTo
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
-                #if deriv.lower() == 'r':
-                #    dlnfderiv/= dR
-                #elif deriv.lower() == 'phi':
-                #    dlnfderiv/= dphi
                 if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
                 else: dlnfderiv= dlnfderiv[0]
                 retval*= dlnfderiv
