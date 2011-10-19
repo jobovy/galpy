@@ -21,3 +21,6 @@ double TransientLogSpiralPotentialphiforce(double,double,double,int,double *);
 //SteadyLogSpiralPotential
 double SteadyLogSpiralPotentialRforce(double,double,double,int,double *);
 double SteadyLogSpiralPotentialphiforce(double,double,double,int,double *);
+//EllipticalDiskPotential
+double EllipticalDiskPotentialRforce(double,double,double,int,double *);
+double EllipticalDiskPotentialphiforce(double,double,double,int,double *);
