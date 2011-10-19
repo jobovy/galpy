@@ -249,6 +249,7 @@ class evolveddiskdf:
             #integrate orbit
             if not deriv is None:
                 integrate_method='odeint'
+                ts= nu.linspace(t,self._to,_NTS)
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
