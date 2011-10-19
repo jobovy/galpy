@@ -48,7 +48,7 @@ class EllipticalDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp)
-        self.hasC= False
+        self.hasC= True
         self._phib= phib
         self._twophio= twophio
         self._p= p
