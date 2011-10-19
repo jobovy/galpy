@@ -75,12 +75,20 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
         elif isinstance(p,potential.SteadyLogSpiralPotential):
             pot_type.append(3)
             if p._tform is None:
-                pot_args.extend([p._amp,p._tform,p._tsteady,p._A,p._alpha,p._m,
-                                 p._omegas,p._gamma])
-            else:
                 pot_args.extend([p._amp,float('nan'), float('nan'),
                                  p._A,p._alpha,p._m,
                                  p._omegas,p._gamma])
+            else:
+                pot_args.extend([p._amp,p._tform,p._tsteady,p._A,p._alpha,p._m,
+                                 p._omegas,p._gamma])
+        elif isinstance(p,potential.EllipticalDiskPotential):
+            pot_type.append(4)
+            if p._tform is None:
+                pot_args.extend([p._amp,float('nan'), float('nan'),
+                                 p._twophio,p._p,p._phib])
+            else:
+                pot_args.extend([p._amp,p._tform,p._tsteady,
+                                 p._twophio,p._p,p._phib])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
 
