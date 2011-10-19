@@ -247,7 +247,22 @@ class evolveddiskdf:
                 ts= nu.linspace(t,self._to,2)
             o= args[0]
             #integrate orbit
-            o.integrate(ts,self._pot,method=integrate_method)
+            if not deriv is None:
+                integrate_method='odeint'
+                #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
+                if deriv.lower() == 'r':
+                    dderiv= 10.**-10.
+                    tmp= o.R()+dderiv
+                    dderiv= tmp-o.R()
+                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
+                elif deriv.lower() == 'phi':
+                    dderiv= 10.**-10.
+                    tmp= o.phi()+dderiv
+                    dderiv= tmp-o.phi()
+                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
+                o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
+            else:
+                o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
             #Now evaluate the DF
             if o.R(self._to-t) <= 0.: 
@@ -270,23 +285,12 @@ class evolveddiskdf:
                 dlnfdvTo= self._initdf._dlnfdvT(thisorbit[0],
                                                 thisorbit[1],
                                                 thisorbit[2])
-                if deriv.lower() == 'r':
-                    dR= 10.**-5.
-                    do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
-                elif deriv.lower() == 'phi':
-                    dphi= 10.**-5.
-                    do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
-                do.integrate(ts,self._pot,method=integrate_method)
-                dorb_array= do(self._to-t).vxvv
-                dRo= dorb_array[0]-thisorbit[0]
-                dphio= dorb_array[3]-thisorbit[3]
-                dvRo= dorb_array[1]-thisorbit[1]
-                dvTo= dorb_array[2]-thisorbit[2]
+                indx= list(ts).index(self._to-t)
+                dRo= o._orb.orbit_dxdv[indx,4]
+                dvRo= o._orb.orbit_dxdv[indx,5]
+                dvTo= o._orb.orbit_dxdv[indx,6]
+                #print dRo, dvRo, dvTo
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
-                if deriv.lower() == 'r':
-                    dlnfderiv/= dR
-                elif deriv.lower() == 'phi':
-                    dlnfderiv/= dphi
                 retval*= dlnfderiv
         if kwargs.has_key('log') and kwargs['log']:
             return nu.log(retval)
