@@ -880,9 +880,9 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     out[:,2]= vT
     out[:,3]= phi
     out[:,4]= dR
-    out[:,5]= dphi
-    out[:,6]= dvR
-    out[:,7]= dvT
+    out[:,7]= dphi
+    out[:,5]= dvR
+    out[:,6]= dvT
     return out
 
 def _EOM_dxdv(x,t,pot):
