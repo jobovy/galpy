@@ -45,6 +45,12 @@ struct leapFuncArg{
 			 int nargs, double * args);
   double (*planarphiforce)(double R,double phi, double t,
 			   int nargs, double * args);
+  double (*planarR2deriv)(double R,double phi, double t,
+			  int nargs, double * args);
+  double (*planarphi2deriv)(double R,double phi, double t,
+			  int nargs, double * args);
+  double (*planarRphideriv)(double R,double phi, double t,
+			    int nargs, double * args);
   int nargs;
   double * args;
 };
