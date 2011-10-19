@@ -910,27 +910,30 @@ def _EOM_dxdv(x,t,pot):
     #calculate forces
     Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
     phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
+    R2deriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)
+    phi2deriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    Rphideriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)
     #Calculate derivatives and derivatives+time derivatives
-    dFxdx= -cosphi**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
-           +2.*cosphi*sinphi/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
-           +sinphi**2./R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
-           +2.*sinphi*cosphi/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
-           +sinphi**2./R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
-    dFxdy= -sinphi*cosphi*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
-           +(sinphi**2.-cosphi**2.)/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
-           -cosphi*sinphi/R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
-           -(cosphi**2.-sinphi**2.)/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
-           +cosphi*sinphi/R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
-    dFydx= -cosphi*sinphi*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
-           +(sinphi**2.-cosphi**2.)/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
-           +(sinphi**2.-cosphi**2.)/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
-           -sinphi*cosphi/R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
-           +sinphi*cosphi/R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
-    dFydy= -sinphi**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)\
-           -2.*sinphi*cosphi/R**2.*evaluateplanarphiforces(R,pot,phi=phi,t=t)\
-           -2.*sinphi*cosphi/R*evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)\
-           +cosphi**2./R*evaluateplanarRforces(R,pot,phi=phi,t=t)\
-           -cosphi**2./R**2.*evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
+    dFxdx= -cosphi**2.*R2deriv\
+           +2.*cosphi*sinphi/R**2.*phiforce\
+           +sinphi**2./R*Rforce\
+           +2.*sinphi*cosphi/R*Rphideriv\
+           +sinphi**2./R**2.*phi2deriv
+    dFxdy= -sinphi*cosphi*R2deriv\
+           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           -cosphi*sinphi/R*Rforce\
+           -(cosphi**2.-sinphi**2.)/R*Rphideriv\
+           +cosphi*sinphi/R**2.*phi2deriv
+    dFydx= -cosphi*sinphi*R2deriv\
+           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R*Rphideriv\
+           -sinphi*cosphi/R*Rforce\
+           +sinphi*cosphi/R**2.*phi2deriv
+    dFydy= -sinphi**2.*R2deriv\
+           -2.*sinphi*cosphi/R**2.*phiforce\
+           -2.*sinphi*cosphi/R*Rphideriv\
+           +cosphi**2./R*Rforce\
+           -cosphi**2./R**2.*phi2deriv
     return nu.array([x[2],x[3],
                      cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
