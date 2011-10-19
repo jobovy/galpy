@@ -179,27 +179,28 @@ class evolveddiskdf:
                                                               orb_array[2,ii])
                                         for ii in range(len(t))])
                 if deriv.lower() == 'r':
-                    dR= 5.*10.**-2. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
+                    dR= 10.**-10. #BOVY ADJUST WHEN INTEGRATING CORRECTLY
                     tmp= o.R()+dR
                     dR= tmp-o.R()
-                    do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
+                    #do= Orbit(vxvv=[o.R()+dR,o.vR(),o.vT(),o.phi()])
+                    o._orb.integrate_dxdv([dR,0.,0.,0.],ts,self._pot,method='odeint')#integrate_method)
                 elif deriv.lower() == 'phi':
-                    dphi= 5.*10.**-2.
+                    dR= 10.**-10.
                     tmp= o.phi()+dphi
                     dphi= tmp-o.phi()
-                    do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
-                do.integrate(ts,self._pot,method=integrate_method)
-                dorb_array= do.getOrbit().T
+                    #do= Orbit(vxvv=[o.R(),o.vR(),o.vT(),o.phi()+dphi])
+                    o._orb.integrate_dxdv([0.,0.,0.,dR],ts,self._pot,method='odeint')#integrate_method)
+                dorb_array= do._orb.orbit_dxdv.T
                 if len(t) == 1: dorb_array= dorb_array[:,1]
-                dRo= dorb_array[0]-orb_array[0]
-                dphio= dorb_array[3]-orb_array[3]
-                dvRo= dorb_array[1]-orb_array[1]
-                dvTo= dorb_array[2]-orb_array[2]
+                dRo= dorb_array[4]/dR#-orb_array[0]
+                dphio= dorb_array[7]/dR#-orb_array[3]
+                dvRo= dorb_array[5]/dR#-orb_array[1]
+                dvTo= dorb_array[6]/dR#-orb_array[2]
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
-                if deriv.lower() == 'r':
-                    dlnfderiv/= dR
-                elif deriv.lower() == 'phi':
-                    dlnfderiv/= dphi
+                #if deriv.lower() == 'r':
+                #    dlnfderiv/= dR
+                #elif deriv.lower() == 'phi':
+                #    dlnfderiv/= dphi
                 if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
                 else: dlnfderiv= dlnfderiv[0]
                 retval*= dlnfderiv
