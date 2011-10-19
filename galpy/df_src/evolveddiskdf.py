@@ -126,6 +126,8 @@ class evolveddiskdf:
             if _PROFILE:
                 start= time_module.time()
             if not deriv is None:
+                integrate_method='odeint'
+                print integrate_method
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
@@ -147,9 +149,8 @@ class evolveddiskdf:
                 start= time_module.time()
             if integrate_method == 'odeint':
                 retval= []
-                for time in t:
-                    os= [o(self._to+t[0]-ti) for ti in t]
-                    retval= self._initdf(os)
+                os= [o(self._to+t[0]-ti) for ti in t]
+                retval= nu.array(self._initdf(os))
             else:
                 if len(t) == 1:
                     orb_array= o.getOrbit().T
@@ -168,40 +169,58 @@ class evolveddiskdf:
                 tot_time= int_time+df_time
                 print int_time/tot_time, df_time/tot_time, tot_time
             if not deriv is None:
-                if len(t) == 1:
-                    dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0],
-                                                            orb_array[1],
-                                                            orb_array[2])])
-                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0],
-                                                              orb_array[1],
-                                                              orb_array[2])])
-                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0],
-                                                              orb_array[1],
-                                                              orb_array[2])])
+                if integrate_method == 'odeint':
+                    dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti),
+                                                            o.vR(self._to+t[0]-ti),
+                                                            o.vT(self._to+t[0]-ti))
+                                       for ti in t])
+                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(o.R(self._to+t[0]-ti),
+                                                              o.vR(self._to+t[0]-ti),
+                                                              o.vT(self._to+t[0]-ti))
+                                        for ti in t])
+                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(o.R(self._to+t[0]-ti),
+                                                              o.vR(self._to+t[0]-ti),
+                                                              o.vT(self._to+t[0]-ti))
+                                        for ti in t])
+                    dRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),4] for ti in t])/dderiv
+                    dvRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),5] for ti in t])/dderiv
+                    dvTo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),6] for ti in t])/dderiv
+                    print dRo, dvRo, dvTo
+                    dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
+                    if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
+                    else: dlnfderiv= dlnfderiv[0]
+                    retval*= dlnfderiv
                 else:
-                    dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0,ii],
-                                                            orb_array[1,ii],
-                                                            orb_array[2,ii])
-                                       for ii in range(len(t))])
-                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0,ii],
-                                                              orb_array[1,ii],
-                                                              orb_array[2,ii])
-                                        for ii in range(len(t))])
-                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0,ii],
-                                                              orb_array[1,ii],
-                                                              orb_array[2,ii])
-                                        for ii in range(len(t))])
-                dorb_array= o._orb.orbit_dxdv.T
-                if len(t) == 1: dorb_array= dorb_array[:,1]
-                dRo= dorb_array[4]/dderiv
-                dphio= dorb_array[7]/dderiv
-                dvRo= dorb_array[5]/dderiv
-                dvTo= dorb_array[6]/dderiv
-                print dRo, dphio, dvRo, dvTo
-                dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
-                if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
-                else: dlnfderiv= dlnfderiv[0]
-                retval*= dlnfderiv
+                    if len(t) == 1:
+                        dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0],
+                                                                orb_array[1],
+                                                                orb_array[2])])
+                        dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0],
+                                                                  orb_array[1],
+                                                                  orb_array[2])])
+                        dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0],
+                                                                  orb_array[1],
+                                                                  orb_array[2])])
+                    else:
+                        dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0,ii],
+                                                                orb_array[1,ii],
+                                                                orb_array[2,ii])
+                                           for ii in range(len(t))])
+                        dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0,ii],
+                                                                  orb_array[1,ii],
+                                                                  orb_array[2,ii])
+                                            for ii in range(len(t))])
+                        dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0,ii],
+                                                                  orb_array[1,ii],
+                                                                  orb_array[2,ii])
+                                            for ii in range(len(t))])
+                    dorb_array= o._orb.orbit_dxdv.T
+                    if len(t) == 1: dorb_array= dorb_array[:,1]
+                    dRo= dorb_array[4]/dderiv
+                    dvRo= dorb_array[5]/dderiv
+                    dvTo= dorb_array[6]/dderiv
+                    print dRo, dvRo, dvTo
+                    dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
         else:
             if self._to == t and deriv is None:
                 if kwargs.has_key('log') and kwargs['log']:
