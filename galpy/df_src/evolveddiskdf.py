@@ -188,15 +188,15 @@ class evolveddiskdf:
                     retval*= dlnfderiv
                 else:
                     if len(t) == 1:
-                        dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0],
-                                                                orb_array[1],
-                                                                orb_array[2])])
-                        dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0],
-                                                                  orb_array[1],
-                                                                  orb_array[2])])
-                        dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0],
-                                                                  orb_array[1],
-                                                                  orb_array[2])])
+                        dlnfdRo= self._initdf._dlnfdR(orb_array[0],
+                                                      orb_array[1],
+                                                      orb_array[2])
+                        dlnfdvRo= self._initdf._dlnfdvR(orb_array[0],
+                                                        orb_array[1],
+                                                        orb_array[2])
+                        dlnfdvTo= self._initdf._dlnfdvT(orb_array[0],
+                                                        orb_array[1],
+                                                        orb_array[2])
                     else:
                         dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0,ii],
                                                                 orb_array[1,ii],
@@ -289,7 +289,6 @@ class evolveddiskdf:
                 dRo= o._orb.orbit_dxdv[indx,4]/dderiv
                 dvRo= o._orb.orbit_dxdv[indx,5]/dderiv
                 dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
-                #print dRo, dvRo, dvTo
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
         if kwargs.has_key('log') and kwargs['log']:
