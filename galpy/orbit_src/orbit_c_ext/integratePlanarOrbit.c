@@ -43,11 +43,17 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
     case 0: //LogarithmicHaloPotential, 2 arguments
       leapFuncArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
       leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      leapFuncArgs->planarR2deriv= &LogarithmicHaloPotentialPlanarR2deriv;
+      leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
+      leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
       leapFuncArgs->nargs= 2;
       break;
     case 1: //DehnenBarPotential, 7 arguments
       leapFuncArgs->planarRforce= &DehnenBarPotentialRforce;
       leapFuncArgs->planarphiforce= &DehnenBarPotentialphiforce;
+      leapFuncArgs->planarR2deriv= &DehnenBarPotentialR2deriv;
+      leapFuncArgs->planarphi2deriv= &DehnenBarPotentialphi2deriv;
+      leapFuncArgs->planarRphideriv= &DehnenBarPotentialRphideriv;
       leapFuncArgs->nargs= 7;
       break;
     case 2: //TransientLogSpiralPotential, 8 arguments
@@ -175,32 +181,32 @@ void integratePlanarOrbit_dxdv(double *yo,
   case 0: //leapfrog
     odeint_func= &leapfrog;
     odeint_deriv_func= &evalPlanarRectForce;
-    dim= 2;
+    dim= 4;
     break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 4;
+    dim= 8;
     break;
   case 2: //RK6
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 4;
+    dim= 8;
     break;
   case 3: //symplec4
     odeint_func= &symplec4;
     odeint_deriv_func= &evalPlanarRectForce;
-    dim= 2;
+    dim= 4;
     break;
   case 4: //symplec6
     odeint_func= &symplec6;
     odeint_deriv_func= &evalPlanarRectForce;
-    dim= 2;
+    dim= 4;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 4;
+    dim= 8;
     break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
