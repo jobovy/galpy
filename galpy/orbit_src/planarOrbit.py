@@ -813,6 +813,8 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= intOut[:,1]
         out[:,3]= intOut[:,2]
         out[:,2]= out[:,0]*intOut[:,3]
+    else:
+        raise NotImplementedError("requested integration method does not exist")
     #post-process to remove negative radii
     neg_radii= (out[:,0] < 0.)
     out[neg_radii,0]= -out[neg_radii,0]
@@ -863,6 +865,8 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
         #integrate
         tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
                                   rtol=10.**-8.)#,mxstep=100000000)
+    else:
+        raise NotImplementedError("requested integration method does not exist")
     #go back to the cylindrical frame
     R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
     phi= nu.arccos(tmp_out[:,0]/R)
