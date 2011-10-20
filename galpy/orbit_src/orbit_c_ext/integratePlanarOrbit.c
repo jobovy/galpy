@@ -319,7 +319,7 @@ void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
     +2.*cosphi*sinphi/R/R*phiforce
     +sinphi*sinphi/R*Rforce
     +2.*sinphi*cosphi/R*Rphideriv
-    +sinphi*sinphi/R/R*phi2deriv;
+    -sinphi*sinphi/R/R*phi2deriv;
   dFxdy= -sinphi*cosphi*R2deriv
     +(sinphi*sinphi-cosphi*cosphi)/R/R*phiforce
     -cosphi*sinphi/R*Rforce
