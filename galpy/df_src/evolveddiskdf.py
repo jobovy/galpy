@@ -126,18 +126,17 @@ class evolveddiskdf:
             if _PROFILE:
                 start= time_module.time()
             if not deriv is None:
-                integrate_method='odeint'
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
                     tmp= o.R()+dderiv
                     dderiv= tmp-o.R()
-                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method='odeint')#integrate_method)
+                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
                     tmp= o.phi()+dderiv
                     dderiv= tmp-o.phi()
-                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method='odeint')#integrate_method)
+                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
@@ -186,8 +185,6 @@ class evolveddiskdf:
                     dvTo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),6] for ti in t])/dderiv
                     #print dRo, dvRo, dvTo
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
-                    if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
-                    else: dlnfderiv= dlnfderiv[0]
                     retval*= dlnfderiv
                 else:
                     if len(t) == 1:
@@ -220,6 +217,9 @@ class evolveddiskdf:
                     dvTo= dorb_array[6]/dderiv
                     #print dRo, dvRo, dvTo
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
+                    if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
+                    else: dlnfderiv= dlnfderiv[0]
+                    retval*= dlnfderiv
         else:
             if self._to == t and deriv is None:
                 if kwargs.has_key('log') and kwargs['log']:
@@ -248,7 +248,6 @@ class evolveddiskdf:
             o= args[0]
             #integrate orbit
             if not deriv is None:
-                integrate_method='odeint'
                 ts= nu.linspace(t,self._to,_NTS)
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
@@ -287,9 +286,9 @@ class evolveddiskdf:
                                                 thisorbit[1],
                                                 thisorbit[2])
                 indx= list(ts).index(self._to-t)
-                dRo= o._orb.orbit_dxdv[indx,4]
-                dvRo= o._orb.orbit_dxdv[indx,5]
-                dvTo= o._orb.orbit_dxdv[indx,6]
+                dRo= o._orb.orbit_dxdv[indx,4]/dderiv
+                dvRo= o._orb.orbit_dxdv[indx,5]/dderiv
+                dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
                 #print dRo, dvRo, dvTo
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
