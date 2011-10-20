@@ -218,7 +218,6 @@ class evolveddiskdf:
                     #print dRo, dvRo, dvTo
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
-                    else: dlnfderiv= dlnfderiv[0]
                     retval*= dlnfderiv
         else:
             if self._to == t and deriv is None:
