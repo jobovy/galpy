@@ -162,7 +162,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     return result
 
 
-def integratePlanarOrbit_dxdv_c(pot,yo,t,int_method,rtol=None,atol=None):
+def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
     """
     NAME:
        integratePlanarOrbit_dxdv_c
@@ -171,6 +171,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,t,int_method,rtol=None,atol=None):
     INPUT:
        pot - Potential or list of such instances
        yo - initial condition [q,p]
+       dyo - initial condition [dq,dp]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
@@ -184,6 +185,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    yo= nu.concatenate((yo,dyo))
 
     #Set up result array
     result= nu.empty((len(t),8))
