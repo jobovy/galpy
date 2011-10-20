@@ -13,7 +13,8 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
-from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c
+from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
+    integratePlanarOrbit_dxdv_c
 def _warning(
     message,
     category = UserWarning,
@@ -497,7 +498,7 @@ class planarOrbit(planarOrbitTop):
             method= 'odeint'
         self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
 
-    def integrate_dxdv(self,dxdv,t,pot,method='leapfrog_c'):
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c'):
         """
         NAME:
            integrate_dxdv
@@ -851,7 +852,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     if method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        raise NotImplementedError("C implementation of phase space integration not implemented yet")
+        #raise NotImplementedError("C implementation of phase space integration not implemented yet")
         warnings.warn("Using C implementation to integrate orbits")
         #integrate
         tmp_out= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
