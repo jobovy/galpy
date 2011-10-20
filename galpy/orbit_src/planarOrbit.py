@@ -923,7 +923,7 @@ def _EOM_dxdv(x,t,pot):
            +2.*cosphi*sinphi/R**2.*phiforce\
            +sinphi**2./R*Rforce\
            +2.*sinphi*cosphi/R*Rphideriv\
-           +sinphi**2./R**2.*phi2deriv
+           -sinphi**2./R**2.*phi2deriv
     dFxdy= -sinphi*cosphi*R2deriv\
            +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
            -cosphi*sinphi/R*Rforce\
