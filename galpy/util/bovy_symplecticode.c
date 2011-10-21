@@ -76,7 +76,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
 	      int nt, double *t,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
-	      double *result){
+	      double *result,int * err){
   //Initialize
   double *qo= (double *) malloc ( dim * sizeof(double) );
   double *po= (double *) malloc ( dim * sizeof(double) );
@@ -92,6 +92,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   po-= dim;
   save_qp(dim,qo,po,result);
   result+= 2 * dim;
+  *err= 0;
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
@@ -165,7 +166,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
 	      int nt, double *t,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
-	      double *result){
+	      double *result,int * err){
   //coefficients
   double c1= 0.6756035959798289;
   double c4= c1;
@@ -189,6 +190,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
   po-= dim;
   save_qp(dim,qo,po,result);
   result+= 2 * dim;
+  *err= 0;
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
@@ -289,7 +291,7 @@ void symplec6(void (*func)(double t, double *q, double *a,
 	      int nt, double *t,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
-	      double *result){
+	      double *result,int * err){
   //coefficients
   double c1= 0.392256805238780;
   double c8= c1;
@@ -321,6 +323,7 @@ void symplec6(void (*func)(double t, double *q, double *a,
   po-= dim;
   save_qp(dim,qo,po,result);
   result+= 2 * dim;
+  *err= 0;
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
