@@ -45,7 +45,7 @@ void bovy_rk4(void (*func)(double, double *, double *,
 	      int, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
-	      double *);
+	      double *,int *);
 inline void bovy_rk4_onestep(void (*func)(double, double *, double *,
 					  int, struct leapFuncArg *),
 			     int,
@@ -60,7 +60,7 @@ void bovy_rk6(void (*func)(double, double *, double *,
 	      int, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
-	      double *);
+	      double *,int *);
 inline void bovy_rk6_onestep(void (*func)(double, double *, double *,
 					  int, struct leapFuncArg *),
 			     int,
@@ -88,7 +88,7 @@ void bovy_dopr54(void (*func)(double, double *, double *,
 		 int, double *,
 		 int, struct leapFuncArg *,
 		 double, double,
-		 double *);
+		 double *,int *);
 void bovy_dopr54_onestep(void (*func)(double, double *, double *,int, struct leapFuncArg *),
 			 int, double *,
 			 double, double *,double *,
@@ -99,7 +99,7 @@ void bovy_dopr54_onestep(void (*func)(double, double *, double *,int, struct lea
 			 double *, double *,
 			 double *, double *,
 			 double *, double *,
-			 double *);
+			 double *,int *);
 double bovy_dopr54_actualstep(void (*func)(double, double *, double *,int, struct leapFuncArg *),
 			      int, double *,
 			      double, double *,
