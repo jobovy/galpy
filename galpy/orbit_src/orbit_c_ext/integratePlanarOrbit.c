@@ -91,6 +91,7 @@ void integratePlanarOrbit(double *yo,
 			  double rtol,
 			  double atol,
 			  double *result,
+			  int * err,
 			  int odeint_type){
   //Set up the forces, first count
   int ii;
@@ -105,7 +106,7 @@ void integratePlanarOrbit(double *yo,
 		      int, double *,
 		      int, struct leapFuncArg *,
 		      double, double,
-		      double *);
+		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct leapFuncArg *);
   switch ( odeint_type ) {
@@ -140,7 +141,8 @@ void integratePlanarOrbit(double *yo,
     dim= 4;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,
+	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(leapFuncArgs->args);
@@ -160,6 +162,7 @@ void integratePlanarOrbit_dxdv(double *yo,
 			       double rtol,
 			       double atol,
 			       double *result,
+			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
   int ii;
@@ -174,7 +177,7 @@ void integratePlanarOrbit_dxdv(double *yo,
 		      int, double *,
 		      int, struct leapFuncArg *,
 		      double, double,
-		      double *);
+		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct leapFuncArg *);
   switch ( odeint_type ) {
@@ -209,7 +212,8 @@ void integratePlanarOrbit_dxdv(double *yo,
     dim= 8;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,result);
+  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,
+	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(leapFuncArgs->args);
