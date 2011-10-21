@@ -307,7 +307,7 @@ class planarROrbit(planarOrbitTop):
                    leapfrog implementation, 'leapfrog_c' for a simple leapfrog
                    in C (if possible)
         OUTPUT:
-           (none) (get the actual orbit using getOrbit()
+           error message number (get the actual orbit using getOrbit()
         HISTORY:
            2010-07-20
         """
@@ -326,7 +326,8 @@ class planarROrbit(planarOrbitTop):
             c_possible= pot.hasC
         if '_c' in method and not c_possible:
             method= 'odeint'
-        self.orbit= _integrateROrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
+        return msg
 
     def E(self,*args,**kwargs):
         """
@@ -496,7 +497,8 @@ class planarOrbit(planarOrbitTop):
             c_possible= pot.hasC
         if '_c' in method and not c_possible:
             method= 'odeint'
-        self.orbit= _integrateOrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
+        return msg
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c'):
         """
@@ -529,7 +531,8 @@ class planarOrbit(planarOrbitTop):
             c_possible= pot.hasC
         if '_c' in method and not c_possible:
             method= 'odeint'
-        self.orbit_dxdv= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
+        self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
+        return msg
 
     def E(self,*args,**kwargs):
         """
@@ -699,13 +702,14 @@ def _integrateROrbit(vxvv,pot,t,method):
         tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
+        msg= 0
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'odeint':
@@ -718,10 +722,12 @@ def _integrateROrbit(vxvv,pot,t,method):
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]
         out[:,2]= l/out[:,0]
+        msg= 0
     #post-process to remove negative radii
     neg_radii= (out[:,0] < 0.)
     out[neg_radii,0]= -out[neg_radii,0]
-    return out
+    _parse_warnmessage(msg)
+    return (out,msg)
 
 def _REOM(y,t,pot,l2):
     """
@@ -780,6 +786,7 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
+        msg= 0
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
@@ -790,8 +797,8 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        tmp_out= integratePlanarOrbit_c(pot,this_vxvv,
-                                        t,method)
+        tmp_out, msg= integratePlanarOrbit_c(pot,this_vxvv,
+                                             t,method)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
@@ -813,13 +820,15 @@ def _integrateOrbit(vxvv,pot,t,method):
         out[:,1]= intOut[:,1]
         out[:,3]= intOut[:,2]
         out[:,2]= out[:,0]*intOut[:,3]
+        msg= 0
     else:
         raise NotImplementedError("requested integration method does not exist")
     #post-process to remove negative radii
     neg_radii= (out[:,0] < 0.)
     out[neg_radii,0]= -out[neg_radii,0]
     out[neg_radii,3]+= m.pi
-    return out
+    _parse_warnmessage(msg)
+    return (out,msg)
 
 def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     """
@@ -837,6 +846,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
        method - 'odeint' or 'leapfrog'
     OUTPUT:
        [:,8] array of [R,vR,vT,phi,dR,dvR,dvT,dphi] at each t
+       error message from integrator
     HISTORY:
        2010-10-17 - Written - Bovy (IAS)
     """
@@ -857,14 +867,15 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
         #raise NotImplementedError("C implementation of phase space integration not implemented yet")
         warnings.warn("Using C implementation to integrate orbits")
         #integrate
-        tmp_out= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
-                                             t,method)
+        tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
+                                                  t,method)
     elif method.lower() == 'odeint':
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
         #integrate
         tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
                                   rtol=10.**-8.)#,mxstep=100000000)
+        msg= 0
     else:
         raise NotImplementedError("requested integration method does not exist")
     #go back to the cylindrical frame
@@ -888,7 +899,8 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     out[:,7]= dphi
     out[:,5]= dvR
     out[:,6]= dvT
-    return out
+    _parse_warnmessage(msg)
+    return (out,msg)
 
 def _EOM_dxdv(x,t,pot):
     """
@@ -997,3 +1009,7 @@ def _rectForce(x,pot,t=0.):
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
 
+def _parse_warnmessage(msg):
+    if msg == 1:
+        warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate")
+        
