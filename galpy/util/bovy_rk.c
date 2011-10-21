@@ -65,7 +65,7 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
 	      int nt, double *t,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
-	      double *result){
+	      double *result, int * err){
   //Declare and initialize
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *yn1= (double *) malloc ( dim * sizeof(double) );
@@ -74,6 +74,7 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   int ii, jj, kk;
   save_rk(dim,yo,result);
   result+= dim;
+  *err= 0;
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   for (ii=0; ii < dim; ii++) *(yn1+ii)= *(yo+ii);
   //Estimate necessary stepsize
@@ -143,7 +144,7 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
 	      int nt, double *t,
 	      int nargs, struct leapFuncArg * leapFuncArgs,
 	      double rtol, double atol,
-	      double *result){
+	      double *result, int * err){
   //Declare and initialize
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *yn1= (double *) malloc ( dim * sizeof(double) );
@@ -157,6 +158,7 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   int ii, jj, kk;
   save_rk(dim,yo,result);
   result+= dim;
+  *err= 0;
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   for (ii=0; ii < dim; ii++) *(yn1+ii)= *(yo+ii);
   //Estimate necessary stepsize
@@ -430,6 +432,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int * err: if non-zero, something bad happened (1: maximum step reduction happened)
 */
 void bovy_dopr54(void (*func)(double t, double *q, double *a,
 			      int nargs, struct leapFuncArg * leapFuncArgs),
@@ -438,7 +441,7 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
 		 int nt, double *t,
 		 int nargs, struct leapFuncArg * leapFuncArgs,
 		 double rtol, double atol,
-		 double *result){
+		 double *result, int * err){
   //Declare and initialize
   double *a= (double *) malloc ( dim * sizeof(double) );
   double *a1= (double *) malloc ( dim * sizeof(double) );
@@ -455,6 +458,7 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   int ii;
   save_rk(dim,yo,result);
   result+= dim;
+  *err= 0;
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   double dt= (*(t+1))-(*t);
   double dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,leapFuncArgs,
@@ -466,7 +470,7 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   for (ii=0; ii < (nt-1); ii++){
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
 			nargs,leapFuncArgs,rtol,atol,
-			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk);
+			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,err);
     //save
     save_rk(dim,yn,result);
     result+= dim;
@@ -494,7 +498,7 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
 			 double * k1, double * k2,
 			 double * k3, double * k4,
 			 double * k5, double * k6,
-			 double * yn1, double * yerr,double * ynk){
+			 double * yn1, double * yerr,double * ynk, int * err){
   double init_dt_one= *dt_one;
   double init_to= *to;
   unsigned char accept;
@@ -505,8 +509,9 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
     if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE) {
       *dt_one= init_dt_one/_MAX_STEPREDUCE;
       accept= 1;
+      if ( *err % 2 ==  0) *err+= 1;
     }
-    if ( dt >= 0. && *dt_one > (init_to+dt - *to) ) 
+    if ( dt >= 0. && *dt_one > (init_to+dt - *to) )
       *dt_one= (init_to + dt - *to);
     if ( dt < 0. && *dt_one < (init_to+dt - *to) )
       *dt_one = (init_to + dt - *to); 
