@@ -110,9 +110,11 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
     OUTPUT:
+       (y,err)
        y : array, shape (len(y0), len(t))
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
+       err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
     HISTORY:
        2011-10-03 - Written - Bovy (IAS)
     """
@@ -122,6 +124,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
 
     #Set up result array
     result= nu.empty((len(t),4))
+    err= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -135,6 +138,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
 
     #Array requirements, first store old order
@@ -153,13 +157,14 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                     pot_args,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
+                    ctypes.byref(err),
                     ctypes.c_int(int_method_c))
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
 
-    return result
+    return (result,err.value)
 
 
 def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
@@ -176,9 +181,11 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
     OUTPUT:
+       (y,err)
        y : array, shape (len(y0), len(t))
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
+       err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
     HISTORY:
        2011-10-19 - Written - Bovy (IAS)
     """
@@ -189,6 +196,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
 
     #Set up result array
     result= nu.empty((len(t),8))
+    err= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -202,6 +210,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
 
     #Array requirements, first store old order
@@ -220,10 +229,11 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                     pot_args,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
+                    ctypes.byref(err),
                     ctypes.c_int(int_method_c))
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
 
-    return result
+    return (result,err.value)
