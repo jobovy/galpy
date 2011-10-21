@@ -64,7 +64,7 @@ void leapfrog(void (*func)(double, double *, double *,
 	      int, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
-	      double *);
+	      double *,int *);
 double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
 			      double, double *,
@@ -77,7 +77,7 @@ void symplec4(void (*func)(double, double *, double *,
 	      int, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
-	      double *);
+	      double *,int *);
 double symplec4_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
 			      double, double *,
@@ -90,7 +90,7 @@ void symplec6(void (*func)(double, double *, double *,
 	      int, double *,
 	      int, struct leapFuncArg *,
 	      double, double,
-	      double *);
+	      double *,int *);
 double symplec6_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
 			      int, double *,double *,
 			      double, double *,
