@@ -131,12 +131,15 @@ class evolveddiskdf:
                     dderiv= 10.**-10.
                     tmp= o.R()+dderiv
                     dderiv= tmp-o.R()
-                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
+                    msg= o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
                     tmp= o.phi()+dderiv
                     dderiv= tmp-o.phi()
-                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
+                    msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
+                if msg > 0.:
+                    print "WARNING: INTEGRATION FAILED, RETURNING ZERO EVERYWHERE"
+                    return nu.zeros(len(t))
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
