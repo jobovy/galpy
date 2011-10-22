@@ -29,3 +29,6 @@ double SteadyLogSpiralPotentialphiforce(double,double,double,int,double *);
 //EllipticalDiskPotential
 double EllipticalDiskPotentialRforce(double,double,double,int,double *);
 double EllipticalDiskPotentialphiforce(double,double,double,int,double *);
+double EllipticalDiskPotentialR2deriv(double,double,double,int,double *);
+double EllipticalDiskPotentialphi2deriv(double,double,double,int,double *);
+double EllipticalDiskPotentialRphideriv(double,double,double,int,double *);
