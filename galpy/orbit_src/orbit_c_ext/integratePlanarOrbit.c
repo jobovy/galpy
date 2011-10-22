@@ -69,6 +69,9 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
     case 4: //EllipticalDiskPotential, 6 arguments
       leapFuncArgs->planarRforce= &EllipticalDiskPotentialRforce;
       leapFuncArgs->planarphiforce= &EllipticalDiskPotentialphiforce;
+      leapFuncArgs->planarR2deriv= &EllipticalDiskPotentialR2deriv;
+      leapFuncArgs->planarphi2deriv= &EllipticalDiskPotentialphi2deriv;
+      leapFuncArgs->planarRphideriv= &EllipticalDiskPotentialRphideriv;
       leapFuncArgs->nargs= 6;
       break;
     }
