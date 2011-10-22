@@ -78,13 +78,16 @@ class EllipticalDiskPotential(planarPotential):
            2011-10-19 - Started - Bovy (IAS)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #fully on
+                smooth= 1.
+        else:
             smooth= 1.
         if dR == 0 and dphi == 0:
             return smooth*self._twophio/2.*R**self._p\
@@ -116,13 +119,16 @@ class EllipticalDiskPotential(planarPotential):
            2011-10-19 - Written - Bovy (IAS)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #fully on
+                smooth= 1.
+        else:
             smooth= 1.
         return -smooth*self._p*self._twophio/2.*R**(self._p-1.)\
             *m.cos(2.*(phi-self._phib))
@@ -143,50 +149,62 @@ class EllipticalDiskPotential(planarPotential):
            2011-10-19 - Written - Bovy (IAS)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #fully on
+                smooth= 1.
+        else:
             smooth= 1.
         return smooth*self._twophio*R**self._p*m.sin(2.*(phi-self._phib))
 
     def _R2deriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #fully on
+                smooth= 1.
+        else:
             smooth= 1.
         return smooth*self._p*(self._p-1.)/2.*self._twophio*R**(self._p-2.)\
             *m.cos(2.*(phi-self._phib))
         
     def _phi2deriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #perturbation is fully on
+                smooth= 1.
+        else:
             smooth= 1.
         return -2.*smooth*self._twophio*R**self._p*m.cos(2.*(phi-self._phib))
 
     def _Rphideriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #perturbation is fully on
+                smooth= 1.
+        else:
             smooth= 1.
         return -smooth*self._p*self._twophio*R**(self._p-1.)*m.sin(2.*(phi-self._phib))
 
