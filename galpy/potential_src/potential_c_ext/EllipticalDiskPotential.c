@@ -29,7 +29,7 @@ double EllipticalDiskPotentialRforce(double R,double phi,double t,
   double tsteady= *args++;
   double twophio= *args++;
   double p= *args++;
-  double phib= *args++;
+  double phib= *args;
   //Calculate Rforce
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return -amp * smooth * p * twophio / 2. * pow(R,p-1.) 
@@ -45,9 +45,57 @@ double EllipticalDiskPotentialphiforce(double R,double phi,double t,
   double tsteady= *args++;
   double twophio= *args++;
   double p= *args++;
-  double phib= *args++;
-  //Calculate Rforce
+  double phib= *args;
+  //Calculate phiforce
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return amp * smooth * twophio * pow(R,p) 
     * sin( 2. * (phi-phib));
 }
+double EllipticalDiskPotentialR2deriv(double R,double phi,double t,
+				      int nargs, double *args){
+  //declare
+  double smooth;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double twophio= *args++;
+  double p= *args++;
+  double phib= *args;
+  //Calculate Rforce
+  smooth= EllipticalDiskSmooth(t,tform,tsteady);
+  return amp * smooth * p * ( p - 1) * twophio / 2. * pow(R,p-2.)
+    * cos( 2. * ( phi - phib ) );
+} 
+double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
+					int nargs, double *args){
+  //declare
+  double smooth;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double twophio= *args++;
+  double p= *args++;
+  double phib= *args;
+  //Calculate Rforce
+  smooth= EllipticalDiskSmooth(t,tform,tsteady);
+  return - 2. * amp * smooth * twophio / 2. * pow(R,p)
+    * cos( 2. * ( phi - phib ) );
+} 
+double EllipticalDiskPotentialRphideriv(double R,double phi,double t,
+					int nargs, double *args){
+  //declare
+  double smooth;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double twophio= *args++;
+  double p= *args++;
+  double phib= *args;
+  //Calculate Rforce
+  smooth= EllipticalDiskSmooth(t,tform,tsteady);
+  return - amp * smooth * p * twophio * pow(R,p-1.)
+    * sin( 2. * ( phi - phib ) );
+} 
