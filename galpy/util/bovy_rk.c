@@ -35,7 +35,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <bovy_rk.h>
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
-#define _MAX_STEPREDUCE 100.
+#define _MAX_STEPREDUCE 10000.
 /*
 Runge-Kutta 4 integrator
 Usage:
