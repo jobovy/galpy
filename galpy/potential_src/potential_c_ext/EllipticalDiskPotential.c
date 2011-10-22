@@ -80,7 +80,7 @@ double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
   double phib= *args;
   //Calculate Rforce
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
-  return - 2. * amp * smooth * twophio / 2. * pow(R,p)
+  return - 2. * amp * smooth * twophio * pow(R,p)
     * cos( 2. * ( phi - phib ) );
 } 
 double EllipticalDiskPotentialRphideriv(double R,double phi,double t,
