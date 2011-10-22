@@ -11,7 +11,8 @@ class EllipticalDiskPotential(planarPotential):
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=0.,twophio=0.01,
-                 tform=None,tsteady=None):
+                 tform=None,tsteady=None,
+                 cp=None,sp=None):
         """
         NAME:
 
@@ -28,16 +29,20 @@ class EllipticalDiskPotential(planarPotential):
            amp=  amplitude to be applied to the potential (default:
            1.), see twophio below
 
-           phib= angle (in rad; default=25 degree)
-
            tform= start of growth (to smoothly grow this potential
 
            tsteady= time delay at which the perturbation is fully grown (default: 2.)
 
            p= power-law index of the phi(R) = (R/Ro)^p part
 
-           twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1)
-              
+           Either:
+           
+              a) phib= angle (in rad; default=25 degree)
+
+                 twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1)
+                 
+              b) cp, sp= twophio * cos(2phib), twophio * sin(2phib)
+
         OUTPUT:
 
            (none)
@@ -49,8 +54,12 @@ class EllipticalDiskPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
-        self._phib= phib
-        self._twophio= twophio
+        if cp is None or sp is None:
+            self._phib= phib
+            self._twophio= twophio
+        else:
+            self._twophio= m.sqrt(cp*cp+sp*sp)
+            self._phib= m.atan(sp/cp)/2.
         self._p= p
         if not tform is None:
             self._tform= tform
