@@ -52,7 +52,7 @@ class TwoPowerSphericalPotential(Potential):
                 self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -68,13 +68,18 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if not self.integerSelf == None:
-            return self.integerSelf._evaluate(R,z,phi=phi,t=t)
-        else:
-            r= m.sqrt(R**2.+z**2.)
-            return integrate.quadrature(_potIntegrandTransform,
-                                        0.,self.a/r,
-                                        args=(self.alpha,self.beta))[0]
+        if dR == 0 and dphi == 0:
+            if not self.integerSelf == None:
+                return self.integerSelf._evaluate(R,z,phi=phi,t=t)
+            else:
+                r= m.sqrt(R**2.+z**2.)
+                return integrate.quadrature(_potIntegrandTransform,
+                                            0.,self.a/r,
+                                            args=(self.alpha,self.beta))[0]
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -202,7 +207,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
                 self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -218,14 +223,19 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._evaluate(R,z,phi=phi,t=t)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._evaluate(R,z,phi=phi,t=t)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
-        else:
-            raise AttributeError
+        if dR == 0 and dphi == 0:
+            if not self.HernquistSelf == None:
+                return self.HernquistSelf._evaluate(R,z,phi=phi,t=t)
+            elif not self.JaffeSelf == None:
+                return self.JaffeSelf._evaluate(R,z,phi=phi,t=t)
+            elif not self.NFWSelf == None:
+                return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
+            else:
+                raise AttributeError
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -304,7 +314,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -320,7 +330,12 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -1./(1.+m.sqrt(R**2.+z**2.)/self.a)
+        if dR == 0 and dphi == 0:
+            return -1./(1.+m.sqrt(R**2.+z**2.)/self.a)
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -406,7 +421,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -422,7 +437,12 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -m.log(1.+self.a/m.sqrt(R**2.+z**2.))
+        if dR == 0 and dphi == 0:
+            return -m.log(1.+self.a/m.sqrt(R**2.+z**2.))
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -509,7 +529,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -525,8 +545,13 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        r= m.sqrt(R**2.+z**2.)
-        return -m.log(1.+r/self.a)/r
+        if dR == 0 and dphi == 0:
+            r= m.sqrt(R**2.+z**2.)
+            return -m.log(1.+r/self.a)/r
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
