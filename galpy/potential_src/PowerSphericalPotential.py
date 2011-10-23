@@ -39,7 +39,7 @@ class PowerSphericalPotential(Potential):
         if normalize:
             self.normalize(normalize)
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -50,15 +50,21 @@ class PowerSphericalPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
+           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-07-10 - Started - Bovy (NYU)
         """
-        if self.alpha == 2.:
-            return nu.log(R**2.+z**2.)/2. 
-        else:
-            return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
+        if dR == 0 and dphi == 0:
+            if self.alpha == 2.:
+                return nu.log(R**2.+z**2.)/2. 
+            else:
+                return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
