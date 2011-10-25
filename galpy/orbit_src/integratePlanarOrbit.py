@@ -63,6 +63,13 @@ def _parse_pot(pot):
             else:
                 pot_args.extend([p._amp,p._tform,p._tsteady,
                                  p._twophio,p._p,p._phib])
+        elif isinstance(p,potential.MiyamotoNagaiPotential):
+            pot_type.append(5)
+            pot_args.extend([p._amp,p._a,p._b])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.MiyamotoNagaiPotential):
+            pot_type.append(5)
+            pot_args.extend([p._RZPot._amp,p._RZPot._a,p._RZPot._b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
