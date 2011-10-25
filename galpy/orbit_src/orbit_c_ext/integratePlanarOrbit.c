@@ -80,7 +80,7 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarR2deriv= &MiyamotoNagaiPotentialPlanarR2deriv;
       leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
       leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
-      leapFuncArgs->nargs= 2;
+      leapFuncArgs->nargs= 3;
       break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
