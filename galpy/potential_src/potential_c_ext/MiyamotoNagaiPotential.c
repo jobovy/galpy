@@ -20,7 +20,7 @@ double MiyamotoNagaiPotentialPlanarRforce(double R,double phi,
   double a= *args++;
   double b= *args;
   //Calculate Rforce
-  return - amp * R * pow(R*R+pow(a+b,2.),1.5);
+  return - amp * R * pow(R*R+pow(a+b,2.),-1.5);
 }
 double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
 				    double t,
