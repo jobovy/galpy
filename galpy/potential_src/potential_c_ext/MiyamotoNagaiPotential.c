@@ -1,3 +1,4 @@
+#include <math.h>
 #include <galpy_potentials.h>
 //Miyamoto-Nagai potential
 //3 arguments: amp, a, b
@@ -29,8 +30,8 @@ double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
   double a= *args++;
   double b= *args;
   //Calculate zforce
-  sqrtbz= pow(b*b+Z*Z,2.);
-  asqrtbz= a+sqrtbz;
+  double sqrtbz= pow(b*b+z*z,2.);
+  double asqrtbz= a+sqrtbz;
   if ( a == 0. )
     return -amp * ( -z * pow(R*R+asqrtbz*asqrtbz,-1.5) );
   else
@@ -44,7 +45,7 @@ double MiyamotoNagaiPotentialPlanarR2deriv(double R,double phi,
   double a= *args++;
   double b= *args;
   //calculate R2deriv
-  denom= R*R+pow(a+pow(z*z+b*b,0.5),2.);
+  double denom= R*R+pow(a+b,2.);
   return pow(denom,-1.5) - 3. * R * R * pow(denom,-2.5);
 }
 
