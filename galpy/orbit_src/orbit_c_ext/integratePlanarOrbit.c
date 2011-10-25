@@ -74,6 +74,14 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarRphideriv= &EllipticalDiskPotentialRphideriv;
       leapFuncArgs->nargs= 6;
       break;
+    case 5: //MiyamotoNagaiPotential, 3 arguments
+      leapFuncArgs->planarRforce= &MiyamotoNagaiPotentialPlanarRforce;
+      leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      leapFuncArgs->planarR2deriv= &MiyamotoNagaiPotentialPlanarR2deriv;
+      leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
+      leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
+      leapFuncArgs->nargs= 2;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
