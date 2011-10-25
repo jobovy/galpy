@@ -32,3 +32,12 @@ double EllipticalDiskPotentialphiforce(double,double,double,int,double *);
 double EllipticalDiskPotentialR2deriv(double,double,double,int,double *);
 double EllipticalDiskPotentialphi2deriv(double,double,double,int,double *);
 double EllipticalDiskPotentialRphideriv(double,double,double,int,double *);
+//Miyamoto-Nagai Potential
+double MiyamotoNagaiPotentialRforce(double ,double , double, double,
+				    int , double *);
+double MiyamotoNagaiPotentialPlanarRforce(double ,double, double,
+					  int , double *);
+double MiyamotoNagaiPotentialzforce(double,double,double,double,
+				    int, double *);
+double MiyamotoNagaiPotentialPlanarR2deriv(double ,double, double,
+					   int , double *);
