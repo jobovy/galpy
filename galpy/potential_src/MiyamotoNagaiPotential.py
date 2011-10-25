@@ -50,6 +50,7 @@ class MiyamotoNagaiPotential(Potential):
         self._b2= self._b**2.
         if normalize:
             self.normalize(normalize)
+        self.hasC= True
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
