@@ -17,6 +17,7 @@ from galpy.potential_src import TransientLogSpiralPotential
 from galpy.potential_src import MovingObjectPotential
 from galpy.potential_src import ForceSoftening
 from galpy.potential_src import EllipticalDiskPotential
+from galpy.potential_src import CosmphiDiskPotential
 #
 # Functions
 #
@@ -67,6 +68,8 @@ SteadyLogSpiralPotential= SteadyLogSpiralPotential.SteadyLogSpiralPotential
 TransientLogSpiralPotential= TransientLogSpiralPotential.TransientLogSpiralPotential
 MovingObjectPotential= MovingObjectPotential.MovingObjectPotential
 EllipticalDiskPotential= EllipticalDiskPotential.EllipticalDiskPotential
+LopsidedDiskPotential= CosmphiDiskPotential.LopsidedDiskPotential
+CosmphiDiskPotential= CosmphiDiskPotential.CosmphiDiskPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
