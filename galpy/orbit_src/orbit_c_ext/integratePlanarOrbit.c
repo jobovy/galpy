@@ -82,6 +82,14 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
       leapFuncArgs->nargs= 3;
       break;
+    case 6: //LopsidedDiskPotential, 6 arguments
+      leapFuncArgs->planarRforce= &LopsidedDiskPotentialRforce;
+      leapFuncArgs->planarphiforce= &LopsidedDiskPotentialphiforce;
+      leapFuncArgs->planarR2deriv= &LopsidedDiskPotentialR2deriv;
+      leapFuncArgs->planarphi2deriv= &LopsidedDiskPotentialphi2deriv;
+      leapFuncArgs->planarRphideriv= &LopsidedDiskPotentialRphideriv;
+      leapFuncArgs->nargs= 6;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
