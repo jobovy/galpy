@@ -261,4 +261,4 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
                                       p=p,phio=phio,m=1.,
                                       tform=tform,tsteady=tsteady,
                                       cp=cp,sp=sp)
-        
+        self.hasC= True
