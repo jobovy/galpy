@@ -41,3 +41,9 @@ double MiyamotoNagaiPotentialzforce(double,double,double,double,
 				    int, double *);
 double MiyamotoNagaiPotentialPlanarR2deriv(double ,double, double,
 					   int , double *);
+//LopsidedDiskPotential
+double LopsidedDiskPotentialRforce(double,double,double,int,double *);
+double LopsidedDiskPotentialphiforce(double,double,double,int,double *);
+double LopsidedDiskPotentialR2deriv(double,double,double,int,double *);
+double LopsidedDiskPotentialphi2deriv(double,double,double,int,double *);
+double LopsidedDiskPotentialRphideriv(double,double,double,int,double *);
