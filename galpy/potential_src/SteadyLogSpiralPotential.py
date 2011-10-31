@@ -78,7 +78,7 @@ class SteadyLogSpiralPotential(planarPotential):
             else: self._tsteady= self._tform+2.*self._ts
         self.hasC= True
 
-    def _evaluate(self,R,phi=0.,t=0.):
+    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -93,20 +93,25 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        if not self._tform is None:
-            if t < self._tform:
-                smooth= 0.
-            elif t < self._tsteady:
-                deltat= t-self._tform
-                xi= 2.*deltat/(self._tsteady-self._tform)-1.
-                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-            else: #spiral is fully on
+        if dR == 0 and dphi == 0:
+            if not self._tform is None:
+                if t < self._tform:
+                    smooth= 0.
+                elif t < self._tsteady:
+                    deltat= t-self._tform
+                    xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                    smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+                else: #spiral is fully on
+                    smooth= 1.
+            else:
                 smooth= 1.
-        else:
-            smooth= 1.
-        return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
+            return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
                                                    -self._m*(phi-self._omegas*t
                                                              -self._gamma))
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,phi=phi,t=t)
 
     def _Rforce(self,R,phi=0.,t=0.):
         """
