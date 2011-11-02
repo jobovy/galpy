@@ -47,3 +47,12 @@ double LopsidedDiskPotentialphiforce(double,double,double,int,double *);
 double LopsidedDiskPotentialR2deriv(double,double,double,int,double *);
 double LopsidedDiskPotentialphi2deriv(double,double,double,int,double *);
 double LopsidedDiskPotentialRphideriv(double,double,double,int,double *);
+//PowerSphericalPotential
+double PowerSphericalPotentialRforce(double ,double , double, double,
+				     int , double *);
+double PowerSphericalPotentialPlanarRforce(double ,double, double,
+					   int , double *);
+double PowerSphericalPotentialzforce(double,double,double,double,
+				     int, double *);
+double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
+					    int , double *);
