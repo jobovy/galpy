@@ -47,7 +47,7 @@ class DoubleExponentialDiskPotential(Potential):
         if normalize:
             self.normalize(normalize)
         
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -68,6 +68,12 @@ class DoubleExponentialDiskPotential(Potential):
            ...
            >>> assert( r+1.89595350484)**2.< 10.**-6.
         """
+        if dR == 1 and dphi == 0:
+            return -self._Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,z,phi=phi,t=t)
+        elif dR != 0 and dphi != 0:
+            raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
