@@ -74,7 +74,7 @@ class TransientLogSpiralPotential(planarPotential):
             self._alpha= alpha
         self.hasC= True
 
-    def _evaluate(self,R,phi=0.,t=0.):
+    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
            _evaluate
@@ -88,10 +88,15 @@ class TransientLogSpiralPotential(planarPotential):
            Phi(R,phi,t)
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
-           """
-        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*math.cos(self._alpha*math.log(R)
-                                  -self._m*(phi-self._omegas*t-self._gamma))
+        """
+        if dR == 0 and dphi == 0:
+            return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+                /self._alpha*math.cos(self._alpha*math.log(R)
+                                      -self._m*(phi-self._omegas*t-self._gamma))
+        elif dR == 1 and dphi == 0:
+            return -self._Rforce(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self._phiforce(R,phi=phi,t=t)
 
     def _Rforce(self,R,phi=0.,t=0.):
         """
