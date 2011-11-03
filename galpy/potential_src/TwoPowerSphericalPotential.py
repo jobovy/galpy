@@ -528,6 +528,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         self.beta= 3
         if normalize:
             self.normalize(normalize)
+        self.hasC= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
@@ -610,7 +611,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-
         Rz= R**2.+z**2.
         sqrtRz= m.sqrt(Rz)
         return (3.*R**4.+2.*R**2.*(z**2.+self.a*sqrtRz)\
