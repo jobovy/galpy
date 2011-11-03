@@ -114,6 +114,14 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
       leapFuncArgs->nargs= 2;
       break;
+    case 10: //JaffePotential, 2 arguments
+      leapFuncArgs->planarRforce= &JaffePotentialPlanarRforce;
+      leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      leapFuncArgs->planarR2deriv= &JaffePotentialPlanarR2deriv;
+      leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
+      leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
+      leapFuncArgs->nargs= 2;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
