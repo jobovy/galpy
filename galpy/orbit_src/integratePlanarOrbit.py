@@ -85,6 +85,13 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.HernquistPotential):
             pot_type.append(8)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
+        elif isinstance(p,potential.NFWPotential):
+            pot_type.append(9)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.NFWPotential):
+            pot_type.append(9)
+            pot_args.extend([p._RZPot._amp,p._RZPot.a])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
