@@ -65,3 +65,12 @@ double HernquistPotentialzforce(double,double,double,double,
 				     int, double *);
 double HernquistPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
+//NFWPotential
+double NFWPotentialRforce(double ,double , double, double,
+				     int , double *);
+double NFWPotentialPlanarRforce(double ,double, double,
+					   int , double *);
+double NFWPotentialzforce(double,double,double,double,
+				     int, double *);
+double NFWPotentialPlanarR2deriv(double ,double, double,
+					    int , double *);
