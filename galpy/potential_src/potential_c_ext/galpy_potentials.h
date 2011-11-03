@@ -74,3 +74,12 @@ double NFWPotentialzforce(double,double,double,double,
 				     int, double *);
 double NFWPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
+//JaffePotential
+double JaffePotentialRforce(double ,double , double, double,
+				     int , double *);
+double JaffePotentialPlanarRforce(double ,double, double,
+					   int , double *);
+double JaffePotentialzforce(double,double,double,double,
+				     int, double *);
+double JaffePotentialPlanarR2deriv(double ,double, double,
+					    int , double *);
