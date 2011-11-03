@@ -56,3 +56,12 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 				     int, double *);
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
+//HernquistPotential
+double HernquistPotentialRforce(double ,double , double, double,
+				     int , double *);
+double HernquistPotentialPlanarRforce(double ,double, double,
+					   int , double *);
+double HernquistPotentialzforce(double,double,double,double,
+				     int, double *);
+double HernquistPotentialPlanarR2deriv(double ,double, double,
+					    int , double *);
