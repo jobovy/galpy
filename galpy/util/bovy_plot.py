@@ -559,6 +559,10 @@ def bovy_dens2d(X,**kwargs):
 
        cntrlabelsize, cntrlabelcolors,cntrinline - contour arguments
 
+       onedhists - if True, make one-d histograms on the sides
+
+       onedhistcolor - histogram color
+
     OUTPUT:
 
     HISTORY:
@@ -573,8 +577,6 @@ def bovy_dens2d(X,**kwargs):
         overplot= False
     if not overplot:
         pyplot.figure()
-    ax=pyplot.gca()
-    ax.set_autoscale_on(False)
     if kwargs.has_key('xlabel'):
         xlabel= kwargs['xlabel']
         kwargs.pop('xlabel')
@@ -686,6 +688,38 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('shrink')
     else:
         shrink= None
+    if kwargs.has_key('onedhists'):
+        onedhists= kwargs['onedhists']
+        kwargs.pop('onedhists')
+    else:
+        onedhists= False
+    if kwargs.has_key('onedhistcolor'):
+        onedhistcolor= kwargs['onedhistcolor']
+        kwargs.pop('onedhistcolor')
+    else:
+        onedhistcolor= 'k'
+    if onedhists:
+        if overplot: fig= pyplot.gcf()
+        else: fig= pyplot.figure()
+        nullfmt   = NullFormatter()         # no labels
+        # definitions for the axes
+        left, width = 0.1, 0.65
+        bottom, height = 0.1, 0.65
+        bottom_h = left_h = left+width
+        rect_scatter = [left, bottom, width, height]
+        rect_histx = [left, bottom_h, width, 0.2]
+        rect_histy = [left_h, bottom, 0.2, height]
+        axScatter = pyplot.axes(rect_scatter)
+        axHistx = pyplot.axes(rect_histx)
+        axHisty = pyplot.axes(rect_histy)
+        # no labels
+        axHistx.xaxis.set_major_formatter(nullfmt)
+        axHistx.yaxis.set_major_formatter(nullfmt)
+        axHisty.xaxis.set_major_formatter(nullfmt)
+        axHisty.yaxis.set_major_formatter(nullfmt)
+        fig.sca(axScatter)
+    ax=pyplot.gca()
+    ax.set_autoscale_on(False)
     out= pyplot.imshow(X,extent=extent,**kwargs)
     pyplot.axis(extent)
     _add_axislabels(xlabel,ylabel)
@@ -733,6 +767,26 @@ def bovy_dens2d(X,**kwargs):
                               inline=cntrinline)
     if noaxes:
         ax.set_axis_off()
+    #Add onedhists
+    if not onedhists:
+        if retCumImage:
+            return cntrThis
+        else:
+            return out
+    histx= sc.nansum(X.T,axis=1) #nansum bc nan is *no dens value*
+    histy= sc.nansum(X.T,axis=0)
+    histx[sc.isnan(histx)]= 0.
+    histy[sc.isnan(histy)]= 0.
+    dx= (extent[1]-extent[0])/float(len(histx))
+    axHistx.plot(sc.linspace(extent[0]+dx,extent[1]-dx,len(histx)),histx,
+                 drawstyle='steps-mid',color=onedhistcolor)
+    dy= (extent[3]-extent[2])/float(len(histy))
+    axHisty.plot(histy,sc.linspace(extent[2]+dy,extent[3]-dy,len(histy)),
+                 drawstyle='steps-mid',color=onedhistcolor)
+    axHistx.set_xlim( axScatter.get_xlim() )
+    axHisty.set_ylim( axScatter.get_ylim() )
+    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
+    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
     if retCumImage:
         return cntrThis
     else:
