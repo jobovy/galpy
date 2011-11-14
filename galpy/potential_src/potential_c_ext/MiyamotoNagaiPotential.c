@@ -30,12 +30,12 @@ double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
   double a= *args++;
   double b= *args;
   //Calculate zforce
-  double sqrtbz= pow(b*b+z*z,2.);
+  double sqrtbz= pow(b*b+z*z,.5);
   double asqrtbz= a+sqrtbz;
   if ( a == 0. )
-    return -amp * ( -z * pow(R*R+asqrtbz*asqrtbz,-1.5) );
+    return amp * ( -z * pow(R*R+asqrtbz*asqrtbz,-1.5) );
   else
-    return -amp * ( -z * asqrtbz / sqrtbz * pow(R*R+asqrtbz*asqrtbz,-1.5) );
+    return amp * ( -z * asqrtbz / sqrtbz * pow(R*R+asqrtbz*asqrtbz,-1.5) );
 }
 double MiyamotoNagaiPotentialPlanarR2deriv(double R,double phi,
 					   double t,
