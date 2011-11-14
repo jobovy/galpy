@@ -1,3 +1,4 @@
+import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
@@ -8,6 +9,7 @@ from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
+from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
@@ -581,6 +583,33 @@ def _integrateFullOrbit(vxvv,pot,t,method):
         out[:,1]= vR
         out[:,2]= vT
         out[:,5]= phi
+    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
+        warnings.warn("Using C implementation to integrate orbits")
+        #go to the rectangular frame
+        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
+                             vxvv[0]*nu.sin(vxvv[5]),
+                             vxvv[3],
+                             vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5]),
+                             vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
+                             vxvv[4]])
+        #integrate
+        tmp_out, msg= integrateFullOrbit_c(pot,this_vxvv,
+                                           t,method)
+        #go back to the cylindrical frame
+        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
+        phi= nu.arccos(tmp_out[:,0]/R)
+        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
+        vR= tmp_out[:,3]*nu.cos(phi)+tmp_out[:,4]*nu.sin(phi)
+        vT= tmp_out[:,4]*nu.cos(phi)-tmp_out[:,3]*nu.sin(phi)
+        out= nu.zeros((len(t),6))
+        out[:,0]= R
+        out[:,1]= vR
+        out[:,2]= vT
+        out[:,5]= phi
+        out[:,3]= tmp_out[:,2]
+        out[:,4]= tmp_out[:,5]
     elif method.lower() == 'odeint':
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
