@@ -4,8 +4,7 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential, potential_src
-from galpy.orbit_src.integratePlanarOrbit import _parse_pot, \
-    _parse_integrator, _parse_tol
+from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
 _lib = None
 _libname = ctypes.util.find_library('galpy_integrate_c')
@@ -22,6 +21,38 @@ for path in sys.path:
         break
 if _lib is None:
     raise IOError('galpy integration module not found')
+
+def _parse_pot(pot):
+    """Parse the potential so it can be fed to C"""
+    #Figure out what's in pot
+    if not isinstance(pot,list):
+        pot= [pot]
+    #Initialize everything
+    pot_type= []
+    pot_args= []
+    npot= len(pot)
+    for p in pot:
+        if isinstance(p,potential.LogarithmicHaloPotential):
+            pot_type.append(0)
+            pot_args.extend([p._amp,p._q,p._core2])
+        elif isinstance(p,potential.MiyamotoNagaiPotential):
+            pot_type.append(5)
+            pot_args.extend([p._amp,p._a,p._b])
+        elif isinstance(p,potential.PowerSphericalPotential):
+            pot_type.append(7)
+            pot_args.extend([p._amp,p.aalpha])
+        elif isinstance(p,potential.HernquistPotential):
+            pot_type.append(8)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.NFWPotential):
+            pot_type.append(9)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.JaffePotential):
+            pot_type.append(10)
+            pot_args.extend([p._amp,p.a])
+    pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
+    pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+    return (npot,pot_type,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     """
