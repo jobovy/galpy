@@ -846,7 +846,8 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
               'xtick.major.size' : xtick_major_size,
               'ytick.major.size' : ytick_major_size,
               'xtick.minor.size' : xtick_minor_size,
-              'ytick.minor.size' : ytick_minor_size}
+              'ytick.minor.size' : ytick_minor_size,
+              'legend.numpoints':1}
     pyplot.rcParams.update(params)
     rc('text.latex', preamble=r'\usepackage{amsmath}')
 
