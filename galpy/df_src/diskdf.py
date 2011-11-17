@@ -194,6 +194,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
             cosalphalos= m.cos(alphalos)
             tanalphalos= m.tan(alphalos)
@@ -239,6 +240,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
             cosalphaperp= m.cos(alphaperp)
             tanalphaperp= m.tan(alphaperp)
@@ -620,6 +622,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if romberg:
             return bovy_dblquad(_surfaceIntegrand,
                                 self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -671,6 +674,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if romberg:
             return bovy_dblquad(_sigma2surfaceIntegrand,
                                 self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -728,6 +732,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if deriv is None:
             if romberg:
                 return bovy_dblquad(_vmomentsurfaceIntegrand,
