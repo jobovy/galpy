@@ -20,7 +20,7 @@ import copy
 import re
 import os, os.path
 import cPickle as pickle
-import math as m
+import math
 import numpy as nu
 import scipy as sc
 import scipy.integrate as integrate
@@ -43,7 +43,7 @@ try:
 except:
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
-_DEGTORAD= m.pi/180.
+_DEGTORAD= math.pi/180.
 class diskdf:
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
@@ -179,7 +179,7 @@ class diskdf:
         phi= o.phi()
         #Get local circular velocity, projected onto the los
         vcirc= R**self._beta
-        vcirclos= vcirc*m.sin(phi+l)
+        vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
         alphalos= phi+l
         if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
@@ -194,25 +194,25 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if m.fabs(m.sin(alphalos)) < m.sqrt(1./2.):
-            cosalphalos= m.cos(alphalos)
-            tanalphalos= m.tan(alphalos)
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
+            cosalphalos= math.cos(alphalos)
+            tanalphalos= math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
                                   -self._gamma*va/sigmaR1+nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/m.fabs(cosalphalos)
+                                  **kwargs)[0]/math.fabs(cosalphalos)
         else:
-            sinalphalos= m.sin(alphalos)
-            cotalphalos= 1./m.tan(alphalos)
+            sinalphalos= math.sin(alphalos)
+            cotalphalos= 1./math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1),
-                                  **kwargs)[0]/m.fabs(sinalphalos)
+                                  **kwargs)[0]/math.fabs(sinalphalos)
         
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
@@ -225,9 +225,9 @@ class diskdf:
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         vcirc= R**self._beta
-        vcircperp= vcirc*m.cos(phi+l)
+        vcircperp= vcirc*math.cos(phi+l)
         #Marginalize
-        alphaperp= m.pi/2.+phi+l
+        alphaperp= math.pi/2.+phi+l
         if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
                                                 kwargs['nsigma'] is None):
             nsigma= _NSIGMA
@@ -240,10 +240,10 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if m.fabs(m.sin(alphaperp)) < m.sqrt(1./2.):
-            cosalphaperp= m.cos(alphaperp)
-            tanalphaperp= m.tan(alphaperp)
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
+            cosalphaperp= math.cos(alphaperp)
+            tanalphaperp= math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
@@ -251,16 +251,16 @@ class diskdf:
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/m.fabs(cosalphaperp)
+                                  **kwargs)[0]/math.fabs(cosalphaperp)
         else:
-            sinalphaperp= m.sin(alphaperp)
-            cotalphaperp= 1./m.tan(alphaperp)
+            sinalphaperp= math.sin(alphaperp)
+            cotalphaperp= 1./math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1),
-                                  **kwargs)[0]/m.fabs(sinalphaperp)
+                                  **kwargs)[0]/math.fabs(sinalphaperp)
         
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
@@ -405,11 +405,11 @@ class diskdf:
         jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +m.log(m.fabs(jac))+m.log(R)
+                +math.log(math.fabs(jac))+math.log(R)
             pass
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                *m.fabs(jac)*R
+                *math.fabs(jac)*R
 
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
@@ -441,11 +441,11 @@ class diskdf:
         #Evaluate Jacobian
         jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
         if target:
-            return self.targetSurfacemass(R)*m.fabs(jac)*R
+            return self.targetSurfacemass(R)*math.fabs(jac)*R
         else:
             return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                     relative=relative)\
-                                    *m.fabs(jac)*R
+                                    *math.fabs(jac)*R
 
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
@@ -467,9 +467,9 @@ class diskdf:
         #First calculate where the maximum is
         if l == 0.:
             maxSM= self.targetSurfacemass(0.)
-        elif l >= m.pi/2. and l <= 3.*m.pi/2.:
+        elif l >= math.pi/2. and l <= 3.*math.pi/2.:
             maxSM= self.targetSurfacemass(1.)
-        elif l < m.pi/2. or l > 3.*m.pi/2.:
+        elif l < math.pi/2. or l > 3.*math.pi/2.:
             if target:
                 minR= optimize.fmin_bfgs(lambda x: \
                                              -x*self.targetSurfacemassLOS(x,l,
@@ -488,12 +488,12 @@ class diskdf:
         out= []
         while len(out) < n:
             #sample
-            prop= nu.random.random()*maxd
+            prop= nu.randomath.random()*maxd
             if target:
                 surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)*prop
             else:
                 surfmassatprop= self.surfacemassLOS(prop,l,deg=False)*prop
-            if surfmassatprop/maxSM > nu.random.random(): #accept
+            if surfmassatprop/maxSM > nu.randomath.random(): #accept
                 out.append(prop)
         return nu.array(out)
 
@@ -525,15 +525,15 @@ class diskdf:
             nsigma= _NSIGMA
         out= []
         if target:
-            sigma= m.sqrt(self.targetSigma2(R))
+            sigma= math.sqrt(self.targetSigma2(R))
         else:
-            sigma= m.sqrt(self.sigma2(R))
+            sigma= math.sqrt(self.sigma2(R))
         while len(out) < n:
             #sample
-            propvR= nu.random.normal()*_NSIGMA*sigma
-            propvT= nu.random.normal()*_NSIGMA*sigma/self._gamma+1.
+            propvR= nu.randomath.normal()*_NSIGMA*sigma
+            propvT= nu.randomath.normal()*_NSIGMA*sigma/self._gamma+1.
             VDatprop= self(Orbit([R,propvR,propvT]))
-            if VDatprop/maxVD > nu.random.random(): #accept
+            if VDatprop/maxVD > nu.randomath.random(): #accept
                 out.append(sc.array([propvR,propvT]))
         return nu.array(out)
 
@@ -622,7 +622,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if m.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if romberg:
             return bovy_dblquad(_surfaceIntegrand,
                                 self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -674,7 +674,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if romberg:
             return bovy_dblquad(_sigma2surfaceIntegrand,
                                 self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -732,7 +732,7 @@ class diskdf:
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if m.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if deriv is None:
             if romberg:
                 return bovy_dblquad(_vmomentsurfaceIntegrand,
@@ -1007,7 +1007,7 @@ class diskdf:
             rperi, rap= calcRapRperiFromELPower(E,L,vc=1.,ro=1.)
             aA= actionAnglePower(rperi,0.,L/rperi,beta=self._beta)
         TR= aA.TR()[0]
-        return (2.*m.pi/TR, rap, rperi)
+        return (2.*math.pi/TR, rap, rperi)
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
@@ -1259,7 +1259,7 @@ class dehnendf(diskdf):
         #Then sample Lz
         LCE= xE**(self._beta+1.)
         OR= xE**(self._beta-1.)
-        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniformath.rvs(size=n))/OR
         if self._correct:
             for ii in range(len(xE)):
                 Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
@@ -1275,8 +1275,8 @@ class dehnendf(diskdf):
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
                 except ValueError:
                     continue
-                TR= 2.*m.pi/wR
-                tr= stats.uniform.rvs()*TR
+                TR= 2.*math.pi/wR
+                tr= stats.uniformath.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
@@ -1288,31 +1288,31 @@ class dehnendf(diskdf):
                     if not los is None: #Sample along a given line of sight
                         if losdeg: l= los*_DEGTORAD
                         else: l= los
-                        if l > (2.*m.pi): l-= 2.*m.pi
-                        if l < 0: l+= 2.*m.pi
-                        sinphil= 1./vxvv[0]*m.sin(l)
-                        if m.fabs(sinphil) > 1.: continue
-                        if stats.uniform.rvs() < 0.5:
-                            phil= m.asin(sinphil)
+                        if l > (2.*math.pi): l-= 2.*math.pi
+                        if l < 0: l+= 2.*math.pi
+                        sinphil= 1./vxvv[0]*math.sin(l)
+                        if math.fabs(sinphil) > 1.: continue
+                        if stats.uniformath.rvs() < 0.5:
+                            phil= math.asin(sinphil)
                         else:
-                            phil= m.pi-m.asin(sinphil)
+                            phil= math.pi-math.asin(sinphil)
                         phi= phil-l
-                        if phi > (2.*m.pi): phi-= 2.*m.pi
-                        if phi < 0: phi+= 2.*m.pi
+                        if phi > (2.*math.pi): phi-= 2.*math.pi
+                        if phi < 0: phi+= 2.*math.pi
                         #make sure this is on the right side of the los
-                        if l >= 0. and l <= m.pi/2. and phi > m.pi: continue
-                        elif l >= m.pi/2. and l <= m.pi and phi > m.pi/2.: \
+                        if l >= 0. and l <= math.pi/2. and phi > math.pi: continue
+                        elif l >= math.pi/2. and l <= math.pi and phi > math.pi/2.: \
                                 continue
-                        elif l >= m.pi and l <= 3.*m.pi/2. and phi < 3.*m.pi/2.: continue
-                        elif l >= 3.*m.pi/2. and phi < m.pi: continue
+                        elif l >= math.pi and l <= 3.*math.pi/2. and phi < 3.*math.pi/2.: continue
+                        elif l >= 3.*math.pi/2. and phi < math.pi: continue
                             
                         thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                         vxvv[2],
                                                         phi]).reshape(4))
                     else:
                         thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                        stats.uniform.rvs()\
-                                                            *m.pi*2.])\
+                                                        stats.uniformath.rvs()\
+                                                            *math.pi*2.])\
                                              .reshape(4))
                 else:
                     thisOrbit= Orbit(thisOrbit(tr))
@@ -1328,33 +1328,33 @@ class dehnendf(diskdf):
                         if returnOrbit:
                             out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                             vxvv[2],
-                                                            stats.uniform.rvs()*m.pi*2.]).reshape(4)))
+                                                            stats.uniformath.rvs()*math.pi*2.]).reshape(4)))
                         else:
                             out.append(thisOrbit)
                         mult-= 1
                 else:
                     if losdeg: l= los*_DEGTORAD
                     else: l= los
-                    if l > (2.*m.pi): l-= 2.*m.pi
-                    if l < 0: l+= 2.*m.pi
-                    sinphil= 1./vxvv[0]*m.sin(l)
-                    if m.fabs(sinphil) > 1.: continue
-                    if stats.uniform.rvs() < 0.5:
-                        phil= m.asin(sinphil)
+                    if l > (2.*math.pi): l-= 2.*math.pi
+                    if l < 0: l+= 2.*math.pi
+                    sinphil= 1./vxvv[0]*math.sin(l)
+                    if math.fabs(sinphil) > 1.: continue
+                    if stats.uniformath.rvs() < 0.5:
+                        phil= math.asin(sinphil)
                     else:
-                        phil= m.pi-m.asin(sinphil)
+                        phil= math.pi-math.asin(sinphil)
                     phi= phil-l
-                    if phi > (2.*m.pi): phi-= 2.*m.pi
-                    if phi < 0: phi+= 2.*m.pi
+                    if phi > (2.*math.pi): phi-= 2.*math.pi
+                    if phi < 0: phi+= 2.*math.pi
                                 #make sure this is on the right side of the los
-                    if l >= 0. and l <= m.pi/2. and phi > m.pi: continue
-                    elif l >= m.pi/2. and l <= m.pi and phi > m.pi/2.: \
+                    if l >= 0. and l <= math.pi/2. and phi > math.pi: continue
+                    elif l >= math.pi/2. and l <= math.pi and phi > math.pi/2.: \
                             continue
-                    elif l >= m.pi and l <= 3.*m.pi/2. and phi < 3.*m.pi/2.: \
+                    elif l >= math.pi and l <= 3.*math.pi/2. and phi < 3.*math.pi/2.: \
                             continue
-                    elif l >= 3.*m.pi/2. and phi < m.pi: continue
+                    elif l >= 3.*math.pi/2. and phi < math.pi: continue
                     #Calcualte dphidl
-                    dphidl= m.fabs(1./vxvv[0]*m.cos(l)/m.cos(l+phi)-1.)
+                    dphidl= math.fabs(1./vxvv[0]*math.cos(l)/math.cos(l+phi)-1.)
                     mult= sc.ceil(dphidl*kappa/wR*nphi)-1.
                     kappawR= kappa/wR*nphi-mult
                     while mult > 0:
@@ -1362,7 +1362,7 @@ class dehnendf(diskdf):
                                                         vxvv[2],
                                                         phi]).reshape(4)))
                         mult-= 1
-                if stats.uniform.rvs() > kappawR:
+                if stats.uniformath.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
@@ -1496,7 +1496,7 @@ class shudf(diskdf):
             ECL= sc.log(xL)+0.5
         else:
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
-        E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniform.rvs(size=n))
+        E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniformath.rvs(size=n))
         if self._correct:
             for ii in range(len(xL)):
                 E[ii]*= self._corr.correct(xL[ii],log=False)[1]
@@ -1512,8 +1512,8 @@ class shudf(diskdf):
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
                 except ValueError:
                     continue
-                TR= 2.*m.pi/wR
-                tr= stats.uniform.rvs()*TR
+                TR= 2.*math.pi/wR
+                tr= stats.uniformath.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
@@ -1523,7 +1523,7 @@ class shudf(diskdf):
                 if returnOrbit:
                     vxvv= thisOrbit(tr).vxvv
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                    stats.uniform.rvs()*m.pi*2.]).reshape(4))
+                                                    stats.uniformath.rvs()*math.pi*2.]).reshape(4))
                 else:
                     thisOrbit= Orbit(thisOrbit(tr))
                 kappa= _kappa(thisOrbit.vxvv[0],self._beta)
@@ -1536,11 +1536,11 @@ class shudf(diskdf):
                     if returnOrbit:
                         out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                         vxvv[2],
-                                                        stats.uniform.rvs()*m.pi*2.]).reshape(4)))
+                                                        stats.uniformath.rvs()*math.pi*2.]).reshape(4)))
                     else:
                         out.append(thisOrbit)
                     mult-= 1
-                if stats.uniform.rvs() > kappawR:
+                if stats.uniformath.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
@@ -1728,9 +1728,9 @@ class DFcorrection:
             #R < _RMIN
             rmin_indx= (R < _RMIN)
             if nu.sum(rmin_indx) > 0:
-                out[0,rmin_indx]= m.log(self._corrections[0,0])\
+                out[0,rmin_indx]= math.log(self._corrections[0,0])\
                                   +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
-                out[1,rmin_indx]= m.log(self._corrections[0,1])\
+                out[1,rmin_indx]= math.log(self._corrections[0,1])\
                                   +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
             #R > 2rmax
             rmax_indx= (R > (2.*self._rmax))
@@ -1871,7 +1871,7 @@ def axipotential(R,beta=0.):
     if beta == 0.:
         if nu.any(R == 0.):
             out= nu.empty(R.shape)
-            out[R == 0.]= m.log(_RMIN)
+            out[R == 0.]= math.log(_RMIN)
             out[R != 0.]= nu.log(R[R != 0.])
             return out
         else:
@@ -1897,9 +1897,9 @@ def _ars_hx(x,args):
     """
     surfaceSigma, dfcorr= args
     if dfcorr is None:
-        return m.log(x)+surfaceSigma.surfacemass(x,log=True)
+        return math.log(x)+surfaceSigma.surfacemass(x,log=True)
     else:
-        return m.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
+        return math.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
 
 def _ars_hpx(x,args):
     """
@@ -1925,20 +1925,20 @@ def _ars_hpx(x,args):
 
 def _kappa(R,beta):
     """Internal function to give kappa(r)"""
-    return m.sqrt(2.*(1.+beta))*R**(beta-1)
+    return math.sqrt(2.*(1.+beta))*R**(beta-1)
 
 def _jacobian_rphi_dl(d,l,R=None,phi=None):
     """Compute the jacobian for transforming Galactocentric coordinates to Galactic coordinates, /d"""
     if R is None or phi is None:
         R, phi= _dlToRphi(d,l)
     matrix= sc.zeros((2,2))
-    cosphi= m.cos(phi)
-    sinphi= m.sin(phi)
-    sinl= m.sin(l)
-    cosl= m.cos(l)
+    cosphi= math.cos(phi)
+    sinphi= math.sin(phi)
+    sinl= math.sin(l)
+    cosl= math.cos(l)
     matrix[0,0]= 1./R*sinl
     matrix[1,0]= 1./R*(d-cosl)
-    if m.fabs(cosphi) > m.sqrt(2.)/2.: #use 1./cosphi expression       
+    if math.fabs(cosphi) > math.sqrt(2.)/2.: #use 1./cosphi expression       
         matrix[0,1]= 1./cosphi*(1./R*cosl-d/R**3.*sinl**2.)
         matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl) #dphi/dd
     else:
@@ -1948,11 +1948,11 @@ def _jacobian_rphi_dl(d,l,R=None,phi=None):
 
 def _dlToRphi(d,l):
     """Convert d and l to R and phi, l is in radians"""
-    R= m.sqrt(1.+d**2.-2.*d*m.cos(l))
-    if 1./m.cos(l) < d and m.cos(l) > 0.:
-        theta= m.pi-m.asin(d/R*m.sin(l))
+    R= math.sqrt(1.+d**2.-2.*d*math.cos(l))
+    if 1./math.cos(l) < d and math.cos(l) > 0.:
+        theta= math.pi-math.asin(d/R*math.sin(l))
     else:
-        theta= m.asin(d/R*m.sin(l))
+        theta= math.asin(d/R*math.sin(l))
     return (R,theta)
     
 def _vtmaxEq(vT,R,diskdf):
