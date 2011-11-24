@@ -498,26 +498,17 @@ class evolveddiskdf:
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaR2,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
-                                                     nsigma=nsigma,phi=phi,
-                                                     epsrel=epsrel,
-                                                     epsabs=epsabs,grid=grid,
-                                                     gridpoints=gridpoints,
-                                                     returnGrid=True,
-                                                     hierarchgrid=hierarchgrid,
-                                                     nlevels=nlevels,
-                                                     integrate_method=integrate_method)
+            (sigmaR2_tmp,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
+                                                         nsigma=nsigma,phi=phi,
+                                                         epsrel=epsrel,
+                                                         epsabs=epsabs,grid=grid,
+                                                         gridpoints=gridpoints,
+                                                         returnGrid=True,
+                                                         hierarchgrid=hierarchgrid,
+                                                         nlevels=nlevels,
+                                                         integrate_method=integrate_method)
         else:
             grido= False
-        if surfacemass is None:
-            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
-                                                 nsigma=nsigma,epsrel=epsrel,
-                                                 epsabs=epsabs,grid=grido,
-                                                 gridpoints=gridpoints,
-                                                 returnGrid=False,
-                                                 hierarchgrid=hierarchgrid,
-                                                 nlevels=nlevels,
-                                                 integrate_method=integrate_method)
         if sigmaR2 is None:
             sigmaR2= self.sigmaR2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -525,7 +516,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)
         if sigmaT2 is None:
             sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -533,7 +524,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)
         if sigmaRT is None:
             sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -541,7 +532,7 @@ class evolveddiskdf:
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)/surfacemass
+                                  nlevels=nlevels,integrate_method=integrate_method)
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
@@ -801,7 +792,7 @@ class evolveddiskdf:
                                                  returnGrid=False,
                                                  hierarchgrid=hierarchgrid,
                                                  nlevels=nlevels,
-                                                 integrat_method=integrate_method)
+                                                 integrate_method=integrate_method)
         if meanvR is None:
             meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
