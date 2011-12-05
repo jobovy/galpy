@@ -488,12 +488,12 @@ class diskdf:
         out= []
         while len(out) < n:
             #sample
-            prop= nu.randomath.random()*maxd
+            prop= nu.random.random()*maxd
             if target:
                 surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)*prop
             else:
                 surfmassatprop= self.surfacemassLOS(prop,l,deg=False)*prop
-            if surfmassatprop/maxSM > nu.randomath.random(): #accept
+            if surfmassatprop/maxSM > nu.random.random(): #accept
                 out.append(prop)
         return nu.array(out)
 
@@ -530,10 +530,10 @@ class diskdf:
             sigma= math.sqrt(self.sigma2(R))
         while len(out) < n:
             #sample
-            propvR= nu.randomath.normal()*_NSIGMA*sigma
-            propvT= nu.randomath.normal()*_NSIGMA*sigma/self._gamma+1.
+            propvR= nu.random.normal()*_NSIGMA*sigma
+            propvT= nu.random.normal()*_NSIGMA*sigma/self._gamma+1.
             VDatprop= self(Orbit([R,propvR,propvT]))
-            if VDatprop/maxVD > nu.randomath.random(): #accept
+            if VDatprop/maxVD > nu.random.random(): #accept
                 out.append(sc.array([propvR,propvT]))
         return nu.array(out)
 
