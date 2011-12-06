@@ -956,6 +956,8 @@ def scatterplot(x,y,*args,**kwargs):
                           both need to be set and calculated using 
                           scipy.histogramdd with the given range
 
+       retAxes= return all Axes instances
+
     OUTPUT:
 
     HISTORY:
@@ -1081,6 +1083,11 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('onedhistyweights')
     else:
         onedhistyweights= None
+    if kwargs.has_key('retAxes'):
+        retAxes= kwargs['retAxes']
+        kwargs.pop('retAxes')
+    else:
+        retAxes= False
     if onedhists:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
@@ -1154,7 +1161,10 @@ def scatterplot(x,y,*args,**kwargs):
             bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
     #Add onedhists
     if not onedhists:
-        return
+        if retAxes:
+            return pyplot.gca()
+        else:
+            return
     histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
                                         weights=onedhistxweights,
                                         histtype=onedhisttype,
@@ -1174,6 +1184,10 @@ def scatterplot(x,y,*args,**kwargs):
     axHisty.set_ylim( axScatter.get_ylim() )
     axHistx.set_ylim( 0, 1.2*sc.amax(histx))
     axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+    if retAxes:
+        return (axScatter,axHistx,axHisty)
+    else:
+        return None
 
 def _add_axislabels(xlabel,ylabel):
     """
