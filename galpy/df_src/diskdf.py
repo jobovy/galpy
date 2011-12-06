@@ -1966,7 +1966,7 @@ def _vtmaxEq(vT,R,diskdf):
         dxEdvT= xE*vT
     else: #non-flat rotation curve
         E= vT**2./2.+1./2./diskdf._beta*R**(2.*diskdf._beta)
-        xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+        xE= (2.*E/(1.+1./diskdf._beta))**(1./2./diskdf._beta)
         OE= xE**(diskdf._beta-1.)
         LCE= xE**(diskdf._beta+1.)
         dxEdvT= xE/2./diskdf._beta/E*vT
