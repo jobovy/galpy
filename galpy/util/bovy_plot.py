@@ -563,6 +563,8 @@ def bovy_dens2d(X,**kwargs):
 
        onedhistcolor - histogram color
 
+       retAxes= return all Axes instances
+
     OUTPUT:
 
     HISTORY:
@@ -698,6 +700,11 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('onedhistcolor')
     else:
         onedhistcolor= 'k'
+    if kwargs.has_key('retAxes'):
+        retAxes= kwargs['retAxes']
+        kwargs.pop('retAxes')
+    else:
+        retAxes= False
     if onedhists:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
@@ -771,10 +778,12 @@ def bovy_dens2d(X,**kwargs):
     if not onedhists:
         if retCumImage:
             return cntrThis
+        elif retAxes:
+            return pyplot.gca()
         else:
             return out
-    histx= sc.nansum(X.T,axis=1) #nansum bc nan is *no dens value*
-    histy= sc.nansum(X.T,axis=0)
+    histx= sc.nansum(X.T,axis=1)*(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
+    histy= sc.nansum(X.T,axis=0)*(xlimits[1]-xlimits[0])/X.shape[0]
     histx[sc.isnan(histx)]= 0.
     histy[sc.isnan(histy)]= 0.
     dx= (extent[1]-extent[0])/float(len(histx))
@@ -789,6 +798,8 @@ def bovy_dens2d(X,**kwargs):
     axHisty.set_xlim( 0, 1.2*sc.amax(histy))
     if retCumImage:
         return cntrThis
+    elif retAxes:
+        return (axScatter,axHistx,axHisty)
     else:
         return out
 
