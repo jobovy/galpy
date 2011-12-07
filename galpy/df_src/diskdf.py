@@ -1039,6 +1039,64 @@ class diskdf:
         s2= vr2-vr**2.
         return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
 
+    def kurtosisvT(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           kurtosisvT
+        PURPOSE:
+           calculate excess kurtosis in vT at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate <vR> (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           kurtosisvT
+        HISTORY:
+           2011-12-07 - Written - Bovy (NYU)
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt4= self.vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vt2-vt**2.
+        return (vt4-4.*vt*vt3+6.*vt**2.*vt2-3.*vt**4.)*s2**(-2.)-3.
+
+    def kurtosisvR(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           kurtosisvR
+        PURPOSE:
+           calculate excess kurtosis in vR at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate <vR> (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           kurtosisvR
+        HISTORY:
+           2011-12-07 - Written - Bovy (NYU)
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr4= self.vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vr2-vr**2.
+        return (vr4-4.*vr*vr3+6.*vr**2.*vr2-3.*vr**4.)*s2**(-2.)-3.
+
     def _ELtowRRapRperi(self,E,L):
         """
         NAME:
