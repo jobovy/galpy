@@ -985,6 +985,60 @@ class diskdf:
         return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
+    def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           skewvT
+        PURPOSE:
+           calculate skew in vT at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate <vR> (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           skewvT
+        HISTORY:
+           2011-12-07 - Written - Bovy (NYU)
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vt2-vt**2.
+        return (vt3-3.*vt*vt2+2.*vt**3.)*s2**(-1.5)
+
+    def skewvR(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+           skewvR
+        PURPOSE:
+           calculate skew in vR at R by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate <vR> (/ro)
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+        KEYWORDS:
+           romberg - if True, use a romberg integrator (default: False)
+        OUTPUT:
+           skewvR
+        HISTORY:
+           2011-12-07 - Written - Bovy (NYU)
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vr2-vr**2.
+        return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
+
     def _ELtowRRapRperi(self,E,L):
         """
         NAME:
