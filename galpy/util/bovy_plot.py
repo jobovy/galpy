@@ -110,6 +110,8 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
 
        ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
 
+       yrange - set the y-axis range
+
        + all pyplot.hist keywords
 
     OUTPUT:
@@ -127,16 +129,32 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     """
     if not overplot:
         pyplot.figure()
+    if kwargs.has_key('xrange'):
+        xlimits=kwargs['xrange']
+        kwargs.pop('xrange')
+        if not kwargs.has_key('range'):
+            kwargs['range']= xlimits
+        xrangeSet= True
+    else: xrangeSet= False
+    if kwargs.has_key('yrange'):
+        ylimits=kwargs['yrange']
+        kwargs.pop('yrange')
+        yrangeSet= True
+    else: yrangeSet= False
     out= pyplot.hist(x,**kwargs)
     if overplot: return out
     _add_axislabels(xlabel,ylabel)
-    if not kwargs.has_key('range'):
+    if not kwargs.has_key('range') and not xrangeSet:
         if isinstance(x,list):
             xlimits=(sc.array(x).min(),sc.array(x).max())
         else:
             pyplot.xlim(x.min(),x.max())
+    elif xrangeSet:
+        pyplot.xlim(xlimits)
     else:
         pyplot.xlim(kwargs['range'])
+    if yrangeSet:
+        pyplot.ylim(ylimits)
     _add_ticks()
     return out
 
