@@ -16,8 +16,16 @@ See [here](http://jobovy.github.com/galpy)
 
 Standard python setup.py build/install
 
-
 ##DEPENDENCIES
 
 This package requires [NumPy](http://numpy.scipy.org/), [Scipy] (http://www.scipy.org/), and [Matplotlib] (http://matplotlib.sourceforge.net/).
 
+##DISK DF CORRECTIONS
+
+The dehnendf and shudf disk distribution functions can be corrected to
+follow the desired surface-mass density and radial-velocity-dispersion
+profiles more closely (see
+[1999AJ....118.1201D](http://adsabs.harvard.edu/abs/1999AJ....118.1201D)). Calculating
+these corrections is expensive, and a large set of precalculated
+corrections can be found
+[here](https://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz).
