@@ -138,9 +138,9 @@ class evolveddiskdf:
                     dderiv= tmp-o.phi()
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if msg > 0.:
-                    print "WARNING: INTEGRATION FAILED, RETURNING ZERO EVERYWHERE"
+                    print "Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ..."
                     return nu.zeros(len(t))
-                o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
+                o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             if _PROFILE:
@@ -262,7 +262,7 @@ class evolveddiskdf:
                     tmp= o.phi()+dderiv
                     dderiv= tmp-o.phi()
                     o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
-                o._orb.orbit= o._orb.orbit_dxdv[:,0:4] #BOVY HACK
+                o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
@@ -320,7 +320,7 @@ class evolveddiskdf:
            m - vT^m
            t= time at which to evaluate the DF (can be a list or ndarray)
         OPTIONAL INPUT:
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
+           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous, but not too generous)
            deg= azimuth is in degree (default=False)
            epsrel, epsabs - scipy.integrate keywords (the integration 
                             calculates the ration of this vmoment to that 
@@ -343,6 +343,8 @@ class evolveddiskdf:
                                        R or phi ONLY WITH GRID
         OUTPUT:
            <vR^n vT^m  x surface-mass> at R,phi
+        COMMENT:
+           grid-based calculation is the only one that is heavily tested
         HISTORY:
            2011-03-30 - Written - Bovy (NYU)
         """
