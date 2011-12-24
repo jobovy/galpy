@@ -28,4 +28,5 @@ profiles more closely (see
 [1999AJ....118.1201D](http://adsabs.harvard.edu/abs/1999AJ....118.1201D)). Calculating
 these corrections is expensive, and a large set of precalculated
 corrections can be found
-[here](https://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz).
+[here](https://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz)\[tar.gz
+archive\].
