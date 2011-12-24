@@ -2,6 +2,7 @@ from galpy.df_src import diskdf
 from galpy.df_src import surfaceSigmaProfile
 from galpy.df_src import Edf
 from galpy.df_src import isothermdf
+from galpy.df_src import evolveddiskdf
 
 #
 # Classes
@@ -10,6 +11,7 @@ shudf= diskdf.shudf
 dehnendf= diskdf.dehnendf
 DFcorrection= diskdf.DFcorrection
 diskdf= diskdf.diskdf
+evolveddiskdf= evolveddiskdf.evolveddiskdf
 expSurfaceSigmaProfile= surfaceSigmaProfile.expSurfaceSigmaProfile
 surfaceSigmaProfile= surfaceSigmaProfile.surfaceSigmaProfile
 Edf= Edf.Edf
