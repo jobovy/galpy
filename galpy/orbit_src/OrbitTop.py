@@ -60,11 +60,11 @@ class OrbitTop:
             thispot= pot
         #First find the interval; initialize
         dt= 1.
-        a,b= 0., dt
+        a,b=  0., dt
         vxvv_a= self.vxvv
         bc_a= bc(vxvv_a)
         if bc_a == 0.:
-            return nu.array([vxvv_a,vxvv_a])
+            return (nu.array([vxvv_a,vxvv_a]),0.)
         tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
         vxvv_b= tmp_orb[1,:]
         bc_b= bc(vxvv_b)
@@ -83,7 +83,7 @@ class OrbitTop:
         tout= optimize.brentq(_BCZeroFunction,a,b,
                               args=(vxvv_a,thispot,method,bc,a,self._BCIntegrateFunction))
         t= nu.array([a,tout])
-        return (self._BCIntegrateFunction(vxvv_a,thispot,t,method),tout)
+        return (self._BCIntegrateFunction(vxvv_a,thispot,t,method),a+tout)
     
     def getOrbit(self):
         """
