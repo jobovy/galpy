@@ -49,7 +49,7 @@ class OrbitTop:
            method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
                    a simple symplectic integrator
         OUTPUT:
-           Another Orbit instance
+           Another Orbit instance, time at which the BC is reached
         HISTORY:
            2011-09-30
         """
@@ -83,8 +83,8 @@ class OrbitTop:
         tout= optimize.brentq(_BCZeroFunction,a,b,
                               args=(vxvv_a,thispot,method,bc,a,self._BCIntegrateFunction))
         t= nu.array([a,tout])
-        return self._BCIntegrateFunction(vxvv_a,thispot,t,method)
-
+        return (self._BCIntegrateFunction(vxvv_a,thispot,t,method),tout)
+    
     def getOrbit(self):
         """
         NAME:
