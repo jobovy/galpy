@@ -268,16 +268,16 @@ class Orbit:
                    a simple symplectic integrator
 
         OUTPUT:
-
-           Another Orbit instance
+        
+           (Another Orbit instance,time at which BC is reached)
 
         HISTORY:
 
            2011-09-30
 
         """
-        o= self._orb.integrateBC(pot,bc=bc,method=method)
-        return Orbit(vxvv=o[1,:])
+        o,tout= self._orb.integrateBC(pot,bc=bc,method=method)
+        return (Orbit(vxvv=o[1,:]),tout)
 
     def reverse(self):
         """
