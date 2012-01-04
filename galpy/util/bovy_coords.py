@@ -1071,7 +1071,7 @@ def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
         l*= _DEGTORAD
     R= sc.sqrt(ro**2.+d**2.-2.*d*ro*sc.cos(l))
     phi= sc.arcsin(d/R*sc.sin(l))
-    indx= (1./sc.cos(l) < d)*(sc.cos(l) > 0.)
+    indx= (ro/sc.cos(l) < d)*(sc.cos(l) > 0.)
     phi[indx]= sc.pi-sc.arcsin(d[indx]/R[indx]*sc.sin(l[indx]))
     if degree:
         phi/= _DEGTORAD
@@ -1118,7 +1118,7 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
         phi*= _DEGTORAD
     d= sc.sqrt(R**2.+ro**2.-2.*R*ro*sc.cos(phi))
     l= sc.arcsin(R/d*sc.sin(phi))
-    indx= (1./sc.cos(phi) < R)*(sc.cos(phi) > 0.)
+    indx= (ro/sc.cos(phi) < R)*(sc.cos(phi) > 0.)
     l[indx]= sc.pi-sc.arcsin(R[indx]/d[indx]*sc.sin(phi[indx]))
     if degree:
         l/= _DEGTORAD
