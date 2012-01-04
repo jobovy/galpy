@@ -32,7 +32,7 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2011, Jo Bovy
+#Copyright (c) 2010 - 2012, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -1034,6 +1034,52 @@ def cyl_to_rect_vec(vr,vt,vz,phi):
     vx= vr*sc.cos(phi)-vt*sc.sin(phi)
     vy= vr*sc.sin(phi)+vt*sc.cos(phi)
     return (vx,vy,vz)
+
+def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
+    """
+    NAME:
+       dl_to_rphi_2d
+    PURPOSE:
+       convert Galactic longitude and distance to Galactocentric radius and 
+       azimuth
+    INPUT:
+       d - distance
+       l - Galactic longitude [rad/deg if degree]
+    KEYWORDS:
+       degree= (False): l is in degrees rather than rad
+       ro= (1) Galactocentric radius of the observer
+       phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
+    OUTPUT:
+       (R,phi); phi in degree if degree
+    HISTORY:
+       2012-01-04 - Written - Bovy (IAS)
+    """
+    scalarOut, listOut= False, False
+    if isinstance(d,(int,float)):
+        d= sc.array([d])
+        scalarOut= True
+    elif isinstance(d,list):
+        d= sc.array(d)
+        listOut= True
+    if isinstance(l,(int,float)):
+        l= sc.array([l])
+    elif isinstance(l,list):
+        l= sc.array(l)
+    if degree:
+        l*= _DEGTORAD
+    R= sc.sqrt(ro+d**2.-2.*d*sc.cos(l))
+    phi= sc.arcsin(d/R*sc.sin(l))
+    indx= (1./sc.cos(l) < d)*(sc.cos(l) > 0.)
+    phi[indx]= sc.pi-sc.arcsin(d[indx]/R[indx]*sc.sin(l[indx]))
+    if degree:
+        phi/= _DEGTORAD
+    phi+= phio
+    if scalarOut:
+        return (R[0],phi[0])
+    elif listOut:
+        return (list(R),list(phi))
+    else:
+        return (R,phi)
 
 def get_epoch_angles(epoch=2000.0):
     """
