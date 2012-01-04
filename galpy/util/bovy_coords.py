@@ -1067,7 +1067,7 @@ def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
         l= sc.array(l)
     if degree:
         l*= _DEGTORAD
-    R= sc.sqrt(ro+d**2.-2.*d*sc.cos(l))
+    R= sc.sqrt(ro**2.+d**2.-2.*d*ro*sc.cos(l))
     phi= sc.arcsin(d/R*sc.sin(l))
     indx= (1./sc.cos(l) < d)*(sc.cos(l) > 0.)
     phi[indx]= sc.pi-sc.arcsin(d[indx]/R[indx]*sc.sin(l[indx]))
@@ -1080,6 +1080,52 @@ def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
         return (list(R),list(phi))
     else:
         return (R,phi)
+
+def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
+    """
+    NAME:
+       rphi_to_dl_2d
+    PURPOSE:
+       convert Galactocentric radius and azimuth to distance and Galactic
+       longitude
+    INPUT:
+       R - Galactocentric radius
+       phi - Galactocentric azimuth [rad/deg if degree]
+    KEYWORDS:
+       degree= (False): phi is in degrees rather than rad
+       ro= (1) Galactocentric radius of the observer
+       phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
+    OUTPUT:
+       (d,l); phi in degree if degree
+    HISTORY:
+       2012-01-04 - Written - Bovy (IAS)
+    """
+    scalarOut, listOut= False, False
+    if isinstance(R,(int,float)):
+        R= sc.array([R])
+        scalarOut= True
+    elif isinstance(R,list):
+        R= sc.array(R)
+        listOut= True
+    if isinstance(phi,(int,float)):
+        phi= sc.array([phi])
+    elif isinstance(phi,list):
+        phi= sc.array(phi)
+    phi-= phio
+    if degree:
+        phi*= _DEGTORAD
+    d= sc.sqrt(R**2.+ro**2.-2.*R*ro*sc.cos(phi))
+    l= sc.arcsin(R/d*sc.sin(phi))
+    indx= (1./sc.cos(phi) < R)*(sc.cos(phi) > 0.)
+    l[indx]= sc.pi-sc.arcsin(R[indx]/d[indx]*sc.sin(phi[indx]))
+    if degree:
+        l/= _DEGTORAD
+    if scalarOut:
+        return (d[0],l[0])
+    elif listOut:
+        return (list(d),list(l))
+    else:
+        return (d,l)
 
 def get_epoch_angles(epoch=2000.0):
     """
