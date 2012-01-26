@@ -174,7 +174,7 @@ class diskdf:
         #Get d, l, vlos
         d= o.dist(ro=1.,obs=[1.,0.,0.])
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
         R= o.R()
         phi= o.phi()
         #Get local circular velocity, projected onto the los
@@ -219,7 +219,7 @@ class diskdf:
         #Get d, l, vperp
         d= o.dist(ro=1.,obs=[1.,0.,0.])
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
         R= o.R()
         phi= o.phi()
         #Get local circular velocity, projected onto the perpendicular 
