@@ -466,11 +466,11 @@ class diskdf:
                                          -self.targetSurfacemassLOS(x,l,
                                                                       deg=False),
                                      0.,disp=False)[0]
-                maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
+            maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
         else:
             minR= optimize.fmin_bfgs(lambda x: \
                                          -self.surfacemassLOS(x,l,
-                                                                deg=False),
+                                                              deg=False),
                                      0.,disp=False)[0]
             maxSM= self.surfacemassLOS(minR,l,deg=False)
         #Now rejection-sample
