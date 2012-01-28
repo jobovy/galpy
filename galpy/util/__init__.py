@@ -1,4 +1,4 @@
-import shutil
+import os
 import tempfile
 import pickle
 def save_pickles(savefilename,*args):
@@ -25,7 +25,7 @@ def save_pickles(savefilename,*args):
             for f in args:
                 pickle.dump(f,savefile)
             savefile.close()
-            shutil.move(tmp_savefilename,savefilename)
+            os.rename(tmp_savefilename,savefilename)
             saving= False
             if interrupted:
                 raise KeyboardInterrupt
