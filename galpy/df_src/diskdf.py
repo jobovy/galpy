@@ -2033,6 +2033,9 @@ def _kappa(R,beta):
 def _dlToRphi(d,l):
     """Convert d and l to R and phi, l is in radians"""
     R= math.sqrt(1.+d**2.-2.*d*math.cos(l))
+    if R == 0.:
+        R+= 0.0001
+        d+= 0.0001
     if 1./math.cos(l) < d and math.cos(l) > 0.:
         theta= math.pi-math.asin(d/R*math.sin(l))
     else:
