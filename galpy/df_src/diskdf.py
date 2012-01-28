@@ -401,15 +401,13 @@ class diskdf:
         else:
             lrad= l
         R, phi= _dlToRphi(d,lrad)
-        #Evaluate Jacobian
-        jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +math.log(math.fabs(jac))+math.log(R)
+                +math.log(d)
             pass
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                *math.fabs(jac)*R
+                *d
 
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
@@ -438,14 +436,12 @@ class diskdf:
         else:
             lrad= l
         R, phi= _dlToRphi(d,lrad)
-        #Evaluate Jacobian
-        jac= _jacobian_rphi_dl(d,lrad,R=R,phi=phi)
         if target:
-            return self.targetSurfacemass(R)*math.fabs(jac)*R
+            return self.targetSurfacemass(R)*d
         else:
             return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                     relative=relative)\
-                                    *math.fabs(jac)*R
+                                    *d
 
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
@@ -465,23 +461,18 @@ class diskdf:
            2011-03-24 - Written - Bovy (NYU)
         """
         #First calculate where the maximum is
-        if l == 0.:
-            maxSM= self.targetSurfacemass(0.)
-        elif l >= math.pi/2. and l <= 3.*math.pi/2.:
-            maxSM= self.targetSurfacemass(1.)
-        elif l < math.pi/2. or l > 3.*math.pi/2.:
-            if target:
-                minR= optimize.fmin_bfgs(lambda x: \
-                                             -x*self.targetSurfacemassLOS(x,l,
-                                                                          deg=False),
-                                         0.,disp=False)[0]
-                maxSM= self.targetSurfacemassLOS(minR,l,deg=False)*minR
-            else:
-                minR= optimize.fmin_bfgs(lambda x: \
-                                             -x*self.surfacemassLOS(x,l,
-                                                                    deg=False),
-                                         0.,disp=False)[0]
-                maxSM= self.surfacemassLOS(minR,l,deg=False)*minR
+        if target:
+            minR= optimize.fmin_bfgs(lambda x: \
+                                         -self.targetSurfacemassLOS(x,l,
+                                                                      deg=False),
+                                     0.,disp=False)[0]
+                maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
+        else:
+            minR= optimize.fmin_bfgs(lambda x: \
+                                         -self.surfacemassLOS(x,l,
+                                                                deg=False),
+                                     0.,disp=False)[0]
+            maxSM= self.surfacemassLOS(minR,l,deg=False)
         #Now rejection-sample
         if maxd is None:
             maxd= _MAXD_REJECTLOS
@@ -490,9 +481,9 @@ class diskdf:
             #sample
             prop= nu.random.random()*maxd
             if target:
-                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)*prop
+                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
             else:
-                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)*prop
+                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
             if surfmassatprop/maxSM > nu.random.random(): #accept
                 out.append(prop)
         return nu.array(out)
@@ -2038,25 +2029,6 @@ def _ars_hpx(x,args):
 def _kappa(R,beta):
     """Internal function to give kappa(r)"""
     return math.sqrt(2.*(1.+beta))*R**(beta-1)
-
-def _jacobian_rphi_dl(d,l,R=None,phi=None):
-    """Compute the jacobian for transforming Galactocentric coordinates to Galactic coordinates, /d"""
-    if R is None or phi is None:
-        R, phi= _dlToRphi(d,l)
-    matrix= sc.zeros((2,2))
-    cosphi= math.cos(phi)
-    sinphi= math.sin(phi)
-    sinl= math.sin(l)
-    cosl= math.cos(l)
-    matrix[0,0]= 1./R*sinl
-    matrix[1,0]= 1./R*(d-cosl)
-    if math.fabs(cosphi) > math.sqrt(2.)/2.: #use 1./cosphi expression       
-        matrix[0,1]= 1./cosphi*(1./R*cosl-d/R**3.*sinl**2.)
-        matrix[1,1]= 1./cosphi*(sinl/R-d**2./R**3.*sinl+d/R**3.*sinl*cosl) #dphi/dd
-    else:
-        matrix[0,1]= -(R-cosphi)/R**2./sinphi*sinl
-        matrix[1,1]= 1./R/sinphi*(d-(R-cosphi)/R*(d-cosl)) #dphi/dd
-    return linalg.det(matrix)
 
 def _dlToRphi(d,l):
     """Convert d and l to R and phi, l is in radians"""
