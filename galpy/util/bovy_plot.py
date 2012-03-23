@@ -800,8 +800,8 @@ def bovy_dens2d(X,**kwargs):
             return pyplot.gca()
         else:
             return out
-    histx= sc.nansum(X.T,axis=1)*(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
-    histy= sc.nansum(X.T,axis=0)*(xlimits[1]-xlimits[0])/X.shape[0]
+    histx= sc.nansum(X.T,axis=1)*m.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
+    histy= sc.nansum(X.T,axis=0)*m.fabs(xlimits[1]-xlimits[0])/X.shape[0]
     histx[sc.isnan(histx)]= 0.
     histy[sc.isnan(histy)]= 0.
     dx= (extent[1]-extent[0])/float(len(histx))
