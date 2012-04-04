@@ -1270,7 +1270,7 @@ def _add_axislabels(xlabel,ylabel):
             thisylabel=ylabel
         pyplot.ylabel(thisylabel)
         
-def _add_ticks():
+def _add_ticks(xticks=True,yticks=True):
     """
     NAME:
 
@@ -1294,12 +1294,14 @@ def _add_ticks():
 
     """
     ax=pyplot.gca()
-    xstep= ax.xaxis.get_majorticklocs()
-    xstep= xstep[1]-xstep[0]
-    ax.xaxis.set_minor_locator(ticker.MultipleLocator(xstep/5.))
-    ystep= ax.yaxis.get_majorticklocs()
-    ystep= ystep[1]-ystep[0]
-    ax.yaxis.set_minor_locator(ticker.MultipleLocator(ystep/5.))
+    if xticks:
+        xstep= ax.xaxis.get_majorticklocs()
+        xstep= xstep[1]-xstep[0]
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(xstep/5.))
+    if yticks:
+        ystep= ax.yaxis.get_majorticklocs()
+        ystep= ystep[1]-ystep[0]
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(ystep/5.))
 
 
 class GalPolarAxes(PolarAxes):
