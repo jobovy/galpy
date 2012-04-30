@@ -90,8 +90,8 @@ class DoubleExponentialDiskPotential(Potential):
                                                    self._gamma),tol=_TOL,
                                              maxiter=self._maxiter,
                                              vec_func=False)
-        maxiterFactorSmall= 2.
-        maxiterFactorLarge= 2.
+        maxiterFactorSmall= 2
+        maxiterFactorLarge= 2
         if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
             notConvergedSmall= False
         if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
@@ -156,8 +156,8 @@ class DoubleExponentialDiskPotential(Potential):
                                                    self._gamma),tol=_TOL,
                                              maxiter= 2*self._maxiter,
                                              vec_func=False)
-        maxiterFactorSmall= 4.
-        maxiterFactorLarge= 4.
+        maxiterFactorSmall= 4
+        maxiterFactorLarge= 4
         if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
             notConvergedSmall= False
         if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
@@ -227,8 +227,8 @@ class DoubleExponentialDiskPotential(Potential):
                                                    self._gamma),tol=_TOL,
                                              maxiter=2*self._maxiter,
                                              vec_func=False)
-        maxiterFactorSmall= 4.
-        maxiterFactorLarge= 4.
+        maxiterFactorSmall= 4
+        maxiterFactorLarge= 4
         try:
             if smallkIntegral[1]/self._typicalKz <= self._tol:
                 notConvergedSmall= False
