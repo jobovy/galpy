@@ -138,7 +138,7 @@ class MiyamotoNagaiPotential(Potential):
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
         return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
-            (R**2.+asqrtbz)**2.5/sqrtbz**3.
+            (R**2.+asqrtbz**2.)**2.5/sqrtbz**3./4./nu.pi*self._b2
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
