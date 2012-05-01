@@ -113,7 +113,7 @@ class LogarithmicHaloPotential(Potential):
            the density
         HISTORY:
         """
-        return 4.*nu.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
+        return 1./4./nu.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
                                            +(2.-self._q**-2.)*z**2.)/\
                                            (R**2.+(z/self._q)**2.+self._core2)**2.
 
