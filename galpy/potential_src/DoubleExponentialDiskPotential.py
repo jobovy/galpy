@@ -23,7 +23,6 @@ class DoubleExponentialDiskPotential(Potential):
            amp - amplitude to be applied to the potential (default: 1)
            hr - disk scale-length in terms of ro
            hz - scale-height
-           ro - representative disk-radius at which rhoo is given
            tol - relative accuracy of potential-evaluations
            maxiter - scipy.integrate keyword
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
