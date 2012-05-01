@@ -147,7 +147,7 @@ class TwoPowerSphericalPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         r= m.sqrt(R**2.+z**2.)
-        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)
+        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
 
 def _potIntegrandTransform(t,alpha,beta):
     """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
