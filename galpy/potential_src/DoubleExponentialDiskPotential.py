@@ -71,6 +71,8 @@ class DoubleExponentialDiskPotential(Potential):
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
             return -self._phiforce(R,z,phi=phi,t=t)
+        elif dR == 2 and dphi == 0:
+            return self._R2deriv(R,z,phi=phi,t=t)
         elif dR != 0 and dphi != 0:
             raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
         notConvergedSmall= True
@@ -282,6 +284,74 @@ class DoubleExponentialDiskPotential(Potential):
         else:
             return -4.*nu.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
 
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           R2deriv
+        PURPOSE:
+           evaluate R2 derivative
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           -d K_R (R,z) d R
+        HISTORY:
+           2012-05-01 - Written - Bovy (NYU)
+        DOCTEST:
+        """
+        notConvergedSmall= True
+        notConvergedLarge= True
+        smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
+                                             0.,1./self._gamma,
+                                             args=(self._alpha*R,
+                                                   self._beta*nu.fabs(z),
+                                                   self._gamma),tol=_TOL,
+                                             maxiter= 2*self._maxiter,
+                                                 vec_func=True)
+        largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandLargek,
+                                             0.,self._gamma,
+                                             args=(self._alpha*R,
+                                                   self._beta*nu.fabs(z),
+                                                   self._gamma),tol=_TOL,
+                                             maxiter= 2*self._maxiter,
+                                             vec_func=True)
+        maxiterFactorSmall= 4
+        maxiterFactorLarge= 4
+        if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
+            notConvergedSmall= False
+        if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
+            notConvergedLarge= False
+        while notConvergedSmall or notConvergedLarge:
+            if notConvergedSmall:
+                smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
+                                                     0.,1./self._gamma,
+                                                     args=(self._alpha*R,
+                                                           self._beta*nu.fabs(z),
+                                                           self._gamma),
+                                                     tol=_TOL,
+                                                     maxiter= maxiterFactorSmall*self._maxiter,
+                                                     vec_func=True)
+                if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) > self._tol:
+                    maxiterFactorSmall*= 2
+                else:
+                    notConvergedSmall= False
+            if notConvergedLarge:
+                largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandLargek,
+                                                     0.,self._gamma,
+                                                     args=(self._alpha*R,
+                                                           self._beta*nu.fabs(z),
+                                                           self._gamma),
+                                                     tol=_TOL,
+                                                     maxiter=maxiterFactorLarge*self._maxiter,
+                                                     vec_func=True)
+            if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) > self._tol:
+                maxiterFactorLarge*= 2
+            else:
+                notConvergedLarge= False
+        return 4.*nu.pi*self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
+    
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -335,6 +405,19 @@ def _doubleExponentialDiskPotentialzForceIntegrandLargek(k,R,z,gamma):
     """Internal function that gives the integrand for the double
     exponential disk vertical force for k > 1/gamma"""
     return 1./k**2.*_doubleExponentialDiskPotentialzForceIntegrandSmallk(1./k,R,z,gamma)
+
+def _doubleExponentialDiskPotentialR2derivIntegrandSmallk(k,R,z,gamma):
+    """Internal function that gives the integrand for the double
+    exponential disk radial force for k < 1/gamma"""
+    gammak= gamma*k
+    return k*k*0.5*(special.jn(0,k*R)-special.jn(2,k*R))\
+        *(1.+k**2.)**-1.5*(nu.exp(-gammak*z)
+                           -gammak*nu.exp(-z))/(1.-gammak**2.)
+
+def _doubleExponentialDiskPotentialR2derivIntegrandLargek(k,R,z,gamma):
+    """Internal function that gives the integrand for the double
+    exponential disk radial force for k > 1/gamma"""
+    return 1./k**2.*_doubleExponentialDiskPotentialR2derivIntegrandSmallk(1./k,R,z,gamma)
 
 
 if __name__ == '__main__':
