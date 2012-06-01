@@ -16,7 +16,8 @@ import math as m
 import numpy as nu
 from scipy import optimize, integrate
 from actionAngle import *
-class actionAngleFlat(actionAngle):
+from actionAngleVertical import actionAngleVertical
+class actionAngleFlat(actionAngle,actionAngleVertical):
     """Action-angle formalism for flat rotation curves"""
     def __init__(self,*args,**kwargs):
         """
@@ -34,6 +35,8 @@ class actionAngleFlat(actionAngle):
            2010-07-11 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
+        actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
+                                     **kwargs)
         return None
     
     def angleR(self,**kwargs):
