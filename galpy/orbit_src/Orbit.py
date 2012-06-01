@@ -805,7 +805,6 @@ class Orbit:
            2012-06-01 - Written - Bovy (IAS)
 
         """
-        raise NotImplementedError("Tz not implemented yet")
         if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.Tz(**kwargs)

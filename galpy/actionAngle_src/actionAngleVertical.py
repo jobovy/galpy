@@ -62,6 +62,28 @@ class actionAngleVertical(actionAngle):
                                               **kwargs)))/nu.pi
         return self._Jz
 
+    def Tz(self,**kwargs):
+        """
+        NAME:
+           Tz
+        PURPOSE:
+           Calculate the vertical period
+        INPUT:
+           +scipy.integrate.quad keywords
+        OUTPUT:
+           T_z(z,vz)*vc/ro + estimate of the error
+        HISTORY:
+           2012-06-01 - Written - Bovy (IAS)
+        """
+        if hasattr(self,'_Tz'):
+            return self._Tz
+        zmax= self.calczmax()
+        Ez= calcEz(self._z,self._vz,self._verticalpot)
+        self._Tz= (4.*nu.array(integrate.quad(_TzIntegrand,0.,zmax,
+                                              args=(Ez,self._verticalpot),
+                                              **kwargs)))
+        return self._Tz
+
     def calczmax(self):
         """
         NAME:
@@ -127,6 +149,10 @@ def potentialVertical(z,pot):
 def _JzIntegrand(z,Ez,pot):
     """The J_z integrand"""
     return nu.sqrt(2.*(Ez-potentialVertical(z,pot)))
+
+def _TzIntegrand(z,Ez,pot):
+    """The T_z integrand"""
+    return 1./_JzIntegrand(z,Ez,pot)
 
 def _zmaxFindStart(z,Ez,pot):
     """
