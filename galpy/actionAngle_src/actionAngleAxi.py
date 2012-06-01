@@ -213,7 +213,7 @@ class actionAngleAxi(actionAngle):
         NAME:
            JR
         PURPOSE:
-           Calculate the radial action for a power-law rotation curve
+           Calculate the radial action
         INPUT:
            +scipy.integrate.quad keywords
         OUTPUT:
@@ -236,8 +236,7 @@ class actionAngleAxi(actionAngle):
         NAME:
            calcRapRperi
         PURPOSE:
-           calculate the apocenter and pericenter radii for a power-law 
-           rotation curve
+           calculate the apocenter and pericenter radii
         INPUT:
         OUTPUT:
            (rperi,rap)
