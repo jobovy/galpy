@@ -207,7 +207,7 @@ class RZOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amin(self.rs)
 
-    def zmax(self):
+    def zmax(self,analytic=False,pot=None):
         """
         NAME:
            zmax
@@ -219,6 +219,8 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-09-20 - Written - Bovy (NYU)
         """
+        if analytic:
+            raise AttributeError("To analytically calculate zmax, use a FullOrbit (for now)")
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))

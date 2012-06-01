@@ -497,7 +497,7 @@ class Orbit:
         """
         return self._orb.rperi(analytic=analytic,pot=pot)
 
-    def zmax(self):
+    def zmax(self,analytic=False,pot=None):
         """
         NAME:
 
@@ -508,8 +508,10 @@ class Orbit:
            calculate the maximum vertical height
 
         INPUT:
-           
-           (none)
+
+           analytic - compute this analytically
+
+           pot - potential to use for analytical calculation
 
         OUTPUT:
 
@@ -520,7 +522,7 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.zmax()
+        return self._orb.zmax(analytic=analytic,pot=pot)
 
     def wp(self,pot=None):
         """
