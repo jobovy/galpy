@@ -30,6 +30,7 @@ Methods
    Jacobi <orbitJacobi.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
+   jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
    phi <orbitphi.rst>
@@ -62,6 +63,7 @@ Methods
    Tp <orbittp.rst>
    Tr <orbittr.rst>
    TrTp <orbittrtp.rst>
+   Tz <orbittz.rst>
    U <orbitu.rst>
    V <orbitv.rst>
    vbb <orbitvbb.rst>
@@ -76,8 +78,9 @@ Methods
    vy <orbitvy.rst>
    vz <orbitvz.rst>
    W <orbitw.rst>
-   wp <orbitwr.rst>
-   wr <orbitwp.rst>
+   wp <orbitwp.rst>
+   wr <orbitwr.rst>
+   wz <orbitwz.rst>
    x <orbitx.rst>
    y <orbity.rst>
    z <orbitz.rst>
