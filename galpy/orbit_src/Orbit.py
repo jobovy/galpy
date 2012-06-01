@@ -574,8 +574,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.JR(**kwargs)
 
     def jp(self,pot=None,**kwargs):
@@ -603,8 +602,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.Jphi(**kwargs)
 
     def jz(self,pot=None,**kwargs):
@@ -632,8 +630,7 @@ class Orbit:
            2012-06-01 - Written - Bovy (IAS)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.Jz(**kwargs)
 
     def wr(self,pot=None,**kwargs):
@@ -661,8 +658,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.angleR(**kwargs)
 
     def wz(self,pot=None,**kwargs):
@@ -690,8 +686,7 @@ class Orbit:
            2012-06-01 - Written - Bovy (IAS)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.anglez(**kwargs)
 
     def Tr(self,pot=None,**kwargs):
@@ -719,8 +714,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.TR(**kwargs)
 
     def Tp(self,pot=None,**kwargs):
@@ -748,8 +742,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.Tphi(**kwargs)
 
     def TrTp(self,pot=None,**kwargs):
@@ -777,8 +770,7 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.I(**kwargs)
  
     def Tz(self,pot=None,**kwargs):
@@ -806,8 +798,7 @@ class Orbit:
            2012-06-01 - Written - Bovy (IAS)
 
         """
-        if not hasattr(self._orb,'_aA'):
-            self._orb._setupaA(pot=pot)
+        self._orb._setupaA(pot=pot)
         return self._orb._aA.Tz(**kwargs)
 
     def R(self,*args,**kwargs):

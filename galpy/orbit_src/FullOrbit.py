@@ -160,8 +160,7 @@ class FullOrbit(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
+            self._setupaA(pot=pot)
             (rperi,rap)= self._aA.calcRapRperi()
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
@@ -185,8 +184,7 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
+            self._setupaA(pot=pot)
             (rperi,rap)= self._aA.calcRapRperi()
             return rap
         if not hasattr(self,'orbit'):
@@ -210,8 +208,7 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
+            self._setupaA(pot=pot)
             (rperi,rap)= self._aA.calcRapRperi()
             return rperi
         if not hasattr(self,'orbit'):
@@ -236,8 +233,7 @@ class FullOrbit(OrbitTop):
            2012-06-01 - Added analytic calculation - Bovy (IAS)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
+            self._setupaA(pot=pot)
             zmax= self._aA.calczmax()
             return zmax
         if not hasattr(self,'orbit'):
@@ -262,6 +258,26 @@ class FullOrbit(OrbitTop):
         else:
             return self.vxvv[-1]
 
+    def _resetaA(self,pot=None):
+        """
+        NAME:
+           _resetaA
+        PURPOSE:
+           re-set up an actionAngle module for this Orbit
+           ONLY TO BE CALLED FROM WITHIN SETUPAA
+        INPUT:
+           pot - potential
+        OUTPUT:
+           True if reset happened, False otherwise
+        HISTORY:
+           2012-06-01 - Written - Bovy (IAS)
+        """
+        if not pot is None and pot != self._aAPot:
+            delattr(self,'_aA')
+            return True
+        else:
+            pass #Already set up
+
     def _setupaA(self,pot=None):
         """
         NAME:
@@ -274,11 +290,14 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
         """
+        if hasattr(self,'_aA'): 
+            if not self._resetaA(pot=pot): return None
         if pot is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
+        self._aAPot= pot
         L= self.L().flatten()
         R= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
         vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/R
