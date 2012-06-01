@@ -302,7 +302,7 @@ class FullOrbit(OrbitTop):
             else:
                 thisverticalpot= pot.toVertical(R)
             self._aA= actionAngle.actionAngleAxi(R,vR,vT,z,vz,pot=thispot,
-                                                 verticalPot=verticalpot)
+                                                 verticalPot=thisverticalpot)
 
     def plotE(self,*args,**kwargs):
         """
