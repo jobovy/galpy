@@ -37,7 +37,7 @@ class actionAngleVertical(actionAngle):
         actionAngle.__init__(self,*args,**kwargs)
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleVertical")
-        self._pot= kwargs['pot']
+        self._verticalpot= kwargs['pot']
         return None
     
     def Jz(self,**kwargs):
@@ -56,9 +56,9 @@ class actionAngleVertical(actionAngle):
         if hasattr(self,'_Jz'):
             return self._Jz
         zmax= self.calczmax()
-        Ez= calcEz(self._z,self._vz,self._pot)
+        Ez= calcEz(self._z,self._vz,self._verticalpot)
         self._Jz= (2.*nu.array(integrate.quad(_JzIntegrand,0.,zmax,
-                                              args=(Ez,self._pot),
+                                              args=(Ez,self._verticalpot),
                                               **kwargs)))/nu.pi
         return self._Jz
 
@@ -76,14 +76,14 @@ class actionAngleVertical(actionAngle):
         """
         if hasattr(self,'_zmax'):
             return self._zmax
-        Ez= calcEz(self._z,self._vz,self._pot)
+        Ez= calcEz(self._z,self._vz,self._verticalpot)
         if self._vz == 0.: #We are exactly at the maximum height
             zmax= nu.fabs(self._z)
         else:
             zstart= self._z
-            zend= _zmaxFindStart(self._z,Ez,self._pot)
+            zend= _zmaxFindStart(self._z,Ez,self._verticalpot)
             zmax= optimize.brentq(_zmaxEq,zstart,zend,
-                                  (Ez,self._pot))
+                                  (Ez,self._verticalpot))
         self._zmax= zmax
         return self._zmax
 
