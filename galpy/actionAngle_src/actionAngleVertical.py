@@ -101,17 +101,18 @@ class actionAngleVertical(actionAngle):
             return self._anglez
         zmax= self.calczmax()
         Ez= calcEz(self._z,self._vz,self._verticalpot)
-        anglez= (nu.array(integrate.quad(_TzIntegrand,0.,nu.fabs(self._z),
-                                         args=(Ez,self._verticalpot),
-                                         **kwargs)))
+        Tz= self.Tz(**kwargs)
+        self._anglez= 2.*nu.pi*(nu.array(integrate.quad(_TzIntegrand,0.,nu.fabs(self._z),
+                                                        args=(Ez,self._verticalpot),
+                                                        **kwargs)))/Tz[0]
         if self._z >= 0. and self._vz >= 0.:
-            self._anglez= anglez
+            pass
         elif self._z >= 0. and self._vz < 0.:
-            self._anglez= nu.pi-anglez
+            self._anglez[0]= nu.pi-self._anglez[0]
         elif self._z < 0. and self._vz <= 0.:
-            self._anglez= nu.pi+anglez
+            self._anglez[0]= nu.pi+self._anglez[0]
         else:
-            self._anglez= 2.*nu.pi-anglez
+            self._anglez[0]= 2.*nu.pi-self._anglez[0]
         return self._anglez
 
     def calczmax(self):
@@ -199,7 +200,7 @@ def _zmaxFindStart(z,Ez,pot):
     HISTORY:
        2012-06-01 - Written - Bovy (IAS)
     """
-    ztry= 2.*z
+    ztry= 2.*nu.fabs(z)
     while (Ez-potentialVertical(ztry,pot)) > 0.:
         ztry*= 2.
     return ztry
