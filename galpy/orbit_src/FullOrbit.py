@@ -281,20 +281,28 @@ class FullOrbit(OrbitTop):
             self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
                                                   verticalPot=pot.toVertical(R))
         elif isinstance(pot,KeplerPotential):
-            self._aA= actionAngle.actionAnglePower(R,vR,vT,beta=-0.5)
+            self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,beta=-0.5,
+                                                   verticalPot=pot.toVertical(R))
         elif isinstance(pot,PowerSphericalPotential):
             if pot.alpha == 2.:
-                self._aA= actionAngle.actionAngleFlat(R,vR,vT)
+                self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
+                                                  verticalPot=pot.toVertical(R))                
             else:
-                self._aA= actionAngle.actionAnglePower(R,vR,vT,
+                self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,
                                                        beta=1.\
-                                                           -pot.alpha/2.)
+                                                           -pot.alpha/2.,
+                                                       verticalPot=pot.toVertical(R))
         else:
             if isinstance(pot,list):
                 thispot= [p.toPlanar() for p in pot]
             else:
                 thispot= pot.toPlanar()
-            self._aA= actionAngle.actionAngleAxi(R,vR,vT,pot=thispot)
+            if isinstance(pot,list):
+                thisverticalpot= [p.toVertical(R) for p in pot]
+            else:
+                thisverticalpot= pot.toVertical(R)
+            self._aA= actionAngle.actionAngleAxi(R,vR,vT,z,vz,pot=thispot,
+                                                 verticalPot=verticalpot)
 
     def plotE(self,*args,**kwargs):
         """
