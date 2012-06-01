@@ -272,18 +272,21 @@ class FullOrbit(OrbitTop):
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
         L= self.L().flatten()
-        r= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
-        vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/r
-        vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/r
+        R= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
+        vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/R
+        vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/R
+        z= self.vxvv[3]
+        vz= self.vxvv[4]
         if isinstance(pot,LogarithmicHaloPotential):
-            self._aA= actionAngle.actionAngleFlat(r,vR,vT)
+            self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
+                                                  verticalPot=pot.toVertical(R))
         elif isinstance(pot,KeplerPotential):
-            self._aA= actionAngle.actionAnglePower(r,vR,vT,beta=-0.5)
+            self._aA= actionAngle.actionAnglePower(R,vR,vT,beta=-0.5)
         elif isinstance(pot,PowerSphericalPotential):
             if pot.alpha == 2.:
-                self._aA= actionAngle.actionAngleFlat(r,vR,vT)
+                self._aA= actionAngle.actionAngleFlat(R,vR,vT)
             else:
-                self._aA= actionAngle.actionAnglePower(r,vR,vT,
+                self._aA= actionAngle.actionAnglePower(R,vR,vT,
                                                        beta=1.\
                                                            -pot.alpha/2.)
         else:
@@ -291,7 +294,7 @@ class FullOrbit(OrbitTop):
                 thispot= [p.toPlanar() for p in pot]
             else:
                 thispot= pot.toPlanar()
-            self._aA= actionAngle.actionAngleAxi(r,vR,vT,pot=thispot)
+            self._aA= actionAngle.actionAngleAxi(R,vR,vT,pot=thispot)
 
     def plotE(self,*args,**kwargs):
         """
