@@ -17,9 +17,10 @@ import math as m
 import numpy as nu
 from scipy import optimize, integrate
 from actionAngle import *
+from actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, evaluateplanarPotentials
-class actionAngleAxi(actionAngle):
+class actionAngleAxi(actionAngle,actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
         """
@@ -41,6 +42,10 @@ class actionAngleAxi(actionAngle):
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
+        if kwargs.has_key('verticalPot'):
+            kwargs.pop('pot')
+            actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
+                                         **kwargs)
         return None
     
     def angleR(self,**kwargs):

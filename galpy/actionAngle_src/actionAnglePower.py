@@ -18,7 +18,8 @@ import math as m
 import numpy as nu
 from scipy import optimize, integrate
 from actionAngle import *
-class actionAnglePower(actionAngle):
+from actionAngleVertical import actionAngleVertical
+class actionAnglePower(actionAngle,actionAngleVertical):
     """Action-angle formalism for power-law rotation curves"""
     def __init__(self,*args,**kwargs):
         """
@@ -37,6 +38,9 @@ class actionAnglePower(actionAngle):
            2010-07-11 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
+        if kwargs.has_key('verticalPot'):
+            actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
+                                         **kwargs)
         if not kwargs.has_key('beta'):
             raise IOError("Must specify beta= for actionAnglePower")
         self._beta= kwargs['beta']
