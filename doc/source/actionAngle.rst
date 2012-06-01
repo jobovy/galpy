@@ -33,10 +33,10 @@ The return value is the value for jr, as well as an estimate for the
 integration error.
 
 Once a call to any of the action-angle methods of ``Orbit`` is done,
-the potential used to evaluate the action-angle coordinates cannot be
-changed (since various parts of the calculation of these coordinates
-get cached for re-use). Therefore, we can compute the radial angle
-then as follows
+various parts of the calculation of these coordinates get cached for
+re-use). If any of the action-angle methods get called with a
+different potential, the cache gets reset. Therefore, we can compute
+the radial angle then as follows
 
 >>> o.wr()
 
@@ -47,13 +47,16 @@ and the other relevant methods
 >>> o.Tp() #The azimuthal period
 >>> o.TrTp() #pi*Tr/Tp
 
+NOTE: spherical action-angle coordinates are largely untested and
+likely wrong.
+
 
 Action-angle coordinates for axisymmetric potentials
 -----------------------------------------------------
 
-Action-angle coordinates in the symmetry plane can also be computed
-for all axisymmetric potentials. Starting where we began for the
-previous example, we can initialize
+Action-angle coordinates can also be computed for all axisymmetric
+potentials using the adiabatic approximation. Starting where we began
+for the previous example, we can initialize
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.,0.])
 
