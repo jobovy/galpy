@@ -84,6 +84,36 @@ class actionAngleVertical(actionAngle):
                                               **kwargs)))
         return self._Tz
 
+    def anglez(self,**kwargs):
+        """
+        NAME:
+           anglez
+        PURPOSE:
+           Calculate the vertical angle
+        INPUT:
+           +scipy.integrate.quad keywords
+        OUTPUT:
+           angle_z(z,vz)*vc/ro + estimate of the error
+        HISTORY:
+           2012-06-01 - Written - Bovy (IAS)
+        """
+        if hasattr(self,'_anglez'):
+            return self._anglez
+        zmax= self.calczmax()
+        Ez= calcEz(self._z,self._vz,self._verticalpot)
+        anglez= (nu.array(integrate.quad(_TzIntegrand,0.,nu.fabs(self._z),
+                                         args=(Ez,self._verticalpot),
+                                         **kwargs)))
+        if self._z >= 0. and self._vz >= 0.:
+            self._anglez= anglez
+        elif self._z >= 0. and self._vz < 0.:
+            self._anglez= nu.pi-anglez
+        elif self._z < 0. and self._vz <= 0.:
+            self._anglez= nu.pi+anglez
+        else:
+            self._anglez= 2.*nu.pi-anglez
+        return self._anglez
+
     def calczmax(self):
         """
         NAME:
