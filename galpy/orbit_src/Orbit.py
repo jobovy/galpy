@@ -605,6 +605,35 @@ class Orbit:
             self._orb._setupaA(pot=pot)
         return self._orb._aA.Jphi(**kwargs)
 
+    def jz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           jz
+
+        PURPOSE:
+
+           calculate the vertical action
+
+        INPUT:
+
+           pot - potential
+
+           +scipy.integrate.quadrature keywords
+
+        OUTPUT:
+
+           jz
+
+        HISTORY:
+
+           2012-06-01 - Written - Bovy (IAS)
+
+        """
+        if not hasattr(self._orb,'_aA'):
+            self._orb._setupaA(pot=pot)
+        return self._orb._aA.Jz(**kwargs)
+
     def wr(self,pot=None,**kwargs):
         """
         NAME:
@@ -633,6 +662,36 @@ class Orbit:
         if not hasattr(self._orb,'_aA'):
             self._orb._setupaA(pot=pot)
         return self._orb._aA.angleR(**kwargs)
+
+    def wz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           wz
+
+        PURPOSE:
+
+           calculate the vertical angle
+
+        INPUT:
+
+           pot - potential
+
+           +scipy.integrate.quadrature keywords
+
+        OUTPUT:
+
+           wz
+
+        HISTORY:
+
+           2012-06-01 - Written - Bovy (IAS)
+
+        """
+        raise NotImplementedError("wr not implemented yet")
+        if not hasattr(self._orb,'_aA'):
+            self._orb._setupaA(pot=pot)
+        return self._orb._aA.anglez(**kwargs)
 
     def Tr(self,pot=None,**kwargs):
         """
@@ -721,6 +780,36 @@ class Orbit:
             self._orb._setupaA(pot=pot)
         return self._orb._aA.I(**kwargs)
  
+    def Tz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Tz
+
+        PURPOSE:
+
+           calculate the vertical period
+
+        INPUT:
+
+           pot - potential
+
+           +scipy.integrate.quadrature keywords
+
+        OUTPUT:
+
+           Tz
+
+        HISTORY:
+
+           2012-06-01 - Written - Bovy (IAS)
+
+        """
+        raise NotImplementedError("Tz not implemented yet")
+        if not hasattr(self._orb,'_aA'):
+            self._orb._setupaA(pot=pot)
+        return self._orb._aA.Tz(**kwargs)
+
     def R(self,*args,**kwargs):
         """
         NAME:
