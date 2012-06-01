@@ -60,17 +60,15 @@ for the previous example, we can initialize
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.,0.])
 
-Now we explicitly make this a planar orbit in the symmetry plane
-
->>> o= o.toPlanar()
-
 and then we can again calculate action-angle coordinates. E.g.,
 
 >>> o.jr(lp)
 array([  7.22774128e-02,   5.06312577e-11])
 
 As expected, this agrees with the value in the example above, since
-the orbit is entirely in the symmetry plane.
+the orbit is entirely in the symmetry plane. We can also calculate the
+vertical action ``o.jz()`` etcetera. See the API for full
+documentation.
 
 
 Example: Evidence for a Lindblad resonance in the Solar neighborhood
