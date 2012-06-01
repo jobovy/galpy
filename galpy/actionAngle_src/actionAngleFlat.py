@@ -35,8 +35,9 @@ class actionAngleFlat(actionAngle,actionAngleVertical):
            2010-07-11 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
-                                     **kwargs)
+        if kwargs.has_key('verticalPot'):
+            actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
+                                         **kwargs)
         return None
     
     def angleR(self,**kwargs):
