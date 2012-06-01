@@ -17,7 +17,14 @@ class actionAngle:
             self._R= R
             self._vR= vR
             self._vT= vT
-        elif len(args) == 3: #R,vR.vT, z, vz, phi
+        elif len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+            self._R= R
+            self._vR= vR
+            self._vT= vT
+            self._z= z
+            self._vz= vz
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
             self._R= R
             self._vR= vR
