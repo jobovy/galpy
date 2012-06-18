@@ -389,6 +389,10 @@ def bovy_plot(*args,**kwargs):
         _add_axislabels(xlabel,ylabel)
         if not semilogy and not semilogx and not loglog:
             _add_ticks()
+        elif semilogy:
+            _add_ticks(xticks=True,yticks=False)
+        elif semilogx:
+            _add_ticks(yticks=True,xticks=False)
     #Add colorbar
     if colorbar:
         cbar= pyplot.colorbar(out,fraction=0.15)
