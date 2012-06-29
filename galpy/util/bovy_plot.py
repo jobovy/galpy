@@ -978,6 +978,10 @@ def scatterplot(x,y,*args,**kwargs):
 
        onedhists - if True, make one-d histograms on the sides
 
+       onedhistx - if True, make one-d histograms on the side of the x distribution
+
+       onedhisty - if True, make one-d histograms on the side of the y distribution
+
        onedhistcolor, onedhistfc, onedhistec
 
        onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
@@ -1068,6 +1072,20 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('onedhists')
     else:
         onedhists= False
+    if kwargs.has_key('onedhistx'):
+        onedhistx= kwargs['onedhistx']
+        kwargs.pop('onedhistx')
+    elif onedhists:
+        onedhistx= True
+    else:
+        onedhistx= False
+    if kwargs.has_key('onedhisty'):
+        onedhisty= kwargs['onedhisty']
+        kwargs.pop('onedhisty')
+    elif onedhists:
+        onedhisty= True
+    else:
+        onedhisty= False
     if kwargs.has_key('onedhisttype'):
         onedhisttype= kwargs['onedhisttype']
         kwargs.pop('onedhisttype')
@@ -1133,7 +1151,7 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('retAxes')
     else:
         retAxes= False
-    if onedhists:
+    if onedhists or onedhistx or onedhisty:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
@@ -1145,13 +1163,16 @@ def scatterplot(x,y,*args,**kwargs):
         rect_histx = [left, bottom_h, width, 0.2]
         rect_histy = [left_h, bottom, 0.2, height]
         axScatter = pyplot.axes(rect_scatter)
-        axHistx = pyplot.axes(rect_histx)
-        axHisty = pyplot.axes(rect_histy)
-        # no labels
-        axHistx.xaxis.set_major_formatter(nullfmt)
-        axHistx.yaxis.set_major_formatter(nullfmt)
-        axHisty.xaxis.set_major_formatter(nullfmt)
-        axHisty.yaxis.set_major_formatter(nullfmt)
+        if onedhistx:
+            axHistx = pyplot.axes(rect_histx)
+            # no labels
+            axHistx.xaxis.set_major_formatter(nullfmt)
+            axHistx.yaxis.set_major_formatter(nullfmt)
+        if onedhisty:
+            axHisty = pyplot.axes(rect_histy)
+            # no labels
+            axHisty.xaxis.set_major_formatter(nullfmt)
+            axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
     data= sc.array([x,y]).T
     if kwargs.has_key('hist') and kwargs.has_key('edges'):
@@ -1170,7 +1191,7 @@ def scatterplot(x,y,*args,**kwargs):
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              overplot=(onedhists or overplot))
+                              overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
                               cntrcolors=cntrcolors,
@@ -1179,7 +1200,7 @@ def scatterplot(x,y,*args,**kwargs):
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              overplot=(onedhists or overplot))
+                              overplot=(onedhists or overplot or onedhistx or onedhisty))
     binxs= []
     xedge= edges[0]
     for ii in range(len(xedge)-1):
@@ -1207,30 +1228,36 @@ def scatterplot(x,y,*args,**kwargs):
         else:
             bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
     #Add onedhists
-    if not onedhists:
+    if not (onedhists or onedhistx or onedhisty):
         if retAxes:
             return pyplot.gca()
         else:
             return
-    histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
-                                        weights=onedhistxweights,
-                                        histtype=onedhisttype,
-                                        range=sorted(xrange),
-                                        color=onedhistcolor,fc=onedhistfc,
-                                        ec=onedhistec,ls=onedhistls,
-                                        lw=onedhistlw)
-    histy, edges, patches= axHisty.hist(y, bins=bins, orientation='horizontal',
-                                        weights=onedhistyweights,
-                                        normed=onedhistynormed,
-                                        histtype=onedhisttype,
-                                        range=sorted(yrange),
-                                        color=onedhistcolor,fc=onedhistfc,
-                                        ec=onedhistec,ls=onedhistls,
-                                        lw=onedhistlw)
-    axHistx.set_xlim( axScatter.get_xlim() )
-    axHisty.set_ylim( axScatter.get_ylim() )
-    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
-    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+    if onedhistx:
+        histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
+                                            weights=onedhistxweights,
+                                            histtype=onedhisttype,
+                                            range=sorted(xrange),
+                                            color=onedhistcolor,fc=onedhistfc,
+                                            ec=onedhistec,ls=onedhistls,
+                                            lw=onedhistlw)
+    if onedhisty:
+        histy, edges, patches= axHisty.hist(y, bins=bins, orientation='horizontal',
+                                            weights=onedhistyweights,
+                                            normed=onedhistynormed,
+                                            histtype=onedhisttype,
+                                            range=sorted(yrange),
+                                            color=onedhistcolor,fc=onedhistfc,
+                                            ec=onedhistec,ls=onedhistls,
+                                            lw=onedhistlw)
+    if onedhistx:
+        axHistx.set_xlim( axScatter.get_xlim() )
+        axHistx.set_ylim( 0, 1.2*sc.amax(histx))
+    if onedhisty:
+        axHisty.set_ylim( axScatter.get_ylim() )
+        axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+    if not onedhistx: axHistx= None
+    if not onedhisty: axHisty= None
     if retAxes:
         return (axScatter,axHistx,axHisty)
     else:
