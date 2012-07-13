@@ -212,10 +212,8 @@ def bovy_plot(*args,**kwargs):
         overplot=True
     elif kwargs.has_key('overplot'):
         kwargs.pop('overplot')
-        pyplot.figure()
         overplot=False
     else:
-        pyplot.figure()
         overplot=False
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
@@ -317,6 +315,7 @@ def bovy_plot(*args,**kwargs):
         axHisty.xaxis.set_major_formatter(nullfmt)
         axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
+    elif not overplot: pyplot.figure()
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
     if kwargs.has_key('xlabel'):
