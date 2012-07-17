@@ -1362,7 +1362,7 @@ class dehnendf(diskdf):
         #Then sample Lz
         LCE= xE**(self._beta+1.)
         OR= xE**(self._beta-1.)
-        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniformath.rvs(size=n))/OR
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
         if self._correct:
             for ii in range(len(xE)):
                 Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
@@ -1379,7 +1379,7 @@ class dehnendf(diskdf):
                 except ValueError:
                     continue
                 TR= 2.*math.pi/wR
-                tr= stats.uniformath.rvs()*TR
+                tr= stats.uniform.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
@@ -1395,7 +1395,7 @@ class dehnendf(diskdf):
                         if l < 0: l+= 2.*math.pi
                         sinphil= 1./vxvv[0]*math.sin(l)
                         if math.fabs(sinphil) > 1.: continue
-                        if stats.uniformath.rvs() < 0.5:
+                        if stats.uniform.rvs() < 0.5:
                             phil= math.asin(sinphil)
                         else:
                             phil= math.pi-math.asin(sinphil)
@@ -1414,7 +1414,7 @@ class dehnendf(diskdf):
                                                         phi]).reshape(4))
                     else:
                         thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                        stats.uniformath.rvs()\
+                                                        stats.uniform.rvs()\
                                                             *math.pi*2.])\
                                              .reshape(4))
                 else:
@@ -1431,7 +1431,7 @@ class dehnendf(diskdf):
                         if returnOrbit:
                             out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                             vxvv[2],
-                                                            stats.uniformath.rvs()*math.pi*2.]).reshape(4)))
+                                                            stats.uniform.rvs()*math.pi*2.]).reshape(4)))
                         else:
                             out.append(thisOrbit)
                         mult-= 1
@@ -1442,7 +1442,7 @@ class dehnendf(diskdf):
                     if l < 0: l+= 2.*math.pi
                     sinphil= 1./vxvv[0]*math.sin(l)
                     if math.fabs(sinphil) > 1.: continue
-                    if stats.uniformath.rvs() < 0.5:
+                    if stats.uniform.rvs() < 0.5:
                         phil= math.asin(sinphil)
                     else:
                         phil= math.pi-math.asin(sinphil)
@@ -1465,7 +1465,7 @@ class dehnendf(diskdf):
                                                         vxvv[2],
                                                         phi]).reshape(4)))
                         mult-= 1
-                if stats.uniformath.rvs() > kappawR:
+                if stats.uniform.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
@@ -1599,7 +1599,7 @@ class shudf(diskdf):
             ECL= sc.log(xL)+0.5
         else:
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
-        E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniformath.rvs(size=n))
+        E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniform.rvs(size=n))
         if self._correct:
             for ii in range(len(xL)):
                 E[ii]*= self._corr.correct(xL[ii],log=False)[1]
@@ -1616,7 +1616,7 @@ class shudf(diskdf):
                 except ValueError:
                     continue
                 TR= 2.*math.pi/wR
-                tr= stats.uniformath.rvs()*TR
+                tr= stats.uniform.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
@@ -1626,7 +1626,7 @@ class shudf(diskdf):
                 if returnOrbit:
                     vxvv= thisOrbit(tr).vxvv
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                    stats.uniformath.rvs()*math.pi*2.]).reshape(4))
+                                                    stats.uniform.rvs()*math.pi*2.]).reshape(4))
                 else:
                     thisOrbit= Orbit(thisOrbit(tr))
                 kappa= _kappa(thisOrbit.vxvv[0],self._beta)
@@ -1639,11 +1639,11 @@ class shudf(diskdf):
                     if returnOrbit:
                         out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
                                                         vxvv[2],
-                                                        stats.uniformath.rvs()*math.pi*2.]).reshape(4)))
+                                                        stats.uniform.rvs()*math.pi*2.]).reshape(4)))
                     else:
                         out.append(thisOrbit)
                     mult-= 1
-                if stats.uniformath.rvs() > kappawR:
+                if stats.uniform.rvs() > kappawR:
                     continue
                 out.append(thisOrbit)
         #Recurse to get enough
