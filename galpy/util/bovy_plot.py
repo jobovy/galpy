@@ -420,7 +420,7 @@ def bovy_plot(*args,**kwargs):
     axHisty.set_ylim( axScatter.get_ylim() )
     axHistx.set_ylim( 0, 1.2*sc.amax(histx))
     axHisty.set_xlim( 0, 1.2*sc.amax(histy))
-    return out
+    return (axScatter,axHistx,axHisty)
 
 def bovy_plot3d(*args,**kwargs):
     """
