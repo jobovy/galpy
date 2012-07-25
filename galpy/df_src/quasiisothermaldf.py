@@ -36,15 +36,23 @@ class quasiisothermaldf:
         self._hsz= hsz
         if pot is None:
             raise IOError("pot= must be set")
+        self._pot= pot
         if _precomputevcirc:
             if _precomputevcircrmax is None:
                 _precomputevcircrmax= 5*self._hr
             self._precomputevcircrmax= _precomputevcircrmax
             self._precomputevcircnr= _precomputevcircnr
             self._precomputevcircrgrid= numpy.linspace(0.00001,self._precomputevcircrmax,self._precomputevcircnr)
-            self._vcircs= numpy.array([vcirc(pot,r) for r in self._precomputevcircrgrid])
+            self._vcircs= numpy.array([vcirc(self._pot,r) for r in self._precomputevcircrgrid])
             #Spline interpolate
             self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._precomputevcircrgrid,self._vcircs,k=3)
+        else:
+            self._precomputevcircrmax= 0.
+            self._vcircInterp= None
+            self._vcircs= None
+            self._precomputevcircnr= None
+            self._precomputevcircrgrid= None
+        self._precomputevcirc= _precomputevcirc
         return None
 
     def __call__(self,jr,lz,jz,log=False):
@@ -78,12 +86,25 @@ class quasiisothermaldf:
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
-        
+        #Find interval
+        rstart= _rgFindStart(5.*self._hr,
+                             self._vcircInterp,lz,self._precomputevcircrmax,
+                             self._pot)
+        return optimize.brentq(_rgfunc,0.0000001,rstart,
+                               args=(self._vcircInterp,lz,
+                                     self._precomputevcircrmax,self._pot))
         
 def _rgfunc(rg,vcircInterp,lz,rmax,pot):
     """Function that gives rvc-lz"""
-    if rg > rmax:
+    if rg >= rmax:
         thisvcirc= vcirc(pot,rg)
     else:
         thisvcirc= vcircInterp(rg)
     return rg*thisvcirc-lz
+
+def _rgFindStart(rg,vcircInterp,lz,rmax,pot):
+    """find a starting interval for rg"""
+    rtry= 2.*rg
+    while _rgfunc(rtry,vcircInterp,lz,rmax,pot) < 0.:
+        rtry*= 2.
+    return rtry
