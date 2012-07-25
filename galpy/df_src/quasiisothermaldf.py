@@ -2,7 +2,7 @@
 import math
 import numpy
 from scipy import optimize, interpolate
-from galpy.potential import vcirc, epifreg, verticalfreq
+from galpy import potential
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,
@@ -43,7 +43,7 @@ class quasiisothermaldf:
             self._precomputevcircrmax= _precomputevcircrmax
             self._precomputevcircnr= _precomputevcircnr
             self._precomputevcircrgrid= numpy.linspace(0.00001,self._precomputevcircrmax,self._precomputevcircnr)
-            self._vcircs= numpy.array([vcirc(self._pot,r) for r in self._precomputevcircrgrid])
+            self._vcircs= numpy.array([potential.vcirc(self._pot,r) for r in self._precomputevcircrgrid])
             #Spline interpolate
             self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._precomputevcircrgrid,self._vcircs,k=3)
         else:
@@ -134,7 +134,7 @@ class quasiisothermaldf:
 def _rgfunc(rg,vcircInterp,lz,rmax,pot):
     """Function that gives rvc-lz"""
     if rg >= rmax:
-        thisvcirc= vcirc(pot,rg)
+        thisvcirc= potential.vcirc(pot,rg)
     else:
         thisvcirc= vcircInterp(rg)
     return rg*thisvcirc-lz
