@@ -2,7 +2,7 @@
 import math
 import numpy
 from scipy import optimize, interpolate
-from galpy.potential import vcirc
+from galpy.potential import vcirc, epifreg, verticalfreq
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,
@@ -68,6 +68,40 @@ class quasiisothermaldf:
            log= if True, return the natural log
         OUTPUT:
            value of DF
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
+        #First calculate rg
+        thisrg= self.rg(lz)
+        #Then calculate the epicycle and vertical frequencies
+        
+        return None
+
+    def _calc_epifreq(self,r):
+        """
+        NAME:
+           _calc_epifreq
+        PURPOSE:
+           calculate the epicycle frequency at r
+        INPUT:
+           r - radius
+        OUTPUT:
+           kappa
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
+        return None
+
+    def _calc_verticalfreq(self,r):
+        """
+        NAME:
+           _calc_verticalfreq
+        PURPOSE:
+           calculate the vertical frequency at r
+        INPUT:
+           r - radius
+        OUTPUT:
+           nu
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
