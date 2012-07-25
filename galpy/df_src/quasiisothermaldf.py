@@ -85,6 +85,9 @@ class quasiisothermaldf:
            radius
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
+        NOTE:
+           seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
+           ~0.75 ms for a MWPotential
         """
         #Find interval
         rstart= _rgFindStart(5.*self._hr,
