@@ -158,3 +158,31 @@ class MiyamotoNagaiPotential(Potential):
         """
         return 1./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**1.5 \
             -3.*R**2./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**2.5
+
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
+        sqrtbz= nu.sqrt(self._b2+z**2.)
+        asqrtbz= self._a+sqrtbz
+        if sqrtbz == asqrtbz:
+            return (self._b2+R**2.-2.*z**2.)*(self._b2+R**2.+z**2.)**-2.5
+        else:
+            return ((self._a**3.*self._b2 + 
+                     self._a**2.*(3.*self._b2 - 2.* z**2.)
+                     *nu.sqrt(self._b2 + z**2.)
+                     + (self._b2 + R**2. - 2.*z**2.)*(self._b2 + z**2.)**1.5
+                     +self._a* (3.*self._b2**2. - 4.*z**4. + self._b2*(R**2. - z**2.)))/
+                    ((self._b2 + z**2.)**1.5* (R**2. + asqrtbz**2.)**2.5))
