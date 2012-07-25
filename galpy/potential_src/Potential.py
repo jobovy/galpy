@@ -670,6 +670,68 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
     else:
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
+def evaluateR2derivs(R,z,Pot,phi=0.,t=0.):
+    """
+    NAME:
+       evaluateR2derivs
+    PURPOSE:
+       convenience function to evaluate a possible sum of potentials
+    INPUT:
+       R - cylindrical Galactocentric distance
+
+       z - distance above the plane
+
+       Pot - a potential or list of potentials
+
+       phi - azimuth (optional)
+
+       t - time (optional)
+    OUTPUT:
+       d2Phi/d2R(R,z,phi,t)
+    HISTORY:
+       2012-07-25 - Written - Bovy (IAS)
+    """
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.R2deriv(R,z,phi=phi,t=t)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.R2deriv(R,z,phi=phi,t=t)
+    else:
+        raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
+
+def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
+    """
+    NAME:
+       evaluatez2derivs
+    PURPOSE:
+       convenience function to evaluate a possible sum of potentials
+    INPUT:
+       R - cylindrical Galactocentric distance
+
+       z - distance above the plane
+
+       Pot - a potential or list of potentials
+
+       phi - azimuth (optional)
+
+       t - time (optional)
+    OUTPUT:
+       d2Phi/d2z(R,z,phi,t)
+    HISTORY:
+       2012-07-25 - Written - Bovy (IAS)
+    """
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.z2deriv(R,z,phi=phi,t=t)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.z2deriv(R,z,phi=phi,t=t)
+    else:
+        raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
+
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                    ncontours=21,savefilename=None):
         """
@@ -729,3 +791,60 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 cntrls='-',
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
+
+def epifreq(Pot,R):
+    """
+    
+    NAME:
+    
+        epifreq
+    
+    PURPOSE:
+    
+        calculate the epicycle frequency at R in the potential Pot
+    
+    INPUT:
+
+        Pot - Potential instance or list thereof
+    
+        R - Galactocentric radius
+    
+    OUTPUT:
+    
+        epicycle frequency
+    
+    HISTORY:
+    
+        2012-07-25 - Written - Bovy (IAS)
+    
+    """
+    return nu.sqrt(evaluateR2derivs(R,0.,pot)-3./R*evaluateRforces(R,0.,pot))
+
+def verticalfreq(Pot,R):
+    """
+    
+    NAME:
+    
+       verticalfreq
+        
+    PURPOSE:
+    
+        calculate the vertical frequency at R in the potential Pot
+    
+    INPUT:
+
+       Pot - Potential instance or list thereof
+    
+       R - Galactocentric radius
+    
+    OUTPUT:
+    
+        vertical frequency
+    
+    HISTORY:
+    
+        2012-07-25 - Written - Bovy (IAS@MPIA)
+    
+    """
+    return nu.sqrt(evaluatez2derivs(R,0.,Pot))
+
