@@ -1,6 +1,7 @@
 #A 'Binney' quasi-isothermal DF
 import math
 import numpy
+from scipy import optimize, interpolate
 from galpy.potential import vcirc
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
@@ -43,6 +44,7 @@ class quasiisothermaldf:
             self._precomputevcircrgrid= numpy.linspace(0.00001,self._precomputevcircrmax,self._precomputevcircnr)
             self._vcircs= numpy.array([vcirc(pot,r) for r in self._precomputevcircrgrid])
             #Spline interpolate
+            self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._precomputevcircrgrid,self._vcircs,k=3)
         return None
 
     def __call__(self,jr,lz,jz,log=False):
@@ -61,4 +63,27 @@ class quasiisothermaldf:
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        return None
+
+    def rg(self,lz):
+        """
+        NAME:
+           rg
+        PURPOSE:
+           calculate the radius of a circular orbit of Lz
+        INPUT:
+           lz - Angular momentum
+        OUTPUT:
+           radius
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
         
+        
+def _rgfunc(rg,vcircInterp,lz,rmax,pot):
+    """Function that gives rvc-lz"""
+    if rg > rmax:
+        thisvcirc= vcirc(pot,rg)
+    else:
+        thisvcirc= vcircInterp(rg)
+    return rg*thisvcirc-lz
