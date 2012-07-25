@@ -1,6 +1,6 @@
 ###############################################################################
 #   diskdf.py: module that interprets (E,Lz) pairs in terms of a 
-#              distribution function
+#              distribution function (following Dehnen 1999)
 #
 #   This module contains the following classes:
 #
