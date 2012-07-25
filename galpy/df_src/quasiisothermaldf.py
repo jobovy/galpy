@@ -7,7 +7,8 @@ class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,
                  _precomputevcirc=True,_precomputevcircrmax=None,
-                 _precomputevcircnr=51):
+                 _precomputevcircnr=51,
+                 ro=1.,lo=10./220.*8.):
         """
         NAME:
            __init__
@@ -20,6 +21,8 @@ class quasiisothermaldf:
            hsr - radial-velocity-dispersion scale length
            hsz - vertial-velocity-dispersion scale length
            pot= Potential instance or list thereof
+           ro= reference radius for surface mass and sigmas
+           lo= reference angular momentum below where there are significant numbers of retrograde stars
         OTHER INPUTS:
            _precomputevcirc= if True (default), pre-compute the circular velocity curve
            _precomputevcircrmax= if set, this is the maximum R for which to pre-compute vcirc (default: 5*hr
@@ -34,6 +37,10 @@ class quasiisothermaldf:
         self._sz= sz
         self._hsr= hsr
         self._hsz= hsz
+        self._ro= ro
+        self._lo= lo
+        self._lnsr= math.log(self._sr)
+        self._lnsz= math.log(self._sz)
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= pot
@@ -75,7 +82,28 @@ class quasiisothermaldf:
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
         kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
-        return None
+        Omega= lz/thisrg/thisrg
+        #calculate surface-densities and sigmas
+        lnsurfmass= -(self._ro-thisrg)/self._hr
+        lnsr= self._lnsr-(self._ro-thisrg)/self._hsr
+        lnsz= self._lnsz-(self._ro-thisrg)/self._hsz
+        #Calculate fsr
+        if log:
+            lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-math.log(math.pi)\
+                -numpy.log(kappa)\
+                +numpy.log(1.+numpy.tanh(lz/self._lo))\
+                -kappa*jr*numpy.exp(-2.*lnsr)
+            lnfsz= numpy.log(nu)-math.log(2.*math.pi)\
+                -2.*lnsz-nu*jz*numpy.exp(-2.*lnsz)
+            return lnfsr+lnfsz
+        else:
+            srm2= numpy.exp(-2.*lnsr)
+            fsr= Omega*numpy.exp(lnsurfmass)*srm2/math.pi/kappa\
+                *(1.+numpy.tanh(lz/self._lo))\
+                *numpy.exp(-kappa*jr*srm2)
+            szm2= numpy.exp(-2.*lnsz)
+            fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
+            return fsr*fsz
 
     def _calc_epifreq(self,r):
         """
