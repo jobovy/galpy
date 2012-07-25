@@ -74,7 +74,7 @@ class quasiisothermaldf:
         #First calculate rg
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
-        
+        kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
         return None
 
     def _calc_epifreq(self,r):
@@ -89,8 +89,10 @@ class quasiisothermaldf:
            kappa
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
+        NOTE:
+           takes about 0.1 ms for a Miyamoto-Nagai potential
         """
-        return None
+        return potential.epifreq(self._pot,r)
 
     def _calc_verticalfreq(self,r):
         """
@@ -104,8 +106,10 @@ class quasiisothermaldf:
            nu
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
+        NOTE:
+           takes about 0.05 ms for a Miyamoto-Nagai potential
         """
-        return None
+        return potential.verticalfreq(self._pot,r)
 
     def rg(self,lz):
         """
@@ -122,6 +126,7 @@ class quasiisothermaldf:
         NOTE:
            seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
            ~0.75 ms for a MWPotential
+           about the same with or without interpolation of the rotation curve
         """
         #Find interval
         rstart= _rgFindStart(5.*self._hr,
