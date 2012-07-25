@@ -136,3 +136,22 @@ class LogarithmicHaloPotential(Potential):
         denom= 1./(R**2.+(z/self._q)**2.+self._core2)
         return denom-2.*R**2.*denom**2.
 
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
+        denom= 1./(R**2.+(z/self._q)**2.+self._core2)
+        return denom/self._q**2.-2.*z**2.*denom**2./self._q**4.
+
