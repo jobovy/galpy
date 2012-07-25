@@ -151,6 +151,27 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    def z2deriv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+           z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative
+        INPUT:
+           R
+           Z
+           phi
+           t
+        OUTPUT:
+           d2phi/dz2
+        HISTORY:
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        """
+        try:
+            return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
+        except AttributeError:
+            raise PotentialError("'_z2deriv' function not implemented for this potential")      
+
     def normalize(self,norm,t=0.):
         """
         NAME:
@@ -366,6 +387,32 @@ class Potential:
         
         """
         return nu.sqrt(self.R2deriv(R,0.)-3./R*self.Rforce(R,0.))
+
+    def verticalfreq(self,R):
+        """
+        
+        NAME:
+        
+           verticalfreq
+        
+        PURPOSE:
+        
+           calculate the vertical frequency at R in this potential
+        
+        INPUT:
+        
+           R - Galactocentric radius
+        
+        OUTPUT:
+        
+           vertical frequency
+        
+        HISTORY:
+        
+           2012-07-25 - Written - Bovy (IAS@MPIA)
+        
+        """
+        return nu.sqrt(self.z2deriv(R,0.))
 
     def lindbladR(self,OmegaP,m=2,**kwargs):
         """
