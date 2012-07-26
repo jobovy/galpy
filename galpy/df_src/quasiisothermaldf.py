@@ -3,6 +3,7 @@ import math
 import numpy
 from scipy import optimize, interpolate
 from galpy import potential
+from galpy import actionAngle
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
@@ -89,6 +90,8 @@ class quasiisothermaldf:
            value of DF
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
+        NOTE:
+           For Miyamoto-Nagai this seems to take about 30 ms / evaluation in the extended Solar neighborhood
         """
         #First parse log
         if kwargs.has_key('log'):
@@ -101,7 +104,11 @@ class quasiisothermaldf:
             jr,lz,jz= args[0]
         else:
             #Use self._aA to calculate the actions
-            jr,lz,jz= self._aA(*args,**kwargs)
+            try:
+                jr,lz,jz= self._aA(*args,**kwargs)
+            except actionAngle.UnboundError:
+                if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
+                else: return 0.
             if len(jr) > 1: jr= jr[0]
             if len(jz) > 1: jz= jz[0]
         #First calculate rg
