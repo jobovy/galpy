@@ -232,7 +232,6 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         (rperi,rap)= self.calcRapRperi()
         EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
         E, L= EL
-        print E, L, rperi, rap
         self._JR= (2.*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
                                               args=(E,L,self._pot),
                                               **kwargs)))
@@ -391,6 +390,8 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False):
         rtry= R/2.
     while (E-potentialAxi(rtry,pot)-L**2./2./rtry**2) > 0.:
         if rap:
+            if rtry > 100.:
+                raise UnboundError("Orbit seems to be unboud")
             rtry*= 2.
         else:
             rtry/= 2.
