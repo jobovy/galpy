@@ -66,22 +66,44 @@ class quasiisothermaldf:
         self._precomputevcirc= _precomputevcirc
         return None
 
-    def __call__(self,jr,lz,jz,log=False):
+    def __call__(self,*args,**kwargs):
         """
         NAME:
            __call__
         PURPOSE:
            return the DF
         INPUT:
-           jr - radial action
-           lz - z-component of angular momentum
-           jz - vertical action
+           Either:
+              a)(jr,lz,jz) tuple
+                 where:
+                    jr - radial action
+                    lz - z-component of angular momentum
+                    jz - vertical action
+              b) R,vR,vT,z,vz
+              c) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+
            log= if True, return the natural log
+           +scipy.integrate.quadrature kwargs
         OUTPUT:
            value of DF
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        #First parse log
+        if kwargs.has_key('log'):
+            log= kwargs['log']
+            kwargs.pop('log')
+        else:
+            log= False
+        #First parse args
+        if len(args) == 1: #(jr,lz,jz)
+            jr,lz,jz= args[0]
+        else:
+            #Use self._aA to calculate the actions
+            jr,lz,jz= self._aA(*args,**kwargs)
+            if len(jr) > 1: jr= jr[0]
+            if len(jz) > 1: jz= jz[0]
         #First calculate rg
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
