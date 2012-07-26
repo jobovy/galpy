@@ -270,18 +270,19 @@ class actionAnglePower(actionAngle,actionAngleVertical):
             return self._rperirap
         EL= calcELPower(self._R,self._vR,self._vT,self._beta,vc=1.,ro=1.)
         E, L= EL
-        if self._vR == 0. and self._vT > 1.: #We are exactly at pericenter
+        if self._vR == 0. and self._vT > self._R**self._beta: #We are exactly at pericenter
             rperi= self._R
             rend= _rapRperiPowerFindStart(self._R,E,L,self._beta,rap=True)
-            rap= optimize.newton(_rapRperiPowerEq,rend,args=(E,L,self._beta),
-                                 fprime=_rapRperiPowerDeriv)
-        elif self._vR == 0. and self._vT < 1.: #We are exactly at apocenter
+            rap= optimize.brentq(_rapRperiPowerEq,rperi+0.000001,
+                                 rend,args=(E,L,self._beta))
+#                                 fprime=_rapRperiPowerDeriv)
+        elif self._vR == 0. and self._vT <self.R**self._beta: #We are exactly at apocenter
             rap= self._R
             rstart= _rapRperiPowerFindStart(self._R,E,L,self._beta)
-            rperi= optimize.newton(_rapRperiPowerEq,rstart,
-                                   args=(E,L,self._beta),
-                                   fprime=_rapRperiPowerDeriv)
-        elif self._vR == 0. and self._vT == 1.: #We are on a circular orbit
+            rperi= optimize.brentq(_rapRperiPowerEq,rstart,rap-0.000001,
+                                   args=(E,L,self._beta))
+#                                   fprime=_rapRperiPowerDeriv)
+        elif self._vR == 0. and self._vT == self._R**self.__beta: #We are on a circular orbit
             rperi= self._R
             rap = self._R
         else:
