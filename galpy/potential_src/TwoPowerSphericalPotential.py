@@ -149,6 +149,24 @@ class TwoPowerSphericalPotential(Potential):
         r= m.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
 
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2012-07-26 - Written - Bovy (IAS@MPIA)
+        """
+        return self._R2deriv(z,R) #Spherical potential
+
 def _potIntegrandTransform(t,alpha,beta):
     """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
     return 1./t**2.*_potIntegrand(1./t,alpha,beta)
