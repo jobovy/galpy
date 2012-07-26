@@ -32,7 +32,8 @@ class actionAngleAdiabatic():
         PURPOSE:
            initialize an actionAngleAdiabatic object
         INPUT:
-              pot= potential or list of potentials (planarPotentials)
+           pot= potential or list of potentials (planarPotentials)
+           gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential (if there is no vertical potential, this is set to zero)
         OUTPUT:
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
@@ -40,6 +41,10 @@ class actionAngleAdiabatic():
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
+        if kwargs.has_key('gamma'):
+            self._gamma= kwargs['gamma']
+        else:
+            self._gamma= 1.
         return None
     
     def __call__(self,*args,**kwargs):
@@ -70,5 +75,6 @@ class actionAngleAdiabatic():
         else:
             thisverticalpot= self._pot.toVertical(meta._R)
         aAAxi= actionAngleAxi(*args,pot=thispot,
-                               verticalPot=thisverticalpot)
+                               verticalPot=thisverticalpot,
+                               gamma=self._gamma)
         return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
