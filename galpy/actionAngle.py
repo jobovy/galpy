@@ -5,6 +5,11 @@ from galpy.actionAngle_src import actionAngleAxi
 from galpy.actionAngle_src import actionAngleAdiabatic
 
 #
+# Exceptions
+#
+UnboundError= actionAngle.UnboundError
+
+#
 # Classes
 #
 actionAngle= actionAngle.actionAngle
