@@ -93,6 +93,8 @@ class quasiisothermaldf:
         NOTE:
            For Miyamoto-Nagai/adiabatic approximation this seems to take 
            about 30 ms / evaluation in the extended Solar neighborhood
+           For a MWPotential/adiabatic approximation this takes about 
+           50 ms / evaluation in the extended Solar neighborhood
         """
         #First parse log
         if kwargs.has_key('log'):
