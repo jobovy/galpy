@@ -408,6 +408,8 @@ def _rapRperiPowerFindStart(R,E,L,beta,rap=False):
         rtry= R/2.
     while (E-potentialPower(rtry,beta)-L**2./2./rtry**2) > 0.:
         if rap:
+            if rtry > 100.:
+                raise UnboundError("Orbit seems to be unboud")
             rtry*= 2.
         else:
             rtry/= 2.
