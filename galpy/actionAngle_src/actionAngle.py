@@ -48,3 +48,9 @@ class actionAngle:
             if self._z == 0.: self._theta= m.pi/2.
             else: self._theta= m.atan(self._R/self._z)
         return None
+
+class UnboundError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
