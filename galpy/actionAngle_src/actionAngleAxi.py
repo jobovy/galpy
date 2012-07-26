@@ -35,6 +35,8 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
               pot= potential or list of potentials (planarPotentials)
+              verticalPot= the vertical Potential
+              gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential (if there is no vertical potential, this is set to zero)
         OUTPUT:
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
@@ -47,6 +49,12 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             kwargs.pop('pot')
             actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
                                          **kwargs)
+            if kwargs.has_key('gamma'):
+                self._gamma= kwargs['gamma']
+            else:
+                self._gamma= 1.
+        else:
+            self._gamma= 0.
         return None
     
     def angleR(self,**kwargs):
@@ -65,11 +73,11 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_angleR'):
             return self._angleR
-        (rperi,rap)= self.calcRapRperi()
+        (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi:
             return 0.
         TR= self.TR(**kwargs)[0]
-        EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        EL= self.calcEL(**kwargs)
         E, L= EL
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         if self._R < Rmean:
@@ -111,7 +119,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_TR'):
             return self._TR
-        (rperi,rap)= self.calcRapRperi()
+        (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi: #Rough limit
             raise AttributeError("Not implemented yet")
             #TR=kappa
@@ -120,7 +128,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             self._TR= nu.array([2.*m.pi/kappa,0.])
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        EL= self.calcEL(**kwargs)
         E, L= EL
         TR= 0.
         if Rmean > rperi:
@@ -151,7 +159,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_Tphi'):
             return self._Tphi
-        (rperi,rap)= self.calcRapRperi()
+        (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi:#Circular orbit
             return nu.array([2.*m.pi*self._R/self._vT,0.])
         TR= self.TR(**kwargs)
@@ -177,14 +185,14 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_I'):
             return self._I
-        (rperi,rap)= self.calcRapRperi()
+        (rperi,rap)= self.calcRapRperi(**kwargs)
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         if rap == rperi: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
             self._I= nu.array([TR/Tphi*m.pi,0.])
             return self._I
-        EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        EL= self.calcEL(**kwargs)
         E, L= EL
         I= 0.
         if Rmean > rperi:
@@ -229,15 +237,33 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_JR'):
             return self._JR
-        (rperi,rap)= self.calcRapRperi()
-        EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        (rperi,rap)= self.calcRapRperi(**kwargs)
+        EL= self.calcEL(**kwargs)
         E, L= EL
         self._JR= (2.*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
                                               args=(E,L,self._pot),
                                               **kwargs)))
         return self._JR
 
-    def calcRapRperi(self):
+    def calcEL(self,**kwargs):
+        """
+        NAME:
+           calcEL
+        PURPOSE:
+           calculate the energy and angular momentum
+        INPUT:
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           (E,L)
+        HISTORY:
+           2012-07-26 - Written - Bovy (IAS)
+        """                           
+        E,L= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        if self._gamma != 0.:
+            L+= self._gamma*self.Jz(**kwargs)[0]
+        return (E,L)
+
+    def calcRapRperi(self,**kwargs):
         """
         NAME:
            calcRapRperi
@@ -251,7 +277,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """
         if hasattr(self,'_rperirap'):
             return self._rperirap
-        EL= calcELAxi(self._R,self._vR,self._vT,self._pot,vc=1.,ro=1.)
+        EL= self.calcEL(**kwargs)
         E, L= EL
         if self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
             rperi= self._R
