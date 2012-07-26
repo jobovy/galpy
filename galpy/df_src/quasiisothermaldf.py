@@ -91,7 +91,8 @@ class quasiisothermaldf:
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         NOTE:
-           For Miyamoto-Nagai this seems to take about 30 ms / evaluation in the extended Solar neighborhood
+           For Miyamoto-Nagai/adiabatic approximation this seems to take 
+           about 30 ms / evaluation in the extended Solar neighborhood
         """
         #First parse log
         if kwargs.has_key('log'):
