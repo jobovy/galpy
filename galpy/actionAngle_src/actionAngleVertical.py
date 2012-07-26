@@ -200,7 +200,8 @@ def _zmaxFindStart(z,Ez,pot):
     HISTORY:
        2012-06-01 - Written - Bovy (IAS)
     """
-    ztry= 2.*nu.fabs(z)
+    if z == 0.: ztry= 0.00001
+    else: ztry= 2.*nu.fabs(z)
     while (Ez-potentialVertical(ztry,pot)) > 0.:
         ztry*= 2.
     return ztry
