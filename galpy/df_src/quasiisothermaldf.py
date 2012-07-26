@@ -120,9 +120,9 @@ class quasiisothermaldf:
         kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
         Omega= lz/thisrg/thisrg
         #calculate surface-densities and sigmas
-        lnsurfmass= -(self._ro-thisrg)/self._hr
-        lnsr= self._lnsr-(self._ro-thisrg)/self._hsr
-        lnsz= self._lnsz-(self._ro-thisrg)/self._hsz
+        lnsurfmass= (self._ro-thisrg)/self._hr
+        lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
+        lnsz= self._lnsz+(self._ro-thisrg)/self._hsz
         #Calculate fsr
         if log:
             lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-math.log(math.pi)\
