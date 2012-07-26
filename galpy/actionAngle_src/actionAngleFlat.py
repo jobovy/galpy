@@ -238,13 +238,13 @@ class actionAngleFlat(actionAngle,actionAngleVertical):
         if self._vR == 0. and self._vT > 1.: #We are exactly at pericenter
             rperi= self._R
             rend= _rapRperiFlatFindStart(self._R,E,L,rap=True)
-            rap= optimize.newton(_rapRperiFlatEq,rend,args=EL,
-                                 fprime=_rapRperiFlatDeriv)
+            rap= optimize.brentq(_rapRperiFlatEq,rperi+0.000001,rend,args=EL)
+#                                 fprime=_rapRperiFlatDeriv)
         elif self._vR == 0. and self._vT < 1.: #We are exactly at apocenter
             rap= self._R
             rstart= _rapRperiFlatFindStart(self._R,E,L)
-            rperi= optimize.newton(_rapRperiFlatEq,rstart,args=EL,
-                                   fprime=_rapRperiFlatDeriv)
+            rperi= optimize.brentq(_rapRperiFlatEq,rstart,rap-0.000001,args=EL)
+#                                   fprime=_rapRperiFlatDeriv)
         elif self._vR == 0. and self._vT == 1.: #We are on a circular orbit
             rperi= self._R
             rap = self._R
