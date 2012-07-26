@@ -260,7 +260,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """                           
         E,L= calcELAxi(self._R,self._vR,self._vT,self._pot)
         if self._gamma != 0.:
-            L+= self._gamma*self.Jz(**kwargs)[0]
+            L= m.fabs(L)+self._gamma*self.Jz(**kwargs)[0]
         return (E,L)
 
     def calcRapRperi(self,**kwargs):
@@ -281,24 +281,44 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         E, L= EL
         if self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
             rperi= self._R
-            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True)
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
+                startsign/= m.fabs(startsign)
+            else: startsign= 1.
+            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
+                                        startsign=startsign)
             rap= optimize.brentq(_rapRperiAxiEq,rperi+0.00001,rend,
                                  args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
         elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
             rap= self._R
-            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot)
-            rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
-                                   args=(E,L,self._pot))
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
+                startsign/= m.fabs(startsign)
+            else: startsign= 1.
+            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
+                                          startsign=startsign)
+            if rstart == 0.: rperi= 0.
+            else:
+                rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
+                                       args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
         elif self._vR == 0. and self._vT == vcirc(self._pot,self._R): #We are on a circular orbit
             rperi= self._R
             rap = self._R
         else:
-            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot)
-            rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
-                                   (E,L,self._pot))
-            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True)
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
+                startsign/= m.fabs(startsign)
+            else:
+                startsign= 1.
+            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
+                                          startsign=startsign)
+            if rstart == 0.: rperi= 0.
+            else: rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
+                                         (E,L,self._pot))
+            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
+                                        startsign=startsign)
             rap= optimize.brentq(_rapRperiAxiEq,self._R,rend,
                                  (E,L,self._pot))
         self._rperirap= (rperi,rap)
@@ -393,7 +413,7 @@ def _rapRperiAxiDeriv(R,E,L,pot):
     apo- and pericenter"""
     return evaluateplanarRforces(R,pot)+L**2./R**3.
 
-def _rapRperiAxiFindStart(R,E,L,pot,rap=False):
+def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
     """
     NAME:
        _rapRperiAxiFindStart
@@ -405,6 +425,7 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False):
        L - angular momentum
        pot - potential
        rap - if True, find the rap end-point
+       startsign= set to -1 if the function is not positive (due to gamma)
     OUTPUT:
        rstart or rend
     HISTORY:
@@ -414,12 +435,14 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False):
         rtry= 2.*R
     else:
         rtry= R/2.
-    while (E-potentialAxi(rtry,pot)-L**2./2./rtry**2) > 0.:
+    while startsign*(E-potentialAxi(rtry,pot)-L**2./2./rtry**2) > 0. \
+            and rtry > 0.000000001:
         if rap:
             if rtry > 100.:
-                raise UnboundError("Orbit seems to be unboud")
+                raise UnboundError("Orbit seems to be unbound")
             rtry*= 2.
         else:
             rtry/= 2.
+    if rtry < 0.000000001: return 0.
     return rtry
 
