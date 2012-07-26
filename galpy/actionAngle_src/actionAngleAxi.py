@@ -20,6 +20,7 @@ from actionAngle import *
 from actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, evaluateplanarPotentials
+from galpy.potential import vcirc
 class actionAngleAxi(actionAngle,actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
@@ -231,6 +232,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         (rperi,rap)= self.calcRapRperi()
         EL= calcELAxi(self._R,self._vR,self._vT,self._pot)
         E, L= EL
+        print E, L, rperi, rap
         self._JR= (2.*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
                                               args=(E,L,self._pot),
                                               **kwargs)))
@@ -252,18 +254,19 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             return self._rperirap
         EL= calcELAxi(self._R,self._vR,self._vT,self._pot,vc=1.,ro=1.)
         E, L= EL
-        if self._vR == 0. and self._vT > 1.: #We are exactly at pericenter
+        if self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
             rperi= self._R
             rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True)
-            rap= optimize.newton(_rapRperiAxiEq,rend,args=(E,L,self._pot),
-                                 fprime=_rapRperiAxiDeriv)
-        elif self._vR == 0. and self._vT < 1.: #We are exactly at apocenter
+            rap= optimize.brentq(_rapRperiAxiEq,rperi+0.00001,rend,
+                                 args=(E,L,self._pot))
+#                                   fprime=_rapRperiAxiDeriv)
+        elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
             rap= self._R
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot)
-            rperi= optimize.newton(_rapRperiAxiEq,rstart,
-                                   args=(E,L,self._pot),
-                                   fprime=_rapRperiAxiDeriv)
-        elif self._vR == 0. and self._vT == 1.: #We are on a circular orbit
+            rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
+                                   args=(E,L,self._pot))
+#                                   fprime=_rapRperiAxiDeriv)
+        elif self._vR == 0. and self._vT == vcirc(self._pot,self._R): #We are on a circular orbit
             rperi= self._R
             rap = self._R
         else:
