@@ -122,6 +122,24 @@ class PowerSphericalPotential(Potential):
         return 1./(R**2.+z**2.)**(self.alpha/2.)\
             -self.alpha*R**2./(R**2.+z**2.)**(self.alpha/2.+1.)
 
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2012-07-26 - Written - Bovy (IAS@MPIA)
+        """
+        return self._R2deriv(z,R) #Spherical potential
+
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler potential
 
