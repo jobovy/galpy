@@ -5,7 +5,7 @@ from scipy import optimize, interpolate
 from galpy import potential
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
-    def __init__(self,hr,sr,sz,hsr,hsz,pot=None,
+    def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
                  _precomputevcirc=True,_precomputevcircrmax=None,
                  _precomputevcircnr=51,
                  ro=1.,lo=10./220.*8.):
@@ -21,6 +21,7 @@ class quasiisothermaldf:
            hsr - radial-velocity-dispersion scale length
            hsz - vertial-velocity-dispersion scale length
            pot= Potential instance or list thereof
+           aA= actionAngle instance used to convert (x,v) to actions
            ro= reference radius for surface mass and sigmas
            lo= reference angular momentum below where there are significant numbers of retrograde stars
         OTHER INPUTS:
@@ -44,6 +45,9 @@ class quasiisothermaldf:
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= pot
+        if aA is None:
+            raise IOError("aA= must be set")
+        self._aA= aA
         if _precomputevcirc:
             if _precomputevcircrmax is None:
                 _precomputevcircrmax= 5*self._hr
