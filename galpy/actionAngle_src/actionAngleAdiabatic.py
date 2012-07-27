@@ -7,17 +7,8 @@
 #             this for any (x,v)
 #
 #      methods:
-#              JR
-#              Jphi
-#              Jz
-#              angleR
-#              anglez
-#              TR
-#              Tphi
-#              Tz
-#              I
-#              calcRapRperi
-#              calcEL
+#             __call__: returns (jr,lz,jz)
+#
 ###############################################################################
 import math as m
 import numpy as nu
@@ -33,7 +24,7 @@ class actionAngleAdiabatic():
            initialize an actionAngleAdiabatic object
         INPUT:
            pot= potential or list of potentials (planarPotentials)
-           gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential (if there is no vertical potential, this is set to zero)
+           gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
         OUTPUT:
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
@@ -78,3 +69,37 @@ class actionAngleAdiabatic():
                                verticalPot=thisverticalpot,
                                gamma=self._gamma)
         return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+
+    def Jz(self,*args,**kwargs):
+        """
+        NAME:
+           Jz
+        PURPOSE:
+           evaluate the action jz
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           jz,jzerr
+        HISTORY:
+           2012-07-27 - Written - Bovy (IAS@MPIA)
+        """
+        #Set up the actionAngleAxi object
+        meta= actionAngle(*args)
+        if isinstance(self._pot,list):
+            thispot= [p.toPlanar() for p in self._pot]
+        else:
+            thispot= self._pot.toPlanar()
+        if isinstance(self._pot,list):
+            thisverticalpot= [p.toVertical(meta._R) for p in self._pot]
+        else:
+            thisverticalpot= self._pot.toVertical(meta._R)
+        aAAxi= actionAngleAxi(*args,pot=thispot,
+                               verticalPot=thisverticalpot,
+                               gamma=self._gamma)
+        return aAAxi.Jz(**kwargs)
+
+        
