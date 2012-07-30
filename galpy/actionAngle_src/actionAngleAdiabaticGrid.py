@@ -147,10 +147,10 @@ class actionAngleAdiabaticGrid():
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
         else:
-            jz= self._jzInterp(meta._R,Ez/thisEzZmax)\
-                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.)
+            jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
+                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
         #Radial action
-        ERLz= math.fabs(meta._R*meta._vT)+self._gamma*jz[0]
+        ERLz= math.fabs(meta._R*meta._vT)+self._gamma*jz
         ER= Phio+meta._vR**2./2.+ERLz**2./2./meta._R**2.
         thisRL= self._RLInterp(ERLz)
         thisERRL= -numpy.exp(self._ERRLInterp(ERLz))
@@ -166,10 +166,10 @@ class actionAngleAdiabaticGrid():
                             0.,0.,
                             **kwargs)[0]
         else:
-            jr= self._jrInterp(ERLz,
+            jr= (self._jrInterp(ERLz,
                                (ER-thisERRa)/(thisERRL-thisERRa))\
-                *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.)
-        return (jr[0][0],meta._R*meta._vT,jz[0][0])
+                *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.))[0][0]
+        return (jr,meta._R*meta._vT,jz)
 
     def Jz(self,*args,**kwargs):
         """
@@ -200,6 +200,6 @@ class actionAngleAdiabaticGrid():
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
         else:
-            jz= self._jzInterp(meta._R,Ez/thisEzZmax)\
-                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.)
+            jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
+                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
         return jz
