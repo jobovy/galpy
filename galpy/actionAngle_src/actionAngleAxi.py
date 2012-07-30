@@ -261,7 +261,10 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         """                           
         E,L= calcELAxi(self._R,self._vR,self._vT,self._pot)
         if self._gamma != 0.:
+            #Adjust E
+            E-= self._vT**2./2.
             L= m.fabs(L)+self._gamma*self.Jz(**kwargs)[0]
+            E+= L**2./2./self._R**2.
         return (E,L)
 
     def calcRapRperi(self,**kwargs):
@@ -295,7 +298,6 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
                                  args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
         elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
-            print self._vT, vcirc(self._pot,self._R)
             rap= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
