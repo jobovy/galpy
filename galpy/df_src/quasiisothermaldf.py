@@ -113,8 +113,8 @@ class quasiisothermaldf:
             except actionAngle.UnboundError:
                 if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
                 else: return 0.
-            if len(jr) > 1: jr= jr[0]
-            if len(jz) > 1: jz= jz[0]
+            if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
+            if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         #First calculate rg
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
@@ -172,8 +172,8 @@ class quasiisothermaldf:
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_surfaceIntegrand,
-                                 gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 gamma*(thisvc-va)/sigmaR1+nsigma,
+                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
                                  lambda x: 0., lambda x: nsigma,
                                  lambda x,y: 0., lambda x,y: nsigma,
                                  (R,z,self,sigmaR1,gamma,sigmaz1),
