@@ -35,6 +35,7 @@ calcRotcurve= plotRotcurve.calcRotcurve
 vcirc= plotRotcurve.vcirc
 epifreq= Potential.epifreq
 verticalfreq= Potential.verticalfreq
+rl= Potential.rl
 omegac= plotRotcurve.omegac
 epifreq= plotRotcurve.epifreq
 lindbladR= plotRotcurve.lindbladR
