@@ -70,6 +70,33 @@ class actionAngleAdiabatic():
                                gamma=self._gamma)
         return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
 
+    def JR(self,*args,**kwargs):
+        """
+        NAME:
+           JR
+        PURPOSE:
+           evaluate the action jr
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           Jr
+        HISTORY:
+           2012-07-30 - Written - Bovy (IAS@MPIA)
+        """
+        #Set up the actionAngleAxi object
+        meta= actionAngle(*args)
+        if isinstance(self._pot,list):
+            thispot= [p.toPlanar() for p in self._pot]
+        else:
+            thispot= self._pot.toPlanar()
+        aAAxi= actionAngleAxi(*args,pot=thispot,
+                               gamma=self._gamma)
+        return aAAxi.JR(**kwargs)
+
     def Jz(self,*args,**kwargs):
         """
         NAME:
