@@ -88,12 +88,11 @@ class actionAngleAdiabaticGrid():
         self._ERRa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
         self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(-self._ERRa),k=3)
-        y= numpy.linspace(0.,1.,nEr) #To avoid unbound
+        y= numpy.linspace(0.,1.,nEr)
         jr= numpy.zeros((nLz,nEr))
         jrERRa= numpy.zeros(nLz)
         for ii in range(nLz):
             for jj in range(nEr-1): #Last one is zero by construction
-                #Calculate Jr
                 try:
                     jr[ii,jj]= self._aA.JR(self._RL[ii],
                                            numpy.sqrt(2.*(self._ERRa[ii]+y[jj]*(self._ERRL[ii]-self._ERRa[ii])-galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot))-self._Lzs[ii]**2./self._RL[ii]**2.),
@@ -151,22 +150,56 @@ class actionAngleAdiabaticGrid():
             jz= self._jzInterp(meta._R,Ez/thisEzZmax)\
                 *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.)
         #Radial action
-        Lz= meta._R*meta._vT
-        ER= Phio+meta._vR**2./2.+meta._vT**2./2.
-        thisRL= self._RLInterp(Lz)
-        thisERRL= -numpy.exp(self._ERRLInterp(Lz))
-        thisERRa= -numpy.exp(self._ERRaInterp(Lz))
+        ERLz= math.fabs(meta._R*meta._vT)+self._gamma*jz[0]
+        ER= Phio+meta._vR**2./2.+ERLz**2./2./meta._R**2.
+        thisRL= self._RLInterp(ERLz)
+        thisERRL= -numpy.exp(self._ERRLInterp(ERLz))
+        thisERRa= -numpy.exp(self._ERRaInterp(ERLz))
         #Outside of grid?
-        if Lz < self._Lzmin or Lz > self._Lzmax \
+        if ERLz < self._Lzmin or ERLz > self._Lzmax \
                 or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                 or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
             print "Outside of grid"
             jr= self._aA.JR(thisRL,
-                            numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-Lz**2./thisRL**2.),
-                            Lz/thisRL,
+                            numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
+                            ERLz/thisRL,
                             0.,0.,
                             **kwargs)[0]
         else:
-            jr= self._jrInterp(Lz,(ER-thisERRa)/(thisERRL-thisERRa))\
-                *(numpy.exp(self._jrERRaInterp(Lz))-10.**-5.)
-        return (jr[0][0],Lz,jz[0][0])
+            jr= self._jrInterp(ERLz,
+                               (ER-thisERRa)/(thisERRL-thisERRa))\
+                *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.)
+        return (jr[0][0],meta._R*meta._vT,jz[0][0])
+
+    def Jz(self,*args,**kwargs):
+        """
+        NAME:
+           Jz
+        PURPOSE:
+           evaluate the action jz
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           jz
+        HISTORY:
+           2012-07-30 - Written - Bovy (IAS@MPIA)
+        """
+        meta= actionAngle(*args)
+        Phi= galpy.potential.evaluatePotentials(meta._R,meta._z,self._pot)
+        Phio= galpy.potential.evaluatePotentials(meta._R,0.,self._pot)
+        Ez= Phi-Phio+meta._vz**2./2.
+        #Bigger than Ezzmax?
+        thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
+        if meta._R > self._Rmax or meta._R < self._Rmin or numpy.log(Ez) > thisEzZmax: #Outside of the grid
+            print "Outside of grid"
+            jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
+                            0.,math.sqrt(2.*Ez),
+                            **kwargs)[0]
+        else:
+            jz= self._jzInterp(meta._R,Ez/thisEzZmax)\
+                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.)
+        return jz
