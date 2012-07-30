@@ -915,19 +915,31 @@ def rl(Pot,lz):
     rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
                          math.fabs(lz),
                          Pot)
-    return optimize.brentq(_rlfunc,0.0000001,rstart,
-                           args=(math.fabs(lz),
-                                 Pot))
+    try:
+        return optimize.brentq(_rlfunc,10.**-5.,rstart,
+                               args=(math.fabs(lz),
+                                     Pot))
+    except ValueError: #Probably lz small and starting lz to great
+        rlower= _rlFindStart(10.**-5.,
+                             math.fabs(lz),
+                             Pot,lower=True)
+        return optimize.brentq(_rlfunc,rlower,rstart,
+                               args=(math.fabs(lz),
+                                     Pot))
+        
 
 def _rlfunc(rl,lz,pot):
     """Function that gives rvc-lz"""
     thisvcirc= vcirc(pot,rl)
     return rl*thisvcirc-lz
 
-def _rlFindStart(rl,lz,pot):
+def _rlFindStart(rl,lz,pot,lower=False):
     """find a starting interval for rl"""
     rtry= 2.*rl
-    while _rlfunc(rtry,lz,pot) < 0.:
-        rtry*= 2.
+    while (2.*lower-1.)*_rlfunc(rtry,lz,pot) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
     return rtry
 
