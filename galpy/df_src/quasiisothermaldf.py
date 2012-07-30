@@ -180,59 +180,84 @@ class quasiisothermaldf:
                                  lambda x: 0., lambda x: nsigma,
                                  lambda x,y: 0., lambda x,y: nsigma,
                                  (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]
+                                 **kwargs)[0]*8.*numpy.pi
     
-    def sigma2surfacemass(self,R,romberg=False,nsigma=None,
-                                relative=False):
+    def sigmaR2surfacemass(self,R,z,nsigma=None,**kwargs):
         """
         NAME:
-           sigma2surfacemass
+           sigmaR2surfacemass
         PURPOSE:
-           calculate the product sigma_R^2 x surface-mass at R by 
-           marginalizing over velocity
+           calculate the surface-mass at R x sigma_R^2 
+           by marginalizing over velocity
         INPUT:
-           R - radius at which to calculate the sigma_R^2 x surfacemass 
-               density (/ro)
+           R - radius at which to calculate this
+           z - height at which to calculate this
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
-        KEYWORDS:
-           romberg - if True, use a romberg integrator (default: False)
+           scipy.integrate.tplquad kwargs epsabs and epsrel
         OUTPUT:
-           sigma_R^2 x surface-mass at R
+           surface mass at (R,z) x sigma_R^2
         HISTORY:
-           2010-03-XX - Written - Bovy (NYU)
+           2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
-        if relative:
-            norm= 1.
-        else:
-            norm= sc.exp(logSigmaR+logsigmaR2)
+        logSigmaR= (self._ro-R)/self._hr
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
-                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
-                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if romberg:
-            return bovy_dblquad(_sigma2surfaceIntegrand,
-                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                 self._gamma],
-                                tol=10.**-8)/sc.pi*norm
-        else:
-            return integrate.dblquad(_sigma2surfaceIntegrand,
-                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                     lambda x: 0., lambda x: nsigma,
-                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      self._gamma),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
+        gamma= 0.5
+        va= sigmaR1**2./2./thisvc\
+            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+               +R*(1./self._hr+2./self._hsr))
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        return integrate.tplquad(_sigmaR2surfaceIntegrand,
+                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
+                                 lambda x: 0., lambda x: nsigma,
+                                 lambda x,y: 0., lambda x,y: nsigma,
+                                 (R,z,self,sigmaR1,gamma,sigmaz1),
+                                 **kwargs)[0]*8.*numpy.pi
+    
+    def sigmaz2surfacemass(self,R,z,nsigma=None,**kwargs):
+        """
+        NAME:
+           sigmaz2surfacemass
+        PURPOSE:
+           calculate the surface-mass at R x sigma_z^2 
+           by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+        OUTPUT:
+           surface mass at (R,z) x sigma_z^2
+        HISTORY:
+           2012-07-30 - Written - Bovy (IAS@MPIA)
+        """
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= (self._ro-R)/self._hr
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        thisvc= potential.vcirc(self._pot,R)
+        #Use the asymmetric drift equation to estimate va
+        gamma= 0.5
+        va= sigmaR1**2./2./thisvc\
+            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+               +R*(1./self._hr+2./self._hsr))
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        return integrate.tplquad(_sigmaz2surfaceIntegrand,
+                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
+                                 lambda x: 0., lambda x: nsigma,
+                                 lambda x,y: 0., lambda x,y: nsigma,
+                                 (R,z,self,sigmaR1,gamma,sigmaz1),
+                                 **kwargs)[0]*8.*numpy.pi
+    
     def _calc_epifreq(self,r):
         """
         NAME:
@@ -294,13 +319,13 @@ def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the surface mass integration"""
     return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
 
-def _sigmar2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
+def _sigmaR2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
-    return vR**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
+    return (vR*sigmaR1)**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
 
 def _sigmaz2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
-    return vz**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
+    return (vz*sigmaz1)**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
 
