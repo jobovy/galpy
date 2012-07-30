@@ -46,34 +46,28 @@ class actionAngleAdiabaticGrid():
         #Set up the actionAngleAdiabatic object that we will use to interpolate
         self._aA= actionAngleAdiabatic(pot=self._pot,gamma=self._gamma)
         #Build grid for Ez, first calculate Ez(zmax;R) function
-        Rs= numpy.linspace(0.01,self._Rmax,nR)
-        EzZmaxs= numpy.array([evaluatePotentials(r,self._zmax,self._pot)-
-                              evaluatePotentials(r,0.,self._pot) for r in Rs])
-        self._EzZmaxsInterp= interpolate.InterpolatedUnivariateSpline(Rs,numpy.log(EzZmaxs),k=3)
-        x= numpy.zeros(nR*nEz)
-        y= numpy.zeros(nR*nEz)
-        jz= numpy.zeros(nR*nEz)
+        self._Rs= numpy.linspace(0.01,self._Rmax,nR)
+        self._EzZmaxs= numpy.array([evaluatePotentials(r,self._zmax,self._pot)-
+                              evaluatePotentials(r,0.,self._pot) for r in self._Rs])
+        self._EzZmaxsInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(self._EzZmaxs),k=3)
+        y= numpy.linspace(0.,1.,nEz)
+        jz= numpy.zeros((nR,nEz))
         jzEzzmax= numpy.zeros(nR)
-        jzEzzmax2d= numpy.zeros(nR*nEz)
         for ii in range(nR):
-            Ezs= numpy.linspace(EzZmaxs[ii],0.,nEz)
             for jj in range(nEz):
-                x[ii*nEz+jj]= Rs[ii]
-                y[ii*nEz+jj]= Ezs[jj]
                 #Calculate Jz
-                jz[ii*nEz+jj]= self._aA.Jz(Rs[ii],0.,1.,#these two r dummies
-                                           0.,math.sqrt(2.*Ezs[jj]),
-                                           **kwargs)[0]
-                if jj == 0: 
-                    jzEzzmax[ii]= jz[ii*nEz+jj]
-                jz[ii*nEz+jj]/= jzEzzmax[ii]
+                jz[ii,jj]= self._aA.Jz(self._Rs[ii],0.,1.,#these two r dummies
+                                       0.,math.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
+                                       **kwargs)[0]
+                if jj == nEz-1: 
+                    jzEzzmax[ii]= jz[ii,jj]
+        for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
         #First interpolate Ez=Ezmax
-        self._jzEzmaxInterp= interpolate.InterpolatedUnivariateSpline(Rs,numpy.log(jzEzzmax+10.**-5.),k=3)
-        #Divide this out
-        self._jzInterp= interpolate.bisplrep(x,
-                                             y,
-                                             jz,
-                                             kx=3,ky=3)
+        self._jzEzmaxInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(jzEzzmax+10.**-5.),k=3)
+        self._jzInterp= interpolate.RectBivariateSpline(self._Rs,
+                                                        y,
+                                                        jz,
+                                                        kx=3,ky=3,s=0.)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -92,20 +86,23 @@ class actionAngleAdiabaticGrid():
            (jr,lz,jz)
         HISTORY:
            2012-07-27 - Written - Bovy (IAS@MPIA)
+        NOTE:
+           For a Miyamoto-Nagai potential, this seems accurate to 0.1% and takes ~0.13 ms
+           For a MWPotential, this takes ~ 0.17 ms
         """
         meta= actionAngle(*args)
         #First work on the vertical action
-        Phi= self._pot(meta._R,meta._z)
-        Phio= self._pot(meta._R,0.)
+        Phi= evaluatePotentials(meta._R,meta._z,self._pot)
+        Phio= evaluatePotentials(meta._R,0.,self._pot)
         Ez= Phi-Phio+meta._vz**2./2.
         #Bigger than Ezzmax?
-        thisEzZmax= self._EzZmaxsInterp(meta._R)
+        thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
         if numpy.log(Ez) > thisEzZmax: #Outside of the grid
             print "Outside of grid"
             jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
         else:
-            jz= interpolate.bisplev(meta._R,Ez,self._jzInterp)\
+            jz= self._jzInterp(meta._R,Ez/thisEzZmax)\
                 *numpy.exp(self._jzEzmaxInterp(meta._R))
         return jz
