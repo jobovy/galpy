@@ -8,8 +8,8 @@ _NSIGMA=4
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
-                 _precomputevcirc=True,_precomputevcircrmax=None,
-                 _precomputevcircnr=51,
+                 _precomputerg=True,_precomputergrmax=None,
+                 _precomputergnLz=51,
                  ro=1.,lo=10./220.*8.):
         """
         NAME:
@@ -27,9 +27,9 @@ class quasiisothermaldf:
            ro= reference radius for surface mass and sigmas
            lo= reference angular momentum below where there are significant numbers of retrograde stars
         OTHER INPUTS:
-           _precomputevcirc= if True (default), pre-compute the circular velocity curve
-           _precomputevcircrmax= if set, this is the maximum R for which to pre-compute vcirc (default: 5*hr
-           _precomputevcircnr if set, number of R to pre-compute vc for (default: 51)
+           _precomputerg= if True (default), pre-compute the rL(L)
+           _precomputergrmax= if set, this is the maximum R for which to pre-compute rg (default: 5*hr)
+           _precomputergnLz if set, number of Lz to pre-compute rg for (default: 51)
         OUTPUT:
            object
         HISTORY:
@@ -50,22 +50,25 @@ class quasiisothermaldf:
         if aA is None:
             raise IOError("aA= must be set")
         self._aA= aA
-        if _precomputevcirc:
-            if _precomputevcircrmax is None:
-                _precomputevcircrmax= 5*self._hr
-            self._precomputevcircrmax= _precomputevcircrmax
-            self._precomputevcircnr= _precomputevcircnr
-            self._precomputevcircrgrid= numpy.linspace(0.00001,self._precomputevcircrmax,self._precomputevcircnr)
-            self._vcircs= numpy.array([potential.vcirc(self._pot,r) for r in self._precomputevcircrgrid])
+        if _precomputerg:
+            if _precomputergrmax is None:
+                _precomputergrmax= 5*self._hr
+            self._precomputergrmax= _precomputergrmax
+            self._precomputergnLz= _precomputergnLz
+            self._precomputergLzmin= 0.01
+            self._precomputergLzmax= self._precomputergrmax\
+                *potential.vcirc(self._pot,self._precomputergrmax)
+            self._precomputergLzgrid= numpy.linspace(self._precomputergLzmin,self._precomputergLzmax,self._precomputergnLz)
+            self._rls= numpy.array([potential.rl(self._pot,l) for l in self._precomputergLzgrid])
             #Spline interpolate
-            self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._precomputevcircrgrid,self._vcircs,k=3)
+            self._rgInterp= interpolate.InterpolatedUnivariateSpline(self._precomputergLzgrid,self._rls,k=3)
         else:
-            self._precomputevcircrmax= 0.
-            self._vcircInterp= None
-            self._vcircs= None
-            self._precomputevcircnr= None
-            self._precomputevcircrgrid= None
-        self._precomputevcirc= _precomputevcirc
+            self._precomputergrmax= 0.
+            self._rgInterp= None
+            self._rls= None
+            self._precomputergnr= None
+            self._precomputergLzgrid= None
+        self._precomputerg= _precomputerg
         return None
 
     def __call__(self,*args,**kwargs):
@@ -283,29 +286,9 @@ class quasiisothermaldf:
 
            Not sure what to do about negative lz...
         """
-        #Find interval
-        rstart= _rgFindStart(math.fabs(lz),#assumes vo=1.
-                             self._vcircInterp,math.fabs(lz),
-                             self._precomputevcircrmax,
-                             self._pot)
-        return optimize.brentq(_rgfunc,0.0000001,rstart,
-                               args=(self._vcircInterp,math.fabs(lz),
-                                     self._precomputevcircrmax,self._pot))
-        
-def _rgfunc(rg,vcircInterp,lz,rmax,pot):
-    """Function that gives rvc-lz"""
-    if rg >= rmax:
-        thisvcirc= potential.vcirc(pot,rg)
-    else:
-        thisvcirc= vcircInterp(rg)
-    return rg*thisvcirc-lz
-
-def _rgFindStart(rg,vcircInterp,lz,rmax,pot):
-    """find a starting interval for rg"""
-    rtry= 2.*rg
-    while _rgfunc(rtry,vcircInterp,lz,rmax,pot) < 0.:
-        rtry*= 2.
-    return rtry
+        if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
+            return potential.rl(self._pot,lz)
+        return self._rgInterp(lz)
 
 def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the surface mass integration"""
