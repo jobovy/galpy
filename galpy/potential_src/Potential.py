@@ -15,9 +15,11 @@
 ###############################################################################
 import os, os.path
 import cPickle as pickle
+import math
 import numpy as nu
+from scipy import optimize
 import galpy.util.bovy_plot as plot
-from plotRotcurve import plotRotcurve, lindbladR
+from plotRotcurve import plotRotcurve, lindbladR, vcirc
 from plotEscapecurve import plotEscapecurve
 _INF= 1000000.
 class Potential:
@@ -471,6 +473,37 @@ class Potential:
         """
         return nu.sqrt(2.*(self(_INF,0.)-self(R,0.)))
         
+    def rl(self,lz):
+        """
+        NAME:
+        
+            rl
+        
+        PURPOSE:
+        
+            calculate the radius of a circular orbit of Lz
+        
+        INPUT:
+        
+        
+            lz - Angular momentum
+        
+        OUTPUT:
+        
+            radius
+        
+        HISTORY:
+        
+            2012-07-30 - Written - Bovy (IAS@MPIA)
+        
+        NOTE:
+        
+            seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
+            ~0.75 ms for a MWPotential
+        
+        """
+        return rl(self,lz)
+
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
@@ -847,4 +880,54 @@ def verticalfreq(Pot,R):
     
     """
     return nu.sqrt(evaluatez2derivs(R,0.,Pot))
+
+def rl(Pot,lz):
+    """
+    NAME:
+
+       rl
+
+    PURPOSE:
+
+       calculate the radius of a circular orbit of Lz
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       lz - Angular momentum
+
+    OUTPUT:
+
+       radius
+
+    HISTORY:
+
+       2012-07-30 - Written - Bovy (IAS@MPIA)
+
+    NOTE:
+
+       seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
+       ~0.75 ms for a MWPotential
+
+    """
+    #Find interval
+    rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
+                         math.fabs(lz),
+                         Pot)
+    return optimize.brentq(_rlfunc,0.0000001,rstart,
+                           args=(math.fabs(lz),
+                                 Pot))
+
+def _rlfunc(rl,lz,pot):
+    """Function that gives rvc-lz"""
+    thisvcirc= vcirc(pot,rl)
+    return rl*thisvcirc-lz
+
+def _rlFindStart(rl,lz,pot):
+    """find a starting interval for rl"""
+    rtry= 2.*rl
+    while _rlfunc(rtry,lz,pot) < 0.:
+        rtry*= 2.
+    return rtry
 
