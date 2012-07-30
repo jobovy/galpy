@@ -99,6 +99,10 @@ class quasiisothermaldf:
            about 30 ms / evaluation in the extended Solar neighborhood
            For a MWPotential/adiabatic approximation this takes about 
            50 ms / evaluation in the extended Solar neighborhood
+
+           For adiabatic-approximation grid this seems to take 
+           about 0.67 to 0.75 ms / evaluation in the extended Solar 
+           neighborhood (includes some out of the grid)
         """
         #First parse log
         if kwargs.has_key('log'):
