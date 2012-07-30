@@ -21,6 +21,7 @@ from actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, evaluateplanarPotentials
 from galpy.potential import vcirc
+_EPS= 10.**-15.
 class actionAngleAxi(actionAngle,actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
@@ -279,7 +280,10 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             return self._rperirap
         EL= self.calcEL(**kwargs)
         E, L= EL
-        if self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
+        if self._vR == 0. and m.fabs(self._vT - vcirc(self._pot,self._R)) < _EPS: #We are on a circular orbit
+            rperi= self._R
+            rap = self._R
+        elif self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
             rperi= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
@@ -291,6 +295,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
                                  args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
         elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
+            print self._vT, vcirc(self._pot,self._R)
             rap= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
@@ -303,9 +308,6 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
                 rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
                                        args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
-        elif self._vR == 0. and self._vT == vcirc(self._pot,self._R): #We are on a circular orbit
-            rperi= self._R
-            rap = self._R
         else:
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
