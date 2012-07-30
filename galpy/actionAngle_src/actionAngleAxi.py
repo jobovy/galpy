@@ -241,7 +241,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         (rperi,rap)= self.calcRapRperi(**kwargs)
         EL= self.calcEL(**kwargs)
         E, L= EL
-        self._JR= (2.*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
+        self._JR= (1./nu.pi*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
                                               args=(E,L,self._pot),
                                               **kwargs)))
         return self._JR
