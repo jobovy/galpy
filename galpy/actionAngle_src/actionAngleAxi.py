@@ -437,7 +437,7 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
         rtry= 2.*R
     else:
         rtry= R/2.
-    while startsign*(E-potentialAxi(rtry,pot)-L**2./2./rtry**2) > 0. \
+    while startsign*_rapRperiAxiEq(rtry,E,L,pot) > 0. \
             and rtry > 0.000000001:
         if rap:
             if rtry > 100.:
