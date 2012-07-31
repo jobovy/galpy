@@ -173,9 +173,9 @@ class quasiisothermaldf:
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        gamma= 0.5
+        gamma= numpy.sqrt(0.5)
         va= sigmaR1**2./2./thisvc\
-            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_surfaceIntegrand,
@@ -211,9 +211,9 @@ class quasiisothermaldf:
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        gamma= 0.5
+        gamma= numpy.sqrt(0.5)
         va= sigmaR1**2./2./thisvc\
-            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_sigmaR2surfaceIntegrand,
@@ -249,9 +249,9 @@ class quasiisothermaldf:
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        gamma= 0.5
+        gamma= numpy.sqrt(0.5)
         va= sigmaR1**2./2./thisvc\
-            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_meanvphi2surfaceIntegrand,
@@ -287,9 +287,9 @@ class quasiisothermaldf:
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        gamma= 0.5
+        gamma= numpy.sqrt(0.5)
         va= sigmaR1**2./2./thisvc\
-            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_sigmaz2surfaceIntegrand,
@@ -325,9 +325,9 @@ class quasiisothermaldf:
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
-        gamma= 0.5
+        gamma= numpy.sqrt(0.5)
         va= sigmaR1**2./2./thisvc\
-            *(gamma-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         return integrate.tplquad(_meanvphisurfaceIntegrand,
