@@ -82,12 +82,14 @@ class actionAngleAdiabaticGrid():
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
         self._ERRL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
+        self._ERRLmax= numpy.amax(self._ERRL)+1.
         self._ERRLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
-                                                                   numpy.log(-self._ERRL),k=3)
+                                                                   numpy.log(-(self._ERRL-self._ERRLmax)),k=3)
         self._Ramax= 99.
         self._ERRa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        self._ERRamax= numpy.amax(self._ERRa)+1.
         self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
-                                                                   numpy.log(-self._ERRa),k=3)
+                                                                   numpy.log(-(self._ERRa-self._ERRamax)),k=3)
         y= numpy.linspace(0.,1.,nEr)
         jr= numpy.zeros((nLz,nEr))
         jrERRa= numpy.zeros(nLz)
@@ -141,8 +143,8 @@ class actionAngleAdiabaticGrid():
         Ez= Phi-Phio+meta._vz**2./2.
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
-        if meta._R > self._Rmax or meta._R < self._Rmin or numpy.log(Ez) > thisEzZmax: #Outside of the grid
-            print "Outside of grid"
+        if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
+            print "Outside of grid in Ez", meta._R > self._Rmax , meta._R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
             jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
@@ -153,13 +155,21 @@ class actionAngleAdiabaticGrid():
         ERLz= math.fabs(meta._R*meta._vT)+self._gamma*jz
         ER= Phio+meta._vR**2./2.+ERLz**2./2./meta._R**2.
         thisRL= self._RLInterp(ERLz)
-        thisERRL= -numpy.exp(self._ERRLInterp(ERLz))
-        thisERRa= -numpy.exp(self._ERRaInterp(ERLz))
+        thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
+        thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
+        if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
+                and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-5.:
+            ER= thisERRL
+        elif (ER-thisERRa)/(thisERRL-thisERRa) < 0. \
+                and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-5.:
+            ER= thisERRa
         #Outside of grid?
         if ERLz < self._Lzmin or ERLz > self._Lzmax \
                 or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                 or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
-            print "Outside of grid"
+            print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
+                , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
+                , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
             jr= self._aA.JR(thisRL,
                             numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
                             ERLz/thisRL,
@@ -194,8 +204,8 @@ class actionAngleAdiabaticGrid():
         Ez= Phi-Phio+meta._vz**2./2.
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
-        if meta._R > self._Rmax or meta._R < self._Rmin or numpy.log(Ez) > thisEzZmax: #Outside of the grid
-            print "Outside of grid"
+        if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
+            print "Outside of grid in Ez"
             jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
