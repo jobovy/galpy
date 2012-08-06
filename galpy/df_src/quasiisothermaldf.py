@@ -225,6 +225,8 @@ class quasiisothermaldf:
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
         OUTPUT:
            surface mass at (R,z)
         HISTORY:
@@ -234,45 +236,42 @@ class quasiisothermaldf:
                                        nsigma=nsigma,mc=mc,nmc=nmc,
                                        **kwargs)
     
-    def sigmaR2(self,R,z,nsigma=None,**kwargs):
+    def sigmaR2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
-           sigmaR2surfacemass
+           sigmaR2
         PURPOSE:
-           calculate the surface-mass at R x sigma_R^2 
-           by marginalizing over velocity
+           calculate sigma_R^2 by marginalizing over velocity
         INPUT:
            R - radius at which to calculate this
            z - height at which to calculate this
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
         OUTPUT:
-           surface mass at (R,z) x sigma_R^2
+           sigma_R^2
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
-        thisvc= potential.vcirc(self._pot,R)
-        #Use the asymmetric drift equation to estimate va
-        gamma= numpy.sqrt(0.5)
-        va= sigmaR1**2./2./thisvc\
-            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
-               +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        return integrate.tplquad(_sigmaR2surfaceIntegrand,
-                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                 lambda x: 0., lambda x: nsigma,
-                                 lambda x,y: 0., lambda x,y: nsigma,
-                                 (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]*8.*numpy.pi
-    
-    def meanvphi2surfacemass(self,R,z,nsigma=None,**kwargs):
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def meanvphi2(self,R,z,nsigma=None,**kwargs):
         """
         NAME:
            meanvphi2surfacemass
