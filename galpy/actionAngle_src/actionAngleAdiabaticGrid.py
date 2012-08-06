@@ -158,10 +158,10 @@ class actionAngleAdiabaticGrid():
         thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
         thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
         if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-5.:
+                and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
             ER= thisERRL
         elif (ER-thisERRa)/(thisERRL-thisERRa) < 0. \
-                and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-5.:
+                and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.:
             ER= thisERRa
         #Outside of grid?
         if ERLz < self._Lzmin or ERLz > self._Lzmax \
