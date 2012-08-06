@@ -149,7 +149,7 @@ class quasiisothermaldf:
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
             return fsr*fsz
 
-    def surfacemass(self,R,z,nsigma=None,**kwargs):
+    def surfacemass(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
            surfacemass
@@ -178,13 +178,21 @@ class quasiisothermaldf:
             *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        return integrate.tplquad(_surfaceIntegrand,
-                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                 lambda x: 0., lambda x: nsigma,
-                                 lambda x,y: 0., lambda x,y: nsigma,
-                                 (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]*8.*numpy.pi
+        if mc:
+            mvT= (thisvc-va)/gamma/sigmaR1
+            vrs= numpy.random.normal(size=nmc)
+            vts= numpy.random.normal(size=nmc)+mvT
+            vzs= numpy.random.normal(size=nmc)
+            Is= numpy.array([_surfaceMCIntegrand(vzs[ii],vrs[ii],vts[ii],R,z,self,sigmaR1,gamma,sigmaz1,mvT) for ii in range(nmc)])
+            return numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1
+        else:
+            return integrate.tplquad(_surfaceIntegrand,
+                                     1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                     1./gamma*(thisvc-va)/sigmaR1+nsigma,
+                                     lambda x: 0., lambda x: nsigma,
+                                     lambda x,y: 0., lambda x,y: nsigma,
+                                     (R,z,self,sigmaR1,gamma,sigmaz1),
+                                     **kwargs)[0]*8.*numpy.pi*sigmaR1**2.*gamma*sigmaz1
     
     def sigmaR2surfacemass(self,R,z,nsigma=None,**kwargs):
         """
@@ -398,6 +406,10 @@ class quasiisothermaldf:
 def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the surface mass integration"""
     return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
+
+def _surfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT):
+    """Internal function that is the integrand for the surface mass integration"""
+    return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
 
 def _sigmaR2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the sigma-squared times
