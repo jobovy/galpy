@@ -267,124 +267,158 @@ class quasiisothermaldf:
             return (self.vmomentsurfacemass(R,z,2.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,2.,0.,0.,
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
-    def meanvphi2(self,R,z,nsigma=None,**kwargs):
+    def sigmaRz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
-           meanvphi2surfacemass
+           sigmaRz
         PURPOSE:
-           calculate the surface-mass at R x sigma_phi^2 
-           by marginalizing over velocity
+           calculate sigma_RZ^2 by marginalizing over velocity
         INPUT:
            R - radius at which to calculate this
            z - height at which to calculate this
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
         OUTPUT:
-           surface mass at (R,z) x <vT^2>
+           sigma_Rz^2
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
-        thisvc= potential.vcirc(self._pot,R)
-        #Use the asymmetric drift equation to estimate va
-        gamma= numpy.sqrt(0.5)
-        va= sigmaR1**2./2./thisvc\
-            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
-               +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        return integrate.tplquad(_meanvphi2surfaceIntegrand,
-                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                 lambda x: 0., lambda x: nsigma,
-                                 lambda x,y: 0., lambda x,y: nsigma,
-                                 (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]*8.*numpy.pi
-    
-    def sigmaz2surfacemass(self,R,z,nsigma=None,**kwargs):
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,1.,0.,1.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,1.,0.,1.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def sigmaz2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
-           sigmaz2surfacemass
+           sigmaR2
         PURPOSE:
-           calculate the surface-mass at R x sigma_z^2 
-           by marginalizing over velocity
+           calculate sigma_z^2 by marginalizing over velocity
         INPUT:
            R - radius at which to calculate this
            z - height at which to calculate this
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
         OUTPUT:
-           surface mass at (R,z) x sigma_z^2
+           sigma_z^2
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
-        thisvc= potential.vcirc(self._pot,R)
-        #Use the asymmetric drift equation to estimate va
-        gamma= numpy.sqrt(0.5)
-        va= sigmaR1**2./2./thisvc\
-            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
-               +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        return integrate.tplquad(_sigmaz2surfaceIntegrand,
-                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                 lambda x: 0., lambda x: nsigma,
-                                 lambda x,y: 0., lambda x,y: nsigma,
-                                 (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]*8.*numpy.pi
-    
-    def meanvphisurfacemass(self,R,z,nsigma=None,**kwargs):
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,0.,2.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,0.,0.,2.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def meanvT(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
-           meanvphisurfacemass
+           meanvT
         PURPOSE:
-           calculate the surface-mass at R x <vT>
-           by marginalizing over velocity
+           calculate sigma_R^2 by marginalizing over velocity
         INPUT:
            R - radius at which to calculate this
            z - height at which to calculate this
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
         OUTPUT:
-           surface mass at (R,z) x <vT>
+           meanvT
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
-        thisvc= potential.vcirc(self._pot,R)
-        #Use the asymmetric drift equation to estimate va
-        gamma= numpy.sqrt(0.5)
-        va= sigmaR1**2./2./thisvc\
-            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
-               +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        return integrate.tplquad(_meanvphisurfaceIntegrand,
-                                 1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                 1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                 lambda x: 0., lambda x: nsigma,
-                                 lambda x,y: 0., lambda x,y: nsigma,
-                                 (R,z,self,sigmaR1,gamma,sigmaz1),
-                                 **kwargs)[0]*8.*numpy.pi
-    
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,1.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,0.,1.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def sigmaT2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+        """
+        NAME:
+           sigmaT2
+        PURPOSE:
+           calculate sigma_T^2 by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           sigma_T^2
+        HISTORY:
+           2012-07-30 - Written - Bovy (IAS@MPIA)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            mvt= self.vmomentsurfacemass(R,z,0.,1.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+            return self.vmomentsurfacemass(R,z,0.,2.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass\
+                                                             -mvt**2.
+        else:
+            surfmass= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                              nsigma=nsigma,mc=mc,nmc=nmc,
+                                              **kwargs)
+            return (self.vmomentsurfacemass(R,z,0.,2.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/surfmass\
+                        -(self.vmomentsurfacemass(R,z,0.,2.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/surfmass)**2.)
+
     def _calc_epifreq(self,r):
         """
         NAME:
