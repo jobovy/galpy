@@ -149,6 +149,70 @@ class quasiisothermaldf:
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
             return fsr*fsz
 
+    def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+                           _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                           **kwargs):
+        """
+        NAME:
+           vmomentsurfacemass
+        PURPOSE:
+           calculate the an arbitrary moment of the velocity distribution 
+           at R times the surfacmass
+        INPUT:
+           R - radius at which to calculate the moment(/ro)
+           n - vR^n
+           m - vT^m
+           o - vz^o
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           <vR^n vT^m  x surface-mass> at R
+        HISTORY:
+           2012-08-06 - Written - Bovy (IAS@MPIA)
+        """
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= (self._ro-R)/self._hr
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        thisvc= potential.vcirc(self._pot,R)
+        #Use the asymmetric drift equation to estimate va
+        gamma= numpy.sqrt(0.5)
+        va= sigmaR1**2./2./thisvc\
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+               +R*(1./self._hr+2./self._hsr))
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if mc:
+            mvT= (thisvc-va)/gamma/sigmaR1
+            if _vrs is None:
+                vrs= numpy.random.normal(size=nmc)
+            else:
+                vrs= _vrs
+            if _vts is None:
+                vts= numpy.random.normal(size=nmc)+mvT
+            else:
+                vts= _vts
+            if _vzs is None:
+                vzs= numpy.random.normal(size=nmc)
+            else:
+                vzs= _vzs
+            Is= numpy.array([_vmomentsurfaceMCIntegrand(vzs[ii],vrs[ii],vts[ii],R,z,self,sigmaR1,gamma,sigmaz1,mvT,n,m,o) for ii in range(nmc)])
+            if _returnmc:
+                return (numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o),
+                        vrs,vts,vzs)
+            else:
+                return numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
+        else:
+            return integrate.tplquad(_vmomentsurfaceIntegrand,
+                                     1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                     1./gamma*(thisvc-va)/sigmaR1+nsigma,
+                                     lambda x: 0., lambda x: nsigma,
+                                     lambda x,y: 0., lambda x,y: nsigma,
+                                     (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
+                                     **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
+        
     def surfacemass(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
@@ -166,35 +230,11 @@ class quasiisothermaldf:
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
-        thisvc= potential.vcirc(self._pot,R)
-        #Use the asymmetric drift equation to estimate va
-        gamma= numpy.sqrt(0.5)
-        va= sigmaR1**2./2./thisvc\
-            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
-               +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        if mc:
-            mvT= (thisvc-va)/gamma/sigmaR1
-            vrs= numpy.random.normal(size=nmc)
-            vts= numpy.random.normal(size=nmc)+mvT
-            vzs= numpy.random.normal(size=nmc)
-            Is= numpy.array([_surfaceMCIntegrand(vzs[ii],vrs[ii],vts[ii],R,z,self,sigmaR1,gamma,sigmaz1,mvT) for ii in range(nmc)])
-            return numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1
-        else:
-            return integrate.tplquad(_surfaceIntegrand,
-                                     1./gamma*(thisvc-va)/sigmaR1-nsigma,
-                                     1./gamma*(thisvc-va)/sigmaR1+nsigma,
-                                     lambda x: 0., lambda x: nsigma,
-                                     lambda x,y: 0., lambda x,y: nsigma,
-                                     (R,z,self,sigmaR1,gamma,sigmaz1),
-                                     **kwargs)[0]*8.*numpy.pi*sigmaR1**2.*gamma*sigmaz1
+        return self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                       nsigma=nsigma,mc=mc,nmc=nmc,
+                                       **kwargs)
     
-    def sigmaR2surfacemass(self,R,z,nsigma=None,**kwargs):
+    def sigmaR2(self,R,z,nsigma=None,**kwargs):
         """
         NAME:
            sigmaR2surfacemass
@@ -410,6 +450,14 @@ def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
 def _surfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT):
     """Internal function that is the integrand for the surface mass integration"""
     return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
+
+def _vmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o):
+    """Internal function that is the integrand for the vmomentsurface mass integration"""
+    return vR**n*vT**m*vz**o*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
+
+def _vmomentsurfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT,n,m,o):
+    """Internal function that is the integrand for the vmomentsurface mass integration"""
+    return vR**n*vT**m*vz**o*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
 
 def _sigmaR2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the sigma-squared times
