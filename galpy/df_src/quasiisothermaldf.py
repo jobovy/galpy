@@ -531,6 +531,76 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    def meanlz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+        """
+        NAME:
+           meanlz
+        PURPOSE:
+           calculate the mean angular momemtum by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           meanlz
+        HISTORY:
+           2012-08-09 - Written - Bovy (IAS@MPIA)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.jmomentsurfacemass(R,z,0.,1.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.jmomentsurfacemass(R,z,0.,1.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def meanjz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+        """
+        NAME:
+           meanjz
+        PURPOSE:
+           calculate the mean vertical action by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           meanjz
+        HISTORY:
+           2012-08-09 - Written - Bovy (IAS@MPIA)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.jmomentsurfacemass(R,z,0.,0.,1.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.jmomentsurfacemass(R,z,0.,0.,1.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
     def _calc_epifreq(self,r):
         """
         NAME:
