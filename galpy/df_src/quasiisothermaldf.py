@@ -90,6 +90,7 @@ class quasiisothermaldf:
 
            log= if True, return the natural log
            +scipy.integrate.quadrature kwargs
+           func= function of (jr,lz,jz) to multiply f with (useful for moments)
         OUTPUT:
            value of DF
         HISTORY:
@@ -131,7 +132,18 @@ class quasiisothermaldf:
         lnsurfmass= (self._ro-thisrg)/self._hr
         lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
         lnsz= self._lnsz+(self._ro-thisrg)/self._hsz
+        #Calculate func
+        if kwargs.has_key('func'):
+            if log:
+                funcTerm= numpy.log(kwargs['func'](jr,lz,jz))
+            else:
+                funcFactor= kwargs['func'](jr,lz,jz)
         #Calculate fsr
+        else:
+            if log:
+                funcTerm= 0.
+            else:
+                funcFactor= 1.            
         if log:
             lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-math.log(math.pi)\
                 -numpy.log(kappa)\
@@ -139,7 +151,7 @@ class quasiisothermaldf:
                 -kappa*jr*numpy.exp(-2.*lnsr)
             lnfsz= numpy.log(nu)-math.log(2.*math.pi)\
                 -2.*lnsz-nu*jz*numpy.exp(-2.*lnsz)
-            return lnfsr+lnfsz
+            return lnfsr+lnfsz+funcTerm
         else:
             srm2= numpy.exp(-2.*lnsr)
             fsr= Omega*numpy.exp(lnsurfmass)*srm2/math.pi/kappa\
@@ -147,7 +159,7 @@ class quasiisothermaldf:
                 *numpy.exp(-kappa*jr*srm2)
             szm2= numpy.exp(-2.*lnsz)
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
-            return fsr*fsz
+            return fsr*fsz*funcFactor
 
     def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
@@ -212,6 +224,71 @@ class quasiisothermaldf:
                                      lambda x,y: 0., lambda x,y: nsigma,
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
+        
+    def jmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+                           _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                           **kwargs):
+        """
+        NAME:
+           jmomentsurfacemass
+        PURPOSE:
+           calculate the an arbitrary moment of an action
+           of the velocity distribution 
+           at R times the surfacmass
+        INPUT:
+           R - radius at which to calculate the moment(/ro)
+           n - jr^n
+           m - lz^m
+           o - jz^o
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           <jr^n lz^m jz^o  x surface-mass> at R
+        HISTORY:
+           2012-08-09 - Written - Bovy (IAS@MPIA)
+        """
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= (self._ro-R)/self._hr
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        thisvc= potential.vcirc(self._pot,R)
+        #Use the asymmetric drift equation to estimate va
+        gamma= numpy.sqrt(0.5)
+        va= sigmaR1**2./2./thisvc\
+            *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
+               +R*(1./self._hr+2./self._hsr))
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if mc:
+            mvT= (thisvc-va)/gamma/sigmaR1
+            if _vrs is None:
+                vrs= numpy.random.normal(size=nmc)
+            else:
+                vrs= _vrs
+            if _vts is None:
+                vts= numpy.random.normal(size=nmc)+mvT
+            else:
+                vts= _vts
+            if _vzs is None:
+                vzs= numpy.random.normal(size=nmc)
+            else:
+                vzs= _vzs
+            Is= numpy.array([_jmomentsurfaceMCIntegrand(vzs[ii],vrs[ii],vts[ii],R,z,self,sigmaR1,gamma,sigmaz1,mvT,n,m,o) for ii in range(nmc)])
+            if _returnmc:
+                return (numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1,
+                        vrs,vts,vzs)
+            else:
+                return numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1
+        else:
+            return integrate.tplquad(_jmomentsurfaceIntegrand,
+                                     1./gamma*(thisvc-va)/sigmaR1-nsigma,
+                                     1./gamma*(thisvc-va)/sigmaR1+nsigma,
+                                     lambda x: 0., lambda x: nsigma,
+                                     lambda x,y: 0., lambda x,y: nsigma,
+                                     (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
+                                     **kwargs)[0]*sigmaR1**2.*gamma*sigmaz1
         
     def surfacemass(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
@@ -419,6 +496,41 @@ class quasiisothermaldf:
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass)**2.)
 
+    def meanjr(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+        """
+        NAME:
+           meanjr
+        PURPOSE:
+           calculate the mean radial action by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+        OUTPUT:
+           meanjr
+        HISTORY:
+           2012-08-09 - Written - Bovy (IAS@MPIA)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.jmomentsurfacemass(R,z,1.,0.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        else:
+            return (self.jmomentsurfacemass(R,z,1.,0.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
     def _calc_epifreq(self,r):
         """
         NAME:
@@ -491,6 +603,17 @@ def _vmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o):
 def _vmomentsurfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT,n,m,o):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
     return vR**n*vT**m*vz**o*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
+
+def _jmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o):
+    """Internal function that is the integrand for the vmomentsurface mass integration"""
+    return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1,
+              func= (lambda x,y,z: x**n*y**m*z**o))
+
+def _jmomentsurfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT,n,m,o):
+    """Internal function that is the integrand for the vmomentsurface mass integration"""
+    return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1,
+              func=(lambda x,y,z: x**n*y**m*z**o))\
+              *numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
 
 def _sigmaR2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the sigma-squared times
