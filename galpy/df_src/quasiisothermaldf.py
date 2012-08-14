@@ -127,7 +127,7 @@ class quasiisothermaldf:
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
         kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
-        Omega= lz/thisrg/thisrg
+        Omega= numpy.fabs(lz)/thisrg/thisrg
         #calculate surface-densities and sigmas
         lnsurfmass= (self._ro-thisrg)/self._hr
         lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
