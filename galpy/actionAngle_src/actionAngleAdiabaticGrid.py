@@ -17,6 +17,7 @@ from actionAngleAdiabatic import actionAngleAdiabatic
 from galpy.actionAngle import actionAngle, UnboundError
 import galpy.potential
 from matplotlib import pyplot
+_PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
     def __init__(self,pot=None,zmax=3./8.,gamma=1.,Rmax=3.,
@@ -144,7 +145,8 @@ class actionAngleAdiabaticGrid():
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
         if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-            print "Outside of grid in Ez", meta._R > self._Rmax , meta._R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
+            if _PRINTOUTSIDEGRID:
+                print "Outside of grid in Ez", meta._R > self._Rmax , meta._R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
             jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
@@ -167,7 +169,8 @@ class actionAngleAdiabaticGrid():
         if ERLz < self._Lzmin or ERLz > self._Lzmax \
                 or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                 or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
-            print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
+            if _PRINTOUTSIDEGRID:
+                print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                 , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                 , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
             jr= self._aA.JR(thisRL,
@@ -205,7 +208,8 @@ class actionAngleAdiabaticGrid():
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
         if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-            print "Outside of grid in Ez"
+            if _PRINTOUTSIDEGRID:
+                print "Outside of grid in Ez"
             jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
                             0.,math.sqrt(2.*Ez),
                             **kwargs)[0]
