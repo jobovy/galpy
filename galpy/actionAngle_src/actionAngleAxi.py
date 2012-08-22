@@ -320,7 +320,8 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
                                           startsign=startsign)
             if rstart == 0.: rperi= 0.
             else: rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
-                                         (E,L,self._pot))
+                                         (E,L,self._pot),
+                                         maxiter=200)
             rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
                                         startsign=startsign)
             rap= optimize.brentq(_rapRperiAxiEq,self._R,rend,
