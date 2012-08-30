@@ -1,7 +1,7 @@
 #A 'Binney' quasi-isothermal DF
 import math
 import numpy
-from scipy import optimize, interpolate, integrate
+from scipy import optimize, interpolate, integrate, linalg
 from galpy import potential
 from galpy import actionAngle
 _NSIGMA=4
@@ -160,6 +160,38 @@ class quasiisothermaldf:
             szm2= numpy.exp(-2.*lnsz)
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
             return fsr*fsz*funcFactor
+
+    def estimate_hz(self,R,nz=11,zmin=0.1,zmax=0.3,**kwargs):
+        """
+        NAME:
+           estimate_hz
+        PURPOSE:
+           estimate the exponential scale height at R
+        INPUT:
+           R - Galactocentric radius
+           nz= number of zs to use to estimate
+           zmin=m minimum z to use
+           zmax=m minimum z to use
+           surfacemass kwargs
+        OUTPUT:
+           estimated hz
+        HISTORY:
+           2012-08-30 - Written - Bovy (IAS)
+        """
+        zs= numpy.linspace(zmin,zmax,nz)
+        sf= numpy.array([self.surfacemass(R,z,**kwargs) for z in zs])
+        lsf= numpy.log(sf)
+        #Fit
+        #Put the dat in the appropriate arrays and matrices
+        Y= lsf
+        A= numpy.ones((nz,2))
+        A[:,1]= zs
+        #Now compute the best fit and the uncertainties
+        bestfit= numpy.dot(A.T,Y.T)
+        bestfitvar= numpy.dot(A.T,A)
+        bestfitvar= linalg.inv(bestfitvar)
+        bestfit= numpy.dot(bestfitvar,bestfit)
+        return -1./bestfit[1]
 
     def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
