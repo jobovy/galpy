@@ -8,6 +8,7 @@ _NSIGMA=4
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
+                 cutcounter=False,
                  _precomputerg=True,_precomputergrmax=None,
                  _precomputergnLz=51,
                  ro=1.,lo=10./220.*8.):
@@ -24,6 +25,7 @@ class quasiisothermaldf:
            hsz - vertial-velocity-dispersion scale length
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
+           cutcounter= if True, set counter-rotating stars' DF to zero
            ro= reference radius for surface mass and sigmas
            lo= reference angular momentum below where there are significant numbers of retrograde stars
         OTHER INPUTS:
@@ -50,6 +52,7 @@ class quasiisothermaldf:
         if aA is None:
             raise IOError("aA= must be set")
         self._aA= aA
+        self._cutcounter= cutcounter
         if _precomputerg:
             if _precomputergrmax is None:
                 _precomputergrmax= 5*self._hr
@@ -123,6 +126,9 @@ class quasiisothermaldf:
                 else: return 0.
             if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
+        if self._cutcounter and lz < 0.:
+            if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
+            else: return 0.
         #First calculate rg
         thisrg= self.rg(lz)
         #Then calculate the epicycle and vertical frequencies
