@@ -846,8 +846,7 @@ def rect_to_cyl(X,Y,Z):
     """
     R= sc.sqrt(X**2.+Y**2.)
     phi= sc.arcsin(Y/R)
-    if X < 0.:
-        phi= m.pi-phi
+    phi[(X < 0.)]= m.pi-phi[(X < 0.)]
     return (R,phi,Z)
 
 def cyl_to_rect(R,phi,Z):
