@@ -167,6 +167,38 @@ class quasiisothermaldf:
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
             return fsr*fsz*funcFactor
 
+    def estimate_hr(self,R,nR=11,dR=2./3.,**kwargs):
+        """
+        NAME:
+           estimate_hr
+        PURPOSE:
+           estimate the exponential scale length at R
+        INPUT:
+           R - Galactocentric radius
+           nR= number of Rs to use to estimate
+           dR- range in R to use
+           Rmax=m minimum R to use
+           surfacemass kwargs
+        OUTPUT:
+           estimated hR
+        HISTORY:
+           2012-09-11 - Written - Bovy (IAS)
+        """
+        Rs= numpy.linspace(R-dR/2.,R+dR/2.,nR)
+        sf= numpy.array([self.surfacemass(r,0.,**kwargs) for r in Rs])
+        lsf= numpy.log(sf)
+        #Fit
+        #Put the dat in the appropriate arrays and matrices
+        Y= lsf
+        A= numpy.ones((nR,2))
+        A[:,1]= Rs
+        #Now compute the best fit and the uncertainties
+        bestfit= numpy.dot(A.T,Y.T)
+        bestfitvar= numpy.dot(A.T,A)
+        bestfitvar= linalg.inv(bestfitvar)
+        bestfit= numpy.dot(bestfitvar,bestfit)
+        return -1./bestfit[1]
+
     def estimate_hz(self,R,nz=11,zmin=0.1,zmax=0.3,**kwargs):
         """
         NAME:
