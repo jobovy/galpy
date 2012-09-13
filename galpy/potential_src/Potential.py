@@ -504,6 +504,34 @@ class Potential:
         """
         return rl(self,lz)
 
+    def flattening(self,R,z):
+        """
+        
+        NAME:
+        
+           flattening
+        
+        PURPOSE:
+        
+           calculate the potential flattening, defined as sqrt(|z/R F_R/F_z|)
+        
+        INPUT:
+        
+           R - Galactocentric radius
+
+           z - height
+        
+        OUTPUT:
+        
+           flattening
+        
+        HISTORY:
+        
+           2012-09-13 - Written - Bovy (IAS)
+        
+        """
+        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z)/self.zforce(R,z)))
+
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
@@ -880,6 +908,36 @@ def verticalfreq(Pot,R):
     
     """
     return nu.sqrt(evaluatez2derivs(R,0.,Pot))
+
+def flattening(Pot,R,z):
+    """
+    
+    NAME:
+    
+        flattening
+    
+    PURPOSE:
+    
+       calculate the potential flattening, defined as sqrt(|z/R F_R/F_z|)
+    
+    INPUT:
+
+        Pot - Potential instance or list thereof
+    
+        R - Galactocentric radius
+        
+        z - height
+    
+    OUTPUT:
+    
+        flattening
+    
+    HISTORY:
+    
+        2012-09-13 - Written - Bovy (IAS)
+    
+    """
+    return nu.sqrt(nu.fabs(z/R*evaluateRforces(R,z,Pot)/evaluatezforces(R,z,Pot)))
 
 def rl(Pot,lz):
     """
