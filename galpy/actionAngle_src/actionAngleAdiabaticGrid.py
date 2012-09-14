@@ -137,52 +137,96 @@ class actionAngleAdiabaticGrid():
            For a Miyamoto-Nagai potential, this seems accurate to 0.1% and takes ~0.13 ms
            For a MWPotential, this takes ~ 0.17 ms
         """
-        meta= actionAngle(*args)
-        #First work on the vertical action
-        Phi= galpy.potential.evaluatePotentials(meta._R,meta._z,self._pot)
-        Phio= galpy.potential.evaluatePotentials(meta._R,0.,self._pot)
-        Ez= Phi-Phio+meta._vz**2./2.
-        #Bigger than Ezzmax?
-        thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
-        if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-            if _PRINTOUTSIDEGRID:
-                print "Outside of grid in Ez", meta._R > self._Rmax , meta._R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
-            jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
-                            0.,math.sqrt(2.*Ez),
-                            **kwargs)[0]
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
         else:
-            jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
-                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
+            meta= actionAngle(*args)
+            R= meta._R
+            vR= meta._vR
+            vT= meta._vT
+            z= meta._z
+            vz= meta._vz
+        #First work on the vertical action
+        Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
+        Phio= galpy.potential.evaluatePotentials(R,0.,self._pot)
+        Ez= Phi-Phio+vz**2./2.
+        #Bigger than Ezzmax?
+        thisEzZmax= numpy.exp(self._EzZmaxsInterp(R))
+        if isinstance(R,numpy.ndarray):
+            indx= (R > self._Rmax)
+            indx+= (R < self._Rmin)
+            indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
+            indxc= True-indx
+            jz= numpy.empty(R.shape)
+            jz[indxc]= (self._jzInterp(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
+                            *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
+            jz[indx]= numpy.array([self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
+                                               0.,numpy.sqrt(2.*Ez[indx][ii]),
+                                               **kwargs)[0] for ii in range(numpy.sum(indx))])
+        else:
+            if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
+                if _PRINTOUTSIDEGRID:
+                    print "Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
+                    jz= self._aA.Jz(R,0.,1.,#these two r dummies
+                                    0.,math.sqrt(2.*Ez),
+                                    **kwargs)[0]
+            else:
+                jz= (self._jzInterp(R,Ez/thisEzZmax)\
+                         *(numpy.exp(self._jzEzmaxInterp(R))-10.**-5.))[0][0]
         #Radial action
-        ERLz= math.fabs(meta._R*meta._vT)+self._gamma*jz
-        ER= Phio+meta._vR**2./2.+ERLz**2./2./meta._R**2.
+        ERLz= numpy.fabs(R*vT)+self._gamma*jz
+        ER= Phio+vR**2./2.+ERLz**2./2./R**2.
         thisRL= self._RLInterp(ERLz)
         thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
         thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
-        if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
-            ER= thisERRL
-        elif (ER-thisERRa)/(thisERRL-thisERRa) < 0. \
-                and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.:
-            ER= thisERRa
-        #Outside of grid?
-        if ERLz < self._Lzmin or ERLz > self._Lzmax \
-                or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
-            if _PRINTOUTSIDEGRID:
-                print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
-                , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
-            jr= self._aA.JR(thisRL,
-                            numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
-                            ERLz/thisRL,
-                            0.,0.,
-                            **kwargs)[0]
+        if isinstance(R,numpy.ndarray):
+            indx= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)\
+                *(((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.)
+            ER[indx]= thisERRL[indx]
+            indx= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)\
+                *((ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.)
+            ER[indx]= thisERRa[indx]
+            indx= (ERLz < self._Lzmin)
+            indx+= (ERLz > self._Lzmax)
+            indx+= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)
+            indx+= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)
+            indxc= True-indx
+            jr= numpy.empty(R.shape)
+            jr[indx]= numpy.array([self._aA.JR(thisRL[indx][ii],
+                                               numpy.sqrt(2.*(ER[indx][ii]-galpy.potential.evaluatePotentials(thisRL[indx][ii],0.,self._pot))-ERLz[indx][ii]**2./thisRL[indx][ii]**2.),
+                                               ERLz[indx][ii]/thisRL[indx][ii],
+                                               0.,0.,
+                                               **kwargs)[0] for ii in range(numpy.sum(indx))])
+            jr[indxc]= (self._jrInterp(ERLz[indxc],
+                                       (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
+                            *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
         else:
-            jr= (self._jrInterp(ERLz,
-                               (ER-thisERRa)/(thisERRL-thisERRa))\
-                *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.))[0][0]
-        return (jr,meta._R*meta._vT,jz)
+            if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
+                    and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
+                ER= thisERRL
+            elif (ER-thisERRa)/(thisERRL-thisERRa) < 0. \
+                    and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.:
+                ER= thisERRa
+            #Outside of grid?
+            if ERLz < self._Lzmin or ERLz > self._Lzmax \
+                    or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
+                    or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
+                if _PRINTOUTSIDEGRID:
+                    print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
+                        , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
+                        , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
+                    jr= self._aA.JR(thisRL,
+                                    numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
+                                    ERLz/thisRL,
+                                    0.,0.,
+                                    **kwargs)[0]
+            else:
+                jr= (self._jrInterp(ERLz,
+                                    (ER-thisERRa)/(thisERRL-thisERRa))\
+                         *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.))[0][0]
+        return (jr,R*vT,jz)
 
     def Jz(self,*args,**kwargs):
         """
