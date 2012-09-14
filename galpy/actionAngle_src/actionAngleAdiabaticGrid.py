@@ -160,7 +160,7 @@ class actionAngleAdiabaticGrid():
             indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
             indxc= True-indx
             jz= numpy.empty(R.shape)
-            jz[indxc]= (self._jzInterp(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
+            jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
                             *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
             jz[indx]= numpy.array([self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
                                                0.,numpy.sqrt(2.*Ez[indx][ii]),
@@ -199,7 +199,7 @@ class actionAngleAdiabaticGrid():
                                                ERLz[indx][ii]/thisRL[indx][ii],
                                                0.,0.,
                                                **kwargs)[0] for ii in range(numpy.sum(indx))])
-            jr[indxc]= (self._jrInterp(ERLz[indxc],
+            jr[indxc]= (self._jrInterp.ev(ERLz[indxc],
                                        (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
                             *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
         else:
