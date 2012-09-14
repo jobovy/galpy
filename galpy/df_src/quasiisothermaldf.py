@@ -724,9 +724,17 @@ class quasiisothermaldf:
 
            Not sure what to do about negative lz...
         """
-        if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
-            return potential.rl(self._pot,lz)
-        return self._rgInterp(lz)
+        if isinstance(lz,numpy.ndarray):
+            indx= (lz > self._precomputergLzmax)*(lz < self._precomputergLzmin)
+            indxc= True-indx
+            out= numpy.empty(lz.shape)
+            out[indxc]= self._rgInterp(lz[indxc])
+            out[indx]= potential.rl(self._pot,lz[indx])
+            return out
+        else:
+            if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
+                return potential.rl(self._pot,lz)
+            return self._rgInterp(lz)
 
 def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the surface mass integration"""
