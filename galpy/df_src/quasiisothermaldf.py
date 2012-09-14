@@ -729,7 +729,7 @@ class quasiisothermaldf:
             indxc= True-indx
             out= numpy.empty(lz.shape)
             out[indxc]= self._rgInterp(lz[indxc])
-            out[indx]= potential.rl(self._pot,lz[indx])
+            out[indx]= numpy.array([potential.rl(self._pot,lz[indx][ii]) for ii in range(numpy.sum(indx))])
             return out
         else:
             if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
