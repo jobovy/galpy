@@ -319,9 +319,13 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
                                           startsign=startsign)
             if rstart == 0.: rperi= 0.
-            else: rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
-                                         (E,L,self._pot),
-                                         maxiter=200)
+            else: 
+                try:
+                    rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
+                                           (E,L,self._pot),
+                                           maxiter=200)
+                except RuntimeError:
+                    raise UnboundError("Orbit seems to be unbound")
             rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
                                         startsign=startsign)
             rap= optimize.brentq(_rapRperiAxiEq,self._R,rend,
