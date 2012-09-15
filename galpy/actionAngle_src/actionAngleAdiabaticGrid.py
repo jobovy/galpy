@@ -177,7 +177,7 @@ class actionAngleAdiabaticGrid():
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
                 if _PRINTOUTSIDEGRID:
                     print "Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
-                    jz= self._aA.Jz(R,0.,1.,#these two r dummies
+                jz= self._aA.Jz(R,0.,1.,#these two r dummies
                                     0.,math.sqrt(2.*Ez),
                                     **kwargs)[0]
             else:
@@ -233,11 +233,11 @@ class actionAngleAdiabaticGrid():
                     print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                         , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                         , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
-                    jr= self._aA.JR(thisRL,
-                                    numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
-                                    ERLz/thisRL,
-                                    0.,0.,
-                                    **kwargs)[0]
+                jr= self._aA.JR(thisRL,
+                                numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
+                                ERLz/thisRL,
+                                0.,0.,
+                                **kwargs)[0]
             else:
                 jr= (self._jrInterp(ERLz,
                                     (ER-thisERRa)/(thisERRL-thisERRa))\
