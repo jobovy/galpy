@@ -107,6 +107,8 @@ class quasiisothermaldf:
            For adiabatic-approximation grid this seems to take 
            about 0.67 to 0.75 ms / evaluation in the extended Solar 
            neighborhood (includes some out of the grid)
+
+           up to 200x faster when called with vector R,vR,vT,z,vz
         """
         #First parse log
         if kwargs.has_key('log'):
@@ -126,7 +128,7 @@ class quasiisothermaldf:
                 else: return 0.
             if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
-        if self._cutcounter and lz < 0.:
+        if not isinstance(lz,numpy.ndarray) and self._cutcounter and lz < 0.:
             if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
             else: return 0.
         #First calculate rg
@@ -157,7 +159,12 @@ class quasiisothermaldf:
                 -kappa*jr*numpy.exp(-2.*lnsr)
             lnfsz= numpy.log(nu)-math.log(2.*math.pi)\
                 -2.*lnsz-nu*jz*numpy.exp(-2.*lnsz)
-            return lnfsr+lnfsz+funcTerm
+            out= lnfsr+lnfsz+funcTerm
+            if isinstance(lz,numpy.ndarray):
+                out[numpy.isnan(out)]= -numpy.finfo(numpy.dtype(numpy.float64)).max
+                if self._cutcounter: out[(lz < 0.)]= -numpy.finfo(numpy.dtype(numpy.float64)).max
+            elif numpy.isnan(out): return -numpy.finfo(numpy.dtype(numpy.float64)).max
+            return out
         else:
             srm2= numpy.exp(-2.*lnsr)
             fsr= Omega*numpy.exp(lnsurfmass)*srm2/math.pi/kappa\
@@ -165,7 +172,12 @@ class quasiisothermaldf:
                 *numpy.exp(-kappa*jr*srm2)
             szm2= numpy.exp(-2.*lnsz)
             fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
-            return fsr*fsz*funcFactor
+            out= fsr*fsz*funcFactor
+            if isinstance(lz,numpy.ndarray):
+                out[numpy.isnan(out)]= 0.
+                if self._cutcounter: out[(lz < 0.)]= 0.
+            elif numpy.isnan(out): return 0.
+            return out
 
     def estimate_hr(self,R,nR=11,dR=2./3.,**kwargs):
         """
