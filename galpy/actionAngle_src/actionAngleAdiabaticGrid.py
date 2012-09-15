@@ -160,11 +160,19 @@ class actionAngleAdiabaticGrid():
             indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
             indxc= True-indx
             jz= numpy.empty(R.shape)
-            jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
-                            *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
-            jz[indx]= numpy.array([self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
-                                               0.,numpy.sqrt(2.*Ez[indx][ii]),
-                                               **kwargs)[0] for ii in range(numpy.sum(indx))])
+            if numpy.sum(indxc) > 0:
+                jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
+                                *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
+            if numpy.sum(indx) > 0:
+                jzindiv= numpy.empty(numpy.sum(indx))
+                for ii in range(numpy.sum(indx)):
+                    try:
+                        jzindiv[ii]= self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
+                                                 0.,numpy.sqrt(2.*Ez[indx][ii]),
+                                                 **kwargs)[0]
+                    except UnboundError:
+                        jzindiv[ii]= numpy.nan
+                jz[indx]= jzindiv
         else:
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
                 if _PRINTOUTSIDEGRID:
@@ -194,14 +202,22 @@ class actionAngleAdiabaticGrid():
             indx+= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)
             indxc= True-indx
             jr= numpy.empty(R.shape)
-            jr[indx]= numpy.array([self._aA.JR(thisRL[indx][ii],
-                                               numpy.sqrt(2.*(ER[indx][ii]-galpy.potential.evaluatePotentials(thisRL[indx][ii],0.,self._pot))-ERLz[indx][ii]**2./thisRL[indx][ii]**2.),
-                                               ERLz[indx][ii]/thisRL[indx][ii],
-                                               0.,0.,
-                                               **kwargs)[0] for ii in range(numpy.sum(indx))])
-            jr[indxc]= (self._jrInterp.ev(ERLz[indxc],
-                                       (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
-                            *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
+            if numpy.sum(indxc) > 0:
+                jr[indxc]= (self._jrInterp.ev(ERLz[indxc],
+                                              (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
+                                *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
+            if numpy.sum(indx) > 0:
+                jrindiv= numpy.empty(numpy.sum(indx))
+                for ii in range(numpy.sum(indx)):
+                    try:
+                        jrindiv[ii]= self._aA.JR(thisRL[indx][ii],
+                                                 numpy.sqrt(2.*(ER[indx][ii]-galpy.potential.evaluatePotentials(thisRL[indx][ii],0.,self._pot))-ERLz[indx][ii]**2./thisRL[indx][ii]**2.),
+                                                 ERLz[indx][ii]/thisRL[indx][ii],
+                                                 0.,0.,
+                                                 **kwargs)[0]
+                    except (UnboundError,OverflowError):
+                        jrindiv[ii]= numpy.nan
+                jr[indx]= jrindiv
         else:
             if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
