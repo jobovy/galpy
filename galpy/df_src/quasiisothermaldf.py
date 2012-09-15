@@ -126,8 +126,8 @@ class quasiisothermaldf:
             except actionAngle.UnboundError:
                 if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
                 else: return 0.
-            if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
-            if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
+            #if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
+            #if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         if not isinstance(lz,numpy.ndarray) and self._cutcounter and lz < 0.:
             if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
             else: return 0.
@@ -292,7 +292,10 @@ class quasiisothermaldf:
                 vzs= numpy.random.normal(size=nmc)
             else:
                 vzs= _vzs
-            Is= _vmomentsurfaceMCIntegrand(vzs,vrs,vts,numpy.ones(nmc)*R,numpy.ones(nmc)*z,self,sigmaR1,gamma,sigmaz1,mvT,n,m,o)
+            Is= _vmomentsurfaceMCIntegrand(vzs,vrs,vts,numpy.ones(nmc)*R,
+                                           numpy.ones(nmc)*z,
+                                           self,sigmaR1,gamma,sigmaz1,mvT,
+                                           n,m,o)
             if _returnmc:
                 return (numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o),
                         vrs,vts,vzs)
