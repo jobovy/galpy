@@ -267,8 +267,8 @@ class quasiisothermaldf:
                                                 lsf,
                                                 k=3)
         #Integrate
-        return integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
-                              0.,1.)[0]
+        return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
+                                 0.,1.)[0]
 
     def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
