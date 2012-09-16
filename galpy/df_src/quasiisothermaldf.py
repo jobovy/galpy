@@ -243,7 +243,7 @@ class quasiisothermaldf:
         bestfit= numpy.dot(bestfitvar,bestfit)
         return -1./bestfit[1]
 
-    def surfacemas_z(self,R,nz=7,zmax=1.,**kwargs):
+    def surfacemass_z(self,R,nz=7,zmax=1.,**kwargs):
         """
         NAME:
            surfacemass_z
