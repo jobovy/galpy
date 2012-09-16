@@ -243,6 +243,33 @@ class quasiisothermaldf:
         bestfit= numpy.dot(bestfitvar,bestfit)
         return -1./bestfit[1]
 
+    def surfacemas_z(self,R,nz=7,zmax=1.,**kwargs):
+        """
+        NAME:
+           surfacemass_z
+        PURPOSE:
+           calculate the vertically-integrated surface density
+        INPUT:
+           R - Galactocentric radius
+           nz= number of zs to use to estimate
+           zmax=m minimum z to use
+           surfacemass kwargs
+        OUTPUT:
+           \Sigma(R)
+        HISTORY:
+           2012-08-30 - Written - Bovy (IAS)
+        """
+        zs= numpy.linspace(0.,zmax,nz)
+        sf= numpy.array([self.surfacemass(R,z,**kwargs) for z in zs])
+        lsf= numpy.log(sf)
+        #Interpolate
+        lsfInterp= interpolate.UnivariateSpline(zs,
+                                                lsf,
+                                                k=3)
+        #Integrate
+        return integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
+                              0.,1.)[0]
+
     def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                            **kwargs):
