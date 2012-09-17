@@ -67,7 +67,7 @@ class actionAngleAdiabaticGrid():
                                                           **kwargs)[0]),
                                    range(nR*nEz),numcores=numcores)
             jz= numpy.reshape(jz,(nR,nEz))
-            jzEzzmax= jz[:,nEz-1]
+            jzEzzmax[0:nR]= jz[:,nEz-1]
         else:
             for ii in range(nR):
                 for jj in range(nEz):
@@ -80,6 +80,7 @@ class actionAngleAdiabaticGrid():
         for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
         #First interpolate Ez=Ezmax
         self._jzEzmaxInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(jzEzzmax+10.**-5.),k=3)
+        self._jz= jz
         self._jzInterp= interpolate.RectBivariateSpline(self._Rs,
                                                         y,
                                                         jz,
@@ -122,7 +123,7 @@ class actionAngleAdiabaticGrid():
                                    range((nEr-1)*nLz),
                                    numcores=numcores)
             jr[:,0:-1]= numpy.reshape(mjr,(nLz,nEr-1))
-            jrERRa= jr[:,0]
+            jrERRa[0:nLz]= jr[:,0]
         else:
             for ii in range(nLz):
                 for jj in range(nEr-1): #Last one is zero by construction
