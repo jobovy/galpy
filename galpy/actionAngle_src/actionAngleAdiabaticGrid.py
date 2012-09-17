@@ -16,12 +16,14 @@ from scipy import interpolate
 from actionAngleAdiabatic import actionAngleAdiabatic
 from galpy.actionAngle import actionAngle, UnboundError
 import galpy.potential
+from galpy.util import multi
 from matplotlib import pyplot
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
     def __init__(self,pot=None,zmax=3./8.,gamma=1.,Rmax=3.,
-                 nR=25,nEz=25,nEr=25,nLz=25,**kwargs):
+                 nR=25,nEz=25,nEr=25,nLz=25,numcores=1,
+                 **kwargs):
         """
         NAME:
            __init__
@@ -33,6 +35,7 @@ class actionAngleAdiabaticGrid():
            Rmax = Rmax for building grids
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
            nEz=, nEr=, nLz, nR= grid size
+           numcores= number of cpus to use to parallellize
            +scipy.integrate.quad keywords
         OUTPUT:
         HISTORY:
@@ -50,19 +53,30 @@ class actionAngleAdiabaticGrid():
         #Build grid for Ez, first calculate Ez(zmax;R) function
         self._Rs= numpy.linspace(self._Rmin,self._Rmax,nR)
         self._EzZmaxs= numpy.array([galpy.potential.evaluatePotentials(r,self._zmax,self._pot)-
-                                    galpy.potential.evaluatePotentials(r,0.,self._pot) for r in self._Rs])
+                                        galpy.potential.evaluatePotentials(r,0.,self._pot) for r in self._Rs])
         self._EzZmaxsInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(self._EzZmaxs),k=3)
         y= numpy.linspace(0.,1.,nEz)
         jz= numpy.zeros((nR,nEz))
         jzEzzmax= numpy.zeros(nR)
-        for ii in range(nR):
-            for jj in range(nEz):
-                #Calculate Jz
-                jz[ii,jj]= self._aA.Jz(self._Rs[ii],0.,1.,#these two r dummies
-                                       0.,math.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
-                                       **kwargs)[0]
-                if jj == nEz-1: 
-                    jzEzzmax[ii]= jz[ii,jj]
+        if numcores > 1:
+            thisRs= (numpy.tile(self._Rs,(nEz,1)).T).flatten()
+            thisEzZmaxs= (numpy.tile(self._EzZmaxs,(nEz,1)).T).flatten()
+            thisy= (numpy.tile(y,(nR,1))).flatten()
+            jz= multi.parallel_map((lambda x: self._aA.Jz(thisRs[x],0.,1.,#these two r dummies
+                                                          0.,math.sqrt(2.*thisy[x]*thisEzZmaxs[x]),
+                                                          **kwargs)[0]),
+                                   range(nR*nEz),numcores=numcores)
+            jz= numpy.reshape(jz,(nR,nEz))
+            jzEzzmax= jz[:,nEz-1]
+        else:
+            for ii in range(nR):
+                for jj in range(nEz):
+                    #Calculate Jz
+                    jz[ii,jj]= self._aA.Jz(self._Rs[ii],0.,1.,#these two r dummies
+                                           0.,math.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
+                                           **kwargs)[0]
+                    if jj == nEz-1: 
+                        jzEzzmax[ii]= jz[ii,jj]
         for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
         #First interpolate Ez=Ezmax
         self._jzEzmaxInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(jzEzzmax+10.**-5.),k=3)
@@ -94,18 +108,37 @@ class actionAngleAdiabaticGrid():
         y= numpy.linspace(0.,1.,nEr)
         jr= numpy.zeros((nLz,nEr))
         jrERRa= numpy.zeros(nLz)
-        for ii in range(nLz):
-            for jj in range(nEr-1): #Last one is zero by construction
-                try:
-                    jr[ii,jj]= self._aA.JR(self._RL[ii],
-                                           numpy.sqrt(2.*(self._ERRa[ii]+y[jj]*(self._ERRL[ii]-self._ERRa[ii])-galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot))-self._Lzs[ii]**2./self._RL[ii]**2.),
-                                           self._Lzs[ii]/self._RL[ii],
-                                           0.,0.,
-                                           **kwargs)[0]
-                except UnboundError:
-                    raise
-                if jj == 0: 
-                    jrERRa[ii]= jr[ii,jj]
+        if numcores > 1:
+            thisRL= (numpy.tile(self._RL,(nEr-1,1)).T).flatten()
+            thisLzs= (numpy.tile(self._Lzs,(nEr-1,1)).T).flatten()
+            thisERRL= (numpy.tile(self._ERRL,(nEr-1,1)).T).flatten()
+            thisERRa= (numpy.tile(self._ERRa,(nEr-1,1)).T).flatten()
+            thisy= (numpy.tile(y[0:-1],(nLz,1))).flatten()
+            jr= multi.parallel_map((lambda x: self._aA.JR(thisRL[x],
+                                                          numpy.sqrt(2.*(thisERRa[x]+thisy[x]*(thisERRL[x]-thisERRa[x])-galpy.potential.evaluatePotentials(thisRL[x],0.,self._pot))-thisLzs[x]**2./thisRL[x]**2.),
+                                                          thisLzs[x]/thisRL[x],
+                                                          0.,0.,
+                                                          **kwargs)[0]),
+                                   range((nEr-1)*nLz),
+                                   numcores=numcores)
+            jr= numpy.array(jr)
+            jr= numpy.reshape(jr,(nLz,nEr-1))
+            jr= numpy.resize(jr,(nLz,nEr))
+            jr[:,-1]= 0. #By construction, to make sure
+            jrERRa= jr[:,0]
+        else:
+            for ii in range(nLz):
+                for jj in range(nEr-1): #Last one is zero by construction
+                    try:
+                        jr[ii,jj]= self._aA.JR(self._RL[ii],
+                                               numpy.sqrt(2.*(self._ERRa[ii]+y[jj]*(self._ERRL[ii]-self._ERRa[ii])-galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot))-self._Lzs[ii]**2./self._RL[ii]**2.),
+                                               self._Lzs[ii]/self._RL[ii],
+                                               0.,0.,
+                                               **kwargs)[0]
+                    except UnboundError:
+                        raise
+                    if jj == 0: 
+                        jrERRa[ii]= jr[ii,jj]
         for ii in range(nLz): jr[ii,:]/= jrERRa[ii]
         #First interpolate Ez=Ezmax
         self._jr= jr
