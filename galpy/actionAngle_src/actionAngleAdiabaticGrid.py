@@ -114,17 +114,14 @@ class actionAngleAdiabaticGrid():
             thisERRL= (numpy.tile(self._ERRL,(nEr-1,1)).T).flatten()
             thisERRa= (numpy.tile(self._ERRa,(nEr-1,1)).T).flatten()
             thisy= (numpy.tile(y[0:-1],(nLz,1))).flatten()
-            jr= multi.parallel_map((lambda x: self._aA.JR(thisRL[x],
+            mjr= multi.parallel_map((lambda x: self._aA.JR(thisRL[x],
                                                           numpy.sqrt(2.*(thisERRa[x]+thisy[x]*(thisERRL[x]-thisERRa[x])-galpy.potential.evaluatePotentials(thisRL[x],0.,self._pot))-thisLzs[x]**2./thisRL[x]**2.),
                                                           thisLzs[x]/thisRL[x],
                                                           0.,0.,
                                                           **kwargs)[0]),
                                    range((nEr-1)*nLz),
                                    numcores=numcores)
-            jr= numpy.array(jr)
-            jr= numpy.reshape(jr,(nLz,nEr-1))
-            jr= numpy.resize(jr,(nLz,nEr))
-            jr[:,-1]= 0. #By construction, to make sure
+            jr[:,0:-1]= numpy.reshape(mjr,(nLz,nEr-1))
             jrERRa= jr[:,0]
         else:
             for ii in range(nLz):
