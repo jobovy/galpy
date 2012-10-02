@@ -272,6 +272,7 @@ class quasiisothermaldf:
 
     def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                           _rawgausssamples=False,
                            **kwargs):
         """
         NAME:
@@ -314,7 +315,10 @@ class quasiisothermaldf:
             if _vts is None:
                 vts= numpy.random.normal(size=nmc)+mvT
             else:
-                vts= _vts
+                if _rawgausssamples:
+                    vts= _vts+mvT
+                else:
+                    vts= _vts
             if _vzs is None:
                 vzs= numpy.random.normal(size=nmc)
             else:
@@ -324,8 +328,12 @@ class quasiisothermaldf:
                                            self,sigmaR1,gamma,sigmaz1,mvT,
                                            n,m,o)
             if _returnmc:
-                return (numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o),
-                        vrs,vts,vzs)
+                if _rawgausssamples:
+                    return (numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o),
+                        vrs,vts-mvT,vzs)
+                else:
+                    return (numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o),
+                            vrs,vts,vzs)
             else:
                 return numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
         else:
