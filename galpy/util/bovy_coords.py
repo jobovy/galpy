@@ -569,7 +569,7 @@ def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
         sinb= m.sin(b)
         cosdec= m.cos(dec)
         cosb= m.sin(b)
-        sinrarangp= m.sin(ra*-ra_ngp)
+        sinrarangp= m.sin(ra-ra_ngp)
     cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     sinphi= sinrarangp*cosdec_ngp/cosb
     out= sc.dot(sc.array([[cosphi,sinphi],[-sinphi,cosphi]]),sc.array([pmra,pmdec]))
@@ -638,7 +638,7 @@ def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
         sinb= m.sin(b)
         cosdec= m.cos(dec)
         cosb= m.sin(b)
-        sinrarangp= m.sin(ra*-ra_ngp)
+        sinrarangp= m.sin(ra-ra_ngp)
     cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     sinphi= sinrarangp*cosdec_ngp/cosb
     out= sc.dot(sc.array([[cosphi,-sinphi],[sinphi,cosphi]]),sc.array([pmll,pmbb]))
@@ -712,7 +712,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
         sinb= m.sin(b)
         cosdec= m.cos(dec)
         cosb= m.sin(b)
-        sinrarangp= m.sin(ra*-ra_ngp)
+        sinrarangp= m.sin(ra-ra_ngp)
     cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     sinphi= sinrarangp*cosdec_ngp/cosb
     P= sc.array([[cosphi,sinphi],[-sinphi,cosphi]])
