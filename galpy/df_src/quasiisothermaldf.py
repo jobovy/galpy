@@ -198,6 +198,10 @@ class quasiisothermaldf:
         """
         Rs= numpy.linspace(R-dR/2.,R+dR/2.,nR)
         sf= numpy.array([self.surfacemass(r,0.,**kwargs) for r in Rs])
+        indx= (sf != 0.)
+        Rs= Rs[indx]
+        sf= sf[indx]
+        nR= numpy.sum(indx)
         lsf= numpy.log(sf)
         #Fit
         #Put the dat in the appropriate arrays and matrices
@@ -230,6 +234,10 @@ class quasiisothermaldf:
         """
         zs= numpy.linspace(zmin,zmax,nz)
         sf= numpy.array([self.surfacemass(R,z,**kwargs) for z in zs])
+        indx= (sf != 0.)
+        zs= zs[indx]
+        sf= sf[indx]
+        nzs= numpy.sum(indx)
         lsf= numpy.log(sf)
         #Fit
         #Put the dat in the appropriate arrays and matrices
