@@ -179,7 +179,7 @@ class quasiisothermaldf:
             elif numpy.isnan(out): return 0.
             return out
 
-    def estimate_hr(self,R,nR=11,dR=2./3.,**kwargs):
+    def estimate_hr(self,R,z=0.,nR=11,dR=2./3.,**kwargs):
         """
         NAME:
            estimate_hr
@@ -187,6 +187,7 @@ class quasiisothermaldf:
            estimate the exponential scale length at R
         INPUT:
            R - Galactocentric radius
+           z= height (default: 0 pc)
            nR= number of Rs to use to estimate
            dR- range in R to use
            Rmax=m minimum R to use
@@ -197,7 +198,10 @@ class quasiisothermaldf:
            2012-09-11 - Written - Bovy (IAS)
         """
         Rs= numpy.linspace(R-dR/2.,R+dR/2.,nR)
-        sf= numpy.array([self.surfacemass(r,0.,**kwargs) for r in Rs])
+        if z is None:
+            sf= numpy.array([self.surfacemass_z(r) for r in Rs])
+        else:
+            sf= numpy.array([self.surfacemass(r,z,**kwargs) for r in Rs])
         indx= (sf != 0.)
         Rs= Rs[indx]
         sf= sf[indx]
