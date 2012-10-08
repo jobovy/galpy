@@ -237,7 +237,7 @@ class quasiisothermaldf:
         indx= (sf != 0.)
         zs= zs[indx]
         sf= sf[indx]
-        nzs= numpy.sum(indx)
+        nz= numpy.sum(indx)
         lsf= numpy.log(sf)
         #Fit
         #Put the dat in the appropriate arrays and matrices
