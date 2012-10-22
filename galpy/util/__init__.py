@@ -22,9 +22,11 @@ def save_pickles(savefilename,*args):
     while saving:
         try:
             savefile= open(tmp_savefilename,'wb')
+            file_open= True
             for f in args:
                 pickle.dump(f,savefile)
             savefile.close()
+            file_open= False
             shutil.move(tmp_savefilename,savefilename)
             saving= False
             if interrupted:
@@ -34,4 +36,7 @@ def save_pickles(savefilename,*args):
                 raise
             print "KeyboardInterrupt ignored while saving pickle ..."
             interrupted= True
+        finally:
+            if file_open:
+                savefile.close()
 
