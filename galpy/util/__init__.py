@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 import pickle
+import numpy
 def save_pickles(savefilename,*args):
     """
     NAME:
@@ -40,3 +41,19 @@ def save_pickles(savefilename,*args):
             if file_open:
                 savefile.close()
 
+def logsumexp(arr,axis=0):
+    """Faster logsumexp?"""
+    minarr= numpy.amax(arr,axis=axis)
+    if axis == 1:
+        minarr= numpy.reshape(minarr,(arr.shape[0],1))
+    if axis == 0:
+        minminarr= numpy.tile(minarr,(arr.shape[0],1))
+    elif axis == 1:
+        minminarr= numpy.tile(minarr,(1,arr.shape[1]))
+    elif axis == None:
+        minminarr= numpy.tile(minarr,arr.shape)
+    else:
+        raise NotImplementedError("'galpy.util.logsumexp' not implemented for axis > 2")
+    if axis == 1:
+        minarr= numpy.reshape(minarr,(arr.shape[0]))
+    return minarr+numpy.log(numpy.sum(numpy.exp(arr-minminarr),axis=axis))
