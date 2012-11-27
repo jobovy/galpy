@@ -31,6 +31,9 @@
 #            galcencyl_to_vxvyvz
 #            dl_to_rphi_2d
 #            rphi_to_dl_2d
+#            Rz_to_coshucosv
+#            Rz_to_uv
+#            uv_to_Rz
 #
 ##############################################################################
 #############################################################################
@@ -1131,6 +1134,66 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
     else:
         return (d,l)
 
+def Rz_to_coshucosv(R,z,delta=1.):
+    """
+    NAME:
+       Rz_to_coshucosv
+    PURPOSE:
+       calculate prolate confocal cosh(u) and cos(v) coordinates from R,z, and delta
+    INPUT:
+       R - radius
+       z - height
+       delta= focus
+    OUTPUT:
+       (cosh(u),cos(v))
+    HISTORY:
+       2012-11-27 - Written - Bovy (IAS)
+    """
+    d12= (z+delta)**2.+R**2.
+    d22= (z-delta)**2.+R**2.
+    coshu= 0.5/delta*(nu.sqrt(d12)+nu.sqrt(d22))
+    cosv=  0.5/delta*(nu.sqrt(d12)-nu.sqrt(d22))
+    return (coshu,cosv)
+
+def Rz_to_uv(R,z,delta=1.):
+    """
+    NAME:
+       Rz_to_uv
+    PURPOSE:
+       calculate prolate confocal u and v coordinates from R,z, and delta
+    INPUT:
+       R - radius
+       z - height
+       delta= focus
+    OUTPUT:
+       (u,v)
+    HISTORY:
+       2012-11-27 - Written - Bovy (IAS)
+    """
+    coshu, cosv= coshucosv(R,z,delta)
+    u= nu.arccosh(coshu)
+    v= nu.arccos(cosv)
+    return (u,v)
+
+def uv_to_Rz(u,v,delta=1.):
+    """
+    NAME:
+       uv_to_Rz
+    PURPOSE:
+       calculate R and z from prolate confocal u and v coordinates
+    INPUT:
+       u - confocal u
+       v - confocal v
+       delta= focus
+    OUTPUT:
+       (R,z)
+    HISTORY:
+       2012-11-27 - Written - Bovy (IAS)
+    """
+    R= delta*nu.sinh(u)*nu.sin(v)
+    z= delta*nu.cosh(u)*nu.cos(v)
+    return (R,z)
+
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:
@@ -1158,3 +1221,4 @@ def get_epoch_angles(epoch=2000.0):
         print "Returning..."
         return -1
     return (theta,dec_ngp,ra_ngp)
+
