@@ -149,6 +149,7 @@ class actionAngleStaeckelSingle(actionAngle):
         self._Lz= EL[1]
         #Determine umin and umax
         self._u0= self._ux #first guess
+        self._sinhu0= nu.sinh(self._u0)
         self._potu0v0= potentialStaeckel(self._u0,self._vx,
                                          self._pot,self._delta)
         self._I3U= self._E*self._sinhux**2.-self._pux**2./2./self._delta**2.\
@@ -254,15 +255,18 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        raise NotImplementedError("'JR' not implemented yet for Staeckel approxximation")
         if hasattr(self,'_JR'):
             return self._JR
-        (rperi,rap)= self.calcRapRperi(**kwargs)
-        EL= self.calcEL(**kwargs)
-        E, L= EL
-        self._JR= (1./nu.pi*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
-                                                    args=(E,L,self._pot),
-                                                    **kwargs)))
+        umin, umax= self.calcUminUmax()
+        self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
+            *nu.array(integrate.quad(_JRStaeckelIntegrandSquared,
+                                    umin,umax,
+                                    args=(self._E,self._Lz,self._I3U,
+                                          self._delta,
+                                          self._u0,self._sinhu0**2.,
+                                          self._vx,self._sinvx**2.,
+                                          self._potu0v0,self._pot),
+                                    **kwargs))
         return self._JR
 
     def Jz(self,**kwargs):
@@ -278,15 +282,21 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        raise NotImplementedError("'JR' not implemented yet for Staeckel approxximation")
         if hasattr(self,'_JZ'):
             return self._JZ
-        (rperi,rap)= self.calcRapRperi(**kwargs)
+        vmin= self.calcVmin()
         EL= self.calcEL(**kwargs)
         E, L= EL
-        self._JZ= (1./nu.pi*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
-                                                    args=(E,L,self._pot),
-                                                    **kwargs)))
+        # factor in next line bc integrand=/2delta^2
+        self._JZ= 2./nu.pi**nu.sqrt(2.)*self._delta \
+            *nu.array(integrate.quad(_JzStaeckelIntegrand,
+                                     vmin,nu.pi/2,
+                                     args=(self._E,self._Lz,self._I3V,
+                                           self._delta,
+                                           self._ux,self._coshux**2.,
+                                           self._sinhux**2.,
+                                           self._potupi2,self._pot),
+                                     **kwargs))
         return self._JZ
 
     def calcEL(self,**kwargs):
@@ -318,6 +328,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """                           
+        raise NotImplementedError("u0 optimization not implemented yet, code uses u_init")
         if hasattr(self,'_u0'):
             return self._u0
         self._u0= optimize.brentq(_u0Eq,0.,100.,
@@ -347,19 +358,19 @@ class actionAngleStaeckelSingle(actionAngle):
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhux**2.,
+                                           self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot)
             meps= _JRStaeckelIntegrandSquared(self._ux-eps,
                                               E,L,self._I3U,self._delta,
-                                              self._u0,self._sinhux**2.,
+                                              self._u0,self._sinhu0**2.,
                                               self._vx,self._sinvx**2.,
                                               self._potu0v0,self._pot)
             if peps < 0. and meps > 0.: #we are at umax
                 umax= self._ux
                 rstart= _uminUmaxFindStart(self._ux,
                                            E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhux**2.,
+                                           self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot)
                 if rstart == 0.: umin= 0.
@@ -368,7 +379,7 @@ class actionAngleStaeckelSingle(actionAngle):
                         umin= optimize.brentq(_JRStaeckelIntegrandSquared,
                                               rstart,self._ux-eps,
                                               (E,L,self._I3U,self._delta,
-                                               self._u0,self._sinhux**2.,
+                                               self._u0,self._sinhu0**2.,
                                                self._vx,self._sinvx**2.,
                                                self._potu0v0,self._pot),
                                               maxiter=200)
@@ -378,14 +389,14 @@ class actionAngleStaeckelSingle(actionAngle):
                 umin= self._ux
                 rend= _uminUmaxFindStart(self._ux,
                                          E,L,self._I3U,self._delta,
-                                         self._u0,self._sinhux**2.,
+                                         self._u0,self._sinhu0**2.,
                                          self._vx,self._sinvx**2.,
                                          self._potu0v0,self._pot,
                                          umax=True)
                 umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                       self._ux+eps,rend,
                                       (E,L,self._I3U,self._delta,
-                                       self._u0,self._sinhux**2.,
+                                       self._u0,self._sinhu0**2.,
                                        self._vx,self._sinvx**2.,
                                        self._potu0v0,self._pot),
                                       maxiter=200)
@@ -395,7 +406,7 @@ class actionAngleStaeckelSingle(actionAngle):
         else:
             rstart= _uminUmaxFindStart(self._ux,
                                        E,L,self._I3U,self._delta,
-                                       self._u0,self._sinhux**2.,
+                                       self._u0,self._sinhu0**2.,
                                        self._vx,self._sinvx**2.,
                                        self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
@@ -404,7 +415,7 @@ class actionAngleStaeckelSingle(actionAngle):
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
                                           rstart,self._ux,
                                           (E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhux**2.,
+                                           self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot),
                                            maxiter=200)
@@ -412,14 +423,14 @@ class actionAngleStaeckelSingle(actionAngle):
                     raise UnboundError("Orbit seems to be unbound")
             rend= _uminUmaxFindStart(self._ux,
                                      E,L,self._I3U,self._delta,
-                                     self._u0,self._sinhux**2.,
+                                     self._u0,self._sinhu0**2.,
                                      self._vx,self._sinvx**2.,
                                      self._potu0v0,self._pot,
                                      umax=True)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                           self._ux,rend,
                                           (E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhux**2.,
+                                           self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot),
                                            maxiter=200)
