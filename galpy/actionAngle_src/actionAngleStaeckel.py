@@ -13,6 +13,7 @@
 import math as m
 import numpy as nu
 from actionAngle import actionAngle
+from galpy.util import bovy_coords #for prolate confocal transforms
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -372,43 +373,41 @@ def calcELAxi(R,vR,vT,pot,vc=1.,ro=1.):
     """                           
     return (potentialAxi(R,pot)+vR**2./2.+vT**2./2.,R*vT)
 
-def potentialAxi(R,pot,vc=1.,ro=1.):
+def potentialStaeckel(u,v,pot,delta):
     """
     NAME:
-       potentialAxi
+       potentialStaeckel
     PURPOSE:
        return the potential
     INPUT:
-       R - Galactocentric radius (/ro)
+       u - confocal u
+       v - confocal v
        pot - potential
-       vc - circular velocity
-       ro - reference radius
+       delta - focus
     OUTPUT:
-       Phi(R)
+       Phi(u,v)
     HISTORY:
-       2010-11-30 - Written - Bovy (NYU)
+       2012-11-29 - Written - Bovy (IAS)
     """
-    return evaluateplanarPotentials(R,pot)
+    return evaluateplanarPotentials(*bovy_coords.uv_to_Rz(u,v,delta=delta),pot)
 
-def _JRAxiIntegrand(r,E,L,pot):
-    """The J_R integrand"""
-    return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
+def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
+                         potu0v0,pot):
+    #potu0v0= potentialStaeckel(u0,v0,pot,delta)
+    """The J_R integrand: p_u(u)/2/delta^2"""
+    sinh2u= nu.sinh(u)
+    dU= (sinh2u+sin2v0)*potentialStaeckel(u,v0,pot,delta)\
+        -(sinh2u0+sin2v0)*potu0v0
+    return nu.sqrt(E*sinh2u**2.-I3U-dU-Lz**2./2./delta**2./sinh2u)
 
-def _TRAxiIntegrandSmall(t,E,L,pot,rperi):
-    r= rperi+t**2.#part of the transformation
-    return 2.*t/_JRAxiIntegrand(r,E,L,pot)
-
-def _TRAxiIntegrandLarge(t,E,L,pot,rap):
-    r= rap-t**2.#part of the transformation
-    return 2.*t/_JRAxiIntegrand(r,E,L,pot)
-
-def _IAxiIntegrandSmall(t,E,L,pot,rperi):
-    r= rperi+t**2.#part of the transformation
-    return 2.*t/_JRAxiIntegrand(r,E,L,pot)/r**2.
-
-def _IAxiIntegrandLarge(t,E,L,pot,rap):
-    r= rap-t**2.#part of the transformation
-    return 2.*t/_JRAxiIntegrand(r,E,L,pot)/r**2.
+def _JzStaeckelIntegrand(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
+                         potu0pi2,pot):
+    #potu0pi2= potentialStaeckel(u0,nu.pi/2.,pot,delta)
+    """The J_z integrand: p_v(v)/2/delta^2"""
+    sin2v= nu.sin(v)**2.
+    dV= cosh2u0*potu0pi2\
+        -(sinh2u0+sin2v)*potentialStaeckel(u0,v,pot,delta)
+    return nu.sqrt(E*sin2v**2.+I3V+dV-Lz**2./2./delta**2./sin2v)
 
 def _rapRperiAxiEq(R,E,L,pot):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
@@ -451,5 +450,4 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
             rtry/= 2.
     if rtry < 0.000000001: return 0.
     return rtry
-
 
