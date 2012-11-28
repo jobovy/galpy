@@ -333,11 +333,61 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'):
             return self._uminumax
         E, L= self._E, self._Lz
-        if True: #if True, such that we can later special-case
-            startsign= 1.
-            #rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
-            #                              startsign=startsign)
-            rstart= 0.1
+        if self._pux == 0.: #We are at umin or umax
+            eps= 10.**-8.
+            peps= _JRStaeckelIntegrandSquared(self._ux+eps,
+                                           E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhux**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot)
+            meps= _JRStaeckelIntegrandSquared(self._ux-eps,
+                                              E,L,self._I3U,self._delta,
+                                              self._u0,self._sinhux**2.,
+                                              self._vx,self._sinvx**2.,
+                                              self._potu0v0,self._pot)
+            if peps < 0. and meps > 0.: #we are at umax
+                umax= self._ux
+                rstart= _uminUmaxFindStart(self._ux,
+                                           E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhux**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot)
+                if rstart == 0.: umin= 0.
+                else: 
+                    try:
+                        umin= optimize.brentq(_JRStaeckelIntegrandSquared,
+                                              rstart,self._ux-eps,
+                                              (E,L,self._I3U,self._delta,
+                                               self._u0,self._sinhux**2.,
+                                               self._vx,self._sinvx**2.,
+                                               self._potu0v0,self._pot),
+                                              maxiter=200)
+                    except RuntimeError:
+                        raise UnboundError("Orbit seems to be unbound")
+            elif peps > 0. and meps < 0.: #we are at umin
+                umin= self._ux
+                rend= _uminUmaxFindStart(self._ux,
+                                         E,L,self._I3U,self._delta,
+                                         self._u0,self._sinhux**2.,
+                                         self._vx,self._sinvx**2.,
+                                         self._potu0v0,self._pot,
+                                         umax=True)
+                umax= optimize.brentq(_JRStaeckelIntegrandSquared,
+                                      self._ux+eps,rend,
+                                      (E,L,self._I3U,self._delta,
+                                       self._u0,self._sinhux**2.,
+                                       self._vx,self._sinvx**2.,
+                                       self._potu0v0,self._pot),
+                                      maxiter=200)
+            else: #circular orbit
+                umin= self._ux
+                umax= self._ux
+        else:
+            rstart= _uminUmaxFindStart(self._ux,
+                                       E,L,self._I3U,self._delta,
+                                       self._u0,self._sinhux**2.,
+                                       self._vx,self._sinvx**2.,
+                                       self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
                 try:
@@ -350,9 +400,12 @@ class actionAngleStaeckelSingle(actionAngle):
                                            maxiter=200)
                 except RuntimeError:
                     raise UnboundError("Orbit seems to be unbound")
-            #rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
-            #                            startsign=startsign)
-            rend= 30.
+            rend= _uminUmaxFindStart(self._ux,
+                                     E,L,self._I3U,self._delta,
+                                     self._u0,self._sinhux**2.,
+                                     self._vx,self._sinvx**2.,
+                                     self._potu0v0,self._pot,
+                                     umax=True)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                           self._ux,rend,
                                           (E,L,self._I3U,self._delta,
@@ -362,29 +415,6 @@ class actionAngleStaeckelSingle(actionAngle):
                                            maxiter=200)
         self._uminumax= (umin,umax)
         return self._uminumax
-
-def calcRapRperiFromELAxi(E,L,pot,vc=1.,ro=1.):
-    """
-    NAME:
-       calcRapRperiFromELAxi
-    PURPOSE:
-       calculate the apocenter and pericenter radii
-    INPUT:
-       E - energy
-       L - angular momemtum
-       pot - potential
-       vc - circular velocity
-       ro - reference radius
-    OUTPUT:
-       (rperi,rap)
-    HISTORY:
-       2010-12-01 - Written - Bovy (NYU)
-    """
-    rstart= _rapRperiAxiFindStart(L,E,L)
-    rperi= optimize.brentq(_rapRperiAxiEq,rstart,L,(E,L,pot))
-    rend= _rapRperiAxiFindStart(L,E,L,rap=True)
-    rap= optimize.brentq(_rapRperiAxiEq,L,rend,(E,L,pot))
-    return (rperi,rap)
 
 def calcELStaeckel(R,vR,vT,z,vz,pot,vc=1.,ro=1.):
     """
@@ -480,11 +510,10 @@ def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
 def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                 potu0v0,pot):
     #potu0v0= potentialStaeckel(u0,v0,pot,delta)
-    """The J_R integrand: p_u(u)/2/delta^2"""
+    """The J_R integrand: p^2_u(u)/2/delta^2"""
     sinh2u= nu.sinh(u)**2.
     dU= (sinh2u+sin2v0)*potentialStaeckel(u,v0,pot,delta)\
         -(sinh2u0+sin2v0)*potu0v0
-    print u, dU, E*sinh2u-I3U-dU-Lz**2./2./delta**2./sinh2u
     return E*sinh2u-I3U-dU-Lz**2./2./delta**2./sinh2u
 
 def _JzStaeckelIntegrand(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
@@ -505,36 +534,35 @@ def _rapRperiAxiDeriv(R,E,L,pot):
     apo- and pericenter"""
     return evaluateplanarRforces(R,pot)+L**2./R**3.
 
-def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
+def _uminUmaxFindStart(u,
+                       E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
+                       potu0v0,pot,umax=False):
     """
     NAME:
-       _rapRperiAxiFindStart
+       _uminUmaxFindStart
     PURPOSE:
-       Find adequate start or end points to solve for rap and rperi
+       Find adequate start or end points to solve for umin and umax
     INPUT:
-       R - Galactocentric radius
-       E - energy
-       L - angular momentum
-       pot - potential
-       rap - if True, find the rap end-point
-       startsign= set to -1 if the function is not positive (due to gamma)
+       same as JRStaeckelIntegrandSquared
     OUTPUT:
        rstart or rend
     HISTORY:
-       2010-12-01 - Written - Bovy (NYU)
+       2012-11-30 - Written - Bovy (IAS)
     """
-    if rap:
-        rtry= 2.*R
+    if umax:
+        utry= 2.*u
     else:
-        rtry= R/2.
-    while startsign*_rapRperiAxiEq(rtry,E,L,pot) > 0. \
-            and rtry > 0.000000001:
-        if rap:
-            if rtry > 100.:
+        utry= u/2.
+    while _JRStaeckelIntegrandSquared(utry,
+                                      E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
+                                      potu0v0,pot) >= 0. \
+                                      and utry > 0.000000001:
+        if umax:
+            if utry > 100.:
                 raise UnboundError("Orbit seems to be unbound")
-            rtry*= 2.
+            utry*= 2.
         else:
-            rtry/= 2.
-    if rtry < 0.000000001: return 0.
-    return rtry
+            utry/= 2.
+    if utry < 0.000000001: return 0.
+    return utry
 
