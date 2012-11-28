@@ -1151,8 +1151,8 @@ def Rz_to_coshucosv(R,z,delta=1.):
     """
     d12= (z+delta)**2.+R**2.
     d22= (z-delta)**2.+R**2.
-    coshu= 0.5/delta*(nu.sqrt(d12)+nu.sqrt(d22))
-    cosv=  0.5/delta*(nu.sqrt(d12)-nu.sqrt(d22))
+    coshu= 0.5/delta*(sc.sqrt(d12)+sc.sqrt(d22))
+    cosv=  0.5/delta*(sc.sqrt(d12)-sc.sqrt(d22))
     return (coshu,cosv)
 
 def Rz_to_uv(R,z,delta=1.):
@@ -1170,9 +1170,9 @@ def Rz_to_uv(R,z,delta=1.):
     HISTORY:
        2012-11-27 - Written - Bovy (IAS)
     """
-    coshu, cosv= coshucosv(R,z,delta)
-    u= nu.arccosh(coshu)
-    v= nu.arccos(cosv)
+    coshu, cosv= Rz_to_coshucosv(R,z,delta)
+    u= sc.arccosh(coshu)
+    v= sc.arccos(cosv)
     return (u,v)
 
 def uv_to_Rz(u,v,delta=1.):
@@ -1190,8 +1190,8 @@ def uv_to_Rz(u,v,delta=1.):
     HISTORY:
        2012-11-27 - Written - Bovy (IAS)
     """
-    R= delta*nu.sinh(u)*nu.sin(v)
-    z= delta*nu.cosh(u)*nu.cos(v)
+    R= delta*sc.sinh(u)*sc.sin(v)
+    z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
 
 def get_epoch_angles(epoch=2000.0):
