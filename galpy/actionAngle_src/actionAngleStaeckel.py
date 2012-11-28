@@ -153,7 +153,17 @@ class actionAngleStaeckelSingle(actionAngle):
                                          self._pot,self._delta)
         self._I3U= self._E*self._sinhux**2.-self._pux**2./2./self._delta**2.\
             -self._Lz**2./2./self._delta**2./self._sinhux**2.
+        self._potupi2= potentialStaeckel(self._ux,nu.pi/2.,
+                                         self._pot,self._delta)
+        dV= (self._coshux**2.*self._potupi2
+             -(self._sinhux**2.+self._sinvx**2.)
+             *potentialStaeckel(self._ux,self._vx,
+                                self._pot,self._delta))
+        self._I3V= -self._E*self._sinvx**2.+self._pvx**2./2./self._delta**2.\
+            +self._Lz**2./2./self._delta**2./self._sinvx**2.\
+            -dV
         self.calcUminUmax()
+        self.calcVmin()
         return None
     
     def angleR(self,**kwargs):
@@ -416,6 +426,76 @@ class actionAngleStaeckelSingle(actionAngle):
         self._uminumax= (umin,umax)
         return self._uminumax
 
+    def calcVmin(self,**kwargs):
+        """
+        NAME:
+           calcVmin
+        PURPOSE:
+           calculate the v 'pericenter'
+        INPUT:
+        OUTPUT:
+           vmin
+        HISTORY:
+           2012-11-28 - Written - Bovy (IAS)
+        """
+        if hasattr(self,'_vmin'):
+            return self._vmin
+        E, L= self._E, self._Lz
+        if self._pvx == 0.: #We are at vmin or vmax
+            eps= 10.**-8.
+            peps= _JzStaeckelIntegrandSquared(self._vx+eps,
+                                              E,L,self._I3V,self._delta,
+                                              self._ux,self._coshux**2.,
+                                              self._sinhux**2.,
+                                              self._potupi2,self._pot)
+            meps= _JzStaeckelIntegrandSquared(self._vx-eps,
+                                              E,L,self._I3V,self._delta,
+                                              self._ux,self._coshux**2.,
+                                              self._sinhux**2.,
+                                              self._potupi2,self._pot)
+            if peps < 0. and meps > 0.: #we are at vmax
+                rstart= _vminFindStart(self._vx,
+                                       E,L,self._I3V,self._delta,
+                                       self._ux,self._coshux**2.,
+                                       self._sinhux**2.,
+                                       self._potupi2,self._pot)
+                if rstart == 0.: vmin= 0.
+                else:
+                    try:
+                        vmin= optimize.brentq(_JzStaeckelIntegrandSquared,
+                                              rstart,self._vx-eps,
+                                              (E,L,self._I3V,self._delta,
+                                               self._ux,self._coshux**2.,
+                                               self._sinhux**2.,
+                                               self._potupi2,self._pot),
+                                              maxiter=200)
+                    except RuntimeError:
+                        raise UnboundError("Orbit seems to be unbound")
+            elif peps > 0. and meps < 0.: #we are at vmin
+                vmin= self._vx
+            else: #planar orbit
+                vmin= self._vx
+        else:
+            rstart= _vminFindStart(self._vx,
+                                   E,L,self._I3V,self._delta,
+                                   self._ux,self._coshux**2.,
+                                   self._sinhux*2.,
+                                   self._potupi2,self._pot)
+            if rstart == 0.: vmin= 0.
+            else:
+                try:
+                    vmin= optimize.brentq(_JzStaeckelIntegrandSquared,
+                                          rstart,self._vx,
+                                          (E,L,self._I3V,self._delta,
+                                           self._ux,self._coshux**2.,
+                                           self._sinhux**2.,
+                                           self._potupi2,self._pot),
+                                          maxiter=200)
+                except RuntimeError:
+                    raise UnboundError("Orbit seems to be unbound")
+        self._vmin= vmin
+        return self._vmin
+
 def calcELStaeckel(R,vR,vT,z,vz,pot,vc=1.,ro=1.):
     """
     NAME:
@@ -518,12 +598,17 @@ def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
 
 def _JzStaeckelIntegrand(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                          potu0pi2,pot):
+    return nu.sqrt(_JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,
+                                               sinh2u0,
+                                               potu0pi2,pot))
+def _JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
+                                potu0pi2,pot):
     #potu0pi2= potentialStaeckel(u0,nu.pi/2.,pot,delta)
     """The J_z integrand: p_v(v)/2/delta^2"""
     sin2v= nu.sin(v)**2.
     dV= cosh2u0*potu0pi2\
         -(sinh2u0+sin2v)*potentialStaeckel(u0,v,pot,delta)
-    return nu.sqrt(E*sin2v**2.+I3V+dV-Lz**2./2./delta**2./sin2v)
+    return E*sin2v+I3V+dV-Lz**2./2./delta**2./sin2v
 
 def _rapRperiAxiEq(R,E,L,pot):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
@@ -565,4 +650,27 @@ def _uminUmaxFindStart(u,
             utry/= 2.
     if utry < 0.000000001: return 0.
     return utry
+
+def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
+                                potu0pi2,pot):
+    """
+    NAME:
+       _vminFindStart
+    PURPOSE:
+       Find adequate start point to solve for vmin
+    INPUT:
+       same as JzStaeckelIntegrandSquared
+    OUTPUT:
+       rstart
+    HISTORY:
+       2012-11-28 - Written - Bovy (IAS)
+    """
+    vtry= v/2.
+    while _JzStaeckelIntegrandSquared(vtry,
+                                      E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
+                                      potu0pi2,pot) >= 0. \
+                                      and vtry > 0.000000001:
+        vtry/= 2.
+    if vtry < 0.000000001: return 0.
+    return vtry
 
