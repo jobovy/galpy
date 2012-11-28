@@ -7,6 +7,7 @@
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
 import math as m
+import numpy
 from scipy import special, integrate
 from Potential import Potential
 class TwoPowerSphericalPotential(Potential):
@@ -72,7 +73,7 @@ class TwoPowerSphericalPotential(Potential):
             if not self.integerSelf == None:
                 return self.integerSelf._evaluate(R,z,phi=phi,t=t)
             else:
-                r= m.sqrt(R**2.+z**2.)
+                r= numpy.sqrt(R**2.+z**2.)
                 return integrate.quadrature(_potIntegrandTransform,
                                             0.,self.a/r,
                                             args=(self.alpha,self.beta))[0]
@@ -100,7 +101,7 @@ class TwoPowerSphericalPotential(Potential):
         if not self.integerSelf == None:
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
-            r= m.sqrt(R**2.+z**2.)
+            r= numpy.sqrt(R**2.+z**2.)
             return R/r**self.alpha*special.hyp2f1(3.-self.alpha,
                                                   self.beta-self.alpha,
                                                   4.-self.alpha,
@@ -124,7 +125,7 @@ class TwoPowerSphericalPotential(Potential):
         if not self.integerSelf == None:
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
-            r= m.sqrt(R**2.+z**2.)
+            r= numpy.sqrt(R**2.+z**2.)
             return z/r**self.alpha*special.hyp2f1(3.-self.alpha,
                                                   self.beta-self.alpha,
                                                   4.-self.alpha,
@@ -146,7 +147,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        r= m.sqrt(R**2.+z**2.)
+        r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
@@ -350,7 +351,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            return -1./(1.+m.sqrt(R**2.+z**2.)/self.a)
+            return -1./(1.+numpy.sqrt(R**2.+z**2.)/self.a)
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -372,7 +373,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -390,7 +391,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -409,7 +410,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return self.a*(self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
             /(self.a+sqrtRz)**3.
 
@@ -458,7 +459,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            return -m.log(1.+self.a/m.sqrt(R**2.+z**2.))
+            return -numpy.log(1.+self.a/numpy.sqrt(R**2.+z**2.))
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -480,7 +481,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -self.a*R/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -499,7 +500,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -self.a*z/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -518,7 +519,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        sqrtRz= m.sqrt(R**2.+z**2.)
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
         return self.a*(self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
             /sqrtRz**4./(self.a+sqrtRz)**2.
 
@@ -567,8 +568,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            r= m.sqrt(R**2.+z**2.)
-            return -m.log(1.+r/self.a)/r
+            r= numpy.sqrt(R**2.+z**2.)
+            return -numpy.log(1.+r/self.a)/r
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -591,8 +592,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         Rz= R**2.+z**2.
-        sqrtRz= m.sqrt(Rz)
-        return R*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+        sqrtRz= numpy.sqrt(Rz)
+        return R*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -611,8 +612,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         Rz= R**2.+z**2.
-        sqrtRz= m.sqrt(Rz)
-        return z*(1./Rz/(self.a+sqrtRz)-m.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+        sqrtRz= numpy.sqrt(Rz)
+        return z*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -631,9 +632,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2011-10-09 - Written - Bovy (IAS)
         """
         Rz= R**2.+z**2.
-        sqrtRz= m.sqrt(Rz)
+        sqrtRz= numpy.sqrt(Rz)
         return (3.*R**4.+2.*R**2.*(z**2.+self.a*sqrtRz)\
                     -z**2.*(z**2.+self.a*sqrtRz)\
                     -(2.*R**2.-z**2.)*(self.a**2.+R**2.+z**2.+2.*self.a*sqrtRz)\
-                    *m.log(1.+sqrtRz/self.a))\
+                    *numpy.log(1.+sqrtRz/self.a))\
                     /Rz**2.5/(self.a+sqrtRz)**2.
