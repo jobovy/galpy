@@ -12,7 +12,10 @@
 ###############################################################################
 import math as m
 import numpy as nu
+from scipy import optimize, integrate
 from actionAngle import actionAngle
+from galpy.potential import evaluatePotentials, evaluateRforces, \
+    evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -24,6 +27,7 @@ class actionAngleStaeckel():
            initialize an actionAngleStaeckel object
         INPUT:
            pot= potential or list of potentials (3D)
+           delta= focus
         OUTPUT:
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
@@ -31,6 +35,9 @@ class actionAngleStaeckel():
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
+        if not kwargs.has_key('delta'):
+            raise IOError("Must specify delta= for actionAngleStaeckel")
+        self._delta= kwargs['delta']
         return None
     
     def __call__(self,*args,**kwargs):
@@ -52,7 +59,8 @@ class actionAngleStaeckel():
         """
         #Set up the actionAngleStaeckelSingle object
         meta= actionAngle(*args)
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot)
+        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                             delta=self._delta)
         return (aASingle.JR(**kwargs),aASingle._R*aAAxi._vT,
                 aASingle.Jz(**kwargs))
 
@@ -110,7 +118,7 @@ class actionAngleStaeckelSingle(actionAngle):
            initialize an actionAngleStaeckelSingle object
         INPUT:
            Either:
-              a) R,vR,vT
+              a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
               pot= potential or list of potentials
@@ -122,6 +130,30 @@ class actionAngleStaeckelSingle(actionAngle):
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
+        if not kwargs.has_key('delta'):
+            raise IOError("Must specify delta= for actionAngleStaeckel")
+        self._delta= kwargs['delta']
+        #Pre-calculate everything
+        self._ux, self._vx= bovy_coords.Rz_to_uv(self._R,self._z,
+                                                 delta=self._delta)
+        self._sinvx= nu.sin(self._vx)
+        self._cosvx= nu.cos(self._vx)
+        self._coshux= nu.cosh(self._ux)
+        self._sinhux= nu.sinh(self._ux)
+        self._pux= self._delta*(self._vR*self._coshux*self._sinvx
+                                +self._vz*self._sinhux*self._cosvx)
+        self._pvx= self._delta*(self._vR*self._sinhux*self._cosvx
+                                -self._vz*self._coshux*self._sinvx)
+        EL= self.calcEL()
+        self._E= EL[0]
+        self._Lz= EL[1]
+        #Determine umin and umax
+        self._u0= self._ux #first guess
+        self._potu0v0= potentialStaeckel(self._u0,self._vx,
+                                         self._pot,self._delta)
+        self._I3U= self._E*self._sinhux**2.-self._pux**2./2./self._delta**2.\
+            -self._Lz**2./2./self._delta**2./self._sinhux**2.
+        self.calcUminUmax()
         return None
     
     def angleR(self,**kwargs):
@@ -260,76 +292,76 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """                           
-        raise NotImplementedError("adjust calcEL")
-        E,L= calcELAxi(self._R,self._vR,self._vT,self._pot)
+        E,L= calcELStaeckel(self._R,self._vR,self._vT,self._z,self._vz,
+                            self._pot)
         return (E,L)
 
-    def calcRapRperi(self,**kwargs):
+    def calcu0(self):
         """
         NAME:
-           calcRapRperi
+           calcu0
         PURPOSE:
-           calculate the apocenter and pericenter radii
+           calculate the minimum of dU(u;v)
         INPUT:
         OUTPUT:
-           (rperi,rap)
+           u0
+        HISTORY:
+           2012-11-27 - Written - Bovy (IAS)
+        """                           
+        if hasattr(self,'_u0'):
+            return self._u0
+        self._u0= optimize.brentq(_u0Eq,0.,100.,
+                                  args=(self._sinvx,self._cosvx,
+                                        self._vx,self._delta,self._pot))
+        #Also update 
+        self._potu0v0= potentialStaeckel(self._u0,self._vx,
+                                         self._pot,self._delta)
+        return self._u0
+
+    def calcUminUmax(self,**kwargs):
+        """
+        NAME:
+           calcUminUmax
+        PURPOSE:
+           calculate the u 'apocenter' and 'pericenter'
+        INPUT:
+        OUTPUT:
+           (umin,umax)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        raise NotImplementedError("not sure this is even necessary")
-        if hasattr(self,'_rperirap'):
-            return self._rperirap
-        EL= self.calcEL(**kwargs)
-        E, L= EL
-        if self._vR == 0. and m.fabs(self._vT - vcirc(self._pot,self._R)) < _EPS: #We are on a circular orbit
-            rperi= self._R
-            rap = self._R
-        elif self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
-            rperi= self._R
-            if self._gamma != 0.:
-                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
-                startsign/= m.fabs(startsign)
-            else: startsign= 1.
-            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
-                                        startsign=startsign)
-            rap= optimize.brentq(_rapRperiAxiEq,rperi+0.00001,rend,
-                                 args=(E,L,self._pot))
-#                                   fprime=_rapRperiAxiDeriv)
-        elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
-            rap= self._R
-            if self._gamma != 0.:
-                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
-                startsign/= m.fabs(startsign)
-            else: startsign= 1.
-            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
-                                          startsign=startsign)
-            if rstart == 0.: rperi= 0.
-            else:
-                rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
-                                       args=(E,L,self._pot))
-#                                   fprime=_rapRperiAxiDeriv)
-        else:
-            if self._gamma != 0.:
-                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
-                startsign/= m.fabs(startsign)
-            else:
-                startsign= 1.
-            rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
-                                          startsign=startsign)
-            if rstart == 0.: rperi= 0.
+        if hasattr(self,'_uminumax'):
+            return self._uminumax
+        E, L= self._E, self._Lz
+        if True: #if True, such that we can later special-case
+            startsign= 1.
+            #rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
+            #                              startsign=startsign)
+            rstart= 0.1
+            if rstart == 0.: umin= 0.
             else: 
                 try:
-                    rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
-                                           (E,L,self._pot),
+                    umin= optimize.brentq(_JRStaeckelIntegrandSquared,
+                                          rstart,self._ux,
+                                          (E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhux**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot),
                                            maxiter=200)
                 except RuntimeError:
                     raise UnboundError("Orbit seems to be unbound")
-            rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
-                                        startsign=startsign)
-            rap= optimize.brentq(_rapRperiAxiEq,self._R,rend,
-                                 (E,L,self._pot))
-        self._rperirap= (rperi,rap)
-        return self._rperirap
+            #rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
+            #                            startsign=startsign)
+            rend= 30.
+            umax= optimize.brentq(_JRStaeckelIntegrandSquared,
+                                          self._ux,rend,
+                                          (E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhux**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot),
+                                           maxiter=200)
+        self._uminumax= (umin,umax)
+        return self._uminumax
 
 def calcRapRperiFromELAxi(E,L,pot,vc=1.,ro=1.):
     """
@@ -354,10 +386,10 @@ def calcRapRperiFromELAxi(E,L,pot,vc=1.,ro=1.):
     rap= optimize.brentq(_rapRperiAxiEq,L,rend,(E,L,pot))
     return (rperi,rap)
 
-def calcELAxi(R,vR,vT,pot,vc=1.,ro=1.):
+def calcELStaeckel(R,vR,vT,z,vz,pot,vc=1.,ro=1.):
     """
     NAME:
-       calcELAxi
+       calcELStaeckel
     PURPOSE:
        calculate the energy and angular momentum
     INPUT:
@@ -369,9 +401,9 @@ def calcELAxi(R,vR,vT,pot,vc=1.,ro=1.):
     OUTPUT:
        (E,L)
     HISTORY:
-       2010-11-30 - Written - Bovy (NYU)
+       2012-11-30 - Written - Bovy (IAS)
     """                           
-    return (potentialAxi(R,pot)+vR**2./2.+vT**2./2.,R*vT)
+    return (evaluatePotentials(R,z,pot)+vR**2./2.+vT**2./2.+vz**2./2.,R*vT)
 
 def potentialStaeckel(u,v,pot,delta):
     """
@@ -389,16 +421,71 @@ def potentialStaeckel(u,v,pot,delta):
     HISTORY:
        2012-11-29 - Written - Bovy (IAS)
     """
-    return evaluateplanarPotentials(*bovy_coords.uv_to_Rz(u,v,delta=delta),pot)
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    return evaluatePotentials(R,z,pot)
+
+def FRStaeckel(u,v,pot,delta):
+    """
+    NAME:
+       FRStaeckel
+    PURPOSE:
+       return the radial force
+    INPUT:
+       u - confocal u
+       v - confocal v
+       pot - potential
+       delta - focus
+    OUTPUT:
+       FR(u,v)
+    HISTORY:
+       2012-11-30 - Written - Bovy (IAS)
+    """
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    return evaluateRforces(R,z,pot)
+
+def FZStaeckel(u,v,pot,delta):
+    """
+    NAME:
+       FZStaeckel
+    PURPOSE:
+       return the vertical force
+    INPUT:
+       u - confocal u
+       v - confocal v
+       pot - potential
+       delta - focus
+    OUTPUT:
+       FZ(u,v)
+    HISTORY:
+       2012-11-30 - Written - Bovy (IAS)
+    """
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    return evaluatezforces(R,z,pot)
+
+def _u0Eq(u,sinv0,cosv0,v0,delta,pot):
+    """The equation that needs to be solved to find u0"""
+    sinhu= nu.sinh(u)
+    coshu= nu.cosh(u)
+    dUdu= 2.*sinhu*coshu*potentialStaeckel(u,v0,pot,delta)\
+        -delta*(sinhu**2.+sinv0**2.)\
+        *(FRStaeckel(u,v0,pot,delta)*coshu*sinv0
+          +FZStaeckel(u,v0,pot,delta)*sinhu*cosv0)
+    return dUdu
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                          potu0v0,pot):
+    return nu.sqrt(_JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,
+                                               v0,sin2v0,
+                                               potu0v0,pot))
+def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
+                                potu0v0,pot):
     #potu0v0= potentialStaeckel(u0,v0,pot,delta)
     """The J_R integrand: p_u(u)/2/delta^2"""
-    sinh2u= nu.sinh(u)
+    sinh2u= nu.sinh(u)**2.
     dU= (sinh2u+sin2v0)*potentialStaeckel(u,v0,pot,delta)\
         -(sinh2u0+sin2v0)*potu0v0
-    return nu.sqrt(E*sinh2u**2.-I3U-dU-Lz**2./2./delta**2./sinh2u)
+    print u, dU, E*sinh2u-I3U-dU-Lz**2./2./delta**2./sinh2u
+    return E*sinh2u-I3U-dU-Lz**2./2./delta**2./sinh2u
 
 def _JzStaeckelIntegrand(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                          potu0pi2,pot):
