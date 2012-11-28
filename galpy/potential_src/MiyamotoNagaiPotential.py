@@ -112,7 +112,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
-        if sqrtbz == asqrtbz:
+        if isinstance(R,float) and sqrtbz == asqrtbz:
             return (-z/
                      (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
         else:
@@ -177,7 +177,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
-        if sqrtbz == asqrtbz:
+        if isinstance(R,float) and sqrtbz == asqrtbz:
             return (self._b2+R**2.-2.*z**2.)*(self._b2+R**2.+z**2.)**-2.5
         else:
             return ((self._a**3.*self._b2 + 
