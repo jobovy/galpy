@@ -21,7 +21,7 @@ from matplotlib import pyplot
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
-    def __init__(self,pot=None,zmax=3./8.,gamma=1.,Rmax=3.,
+    def __init__(self,pot=None,zmax=1.,gamma=1.,Rmax=5.,
                  nR=25,nEz=25,nEr=25,nLz=25,numcores=1,
                  **kwargs):
         """
