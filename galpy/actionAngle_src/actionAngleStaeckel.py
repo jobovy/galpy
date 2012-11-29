@@ -333,7 +333,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'):
             return self._uminumax
         E, L= self._E, self._Lz
-        if self._pux == 0.: #We are at umin or umax
+        if nu.fabs(self._pux) < 10.**-8.: #We are at umin or umax
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
