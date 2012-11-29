@@ -30,7 +30,7 @@ class actionAngleAdiabaticGrid():
         PURPOSE:
            initialize an actionAngleAdiabaticGrid object
         INPUT:
-           pot= potential or list of potentials (planarPotentials)
+           pot= potential or list of potentials
            zmax= zmax for building Ez grid
            Rmax = Rmax for building grids
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
