@@ -83,7 +83,8 @@ class actionAngleStaeckel():
         """
         #Set up the actionAngleStaeckelSingle object
         meta= actionAngle(*args)
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot)
+        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                             delta=self._delta)
         return aASingle.JR(**kwargs)
 
     def Jz(self,*args,**kwargs):
@@ -105,7 +106,8 @@ class actionAngleStaeckel():
         """
         #Set up the actionAngleStaeckelSingle object
         meta= actionAngle(*args)
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot)
+        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                             delta=self._delta)
         return aASingle.Jz(**kwargs)
 
 class actionAngleStaeckelSingle(actionAngle):
@@ -315,29 +317,6 @@ class actionAngleStaeckelSingle(actionAngle):
         E,L= calcELStaeckel(self._R,self._vR,self._vT,self._z,self._vz,
                             self._pot)
         return (E,L)
-
-    def calcu0(self):
-        """
-        NAME:
-           calcu0
-        PURPOSE:
-           calculate the minimum of dU(u;v)
-        INPUT:
-        OUTPUT:
-           u0
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """                           
-        raise NotImplementedError("u0 optimization not implemented, code uses u_init")
-        if hasattr(self,'_u0'):
-            return self._u0
-        self._u0= optimize.brentq(_u0Eq,0.,100.,
-                                  args=(self._sinvx,self._cosvx,
-                                        self._vx,self._delta,self._pot))
-        #Also update 
-        self._potu0v0= potentialStaeckel(self._u0,self._vx,
-                                         self._pot,self._delta)
-        return self._u0
 
     def calcUminUmax(self,**kwargs):
         """
@@ -582,16 +561,6 @@ def FZStaeckel(u,v,pot,delta):
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
     return evaluatezforces(R,z,pot)
-
-def _u0Eq(u,sinv0,cosv0,v0,delta,pot):
-    """The equation that needs to be solved to find u0"""
-    sinhu= nu.sinh(u)
-    coshu= nu.cosh(u)
-    dUdu= 2.*sinhu*coshu*potentialStaeckel(u,v0,pot,delta)\
-        -delta*(sinhu**2.+sinv0**2.)\
-        *(FRStaeckel(u,v0,pot,delta)*coshu*sinv0
-          +FZStaeckel(u,v0,pot,delta)*sinhu*cosv0)
-    return dUdu
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                          potu0v0,pot):
