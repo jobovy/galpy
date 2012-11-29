@@ -259,7 +259,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JR
         umin, umax= self.calcUminUmax()
         self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-            *nu.array(integrate.quad(_JRStaeckelIntegrandSquared,
+            *nu.array(integrate.quad(_JRStaeckelIntegrand,
                                     umin,umax,
                                     args=(self._E,self._Lz,self._I3U,
                                           self._delta,
@@ -285,10 +285,8 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JZ'):
             return self._JZ
         vmin= self.calcVmin()
-        EL= self.calcEL(**kwargs)
-        E, L= EL
         # factor in next line bc integrand=/2delta^2
-        self._JZ= 2./nu.pi**nu.sqrt(2.)*self._delta \
+        self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
             *nu.array(integrate.quad(_JzStaeckelIntegrand,
                                      vmin,nu.pi/2,
                                      args=(self._E,self._Lz,self._I3V,
