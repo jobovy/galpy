@@ -431,7 +431,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_vmin'):
             return self._vmin
         E, L= self._E, self._Lz
-        if self._pvx == 0.: #We are at vmin or vmax
+        if nu.fabs(self._pvx) < 10.**-8.: #We are at vmin or vmax
             eps= 10.**-8.
             peps= _JzStaeckelIntegrandSquared(self._vx+eps,
                                               E,L,self._I3V,self._delta,
