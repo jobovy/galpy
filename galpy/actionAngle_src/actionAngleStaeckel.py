@@ -61,7 +61,7 @@ class actionAngleStaeckel():
         meta= actionAngle(*args)
         aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
                                              delta=self._delta)
-        return (aASingle.JR(**kwargs),aASingle._R*aAAxi._vT,
+        return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
                 aASingle.Jz(**kwargs))
 
     def JR(self,*args,**kwargs):
