@@ -148,7 +148,8 @@ class actionAngleStaeckelSingle(actionAngle):
         self._E= EL[0]
         self._Lz= EL[1]
         #Determine umin and umax
-        self._u0= self._ux #first guess
+        self._u0= self._ux #u0 as defined by Binney does not matter for a 
+        #single action evaluation, so we don't determine it here
         self._sinhu0= nu.sinh(self._u0)
         self._potu0v0= potentialStaeckel(self._u0,self._vx,
                                          self._pot,self._delta)
@@ -258,6 +259,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JR'):
             return self._JR
         umin, umax= self.calcUminUmax()
+        # factor in next line bc integrand=/2delta^2
         self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
             *nu.array(integrate.quad(_JRStaeckelIntegrand,
                                     umin,umax,
@@ -326,7 +328,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """                           
-        raise NotImplementedError("u0 optimization not implemented yet, code uses u_init")
+        raise NotImplementedError("u0 optimization not implemented, code uses u_init")
         if hasattr(self,'_u0'):
             return self._u0
         self._u0= optimize.brentq(_u0Eq,0.,100.,
@@ -618,15 +620,6 @@ def _JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     dV= cosh2u0*potu0pi2\
         -(sinh2u0+sin2v)*potentialStaeckel(u0,v,pot,delta)
     return E*sin2v+I3V+dV-Lz**2./2./delta**2./sin2v
-
-def _rapRperiAxiEq(R,E,L,pot):
-    """The vr=0 equation that needs to be solved to find apo- and pericenter"""
-    return E-potentialAxi(R,pot)-L**2./2./R**2.
-
-def _rapRperiAxiDeriv(R,E,L,pot):
-    """The derivative of the vr=0 equation that needs to be solved to find 
-    apo- and pericenter"""
-    return evaluateplanarRforces(R,pot)+L**2./R**3.
 
 def _uminUmaxFindStart(u,
                        E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
