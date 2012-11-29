@@ -261,6 +261,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JR'):
             return self._JR
         umin, umax= self.calcUminUmax()
+        if (umax-umin)/umax < 10.**-7: return nu.array([0.,0.])
         # factor in next line bc integrand=/2delta^2
         self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
             *nu.array(integrate.quad(_JRStaeckelIntegrand,
@@ -289,6 +290,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JZ'):
             return self._JZ
         vmin= self.calcVmin()
+        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
         # factor in next line bc integrand=/2delta^2
         self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
             *nu.array(integrate.quad(_JzStaeckelIntegrand,
@@ -333,7 +335,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'):
             return self._uminumax
         E, L= self._E, self._Lz
-        if nu.fabs(self._pux) < 10.**-8.: #We are at umin or umax
+        if nu.fabs(self._pux) < 10.**-7.: #We are at umin or umax
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
@@ -431,7 +433,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_vmin'):
             return self._vmin
         E, L= self._E, self._Lz
-        if nu.fabs(self._pvx) < 10.**-8.: #We are at vmin or vmax
+        if nu.fabs(self._pvx) < 10.**-7.: #We are at vmin or vmax
             eps= 10.**-8.
             peps= _JzStaeckelIntegrandSquared(self._vx+eps,
                                               E,L,self._I3V,self._delta,
@@ -469,7 +471,7 @@ class actionAngleStaeckelSingle(actionAngle):
             rstart= _vminFindStart(self._vx,
                                    E,L,self._I3V,self._delta,
                                    self._ux,self._coshux**2.,
-                                   self._sinhux*2.,
+                                   self._sinhux**2.,
                                    self._potupi2,self._pot)
             if rstart == 0.: vmin= 0.
             else:
@@ -642,6 +644,6 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                                       potu0pi2,pot) >= 0. \
                                       and vtry > 0.000000001:
         vtry/= 2.
-    if vtry < 0.000000001: return 0.
+    if vtry < 0.000000001: return 0.   
     return vtry
 
