@@ -16,7 +16,7 @@ from scipy import interpolate, optimize, ndimage
 import actionAngleStaeckel
 from galpy.actionAngle import actionAngle, UnboundError
 import galpy.potential
-from galpy.util import multi
+from galpy.util import multi, bovy_coords
 from matplotlib import pyplot
 _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid():
@@ -58,6 +58,7 @@ class actionAngleStaeckelGrid():
                                                              self._Rmax),
                                   nLz)
         self._Lzmax= self._Lzs[-1]
+        self._nLz= nLz
         #Calculate E_c(R=RL), energy of circular orbit
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
@@ -72,7 +73,9 @@ class actionAngleStaeckelGrid():
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERa-self._ERamax)),k=3)
         y= numpy.linspace(0.,1.,nE)
+        self._nE= nE
         psis= numpy.linspace(0.,1.,npsi)*numpy.pi/2.
+        self._npsi= npsi
         jr= numpy.zeros((nLz,nE,npsi))
         jz= numpy.zeros((nLz,nE,npsi))
         u0= numpy.zeros((nLz,nE))
@@ -96,13 +99,13 @@ class actionAngleStaeckelGrid():
             jrERRa[0:nLz]= jr[:,0]
         else:
             for ii in range(nLz):
+                print ii
                 for jj in range(nE):
                     thisLz= self._Lzs[ii]
                     thisE= self._ERa[ii]+y[jj]*(self._ERL[ii]-self._ERa[ii])
                     u0[ii,jj]= self.calcu0(thisE,thisLz)
                     thisR= self._delta*numpy.sinh(u0[ii,jj])
                     thisv= self.vatu0(thisE,thisLz,u0[ii,jj],thisR)
-                    print u0[ii,jj], thisR, thisv, thisE
                     for kk in range(npsi):
                         try:
                             jr[ii,jj,kk]= self._aA.JR(thisR, #R
@@ -112,7 +115,7 @@ class actionAngleStaeckelGrid():
                                                       thisv*numpy.sin(psis[kk]), #vz
 self._RL[ii],
                                                       **kwargs)[0]
-                            print jr[ii,jj,kk]
+                            #print jr[ii,jj,kk]
                         except UnboundError:
                             raise
                         #I know that calculating them independently is not 
@@ -125,10 +128,11 @@ self._RL[ii],
                                                       thisv*numpy.sin(psis[kk]), #vz
                                                       self._RL[ii],
                                                       **kwargs)[0]
-                            print "jz", jz[ii,jj,kk]
                         except UnboundError:
                             raise
                 #Normalize
+                jr[numpy.isnan(jr)]= 0. #sometimes we fail ...
+                jz[numpy.isnan(jz)]= 0.
                 jrLz[ii]= numpy.amax(jr[ii,:,:])
                 jr[ii,:,:]/= jrLz[ii]
                 jzLz[ii]= numpy.amax(jz[ii,:,:])
@@ -142,10 +146,10 @@ self._RL[ii],
         self._jzLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(jzLz+10.**-5.),k=3)
         #Interpolate u0
-        self._u0Interp= interpolate.RectBivariateSpline(self._Lzs,
-                                                        y,
-                                                        u0,
-                                                        kx=3,ky=3,s=0.)
+        self._logu0Interp= interpolate.RectBivariateSpline(self._Lzs,
+                                                           y,
+                                                           numpy.log(u0),
+                                                           kx=3,ky=3,s=0.)
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
         self._jrFiltered= ndimage.spline_filter(self._jr)
         self._jzFiltered= ndimage.spline_filter(self._jz)
@@ -159,17 +163,12 @@ self._RL[ii],
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              R,vR,vT,z,vz
+           scipy.integrate.quadrature keywords (for off-the-grid calcs)
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
-           2012-07-27 - Written - Bovy (IAS@MPIA)
-        NOTE:
-           For a Miyamoto-Nagai potential, this seems accurate to 0.1% and takes ~0.13 ms
-           For a MWPotential, this takes ~ 0.17 ms
+           2012-11-29 - Written - Bovy (IAS)
         """
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
@@ -182,64 +181,52 @@ self._RL[ii],
             vT= meta._vT
             z= meta._z
             vz= meta._vz
-        #First work on the vertical action
-        Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
-        Phio= galpy.potential.evaluatePotentials(R,0.,self._pot)
-        Ez= Phi-Phio+vz**2./2.
-        #Bigger than Ezzmax?
-        thisEzZmax= numpy.exp(self._EzZmaxsInterp(R))
-        if isinstance(R,numpy.ndarray):
-            indx= (R > self._Rmax)
-            indx+= (R < self._Rmin)
-            indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
-            indxc= True-indx
-            jz= numpy.empty(R.shape)
-            if numpy.sum(indxc) > 0:
-                jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
-                                *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
-            if numpy.sum(indx) > 0:
-                jzindiv= numpy.empty(numpy.sum(indx))
-                for ii in range(numpy.sum(indx)):
-                    try:
-                        jzindiv[ii]= self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
-                                                 0.,numpy.sqrt(2.*Ez[indx][ii]),
-                                                 **kwargs)[0]
-                    except UnboundError:
-                        jzindiv[ii]= numpy.nan
-                jz[indx]= jzindiv
-        else:
-            if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-                if _PRINTOUTSIDEGRID:
-                    print "Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
-                jz= self._aA.Jz(R,0.,1.,#these two r dummies
-                                    0.,math.sqrt(2.*Ez),
-                                    **kwargs)[0]
-            else:
-                jz= (self._jzInterp(R,Ez/thisEzZmax)\
-                         *(numpy.exp(self._jzEzmaxInterp(R))-10.**-5.))[0][0]
         #Radial action
-        ERLz= numpy.fabs(R*vT)+self._gamma*jz
-        ER= Phio+vR**2./2.+ERLz**2./2./R**2.
-        thisRL= self._RLInterp(ERLz)
-        thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
-        thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
+        Lz= R*vT
+        Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
+        E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
+        thisRL= self._RLInterp(Lz)
+        thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
+        thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
         if isinstance(R,numpy.ndarray):
-            indx= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)\
-                *(((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.)
-            ER[indx]= thisERRL[indx]
-            indx= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)\
-                *((ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.)
-            ER[indx]= thisERRa[indx]
-            indx= (ERLz < self._Lzmin)
-            indx+= (ERLz > self._Lzmax)
-            indx+= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)
-            indx+= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)
+            if len(R) == 1:
+                thisERL= numpy.array([thisERL])
+                thisERa= numpy.array([thisERa])
+            indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
+                *(((E-thisERa)/(thisERL-thisERa)-1.) < 10.**-2.)
+            E[indx]= thisERL[indx]
+            indx= ((E-thisERa)/(thisERL-thisERa) < 0.)\
+                *((E-thisERa)/(thisERL-thisERa) > -10.**-2.)
+            E[indx]= thisERa[indx]
+            indx= (Lz < self._Lzmin)
+            indx+= (Lz > self._Lzmax)
+            indx+= ((E-thisERa)/(thisERL-thisERa) > 1.)
+            indx+= ((E-thisERa)/(thisERL-thisERa) < 0.)
             indxc= True-indx
             jr= numpy.empty(R.shape)
-            if numpy.sum(indxc) > 0:
-                jr[indxc]= (self._jrInterp.ev(ERLz[indxc],
-                                              (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
-                                *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
+            jz= numpy.empty(R.shape)
+            u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
+                                               (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
+            sinh2u0= numpy.sinh(u0)**2.
+            thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                            E[indxc],Lz[indxc],sinh2u0,u0)
+            thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
+            cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
+            cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
+            psi= numpy.arccos(numpy.sqrt(cos2psi))
+            coords= numpy.empty((3,numpy.sum(indxc)))
+            coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
+            coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
+            coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
+            print coords
+            jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
+                                                             coords,
+                                                             order=3,
+                                                             prefilter=False)
+            jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
+                                                             coords,
+                                                             order=3,
+                                                             prefilter=False)
             if numpy.sum(indx) > 0:
                 jrindiv= numpy.empty(numpy.sum(indx))
                 for ii in range(numpy.sum(indx)):
@@ -253,29 +240,13 @@ self._RL[ii],
                         jrindiv[ii]= numpy.nan
                 jr[indx]= jrindiv
         else:
-            if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                    and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
-                ER= thisERRL
-            elif (ER-thisERRa)/(thisERRL-thisERRa) < 0. \
-                    and (ER-thisERRa)/(thisERRL-thisERRa) > -10.**-2.:
-                ER= thisERRa
-            #Outside of grid?
-            if ERLz < self._Lzmin or ERLz > self._Lzmax \
-                    or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                    or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
-                if _PRINTOUTSIDEGRID:
-                    print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
-                        , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                        , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
-                jr= self._aA.JR(thisRL,
-                                numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
-                                ERLz/thisRL,
-                                0.,0.,
-                                **kwargs)[0]
-            else:
-                jr= (self._jrInterp(ERLz,
-                                    (ER-thisERRa)/(thisERRL-thisERRa))\
-                         *(numpy.exp(self._jrERRaInterp(ERLz))-10.**-5.))[0][0]
+            jr,Lz, jz= self(numpy.array([R]),
+                            numpy.array([vR]),
+                            numpy.array([vT]),
+                            numpy.array([z]),
+                            numpy.array([vz]),
+                            **kwargs)
+            return (jr[0],Lz[0],jz[0])
         return (jr,R*vT,jz)
 
     def Jz(self,*args,**kwargs):
@@ -312,7 +283,7 @@ self._RL[ii],
                 *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
         return jz
 
-    def vatu0(self,E,Lz,u0,R):
+    def vatu0(self,E,Lz,u0,R,retv2=False):
         """
         NAME:
            vatu0
@@ -322,6 +293,8 @@ self._RL[ii],
            E - energy
            Lz - angular momentum
            u0 - u0
+           R - radius corresponding to u0,pi/2.
+           retv2= (False), if True return v^2
         OUTPUT:
            velocity
         HISTORY:
@@ -331,6 +304,7 @@ self._RL[ii],
                                                          self._pot,
                                                          self._delta))
              -Lz**2./R**2.)
+        if retv2: return v2
         if isinstance(E,float) and v2 < 0. and v2 > -10.**-7.: 
             return 0. #rounding errors
         elif isinstance(E,float):
@@ -357,6 +331,34 @@ self._RL[ii],
                               args=(self._delta,self._pot,
                                     E,Lz**2./2.))
         return numpy.exp(logu0)
+
+    def Er(self,R,z,vR,vz,E,Lz,sinh2u0,u0):
+        """
+        NAME:
+           Er
+        PURPOSE:
+           calculate the 'radial energy'
+        INPUT:
+           R, z, vR, vz - coordinates
+           E - energy
+           Lz - angular momentum
+           sinh2u0, u0 - sinh^2 and u0
+        OUTPUT:
+           Er
+        HISTORY:
+           2012-11-29 - Written - Bovy (IAS)
+        """                           
+        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        pu= (vR*numpy.cosh(u)*numpy.sin(v)
+             +vz*numpy.sinh(u)*numpy.cos(v)) #no delta, bc we will divide it out
+        out= (pu**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sinh(u)**2.-1./sinh2u0)
+              -E*(numpy.sinh(u)**2.-sinh2u0)
+              +(numpy.sinh(u)**2.+1.)*actionAngleStaeckel.potentialStaeckel(u,numpy.pi/2.,self._pot,self._delta)
+              -(sinh2u0+1.)*actionAngleStaeckel.potentialStaeckel(u0,numpy.pi/2.,self._pot,self._delta))
+#              +(numpy.sinh(u)**2.+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u,v,self._pot,self._delta)
+#              -(sinh2u0+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u0,v,self._pot,self._delta))
+        return out
+
 
 def _u0Eq(logu,delta,pot,E,Lz22):
     """The equation that needs to be minimized to find u0"""
