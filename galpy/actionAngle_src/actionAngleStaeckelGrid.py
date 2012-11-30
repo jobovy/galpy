@@ -10,6 +10,7 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import time
 import math
 import numpy
 from scipy import interpolate, optimize, ndimage
@@ -69,6 +70,7 @@ class actionAngleStaeckelGrid():
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 99.
         self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERa-self._ERamax)),k=3)
@@ -116,8 +118,8 @@ class actionAngleStaeckelGrid():
                                 0., #z
                                 thisv*numpy.sin(psis[kk]), #vz
                                 pot=self._pot,delta=self._delta)
-                            jr[ii,jj,kk]= thisaA.JR(**kwargs)[0]
-                            jz[ii,jj,kk]= thisaA.Jz(**kwargs)[0]
+                            jr[ii,jj,kk]= thisaA.JR(fixed_quad=True)[0]
+                            jz[ii,jj,kk]= thisaA.Jz(fixed_quad=True)[0]
                             #print jr[ii,jj,kk]
                         except UnboundError:
                             raise
