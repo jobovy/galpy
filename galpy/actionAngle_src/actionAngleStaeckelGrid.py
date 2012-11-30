@@ -109,26 +109,16 @@ class actionAngleStaeckelGrid():
                     thisv= self.vatu0(thisE,thisLz,u0[ii,jj],thisR)
                     for kk in range(npsi):
                         try:
-                            jr[ii,jj,kk]= self._aA.JR(thisR, #R
-                                                      thisv*numpy.cos(psis[kk]), #vR
-                                                      thisLz/thisR, #vT
-                                                      0., #z
-                                                      thisv*numpy.sin(psis[kk]), #vz
-self._RL[ii],
-                                                      **kwargs)[0]
+                            thisaA= actionAngleStaeckel.actionAngleStaeckelSingle(\
+                                thisR, #R
+                                thisv*numpy.cos(psis[kk]), #vR
+                                thisLz/thisR, #vT
+                                0., #z
+                                thisv*numpy.sin(psis[kk]), #vz
+                                pot=self._pot,delta=self._delta)
+                            jr[ii,jj,kk]= thisaA.JR(**kwargs)[0]
+                            jz[ii,jj,kk]= thisaA.Jz(**kwargs)[0]
                             #print jr[ii,jj,kk]
-                        except UnboundError:
-                            raise
-                        #I know that calculating them independently is not 
-                        # completely efficient
-                        try:
-                            jz[ii,jj,kk]= self._aA.Jz(thisR, #R
-                                                      thisv*numpy.cos(psis[kk]), #vR
-                                                      thisLz/thisR, #vT
-                                                      0., #z
-                                                      thisv*numpy.sin(psis[kk]), #vz
-                                                      self._RL[ii],
-                                                      **kwargs)[0]
                         except UnboundError:
                             raise
                 #Normalize
