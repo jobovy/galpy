@@ -227,6 +227,7 @@ self._RL[ii],
                                                              order=3,
                                                              prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
+                raise NotImplementedError("outside the grid not yet implemented")
                 jrindiv= numpy.empty(numpy.sum(indx))
                 for ii in range(numpy.sum(indx)):
                     try:
@@ -265,6 +266,7 @@ self._RL[ii],
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
+        raise NotImplementedError("'Jz' not yet implemented")
         meta= actionAngle(*args)
         Phi= galpy.potential.evaluatePotentials(meta._R,meta._z,self._pot)
         Phio= galpy.potential.evaluatePotentials(meta._R,0.,self._pot)
