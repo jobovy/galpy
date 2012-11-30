@@ -261,7 +261,8 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JR'):
             return self._JR
         umin, umax= self.calcUminUmax()
-        if (umax-umin)/umax < 10.**-7: return nu.array([0.,0.])
+        #print self._ux, self._pux, (umax-umin)/umax
+        if (umax-umin)/umax < 10.**-6: return nu.array([0.,0.])
         # factor in next line bc integrand=/2delta^2
         self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
             *nu.array(integrate.quad(_JRStaeckelIntegrand,
@@ -409,12 +410,12 @@ class actionAngleStaeckelSingle(actionAngle):
                                      self._potu0v0,self._pot,
                                      umax=True)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                          self._ux,rend,
-                                          (E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhu0**2.,
-                                           self._vx,self._sinvx**2.,
-                                           self._potu0v0,self._pot),
-                                           maxiter=200)
+                                  self._ux,rend,
+                                  (E,L,self._I3U,self._delta,
+                                   self._u0,self._sinhu0**2.,
+                                   self._vx,self._sinvx**2.,
+                                   self._potu0v0,self._pot),
+                                  maxiter=200)
         self._uminumax= (umin,umax)
         return self._uminumax
 
