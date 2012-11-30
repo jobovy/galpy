@@ -10,7 +10,6 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import time
 import math
 import numpy
 from scipy import interpolate, optimize, ndimage
@@ -101,7 +100,6 @@ class actionAngleStaeckelGrid():
             jrERRa[0:nLz]= jr[:,0]
         else:
             for ii in range(nLz):
-                print ii
                 for jj in range(nE):
                     thisLz= self._Lzs[ii]
                     #thisE= self._ERa[ii]+y[jj]*(self._ERL[ii]-self._ERa[ii])
