@@ -252,9 +252,10 @@ class actionAngleStaeckelSingle(actionAngle):
         PURPOSE:
            Calculate the radial action
         INPUT:
+           fixed_quad= (False) if True, use n=10 fixed_quad
            +scipy.integrate.quad keywords
         OUTPUT:
-           J_R(R,vT,vT)/ro/vc + estimate of the error
+           J_R(R,vT,vT)/ro/vc + estimate of the error (nan for fixed_quad)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
@@ -263,16 +264,30 @@ class actionAngleStaeckelSingle(actionAngle):
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
         if (umax-umin)/umax < 10.**-6: return nu.array([0.,0.])
-        # factor in next line bc integrand=/2delta^2
-        self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-            *nu.array(integrate.quad(_JRStaeckelIntegrand,
-                                    umin,umax,
-                                    args=(self._E,self._Lz,self._I3U,
-                                          self._delta,
-                                          self._u0,self._sinhu0**2.,
-                                          self._vx,self._sinvx**2.,
-                                          self._potu0v0,self._pot),
-                                    **kwargs))
+        if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
+            kwargs.pop('fixed_quad')
+            # factor in next line bc integrand=/2delta^2
+            self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
+                *nu.array([integrate.fixed_quad(_JRStaeckelIntegrand,
+                                                umin,umax,
+                                                args=(self._E,self._Lz,self._I3U,
+                                                      self._delta,
+                                                      self._u0,self._sinhu0**2.,
+                                                      self._vx,self._sinvx**2.,
+                                                      self._potu0v0,self._pot),
+                                                n=10,
+                                                **kwargs)[0],nu.nan])
+        else:
+            if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
+            self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
+                *nu.array(integrate.quad(_JRStaeckelIntegrand,
+                                         umin,umax,
+                                         args=(self._E,self._Lz,self._I3U,
+                                               self._delta,
+                                               self._u0,self._sinhu0**2.,
+                                               self._vx,self._sinvx**2.,
+                                               self._potu0v0,self._pot),
+                                         **kwargs))
         return self._JR
 
     def Jz(self,**kwargs):
@@ -282,6 +297,7 @@ class actionAngleStaeckelSingle(actionAngle):
         PURPOSE:
            Calculate the vertical action
         INPUT:
+           fixed_quad= (False) if True, use n=10 fixed_quad
            +scipy.integrate.quad keywords
         OUTPUT:
            J_z(R,vT,vT)/ro/vc + estimate of the error
@@ -292,16 +308,31 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JZ
         vmin= self.calcVmin()
         if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
-        # factor in next line bc integrand=/2delta^2
-        self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
-            *nu.array(integrate.quad(_JzStaeckelIntegrand,
-                                     vmin,nu.pi/2,
-                                     args=(self._E,self._Lz,self._I3V,
-                                           self._delta,
-                                           self._ux,self._coshux**2.,
-                                           self._sinhux**2.,
-                                           self._potupi2,self._pot),
-                                     **kwargs))
+        if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
+            kwargs.pop('fixed_quad')
+            # factor in next line bc integrand=/2delta^2
+            self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
+                *nu.array([integrate.fixed_quad(_JzStaeckelIntegrand,
+                                                vmin,nu.pi/2,
+                                                args=(self._E,self._Lz,self._I3V,
+                                                      self._delta,
+                                                      self._ux,self._coshux**2.,
+                                                      self._sinhux**2.,
+                                                      self._potupi2,self._pot),
+                                                n=10,
+                                                **kwargs)[0],nu.nan])
+        else:
+            if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
+            # factor in next line bc integrand=/2delta^2
+            self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
+                *nu.array(integrate.quad(_JzStaeckelIntegrand,
+                                         vmin,nu.pi/2,
+                                         args=(self._E,self._Lz,self._I3V,
+                                               self._delta,
+                                               self._ux,self._coshux**2.,
+                                               self._sinhux**2.,
+                                               self._potupi2,self._pot),
+                                         **kwargs))
         return self._JZ
 
     def calcEL(self,**kwargs):
@@ -395,7 +426,7 @@ class actionAngleStaeckelSingle(actionAngle):
             else: 
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                          rstart,self._ux,
+                                          rstart,2.*rstart,
                                           (E,L,self._I3U,self._delta,
                                            self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
@@ -410,7 +441,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                      self._potu0v0,self._pot,
                                      umax=True)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                  self._ux,rend,
+                                  rend/2.,rend,
                                   (E,L,self._I3U,self._delta,
                                    self._u0,self._sinhu0**2.,
                                    self._vx,self._sinvx**2.,
@@ -478,7 +509,7 @@ class actionAngleStaeckelSingle(actionAngle):
             else:
                 try:
                     vmin= optimize.brentq(_JzStaeckelIntegrandSquared,
-                                          rstart,self._vx,
+                                          rstart,2.*rstart,
                                           (E,L,self._I3V,self._delta,
                                            self._ux,self._coshux**2.,
                                            self._sinhux**2.,
@@ -570,6 +601,7 @@ def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
     return nu.sqrt(_JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,
                                                v0,sin2v0,
                                                potu0v0,pot))
+
 def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                 potu0v0,pot):
     #potu0v0= potentialStaeckel(u0,v0,pot,delta)
