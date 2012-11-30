@@ -102,7 +102,8 @@ class actionAngleStaeckelGrid():
                 print ii
                 for jj in range(nE):
                     thisLz= self._Lzs[ii]
-                    thisE= self._ERa[ii]+y[jj]*(self._ERL[ii]-self._ERa[ii])
+                    #thisE= self._ERa[ii]+y[jj]*(self._ERL[ii]-self._ERa[ii])
+                    thisE= _invEfunc(_Efunc(self._ERa[ii])+y[jj]*(_Efunc(self._ERL[ii])-_Efunc(self._ERa[ii])))
                     u0[ii,jj]= self.calcu0(thisE,thisLz)
                     thisR= self._delta*numpy.sinh(u0[ii,jj])
                     thisv= self.vatu0(thisE,thisLz,u0[ii,jj],thisR)
@@ -216,7 +217,8 @@ self._RL[ii],
             psi= numpy.arccos(numpy.sqrt(cos2psi))
             coords= numpy.empty((3,numpy.sum(indxc)))
             coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
-            coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
+            #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
+            coords[1,:]= (_Efunc(E[indxc])-_Efunc(thisERa[indxc]))/(_Efunc(thisERL[indxc])-_Efunc(thisERa[indxc]))*(self._nE-1.)
             coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
             jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
                                                              coords,
@@ -369,3 +371,9 @@ def _u0Eq(logu,delta,pot,E,Lz22):
     dU= cosh2u*actionAngleStaeckel.potentialStaeckel(u,numpy.pi/2.,pot,delta)
     return -(E*sinh2u-dU-Lz22/delta**2./sinh2u)
 
+def _Efunc(E):
+    """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
+    return numpy.exp(-E)
+def _invEfunc(Ef):
+    """Inverse of Efunc"""
+    return -numpy.log(Ef)
