@@ -218,15 +218,14 @@ self._RL[ii],
             coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
             coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
             coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-            print coords
             jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
                                                              coords,
                                                              order=3,
-                                                             prefilter=False)
+                                                             prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
             jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                              coords,
                                                              order=3,
-                                                             prefilter=False)
+                                                             prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
                 jrindiv= numpy.empty(numpy.sum(indx))
                 for ii in range(numpy.sum(indx)):
