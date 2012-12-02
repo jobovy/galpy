@@ -83,32 +83,43 @@ class actionAngleStaeckelGrid():
         jrLz= numpy.zeros(nLz)
         jzLz= numpy.zeros(nLz)
         if numcores > 1:
-        #    raise NotImplementedError("'numcores > 1' not yet supported...")
             #First calculate u0
             thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
             thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
             thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
             thisy= (numpy.tile(y,(nLz,1))).flatten()
-            mu0= multi.parallel_map((lambda x: self.calcu0(_invEfunc(_Efunc(thisERa[x])+thisy[x]*(_Efunc(thisERL[x])-_Efunc(thisERa[x]))),
+            thisE= _invEfunc(_Efunc(thisERa)+thisy*(_Efunc(thisERL)-_Efunc(thisERa)))
+            mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
                                                            thisLzs[x])),
                                     range(nE*nLz),
                                     numcores=numcores)
             u0= numpy.reshape(mu0,(nLz,nE))
-
-            #thisRL= (numpy.tile(self._RL,(nEr-1,1)).T).flatten()
-            #thisLzs= (numpy.tile(self._Lzs,(nEr-1,1)).T).flatten()
-            #thisERRL= (numpy.tile(self._ERRL,(nEr-1,1)).T).flatten()
-            #thisERRa= (numpy.tile(self._ERRa,(nEr-1,1)).T).flatten()
-            #thisy= (numpy.tile(y[0:-1],(nLz,1))).flatten()
-            #mjr= multi.parallel_map((lambda x: self._aA.JR(thisRL[x],
-             #                                             numpy.sqrt(2.*(thisERRa[x]+thisy[x]*(thisERRL[x]-thisERRa[x])-galpy.potential.evaluatePotentials(thisRL[x],0.,self._pot))-thisLzs[x]**2./thisRL[x]**2.),
-             #                                             thisLzs[x]/thisRL[x],
-             #                                             0.,0.,
-             #                                             **kwargs)[0]),
-             #                      range((nEr-1)*nLz),
-             #                      numcores=numcores)
-            #jr[:,0:-1]= numpy.reshape(mjr,(nLz,nEr-1))
-            #jrERRa[0:nLz]= jr[:,0]
+            thisR= self._delta*numpy.sinh(u0)
+            thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
+                                            u0.flatten(),
+                                            thisR.flatten()),(nLz,nE))
+            #reshape
+            thispsi= numpy.tile(psis,(nLz,nE,1)).flatten()
+            thisLzs= numpy.tile(thisLzs.T,(npsi,1,1)).T.flatten()
+            thisR= numpy.tile(thisR.T,(npsi,1,1)).T.flatten()
+            thisv= numpy.tile(thisv.T,(npsi,1,1)).T.flatten()
+            aAs= multi.parallel_map((lambda x: actionAngleStaeckel.actionAngleStaeckelSingle(\
+                        thisR[x], #R
+                        thisv[x]*numpy.cos(thispsi[x]), #vR
+                        thisLzs[x]/thisR[x], #vT
+                        0., #z
+                        thisv[x]*numpy.sin(thispsi[x]), #vz
+                        pot=self._pot,delta=self._delta)),
+                                    range(nE*nLz*npsi),
+                                    numcores=numcores)
+            mjr= multi.parallel_map((lambda x: aAs[x].JR(fixed_quad=True)[0]),
+                                    range(nE*nLz*npsi),
+                                    numcores=numcores)
+            mjz= multi.parallel_map((lambda x: aAs[x].Jz(fixed_quad=True)[0]),
+                                    range(nE*nLz*npsi),
+                                    numcores=numcores)
+            jr= numpy.reshape(mjr,(nLz,nE,npsi))
+            jz= numpy.reshape(mjz,(nLz,nE,npsi))
         else:
             for ii in range(nLz):
                 for jj in range(nE):
