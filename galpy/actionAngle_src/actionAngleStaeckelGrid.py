@@ -286,23 +286,26 @@ class actionAngleStaeckelGrid():
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        raise NotImplementedError("'Jz' not yet implemented")
-        meta= actionAngle(*args)
-        Phi= galpy.potential.evaluatePotentials(meta._R,meta._z,self._pot)
-        Phio= galpy.potential.evaluatePotentials(meta._R,0.,self._pot)
-        Ez= Phi-Phio+meta._vz**2./2.
-        #Bigger than Ezzmax?
-        thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
-        if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-            if _PRINTOUTSIDEGRID:
-                print "Outside of grid in Ez"
-            jz= self._aA.Jz(meta._R,0.,1.,#these two r dummies
-                            0.,math.sqrt(2.*Ez),
-                            **kwargs)[0]
-        else:
-            jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
-                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
-        return jz
+        return self(*args,**kwargs)[2]
+
+    def JR(self,*args,**kwargs):
+        """
+        NAME:
+           JR
+        PURPOSE:
+           evaluate the action jr
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           jr
+        HISTORY:
+           2012-07-30 - Written - Bovy (IAS@MPIA)
+        """
+        return self(*args,**kwargs)[0]
 
     def vatu0(self,E,Lz,u0,R,retv2=False):
         """
