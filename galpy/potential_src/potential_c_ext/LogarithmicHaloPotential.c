@@ -1,6 +1,18 @@
+#include <math.h>
 #include <galpy_potentials.h>
 //LogarithmicHaloPotential
 //3 (2)  arguments: amp, c2, (and q)
+double LogarithmicHaloPotentialEval(double R,double Z, double phi,
+				    double t,
+				    int nargs, double *args){
+  //Get args
+  double amp= *args++;
+  double q= *args++;
+  double c= *args--;
+  //Calculate potential
+  double zq= Z/q;
+  return 0.5 * amp * log(R*R+zq*zq+c);
+}
 double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
 				      double t,
 				      int nargs, double *args){
