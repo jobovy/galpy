@@ -6,6 +6,8 @@
 double ZeroPlanarForce(double, double,double,int, double *);
 double ZeroForce(double,double,double,double,int, double *);
 //LogarithmicHaloPotential
+double LogarithmicHaloPotentialEval(double ,double , double, double,
+				    int , double *);
 double LogarithmicHaloPotentialRforce(double ,double , double, double,
 				      int , double *);
 double LogarithmicHaloPotentialPlanarRforce(double ,double, double,
