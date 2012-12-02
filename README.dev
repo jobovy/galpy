@@ -18,7 +18,13 @@ set up your new potential (in the 'leapfrog' function)
 4) Edit the code in orbit_src/integratePlanarOrbit.py to set up your
 new potential
 
-5) Finally, add 'self.hasC= True' to the initialization of the
+5) Edit the code under orbit_src/orbit_c_ext/integrateFullOrbit.c to
+set up your new potential (in the 'leapfrog' function)
+
+6) Edit the code in orbit_src/integrateFullOrbit.py to set up your
+new potential
+
+7) Finally, add 'self.hasC= True' to the initialization of the
 potential in question (after the initialization of the super class)
 
-6) It should work now!
+8) It should work now!
