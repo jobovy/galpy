@@ -172,7 +172,6 @@ class actionAngleStaeckelGrid():
             vT= meta._vT
             z= meta._z
             vz= meta._vz
-        #Radial action
         Lz= R*vT
         Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
@@ -196,41 +195,48 @@ class actionAngleStaeckelGrid():
             indxc= True-indx
             jr= numpy.empty(R.shape)
             jz= numpy.empty(R.shape)
-            u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
-                                               (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
-            sinh2u0= numpy.sinh(u0)**2.
-            thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
-                            E[indxc],Lz[indxc],sinh2u0,u0)
-            thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
-            cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
-            cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
-            psi= numpy.arccos(numpy.sqrt(cos2psi))
-            coords= numpy.empty((3,numpy.sum(indxc)))
-            coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
-            #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
-            coords[1,:]= (_Efunc(E[indxc])-_Efunc(thisERa[indxc]))/(_Efunc(thisERL[indxc])-_Efunc(thisERa[indxc]))*(self._nE-1.)
-            coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-            jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
-                                                             coords,
-                                                             order=3,
-                                                             prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
-            jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
-                                                             coords,
-                                                             order=3,
-                                                             prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
+            if numpy.sum(indxc) > 0:
+                u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
+                                                   (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
+                sinh2u0= numpy.sinh(u0)**2.
+                thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
+                thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
+                cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
+                cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
+                psi= numpy.arccos(numpy.sqrt(cos2psi))
+                coords= numpy.empty((3,numpy.sum(indxc)))
+                coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
+                #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
+                coords[1,:]= (_Efunc(E[indxc])-_Efunc(thisERa[indxc]))/(_Efunc(thisERL[indxc])-_Efunc(thisERa[indxc]))*(self._nE-1.)
+                coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
+                jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
+                                                                 coords,
+                                                                 order=3,
+                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
+                jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
+                                                                 coords,
+                                                                 order=3,
+                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
-                raise NotImplementedError("outside the grid not yet implemented")
                 jrindiv= numpy.empty(numpy.sum(indx))
+                jzindiv= numpy.empty(numpy.sum(indx))
                 for ii in range(numpy.sum(indx)):
                     try:
-                        jrindiv[ii]= self._aA.JR(thisRL[indx][ii],
-                                                 numpy.sqrt(2.*(ER[indx][ii]-galpy.potential.evaluatePotentials(thisRL[indx][ii],0.,self._pot))-ERLz[indx][ii]**2./thisRL[indx][ii]**2.),
-                                                 ERLz[indx][ii]/thisRL[indx][ii],
-                                                 0.,0.,
-                                                 **kwargs)[0]
+                        thisaA= actionAngleStaeckel.actionAngleStaeckelSingle(\
+                            R[indx][ii], #R
+                            vR[indx][ii], #vR
+                            vT[indx][ii], #vT
+                            z[indx][ii], #z
+                            vz[indx][ii], #vz
+                            pot=self._pot,delta=self._delta)
+                        jrindiv[ii]= thisaA.JR(fixed_quad=True)[0]
+                        jzindiv[ii]= thisaA.Jz(fixed_quad=True)[0]
                     except (UnboundError,OverflowError):
                         jrindiv[ii]= numpy.nan
+                        jzindiv[ii]= numpy.nan
                 jr[indx]= jrindiv
+                jz[indx]= jzindiv
         else:
             jr,Lz, jz= self(numpy.array([R]),
                             numpy.array([vR]),
