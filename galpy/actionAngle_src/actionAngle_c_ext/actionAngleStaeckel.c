@@ -54,7 +54,7 @@ inline void parse_actionAngleArgs(int npot,
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
-      actionAngleArgs->nargs= 2;
+      actionAngleArgs->nargs= 3;
       break;
     /*
     case 5: //MiyamotoNagaiPotential, 3 arguments
@@ -204,7 +204,7 @@ void actionAngleStaeckel_actions(int ndata,
   }
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
-  calcUminUmax(ndata,jr,umax,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
+  calcUminUmax(ndata,jr,jz,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
 	       npot,actionAngleArgs);
 }
 void calcUminUmax(int ndata,
@@ -236,6 +236,7 @@ void calcUminUmax(int ndata,
   double u_lo, u_hi;
   T = gsl_root_fsolver_brent;
   s = gsl_root_fsolver_alloc (T);
+  JRRoot.function = &JRStaeckelIntegrandSquared;
   for (ii=0; ii < ndata; ii++){
     //Setup function
     params->E= *(E+ii);
@@ -246,11 +247,30 @@ void calcUminUmax(int ndata,
     params->v0= *(v0+ii);
     params->sin2v0= *(sin2v0+ii);
     params->potu0v0= *(potu0v0+ii);
-    JRRoot.function = &JRStaeckelIntegrandSquared;
-    JRRoot.params = &params;
-    //Find starting points
+    JRRoot.params = params;
+    //Find starting points for minimum
     u_lo= 0.01;
     u_hi= *(ux+ii);
+    //Find root
+    gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+    //printf("Here %i\n",ii);
+    //fflush(stdout);
+    iter= 0;
+    do
+      {
+	iter++;
+	status = gsl_root_fsolver_iterate (s);
+	u_lo = gsl_root_fsolver_x_lower (s);
+	u_hi = gsl_root_fsolver_x_upper (s);
+	status = gsl_root_test_interval (u_lo, u_hi,
+					 9.9999999999999998e-13,
+					 4.4408920985006262e-16);
+      }
+    while (status == GSL_CONTINUE && iter < max_iter);
+    *(umin+ii) = gsl_root_fsolver_root (s);
+    //Find starting points for maximum
+    u_lo= *(ux+ii);
+    u_hi=10.;
     //Find root
     gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
     iter= 0;
@@ -265,7 +285,7 @@ void calcUminUmax(int ndata,
 					 4.4408920985006262e-16);
       }
     while (status == GSL_CONTINUE && iter < max_iter);
-    *(umin+ii) = gsl_root_fsolver_root (s);
+    *(umax+ii) = gsl_root_fsolver_root (s);
   }
  gsl_root_fsolver_free (s);    
 }
