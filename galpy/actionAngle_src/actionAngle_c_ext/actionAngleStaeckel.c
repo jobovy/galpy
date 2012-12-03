@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <gsl/gsl_math.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_integration.h>
@@ -55,9 +56,9 @@ void calcJz(int,double *,double *,double *,double *,double *,double,
 	    double *,double *,double *,double *,int,struct actionAngleArg *,
 	    int);
 void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
-		  double,double *,double *,double *,double *,double *,int,
-		  struct actionAngleArg *);
-void calcVmin(int,double *,double *,double *,double *,double *,double,
+		  double *,double,double *,double *,double *,double *,double *,
+		  int,struct actionAngleArg *);
+void calcVmin(int,double *,double *,double *,double *,double *,double *,double,
 	      double *,double *,double *,double *,int,struct actionAngleArg *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRStaeckelIntegrand(double,void *);
@@ -231,9 +232,9 @@ void actionAngleStaeckel_actions(int ndata,
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
   double *vmin= (double *) malloc ( ndata * sizeof(double) );
-  calcUminUmax(ndata,umin,umax,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
-	       npot,actionAngleArgs);
-  calcVmin(ndata,vmin,vx,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
+  calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
+	       potu0v0,npot,actionAngleArgs);
+  calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
 	   npot,actionAngleArgs);
   //Calculate the actions
   calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
@@ -326,6 +327,7 @@ void calcUminUmax(int ndata,
 		  double * umin,
 		  double * umax,
 		  double * ux,
+		  double * pux,
 		  double * E,
 		  double * Lz,
 		  double * I3U,
@@ -338,6 +340,7 @@ void calcUminUmax(int ndata,
 		  int nargs,
 		  struct actionAngleArg * actionAngleArgs){
   int ii;
+  double peps, meps;
   gsl_function JRRoot;
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
   params->delta= delta;
@@ -364,49 +367,114 @@ void calcUminUmax(int ndata,
     params->potu0v0= *(potu0v0+ii);
     JRRoot.params = params;
     //Find starting points for minimum
-    u_lo= 0.01;
-    u_hi= *(ux+ii);
-    //Find root
-    gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
-    //printf("Here %i\n",ii);
-    //fflush(stdout);
-    iter= 0;
-    do
-      {
-	iter++;
-	status = gsl_root_fsolver_iterate (s);
-	u_lo = gsl_root_fsolver_x_lower (s);
-	u_hi = gsl_root_fsolver_x_upper (s);
-	status = gsl_root_test_interval (u_lo, u_hi,
-					 9.9999999999999998e-13,
-					 4.4408920985006262e-16);
+    if ( fabs(*(pux+ii)) < 0.0000001){ //we are at umin or umax
+      peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.0000001);
+      meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.0000001);
+      if ( peps < 0. && meps > 0. ) {//umax
+	*(umax+ii)= *(ux+ii);
+	u_lo= 0.5 * (*(ux+ii) - 0.0000001);
+	u_hi= *(ux+ii) - 0.00000001;
+	while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
+	  u_hi= u_lo; //this makes sure that brent evaluates using previous
+	  u_lo*= 0.5;
+	}
+	//Find root
+	gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate (s);
+	    u_lo = gsl_root_fsolver_x_lower (s);
+	    u_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_test_interval (u_lo, u_hi,
+					     9.9999999999999998e-13,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	*(umin+ii) = gsl_root_fsolver_root (s);
       }
-    while (status == GSL_CONTINUE && iter < max_iter);
-    *(umin+ii) = gsl_root_fsolver_root (s);
-    //Find starting points for maximum
-    u_lo= *(ux+ii);
-    u_hi=10.;
-    //Find root
-    gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
-    iter= 0;
-    do
-      {
-	iter++;
-	status = gsl_root_fsolver_iterate (s);
-	u_lo = gsl_root_fsolver_x_lower (s);
-	u_hi = gsl_root_fsolver_x_upper (s);
-	status = gsl_root_test_interval (u_lo, u_hi,
-					 9.9999999999999998e-13,
-					 4.4408920985006262e-16);
+      else if ( peps > 0. && meps < 0. ){//umin
+	*(umin+ii)= *(ux+ii);
+	u_lo= *(ux+ii) + 0.0000001;
+	u_hi= 2. * (*(ux+ii) + 0.0000001);
+	while ( GSL_FN_EVAL(&JRRoot,u_hi) >= 0. ) {
+	  u_lo= u_hi; //this makes sure that brent evaluates using previous
+	  u_hi*= 2.;
+	}
+	//Find root
+	gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate (s);
+	    u_lo = gsl_root_fsolver_x_lower (s);
+	    u_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_test_interval (u_lo, u_hi,
+					     9.9999999999999998e-13,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	*(umax+ii) = gsl_root_fsolver_root (s);
       }
-    while (status == GSL_CONTINUE && iter < max_iter);
-    *(umax+ii) = gsl_root_fsolver_root (s);
+      else {//circular
+	*(umin+ii) = *(ux+ii);
+	*(umax+ii) = *(ux+ii);
+      }
+    }
+    else {
+      u_lo= 0.5 * *(ux+ii);
+      u_hi= *(ux+ii);
+      while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
+	u_hi= u_lo; //this makes sure that brent evaluates using previous
+	u_lo*= 0.5;
+      }
+      //Find root
+      gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      iter= 0;
+      do
+	{
+	  iter++;
+	  status = gsl_root_fsolver_iterate (s);
+	  u_lo = gsl_root_fsolver_x_lower (s);
+	  u_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (u_lo, u_hi,
+					   9.9999999999999998e-13,
+					   4.4408920985006262e-16);
+	}
+      while (status == GSL_CONTINUE && iter < max_iter);
+      *(umin+ii) = gsl_root_fsolver_root (s);
+      //Find starting points for maximum
+      u_lo= *(ux+ii);
+      u_hi= 2. * *(ux+ii);
+      while ( GSL_FN_EVAL(&JRRoot,u_hi) > 0.) {
+	u_lo= u_hi; //this makes sure that brent evaluates using previous
+	u_hi*= 2.;
+      }
+      //Find root
+      gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      iter= 0;
+      do
+	{
+	  iter++;
+	  status = gsl_root_fsolver_iterate (s);
+	  u_lo = gsl_root_fsolver_x_lower (s);
+	  u_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (u_lo, u_hi,
+					   9.9999999999999998e-13,
+					   4.4408920985006262e-16);
+	}
+      while (status == GSL_CONTINUE && iter < max_iter);
+      *(umax+ii) = gsl_root_fsolver_root (s);
+    }
   }
  gsl_root_fsolver_free (s);    
 }
 void calcVmin(int ndata,
 	      double * vmin,
 	      double * vx,
+	      double * pvx,
 	      double * E,
 	      double * Lz,
 	      double * I3V,
@@ -443,25 +511,34 @@ void calcVmin(int ndata,
     params->potupi2= *(potupi2+ii);
     JzRoot.params = params;
     //Find starting points for minimum
-    v_lo= 0.01;
-    v_hi= *(vx+ii);
-    //Find root
-    gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
-    iter= 0;
-    do
-      {
-	iter++;
-	status = gsl_root_fsolver_iterate (s);
-	v_lo = gsl_root_fsolver_x_lower (s);
-	v_hi = gsl_root_fsolver_x_upper (s);
-	status = gsl_root_test_interval (v_lo, v_hi,
-					 9.9999999999999998e-13,
-					 4.4408920985006262e-16);
+    if ( fabs(*(pvx+ii)) < 0.0000001){ //we are at vmin
+      *(vmin+ii)= *(vx+ii);
+    }
+    else {
+      v_lo= 0.5 * *(vx+ii);
+      v_hi= *(vx+ii);
+      while ( GSL_FN_EVAL(&JzRoot,v_lo) >= 0. && v_lo > 0.000000001){
+	v_hi= v_lo; //this makes sure that brent evaluates using previous
+	v_lo*= 0.5;
       }
-    while (status == GSL_CONTINUE && iter < max_iter);
-    *(vmin+ii) = gsl_root_fsolver_root (s);
+      //Find root
+      gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
+      iter= 0;
+      do
+	{
+	  iter++;
+	  status = gsl_root_fsolver_iterate (s);
+	  v_lo = gsl_root_fsolver_x_lower (s);
+	  v_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (v_lo, v_hi,
+					   9.9999999999999998e-13,
+					   4.4408920985006262e-16);
+	}
+      while (status == GSL_CONTINUE && iter < max_iter);
+      *(vmin+ii) = gsl_root_fsolver_root (s);
+    }
   }
- gsl_root_fsolver_free (s);    
+  gsl_root_fsolver_free (s);    
 }
 
 double JRStaeckelIntegrand(double u,
