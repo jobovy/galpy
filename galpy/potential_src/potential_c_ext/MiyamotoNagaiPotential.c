@@ -46,6 +46,6 @@ double MiyamotoNagaiPotentialPlanarR2deriv(double R,double phi,
   double b= *args;
   //calculate R2deriv
   double denom= R*R+pow(a+b,2.);
-  return pow(denom,-1.5) - 3. * R * R * pow(denom,-2.5);
+  return amp * (pow(denom,-1.5) - 3. * R * R * pow(denom,-2.5));
 }
 
