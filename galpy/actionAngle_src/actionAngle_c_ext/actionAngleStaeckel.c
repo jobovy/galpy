@@ -25,49 +25,38 @@ inline void parse_actionAngleArgs(int npot,
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
-      leapFuncArgs->Rforce= &LogarithmicHaloPotentialRforce;
-      leapFuncArgs->zforce= &LogarithmicHaloPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
+      actionAngleArgs->nargs= 2;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
-      leapFuncArgs->Rforce= &MiyamotoNagaiPotentialRforce;
-      leapFuncArgs->zforce= &MiyamotoNagaiPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 3;
+      actionAngleArgs->Rforce= &MiyamotoNagaiPotentialEval;
+      actionAngleArgs->nargs= 3;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
-      leapFuncArgs->Rforce= &PowerSphericalPotentialRforce;
-      leapFuncArgs->zforce= &PowerSphericalPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      actionAngleArgs->Rforce= &PowerSphericalPotentialEval;
+      actionAngleArgs->nargs= 2;
       break;
     case 8: //HernquistPotential, 2 arguments
-      leapFuncArgs->Rforce= &HernquistPotentialRforce;
-      leapFuncArgs->zforce= &HernquistPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      actionAngleArgs->Rforce= &HernquistPotentialEval;
+      actionAngleArgs->nargs= 2;
       break;
     case 9: //NFWPotential, 2 arguments
-      leapFuncArgs->Rforce= &NFWPotentialRforce;
-      leapFuncArgs->zforce= &NFWPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      actionAngleArgs->Rforce= &NFWPotentialEval;
+      actionAngleArgs->nargs= 2;
       break;
     case 10: //JaffePotential, 2 arguments
-      leapFuncArgs->Rforce= &JaffePotentialRforce;
-      leapFuncArgs->zforce= &JaffePotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      actionAngleArgs->Rforce= &JaffePotentialEval;
+      actionAngleArgs->nargs= 2;
       break;
     }
-    leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-    for (jj=0; jj < leapFuncArgs->nargs; jj++){
-      *(leapFuncArgs->args)= *pot_args++;
-      leapFuncArgs->args++;
+    actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
+    for (jj=0; jj < actionAngleArgs->nargs; jj++){
+      *(actionAngleArgs->args)= *pot_args++;
+      actionAngleArgs->args++;
     }
-    leapFuncArgs->args-= leapFuncArgs->nargs;
-    leapFuncArgs++;
+    actionAngleArgs->args-= actionAngleArgs->nargs;
+    actionAngleArgs++;
   }
-  leapFuncArgs-= npot;
+  actionAngleArgs-= npot;
 }
+
