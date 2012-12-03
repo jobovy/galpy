@@ -268,6 +268,10 @@ void calcJR(int ndata,
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   JRInt.function = &JRStaeckelIntegrand;
   for (ii=0; ii < ndata; ii++){
+    if ( (*(umax+ii) - *(umin+ii)) / *(umax+ii) < 0.000001 ){//circular
+      *(jr+ii) = 0.;
+      continue;
+    }
     //Setup function
     params->E= *(E+ii);
     params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
@@ -308,6 +312,10 @@ void calcJz(int ndata,
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   JzInt.function = &JzStaeckelIntegrand;
   for (ii=0; ii < ndata; ii++){
+    if ( (0.5 * M_PI - *(vmin+ii)) / M_PI * 2. < 0.000001 ){//circular
+      *(jz+ii) = 0.;
+      continue;
+    }
     //Setup function
     params->E= *(E+ii);
     params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
@@ -370,7 +378,11 @@ void calcUminUmax(int ndata,
     if ( fabs(*(pux+ii)) < 0.0000001){ //we are at umin or umax
       peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.0000001);
       meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.0000001);
-      if ( peps < 0. && meps > 0. ) {//umax
+      if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
+	*(umin+ii) = *(ux+ii);
+	*(umax+ii) = *(ux+ii);
+      }
+      else if ( peps < 0. && meps > 0. ) {//umax
 	*(umax+ii)= *(ux+ii);
 	u_lo= 0.5 * (*(ux+ii) - 0.0000001);
 	u_hi= *(ux+ii) - 0.00000001;
@@ -379,7 +391,17 @@ void calcUminUmax(int ndata,
 	  u_lo*= 0.5;
 	}
 	//Find root
-	gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	//gsl_set_error_handler_off();
+	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	//if (status == GSL_EINVAL) {
+	//  printf("Error in uminmax\n");
+	//printf("%f,%f,%f,%f,%f,%f,%f\n",u_lo,GSL_FN_EVAL(&JRRoot,u_lo),
+	//	 u_hi,GSL_FN_EVAL(&JRRoot,u_hi),
+	//	 *(pux+ii),peps,meps);
+	//  fflush(stdout);
+	//  continue;
+	//}
+	//gsl_set_error_handler (NULL);
 	iter= 0;
 	do
 	  {
@@ -403,7 +425,7 @@ void calcUminUmax(int ndata,
 	  u_hi*= 2.;
 	}
 	//Find root
-	gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
 	iter= 0;
 	do
 	  {
@@ -418,10 +440,6 @@ void calcUminUmax(int ndata,
 	while (status == GSL_CONTINUE && iter < max_iter);
 	*(umax+ii) = gsl_root_fsolver_root (s);
       }
-      else {//circular
-	*(umin+ii) = *(ux+ii);
-	*(umax+ii) = *(ux+ii);
-      }
     }
     else {
       u_lo= 0.5 * *(ux+ii);
@@ -431,7 +449,7 @@ void calcUminUmax(int ndata,
 	u_lo*= 0.5;
       }
       //Find root
-      gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
       iter= 0;
       do
 	{
@@ -453,7 +471,7 @@ void calcUminUmax(int ndata,
 	u_hi*= 2.;
       }
       //Find root
-      gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
       iter= 0;
       do
 	{
@@ -522,7 +540,7 @@ void calcVmin(int ndata,
 	v_lo*= 0.5;
       }
       //Find root
-      gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
+      status = gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
       iter= 0;
       do
 	{
