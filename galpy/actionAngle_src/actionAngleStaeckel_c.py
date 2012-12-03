@@ -49,18 +49,20 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
-    integrationFunc= _lib.actionAngleStaeckel_actions
-    integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+    actionAngleStaeckel_actionsFunc= _lib.actionAngleStaeckel_actions
+    actionAngleStaeckel_actionsFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
-                               ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.POINTER(ctypes.c_int),
-                               ctypes.c_int]
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.POINTER(ctypes.c_int)]
 
     #Array requirements, first store old order
     f_cont= [R.flags['F_CONTIGUOUS'],
@@ -77,16 +79,19 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
 
     #Run the C code
-    integrationFunc(yo,
-                    ctypes.c_int(len(t)),
-                    t,
-                    ctypes.c_int(npot),
-                    pot_type,
-                    pot_args,
-                    ctypes.c_double(rtol),ctypes.c_double(atol),
-                    result,
-                    ctypes.byref(err),
-                    ctypes.c_int(int_method_c))
+    actionAngleStaeckel_actionsFunc(len(R),
+                                    R,
+                                    vR,
+                                    vT,
+                                    z,
+                                    vz,
+                                    ctypes.c_int(npot),
+                                    pot_type,
+                                    pot_args,
+                                    ctypes.c_double(delta),
+                                    jr,
+                                    jz,
+                                    ctypes.byref(err))
 
     #Reset input arrays
     if f_cont[0]: R= numpy.asfortranarray(R)
