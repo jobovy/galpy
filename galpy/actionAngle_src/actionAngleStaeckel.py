@@ -13,10 +13,11 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from actionAngle import actionAngle
 from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
+from actionAngle import actionAngle
+import actionAngleStaeckel_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -57,12 +58,38 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        #Set up the actionAngleStaeckelSingle object
-        meta= actionAngle(*args)
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                             delta=self._delta)
-        return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
-                aASingle.Jz(**kwargs))
+        if kwargs.has_key('c') and kwargs['c']:
+            print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            if len(args) == 5: #R,vR.vT, z, vz
+                R,vR,vT, z, vz= args
+            elif len(args) == 6: #R,vR.vT, z, vz, phi
+                R,vR,vT, z, vz, phi= args
+            else:
+                meta= actionAngle(*args)
+                R= meta._R
+                vR= meta._vR
+                vT= meta._vT
+                z= meta._z
+                vz= meta._vz
+            if isinstance(R,float):
+                R= nu.array([R])
+                vR= nu.array([vR])
+                vT= nu.array([vT])
+                z= nu.array([z])
+                vz= nu.array([vz])
+            Lz= R*vT
+            jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
+                self._pot,self._delta,R,vR,vT,z,vz)
+            if err == 0:
+                return (jr,Lz,jz)
+            else:
+                raise RuntimeError("C-code for calculation actions failed; try with c=False")
+        else:
+            #Set up the actionAngleStaeckelSingle object
+            aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                                 delta=self._delta)
+            return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
+                    aASingle.Jz(**kwargs))
 
     def JR(self,*args,**kwargs):
         """
@@ -82,7 +109,6 @@ class actionAngleStaeckel():
            2012-11-27 - Written - Bovy (IAS)
         """
         #Set up the actionAngleStaeckelSingle object
-        meta= actionAngle(*args)
         aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
                                              delta=self._delta)
         return aASingle.JR(**kwargs)
@@ -105,7 +131,6 @@ class actionAngleStaeckel():
            2012-11-27 - Written - Bovy (IAS)
         """
         #Set up the actionAngleStaeckelSingle object
-        meta= actionAngle(*args)
         aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
                                              delta=self._delta)
         return aASingle.Jz(**kwargs)
