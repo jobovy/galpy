@@ -45,11 +45,15 @@ class actionAngleStaeckelGrid():
         self._pot= pot
         if delta is None:
             raise IOError("Must specify delta= for actionAngleStaeckelGrid")
+        if kwargs.has_key('c') and kwargs['c']:
+            self._c= True
+        else:
+            self._c= False
         self._delta= delta
         self._Rmax= Rmax
         self._Rmin= 0.01
         #Set up the actionAngleStaeckel object that we will use to interpolate
-        self._aA= actionAngleStaeckel.actionAngleStaeckel(pot=self._pot,delta=self._delta)
+        self._aA= actionAngleStaeckel.actionAngleStaeckel(pot=self._pot,delta=self._delta,c=self._c)
         #Build grid
         self._Lzmin= 0.01
         self._Lzs= numpy.linspace(self._Lzmin,
@@ -82,44 +86,40 @@ class actionAngleStaeckelGrid():
         u0= numpy.zeros((nLz,nE))
         jrLz= numpy.zeros(nLz)
         jzLz= numpy.zeros(nLz)
+        #First calculate u0
+        thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
+        thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
+        thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
+        thisy= (numpy.tile(y,(nLz,1))).flatten()
+        thisE= _invEfunc(_Efunc(thisERa)+thisy*(_Efunc(thisERL)-_Efunc(thisERa)))
         if numcores > 1:
-            #First calculate u0
-            thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
-            thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
-            thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
-            thisy= (numpy.tile(y,(nLz,1))).flatten()
-            thisE= _invEfunc(_Efunc(thisERa)+thisy*(_Efunc(thisERL)-_Efunc(thisERa)))
             mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
                                                            thisLzs[x])),
                                     range(nE*nLz),
                                     numcores=numcores)
-            u0= numpy.reshape(mu0,(nLz,nE))
-            thisR= self._delta*numpy.sinh(u0)
-            thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
-                                            u0.flatten(),
-                                            thisR.flatten()),(nLz,nE))
-            #reshape
-            thispsi= numpy.tile(psis,(nLz,nE,1)).flatten()
-            thisLzs= numpy.tile(thisLzs.T,(npsi,1,1)).T.flatten()
-            thisR= numpy.tile(thisR.T,(npsi,1,1)).T.flatten()
-            thisv= numpy.tile(thisv.T,(npsi,1,1)).T.flatten()
-            aAs= multi.parallel_map((lambda x: actionAngleStaeckel.actionAngleStaeckelSingle(\
-                        thisR[x], #R
-                        thisv[x]*numpy.cos(thispsi[x]), #vR
-                        thisLzs[x]/thisR[x], #vT
-                        0., #z
-                        thisv[x]*numpy.sin(thispsi[x]), #vz
-                        pot=self._pot,delta=self._delta)),
-                                    range(nE*nLz*npsi),
-                                    numcores=numcores)
-            mjr= multi.parallel_map((lambda x: aAs[x].JR(fixed_quad=True)[0]),
-                                    range(nE*nLz*npsi),
-                                    numcores=numcores)
-            mjz= multi.parallel_map((lambda x: aAs[x].Jz(fixed_quad=True)[0]),
-                                    range(nE*nLz*npsi),
-                                    numcores=numcores)
-            jr= numpy.reshape(mjr,(nLz,nE,npsi))
-            jz= numpy.reshape(mjz,(nLz,nE,npsi))
+        else:
+            mu0= map((lambda x: self.calcu0(thisE[x],
+                                            thisLzs[x])),
+                     range(nE*nLz))
+        u0= numpy.reshape(mu0,(nLz,nE))
+        thisR= self._delta*numpy.sinh(u0)
+        thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
+                                        u0.flatten(),
+                                        thisR.flatten()),(nLz,nE))
+        #reshape
+        thispsi= numpy.tile(psis,(nLz,nE,1)).flatten()
+        thisLzs= numpy.tile(thisLzs.T,(npsi,1,1)).T.flatten()
+        thisR= numpy.tile(thisR.T,(npsi,1,1)).T.flatten()
+        thisv= numpy.tile(thisv.T,(npsi,1,1)).T.flatten()
+        mjr, mlz, mjz= self._aA(thisR, #R
+                                thisv*numpy.cos(thispsi), #vR
+                                thisLzs/thisR, #vT
+                                numpy.zeros(len(thisR)), #z
+                                thisv*numpy.sin(thispsi),
+                                fixed_quad=True) #vz
+        jr= numpy.reshape(mjr,(nLz,nE,npsi))
+        jz= numpy.reshape(mjz,(nLz,nE,npsi))
+        """
         else:
             for ii in range(nLz):
                 for jj in range(nE):
@@ -150,6 +150,7 @@ class actionAngleStaeckelGrid():
                 jr[ii,:,:]/= jrLz[ii]
                 jzLz[ii]= numpy.amax(jz[ii,:,:])
                 jz[ii,:,:]/= jzLz[ii]
+        """
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
