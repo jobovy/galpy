@@ -51,6 +51,9 @@ void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 void calcJR(int,double *,double *,double *,double *,double *,double *,
 	    double,double *,double *,double *,double *,double *,int,
 	    struct actionAngleArg *,int);
+void calcJz(int,double *,double *,double *,double *,double *,double,
+	    double *,double *,double *,double *,int,struct actionAngleArg *,
+	    int);
 void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
 		  double,double *,double *,double *,double *,double *,int,
 		  struct actionAngleArg *);
@@ -235,6 +238,8 @@ void actionAngleStaeckel_actions(int ndata,
   //Calculate the actions
   calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
 	 npot,actionAngleArgs,10);
+  calcJz(ndata,jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
+	 npot,actionAngleArgs,10);
 }
 void calcJR(int ndata,
 	    double * jr,
@@ -275,6 +280,45 @@ void calcJR(int ndata,
     //Integrate
     *(jr+ii)= gsl_integration_glfixed (&JRInt,*(umin+ii),*(umax+ii),T)
       * sqrt(2.) * delta / M_PI;
+  }
+  gsl_integration_glfixed_table_free ( T );
+}
+void calcJz(int ndata,
+	    double * jz,
+	    double * vmin,
+	    double * E,
+	    double * Lz,
+	    double * I3V,
+	    double delta,
+	    double * u0,
+	    double * cosh2u0,
+	    double * sinh2u0,
+	    double * potupi2,
+	    int nargs,
+	    struct actionAngleArg * actionAngleArgs,
+	    int order){
+  int ii;
+  gsl_function JzInt;
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( sizeof (struct JzStaeckelArg) );
+  params->delta= delta;
+  params->nargs= nargs;
+  params->actionAngleArgs= actionAngleArgs;
+  //Setup integrator
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
+  JzInt.function = &JzStaeckelIntegrand;
+  for (ii=0; ii < ndata; ii++){
+    //Setup function
+    params->E= *(E+ii);
+    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    params->I3V= *(I3V+ii);
+    params->u0= *(u0+ii);
+    params->cosh2u0= *(cosh2u0+ii);
+    params->sinh2u0= *(sinh2u0+ii);
+    params->potupi2= *(potupi2+ii);
+    JzInt.params = params;
+    //Integrate
+    *(jz+ii)= gsl_integration_glfixed (&JzInt,*(vmin+ii),M_PI/2.,T)
+      * 2 * sqrt(2.) * delta / M_PI;
   }
   gsl_integration_glfixed_table_free ( T );
 }
