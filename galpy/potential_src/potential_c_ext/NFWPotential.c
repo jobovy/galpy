@@ -42,5 +42,5 @@ double NFWPotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   double aR= a+R;
   double aR2= aR*aR;
-  return ((R*(2.*a+3.*R))-2.*aR2*log(1.+R/a))/R/R/R/aR2;
+  return amp * (((R*(2.*a+3.*R))-2.*aR2*log(1.+R/a))/R/R/R/aR2);
 }
