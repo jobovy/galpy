@@ -7,6 +7,7 @@
 #include <math.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_roots.h>
+#include <gsl/gsl_integration.h>
 //Potentials
 #include <galpy_potentials.h>
 #include <actionAngle.h>
@@ -47,6 +48,9 @@ struct JzStaeckelArg{
 void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
+void calcJR(int,double *,double *,double *,double *,double *,double *,
+	    double,double *,double *,double *,double *,double *,int,
+	    struct actionAngleArg *,int);
 void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
 		  double,double *,double *,double *,double *,double *,int,
 		  struct actionAngleArg *);
@@ -220,6 +224,7 @@ void actionAngleStaeckel_actions(int ndata,
       * evaluatePotentialsUV(*(ux+ii),*(vx+ii),delta,
 			     npot,actionAngleArgs);
   }
+  //Calculate 'peri' and 'apo'centers
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
   double *vmin= (double *) malloc ( ndata * sizeof(double) );
@@ -227,6 +232,51 @@ void actionAngleStaeckel_actions(int ndata,
 	       npot,actionAngleArgs);
   calcVmin(ndata,vmin,vx,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
 	   npot,actionAngleArgs);
+  //Calculate the actions
+  calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
+	 npot,actionAngleArgs,10);
+}
+void calcJR(int ndata,
+	    double * jr,
+	    double * umin,
+	    double * umax,
+	    double * E,
+	    double * Lz,
+	    double * I3U,
+	    double delta,
+	    double * u0,
+	    double * sinh2u0,
+	    double * v0,
+	    double * sin2v0,
+	    double * potu0v0,
+	    int nargs,
+	    struct actionAngleArg * actionAngleArgs,
+	    int order){
+  int ii;
+  gsl_function JRInt;
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
+  params->delta= delta;
+  params->nargs= nargs;
+  params->actionAngleArgs= actionAngleArgs;
+  //Setup integrator
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
+  JRInt.function = &JRStaeckelIntegrand;
+  for (ii=0; ii < ndata; ii++){
+    //Setup function
+    params->E= *(E+ii);
+    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    params->I3U= *(I3U+ii);
+    params->u0= *(u0+ii);
+    params->sinh2u0= *(sinh2u0+ii);
+    params->v0= *(v0+ii);
+    params->sin2v0= *(sin2v0+ii);
+    params->potu0v0= *(potu0v0+ii);
+    JRInt.params = params;
+    //Integrate
+    *(jr+ii)= gsl_integration_glfixed (&JRInt,*(umin+ii),*(umax+ii),T)
+      * sqrt(2.) * delta / M_PI;
+  }
+  gsl_integration_glfixed_table_free ( T );
 }
 void calcUminUmax(int ndata,
 		  double * umin,
@@ -370,6 +420,10 @@ void calcVmin(int ndata,
  gsl_root_fsolver_free (s);    
 }
 
+double JRStaeckelIntegrand(double u,
+			   void * p){
+  return sqrt(JRStaeckelIntegrandSquared(u,p));
+}
 double JRStaeckelIntegrandSquared(double u,
 				  void * p){
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
@@ -381,6 +435,10 @@ double JRStaeckelIntegrandSquared(double u,
   return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
   
+double JzStaeckelIntegrand(double v,
+			   void * p){
+  return sqrt(JzStaeckelIntegrandSquared(v,p));
+}
 double JzStaeckelIntegrandSquared(double v,
 				  void * p){
   struct JzStaeckelArg * params= (struct JzStaeckelArg *) p;
