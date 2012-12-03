@@ -7,6 +7,7 @@
 #include <math.h>
 //Potentials
 #include <galpy_potentials.h>
+#include <actionAngle.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -59,4 +60,44 @@ inline void parse_actionAngleArgs(int npot,
   }
   actionAngleArgs-= npot;
 }
-
+inline void Rz_to_uv(int ndata,
+		     double * R,
+		     double * z,
+		     double * u,
+		     double * v,
+		     double delta){
+  int ii;
+  double d12, d22, coshu, cosv;
+  for (ii=0; ii < ndata; ii++) {
+    d12= (*z+delta)*(*z+delta)+R*R;
+    d22= (*z-delta)*(*z+delta)+R*R;
+    coshu= 0.5/delta*(sqrt(d12)+sqrt(d22));
+    cosv=  0.5/delta*(sqrt(d12)-sqrt(d22));
+    *u++= acosh(coshu);
+    *v++= acos(cosv);
+  }
+  u-= ndata;
+  v-= ndata;
+}
+void actionAngleStaeckel_actions(int ndata,
+				 double *R,
+				 double *vR,
+				 double *vT,
+				 double *z,
+				 double *vz,
+				 int npot,
+				 int * pot_type,
+				 double * pot_args,
+				 double delta,
+				 double *jr,
+				 double *jz,
+				 int * err){
+  //Set up the potentials
+  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
+  //Calculate all parameters
+  double *ux= (double *) malloc ( ndata * sizeof(double) );
+  double *vx= (double *) malloc ( ndata * sizeof(double) );
+  Rz_to_uv(R,z,jr,jz,delta);
+  //Rz_to_uv(R,z,ux,vx,delta);
+}
