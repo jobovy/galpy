@@ -119,6 +119,9 @@ class actionAngleStaeckelGrid():
                                 fixed_quad=True) #vz
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
+        #we know these should be zero, but the code doesn't
+        jr[:,:,-1]= 0.
+        jz[:,:,0]= 0.
         """
         else:
             for ii in range(nLz):
