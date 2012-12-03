@@ -5,6 +5,7 @@ import glob
 
 longDescription= ""
 
+#Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
