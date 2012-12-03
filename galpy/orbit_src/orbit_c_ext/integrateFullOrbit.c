@@ -50,7 +50,7 @@ inline void parse_leapFuncArgs_Full(int npot,
       //leapFuncArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
       //leapFuncArgs->planarphi2deriv= &ZeroForce;
       //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      leapFuncArgs->nargs= 3;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       leapFuncArgs->Rforce= &MiyamotoNagaiPotentialRforce;
