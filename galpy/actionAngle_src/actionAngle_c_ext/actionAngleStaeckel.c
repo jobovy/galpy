@@ -14,7 +14,9 @@
 /*
   Function Declarations
 */
-void actionAngleStaeckel_actions();
+void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
+				 double *,int,int *,double *,double,
+				 double *,double *,int *);
 /*
   Actual functions
 */
@@ -29,6 +31,7 @@ inline void parse_actionAngleArgs(int npot,
       actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
       actionAngleArgs->nargs= 2;
       break;
+    /*
     case 5: //MiyamotoNagaiPotential, 3 arguments
       actionAngleArgs->Rforce= &MiyamotoNagaiPotentialEval;
       actionAngleArgs->nargs= 3;
@@ -49,6 +52,7 @@ inline void parse_actionAngleArgs(int npot,
       actionAngleArgs->Rforce= &JaffePotentialEval;
       actionAngleArgs->nargs= 2;
       break;
+    */
     }
     actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
     for (jj=0; jj < actionAngleArgs->nargs; jj++){
@@ -61,16 +65,16 @@ inline void parse_actionAngleArgs(int npot,
   actionAngleArgs-= npot;
 }
 inline void Rz_to_uv(int ndata,
-		     double * R,
-		     double * z,
-		     double * u,
-		     double * v,
+		     double *R,
+		     double *z,
+		     double *u,
+		     double *v,
 		     double delta){
   int ii;
   double d12, d22, coshu, cosv;
   for (ii=0; ii < ndata; ii++) {
-    d12= (*z+delta)*(*z+delta)+R*R;
-    d22= (*z-delta)*(*z+delta)+R*R;
+    d12= (*(z+ii)+delta)*(*(z+ii)+delta)+(*(R+ii))*(*(R+ii));
+    d22= (*(z+ii)-delta)*(*(z+ii)-delta)+(*(R+ii))*(*(R+ii));
     coshu= 0.5/delta*(sqrt(d12)+sqrt(d22));
     cosv=  0.5/delta*(sqrt(d12)-sqrt(d22));
     *u++= acosh(coshu);
@@ -98,6 +102,6 @@ void actionAngleStaeckel_actions(int ndata,
   //Calculate all parameters
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
-  Rz_to_uv(R,z,jr,jz,delta);
+  Rz_to_uv(ndata,R,z,jr,jz,delta);
   //Rz_to_uv(R,z,ux,vx,delta);
 }
