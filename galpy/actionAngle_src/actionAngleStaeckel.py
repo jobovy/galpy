@@ -38,6 +38,11 @@ class actionAngleStaeckel():
         self._pot= kwargs['pot']
         if not kwargs.has_key('delta'):
             raise IOError("Must specify delta= for actionAngleStaeckel")
+        if kwargs.has_key('c') and kwargs['c']:
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            self._c= True
+        else:
+            self._c= False
         self._delta= kwargs['delta']
         return None
     
@@ -58,8 +63,8 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if kwargs.has_key('c') and kwargs['c']:
-            print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if self._c or (kwargs.has_key('c') and kwargs['c']):
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
