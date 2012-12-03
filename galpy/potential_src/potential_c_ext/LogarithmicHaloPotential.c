@@ -6,9 +6,9 @@ double LogarithmicHaloPotentialEval(double R,double Z, double phi,
 				    double t,
 				    int nargs, double *args){
   //Get args
-  double amp= *args++;
-  double q= *args++;
-  double c= *args--;
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
   //Calculate potential
   double zq= Z/q;
   return 0.5 * amp * log(R*R+zq*zq+c);
