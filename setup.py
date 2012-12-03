@@ -16,6 +16,16 @@ orbit_int_c= Extension('galpy_integrate_c',
                        include_dirs=['galpy/util',
                                      'galpy/potential_src/potential_c_ext'])
 
+#actionAngle C extension
+actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
+actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+
+actionAngle_c= Extension('galpy_actionAngle_c',
+                         sources=actionAngle_c_src,
+                         libraries=['m'],
+                         include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
+                                       'galpy/potential_src/potential_c_ext'])
+
 setup(name='galpy',
       version='1.',
       description='Galactic Dynamics in python',
@@ -31,5 +41,5 @@ setup(name='galpy',
       package_data={'galpy/df_src':['data/*.sav']},
 #      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
       install_requires=['numpy','scipy','matplotlib'],
-      ext_modules=[orbit_int_c]
+      ext_modules=[orbit_int_c,actionAngle_c]
       )
