@@ -20,9 +20,13 @@ orbit_int_c= Extension('galpy_integrate_c',
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 
+#Installation of this extension using the GSL may (silently) fail, if the GSL
+#is built for the wrong architecture, on Mac you can install the GSL correctly
+#using
+#brew install gsl --universal
 actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
-                         libraries=['m'],
+                         libraries=['m','gsl','gslcblas'],
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/potential_src/potential_c_ext'])
 
