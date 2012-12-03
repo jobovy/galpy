@@ -90,11 +90,29 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            #Set up the actionAngleStaeckelSingle object
-            aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                 delta=self._delta)
-            return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
-                    aASingle.Jz(**kwargs))
+            if (len(args) == 5 or len(args) == 6) \
+                    and isinstance(args[0],nu.ndarray):
+                ojr= nu.zeros((len(args[0])))
+                olz= nu.zeros((len(args[0])))
+                ojz= nu.zeros((len(args[0])))
+                for ii in range(len(args[0])):
+                    if len(args) == 5:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii])
+                    elif len(args) == 6:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii],args[5][ii])
+                    tjr,tlz,tjz= self(*targs,**kwargs)
+                    ojr[ii]= tjr[0]
+                    ojz[ii]= tjz[0]
+                    olz[ii]= tlz
+                return (ojr,olz,ojz)
+            else:
+                #Set up the actionAngleStaeckelSingle object
+                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                                     delta=self._delta)
+                return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
+                        aASingle.Jz(**kwargs))
 
     def JR(self,*args,**kwargs):
         """
