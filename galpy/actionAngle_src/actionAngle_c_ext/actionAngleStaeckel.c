@@ -29,6 +29,18 @@ struct JRStaeckelArg{
   int nargs;
   struct actionAngleArg * actionAngleArgs;
 };
+struct JzStaeckelArg{
+  double E;
+  double Lz22delta;
+  double I3V;
+  double delta;
+  double u0;
+  double cosh2u0;
+  double sinh2u0;
+  double potupi2;
+  int nargs;
+  struct actionAngleArg * actionAngleArgs;
+};
 /*
   Function Declarations
 */
@@ -38,8 +50,12 @@ void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
 		  double,double *,double *,double *,double *,double *,int,
 		  struct actionAngleArg *);
+void calcVmin(int,double *,double *,double *,double *,double *,double,
+	      double *,double *,double *,double *,int,struct actionAngleArg *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRStaeckelIntegrand(double,void *);
+double JzStaeckelIntegrandSquared(double,void *);
+double JzStaeckelIntegrand(double,void *);
 double evaluatePotentials(double,double,int, struct actionAngleArg *);
 double evaluatePotentialsUV(double,double,double,int,struct actionAngleArg *);
 /*
@@ -168,6 +184,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *pvx= (double *) malloc ( ndata * sizeof(double) );
   double *u0= (double *) malloc ( ndata * sizeof(double) );
   double *sinh2u0= (double *) malloc ( ndata * sizeof(double) );
+  double *cosh2u0= (double *) malloc ( ndata * sizeof(double) );
   double *v0= (double *) malloc ( ndata * sizeof(double) );
   double *sin2v0= (double *) malloc ( ndata * sizeof(double) );
   double *potu0v0= (double *) malloc ( ndata * sizeof(double) );
@@ -185,6 +202,7 @@ void actionAngleStaeckel_actions(int ndata,
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(u0+ii)= *(ux+ii);
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
+    *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
     *(v0+ii)= *(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(vx+ii),delta,
@@ -204,8 +222,11 @@ void actionAngleStaeckel_actions(int ndata,
   }
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
+  double *vmin= (double *) malloc ( ndata * sizeof(double) );
   calcUminUmax(ndata,umin,umax,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
 	       npot,actionAngleArgs);
+  calcVmin(ndata,vmin,vx,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
+	   npot,actionAngleArgs);
 }
 void calcUminUmax(int ndata,
 		  double * umin,
@@ -289,6 +310,66 @@ void calcUminUmax(int ndata,
   }
  gsl_root_fsolver_free (s);    
 }
+void calcVmin(int ndata,
+	      double * vmin,
+	      double * vx,
+	      double * E,
+	      double * Lz,
+	      double * I3V,
+	      double delta,
+	      double * u0,
+	      double * cosh2u0,
+	      double * sinh2u0,
+	      double * potupi2,
+	      int nargs,
+	      struct actionAngleArg * actionAngleArgs){
+  int ii;
+  gsl_function JzRoot;
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( sizeof (struct JzStaeckelArg) );
+  params->delta= delta;
+  params->nargs= nargs;
+  params->actionAngleArgs= actionAngleArgs;
+  //Setup solver
+  int status;
+  int iter, max_iter = 100;
+  const gsl_root_fsolver_type *T;
+  gsl_root_fsolver *s;
+  double v_lo, v_hi;
+  T = gsl_root_fsolver_brent;
+  s = gsl_root_fsolver_alloc (T);
+  JzRoot.function = &JzStaeckelIntegrandSquared;
+  for (ii=0; ii < ndata; ii++){
+    //Setup function
+    params->E= *(E+ii);
+    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    params->I3V= *(I3V+ii);
+    params->u0= *(u0+ii);
+    params->cosh2u0= *(cosh2u0+ii);
+    params->sinh2u0= *(sinh2u0+ii);
+    params->potupi2= *(potupi2+ii);
+    JzRoot.params = params;
+    //Find starting points for minimum
+    v_lo= 0.01;
+    v_hi= *(vx+ii);
+    //Find root
+    gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
+    iter= 0;
+    do
+      {
+	iter++;
+	status = gsl_root_fsolver_iterate (s);
+	v_lo = gsl_root_fsolver_x_lower (s);
+	v_hi = gsl_root_fsolver_x_upper (s);
+	status = gsl_root_test_interval (v_lo, v_hi,
+					 9.9999999999999998e-13,
+					 4.4408920985006262e-16);
+      }
+    while (status == GSL_CONTINUE && iter < max_iter);
+    *(vmin+ii) = gsl_root_fsolver_root (s);
+  }
+ gsl_root_fsolver_free (s);    
+}
+
 double JRStaeckelIntegrandSquared(double u,
 				  void * p){
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
@@ -298,6 +379,17 @@ double JRStaeckelIntegrandSquared(double u,
 			  params->nargs,params->actionAngleArgs)
     - (params->sinh2u0+params->sin2v0)*params->potu0v0;
   return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
+}
+  
+double JzStaeckelIntegrandSquared(double v,
+				  void * p){
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) p;
+  double sin2v= sin(v) * sin(v);
+  double dV= params->cosh2u0 * params->potupi2
+    - (params->sinh2u0+sin2v)
+    *evaluatePotentialsUV(params->u0,v,params->delta,
+			  params->nargs,params->actionAngleArgs);
+  return params->E * sin2v + params->I3V + dV  - params->Lz22delta / sin2v;
 }
   
 double evaluatePotentials(double R, double Z, 
