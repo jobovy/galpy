@@ -204,7 +204,7 @@ void actionAngleStaeckel_actions(int ndata,
   }
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
-  calcUminUmax(ndata,jr,jz,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
+  calcUminUmax(ndata,umin,umax,ux,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
 	       npot,actionAngleArgs);
 }
 void calcUminUmax(int ndata,
