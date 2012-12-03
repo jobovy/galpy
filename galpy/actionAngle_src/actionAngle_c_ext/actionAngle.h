@@ -12,3 +12,4 @@ struct actionAngleArg{
   int nargs;
   double * args;
 };
+#endif /* actionAngle.h */
