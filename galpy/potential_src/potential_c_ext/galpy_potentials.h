@@ -35,6 +35,8 @@ double EllipticalDiskPotentialR2deriv(double,double,double,int,double *);
 double EllipticalDiskPotentialphi2deriv(double,double,double,int,double *);
 double EllipticalDiskPotentialRphideriv(double,double,double,int,double *);
 //Miyamoto-Nagai Potential
+double MiyamotoNagaiPotentialEval(double ,double , double, double,
+				  int , double *);
 double MiyamotoNagaiPotentialRforce(double ,double , double, double,
 				    int , double *);
 double MiyamotoNagaiPotentialPlanarRforce(double ,double, double,
@@ -50,6 +52,8 @@ double LopsidedDiskPotentialR2deriv(double,double,double,int,double *);
 double LopsidedDiskPotentialphi2deriv(double,double,double,int,double *);
 double LopsidedDiskPotentialRphideriv(double,double,double,int,double *);
 //PowerSphericalPotential
+double PowerSphericalPotentialEval(double ,double , double, double,
+				   int , double *);
 double PowerSphericalPotentialRforce(double ,double , double, double,
 				     int , double *);
 double PowerSphericalPotentialPlanarRforce(double ,double, double,
@@ -59,6 +63,8 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //HernquistPotential
+double HernquistPotentialEval(double ,double , double, double,
+			      int , double *);
 double HernquistPotentialRforce(double ,double , double, double,
 				     int , double *);
 double HernquistPotentialPlanarRforce(double ,double, double,
@@ -68,6 +74,8 @@ double HernquistPotentialzforce(double,double,double,double,
 double HernquistPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //NFWPotential
+double NFWPotentialEval(double ,double , double, double,
+			int , double *);
 double NFWPotentialRforce(double ,double , double, double,
 				     int , double *);
 double NFWPotentialPlanarRforce(double ,double, double,
@@ -77,6 +85,8 @@ double NFWPotentialzforce(double,double,double,double,
 double NFWPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //JaffePotential
+double JaffePotentialEval(double ,double , double, double,
+			    int , double *);
 double JaffePotentialRforce(double ,double , double, double,
 				     int , double *);
 double JaffePotentialPlanarRforce(double ,double, double,
