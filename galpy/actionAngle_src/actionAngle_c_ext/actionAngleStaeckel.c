@@ -86,7 +86,7 @@ inline void parse_actionAngleArgs(int npot,
   int ii,jj;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
-    case 0: //LogarithmicHaloPotential, 2 arguments
+    case 0: //LogarithmicHaloPotential, 3 arguments
       actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
       actionAngleArgs->nargs= 3;
       break;
