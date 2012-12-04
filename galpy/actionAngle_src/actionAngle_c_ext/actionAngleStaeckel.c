@@ -90,28 +90,26 @@ inline void parse_actionAngleArgs(int npot,
       actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
       actionAngleArgs->nargs= 3;
       break;
-    /*
     case 5: //MiyamotoNagaiPotential, 3 arguments
-      actionAngleArgs->Rforce= &MiyamotoNagaiPotentialEval;
+      actionAngleArgs->potentialEval= &MiyamotoNagaiPotentialEval;
       actionAngleArgs->nargs= 3;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
-      actionAngleArgs->Rforce= &PowerSphericalPotentialEval;
+      actionAngleArgs->potentialEval= &PowerSphericalPotentialEval;
       actionAngleArgs->nargs= 2;
       break;
     case 8: //HernquistPotential, 2 arguments
-      actionAngleArgs->Rforce= &HernquistPotentialEval;
+      actionAngleArgs->potentialEval= &HernquistPotentialEval;
       actionAngleArgs->nargs= 2;
       break;
     case 9: //NFWPotential, 2 arguments
-      actionAngleArgs->Rforce= &NFWPotentialEval;
+      actionAngleArgs->potentialEval= &NFWPotentialEval;
       actionAngleArgs->nargs= 2;
       break;
     case 10: //JaffePotential, 2 arguments
-      actionAngleArgs->Rforce= &JaffePotentialEval;
+      actionAngleArgs->potentialEval= &JaffePotentialEval;
       actionAngleArgs->nargs= 2;
       break;
-    */
     }
     actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
     for (jj=0; jj < actionAngleArgs->nargs; jj++){
