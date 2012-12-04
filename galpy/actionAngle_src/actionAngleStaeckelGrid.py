@@ -71,7 +71,7 @@ class actionAngleStaeckelGrid():
         self._ERLmax= numpy.amax(self._ERL)+1.
         self._ERLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
-        self._Ramax= 99.
+        self._Ramax= 200./8.
         self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
@@ -91,7 +91,7 @@ class actionAngleStaeckelGrid():
         thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
         thisy= (numpy.tile(y,(nLz,1))).flatten()
-        thisE= _invEfunc(_Efunc(thisERa)+thisy*(_Efunc(thisERL)-_Efunc(thisERa)))
+        thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
         if numcores > 1:
             mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
                                                            thisLzs[x])),
@@ -107,6 +107,7 @@ class actionAngleStaeckelGrid():
                                         u0.flatten(),
                                         thisR.flatten()),(nLz,nE))
         #reshape
+        thisLzs= numpy.reshape(thisLzs,(nLz,nE))
         thispsi= numpy.tile(psis,(nLz,nE,1)).flatten()
         thisLzs= numpy.tile(thisLzs.T,(npsi,1,1)).T.flatten()
         thisR= numpy.tile(thisR.T,(npsi,1,1)).T.flatten()
@@ -119,9 +120,11 @@ class actionAngleStaeckelGrid():
                                 fixed_quad=True) #vz
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
-        #we know these should be zero, but the code doesn't
-        jr[:,:,-1]= 0.
-        jz[:,:,0]= 0.
+        for ii in range(nLz):
+            jrLz[ii]= numpy.amax(jr[ii,:,:])
+            jr[ii,:,:]/= jrLz[ii]
+            jzLz[ii]= numpy.amax(jz[ii,:,:])
+            jz[ii,:,:]/= jzLz[ii]
         """
         else:
             for ii in range(nLz):
@@ -223,7 +226,8 @@ class actionAngleStaeckelGrid():
             jz= numpy.empty(R.shape)
             if numpy.sum(indxc) > 0:
                 u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
-                                                   (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
+                                                   (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
+                #                                                   (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
                 sinh2u0= numpy.sinh(u0)**2.
                 thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
                                 E[indxc],Lz[indxc],sinh2u0,u0)
@@ -234,12 +238,12 @@ class actionAngleStaeckelGrid():
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
-                coords[1,:]= (_Efunc(E[indxc])-_Efunc(thisERa[indxc]))/(_Efunc(thisERL[indxc])-_Efunc(thisERa[indxc]))*(self._nE-1.)
+                coords[1,:]= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
                 jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
-                                                                 coords,
-                                                                 order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                                  coords,
                                                                  order=3,
@@ -396,9 +400,9 @@ def _u0Eq(logu,delta,pot,E,Lz22):
     dU= cosh2u*actionAngleStaeckel.potentialStaeckel(u,numpy.pi/2.,pot,delta)
     return -(E*sinh2u-dU-Lz22/delta**2./sinh2u)
 
-def _Efunc(E):
+def _Efunc(E,*args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
-    return numpy.exp(-E)
-def _invEfunc(Ef):
+    return numpy.sqrt((E-args[0]))
+def _invEfunc(Ef,*args):
     """Inverse of Efunc"""
-    return -numpy.log(Ef)
+    return Ef**2.+args[0]
