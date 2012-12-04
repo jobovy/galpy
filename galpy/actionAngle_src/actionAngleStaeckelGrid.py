@@ -15,6 +15,7 @@ import numpy
 from scipy import interpolate, optimize, ndimage
 import actionAngleStaeckel
 from galpy.actionAngle import actionAngle, UnboundError
+import actionAngleStaeckel_c
 import galpy.potential
 from galpy.util import multi, bovy_coords
 from matplotlib import pyplot
@@ -92,15 +93,20 @@ class actionAngleStaeckelGrid():
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
         thisy= (numpy.tile(y,(nLz,1))).flatten()
         thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
-        if numcores > 1:
-            mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
-                                                           thisLzs[x])),
-                                    range(nE*nLz),
-                                    numcores=numcores)
+        if self._c:
+            mu0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(thisE,thisLzs,
+                                                                 self._pot,
+                                                                 self._delta)[0]
         else:
-            mu0= map((lambda x: self.calcu0(thisE[x],
-                                            thisLzs[x])),
-                     range(nE*nLz))
+            if numcores > 1:
+                mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
+                                                               thisLzs[x])),
+                                        range(nE*nLz),
+                                        numcores=numcores)
+            else:
+                mu0= map((lambda x: self.calcu0(thisE[x],
+                                                thisLzs[x])),
+                         range(nE*nLz))
         u0= numpy.reshape(mu0,(nLz,nE))
         thisR= self._delta*numpy.sinh(u0)
         thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
