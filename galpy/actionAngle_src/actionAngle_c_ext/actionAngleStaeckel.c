@@ -8,6 +8,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_roots.h>
+#include <gsl/gsl_min.h>
 #include <gsl/gsl_integration.h>
 //Potentials
 #include <galpy_potentials.h>
@@ -43,9 +44,17 @@ struct JzStaeckelArg{
   int nargs;
   struct actionAngleArg * actionAngleArgs;
 };
+struct u0EqArg{
+  double E;
+  double Lz22delta;
+  double delta;
+  int nargs;
+  struct actionAngleArg * actionAngleArgs;
+};
 /*
   Function Declarations
 */
+void calcu0(int,double *,double *,int,int *,double *,double,double *,int *);
 void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
@@ -64,6 +73,7 @@ double JRStaeckelIntegrandSquared(double,void *);
 double JRStaeckelIntegrand(double,void *);
 double JzStaeckelIntegrandSquared(double,void *);
 double JzStaeckelIntegrand(double,void *);
+double u0Equation(double,void *);
 double evaluatePotentials(double,double,int, struct actionAngleArg *);
 double evaluatePotentialsUV(double,double,double,int,struct actionAngleArg *);
 /*
@@ -157,8 +167,64 @@ inline void calcEL(int ndata,
   }
 }
 /*
-  MAIN FUNCTION
+  MAIN FUNCTIONS
  */
+void calcu0(int ndata,
+	    double *E,
+	    double *Lz,
+	    int npot,
+	    int * pot_type,
+	    double * pot_args,
+	    double delta,
+	    double *u0,
+	    int * err){
+  int ii;
+  //Set up the potentials
+  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
+  //setup the function to be minimized
+  gsl_function u0Eq;
+  struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
+  params->delta= delta;
+  params->nargs= npot;
+  params->actionAngleArgs= actionAngleArgs;
+  //Setup solver
+  int status;
+  int iter, max_iter = 100;
+  const gsl_min_fminimizer_type *T;
+  gsl_min_fminimizer *s;
+  double u_guess, u_lo, u_hi;
+  T = gsl_min_fminimizer_brent;
+  s = gsl_min_fminimizer_alloc (T);
+  u0Eq.function = &u0Equation;
+  for (ii=0; ii < ndata; ii++){
+    //Setup function
+    params->E= *(E+ii);
+    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    u0Eq.params = params;
+    //Find starting points for minimum
+    u_guess= 1.;
+    u_lo= 0.001;
+    u_hi= 100.;
+    status = gsl_min_fminimizer_set (s, &u0Eq, u_guess, u_lo, u_hi);
+    iter= 0;
+    do
+      {
+	iter++;
+	status = gsl_min_fminimizer_iterate (s);
+	u_guess = gsl_min_fminimizer_x_minimum (s);
+	u_lo = gsl_min_fminimizer_x_lower (s);
+	u_hi = gsl_min_fminimizer_x_upper (s);
+	status = gsl_min_test_interval (u_lo, u_hi,
+					 9.9999999999999998e-13,
+					 4.4408920985006262e-16);
+      }
+    while (status == GSL_CONTINUE && iter < max_iter);
+    *(u0+ii)= gsl_min_fminimizer_x_minimum (s);
+  }
+  gsl_min_fminimizer_free (s);
+  *err= status;
+}
 void actionAngleStaeckel_actions(int ndata,
 				 double *R,
 				 double *vR,
@@ -588,7 +654,14 @@ double JzStaeckelIntegrandSquared(double v,
 			  params->nargs,params->actionAngleArgs);
   return params->E * sin2v + params->I3V + dV  - params->Lz22delta / sin2v;
 }
-  
+double u0Equation(double u, void * p){
+  struct u0EqArg * params= (struct u0EqArg *) p;
+  double sinh2u= sinh(u) * sinh(u);
+  double cosh2u= cosh(u) * cosh(u);
+  double dU= cosh2u * evaluatePotentialsUV(u,0.5*M_PI,params->delta,
+				    params->nargs,params->actionAngleArgs);
+  return -(params->E*sinh2u-dU-params->Lz22delta/sinh2u);
+}  
 double evaluatePotentials(double R, double Z, 
 			  int nargs, struct actionAngleArg * actionAngleArgs){
   int ii;
