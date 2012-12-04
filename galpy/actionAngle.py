@@ -3,6 +3,9 @@ from galpy.actionAngle_src import actionAngleFlat
 from galpy.actionAngle_src import actionAnglePower
 from galpy.actionAngle_src import actionAngleAxi
 from galpy.actionAngle_src import actionAngleAdiabatic
+from galpy.actionAngle_src import actionAngleAdiabaticGrid
+from galpy.actionAngle_src import actionAngleStaeckel
+from galpy.actionAngle_src import actionAngleStaeckelGrid
 
 #
 # Exceptions
@@ -17,3 +20,7 @@ actionAngleFlat= actionAngleFlat.actionAngleFlat
 actionAnglePower= actionAnglePower.actionAnglePower
 actionAngleAxi= actionAngleAxi.actionAngleAxi
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
+actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
+actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle
+actionAngleStaeckel= actionAngleStaeckel.actionAngleStaeckel
+actionAngleStaeckelGrid= actionAngleStaeckelGrid.actionAngleStaeckelGrid
