@@ -2,6 +2,16 @@
 #include <galpy_potentials.h>
 //Miyamoto-Nagai potential
 //3 arguments: amp, a, b
+double MiyamotoNagaiPotentialEval(double R,double z, double phi,
+				  double t,
+				  int nargs, double *args){
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args;
+  //Calculate Rforce
+  return - amp * pow(R*R+pow(a+pow(z*z+b*b,0.5),2.),-0.5);
+}
 double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
 				    double t,
 				    int nargs, double *args){
