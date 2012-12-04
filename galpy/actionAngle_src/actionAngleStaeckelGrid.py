@@ -14,7 +14,7 @@ import math
 import numpy
 from scipy import interpolate, optimize, ndimage
 import actionAngleStaeckel
-from galpy.actionAngle import actionAngle, UnboundError
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import actionAngleStaeckel_c
 import galpy.potential
 from galpy.util import multi, bovy_coords
