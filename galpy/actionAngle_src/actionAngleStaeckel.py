@@ -689,9 +689,9 @@ def _uminUmaxFindStart(u,
        2012-11-30 - Written - Bovy (IAS)
     """
     if umax:
-        utry= 2.*u
+        utry= 1.1*u
     else:
-        utry= u/2.
+        utry= 0.9*u
     while _JRStaeckelIntegrandSquared(utry,
                                       E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                       potu0v0,pot) >= 0. \
@@ -699,9 +699,9 @@ def _uminUmaxFindStart(u,
         if umax:
             if utry > 100.:
                 raise UnboundError("Orbit seems to be unbound")
-            utry*= 2.
+            utry*= 1.1
         else:
-            utry/= 2.
+            utry/= 0.9
     if utry < 0.000000001: return 0.
     return utry
 
@@ -719,12 +719,12 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     HISTORY:
        2012-11-28 - Written - Bovy (IAS)
     """
-    vtry= v/2.
+    vtry= 0.9*v
     while _JzStaeckelIntegrandSquared(vtry,
                                       E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                                       potu0pi2,pot) >= 0. \
                                       and vtry > 0.000000001:
-        vtry/= 2.
+        vtry*= 0.9
     if vtry < 0.000000001: return 0.   
     return vtry
 
