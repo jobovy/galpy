@@ -9,8 +9,7 @@ double NFWPotentialEval(double R,double Z, double phi,
   double amp= *args++;
   double a= *args;
   //Calculate Rforce
-  double Rz= R*R+Z*Z;
-  double sqrtRz= pow(Rz,0.5);
+  double sqrtRz= pow(R*R+Z*Z,0.5);
   return - amp * log ( 1. + sqrtRz / a ) / sqrtRz;
 }
 double NFWPotentialRforce(double R,double Z, double phi,
