@@ -384,11 +384,11 @@ void calcUminUmax(int ndata,
       }
       else if ( peps < 0. && meps > 0. ) {//umax
 	*(umax+ii)= *(ux+ii);
-	u_lo= 0.5 * (*(ux+ii) - 0.0000001);
+	u_lo= 0.9 * (*(ux+ii) - 0.0000001);
 	u_hi= *(ux+ii) - 0.00000001;
 	while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
 	  u_hi= u_lo; //this makes sure that brent evaluates using previous
-	  u_lo*= 0.5;
+	  u_lo*= 0.9;
 	}
 	//Find root
 	//gsl_set_error_handler_off();
@@ -419,10 +419,10 @@ void calcUminUmax(int ndata,
       else if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
 	u_lo= *(ux+ii) + 0.0000001;
-	u_hi= 2. * (*(ux+ii) + 0.0000001);
+	u_hi= 1.1 * (*(ux+ii) + 0.0000001);
 	while ( GSL_FN_EVAL(&JRRoot,u_hi) >= 0. ) {
 	  u_lo= u_hi; //this makes sure that brent evaluates using previous
-	  u_hi*= 2.;
+	  u_hi*= 1.1;
 	}
 	//Find root
 	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
@@ -442,11 +442,11 @@ void calcUminUmax(int ndata,
       }
     }
     else {
-      u_lo= 0.5 * *(ux+ii);
+      u_lo= 0.9 * *(ux+ii);
       u_hi= *(ux+ii);
       while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
 	u_hi= u_lo; //this makes sure that brent evaluates using previous
-	u_lo*= 0.5;
+	u_lo*= 0.9;
       }
       //Find root
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
@@ -465,10 +465,10 @@ void calcUminUmax(int ndata,
       *(umin+ii) = gsl_root_fsolver_root (s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
-      u_hi= 2. * *(ux+ii);
+      u_hi= 1.1 * *(ux+ii);
       while ( GSL_FN_EVAL(&JRRoot,u_hi) > 0.) {
 	u_lo= u_hi; //this makes sure that brent evaluates using previous
-	u_hi*= 2.;
+	u_hi*= 1.1;
       }
       //Find root
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
@@ -533,11 +533,11 @@ void calcVmin(int ndata,
       *(vmin+ii)= *(vx+ii);
     }
     else {
-      v_lo= 0.5 * *(vx+ii);
+      v_lo= 0.9 * *(vx+ii);
       v_hi= *(vx+ii);
       while ( GSL_FN_EVAL(&JzRoot,v_lo) >= 0. && v_lo > 0.000000001){
 	v_hi= v_lo; //this makes sure that brent evaluates using previous
-	v_lo*= 0.5;
+	v_lo*= 0.9;
       }
       //Find root
       status = gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
