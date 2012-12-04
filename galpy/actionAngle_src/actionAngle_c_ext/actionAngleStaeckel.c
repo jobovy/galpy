@@ -439,7 +439,7 @@ void calcUminUmax(int ndata,
     params->potu0v0= *(potu0v0+ii);
     JRRoot.params = params;
     //Find starting points for minimum
-    if ( fabs(*(pux+ii)) < 0.0000001){ //we are at umin or umax
+    if ( fabs(GSL_FN_EVAL(&JRRoot,*(ux+ii))) < 0.0000001){ //we are at umin or umax
       peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.0000001);
       meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.0000001);
       if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
@@ -512,6 +512,7 @@ void calcUminUmax(int ndata,
 	u_hi= u_lo; //this makes sure that brent evaluates using previous
 	u_lo*= 0.9;
       }
+      u_hi= (u_lo < 0.9 * *(ux+ii)) ? u_lo / 0.9 / 0.9: *(ux+ii);
       //Find root
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
       iter= 0;
@@ -534,6 +535,7 @@ void calcUminUmax(int ndata,
 	u_lo= u_hi; //this makes sure that brent evaluates using previous
 	u_hi*= 1.1;
       }
+      u_lo= (u_hi > 1.1 * *(ux+ii)) ? u_hi / 1.1 / 1.1: *(ux+ii);
       //Find root
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
       iter= 0;
@@ -593,7 +595,7 @@ void calcVmin(int ndata,
     params->potupi2= *(potupi2+ii);
     JzRoot.params = params;
     //Find starting points for minimum
-    if ( fabs(*(pvx+ii)) < 0.0000001){ //we are at vmin
+    if ( fabs(GSL_FN_EVAL(&JzRoot,*(vx+ii))) < 0.0000001){ //we are at vmin
       *(vmin+ii)= *(vx+ii);
     }
     else {
