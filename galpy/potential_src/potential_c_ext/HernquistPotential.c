@@ -2,6 +2,16 @@
 #include <galpy_potentials.h>
 //HernquistPotential
 //2 arguments: amp, a
+double HernquistPotentialEval(double R,double Z, double phi,
+			      double t,
+			      int nargs, double *args){
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Calculate Rforce
+  double sqrtRz= pow(R*R+Z*Z,0.5);
+  return - amp / (1. + sqrtRz / a );
+}
 double HernquistPotentialRforce(double R,double Z, double phi,
 				double t,
 				int nargs, double *args){
