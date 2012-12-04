@@ -10,6 +10,7 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import copy
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
@@ -102,7 +103,7 @@ class actionAngleStaeckel():
                     elif len(args) == 6:
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
-                    tjr,tlz,tjz= self(*targs,**kwargs)
+                    tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
                     ojr[ii]= tjr[0]
                     ojz[ii]= tjz[0]
                     olz[ii]= tlz
@@ -111,8 +112,9 @@ class actionAngleStaeckel():
                 #Set up the actionAngleStaeckelSingle object
                 aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
                                                      delta=self._delta)
-                return (aASingle.JR(**kwargs),aASingle._R*aASingle._vT,
-                        aASingle.Jz(**kwargs))
+                return (aASingle.JR(**copy.copy(kwargs)),
+                        aASingle._R*aASingle._vT,
+                        aASingle.Jz(**copy.copy(kwargs)))
 
     def JR(self,*args,**kwargs):
         """
