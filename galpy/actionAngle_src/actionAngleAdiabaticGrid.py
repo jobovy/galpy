@@ -14,7 +14,7 @@ import math
 import numpy
 from scipy import interpolate
 from actionAngleAdiabatic import actionAngleAdiabatic
-from galpy.actionAngle import actionAngle, UnboundError
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.potential
 from galpy.util import multi
 from matplotlib import pyplot
