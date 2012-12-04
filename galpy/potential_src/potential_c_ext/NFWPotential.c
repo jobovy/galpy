@@ -2,6 +2,17 @@
 #include <galpy_potentials.h>
 //NFWPotential
 //2 arguments: amp, a
+double NFWPotentialEval(double R,double Z, double phi,
+			  double t,
+			  int nargs, double *args){
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Calculate Rforce
+  double Rz= R*R+Z*Z;
+  double sqrtRz= pow(Rz,0.5);
+  return - amp * log ( 1. + sqrtRz / a ) / sqrtRz;
+}
 double NFWPotentialRforce(double R,double Z, double phi,
 				double t,
 				int nargs, double *args){
