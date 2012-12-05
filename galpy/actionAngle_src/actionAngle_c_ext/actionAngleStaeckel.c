@@ -275,9 +275,9 @@ void actionAngleStaeckel_actions(int ndata,
     *(u0+ii)= *(ux+ii);
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
-    *(v0+ii)= *(vx+ii);
+    *(v0+ii)= 0.5 * M_PI;//*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
-    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(vx+ii),delta,
+    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),delta,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / delta / delta
