@@ -11,11 +11,18 @@
 #
 ###############################################################################
 import math
+import warnings
 import numpy
 from scipy import interpolate, optimize, ndimage
 import actionAngleStaeckel
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
-import actionAngleStaeckel_c
+try:
+    import actionAngleStaeckel_c
+except IOError:
+    warnings.warn("actionAngle_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True
 import galpy.potential
 from galpy.util import multi, bovy_coords
 from matplotlib import pyplot
@@ -46,7 +53,7 @@ class actionAngleStaeckelGrid():
         self._pot= pot
         if delta is None:
             raise IOError("Must specify delta= for actionAngleStaeckelGrid")
-        if kwargs.has_key('c') and kwargs['c']:
+        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
             self._c= True
         else:
             self._c= False
