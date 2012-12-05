@@ -11,6 +11,7 @@
 #
 ###############################################################################
 import copy
+import warnings
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
@@ -18,7 +19,13 @@ from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
 from actionAngle import actionAngle
-import actionAngleStaeckel_c
+try:
+    import actionAngleStaeckel_c
+except IOError:
+    warnings.warn("actionAngle_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -39,7 +46,7 @@ class actionAngleStaeckel():
         self._pot= kwargs['pot']
         if not kwargs.has_key('delta'):
             raise IOError("Must specify delta= for actionAngleStaeckel")
-        if kwargs.has_key('c') and kwargs['c']:
+        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             self._c= True
         else:
@@ -64,7 +71,7 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if self._c or (kwargs.has_key('c') and kwargs['c']):
+        if self._c or (ext_loaded and kwargs.has_key('c') and kwargs['c']):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
