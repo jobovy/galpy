@@ -37,7 +37,6 @@ cmd= ['gsl-config',
 try:
     gsl_version= subprocess.check_output(cmd)
 except (OSError,subprocess.CalledProcessError):
-    raise
     pass
 else:
     gsl_version= gsl_version.split('.')
