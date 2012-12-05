@@ -1,5 +1,6 @@
 from setuptools import setup
 from distutils.core import Extension
+import subprocess
 import os, os.path
 import glob
 
@@ -15,6 +16,7 @@ orbit_int_c= Extension('galpy_integrate_c',
                        libraries=['m'],
                        include_dirs=['galpy/util',
                                      'galpy/potential_src/potential_c_ext'])
+ext_modules=[orbit_int_c]
 
 #actionAngle C extension
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
@@ -29,6 +31,17 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          libraries=['m','gsl','gslcblas'],
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/potential_src/potential_c_ext'])
+#code to check the GSL version
+cmd= ['gsl-config',
+      '--version']
+try:
+    gsl_version= subprocess.check_output(cmd)
+except (OSError,subprocess.CalledProcessError):
+    raise
+    pass
+else:
+    if float(gsl_version) >= 1.14:
+        ext_modules.append(actionAngle_c)
 
 setup(name='galpy',
       version='1.',
@@ -45,5 +58,5 @@ setup(name='galpy',
       package_data={'galpy/df_src':['data/*.sav']},
 #      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
       install_requires=['numpy','scipy','matplotlib'],
-      ext_modules=[orbit_int_c,actionAngle_c]
+      ext_modules=ext_modules
       )
