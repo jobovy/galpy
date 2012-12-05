@@ -40,7 +40,8 @@ except (OSError,subprocess.CalledProcessError):
     raise
     pass
 else:
-    if float(gsl_version) >= 1.14:
+    gsl_version= gsl_version.split('.')
+    if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
         ext_modules.append(actionAngle_c)
 
 setup(name='galpy',
