@@ -467,9 +467,9 @@ void calcUminUmax(int ndata,
 	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
 	  *(umin+ii) = -9999.99;
+	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	iter= 0;
 	do
 	  {
@@ -482,6 +482,12 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
+	if (status == GSL_EINVAL) {
+	  *(umin+ii) = -9999.99;
+	  *(umax+ii) = -9999.99;
+	  continue;
+	}
+	gsl_set_error_handler (NULL);
 	*(umin+ii) = gsl_root_fsolver_root (s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
@@ -496,10 +502,10 @@ void calcUminUmax(int ndata,
 	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
+	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	iter= 0;
 	do
 	  {
@@ -512,6 +518,12 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
+	if (status == GSL_EINVAL) {
+	  *(umin+ii) = -9999.99;
+	  *(umax+ii) = -9999.99;
+	  continue;
+	}
+	gsl_set_error_handler (NULL);
 	*(umax+ii) = gsl_root_fsolver_root (s);
       }
     }
@@ -531,7 +543,6 @@ void calcUminUmax(int ndata,
 	*(umax+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       iter= 0;
       do
 	{
@@ -544,6 +555,12 @@ void calcUminUmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
+      if (status == GSL_EINVAL) {
+	*(umin+ii) = -9999.99;
+	*(umax+ii) = -9999.99;
+	continue;
+      }
+      gsl_set_error_handler (NULL);
       *(umin+ii) = gsl_root_fsolver_root (s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
@@ -554,7 +571,13 @@ void calcUminUmax(int ndata,
       }
       u_lo= (u_hi > 1.1 * *(ux+ii)) ? u_hi / 1.1 / 1.1: *(ux+ii);
       //Find root
+      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      if (status == GSL_EINVAL) {
+	*(umin+ii) = -9999.99;
+	*(umax+ii) = -9999.99;
+	continue;
+      }
       iter= 0;
       do
 	{
@@ -567,6 +590,12 @@ void calcUminUmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
+      if (status == GSL_EINVAL) {
+	*(umin+ii) = -9999.99;
+	*(umax+ii) = -9999.99;
+	continue;
+      }
+      gsl_set_error_handler (NULL);
       *(umax+ii) = gsl_root_fsolver_root (s);
     }
   }
@@ -629,7 +658,6 @@ void calcVmin(int ndata,
 	*(vmin+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       iter= 0;
       do
 	{
@@ -642,6 +670,11 @@ void calcVmin(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
+      if (status == GSL_EINVAL) {
+	*(vmin+ii) = -9999.99;
+	continue;
+      }
+      gsl_set_error_handler (NULL);
       *(vmin+ii) = gsl_root_fsolver_root (s);
     }
   }
