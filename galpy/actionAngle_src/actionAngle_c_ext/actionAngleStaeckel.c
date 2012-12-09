@@ -332,6 +332,10 @@ void calcJR(int ndata,
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   JRInt.function = &JRStaeckelIntegrand;
   for (ii=0; ii < ndata; ii++){
+    if ( *(umin+ii) == -9999.99 || *(umax+ii) == -9999.99 ){
+      *(jr+ii)= 9999.99;
+      continue;
+    }
     if ( (*(umax+ii) - *(umin+ii)) / *(umax+ii) < 0.000001 ){//circular
       *(jr+ii) = 0.;
       continue;
@@ -376,6 +380,10 @@ void calcJz(int ndata,
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   JzInt.function = &JzStaeckelIntegrand;
   for (ii=0; ii < ndata; ii++){
+    if ( *(vmin+ii) == -9999.99 ){
+      *(jz+ii)= 9999.99;
+      continue;
+    }
     if ( (0.5 * M_PI - *(vmin+ii)) / M_PI * 2. < 0.000001 ){//circular
       *(jz+ii) = 0.;
       continue;
@@ -455,17 +463,13 @@ void calcUminUmax(int ndata,
 	  u_lo*= 0.9;
 	}
 	//Find root
-	//gsl_set_error_handler_off();
+	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
-	//if (status == GSL_EINVAL) {
-	//  printf("Error in uminmax\n");
-	//printf("%f,%f,%f,%f,%f,%f,%f\n",u_lo,GSL_FN_EVAL(&JRRoot,u_lo),
-	//	 u_hi,GSL_FN_EVAL(&JRRoot,u_hi),
-	//	 *(pux+ii),peps,meps);
-	//  fflush(stdout);
-	//  continue;
-	//}
-	//gsl_set_error_handler (NULL);
+	if (status == GSL_EINVAL) {
+	  *(umin+ii) = -9999.99;
+	  continue;
+	}
+	gsl_set_error_handler (NULL);
 	iter= 0;
 	do
 	  {
@@ -489,7 +493,13 @@ void calcUminUmax(int ndata,
 	  u_hi*= 1.1;
 	}
 	//Find root
+	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	if (status == GSL_EINVAL) {
+	  *(umax+ii) = -9999.99;
+	  continue;
+	}
+	gsl_set_error_handler (NULL);
 	iter= 0;
 	do
 	  {
@@ -514,7 +524,14 @@ void calcUminUmax(int ndata,
       }
       u_hi= (u_lo < 0.9 * *(ux+ii)) ? u_lo / 0.9 / 0.9: *(ux+ii);
       //Find root
+      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      if (status == GSL_EINVAL) {
+	*(umin+ii) = -9999.99;
+	*(umax+ii) = -9999.99;
+	continue;
+      }
+      gsl_set_error_handler (NULL);
       iter= 0;
       do
 	{
@@ -606,7 +623,13 @@ void calcVmin(int ndata,
 	v_lo*= 0.9;
       }
       //Find root
+      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
+      if (status == GSL_EINVAL) {
+	*(vmin+ii) = -9999.99;
+	continue;
+      }
+      gsl_set_error_handler (NULL);
       iter= 0;
       do
 	{
