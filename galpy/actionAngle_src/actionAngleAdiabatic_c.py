@@ -16,7 +16,6 @@ for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
     except OSError:
-        if 'galpy' in path: raise
         _lib = None
     else:
         break
