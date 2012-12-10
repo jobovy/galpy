@@ -266,6 +266,10 @@ void calcRapRperi(int ndata,
 	while ( GSL_FN_EVAL(&JRRoot,R_hi) >= 0. ) {
 	  R_lo= R_hi; //this makes sure that brent evaluates using previous
 	  R_hi*= 1.1;
+	  if ( R_hi > 100. ) {
+	    status= GSL_EINVAL;
+	    break;
+	  }
 	}
 	//Find root
 	gsl_set_error_handler_off();
@@ -337,6 +341,10 @@ void calcRapRperi(int ndata,
       while ( GSL_FN_EVAL(&JRRoot,R_hi) > 0.) {
 	R_lo= R_hi; //this makes sure that brent evaluates using previous
 	R_hi*= 1.1;
+	if ( R_hi > 100. ) {
+	  status= GSL_EINVAL;
+	  break;
+	}
       }
       R_lo= (R_hi > 1.1 * *(R+ii)) ? R_hi / 1.1 / 1.1: *(R+ii);
       //Find root
