@@ -101,10 +101,6 @@ void actionAngleAdiabatic_actions(int ndata,
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
   calcEREzL(ndata,R,vR,vT,z,vz,ER,Ez,Lz,npot,actionAngleArgs);
-  //Calculate all necessary parameters
-  //for (ii=0; ii < ndata; ii++){
-  //  *(coshux+ii)= cosh(*(ux+ii));
-  //}
   //Calculate peri and apocenters
   double *rperi= (double *) malloc ( ndata * sizeof(double) );
   double *rap= (double *) malloc ( ndata * sizeof(double) );
@@ -112,13 +108,13 @@ void actionAngleAdiabatic_actions(int ndata,
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
   calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
   //Adjust planar effective potential for gamma
-   for (ii=0; ii < ndata; ii++){
-     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
-     *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
-       - 0.5 * *(vT+ii) * *(vT+ii);
-   }
-   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
-   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
+  for (ii=0; ii < ndata; ii++){
+    *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
+      - 0.5 * *(vT+ii) * *(vT+ii);
+  }
+  calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
+  calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
 }
 void calcJRAdiabatic(int ndata,
 		     double * jr,
@@ -406,7 +402,7 @@ void calcZmax(int ndata,
     }
     else {
       z_lo= *(z+ii);
-      z_hi= 1.1 * *(z+ii);
+      z_hi= ( *(z+ii) == 0. ) ? 0.1: 1.1 * *(z+ii);
       while ( GSL_FN_EVAL(&JzRoot,z_hi) >= 0. ){
 	z_lo= z_hi; //this makes sure that brent evaluates using previous
 	z_hi*= 1.1;
