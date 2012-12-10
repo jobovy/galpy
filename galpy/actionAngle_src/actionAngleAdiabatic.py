@@ -10,6 +10,7 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import copy
 import warnings
 import math as m
 import numpy as nu
