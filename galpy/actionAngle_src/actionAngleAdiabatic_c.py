@@ -16,6 +16,7 @@ for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
     except OSError:
+        if 'galpy' in path: raise
         _lib = None
     else:
         break
@@ -102,63 +103,3 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
 
     return (jr,jz,err.value)
 
-def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
-    """
-    NAME:
-       actionAngleStaeckel_calcu0
-    PURPOSE:
-       Use C to calculate u0 in the Staeckel approximation
-    INPUT:
-       E, Lz - energy and angular momentum
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-    OUTPUT:
-       (u0,err)
-       u0 : array, shape (len(E))
-       err - non-zero if error occured
-    HISTORY:
-       2012-12-03 - Written - Bovy (IAS)
-    """
-    #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
-
-    #Set up result arrays
-    u0= numpy.empty(len(E))
-    err= ctypes.c_int(0)
-
-    #Set up the C code
-    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
-    actionAngleStaeckel_actionsFunc= _lib.calcu0
-    actionAngleStaeckel_actionsFunc.argtypes= [ctypes.c_int,
-                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,
-                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
-                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.POINTER(ctypes.c_int)]
-
-    #Array requirements, first store old order
-    f_cont= [E.flags['F_CONTIGUOUS'],
-             Lz.flags['F_CONTIGUOUS']]
-    E= numpy.require(E,dtype=numpy.float64,requirements=['C','W'])
-    Lz= numpy.require(Lz,dtype=numpy.float64,requirements=['C','W'])
-    u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
-
-    #Run the C code
-    actionAngleStaeckel_actionsFunc(len(E),
-                                    E,
-                                    Lz,
-                                    ctypes.c_int(npot),
-                                    pot_type,
-                                    pot_args,
-                                    ctypes.c_double(delta),
-                                    u0,
-                                    ctypes.byref(err))
-
-    #Reset input arrays
-    if f_cont[0]: E= numpy.asfortranarray(E)
-    if f_cont[1]: Lz= numpy.asfortranarray(Lz)
-
-    return (u0,err.value)
