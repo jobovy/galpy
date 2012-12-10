@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <galpy_potentials.h>
 #include <actionAngle.h>
 double evaluatePotentials(double R, double Z, 
 			  int nargs, struct actionAngleArg * actionAngleArgs){
