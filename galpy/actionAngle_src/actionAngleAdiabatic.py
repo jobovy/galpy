@@ -14,6 +14,13 @@ import math as m
 import numpy as nu
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
+try:
+    import actionAngleAdiabatic_c
+except IOError:
+    warnings.warn("actionAngle_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True
 class actionAngleAdiabatic():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
@@ -32,6 +39,11 @@ class actionAngleAdiabatic():
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
+        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            self._c= True
+        else:
+            self._c= False
         if kwargs.has_key('gamma'):
             self._gamma= kwargs['gamma']
         else:
