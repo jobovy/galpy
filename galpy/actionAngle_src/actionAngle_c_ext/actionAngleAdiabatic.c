@@ -19,7 +19,7 @@
 /*
   Structure Declarations
 */
-struct JRAdiabaticArg{
+/*struct JRAdiabaticArg{
   double E;
   double Lz22delta;
   double I3U;
@@ -32,15 +32,10 @@ struct JRAdiabaticArg{
   int nargs;
   struct actionAngleArg * actionAngleArgs;
 };
+*/
 struct JzAdiabaticArg{
-  double E;
-  double Lz22delta;
-  double I3V;
-  double delta;
-  double u0;
-  double cosh2u0;
-  double sinh2u0;
-  double potupi2;
+  double Ez;
+  double R;
   int nargs;
   struct actionAngleArg * actionAngleArgs;
 };
@@ -50,16 +45,15 @@ struct JzAdiabaticArg{
 void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
-void calcJR(int,double *,double *,double *,double *,double *,double *,
-	    double,double *,double *,double *,double *,double *,int,
-	    struct actionAngleArg *,int);
-void calcJz(int,double *,double *,double *,double *,double *,double,
-	    double *,double *,double *,double *,int,struct actionAngleArg *,
-	    int);
+void calcJRAdiabatic(int,double *,double *,double *,double *,double *,double *,
+		     double,double *,double *,double *,double *,double *,int,
+		     struct actionAngleArg *,int);
+void calcJzAdiabatic(int,double *,double *,double *,double *,int,
+		     struct actionAngleArg *,int);
 void calcRapRperi(int,double *,double *,double *,double *,double *,double *,
 		  double *,double,double *,double *,double *,double *,double *,
 		  int,struct actionAngleArg *);
-void calcZmax(int,double *,double *,double *,double *,double *,int,
+void calcZmax(int,double *,double *,double *,double *,int,
 	      struct actionAngleArg *);
 double JRAdiabaticIntegrandSquared(double,void *);
 double JRAdiabaticIntegrand(double,void *);
@@ -125,15 +119,16 @@ void actionAngleAdiabatic_actions(int ndata,
   double *rperi= (double *) malloc ( ndata * sizeof(double) );
   double *rap= (double *) malloc ( ndata * sizeof(double) );
   double *zmax= (double *) malloc ( ndata * sizeof(double) );
-  calcZmax(ndata,jz,z,R,Ez,npot,actionAngleArgs);
-  //calcJz(ndata,jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
+  calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
   // npot,actionAngleArgs,10);
   //calcRapRperi(ndata,umin,umax,ux,pux,E,Lz,
   //calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
   //npot,actionAngleArgs,10);
 }
-void calcJR(int ndata,
-	    double * jr,
+/*
+void calcJRAdiabatic(int ndata,
+double * jr,
 	    double * umin,
 	    double * umax,
 	    double * E,
@@ -182,53 +177,43 @@ void calcJR(int ndata,
   }
   gsl_integration_glfixed_table_free ( T );
 }
-void calcJz(int ndata,
-	    double * jz,
-	    double * vmin,
-	    double * E,
-	    double * Lz,
-	    double * I3V,
-	    double delta,
-	    double * u0,
-	    double * cosh2u0,
-	    double * sinh2u0,
-	    double * potupi2,
-	    int nargs,
-	    struct actionAngleArg * actionAngleArgs,
-	    int order){
+*/
+void calcJzAdiabatic(int ndata,
+		     double * jz,
+		     double * zmax,
+		     double * R,
+		     double * Ez,
+		     int nargs,
+		     struct actionAngleArg * actionAngleArgs,
+		     int order){
   int ii;
   gsl_function JzInt;
-  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( sizeof (struct JzStaeckelArg) );
-  params->delta= delta;
+  struct JzAdiabaticArg * params= (struct JzAdiabaticArg *) malloc ( sizeof (struct JzAdiabaticArg) );
   params->nargs= nargs;
   params->actionAngleArgs= actionAngleArgs;
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JzInt.function = &JzStaeckelIntegrand;
+  JzInt.function = &JzAdiabaticIntegrand;
   for (ii=0; ii < ndata; ii++){
-    if ( *(vmin+ii) == -9999.99 ){
+    if ( *(zmax+ii) == -9999.99 ){
       *(jz+ii)= 9999.99;
       continue;
     }
-    if ( (0.5 * M_PI - *(vmin+ii)) / M_PI * 2. < 0.000001 ){//circular
+    if ( *(zmax+ii) < 0.000001 ){//circular
       *(jz+ii) = 0.;
       continue;
     }
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3V= *(I3V+ii);
-    params->u0= *(u0+ii);
-    params->cosh2u0= *(cosh2u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->potupi2= *(potupi2+ii);
+    params->Ez= *(Ez+ii);
+    params->R= *(R+ii);
     JzInt.params = params;
     //Integrate
-    *(jz+ii)= gsl_integration_glfixed (&JzInt,*(vmin+ii),M_PI/2.,T)
-      * 2 * sqrt(2.) * delta / M_PI;
+    *(jz+ii)= gsl_integration_glfixed (&JzInt,0.,*(zmax+ii),T)
+      * 2 * sqrt(2.) / M_PI;
   }
   gsl_integration_glfixed_table_free ( T );
 }
+/*
 void calcUminUmax(int ndata,
 		  double * umin,
 		  double * umax,
@@ -427,10 +412,10 @@ void calcUminUmax(int ndata,
   }
  gsl_root_fsolver_free (s);    
 }
+*/
 void calcZmax(int ndata,
 	      double * zmax,
 	      double * z,
-	      double * vz,
 	      double * R,
 	      double * Ez,
 	      int nargs,
@@ -461,7 +446,7 @@ void calcZmax(int ndata,
     else {
       z_lo= *(z+ii);
       z_hi= 1.1 * *(z+ii);
-      while ( GSL_FN_EVAL(&JzRoot,z_lo) >= 0. ){
+      while ( GSL_FN_EVAL(&JzRoot,z_hi) >= 0. ){
 	z_lo= z_hi; //this makes sure that brent evaluates using previous
 	z_hi*= 1.1;
       }
@@ -494,12 +479,12 @@ void calcZmax(int ndata,
   }
   gsl_root_fsolver_free (s);    
 }
-
-double JRStaeckelIntegrand(double u,
+/*
+double JRAdiabaticIntegrand(double R,
 			   void * p){
-  return sqrt(JRStaeckelIntegrandSquared(u,p));
+  return sqrt(JRAdiabaticIntegrandSquared(R,p));
 }
-double JRStaeckelIntegrandSquared(double u,
+double JRAdiabaticIntegrandSquared(double R,
 				  void * p){
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
   double sinh2u= sinh(u) * sinh(u);
@@ -509,10 +494,10 @@ double JRStaeckelIntegrandSquared(double u,
     - (params->sinh2u0+params->sin2v0)*params->potu0v0;
   return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
-  
+*/
 double JzAdiabaticIntegrand(double z,
 			    void * p){
-  return sqrt(JzSAdiabaticIntegrandSquared(z,p));
+  return sqrt(JzAdiabaticIntegrandSquared(z,p));
 }
 double JzAdiabaticIntegrandSquared(double z,
 				   void * p){
@@ -521,14 +506,6 @@ double JzAdiabaticIntegrandSquared(double z,
 						 params->nargs,
 						 params->actionAngleArgs);
 }
-double u0Equation(double u, void * p){
-  struct u0EqArg * params= (struct u0EqArg *) p;
-  double sinh2u= sinh(u) * sinh(u);
-  double cosh2u= cosh(u) * cosh(u);
-  double dU= cosh2u * evaluatePotentialsUV(u,0.5*M_PI,params->delta,
-				    params->nargs,params->actionAngleArgs);
-  return -(params->E*sinh2u-dU-params->Lz22delta/sinh2u);
-}  
 double evaluateVerticalPotentials(double R, double z,
 				  int nargs, 
 				  struct actionAngleArg * actionAngleArgs){
