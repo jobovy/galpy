@@ -37,9 +37,8 @@ struct JzAdiabaticArg{
 void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
-void calcJRAdiabatic(int,double *,double *,double *,double *,double *,double *,
-		     double,double *,double *,double *,double *,double *,int,
-		     struct actionAngleArg *,int);
+void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
+		     int,struct actionAngleArg *,int);
 void calcJzAdiabatic(int,double *,double *,double *,double *,int,
 		     struct actionAngleArg *,int);
 void calcRapRperi(int,double *,double *,double *,double *,double *,
@@ -118,62 +117,45 @@ void actionAngleAdiabatic_actions(int ndata,
      *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
        - 0.5 * *(vT+ii) * *(vT+ii);
    }
-   calcRapRperi(ndata,jr,jz,R,ER,Lz,npot,actionAngleArgs);
-   //calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
-   //npot,actionAngleArgs,10);
+   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
+   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
 }
-/*
 void calcJRAdiabatic(int ndata,
-double * jr,
-	    double * umin,
-	    double * umax,
-	    double * E,
-	    double * Lz,
-	    double * I3U,
-	    double delta,
-	    double * u0,
-	    double * sinh2u0,
-	    double * v0,
-	    double * sin2v0,
-	    double * potu0v0,
-	    int nargs,
-	    struct actionAngleArg * actionAngleArgs,
-	    int order){
+		     double * jr,
+		     double * rperi,
+		     double * rap,
+		     double * ER,
+		     double * Lz,
+		     int nargs,
+		     struct actionAngleArg * actionAngleArgs,
+		     int order){
   int ii;
   gsl_function JRInt;
-  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
-  params->delta= delta;
+  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) malloc ( sizeof (struct JRAdiabaticArg) );
   params->nargs= nargs;
   params->actionAngleArgs= actionAngleArgs;
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JRInt.function = &JRStaeckelIntegrand;
+  JRInt.function = &JRAdiabaticIntegrand;
   for (ii=0; ii < ndata; ii++){
-    if ( *(umin+ii) == -9999.99 || *(umax+ii) == -9999.99 ){
+    if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
       *(jr+ii)= 9999.99;
       continue;
     }
-    if ( (*(umax+ii) - *(umin+ii)) / *(umax+ii) < 0.000001 ){//circular
+    if ( (*(rap+ii) - *(rperi+ii)) / *(rap+ii) < 0.000001 ){//circular
       *(jr+ii) = 0.;
       continue;
     }
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3U= *(I3U+ii);
-    params->u0= *(u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->v0= *(v0+ii);
-    params->sin2v0= *(sin2v0+ii);
-    params->potu0v0= *(potu0v0+ii);
+    params->ER= *(ER+ii);
+    params->Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
     JRInt.params = params;
     //Integrate
-    *(jr+ii)= gsl_integration_glfixed (&JRInt,*(umin+ii),*(umax+ii),T)
-      * sqrt(2.) * delta / M_PI;
+    *(jr+ii)= gsl_integration_glfixed (&JRInt,*(rperi+ii),*(rap+ii),T)
+      * sqrt(2.) / M_PI;
   }
   gsl_integration_glfixed_table_free ( T );
 }
-*/
 void calcJzAdiabatic(int ndata,
 		     double * jz,
 		     double * zmax,
