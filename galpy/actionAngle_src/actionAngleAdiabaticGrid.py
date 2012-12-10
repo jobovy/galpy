@@ -223,12 +223,12 @@ class actionAngleAdiabaticGrid():
                 jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
                                 *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
             if numpy.sum(indx) > 0:
-                jz[indx]= self._aA.Jz(R[indx],
-                                      numpy.zeros(numpy.sum(indx)),
-                                      numpy.ones(numpy.sum(indx)),#these two r dummies
-                                      numpy.zeros(numpy.sum(indx)),
-                                      numpy.sqrt(2.*Ez[indx]),
-                                      **kwargs)[0]
+                jz[indx]= self._aA(R[indx],
+                                   numpy.zeros(numpy.sum(indx)),
+                                   numpy.ones(numpy.sum(indx)),#these two r dummies
+                                   numpy.zeros(numpy.sum(indx)),
+                                   numpy.sqrt(2.*Ez[indx]),
+                                   **kwargs)[2]
             """
                 for ii in range(numpy.sum(indx)):
                     try:
@@ -277,7 +277,13 @@ class actionAngleAdiabaticGrid():
                                               (ER[indxc]-thisERRa[indxc])/(thisERRL[indxc]-thisERRa[indxc]))\
                                 *(numpy.exp(self._jrERRaInterp(ERLz[indxc]))-10.**-5.))
             if numpy.sum(indx) > 0:
-                jrindiv= numpy.empty(numpy.sum(indx))
+                jr[indx]= self._aA(thisRL[indx],
+                                   numpy.sqrt(2.*(ER[indx]-galpy.potential.evaluatePotentials(thisRL[indx],0.,self._pot))-ERLz[indx]**2./thisRL[indx]**2.),
+                                   ERLz[indx]/thisRL[indx],
+                                   numpy.zeros(len(thisRL)),
+                                   numpy.zeros(len(thisRL)),
+                                   **kwargs)[0]                
+                """
                 for ii in range(numpy.sum(indx)):
                     try:
                         jrindiv[ii]= self._aA.JR(thisRL[indx][ii],
@@ -288,6 +294,7 @@ class actionAngleAdiabaticGrid():
                     except (UnboundError,OverflowError):
                         jrindiv[ii]= numpy.nan
                 jr[indx]= jrindiv
+                """
         else:
             if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
