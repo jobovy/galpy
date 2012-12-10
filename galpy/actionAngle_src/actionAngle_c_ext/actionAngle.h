@@ -12,4 +12,9 @@ struct actionAngleArg{
   int nargs;
   double * args;
 };
+/*
+  Function declarations
+*/
+double evaluatePotentials(double,double,int, struct actionAngleArg *);
+void parse_actionAngleArgs(int,struct actionAngleArg *,int *,double *);
 #endif /* actionAngle.h */
