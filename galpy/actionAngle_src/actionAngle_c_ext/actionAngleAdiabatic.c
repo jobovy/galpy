@@ -19,20 +19,12 @@
 /*
   Structure Declarations
 */
-/*struct JRAdiabaticArg{
-  double E;
-  double Lz22delta;
-  double I3U;
-  double delta;
-  double u0;
-  double sinh2u0;
-  double v0;
-  double sin2v0;
-  double potu0v0;
+struct JRAdiabaticArg{
+  double ER;
+  double Lz22;
   int nargs;
   struct actionAngleArg * actionAngleArgs;
 };
-*/
 struct JzAdiabaticArg{
   double Ez;
   double R;
@@ -50,8 +42,7 @@ void calcJRAdiabatic(int,double *,double *,double *,double *,double *,double *,
 		     struct actionAngleArg *,int);
 void calcJzAdiabatic(int,double *,double *,double *,double *,int,
 		     struct actionAngleArg *,int);
-void calcRapRperi(int,double *,double *,double *,double *,double *,double *,
-		  double *,double,double *,double *,double *,double *,double *,
+void calcRapRperi(int,double *,double *,double *,double *,double *,
 		  int,struct actionAngleArg *);
 void calcZmax(int,double *,double *,double *,double *,int,
 	      struct actionAngleArg *);
@@ -121,10 +112,15 @@ void actionAngleAdiabatic_actions(int ndata,
   double *zmax= (double *) malloc ( ndata * sizeof(double) );
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
   calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
-  // npot,actionAngleArgs,10);
-  //calcRapRperi(ndata,umin,umax,ux,pux,E,Lz,
-  //calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
-  //npot,actionAngleArgs,10);
+  //Adjust planar effective potential for gamma
+   for (ii=0; ii < ndata; ii++){
+     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+     *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
+       - 0.5 * *(vT+ii) * *(vT+ii);
+   }
+   calcRapRperi(ndata,jr,jz,R,ER,Lz,npot,actionAngleArgs);
+   //calcJR(ndata,jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
+   //npot,actionAngleArgs,10);
 }
 /*
 void calcJRAdiabatic(int ndata,
@@ -213,28 +209,18 @@ void calcJzAdiabatic(int ndata,
   }
   gsl_integration_glfixed_table_free ( T );
 }
-/*
-void calcUminUmax(int ndata,
-		  double * umin,
-		  double * umax,
-		  double * ux,
-		  double * pux,
-		  double * E,
+void calcRapRperi(int ndata,
+		  double * rperi,
+		  double * rap,
+		  double * R,
+		  double * ER,
 		  double * Lz,
-		  double * I3U,
-		  double delta,
-		  double * u0,
-		  double * sinh2u0,
-		  double * v0,
-		  double * sin2v0,
-		  double * potu0v0,
 		  int nargs,
 		  struct actionAngleArg * actionAngleArgs){
   int ii;
   double peps, meps;
   gsl_function JRRoot;
-  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
-  params->delta= delta;
+  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) malloc ( sizeof (struct JRAdiabaticArg) );
   params->nargs= nargs;
   params->actionAngleArgs= actionAngleArgs;
   //Setup solver
@@ -242,43 +228,37 @@ void calcUminUmax(int ndata,
   int iter, max_iter = 100;
   const gsl_root_fsolver_type *T;
   gsl_root_fsolver *s;
-  double u_lo, u_hi;
+  double R_lo, R_hi;
   T = gsl_root_fsolver_brent;
   s = gsl_root_fsolver_alloc (T);
-  JRRoot.function = &JRStaeckelIntegrandSquared;
+  JRRoot.function = &JRAdiabaticIntegrandSquared;
   for (ii=0; ii < ndata; ii++){
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3U= *(I3U+ii);
-    params->u0= *(u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->v0= *(v0+ii);
-    params->sin2v0= *(sin2v0+ii);
-    params->potu0v0= *(potu0v0+ii);
+    params->ER= *(ER+ii);
+    params->Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
     JRRoot.params = params;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(&JRRoot,*(ux+ii))) < 0.0000001){ //we are at umin or umax
-      peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.0000001);
-      meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.0000001);
+    if ( fabs(GSL_FN_EVAL(&JRRoot,*(R+ii))) < 0.0000001){ //we are at rap or rperi
+      peps= GSL_FN_EVAL(&JRRoot,*(R+ii)+0.0000001);
+      meps= GSL_FN_EVAL(&JRRoot,*(R+ii)-0.0000001);
       if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
-	*(umin+ii) = *(ux+ii);
-	*(umax+ii) = *(ux+ii);
+	*(rperi+ii) = *(R+ii);
+	*(rap+ii) = *(R+ii);
       }
       else if ( peps < 0. && meps > 0. ) {//umax
-	*(umax+ii)= *(ux+ii);
-	u_lo= 0.9 * (*(ux+ii) - 0.0000001);
-	u_hi= *(ux+ii) - 0.00000001;
-	while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
-	  u_hi= u_lo; //this makes sure that brent evaluates using previous
-	  u_lo*= 0.9;
+	*(rap+ii)= *(R+ii);
+	R_lo= 0.9 * (*(R+ii) - 0.0000001);
+	R_hi= *(R+ii) - 0.00000001;
+	while ( GSL_FN_EVAL(&JRRoot,R_lo) >= 0. && R_lo > 0.000000001){
+	  R_hi= R_lo; //this makes sure that brent evaluates using previous
+	  R_lo*= 0.9;
 	}
 	//Find root
 	gsl_set_error_handler_off();
-	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	status = gsl_root_fsolver_set (s, &JRRoot, R_lo, R_hi);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
+	  *(rperi+ii) = -9999.99;
+	  *(rap+ii) = -9999.99;
 	  continue;
 	}
 	iter= 0;
@@ -286,35 +266,35 @@ void calcUminUmax(int ndata,
 	  {
 	    iter++;
 	    status = gsl_root_fsolver_iterate (s);
-	    u_lo = gsl_root_fsolver_x_lower (s);
-	    u_hi = gsl_root_fsolver_x_upper (s);
-	    status = gsl_root_test_interval (u_lo, u_hi,
+	    R_lo = gsl_root_fsolver_x_lower (s);
+	    R_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_test_interval (R_lo, R_hi,
 					     9.9999999999999998e-13,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
+	  *(rperi+ii) = -9999.99;
+	  *(rap+ii) = -9999.99;
 	  continue;
 	}
 	gsl_set_error_handler (NULL);
-	*(umin+ii) = gsl_root_fsolver_root (s);
+	*(rperi+ii) = gsl_root_fsolver_root (s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
-	*(umin+ii)= *(ux+ii);
-	u_lo= *(ux+ii) + 0.0000001;
-	u_hi= 1.1 * (*(ux+ii) + 0.0000001);
-	while ( GSL_FN_EVAL(&JRRoot,u_hi) >= 0. ) {
-	  u_lo= u_hi; //this makes sure that brent evaluates using previous
-	  u_hi*= 1.1;
+	*(rperi+ii)= *(R+ii);
+	R_lo= *(R+ii) + 0.0000001;
+	R_hi= 1.1 * (*(R+ii) + 0.0000001);
+	while ( GSL_FN_EVAL(&JRRoot,R_hi) >= 0. ) {
+	  R_lo= R_hi; //this makes sure that brent evaluates using previous
+	  R_hi*= 1.1;
 	}
 	//Find root
 	gsl_set_error_handler_off();
-	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	status = gsl_root_fsolver_set (s, &JRRoot, R_lo, R_hi);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
+	  *(rperi+ii) = -9999.99;
+	  *(rap+ii) = -9999.99;
 	  continue;
 	}
 	iter= 0;
@@ -322,36 +302,36 @@ void calcUminUmax(int ndata,
 	  {
 	    iter++;
 	    status = gsl_root_fsolver_iterate (s);
-	    u_lo = gsl_root_fsolver_x_lower (s);
-	    u_hi = gsl_root_fsolver_x_upper (s);
-	    status = gsl_root_test_interval (u_lo, u_hi,
+	    R_lo = gsl_root_fsolver_x_lower (s);
+	    R_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_test_interval (R_lo, R_hi,
 					     9.9999999999999998e-13,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
+	  *(rperi+ii) = -9999.99;
+	  *(rap+ii) = -9999.99;
 	  continue;
 	}
 	gsl_set_error_handler (NULL);
-	*(umax+ii) = gsl_root_fsolver_root (s);
+	*(rap+ii) = gsl_root_fsolver_root (s);
       }
     }
     else {
-      u_lo= 0.9 * *(ux+ii);
-      u_hi= *(ux+ii);
-      while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
-	u_hi= u_lo; //this makes sure that brent evaluates using previous
-	u_lo*= 0.9;
+      R_lo= 0.9 * *(R+ii);
+      R_hi= *(R+ii);
+      while ( GSL_FN_EVAL(&JRRoot,R_lo) >= 0. && R_lo > 0.000000001){
+	R_hi= R_lo; //this makes sure that brent evaluates using previous
+	R_lo*= 0.9;
       }
-      u_hi= (u_lo < 0.9 * *(ux+ii)) ? u_lo / 0.9 / 0.9: *(ux+ii);
+      R_hi= (R_lo < 0.9 * *(R+ii)) ? R_lo / 0.9 / 0.9: *(R+ii);
       //Find root
       gsl_set_error_handler_off();
-      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set (s, &JRRoot, R_lo, R_hi);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
+	*(rperi+ii) = -9999.99;
+	*(rap+ii) = -9999.99;
 	continue;
       }
       iter= 0;
@@ -359,34 +339,34 @@ void calcUminUmax(int ndata,
 	{
 	  iter++;
 	  status = gsl_root_fsolver_iterate (s);
-	  u_lo = gsl_root_fsolver_x_lower (s);
-	  u_hi = gsl_root_fsolver_x_upper (s);
-	  status = gsl_root_test_interval (u_lo, u_hi,
+	  R_lo = gsl_root_fsolver_x_lower (s);
+	  R_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (R_lo, R_hi,
 					   9.9999999999999998e-13,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
+	*(rperi+ii) = -9999.99;
+	*(rap+ii) = -9999.99;
 	continue;
       }
       gsl_set_error_handler (NULL);
-      *(umin+ii) = gsl_root_fsolver_root (s);
+      *(rperi+ii) = gsl_root_fsolver_root (s);
       //Find starting points for maximum
-      u_lo= *(ux+ii);
-      u_hi= 1.1 * *(ux+ii);
-      while ( GSL_FN_EVAL(&JRRoot,u_hi) > 0.) {
-	u_lo= u_hi; //this makes sure that brent evaluates using previous
-	u_hi*= 1.1;
+      R_lo= *(R+ii);
+      R_hi= 1.1 * *(R+ii);
+      while ( GSL_FN_EVAL(&JRRoot,R_hi) > 0.) {
+	R_lo= R_hi; //this makes sure that brent evaluates using previous
+	R_hi*= 1.1;
       }
-      u_lo= (u_hi > 1.1 * *(ux+ii)) ? u_hi / 1.1 / 1.1: *(ux+ii);
+      R_lo= (R_hi > 1.1 * *(R+ii)) ? R_hi / 1.1 / 1.1: *(R+ii);
       //Find root
       gsl_set_error_handler_off();
-      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set (s, &JRRoot, R_lo, R_hi);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
+	*(rperi+ii) = -9999.99;
+	*(rap+ii) = -9999.99;
 	continue;
       }
       iter= 0;
@@ -394,25 +374,24 @@ void calcUminUmax(int ndata,
 	{
 	  iter++;
 	  status = gsl_root_fsolver_iterate (s);
-	  u_lo = gsl_root_fsolver_x_lower (s);
-	  u_hi = gsl_root_fsolver_x_upper (s);
-	  status = gsl_root_test_interval (u_lo, u_hi,
+	  R_lo = gsl_root_fsolver_x_lower (s);
+	  R_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (R_lo, R_hi,
 					   9.9999999999999998e-13,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
+	*(rperi+ii) = -9999.99;
+	*(rap+ii) = -9999.99;
 	continue;
       }
       gsl_set_error_handler (NULL);
-      *(umax+ii) = gsl_root_fsolver_root (s);
+      *(rap+ii) = gsl_root_fsolver_root (s);
     }
   }
  gsl_root_fsolver_free (s);    
 }
-*/
 void calcZmax(int ndata,
 	      double * zmax,
 	      double * z,
@@ -479,22 +458,15 @@ void calcZmax(int ndata,
   }
   gsl_root_fsolver_free (s);    
 }
-/*
 double JRAdiabaticIntegrand(double R,
 			   void * p){
   return sqrt(JRAdiabaticIntegrandSquared(R,p));
 }
 double JRAdiabaticIntegrandSquared(double R,
 				  void * p){
-  struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
-  double sinh2u= sinh(u) * sinh(u);
-  double dU= (sinh2u+params->sin2v0)
-    *evaluatePotentialsUV(u,params->v0,params->delta,
-			  params->nargs,params->actionAngleArgs)
-    - (params->sinh2u0+params->sin2v0)*params->potu0v0;
-  return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
+  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) p;
+  return params->ER - evaluatePotentials(R,0.,params->nargs,params->actionAngleArgs) - params->Lz22 / R / R;
 }
-*/
 double JzAdiabaticIntegrand(double z,
 			    void * p){
   return sqrt(JzAdiabaticIntegrandSquared(z,p));
