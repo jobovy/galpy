@@ -223,7 +223,13 @@ class actionAngleAdiabaticGrid():
                 jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
                                 *(numpy.exp(self._jzEzmaxInterp(R[indxc]))-10.**-5.))
             if numpy.sum(indx) > 0:
-                jzindiv= numpy.empty(numpy.sum(indx))
+                jz[indx]= self._aA.Jz(R[indx],
+                                      numpy.zeros(numpy.sum(indx)),
+                                      numpy.ones(numpy.sum(indx)),#these two r dummies
+                                      numpy.zeros(numpy.sum(indx)),
+                                      numpy.sqrt(2.*Ez[indx]),
+                                      **kwargs)[0]
+            """
                 for ii in range(numpy.sum(indx)):
                     try:
                         jzindiv[ii]= self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
@@ -231,7 +237,8 @@ class actionAngleAdiabaticGrid():
                                                  **kwargs)[0]
                     except UnboundError:
                         jzindiv[ii]= numpy.nan
-                jz[indx]= jzindiv
+            jz[indx]= jzindiv
+            """
         else:
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
                 if _PRINTOUTSIDEGRID:
