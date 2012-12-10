@@ -718,19 +718,6 @@ double u0Equation(double u, void * p){
 				    params->nargs,params->actionAngleArgs);
   return -(params->E*sinh2u-dU-params->Lz22delta/sinh2u);
 }  
-double evaluatePotentials(double R, double Z, 
-			  int nargs, struct actionAngleArg * actionAngleArgs){
-  int ii;
-  double pot= 0.;
-  for (ii=0; ii < nargs; ii++){
-    pot+= actionAngleArgs->potentialEval(R,Z,0.,0.,
-					 actionAngleArgs->nargs,
-					 actionAngleArgs->args);
-    actionAngleArgs++;
-  }
-  actionAngleArgs-= nargs;
-  return pot;
-}
 double evaluatePotentialsUV(double u, double v, double delta,
 			    int nargs, 
 			    struct actionAngleArg * actionAngleArgs){
