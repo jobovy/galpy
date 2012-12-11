@@ -56,6 +56,7 @@ class actionAngleVertical(actionAngle):
         if hasattr(self,'_Jz'):
             return self._Jz
         zmax= self.calczmax()
+        if zmax == -9999.99: return nu.array([9999.99,nu.nan])
         Ez= calcEz(self._z,self._vz,self._verticalpot)
         self._Jz= (2.*nu.array(integrate.quad(_JzIntegrand,0.,zmax,
                                               args=(Ez,self._verticalpot),
@@ -134,9 +135,13 @@ class actionAngleVertical(actionAngle):
             zmax= nu.fabs(self._z)
         else:
             zstart= self._z
-            zend= _zmaxFindStart(self._z,Ez,self._verticalpot)
-            zmax= optimize.brentq(_zmaxEq,zstart,zend,
-                                  (Ez,self._verticalpot))
+            try:
+                zend= _zmaxFindStart(self._z,Ez,self._verticalpot)
+            except OverflowError:
+                zmax= -9999.99
+            else:
+                zmax= optimize.brentq(_zmaxEq,zstart,zend,
+                                      (Ez,self._verticalpot))
         self._zmax= zmax
         return self._zmax
 
@@ -204,5 +209,7 @@ def _zmaxFindStart(z,Ez,pot):
     else: ztry= 2.*nu.fabs(z)
     while (Ez-potentialVertical(ztry,pot)) > 0.:
         ztry*= 2.
+        if ztry > 100.:
+            raise OverflowError
     return ztry
 
