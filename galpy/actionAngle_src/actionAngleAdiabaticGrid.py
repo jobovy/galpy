@@ -212,7 +212,7 @@ class actionAngleAdiabaticGrid():
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(R))
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1:
+            if len(R) == 1 and not isinstance(thisEzZmax,numpy.ndarray):
                 thisEzZmax= numpy.array([thisEzZmax])
             indx= (R > self._Rmax)
             indx+= (R < self._Rmin)
@@ -256,7 +256,7 @@ class actionAngleAdiabaticGrid():
         thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
         thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1:
+            if len(R) == 1 and not isinstance(thisRL,numpy.ndarray):
                 thisRL= numpy.array([thisRL])
                 thisERRL= numpy.array([thisERRL])
                 thisERRa= numpy.array([thisERRa])
