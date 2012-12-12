@@ -5,6 +5,7 @@ from scipy import optimize, interpolate, integrate, linalg
 from galpy import potential
 from galpy import actionAngle
 _NSIGMA=4
+_DEFAULTNGL=20
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
@@ -282,9 +283,12 @@ class quasiisothermaldf:
         return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
                                  0.,1.)[0]
 
-    def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+    def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                            _rawgausssamples=False,
+                           gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
+                           gh=False,
+                           ghgl=False,
                            **kwargs):
         """
         NAME:
@@ -318,7 +322,97 @@ class quasiisothermaldf:
             *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        if mc:
+        if gh:
+            mvT= thisvc-va
+            #Use Gauss-Hermite integration
+            ngh= 5
+            ghx, ghw= numpy.polynomial.hermite.hermgauss(ngh)
+            #Evaluate everywhere
+            vRgh= ghx*numpy.sqrt(2.)*sigmaR1
+            vTgh= ghx*numpy.sqrt(2.)*sigmaR1*gamma+mvT
+            vzgh= ghx*numpy.sqrt(2.)*sigmaz1
+            #Tile everything
+            vTgh= numpy.tile(vTgh,(ngh,ngh,1)).T
+            vRgh= numpy.tile(numpy.reshape(vRgh,(1,ngh)).T,(ngh,1,ngh))
+            vzgh= numpy.tile(vzgh,(ngh,ngh,1))
+            vTghw= numpy.tile(ghw,(ngh,ngh,1)).T #also tile weights
+            vRghw= numpy.tile(numpy.reshape(ghw,(1,ngh)).T,(ngh,1,ngh))
+            vzghw= numpy.tile(ghw,(ngh,ngh,1))
+            #evaluate
+            logqeval= numpy.reshape(self(R+numpy.zeros(ngh*ngh*ngh),
+                                         vRgh.flatten(),
+                                         vTgh.flatten(),
+                                         z+numpy.zeros(ngh*ngh*ngh),
+                                         vzgh.flatten(),
+                                         log=True),
+                                    (ngh,ngh,ngh))
+            logqeval-= vRgh**2./2./sigmaR1**2.+vzgh**2./2./sigmaz1**2.\
+                +(vTgh-mvT)**2./2./sigmaR1**2./gamma**2.
+            return numpy.sum(numpy.exp(logqeval)*vRgh**n*vTgh**m*vzgh**o
+                             *vTghw*vRghw*vzghw)*sigmaR1**2.*sigmaz1
+        elif ghgl:
+            #Use Gauss-Hermite integration for vR and vz, Gauss-Legendre for vT
+            ngh= 20
+            ngl= 50
+            ghx, ghw= numpy.polynomial.hermite.hermgauss(ngh)
+            glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            #Evaluate everywhere
+            vRgh= ghx*numpy.sqrt(2.)*sigmaR1
+            vTgl= 1.5/2.*(glx+1.)
+            vzgh= ghx*numpy.sqrt(2.)*sigmaz1
+            #Tile everything
+            vTgl= numpy.tile(vTgl,(ngh,ngh,1)).T
+            vRgh= numpy.tile(numpy.reshape(vRgh,(1,ngh)).T,(ngl,1,ngh))
+            vzgh= numpy.tile(vzgh,(ngl,ngh,1))
+            vTglw= numpy.tile(glw,(ngh,ngh,1)).T #also tile weights
+            vRghw= numpy.tile(numpy.reshape(ghw,(1,ngh)).T,(ngl,1,ngh))
+            vzghw= numpy.tile(ghw,(ngl,ngh,1))
+            #evaluate
+            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngh*ngh),
+                                         vRgh.flatten(),
+                                         vTgl.flatten(),
+                                         z+numpy.zeros(ngl*ngh*ngh),
+                                         vzgh.flatten(),
+                                         log=True),
+                                    (ngl,ngh,ngh))
+            logqeval-= vRgh**2./2./sigmaR1**2.+vzgh**2./2./sigmaz1**2.
+            return numpy.sum(numpy.exp(logqeval)*vRgh**n*vTgl**m*vzgh**o
+                             *vTglw*vRghw*vzghw)*sigmaR1*sigmaz1
+        elif gl:
+            if not _glqeval is None and ngl != _glqeval.shape[0]:
+                _glqeval= None
+            #Use Gauss-Legendre integration for all
+            glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            #Evaluate everywhere
+            vRgl= 3./2.*(glx+1.)
+            vTgl= 1.5/2.*(glx+1.)
+            vzgl= 3./2.*(glx+1.)
+            #Tile everything
+            vTgl= numpy.tile(vTgl,(ngl,ngl,1)).T
+            vRgl= numpy.tile(numpy.reshape(vRgl,(1,ngl)).T,(ngl,1,ngl))
+            vzgl= numpy.tile(vzgl,(ngl,ngl,1))
+            vTglw= numpy.tile(glw,(ngl,ngl,1)).T #also tile weights
+            vRglw= numpy.tile(numpy.reshape(glw,(1,ngl)).T,(ngl,1,ngl))
+            vzglw= numpy.tile(glw,(ngl,ngl,1))
+            #evaluate
+            if _glqeval is None:
+                logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl*ngl),
+                                             vRgl.flatten(),
+                                             vTgl.flatten(),
+                                             z+numpy.zeros(ngl*ngl*ngl),
+                                             vzgl.flatten(),
+                                             log=True),
+                                        (ngl,ngl,ngl))
+            else:
+                logqeval= _glqeval
+            if _returngl:
+                return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
+                                  *vTglw*vRglw*vzglw),
+                        logqeval)
+            else:
+                return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
+                                 *vTglw*vRglw*vzglw)
+        elif mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:
                 vrs= numpy.random.normal(size=nmc)
@@ -422,7 +516,8 @@ class quasiisothermaldf:
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**2.*gamma*sigmaz1
         
-    def surfacemass(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def surfacemass(self,R,z,nsigma=None,mc=False,nmc=10000,
+                    gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
            surfacemass
@@ -436,6 +531,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            surface mass at (R,z)
         HISTORY:
@@ -443,9 +540,11 @@ class quasiisothermaldf:
         """
         return self.vmomentsurfacemass(R,z,0.,0.,0.,
                                        nsigma=nsigma,mc=mc,nmc=nmc,
+                                       gl=gl,ngl=ngl,
                                        **kwargs)
     
-    def sigmaR2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def sigmaR2(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
            sigmaR2
@@ -459,6 +558,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            sigma_R^2
         HISTORY:
@@ -472,6 +573,15 @@ class quasiisothermaldf:
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
         else:
             return (self.vmomentsurfacemass(R,z,2.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
@@ -480,7 +590,8 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
-    def sigmaRz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def sigmaRz(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
            sigmaRz
@@ -494,6 +605,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            sigma_Rz^2
         HISTORY:
@@ -507,6 +620,15 @@ class quasiisothermaldf:
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,1.,0.,1.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
         else:
             return (self.vmomentsurfacemass(R,z,1.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
@@ -515,10 +637,11 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
-    def sigmaz2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def sigmaz2(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
-           sigmaR2
+           sigmaz2
         PURPOSE:
            calculate sigma_z^2 by marginalizing over velocity
         INPUT:
@@ -529,6 +652,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            sigma_z^2
         HISTORY:
@@ -542,6 +667,15 @@ class quasiisothermaldf:
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,0.,2.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
         else:
             return (self.vmomentsurfacemass(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
@@ -550,7 +684,8 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
-    def meanvT(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def meanvT(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
            meanvT
@@ -564,6 +699,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            meanvT
         HISTORY:
@@ -577,6 +714,15 @@ class quasiisothermaldf:
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,1.,0.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
         else:
             return (self.vmomentsurfacemass(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
@@ -585,7 +731,8 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
-    def sigmaT2(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
+    def sigmaT2(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
            sigmaT2
@@ -599,6 +746,8 @@ class quasiisothermaldf:
            scipy.integrate.tplquad kwargs epsabs and epsrel
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            sigma_T^2
         HISTORY:
@@ -613,10 +762,24 @@ class quasiisothermaldf:
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
             return self.vmomentsurfacemass(R,z,0.,2.,0.,
-                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
-                                                             **kwargs)/surfmass\
-                                                             -mvt**2.
+                                           **kwargs)/surfmass\
+                                           -mvt**2.
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            mvt= self.vmomentsurfacemass(R,z,0.,1.,0.,
+                                         ngl=ngl,gl=gl,
+                                         _glqeval=glqeval,
+                                         **kwargs)/surfmass
+            return self.vmomentsurfacemass(R,z,0.,2.,0.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass-mvt**2.
+
         else:
             surfmass= self.vmomentsurfacemass(R,z,0.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,
