@@ -406,11 +406,11 @@ void calcZmax(int ndata,
     JzRoot.params = params;
     //Find starting points for minimum
     if ( fabs(GSL_FN_EVAL(&JzRoot,*(z+ii))) < 0.0000001){ //we are at zmax
-      *(zmax+ii)= *(z+ii);
+      *(zmax+ii)= fabs( *(z+ii) );
     }
     else {
-      z_lo= *(z+ii);
-      z_hi= ( *(z+ii) == 0. ) ? 0.1: 1.1 * *(z+ii);
+      z_lo= fabs ( *(z+ii) );
+      z_hi= ( *(z+ii) == 0. ) ? 0.1: 1.1 * fabs( *(z+ii) );
       while ( GSL_FN_EVAL(&JzRoot,z_hi) >= 0. ){
 	z_lo= z_hi; //this makes sure that brent evaluates using previous
 	z_hi*= 1.1;
