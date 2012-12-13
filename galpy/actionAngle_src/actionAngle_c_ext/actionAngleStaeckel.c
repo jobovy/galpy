@@ -602,8 +602,14 @@ void calcVmin(int ndata,
     if ( fabs(GSL_FN_EVAL(&JzRoot,*(vx+ii))) < 0.0000001) //we are at vmin
       *(vmin+ii)= ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii);
     else {
-      v_lo= 0.9 * *(vx+ii);
-      v_hi= *(vx+ii);
+      if ( *(vx+ii) > 0.5 * M_PI ){
+	v_lo= 0.9 * ( M_PI - *(vx+ii) );
+	v_hi= M_PI - *(vx+ii);
+      }
+      else {
+	v_lo= 0.9 * *(vx+ii);
+	v_hi= *(vx+ii);
+      }
       while ( GSL_FN_EVAL(&JzRoot,v_lo) >= 0. && v_lo > 0.000000001){
 	v_hi= v_lo; //this makes sure that brent evaluates using previous
 	v_lo*= 0.9;
