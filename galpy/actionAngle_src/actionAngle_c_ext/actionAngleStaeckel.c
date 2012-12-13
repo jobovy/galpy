@@ -406,16 +406,16 @@ void calcUminUmax(int ndata,
     JRRoot.params = params;
     //Find starting points for minimum
     if ( fabs(GSL_FN_EVAL(&JRRoot,*(ux+ii))) < 0.0000001){ //we are at umin or umax
-      peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.0000001);
-      meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.0000001);
+      peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.000001);
+      meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.000001);
       if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
 	*(umin+ii) = *(ux+ii);
 	*(umax+ii) = *(ux+ii);
       }
       else if ( peps < 0. && meps > 0. ) {//umax
 	*(umax+ii)= *(ux+ii);
-	u_lo= 0.9 * (*(ux+ii) - 0.0000001);
-	u_hi= *(ux+ii) - 0.00000001;
+	u_lo= 0.9 * (*(ux+ii) - 0.000001);
+	u_hi= *(ux+ii) - 0.0000001;
 	while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
 	  u_hi= u_lo; //this makes sure that brent evaluates using previous
 	  u_lo*= 0.9;
@@ -450,8 +450,8 @@ void calcUminUmax(int ndata,
       }
       else if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
-	u_lo= *(ux+ii) + 0.0000001;
-	u_hi= 1.1 * (*(ux+ii) + 0.0000001);
+	u_lo= *(ux+ii) + 0.000001;
+	u_hi= 1.1 * (*(ux+ii) + 0.000001);
 	while ( GSL_FN_EVAL(&JRRoot,u_hi) >= 0. ) {
 	  u_lo= u_hi; //this makes sure that brent evaluates using previous
 	  u_hi*= 1.1;
@@ -599,9 +599,8 @@ void calcVmin(int ndata,
     params->potupi2= *(potupi2+ii);
     JzRoot.params = params;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(&JzRoot,*(vx+ii))) < 0.0000001){ //we are at vmin
-      *(vmin+ii)= *(vx+ii);
-    }
+    if ( fabs(GSL_FN_EVAL(&JzRoot,*(vx+ii))) < 0.0000001) //we are at vmin
+      *(vmin+ii)= ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii);
     else {
       v_lo= 0.9 * *(vx+ii);
       v_hi= *(vx+ii);
