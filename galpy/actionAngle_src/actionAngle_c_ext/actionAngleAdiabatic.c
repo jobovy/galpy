@@ -115,6 +115,13 @@ void actionAngleAdiabatic_actions(int ndata,
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
+  free(actionAngleArgs);
+  free(ER);
+  free(Ez);
+  free(Lz);
+  free(rperi);
+  free(rap);
+  free(zmax);
 }
 void calcJRAdiabatic(int ndata,
 		     double * jr,
@@ -150,6 +157,7 @@ void calcJRAdiabatic(int ndata,
     *(jr+ii)= gsl_integration_glfixed (&JRInt,*(rperi+ii),*(rap+ii),T)
       * sqrt(2.) / M_PI;
   }
+  free(params);
   gsl_integration_glfixed_table_free ( T );
 }
 void calcJzAdiabatic(int ndata,
@@ -186,6 +194,7 @@ void calcJzAdiabatic(int ndata,
       * 2 * sqrt(2.) / M_PI;
   }
   gsl_integration_glfixed_table_free ( T );
+  free(params);
 }
 void calcRapRperi(int ndata,
 		  double * rperi,
@@ -376,7 +385,8 @@ void calcRapRperi(int ndata,
       *(rap+ii) = gsl_root_fsolver_root (s);
     }
   }
- gsl_root_fsolver_free (s);    
+ gsl_root_fsolver_free (s);
+ free(params);
 }
 void calcZmax(int ndata,
 	      double * zmax,
@@ -443,6 +453,7 @@ void calcZmax(int ndata,
     }
   }
   gsl_root_fsolver_free (s);    
+  free(params);
 }
 double JRAdiabaticIntegrand(double R,
 			   void * p){
