@@ -13,7 +13,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#define CHUNKSIZE 1
+#define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
 #include <actionAngle.h>
@@ -227,6 +227,8 @@ void actionAngleStaeckel_actions(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
