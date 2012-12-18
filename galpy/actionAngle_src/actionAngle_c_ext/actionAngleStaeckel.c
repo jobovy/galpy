@@ -317,7 +317,6 @@ void calcJRStaeckel(int ndata,
   nthreads = 1;
 #endif
   gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
-  //gsl_function JRInt;
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( nthreads * sizeof (struct JRStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->delta= delta;
@@ -377,16 +376,31 @@ void calcJzStaeckel(int ndata,
 		    int nargs,
 		    struct actionAngleArg * actionAngleArgs,
 		    int order){
-  int ii;
-  gsl_function JzInt;
-  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( sizeof (struct JzStaeckelArg) );
-  params->delta= delta;
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
+  gsl_function * JzInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( nthreads * sizeof (struct JzStaeckelArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->delta= delta;
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JzInt.function = &JzStaeckelIntegrand;
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii)							\
+  shared(jz,vmin,JzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     if ( *(vmin+ii) == -9999.99 ){
       *(jz+ii)= 9999.99;
       continue;
@@ -396,18 +410,20 @@ void calcJzStaeckel(int ndata,
       continue;
     }
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3V= *(I3V+ii);
-    params->u0= *(u0+ii);
-    params->cosh2u0= *(cosh2u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->potupi2= *(potupi2+ii);
-    JzInt.params = params;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    (params+tid)->I3V= *(I3V+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->cosh2u0= *(cosh2u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->potupi2= *(potupi2+ii);
+    (JzInt+tid)->function = &JzStaeckelIntegrand;
+    (JzInt+tid)->params = params+tid;
     //Integrate
-    *(jz+ii)= gsl_integration_glfixed (&JzInt,*(vmin+ii),M_PI/2.,T)
+    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,*(vmin+ii),M_PI/2.,T)
       * 2 * sqrt(2.) * delta / M_PI;
   }
+  free(JzInt);
   free(params);
   gsl_integration_glfixed_table_free ( T );
 }
@@ -427,37 +443,53 @@ void calcUminUmax(int ndata,
 		  double * potu0v0,
 		  int nargs,
 		  struct actionAngleArg * actionAngleArgs){
-  int ii;
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
   double peps, meps;
-  gsl_function JRRoot;
-  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
-  params->delta= delta;
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  gsl_function * JRRoot= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( nthreads * sizeof (struct JRStaeckelArg) );
   //Setup solver
   int status;
   int iter, max_iter = 100;
   const gsl_root_fsolver_type *T;
-  gsl_root_fsolver *s;
+  struct pragmasolver *s= (struct pragmasolver *) malloc ( nthreads * sizeof (struct pragmasolver) );;
   double u_lo, u_hi;
   T = gsl_root_fsolver_brent;
-  s = gsl_root_fsolver_alloc (T);
-  JRRoot.function = &JRStaeckelIntegrandSquared;
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->delta= delta;
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (s+tid)->s= gsl_root_fsolver_alloc (T);
+  }
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii,iter,status,u_lo,u_hi,meps,peps)				\
+  shared(umin,umax,JRRoot,params,s,ux,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0,max_iter)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3U= *(I3U+ii);
-    params->u0= *(u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->v0= *(v0+ii);
-    params->sin2v0= *(sin2v0+ii);
-    params->potu0v0= *(potu0v0+ii);
-    JRRoot.params = params;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    (params+tid)->I3U= *(I3U+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->v0= *(v0+ii);
+    (params+tid)->sin2v0= *(sin2v0+ii);
+    (params+tid)->potu0v0= *(potu0v0+ii);
+    (JRRoot+tid)->function = &JRStaeckelIntegrandSquared;
+    (JRRoot+tid)->params = params+tid;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(&JRRoot,*(ux+ii))) < 0.0000001){ //we are at umin or umax
-      peps= GSL_FN_EVAL(&JRRoot,*(ux+ii)+0.000001);
-      meps= GSL_FN_EVAL(&JRRoot,*(ux+ii)-0.000001);
+    if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(ux+ii))) < 0.0000001){ //we are at umin or umax
+      peps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)+0.000001);
+      meps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)-0.000001);
       if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
 	*(umin+ii) = *(ux+ii);
 	*(umax+ii) = *(ux+ii);
@@ -466,13 +498,13 @@ void calcUminUmax(int ndata,
 	*(umax+ii)= *(ux+ii);
 	u_lo= 0.9 * (*(ux+ii) - 0.000001);
 	u_hi= *(ux+ii) - 0.0000001;
-	while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
+	while ( GSL_FN_EVAL(JRRoot+tid,u_lo) >= 0. && u_lo > 0.000000001){
 	  u_hi= u_lo; //this makes sure that brent evaluates using previous
 	  u_lo*= 0.9;
 	}
 	//Find root
 	gsl_set_error_handler_off();
-	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
@@ -482,9 +514,9 @@ void calcUminUmax(int ndata,
 	do
 	  {
 	    iter++;
-	    status = gsl_root_fsolver_iterate (s);
-	    u_lo = gsl_root_fsolver_x_lower (s);
-	    u_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	    status = gsl_root_test_interval (u_lo, u_hi,
 					     9.9999999999999998e-13,
 					     4.4408920985006262e-16);
@@ -496,19 +528,19 @@ void calcUminUmax(int ndata,
 	  continue;
 	}
 	gsl_set_error_handler (NULL);
-	*(umin+ii) = gsl_root_fsolver_root (s);
+	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
 	u_lo= *(ux+ii) + 0.000001;
 	u_hi= 1.1 * (*(ux+ii) + 0.000001);
-	while ( GSL_FN_EVAL(&JRRoot,u_hi) >= 0. ) {
+	while ( GSL_FN_EVAL(JRRoot+tid,u_hi) >= 0. ) {
 	  u_lo= u_hi; //this makes sure that brent evaluates using previous
 	  u_hi*= 1.1;
 	}
 	//Find root
 	gsl_set_error_handler_off();
-	status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
@@ -518,9 +550,9 @@ void calcUminUmax(int ndata,
 	do
 	  {
 	    iter++;
-	    status = gsl_root_fsolver_iterate (s);
-	    u_lo = gsl_root_fsolver_x_lower (s);
-	    u_hi = gsl_root_fsolver_x_upper (s);
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	    status = gsl_root_test_interval (u_lo, u_hi,
 					     9.9999999999999998e-13,
 					     4.4408920985006262e-16);
@@ -532,20 +564,20 @@ void calcUminUmax(int ndata,
 	  continue;
 	}
 	gsl_set_error_handler (NULL);
-	*(umax+ii) = gsl_root_fsolver_root (s);
+	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
     else {
       u_lo= 0.9 * *(ux+ii);
       u_hi= *(ux+ii);
-      while ( GSL_FN_EVAL(&JRRoot,u_lo) >= 0. && u_lo > 0.000000001){
+      while ( GSL_FN_EVAL(JRRoot+tid,u_lo) >= 0. && u_lo > 0.000000001){
 	u_hi= u_lo; //this makes sure that brent evaluates using previous
 	u_lo*= 0.9;
       }
       u_hi= (u_lo < 0.9 * *(ux+ii)) ? u_lo / 0.9 / 0.9: *(ux+ii);
       //Find root
       gsl_set_error_handler_off();
-      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
 	*(umin+ii) = -9999.99;
 	*(umax+ii) = -9999.99;
@@ -555,9 +587,9 @@ void calcUminUmax(int ndata,
       do
 	{
 	  iter++;
-	  status = gsl_root_fsolver_iterate (s);
-	  u_lo = gsl_root_fsolver_x_lower (s);
-	  u_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_fsolver_iterate ((s+tid)->s);
+	  u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	  u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	  status = gsl_root_test_interval (u_lo, u_hi,
 					   9.9999999999999998e-13,
 					   4.4408920985006262e-16);
@@ -569,18 +601,18 @@ void calcUminUmax(int ndata,
 	continue;
       }
       gsl_set_error_handler (NULL);
-      *(umin+ii) = gsl_root_fsolver_root (s);
+      *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
       u_hi= 1.1 * *(ux+ii);
-      while ( GSL_FN_EVAL(&JRRoot,u_hi) > 0.) {
+      while ( GSL_FN_EVAL(JRRoot+tid,u_hi) > 0.) {
 	u_lo= u_hi; //this makes sure that brent evaluates using previous
 	u_hi*= 1.1;
       }
       u_lo= (u_hi > 1.1 * *(ux+ii)) ? u_hi / 1.1 / 1.1: *(ux+ii);
       //Find root
       gsl_set_error_handler_off();
-      status = gsl_root_fsolver_set (s, &JRRoot, u_lo, u_hi);
+      status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
 	*(umin+ii) = -9999.99;
 	*(umax+ii) = -9999.99;
@@ -590,9 +622,9 @@ void calcUminUmax(int ndata,
       do
 	{
 	  iter++;
-	  status = gsl_root_fsolver_iterate (s);
-	  u_lo = gsl_root_fsolver_x_lower (s);
-	  u_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_fsolver_iterate ((s+tid)->s);
+	  u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	  u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	  status = gsl_root_test_interval (u_lo, u_hi,
 					   9.9999999999999998e-13,
 					   4.4408920985006262e-16);
@@ -604,11 +636,15 @@ void calcUminUmax(int ndata,
 	continue;
       }
       gsl_set_error_handler (NULL);
-      *(umax+ii) = gsl_root_fsolver_root (s);
+      *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
+    fflush(stdout);
   }
+  for (tid=0; tid < nthreads; tid++)
+    gsl_root_fsolver_free( (s+tid)->s);
+  free(s);
+  free(JRRoot);
   free(params);
- gsl_root_fsolver_free (s);    
 }
 void calcVmin(int ndata,
 	      double * vmin,
@@ -624,33 +660,50 @@ void calcVmin(int ndata,
 	      double * potupi2,
 	      int nargs,
 	      struct actionAngleArg * actionAngleArgs){
-  int ii;
-  gsl_function JzRoot;
-  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( sizeof (struct JzStaeckelArg) );
-  params->delta= delta;
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
+  double peps, meps;
+  gsl_function * JzRoot= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( nthreads * sizeof (struct JzStaeckelArg) );
   //Setup solver
   int status;
   int iter, max_iter = 100;
   const gsl_root_fsolver_type *T;
-  gsl_root_fsolver *s;
+  struct pragmasolver *s= (struct pragmasolver *) malloc ( nthreads * sizeof (struct pragmasolver) );;
   double v_lo, v_hi;
   T = gsl_root_fsolver_brent;
-  s = gsl_root_fsolver_alloc (T);
-  JzRoot.function = &JzStaeckelIntegrandSquared;
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->delta= delta;
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+    (s+tid)->s= gsl_root_fsolver_alloc (T);
+  }
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii,iter,status,v_lo,v_hi,meps,peps)				\
+  shared(vmin,JzRoot,params,s,vx,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2,max_iter)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3V= *(I3V+ii);
-    params->u0= *(u0+ii);
-    params->cosh2u0= *(cosh2u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->potupi2= *(potupi2+ii);
-    JzRoot.params = params;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    (params+tid)->I3V= *(I3V+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->cosh2u0= *(cosh2u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->potupi2= *(potupi2+ii);
+    (JzRoot+tid)->function = &JzStaeckelIntegrandSquared;
+    (JzRoot+tid)->params = params+tid;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(&JzRoot,*(vx+ii))) < 0.0000001) //we are at vmin
+    if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) //we are at vmin
       *(vmin+ii)= ( *(vx+ii) > 0.5 * M_PI ) ? M_PI - *(vx+ii): *(vx+ii);
     else {
       if ( *(vx+ii) > 0.5 * M_PI ){
@@ -661,13 +714,13 @@ void calcVmin(int ndata,
 	v_lo= 0.9 * *(vx+ii);
 	v_hi= *(vx+ii);
       }
-      while ( GSL_FN_EVAL(&JzRoot,v_lo) >= 0. && v_lo > 0.000000001){
+      while ( GSL_FN_EVAL(JzRoot+tid,v_lo) >= 0. && v_lo > 0.000000001){
 	v_hi= v_lo; //this makes sure that brent evaluates using previous
 	v_lo*= 0.9;
       }
       //Find root
       gsl_set_error_handler_off();
-      status = gsl_root_fsolver_set (s, &JzRoot, v_lo, v_hi);
+      status = gsl_root_fsolver_set ((s+tid)->s, JzRoot+tid, v_lo, v_hi);
       if (status == GSL_EINVAL) {
 	*(vmin+ii) = -9999.99;
 	continue;
@@ -676,9 +729,9 @@ void calcVmin(int ndata,
       do
 	{
 	  iter++;
-	  status = gsl_root_fsolver_iterate (s);
-	  v_lo = gsl_root_fsolver_x_lower (s);
-	  v_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_fsolver_iterate ((s+tid)->s);
+	  v_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	  v_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
 	  status = gsl_root_test_interval (v_lo, v_hi,
 					   9.9999999999999998e-13,
 					   4.4408920985006262e-16);
@@ -689,11 +742,14 @@ void calcVmin(int ndata,
 	continue;
       }
       gsl_set_error_handler (NULL);
-      *(vmin+ii) = gsl_root_fsolver_root (s);
+      *(vmin+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
+  for (tid=0; tid < nthreads; tid++)
+    gsl_root_fsolver_free( (s+tid)->s);
+  free(s);
+  free(JzRoot);
   free(params);
-  gsl_root_fsolver_free (s);    
 }
 
 double JRStaeckelIntegrand(double u,
