@@ -5,7 +5,7 @@ from scipy import optimize, interpolate, integrate, linalg
 from galpy import potential
 from galpy import actionAngle
 _NSIGMA=4
-_DEFAULTNGL=20
+_DEFAULTNGL=10
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
@@ -73,6 +73,8 @@ class quasiisothermaldf:
             self._precomputergnr= None
             self._precomputergLzgrid= None
         self._precomputerg= _precomputerg
+        self._glxdef, self._glwdef= \
+            numpy.polynomial.legendre.leggauss(_DEFAULTNGL)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -382,7 +384,10 @@ class quasiisothermaldf:
             if not _glqeval is None and ngl != _glqeval.shape[0]:
                 _glqeval= None
             #Use Gauss-Legendre integration for all
-            glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            if ngl == _DEFAULTNGL:
+                glx, glw= self._glxdef, self._glwdef
+            else:
+                glx, glw= numpy.polynomial.legendre.leggauss(ngl)
             #Evaluate everywhere
             vRgl= 3./2.*(glx+1.)
             vTgl= 1.5/2.*(glx+1.)
