@@ -311,13 +311,13 @@ void calcJRStaeckel(int ndata,
 		    struct actionAngleArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
-  gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
-  //gsl_function JRInt;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
   nthreads = 1;
 #endif
+  gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  //gsl_function JRInt;
   struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( nthreads * sizeof (struct JRStaeckelArg) );
   for (tid=0; tid < nthreads; tid++){
     (params+tid)->delta= delta;
@@ -362,8 +362,6 @@ void calcJRStaeckel(int ndata,
   free(JRInt);
   free(params);
   gsl_integration_glfixed_table_free ( T );
-  printf("Where's the segmentation fault?\n");
-  fflush(stdout);
 }
 void calcJzStaeckel(int ndata,
 		    double * jz,
