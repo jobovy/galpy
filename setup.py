@@ -28,9 +28,10 @@ actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 #brew install gsl --universal
 actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
-                         libraries=['m','gsl','gslcblas'],
+                         libraries=['m','gsl','gslcblas','gomp'],
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
-                                       'galpy/potential_src/potential_c_ext'])
+                                       'galpy/potential_src/potential_c_ext'],
+                         extra_compile_args=["-fopenmp"])
 #code to check the GSL version
 cmd= ['gsl-config',
       '--version']
