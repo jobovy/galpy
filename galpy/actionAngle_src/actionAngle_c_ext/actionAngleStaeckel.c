@@ -359,8 +359,8 @@ void calcJRStaeckel(int ndata,
     *(jr+ii)= gsl_integration_glfixed (JRInt+tid,*(umin+ii),*(umax+ii),T)
       * sqrt(2.) * delta / M_PI;
   }
-  free(params);
   free(JRInt);
+  free(params);
   gsl_integration_glfixed_table_free ( T );
   printf("Where's the segmentation fault?\n");
   fflush(stdout);
