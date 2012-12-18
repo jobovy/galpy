@@ -10,6 +10,10 @@
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_min.h>
 #include <gsl/gsl_integration.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#define CHUNKSIZE 1
 //Potentials
 #include <galpy_potentials.h>
 #include <actionAngle.h>
@@ -179,6 +183,8 @@ void calcu0(int ndata,
     *(u0+ii)= gsl_min_fminimizer_x_minimum (s);
   }
   gsl_min_fminimizer_free (s);
+  free(params);
+  free(actionAngleArgs);
   *err= status;
 }
 void actionAngleStaeckel_actions(int ndata,
@@ -263,6 +269,30 @@ void actionAngleStaeckel_actions(int ndata,
 		 potu0v0,npot,actionAngleArgs,10);
   calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
 		 npot,actionAngleArgs,10);
+  //Free
+  free(actionAngleArgs);
+  free(E);
+  free(Lz);
+  free(ux);
+  free(vx);
+  free(coshux);
+  free(sinhux);
+  free(sinvx);
+  free(cosvx);
+  free(pux);
+  free(pvx);
+  free(u0);
+  free(sinh2u0);
+  free(cosh2u0);
+  free(v0);
+  free(sin2v0);
+  free(potu0v0);
+  free(potupi2);
+  free(I3U);
+  free(I3V);
+  free(umin);
+  free(umax);
+  free(vmin);
 }
 void calcJRStaeckel(int ndata,
 		    double * jr,
@@ -280,16 +310,32 @@ void calcJRStaeckel(int ndata,
 		    int nargs,
 		    struct actionAngleArg * actionAngleArgs,
 		    int order){
-  int ii;
-  gsl_function JRInt;
-  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( sizeof (struct JRStaeckelArg) );
-  params->delta= delta;
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  int ii, tid, nthreads;
+  gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  //gsl_function JRInt;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) malloc ( nthreads * sizeof (struct JRStaeckelArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->delta= delta;
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JRInt.function = &JRStaeckelIntegrand;
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii)							\
+  shared(jr,umin,umax,JRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     if ( *(umin+ii) == -9999.99 || *(umax+ii) == -9999.99 ){
       *(jr+ii)= 9999.99;
       continue;
@@ -299,20 +345,25 @@ void calcJRStaeckel(int ndata,
       continue;
     }
     //Setup function
-    params->E= *(E+ii);
-    params->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
-    params->I3U= *(I3U+ii);
-    params->u0= *(u0+ii);
-    params->sinh2u0= *(sinh2u0+ii);
-    params->v0= *(v0+ii);
-    params->sin2v0= *(sin2v0+ii);
-    params->potu0v0= *(potu0v0+ii);
-    JRInt.params = params;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta;
+    (params+tid)->I3U= *(I3U+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->v0= *(v0+ii);
+    (params+tid)->sin2v0= *(sin2v0+ii);
+    (params+tid)->potu0v0= *(potu0v0+ii);
+    (JRInt+tid)->function = &JRStaeckelIntegrand;
+    (JRInt+tid)->params = params+tid;
     //Integrate
-    *(jr+ii)= gsl_integration_glfixed (&JRInt,*(umin+ii),*(umax+ii),T)
+    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,*(umin+ii),*(umax+ii),T)
       * sqrt(2.) * delta / M_PI;
   }
+  free(params);
+  free(JRInt);
   gsl_integration_glfixed_table_free ( T );
+  printf("Where's the segmentation fault?\n");
+  fflush(stdout);
 }
 void calcJzStaeckel(int ndata,
 		    double * jz,
@@ -359,6 +410,7 @@ void calcJzStaeckel(int ndata,
     *(jz+ii)= gsl_integration_glfixed (&JzInt,*(vmin+ii),M_PI/2.,T)
       * 2 * sqrt(2.) * delta / M_PI;
   }
+  free(params);
   gsl_integration_glfixed_table_free ( T );
 }
 void calcUminUmax(int ndata,
@@ -557,6 +609,7 @@ void calcUminUmax(int ndata,
       *(umax+ii) = gsl_root_fsolver_root (s);
     }
   }
+  free(params);
  gsl_root_fsolver_free (s);    
 }
 void calcVmin(int ndata,
@@ -641,6 +694,7 @@ void calcVmin(int ndata,
       *(vmin+ii) = gsl_root_fsolver_root (s);
     }
   }
+  free(params);
   gsl_root_fsolver_free (s);    
 }
 
