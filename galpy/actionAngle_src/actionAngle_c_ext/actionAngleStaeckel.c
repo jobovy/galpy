@@ -668,7 +668,6 @@ void calcVmin(int ndata,
 #else
   nthreads = 1;
 #endif
-  double peps, meps;
   gsl_function * JzRoot= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
   struct JzStaeckelArg * params= (struct JzStaeckelArg *) malloc ( nthreads * sizeof (struct JzStaeckelArg) );
   //Setup solver
@@ -686,7 +685,7 @@ void calcVmin(int ndata,
   }
   int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii,iter,status,v_lo,v_hi,meps,peps)				\
+  private(tid,ii,iter,status,v_lo,v_hi)				\
   shared(vmin,JzRoot,params,s,vx,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2,max_iter)
   for (ii=0; ii < ndata; ii++){
 #ifdef _OPENMP
