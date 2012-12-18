@@ -3,6 +3,7 @@
 */
 #ifndef __GALPY_ACTIONANGLE_H__
 #define __GALPY_ACTIONANGLE_H_
+#include <gsl/gsl_roots.h>
 /*
   Structure declarations
 */
@@ -11,6 +12,9 @@ struct actionAngleArg{
 			  int nargs, double * args);
   int nargs;
   double * args;
+};
+struct pragmasolver{
+  gsl_root_fsolver *s;
 };
 /*
   Function declarations
