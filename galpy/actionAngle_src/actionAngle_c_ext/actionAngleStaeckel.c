@@ -640,7 +640,6 @@ void calcUminUmax(int ndata,
       gsl_set_error_handler (NULL);
       *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
-    fflush(stdout);
   }
   for (tid=0; tid < nthreads; tid++)
     gsl_root_fsolver_free( (s+tid)->s);
