@@ -92,8 +92,8 @@ class actionAngleStaeckelGrid():
         jr= numpy.zeros((nLz,nE,npsi))
         jz= numpy.zeros((nLz,nE,npsi))
         u0= numpy.zeros((nLz,nE))
-        jrLz= numpy.zeros(nLz)
-        jzLz= numpy.zeros(nLz)
+        jrLzE= numpy.zeros((nLz,nE))
+        jzLzE= numpy.zeros((nLz,nE))
         #First calculate u0
         thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
         thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
@@ -134,58 +134,33 @@ class actionAngleStaeckelGrid():
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
-            jrLz[ii]= numpy.amax(jr[ii,:,:])
-            jr[ii,:,:]/= jrLz[ii]
-            jzLz[ii]= numpy.amax(jz[ii,:,:])
-            jz[ii,:,:]/= jzLz[ii]
-        """
-        else:
-            for ii in range(nLz):
-                for jj in range(nE):
-                    thisLz= self._Lzs[ii]
-                    #thisE= self._ERa[ii]+y[jj]*(self._ERL[ii]-self._ERa[ii])
-                    thisE= _invEfunc(_Efunc(self._ERa[ii])+y[jj]*(_Efunc(self._ERL[ii])-_Efunc(self._ERa[ii])))
-                    u0[ii,jj]= self.calcu0(thisE,thisLz)
-                    thisR= self._delta*numpy.sinh(u0[ii,jj])
-                    thisv= self.vatu0(thisE,thisLz,u0[ii,jj],thisR)
-                    for kk in range(npsi):
-                        try:
-                            thisaA= actionAngleStaeckel.actionAngleStaeckelSingle(\
-                                thisR, #R
-                                thisv*numpy.cos(psis[kk]), #vR
-                                thisLz/thisR, #vT
-                                0., #z
-                                thisv*numpy.sin(psis[kk]), #vz
-                                pot=self._pot,delta=self._delta)
-                            jr[ii,jj,kk]= thisaA.JR(fixed_quad=True)[0]
-                            jz[ii,jj,kk]= thisaA.Jz(fixed_quad=True)[0]
-                            #print jr[ii,jj,kk]
-                        except UnboundError:
-                            raise
-                #Normalize
-                jr[numpy.isnan(jr)]= 0. #sometimes we fail ...
-                jz[numpy.isnan(jz)]= 0.
-                jrLz[ii]= numpy.amax(jr[ii,:,:])
-                jr[ii,:,:]/= jrLz[ii]
-                jzLz[ii]= numpy.amax(jz[ii,:,:])
-                jz[ii,:,:]/= jzLz[ii]
-        """
+            for jj in range(nE):
+                jrLzE[ii,jj]= numpy.amax(jr[ii,jj,:])
+                jzLzE[ii,jj]= numpy.amax(jz[ii,jj,:])
+        jrLzE[(jrLzE == 0.)]= numpy.amin(jrLzE[(jrLzE > 0.)])
+        jzLzE[(jzLzE == 0.)]= numpy.amin(jzLzE[(jzLzE > 0.)])
+        for ii in range(nLz):
+            for jj in range(nE):
+                jr[ii,jj,:]/= jrLzE[ii,jj]
+                jz[ii,jj,:]/= jzLzE[ii,jj]
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
         self._u0= u0
-        self._jrLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
-                                                                   numpy.log(jrLz+10.**-5.),k=3)
-        self._jzLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
-                                                                   numpy.log(jzLz+10.**-5.),k=3)
+        self._jrLzInterp= interpolate.RectBivariateSpline(self._Lzs,
+                                                          y,
+                                                          numpy.log(jrLzE+10.**-5.),kx=3,ky=3,s=0.)
+        self._jzLzInterp= interpolate.RectBivariateSpline(self._Lzs,
+                                                          y,
+                                                          numpy.log(jzLzE+10.**-5.),kx=3,ky=3,s=0.)
         #Interpolate u0
         self._logu0Interp= interpolate.RectBivariateSpline(self._Lzs,
                                                            y,
                                                            numpy.log(u0),
                                                            kx=3,ky=3,s=0.)
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
-        self._jrFiltered= ndimage.spline_filter(self._jr)
-        self._jzFiltered= ndimage.spline_filter(self._jz)
+        self._jrFiltered= ndimage.spline_filter(self._jr,order=3)
+        self._jzFiltered= ndimage.spline_filter(self._jz,order=3)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -251,16 +226,18 @@ class actionAngleStaeckelGrid():
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
-                coords[1,:]= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))*(self._nE-1.)
+                y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
+                coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
+                print coords
                 jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
+                                                                 coords,
+                                                                 order=3,
+                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp.ev(Lz[indxc],y))-10.**-5.)
                 jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                                  coords,
                                                                  order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
+                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp.ev(Lz[indxc],y))-10.**-5.)
             if numpy.sum(indx) > 0:
                 jrindiv= numpy.empty(numpy.sum(indx))
                 jzindiv= numpy.empty(numpy.sum(indx))
@@ -415,7 +392,7 @@ def _u0Eq(logu,delta,pot,E,Lz22):
 
 def _Efunc(E,*args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
-    return numpy.sqrt((E-args[0]))
+    return ((E-args[0]))**0.5
 def _invEfunc(Ef,*args):
     """Inverse of Efunc"""
     return Ef**2.+args[0]
