@@ -221,7 +221,7 @@ class actionAngleStaeckelGrid():
         thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
         thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1:
+            if len(R) == 1 and not isinstance(thisERL,numpy.ndarray):
                 thisERL= numpy.array([thisERL])
                 thisERa= numpy.array([thisERa])
             indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
