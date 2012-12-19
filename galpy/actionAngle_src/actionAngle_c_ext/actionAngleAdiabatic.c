@@ -10,6 +10,10 @@
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_min.h>
 #include <gsl/gsl_integration.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
 #include <actionAngle.h>
@@ -65,6 +69,8 @@ inline void calcEREzL(int ndata,
 		      int nargs,
 		      struct actionAngleArg * actionAngleArgs){
   int ii;
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(ER+ii)= evaluatePotentials(*(R+ii),0.,
 				 nargs,actionAngleArgs)
@@ -108,6 +114,8 @@ void actionAngleAdiabatic_actions(int ndata,
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
   calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
   //Adjust planar effective potential for gamma
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
     *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
@@ -132,15 +140,30 @@ void calcJRAdiabatic(int ndata,
 		     int nargs,
 		     struct actionAngleArg * actionAngleArgs,
 		     int order){
-  int ii;
-  gsl_function JRInt;
-  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) malloc ( sizeof (struct JRAdiabaticArg) );
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
+  gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) malloc ( nthreads * sizeof (struct JRAdiabaticArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JRInt.function = &JRAdiabaticIntegrand;
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii)							\
+  shared(jr,rperi,rap,JRInt,params,T,ER,Lz)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
       *(jr+ii)= 9999.99;
       continue;
@@ -150,13 +173,15 @@ void calcJRAdiabatic(int ndata,
       continue;
     }
     //Setup function
-    params->ER= *(ER+ii);
-    params->Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
-    JRInt.params = params;
+    (params+tid)->ER= *(ER+ii);
+    (params+tid)->Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
+    (JRInt+tid)->function = &JRAdiabaticIntegrand;
+    (JRInt+tid)->params = params+tid;
     //Integrate
-    *(jr+ii)= gsl_integration_glfixed (&JRInt,*(rperi+ii),*(rap+ii),T)
+    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,*(rperi+ii),*(rap+ii),T)
       * sqrt(2.) / M_PI;
   }
+  free(JRInt);
   free(params);
   gsl_integration_glfixed_table_free ( T );
 }
@@ -168,15 +193,30 @@ void calcJzAdiabatic(int ndata,
 		     int nargs,
 		     struct actionAngleArg * actionAngleArgs,
 		     int order){
-  int ii;
-  gsl_function JzInt;
-  struct JzAdiabaticArg * params= (struct JzAdiabaticArg *) malloc ( sizeof (struct JzAdiabaticArg) );
-  params->nargs= nargs;
-  params->actionAngleArgs= actionAngleArgs;
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads = omp_get_max_threads();
+#else
+  nthreads = 1;
+#endif
+  gsl_function * JzInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
+  struct JzAdiabaticArg * params= (struct JzAdiabaticArg *) malloc ( nthreads * sizeof (struct JzAdiabaticArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  JzInt.function = &JzAdiabaticIntegrand;
+  int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk)				\
+  private(tid,ii)							\
+  shared(jz,zmax,JzInt,params,T,Ez,R)
   for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
     if ( *(zmax+ii) == -9999.99 ){
       *(jz+ii)= 9999.99;
       continue;
@@ -186,15 +226,17 @@ void calcJzAdiabatic(int ndata,
       continue;
     }
     //Setup function
-    params->Ez= *(Ez+ii);
-    params->R= *(R+ii);
-    JzInt.params = params;
+    (params+tid)->Ez= *(Ez+ii);
+    (params+tid)->R= *(R+ii);
+    (JzInt+tid)->function = &JzAdiabaticIntegrand;
+    (JzInt+tid)->params = params+tid;
     //Integrate
-    *(jz+ii)= gsl_integration_glfixed (&JzInt,0.,*(zmax+ii),T)
+    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,0.,*(zmax+ii),T)
       * 2 * sqrt(2.) / M_PI;
   }
-  gsl_integration_glfixed_table_free ( T );
+  free(JzInt);
   free(params);
+  gsl_integration_glfixed_table_free ( T );
 }
 void calcRapRperi(int ndata,
 		  double * rperi,
