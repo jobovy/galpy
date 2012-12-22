@@ -18,7 +18,7 @@ from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
-from actionAngle import actionAngle
+from actionAngle import actionAngle, UnboundError
 try:
     import actionAngleStaeckel_c
 except IOError:
