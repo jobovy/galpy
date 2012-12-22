@@ -210,7 +210,7 @@ class actionAngleStaeckelSingle(actionAngle):
         self._u0= self._ux #u0 as defined by Binney does not matter for a 
         #single action evaluation, so we don't determine it here
         self._sinhu0= nu.sinh(self._u0)
-        self._potu0v0= potentialStaeckel(self._u0,nu.pi/2.,#self._vx,
+        self._potu0v0= potentialStaeckel(self._u0,self._vx,
                                          self._pot,self._delta)
         self._I3U= self._E*self._sinhux**2.-self._pux**2./2./self._delta**2.\
             -self._Lz**2./2./self._delta**2./self._sinhux**2.
@@ -664,7 +664,7 @@ def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
     #potu0v0= potentialStaeckel(u0,v0,pot,delta)
     """The J_R integrand: p^2_u(u)/2/delta^2"""
     sinh2u= nu.sinh(u)**2.
-    dU= (sinh2u+sin2v0)*potentialStaeckel(u,nu.pi/2.,#v0,
+    dU= (sinh2u+sin2v0)*potentialStaeckel(u,v0,
                                           pot,delta)\
         -(sinh2u0+sin2v0)*potu0v0
     return E*sinh2u-I3U-dU-Lz**2./2./delta**2./sinh2u
