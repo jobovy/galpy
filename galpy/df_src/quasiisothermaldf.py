@@ -331,9 +331,9 @@ class quasiisothermaldf:
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
             #Evaluate everywhere
-            vRgl= 3./2.*(glx+1.)
+            vRgl= 3./2.*glx
             vTgl= 1.5/2.*(glx+1.)
-            vzgl= 3./2.*(glx+1.)
+            vzgl= 3./2.*glx
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,ngl,1)).T
             vRgl= numpy.tile(numpy.reshape(vRgl,(1,ngl)).T,(ngl,1,ngl))
@@ -678,6 +678,100 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    def meanvR(self,R,z,nsigma=None,mc=False,nmc=10000,
+               gl=True,ngl=_DEFAULTNGL,**kwargs):
+        """
+        NAME:
+           meanvR
+        PURPOSE:
+           calculate the mean radial velocity by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+        OUTPUT:
+           meanvR
+        HISTORY:
+           2012-12-23 - Written - Bovy (IAS)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,1.,0.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,1.,0.,0.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,1.,0.,0.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
+    def meanvz(self,R,z,nsigma=None,mc=False,nmc=10000,
+               gl=True,ngl=_DEFAULTNGL,**kwargs):
+        """
+        NAME:
+           meanvz
+        PURPOSE:
+           calculate the mean vertical velocity by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+        OUTPUT:
+           meanvz
+        HISTORY:
+           2012-12-23 - Written - Bovy (IAS)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,0.,1.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                           _vrs=vrs,_vts=vts,_vzs=vzs,
+                                                             **kwargs)/surfmass
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            return self.vmomentsurfacemass(R,z,0.,0.,1.,
+                                           ngl=ngl,gl=gl,
+                                           _glqeval=glqeval,
+                                           **kwargs)/surfmass
+        else:
+            return (self.vmomentsurfacemass(R,z,0.,0.,1.,
+                                           nsigma=nsigma,mc=mc,nmc=nmc,
+                                           **kwargs)/
+                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                            nsigma=nsigma,mc=mc,nmc=nmc,
+                                            **kwargs))
+        
     def sigmaT2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
@@ -889,6 +983,46 @@ class quasiisothermaldf:
         out[:,1]= vTs[0:n]
         out[:,2]= vzs[0:n]
         return out
+
+    def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL):
+        """
+        NAME:
+           pvz
+        PURPOSE:
+           calculate the marginalized vz probability at this location (NOT normalized by the density)
+        INPUT:
+           vz - vertical velocity (/vo)
+           R - radius (/ro)
+           z - height (/ro)
+           gl - use Gauss-Legendre integration (True, currently the only option)
+           ngl - order of Gauss-Legendre integration
+        OUTPUT:
+           p(vz,R,z)
+        HISTORY:
+           2012-12-22 - Written - Bovy (IAS)
+        """
+        if gl:
+            if ngl == _DEFAULTNGL:
+                glx, glw= self._glxdef, self._glwdef
+            else:
+                glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            #Evaluate everywhere
+            vRgl= 3./2.*glx
+            vTgl= 1.5/2.*(glx+1.)
+            #Tile everything
+            vTgl= numpy.tile(vTgl,(ngl,1)).T
+            vRgl= numpy.tile(vRgl,(ngl,1))
+            vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
+            vRglw= numpy.tile(glw,(ngl,1))
+            #evaluate
+            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                                         vRgl.flatten(),
+                                         vTgl.flatten(),
+                                         z+numpy.zeros(ngl*ngl),
+                                         vz+numpy.zeros(ngl*ngl),
+                                         log=True),
+                                    (ngl,ngl))
+            return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw)
 
     def _calc_epifreq(self,r):
         """
