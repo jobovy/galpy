@@ -78,6 +78,8 @@ class quasiisothermaldf:
             numpy.polynomial.legendre.leggauss(_DEFAULTNGL)
         self._glxdef2, self._glwdef2= \
             numpy.polynomial.legendre.leggauss(_DEFAULTNGL2)
+        self._glxdef12, self._glwdef12= \
+            numpy.polynomial.legendre.leggauss(_DEFAULTNGL/2)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -326,26 +328,45 @@ class quasiisothermaldf:
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if gl:
+            if ngl % 2 == 1:
+                raise ValueError("ngl must be even")
             if not _glqeval is None and ngl != _glqeval.shape[0]:
                 _glqeval= None
             #Use Gauss-Legendre integration for all
             if ngl == _DEFAULTNGL:
                 glx, glw= self._glxdef, self._glwdef
+                glx12, glw12= self._glxdef12, self._glwdef12
             elif ngl == _DEFAULTNGL2:
                 glx, glw= self._glxdef2, self._glwdef2
+                glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
             #Evaluate everywhere
-            vRgl= 3./2.*glx
+            vRgl= 1.5/2.*(glx12+1.)
+            vRgl= list(vRgl)
+            vRgl.extend(-1.5/2.*(glx12+1.))
+            vRgl= numpy.array(vRgl)
             vTgl= 1.5/2.*(glx+1.)
-            vzgl= 3./2.*glx
+            vzgl= 1.5/2.*(glx12+1.)
+            vzgl= list(vzgl)
+            vzgl.extend(-1.5/2.*(glx12+1.))
+            vzgl= numpy.array(vzgl)
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,ngl,1)).T
             vRgl= numpy.tile(numpy.reshape(vRgl,(1,ngl)).T,(ngl,1,ngl))
             vzgl= numpy.tile(vzgl,(ngl,ngl,1))
             vTglw= numpy.tile(glw,(ngl,ngl,1)).T #also tile weights
-            vRglw= numpy.tile(numpy.reshape(glw,(1,ngl)).T,(ngl,1,ngl))
-            vzglw= numpy.tile(glw,(ngl,ngl,1))
+            vRglw= glw12
+            vRglw= list(vRglw)
+            vRglw.extend(glw12)
+            vRglw= numpy.array(vRglw)
+            vzglw= glw12
+            vzglw= list(vzglw)
+            vzglw.extend(glw12)
+            vzglw= numpy.array(vzglw)
+            vRglw= numpy.tile(numpy.reshape(vRglw,(1,ngl)).T,(ngl,1,ngl))
+            vzglw= numpy.tile(vzglw,(ngl,ngl,1))
             #evaluate
             if _glqeval is None:
                 logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl*ngl),
