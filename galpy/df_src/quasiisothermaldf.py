@@ -589,6 +589,66 @@ class quasiisothermaldf:
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    def tilt(self,R,z,nsigma=None,mc=False,nmc=10000,
+             gl=True,ngl=_DEFAULTNGL,**kwargs):
+        """
+        NAME:
+           tilt
+        PURPOSE:
+           calculate the tilt of the velocity ellipsoid by marginalizing over velocity
+        INPUT:
+           R - radius at which to calculate this
+           z - height at which to calculate this
+        OPTIONAL INPUT:
+           nsigma - number of sigma to integrate the velocities over
+           scipy.integrate.tplquad kwargs epsabs and epsrel
+           mc= if True, calculate using Monte Carlo integration
+           nmc= if mc, use nmc samples
+           gl= if True, calculate using Gauss-Legendre integration
+           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+        OUTPUT:
+           tilt in degree
+        HISTORY:
+           2012-12-23 - Written - Bovy (IAS)
+        """
+        if mc:
+            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                             nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
+                                                             **kwargs)
+            tsigmar2= self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                              _vrs=vrs,_vts=vts,_vzs=vzs,
+                                              **kwargs)/surfmass
+            tsigmaz2= self.vmomentsurfacemass(R,z,0.,0.,2.,
+                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                              _vrs=vrs,_vts=vts,_vzs=vzs,
+                                              **kwargs)/surfmass
+            tsigmarz= self.vmomentsurfacemass(R,z,1.,0.,1.,
+                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
+                                              _vrs=vrs,_vts=vts,_vzs=vzs,
+                                              **kwargs)/surfmass
+            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
+        elif gl:
+            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+                                                       gl=gl,ngl=ngl,
+                                                       _returngl=True,
+                                                       **kwargs)
+            tsigmar2= self.vmomentsurfacemass(R,z,2.,0.,0.,
+                                             ngl=ngl,gl=gl,
+                                             _glqeval=glqeval,
+                                             **kwargs)/surfmass
+            tsigmaz2= self.vmomentsurfacemass(R,z,0.,0.,2.,
+                                              ngl=ngl,gl=gl,
+                                              _glqeval=glqeval,
+                                              **kwargs)/surfmass
+            tsigmarz= self.vmomentsurfacemass(R,z,1.,0.,1.,
+                                              ngl=ngl,gl=gl,
+                                              _glqeval=glqeval,
+                                              **kwargs)/surfmass
+            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
+        else:
+            raise NotImplementedError("Use either mc=True or gl=True")
+        
     def sigmaz2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
