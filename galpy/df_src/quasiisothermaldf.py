@@ -289,8 +289,6 @@ class quasiisothermaldf:
                            _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                            _rawgausssamples=False,
                            gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
-                           gh=False,
-                           ghgl=False,
                            **kwargs):
         """
         NAME:
@@ -324,63 +322,7 @@ class quasiisothermaldf:
             *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        if gh:
-            mvT= thisvc-va
-            #Use Gauss-Hermite integration
-            ngh= 5
-            ghx, ghw= numpy.polynomial.hermite.hermgauss(ngh)
-            #Evaluate everywhere
-            vRgh= ghx*numpy.sqrt(2.)*sigmaR1
-            vTgh= ghx*numpy.sqrt(2.)*sigmaR1*gamma+mvT
-            vzgh= ghx*numpy.sqrt(2.)*sigmaz1
-            #Tile everything
-            vTgh= numpy.tile(vTgh,(ngh,ngh,1)).T
-            vRgh= numpy.tile(numpy.reshape(vRgh,(1,ngh)).T,(ngh,1,ngh))
-            vzgh= numpy.tile(vzgh,(ngh,ngh,1))
-            vTghw= numpy.tile(ghw,(ngh,ngh,1)).T #also tile weights
-            vRghw= numpy.tile(numpy.reshape(ghw,(1,ngh)).T,(ngh,1,ngh))
-            vzghw= numpy.tile(ghw,(ngh,ngh,1))
-            #evaluate
-            logqeval= numpy.reshape(self(R+numpy.zeros(ngh*ngh*ngh),
-                                         vRgh.flatten(),
-                                         vTgh.flatten(),
-                                         z+numpy.zeros(ngh*ngh*ngh),
-                                         vzgh.flatten(),
-                                         log=True),
-                                    (ngh,ngh,ngh))
-            logqeval-= vRgh**2./2./sigmaR1**2.+vzgh**2./2./sigmaz1**2.\
-                +(vTgh-mvT)**2./2./sigmaR1**2./gamma**2.
-            return numpy.sum(numpy.exp(logqeval)*vRgh**n*vTgh**m*vzgh**o
-                             *vTghw*vRghw*vzghw)*sigmaR1**2.*sigmaz1
-        elif ghgl:
-            #Use Gauss-Hermite integration for vR and vz, Gauss-Legendre for vT
-            ngh= 20
-            ngl= 50
-            ghx, ghw= numpy.polynomial.hermite.hermgauss(ngh)
-            glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-            #Evaluate everywhere
-            vRgh= ghx*numpy.sqrt(2.)*sigmaR1
-            vTgl= 1.5/2.*(glx+1.)
-            vzgh= ghx*numpy.sqrt(2.)*sigmaz1
-            #Tile everything
-            vTgl= numpy.tile(vTgl,(ngh,ngh,1)).T
-            vRgh= numpy.tile(numpy.reshape(vRgh,(1,ngh)).T,(ngl,1,ngh))
-            vzgh= numpy.tile(vzgh,(ngl,ngh,1))
-            vTglw= numpy.tile(glw,(ngh,ngh,1)).T #also tile weights
-            vRghw= numpy.tile(numpy.reshape(ghw,(1,ngh)).T,(ngl,1,ngh))
-            vzghw= numpy.tile(ghw,(ngl,ngh,1))
-            #evaluate
-            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngh*ngh),
-                                         vRgh.flatten(),
-                                         vTgl.flatten(),
-                                         z+numpy.zeros(ngl*ngh*ngh),
-                                         vzgh.flatten(),
-                                         log=True),
-                                    (ngl,ngh,ngh))
-            logqeval-= vRgh**2./2./sigmaR1**2.+vzgh**2./2./sigmaz1**2.
-            return numpy.sum(numpy.exp(logqeval)*vRgh**n*vTgl**m*vzgh**o
-                             *vTglw*vRghw*vzghw)*sigmaR1*sigmaz1
-        elif gl:
+        if gl:
             if not _glqeval is None and ngl != _glqeval.shape[0]:
                 _glqeval= None
             #Use Gauss-Legendre integration for all
