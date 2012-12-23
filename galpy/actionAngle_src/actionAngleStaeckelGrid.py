@@ -219,21 +219,27 @@ class actionAngleStaeckelGrid():
                 sinh2u0= numpy.sinh(u0)**2.
                 thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
                                 E[indxc],Lz[indxc],sinh2u0,u0)
+                thisEz= self.Ez(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
                 thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
                 cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
                 cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
                 psi= numpy.arccos(numpy.sqrt(cos2psi))
+                sin2psi= 2.*thisEz/thisv2/(1.+sinh2u0) #latter is cosh2u0
+                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
+                psiz= numpy.arcsin(numpy.sqrt(sin2psi))
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-                print coords
                 jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
                                                                  coords,
                                                                  order=3,
                                                                  prefilter=False)*(numpy.exp(self._jrLzInterp.ev(Lz[indxc],y))-10.**-5.)
+                #Switch to Ez-calculated psi
+                coords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
                 jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                                  coords,
                                                                  order=3,
@@ -379,6 +385,31 @@ class actionAngleStaeckelGrid():
               -(sinh2u0+1.)*actionAngleStaeckel.potentialStaeckel(u0,numpy.pi/2.,self._pot,self._delta))
 #              +(numpy.sinh(u)**2.+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u,v,self._pot,self._delta)
 #              -(sinh2u0+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u0,v,self._pot,self._delta))
+        return out
+
+    def Ez(self,R,z,vR,vz,E,Lz,sinh2u0,u0):
+        """
+        NAME:
+           Ez
+        PURPOSE:
+           calculate the 'vertical energy'
+        INPUT:
+           R, z, vR, vz - coordinates
+           E - energy
+           Lz - angular momentum
+           sinh2u0, u0 - sinh^2 and u0
+        OUTPUT:
+           Ez
+        HISTORY:
+           2012-12-23 - Written - Bovy (IAS)
+        """                           
+        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        pv= (vR*numpy.sinh(u)*numpy.cos(v)
+             -vz*numpy.cosh(u)*numpy.sin(v)) #no delta, bc we will divide it out
+        out= (pv**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sin(v)**2.-1.)
+              -E*(numpy.sin(v)**2.-1.)
+              -(sinh2u0+1.)*actionAngleStaeckel.potentialStaeckel(u0,numpy.pi/2.,self._pot,self._delta)
+              +(sinh2u0+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u0,v,self._pot,self._delta))
         return out
 
 
