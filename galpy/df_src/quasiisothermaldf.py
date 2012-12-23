@@ -343,14 +343,18 @@ class quasiisothermaldf:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
             #Evaluate everywhere
-            vRgl= 1.5/2.*(glx12+1.)
+            vRgl= 4.*sigmaR1/2.*(glx12+1.)
+            #vRgl= 1.5/2.*(glx12+1.)
             vRgl= list(vRgl)
-            vRgl.extend(-1.5/2.*(glx12+1.))
+            vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+            #vRgl.extend(-1.5/2.*(glx12+1.))
             vRgl= numpy.array(vRgl)
             vTgl= 1.5/2.*(glx+1.)
-            vzgl= 1.5/2.*(glx12+1.)
+            vzgl= 4.*sigmaz1/2.*(glx12+1.)
+            #vzgl= 1.5/2.*(glx12+1.)
             vzgl= list(vzgl)
-            vzgl.extend(-1.5/2.*(glx12+1.))
+            vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
+            #vzgl.extend(-1.5/2.*(glx12+1.))
             vzgl= numpy.array(vzgl)
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,ngl,1)).T
