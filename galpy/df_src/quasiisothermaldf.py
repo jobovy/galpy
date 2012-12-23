@@ -6,6 +6,7 @@ from galpy import potential
 from galpy import actionAngle
 _NSIGMA=4
 _DEFAULTNGL=10
+_DEFAULTNGL2=20
 class quasiisothermaldf:
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
@@ -75,6 +76,8 @@ class quasiisothermaldf:
         self._precomputerg= _precomputerg
         self._glxdef, self._glwdef= \
             numpy.polynomial.legendre.leggauss(_DEFAULTNGL)
+        self._glxdef2, self._glwdef2= \
+            numpy.polynomial.legendre.leggauss(_DEFAULTNGL2)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -328,6 +331,8 @@ class quasiisothermaldf:
             #Use Gauss-Legendre integration for all
             if ngl == _DEFAULTNGL:
                 glx, glw= self._glxdef, self._glwdef
+            elif ngl == _DEFAULTNGL2:
+                glx, glw= self._glxdef2, self._glwdef2
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
             #Evaluate everywhere
@@ -984,7 +989,91 @@ class quasiisothermaldf:
         out[:,2]= vzs[0:n]
         return out
 
-    def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL):
+    def pvR(self,vR,R,z,gl=True,ngl=_DEFAULTNGL2):
+        """
+        NAME:
+           pvR
+        PURPOSE:
+           calculate the marginalized vR probability at this location (NOT normalized by the density)
+        INPUT:
+           vR - radial velocity (/vo)
+           R - radius (/ro)
+           z - height (/ro)
+           gl - use Gauss-Legendre integration (True, currently the only option)
+           ngl - order of Gauss-Legendre integration
+        OUTPUT:
+           p(vR,R,z)
+        HISTORY:
+           2012-12-22 - Written - Bovy (IAS)
+        """
+        if gl:
+            if ngl == _DEFAULTNGL:
+                glx, glw= self._glxdef, self._glwdef
+            elif ngl == _DEFAULTNGL2:
+                glx, glw= self._glxdef2, self._glwdef2
+            else:
+                glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            #Evaluate everywhere
+            vzgl= 3./2.*glx
+            vTgl= 1.5/2.*(glx+1.)
+            #Tile everything
+            vTgl= numpy.tile(vTgl,(ngl,1)).T
+            vzgl= numpy.tile(vzgl,(ngl,1))
+            vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
+            vzglw= numpy.tile(glw,(ngl,1))
+            #evaluate
+            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                                         vR+numpy.zeros(ngl*ngl),
+                                         vTgl.flatten(),
+                                         z+numpy.zeros(ngl*ngl),
+                                         vzgl.flatten(),
+                                         log=True),
+                                    (ngl,ngl))
+            return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw)
+
+    def pvT(self,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
+        """
+        NAME:
+           pvT
+        PURPOSE:
+           calculate the marginalized vT probability at this location (NOT normalized by the density)
+        INPUT:
+           vT - tangential velocity (/vo)
+           R - radius (/ro)
+           z - height (/ro)
+           gl - use Gauss-Legendre integration (True, currently the only option)
+           ngl - order of Gauss-Legendre integration
+        OUTPUT:
+           p(vT,R,z)
+        HISTORY:
+           2012-12-22 - Written - Bovy (IAS)
+        """
+        if gl:
+            if ngl == _DEFAULTNGL:
+                glx, glw= self._glxdef, self._glwdef
+            elif ngl == _DEFAULTNGL2:
+                glx, glw= self._glxdef2, self._glwdef2
+            else:
+                glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+            #Evaluate everywhere
+            vRgl= 3./2.*glx
+            vzgl= 3./2.*glx
+            #Tile everything
+            vRgl= numpy.tile(vRgl,(ngl,1)).T
+            vzgl= numpy.tile(vzgl,(ngl,1))
+            vRglw= numpy.tile(glw,(ngl,1)).T #also tile weights
+            vzglw= numpy.tile(glw,(ngl,1))
+            #evaluate
+            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                                         vRgl.flatten(),
+                                         vT+numpy.zeros(ngl*ngl),
+                                         z+numpy.zeros(ngl*ngl),
+                                         vzgl.flatten(),
+                                         log=True),
+                                    (ngl,ngl))
+            return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw)
+
+    def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
            pvz
@@ -1004,6 +1093,8 @@ class quasiisothermaldf:
         if gl:
             if ngl == _DEFAULTNGL:
                 glx, glw= self._glxdef, self._glwdef
+            elif ngl == _DEFAULTNGL2:
+                glx, glw= self._glxdef2, self._glwdef2
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
             #Evaluate everywhere
