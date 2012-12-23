@@ -315,6 +315,10 @@ class quasiisothermaldf:
         HISTORY:
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
+        if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
+                                actionAngle.actionAngleAdiabaticGrid)):
+            if n % 2 == 1. or o % 2 == 1.:
+                return 0. #we know this must be the case
         if nsigma == None:
             nsigma= _NSIGMA
         logSigmaR= (self._ro-R)/self._hr
@@ -343,32 +347,39 @@ class quasiisothermaldf:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
             #Evaluate everywhere
-            vRgl= 4.*sigmaR1/2.*(glx12+1.)
-            #vRgl= 1.5/2.*(glx12+1.)
-            vRgl= list(vRgl)
-            vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
-            #vRgl.extend(-1.5/2.*(glx12+1.))
-            vRgl= numpy.array(vRgl)
+            if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
+                                    actionAngle.actionAngleAdiabaticGrid)):
+                vRgl= 4.*sigmaR1/2.*(glx+1.)
+                vzgl= 4.*sigmaz1/2.*(glx+1.)
+                vRglw= glw
+                vzglw= glw
+            else:
+                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                #vRgl= 1.5/2.*(glx12+1.)
+                vRgl= list(vRgl)
+                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                #vRgl.extend(-1.5/2.*(glx12+1.))
+                vRgl= numpy.array(vRgl)
+                vzgl= 4.*sigmaz1/2.*(glx12+1.)
+                #vzgl= 1.5/2.*(glx12+1.)
+                vzgl= list(vzgl)
+                vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
+                #vzgl.extend(-1.5/2.*(glx12+1.))
+                vzgl= numpy.array(vzgl)
+                vRglw= glw12
+                vRglw= list(vRglw)
+                vRglw.extend(glw12)
+                vRglw= numpy.array(vRglw)
+                vzglw= glw12
+                vzglw= list(vzglw)
+                vzglw.extend(glw12)
+                vzglw= numpy.array(vzglw)
             vTgl= 1.5/2.*(glx+1.)
-            vzgl= 4.*sigmaz1/2.*(glx12+1.)
-            #vzgl= 1.5/2.*(glx12+1.)
-            vzgl= list(vzgl)
-            vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
-            #vzgl.extend(-1.5/2.*(glx12+1.))
-            vzgl= numpy.array(vzgl)
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,ngl,1)).T
             vRgl= numpy.tile(numpy.reshape(vRgl,(1,ngl)).T,(ngl,1,ngl))
             vzgl= numpy.tile(vzgl,(ngl,ngl,1))
             vTglw= numpy.tile(glw,(ngl,ngl,1)).T #also tile weights
-            vRglw= glw12
-            vRglw= list(vRglw)
-            vRglw.extend(glw12)
-            vRglw= numpy.array(vRglw)
-            vzglw= glw12
-            vzglw= list(vzglw)
-            vzglw.extend(glw12)
-            vzglw= numpy.array(vzglw)
             vRglw= numpy.tile(numpy.reshape(vRglw,(1,ngl)).T,(ngl,1,ngl))
             vzglw= numpy.tile(vzglw,(ngl,ngl,1))
             #evaluate
