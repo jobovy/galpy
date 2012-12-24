@@ -395,11 +395,11 @@ class quasiisothermaldf:
                 logqeval= _glqeval
             if _returngl:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw),
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
                         logqeval)
             else:
                 return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                 *vTglw*vRglw*vzglw)
+                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1)
         elif mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:
