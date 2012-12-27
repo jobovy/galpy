@@ -14,7 +14,7 @@ class DoubleExponentialDiskPotential(Potential):
     rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
     def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
-                 new=False,kmaxFac=2.,glorder=10):
+                 new=True,kmaxFac=2.,glorder=10):
         """
         NAME:
            __init__
