@@ -5,6 +5,7 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from galpy import potential, potential_src
 from galpy.orbit_src.integrateFullOrbit import _parse_pot
+from galpy.util import bovy_coords
 #Find and load the library
 _lib = None
 _libname = ctypes.util.find_library('galpy_actionAngle_c')
@@ -22,7 +23,7 @@ for path in sys.path:
 if _lib is None:
     raise IOError('galpy actionAngle_c module not found')
 
-def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
+def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     """
     NAME:
        actionAngleStaeckel_c
@@ -39,6 +40,8 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
     HISTORY:
        2012-12-01 - Written - Bovy (IAS)
     """
+    if u0 is None:
+        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot)
 
@@ -51,6 +54,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     actionAngleStaeckel_actionsFunc= _lib.actionAngleStaeckel_actions
     actionAngleStaeckel_actionsFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -69,12 +73,14 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
              vR.flags['F_CONTIGUOUS'],
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
-             vz.flags['F_CONTIGUOUS']]
+             vz.flags['F_CONTIGUOUS'],
+             u0.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
+    u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
     jr= numpy.require(jr,dtype=numpy.float64,requirements=['C','W'])
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
 
@@ -85,6 +91,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
                                     vT,
                                     z,
                                     vz,
+                                    u0,
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
@@ -99,6 +106,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz):
     if f_cont[2]: vT= numpy.asfortranarray(vT)
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
+    if f_cont[5]: u0= numpy.asfortranarray(u0)
 
     return (jr,jz,err.value)
 
