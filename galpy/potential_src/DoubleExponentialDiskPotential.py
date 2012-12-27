@@ -87,8 +87,7 @@ class DoubleExponentialDiskPotential(Potential):
             return self._R2deriv(R,z,phi=phi,t=t)
         elif dR != 0 and dphi != 0:
             raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
-        new= self._new
-        if new:
+        if self._new:
             kmax= self._kmaxFac*self._beta
             maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R)**2.) #close enough
             ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
