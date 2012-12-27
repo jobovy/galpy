@@ -50,10 +50,16 @@ class DoubleExponentialDiskPotential(Potential):
         #Setup j0 zeros etc.
         self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
         nzeros=100
+        #j0 for potential and z
         self._j0zeros= nu.zeros(nzeros+1)
         self._j0zeros[1:nzeros+1]= special.jn_zeros(0,100)
         self._dj0zeros= self._j0zeros-nu.roll(self._j0zeros,1)
         self._dj0zeros[0]= self._j0zeros[0]
+        #j1 for R
+        self._j1zeros= nu.zeros(nzeros+1)
+        self._j1zeros[1:nzeros+1]= special.jn_zeros(1,100)
+        self._dj1zeros= self._j1zeros-nu.roll(self._j1zeros,1)
+        self._dj1zeros[0]= self._j1zeros[0]
         if normalize:
             self.normalize(normalize)
         
@@ -160,6 +166,13 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
         DOCTEST:
         """
+        if self._new:
+            kmax= self._kmaxFac*self._beta
+            maxj1zeroIndx= nu.argmin((self._j1zeros-kmax*R)**2.) #close enough
+            ks= nu.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
+            weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
+            evalInt= special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*z))/(self._beta**2.-ks**2.)
+            return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandSmallk,
