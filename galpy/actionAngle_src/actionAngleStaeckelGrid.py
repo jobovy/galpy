@@ -92,8 +92,8 @@ class actionAngleStaeckelGrid():
         jr= numpy.zeros((nLz,nE,npsi))
         jz= numpy.zeros((nLz,nE,npsi))
         u0= numpy.zeros((nLz,nE))
-        jrLzE= numpy.zeros((nLz,nE))
-        jzLzE= numpy.zeros((nLz,nE))
+        jrLzE= numpy.zeros((nLz))
+        jzLzE= numpy.zeros((nLz))
         #First calculate u0
         thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
         thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
@@ -134,25 +134,21 @@ class actionAngleStaeckelGrid():
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
-            for jj in range(nE):
-                jrLzE[ii,jj]= numpy.amax(jr[ii,jj,:])
-                jzLzE[ii,jj]= numpy.amax(jz[ii,jj,:])
+                jrLzE[ii]= numpy.amax(jr[ii,:,:])
+                jzLzE[ii]= numpy.amax(jz[ii,:,:])
         jrLzE[(jrLzE == 0.)]= numpy.amin(jrLzE[(jrLzE > 0.)])
         jzLzE[(jzLzE == 0.)]= numpy.amin(jzLzE[(jzLzE > 0.)])
         for ii in range(nLz):
-            for jj in range(nE):
-                jr[ii,jj,:]/= jrLzE[ii,jj]
-                jz[ii,jj,:]/= jzLzE[ii,jj]
+            jr[ii,:,:]/= jrLzE[ii]
+            jz[ii,:,:]/= jzLzE[ii]
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
         self._u0= u0
-        self._jrLzInterp= interpolate.RectBivariateSpline(self._Lzs,
-                                                          y,
-                                                          numpy.log(jrLzE+10.**-5.),kx=3,ky=3,s=0.)
-        self._jzLzInterp= interpolate.RectBivariateSpline(self._Lzs,
-                                                          y,
-                                                          numpy.log(jzLzE+10.**-5.),kx=3,ky=3,s=0.)
+        self._jrLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
+                                                                   numpy.log(jrLzE+10.**-5.),k=3)
+        self._jzLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
+                                                                   numpy.log(jzLzE+10.**-5.),k=3)
         #Interpolate u0
         self._logu0Interp= interpolate.RectBivariateSpline(self._Lzs,
                                                            y,
@@ -228,6 +224,7 @@ class actionAngleStaeckelGrid():
                 sin2psi= 2.*thisEz/thisv2/(1.+sinh2u0) #latter is cosh2u0
                 sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
                 psiz= numpy.arcsin(numpy.sqrt(sin2psi))
+                print psiz-psi
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
@@ -237,13 +234,13 @@ class actionAngleStaeckelGrid():
                 jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
                                                                  coords,
                                                                  order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp.ev(Lz[indxc],y))-10.**-5.)
+                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 #Switch to Ez-calculated psi
                 coords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
                 jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                                  coords,
                                                                  order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp.ev(Lz[indxc],y))-10.**-5.)
+                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
                 jrindiv= numpy.empty(numpy.sum(indx))
                 jzindiv= numpy.empty(numpy.sum(indx))
