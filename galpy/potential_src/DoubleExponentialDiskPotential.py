@@ -358,8 +358,7 @@ class DoubleExponentialDiskPotential(Potential):
         OUTPUT:
            -d K_R (R,z) d R
         HISTORY:
-           2012-05-01 - Written - Bovy (NYU)
-        DOCTEST:
+           2012-12-27 - Written - Bovy (IAS)
         """
         if self._new:
             if R > 6.: return self._kp.R2deriv(R,z)
