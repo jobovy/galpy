@@ -358,8 +358,8 @@ class DoubleExponentialDiskPotential(Potential):
             weights2= nu.array([self._glw*self._dj2zeros[ii+1] for ii in range(maxj2zeroIndx)]).flatten()
             evalInt0= ks0**2.*special.jn(0,ks0*R)*(self._alpha**2.+ks0**2.)**-1.5*(self._beta*nu.exp(-ks0*nu.fabs(z))-ks0*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks0**2.)
             evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*nu.exp(-ks2*nu.fabs(z))-ks2*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks2**2.)
-            return -nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
-                                       -nu.sum(weights2*evalInt2))
+            return nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
+                                      -nu.sum(weights2*evalInt2))
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
