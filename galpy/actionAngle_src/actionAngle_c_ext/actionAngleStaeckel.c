@@ -60,7 +60,7 @@ struct u0EqArg{
 */
 void calcu0(int,double *,double *,int,int *,double *,double,double *,int *);
 void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
-				 double *,int,int *,double *,double,
+				 double *,double *,int,int *,double *,double,
 				 double *,double *,int *);
 void calcJRStaeckel(int,double *,double *,double *,double *,double *,double *,
 		    double,double *,double *,double *,double *,double *,int,
@@ -193,6 +193,7 @@ void actionAngleStaeckel_actions(int ndata,
 				 double *vT,
 				 double *z,
 				 double *vz,
+				 double *u0,
 				 int npot,
 				 int * pot_type,
 				 double * pot_args,
@@ -218,7 +219,6 @@ void actionAngleStaeckel_actions(int ndata,
   double *cosvx= (double *) malloc ( ndata * sizeof(double) );
   double *pux= (double *) malloc ( ndata * sizeof(double) );
   double *pvx= (double *) malloc ( ndata * sizeof(double) );
-  double *u0= (double *) malloc ( ndata * sizeof(double) );
   double *sinh2u0= (double *) malloc ( ndata * sizeof(double) );
   double *cosh2u0= (double *) malloc ( ndata * sizeof(double) );
   double *v0= (double *) malloc ( ndata * sizeof(double) );
@@ -238,7 +238,6 @@ void actionAngleStaeckel_actions(int ndata,
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
     *(pvx+ii)= delta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
-    *(u0+ii)= *(ux+ii);
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
@@ -247,15 +246,19 @@ void actionAngleStaeckel_actions(int ndata,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / delta / delta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta / *(sinhux+ii) / *(sinhux+ii);
-    *(potupi2+ii)= evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,delta,
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta / *(sinhux+ii) / *(sinhux+ii) 
+      - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
+      *evaluatePotentialsUV(*(ux+ii),*(v0+ii),delta,
+			    npot,actionAngleArgs)
+      + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
+    *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,delta,
 					npot,actionAngleArgs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
       + 0.5 * *(pvx+ii) * *(pvx+ii) / delta / delta
       + 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta / *(sinvx+ii) / *(sinvx+ii)
-      - *(coshux+ii) * *(coshux+ii) * *(potupi2+ii)
-      + ( *(sinhux+ii) * *(sinhux+ii) + *(sinvx+ii) * *(sinvx+ii))
-      * evaluatePotentialsUV(*(ux+ii),*(vx+ii),delta,
+      - *(cosh2u0+ii) * *(potupi2+ii)
+      + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
+      * evaluatePotentialsUV(*(u0+ii),*(vx+ii),delta,
 			     npot,actionAngleArgs);
   }
   //Calculate 'peri' and 'apo'centers
@@ -283,7 +286,6 @@ void actionAngleStaeckel_actions(int ndata,
   free(cosvx);
   free(pux);
   free(pvx);
-  free(u0);
   free(sinh2u0);
   free(cosh2u0);
   free(v0);
