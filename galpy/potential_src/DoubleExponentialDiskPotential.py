@@ -60,6 +60,11 @@ class DoubleExponentialDiskPotential(Potential):
         self._j1zeros[1:nzeros+1]= special.jn_zeros(1,100)
         self._dj1zeros= self._j1zeros-nu.roll(self._j1zeros,1)
         self._dj1zeros[0]= self._j1zeros[0]
+        #j2 for R2deriv
+        self._j2zeros= nu.zeros(nzeros+1)
+        self._j2zeros[1:nzeros+1]= special.jn_zeros(2,100)
+        self._dj2zeros= self._j2zeros-nu.roll(self._j2zeros,1)
+        self._dj2zeros[0]= self._j2zeros[0]
         if normalize:
             self.normalize(normalize)
         
@@ -343,6 +348,18 @@ class DoubleExponentialDiskPotential(Potential):
            2012-05-01 - Written - Bovy (NYU)
         DOCTEST:
         """
+        if self._new:
+            kmax= 2.*self._kmaxFac*self._beta
+            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R)**2.) #close enough
+            maxj2zeroIndx= nu.argmin((self._j2zeros-kmax*R)**2.) #close enough
+            ks0= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+            weights0= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+            ks2= nu.array([0.5*(self._glx+1.)*self._dj2zeros[ii+1] + self._j2zeros[ii] for ii in range(maxj2zeroIndx)]).flatten()
+            weights2= nu.array([self._glw*self._dj2zeros[ii+1] for ii in range(maxj2zeroIndx)]).flatten()
+            evalInt0= ks0**2.*special.jn(0,ks0*R)*(self._alpha**2.+ks0**2.)**-1.5*(self._beta*nu.exp(-ks0*nu.fabs(z))-ks0*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks0**2.)
+            evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*nu.exp(-ks2*nu.fabs(z))-ks2*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks2**2.)
+            return -nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
+                                       -nu.sum(weights2*evalInt2))
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
