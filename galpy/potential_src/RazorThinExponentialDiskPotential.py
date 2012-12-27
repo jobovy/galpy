@@ -73,7 +73,7 @@ class RazorThinExponentialDiskPotential(Potential):
             raise NotImplementedWarning("High-order derivatives for RazorThinExponentialDiskPotential not implemented")
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if z == 0.:
+            if nu.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
                 return -nu.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))
             kalphamax= 10.
@@ -103,7 +103,7 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if z == 0.:
+            if nu.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
                 return -2.*nu.pi*y*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y))
             kalphamax1= R
@@ -143,7 +143,7 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if z == 0.:
+            if nu.fabs(z) < 10.**-6.:
                 return 0.
             kalphamax1= R
             ks1= kalphamax1*0.5*(self._glx+1.)
