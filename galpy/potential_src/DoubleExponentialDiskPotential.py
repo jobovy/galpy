@@ -13,7 +13,8 @@ class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
     rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
     def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
-                 maxiter=_MAXITER,tol=0.001,normalize=False):
+                 maxiter=_MAXITER,tol=0.001,normalize=False,
+                 new=False,kmaxFac=10.,glorder=10):
         """
         NAME:
            __init__
@@ -34,6 +35,9 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
         """
         Potential.__init__(self,amp=amp)
+        self._new= new
+        self._kmaxFac= kmaxFac
+        self._glorder= glorder
         self._ro= ro
         self._hr= hr
         self._hz= hz
@@ -43,6 +47,13 @@ class DoubleExponentialDiskPotential(Potential):
         self._maxiter= maxiter
         self._tol= tol
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
+        #Setup j0 zeros etc.
+        self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
+        nzeros=100
+        self._j0zeros= nu.zeros(nzeros+1)
+        self._j0zeros[1:nzeros+1]= special.jn_zeros(0,100)
+        self._dj0zeros= self._j0zeros-nu.roll(self._j0zeros,1)
+        self._dj0zeros[0]= self._j0zeros[0]
         if normalize:
             self.normalize(normalize)
         
@@ -61,6 +72,7 @@ class DoubleExponentialDiskPotential(Potential):
            potential at (R,z)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
+           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         DOCTEST:
            >>> doubleExpPot= DoubleExponentialDiskPotential()
            >>> r= doubleExpPot(1.,0) #doctest: +ELLIPSIS
@@ -75,6 +87,14 @@ class DoubleExponentialDiskPotential(Potential):
             return self._R2deriv(R,z,phi=phi,t=t)
         elif dR != 0 and dphi != 0:
             raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
+        new= self._new
+        if new:
+            kmax= self._kmaxFac*self._beta
+            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R)**2.) #close enough
+            ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+            weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+            evalInt= special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*z))/(self._beta**2.-ks**2.)
+            return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
