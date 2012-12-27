@@ -167,11 +167,11 @@ class DoubleExponentialDiskPotential(Potential):
         DOCTEST:
         """
         if self._new:
-            kmax= self._kmaxFac*self._beta
+            kmax= 2.*self._kmaxFac*self._beta
             maxj1zeroIndx= nu.argmin((self._j1zeros-kmax*R)**2.) #close enough
             ks= nu.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
             weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
-            evalInt= special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*z))/(self._beta**2.-ks**2.)
+            evalInt= ks*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*z))/(self._beta**2.-ks**2.)
             return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
         notConvergedSmall= True
         notConvergedLarge= True
