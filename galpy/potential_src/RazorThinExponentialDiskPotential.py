@@ -124,3 +124,42 @@ class RazorThinExponentialDiskPotential(Potential):
             else:
                 return -2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1)
         raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
+
+    def _zforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           zforce
+        PURPOSE:
+           evaluate vertical force K_z  (R,z)
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           K_z (R,z)
+        HISTORY:
+           2012-12-27 - Written - Bovy (IAS)
+        """
+        if self._new:
+            #if R > 6.: return self._kp(R,z)
+            if z == 0.:
+                return 0.
+            kalphamax1= R
+            ks1= kalphamax1*0.5*(self._glx+1.)
+            weights1= kalphamax1*self._glw
+            sqrtp= nu.sqrt(z**2.+(ks1+R)**2.)
+            sqrtm= nu.sqrt(z**2.+(ks1-R)**2.)
+            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*(1./sqrtp+1./sqrtm)/nu.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+            if R < 10.:
+                kalphamax2= 10.
+                ks2= (kalphamax2-kalphamax1)*0.5*(self._glx+1.)+kalphamax1
+                weights2= (kalphamax2-kalphamax1)*self._glw
+                sqrtp= nu.sqrt(z**2.+(ks2+R)**2.)
+                sqrtm= nu.sqrt(z**2.+(ks2-R)**2.)
+                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*(1./sqrtp+1./sqrtm)/nu.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+                return -z*2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1
+                                                            +weights2*evalInt2)
+            else:
+                return -z*2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1)
+        raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
