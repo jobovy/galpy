@@ -163,3 +163,45 @@ class RazorThinExponentialDiskPotential(Potential):
             else:
                 return -z*2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1)
         raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
+
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           R2deriv
+        PURPOSE:
+           evaluate R2 derivative
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           -d K_R (R,z) d R
+        HISTORY:
+           2012-12-27 - Written - Bovy (IAS)
+        """
+        if self._new:
+            if nu.fabs(z) < 10.**-6.:
+                y= 0.5*self._alpha*R
+                return nu.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
+                    +nu.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
+            raise NotImplementedError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
+
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           z2deriv
+        PURPOSE:
+           evaluate z2 derivative
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           -d K_z (R,z) d z
+        HISTORY:
+           2012-12-27 - Written - Bovy (IAS)
+        """
+        return nu.infty
