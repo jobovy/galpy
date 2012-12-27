@@ -37,6 +37,7 @@ class actionAngleStaeckel():
         INPUT:
            pot= potential or list of potentials (3D)
            delta= focus
+           useu0 - use u0 to calculate dV (NOT recommended)
         OUTPUT:
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
@@ -51,6 +52,11 @@ class actionAngleStaeckel():
             self._c= True
         else:
             self._c= False
+        if kwargs.has_key('useu0') and kwargs['useu0']:
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            self._useu0= True
+        else:
+            self._useu0= False
         self._delta= kwargs['delta']
         return None
     
@@ -91,8 +97,20 @@ class actionAngleStaeckel():
                 z= nu.array([z])
                 vz= nu.array([vz])
             Lz= R*vT
+            if self._useu0:
+                #First calculate u0
+                if kwargs.has_key('u0'):
+                    u0= kwargs['u0']
+                else:
+                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
+                                                                         self._pot,
+                                                                         self._delta)[0]
+                if kwargs.has_key('u0'): kwargs.pop('u0')
+            else:
+                u0= None
             jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz)
+                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (jr,Lz,jz)
             else:
