@@ -1186,20 +1186,39 @@ class quasiisothermaldf:
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
         if gl:
+            if ngl % 2 == 1:
+                raise ValueError("ngl must be even")
+            #Use Gauss-Legendre integration for all
             if ngl == _DEFAULTNGL:
                 glx, glw= self._glxdef, self._glwdef
+                glx12, glw12= self._glxdef12, self._glwdef12
             elif ngl == _DEFAULTNGL2:
                 glx, glw= self._glxdef2, self._glwdef2
+                glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
             #Evaluate everywhere
-            vRgl= 3./2.*glx
+            if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
+                                    actionAngle.actionAngleAdiabaticGrid)):
+                vRgl= 4.*sigmaR1/2.*(glx+1.)
+                vRglw= glw
+            else:
+                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                vRgl= list(vRgl)
+                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                vRgl= numpy.array(vRgl)
+                vRglw= glw12
+                vRglw= list(vRglw)
+                vRglw.extend(glw12)
+                vRglw= numpy.array(vRglw)
             vTgl= 1.5/2.*(glx+1.)
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,1)).T
             vRgl= numpy.tile(vRgl,(ngl,1))
-            vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
+            vTglw= numpy.tile(glw,(ngl,ngl,1)).T #also tile weights
             vRglw= numpy.tile(glw,(ngl,1))
             #evaluate
             logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
@@ -1209,7 +1228,7 @@ class quasiisothermaldf:
                                          vz+numpy.zeros(ngl*ngl),
                                          log=True),
                                     (ngl,ngl))
-            return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw)
+            return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1)
 
     def _calc_epifreq(self,r):
         """
