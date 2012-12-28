@@ -1163,16 +1163,45 @@ class quasiisothermaldf:
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
+        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         if gl:
+            if ngl % 2 == 1:
+                raise ValueError("ngl must be even")
+            #Use Gauss-Legendre integration for all
             if ngl == _DEFAULTNGL:
                 glx, glw= self._glxdef, self._glwdef
+                glx12, glw12= self._glxdef12, self._glwdef12
             elif ngl == _DEFAULTNGL2:
                 glx, glw= self._glxdef2, self._glwdef2
+                glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
             #Evaluate everywhere
-            vRgl= 3./2.*glx
-            vzgl= 3./2.*glx
+            if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
+                                    actionAngle.actionAngleAdiabaticGrid)):
+                vRgl= 4.*sigmaR1/2.*(glx+1.)
+                vzgl= 4.*sigmaz1/2.*(glx+1.)
+                vRglw= glw
+                vzglw= glw
+            else:
+                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                vRgl= list(vRgl)
+                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                vRgl= numpy.array(vRgl)
+                vzgl= 4.*sigmaz1/2.*(glx12+1.)
+                vzgl= list(vzgl)
+                vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
+                vzgl= numpy.array(vzgl)
+                vRglw= glw12
+                vRglw= list(vRglw)
+                vRglw.extend(glw12)
+                vRglw= numpy.array(vRglw)
+                vzglw= glw12
+                vzglw= list(vzglw)
+                vzglw.extend(glw12)
+                vzglw= numpy.array(vzglw)
             #Tile everything
             vRgl= numpy.tile(vRgl,(ngl,1)).T
             vzgl= numpy.tile(vzgl,(ngl,1))
@@ -1186,7 +1215,7 @@ class quasiisothermaldf:
                                          vzgl.flatten(),
                                          log=True),
                                     (ngl,ngl))
-            return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw)
+            return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw*sigmaR1*sigmaz1)
 
     def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
