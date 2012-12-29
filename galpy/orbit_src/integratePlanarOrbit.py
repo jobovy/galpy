@@ -106,6 +106,28 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
+        elif isinstance(p,potential.DoubleExponentialDiskPotential):
+            pot_type.append(11)
+            pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,
+                             p._nzeros,p._glorder])
+            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
+            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
+            pot_args.extend([p._j0zeros[ii] for ii in range(p._nzeros+1)])
+            pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
+            pot_args.extend([p._j1zeros[ii] for ii in range(p._nzeros+1)])
+            pot_args.extend([p._dj1zeros[ii] for ii in range(p._nzeros+1)])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                and isinstance(p._RZPot,potential.DoubleExponentialDiskPotential):
+            pot_type.append(11)
+            pot_args.extend([p._RZPot._amp,p._RZPot._alpha,
+                             p._RZPot._beta,p._RZPot._kmaxFac,
+                             p._RZPot._nzeros,p._RZPot._glorder])
+            pot_args.extend([p._RZPot._glx[ii] for ii in range(p._RZPot._glorder)])
+            pot_args.extend([p._RZPot._glw[ii] for ii in range(p._RZPot._glorder)])
+            pot_args.extend([p._RZPot._j0zeros[ii] for ii in range(p._RZPot._nzeros+1)])
+            pot_args.extend([p._RZPot._dj0zeros[ii] for ii in range(p._RZPot._nzeros+1)])
+            pot_args.extend([p._RZPot._j1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
+            pot_args.extend([p._RZPot._dj1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
