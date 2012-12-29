@@ -37,9 +37,9 @@ double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
   }
     return - amp * 2 * M_PI * alpha * out;
 }
-double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
-				    double t,
-				    int nargs, double *args){
+double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
+					    double t,
+					    int nargs, double *args){
   //Get args
   double amp= *args++;
   double alpha= *args++;
@@ -69,9 +69,9 @@ double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
   }
     return - amp * 2 * M_PI * alpha * out;
 }
-double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
-				    double t,
-				    int nargs, double *args){
+double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
+					    double t,
+					    int nargs, double *args){
   //Get args
   double amp= *args++;
   double alpha= *args++;
