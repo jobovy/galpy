@@ -100,5 +100,7 @@ double DoubleExponentialDiskPotentialEval(double ,double , double, double,
 					  int , double *);
 double DoubleExponentialDiskPotentialRforce(double,double, double,double,
 					    int, double *);
+double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
+						  int,double *);
 double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    int, double *);
