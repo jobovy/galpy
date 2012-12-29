@@ -69,6 +69,11 @@ double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
   }
     return - amp * 2 * M_PI * alpha * out;
 }
+double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
+						  double t,
+						  int nargs, double *args){
+  return DoubleExponentialDiskPotentialRforce(R,0.,phi,t,nargs,args);
+}
 double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
 					    double t,
 					    int nargs, double *args){
