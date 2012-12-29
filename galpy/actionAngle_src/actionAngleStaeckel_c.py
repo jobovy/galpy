@@ -13,13 +13,13 @@ if _libname:
     _lib = ctypes.CDLL(_libname)
 if _lib is None:
     import sys
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
-    except OSError:
-        _lib = None
-    else:
-        break
+    for path in sys.path:
+        try:
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
+        except OSError:
+            _lib = None
+        else:
+            break
 if _lib is None:
     raise IOError('galpy actionAngle_c module not found')
 
