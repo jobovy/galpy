@@ -97,6 +97,13 @@ inline void parse_leapFuncArgs_Full(int npot,
       //leapFuncArgs->planarRphideriv= &ZeroForce;
       leapFuncArgs->nargs= 2;
       break;
+    case 11: //DoubleExponentialDiskPotential, XX arguments
+      actionAngleArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
+      actionAngleArgs->zforce= &DoubleExponentialDiskPotentialzforce;
+      leapFuncArgs->phiforce= &ZeroForce;
+      //Look at pot_args to figure out the number of arguments
+      actionAngleArgs->nargs= 6 + 2 * *(pot_args+5) + 4 * *(pot_args+4);
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
