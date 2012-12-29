@@ -12,13 +12,13 @@ if _libname:
     _lib = ctypes.CDLL(_libname)
 if _lib is None:
     import sys
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError:
-        _lib = None
-    else:
-        break
+    for path in sys.path:
+        try:
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
+        except OSError:
+            _lib = None
+        else:
+            break
 if _lib is None:
     raise IOError('galpy integration module not found')
 
@@ -50,6 +50,14 @@ def _parse_pot(pot):
         elif isinstance(p,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.DoubleExponentialDiskPotential):
+            pot_type.append(11)
+            pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,
+                             p._nzeros,p._glorder])
+            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
+            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
+            pot_args.extend([p._j0zeros[ii] for ii in range(p._nzeros+1)])
+            pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
