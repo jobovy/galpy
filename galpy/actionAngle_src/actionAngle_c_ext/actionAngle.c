@@ -48,7 +48,7 @@ void parse_actionAngleArgs(int npot,
     case 11: //DoubleExponentialDiskPotential, XX arguments
       actionAngleArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       //Look at pot_args to figure out the number of arguments
-      actionAngleArgs->nargs= 6 + 2 * *(pot_args+5) + 2 * *(pot_args+4);
+      actionAngleArgs->nargs= 6 + 2 * *(pot_args+5) + 4 * *(pot_args+4);
       break;
     }
     actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
