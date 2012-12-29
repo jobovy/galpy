@@ -50,20 +50,20 @@ class DoubleExponentialDiskPotential(Potential):
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
         #Setup j0 zeros etc.
         self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
-        nzeros=100
+        self._nzeros=100
         #j0 for potential and z
-        self._j0zeros= nu.zeros(nzeros+1)
-        self._j0zeros[1:nzeros+1]= special.jn_zeros(0,nzeros)
+        self._j0zeros= nu.zeros(self._nzeros+1)
+        self._j0zeros[1:self._nzeros+1]= special.jn_zeros(0,self._nzeros)
         self._dj0zeros= self._j0zeros-nu.roll(self._j0zeros,1)
         self._dj0zeros[0]= self._j0zeros[0]
         #j1 for R
-        self._j1zeros= nu.zeros(nzeros+1)
-        self._j1zeros[1:nzeros+1]= special.jn_zeros(1,nzeros)
+        self._j1zeros= nu.zeros(self._nzeros+1)
+        self._j1zeros[1:self._nzeros+1]= special.jn_zeros(1,self._nzeros)
         self._dj1zeros= self._j1zeros-nu.roll(self._j1zeros,1)
         self._dj1zeros[0]= self._j1zeros[0]
         #j2 for R2deriv
-        self._j2zeros= nu.zeros(nzeros+1)
-        self._j2zeros[1:nzeros+1]= special.jn_zeros(2,nzeros)
+        self._j2zeros= nu.zeros(self._nzeros+1)
+        self._j2zeros[1:self._nzeros+1]= special.jn_zeros(2,self._nzeros)
         self._dj2zeros= self._j2zeros-nu.roll(self._j2zeros,1)
         self._dj2zeros[0]= self._j2zeros[0]
         if normalize:
