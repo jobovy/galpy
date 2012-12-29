@@ -98,3 +98,7 @@ double JaffePotentialPlanarR2deriv(double ,double, double,
 //DoubleExponentialDiskPotential
 double DoubleExponentialDiskPotentialEval(double ,double , double, double,
 					  int , double *);
+double MiyamotoNagaiPotentialRforce(double,double, double,double,
+				    int, double *);
+double MiyamotoNagaiPotentialzforce(double,double, double,double,
+				    int, double *);
