@@ -6,14 +6,29 @@ import glob
 
 longDescription= ""
 
+#code to check the GSL version
+cmd= ['gsl-config',
+      '--version']
+try:
+    gsl_version= subprocess.check_output(cmd)
+except (OSError,subprocess.CalledProcessError):
+    gsl_version= ['0','0']
+else:
+    gsl_version= gsl_version.split('.')
+
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
+if float(gsl_version[0]) == 0.:
+    orbit_int_c_src.remove('galpy/potential_src/potential_c_ext/DoubleExponentialDiskPotential.c') #Don't compile this if there is no GSL
 
+orbit_libraries=['m']
+if float(gsl_version[0]) >= 1.:
+    orbit_libraries.extend(['m','gsl','gslcblas'])
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
-                       libraries=['m'],
+                       libraries=orbit_libraries,
                        include_dirs=['galpy/util',
                                      'galpy/potential_src/potential_c_ext'])
 ext_modules=[orbit_int_c]
@@ -32,17 +47,8 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/potential_src/potential_c_ext'],
                          extra_compile_args=["-fopenmp"])
-#code to check the GSL version
-cmd= ['gsl-config',
-      '--version']
-try:
-    gsl_version= subprocess.check_output(cmd)
-except (OSError,subprocess.CalledProcessError):
-    pass
-else:
-    gsl_version= gsl_version.split('.')
-    if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
-        ext_modules.append(actionAngle_c)
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
+    ext_modules.append(actionAngle_c)
 
 setup(name='galpy',
       version='1.',
