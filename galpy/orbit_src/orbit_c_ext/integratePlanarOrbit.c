@@ -122,6 +122,15 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
       leapFuncArgs->nargs= 2;
       break;
+    case 11: //DoubleExponentialDiskPotential, XX arguments
+      leapFuncArgs->planarRforce= &DoubleExponentialDiskPotentialPlanarRforce;
+      leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      //leapFuncArgs->planarR2deriv= &DoubleExponentialDiskPotentialPlanarR2deriv;
+      leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
+      leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
+      //Look at pot_args to figure out the number of arguments
+      leapFuncArgs->nargs= 6 + 2 * *(pot_args+5) + 4 * *(pot_args+4);
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
