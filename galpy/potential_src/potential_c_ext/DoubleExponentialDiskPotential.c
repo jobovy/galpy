@@ -40,6 +40,34 @@ double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
 				    double t,
 				    int nargs, double *args){
+  //Get args
+  double amp= *args++;
+  double alpha= *args++;
+  double beta= *args++;
+  double kmaxFac= *args++;
+  double kmax= 2. * kmaxFac * beta;
+  int nzeros= (int) *args++;
+  int glorder= (int) *args++;
+  double * glx= args;
+  double * glw= args + glorder;
+  double * j1zeros= args + 2 * glorder + 2 * (nzeros + 1);
+  double * dj1zeros= args + 2 * glorder + 3 * (nzeros + 1);
+  //Calculate potential
+  double out= 0.;
+  double k;
+  int ii, jj;
+  if ( R < 1. ) kmax= kmax/R;
+  for (ii=0; ii < ( nzeros + 1 ); ii++) {
+    for (jj=0; jj < glorder; jj++) {
+      k= 0.5 * ( *(glx+jj) + 1. ) * *(dj1zeros+ii+1) + *(j1zeros+ii);
+      out+= *(glw+jj) * *(dj1zeros+ii+1) * k * gsl_sf_bessel_J1(k*R) 
+	* pow(alpha * alpha + k * k,-1.5) 
+	* (beta * exp(-k * fabs(z) ) - k * exp(-beta * fabs(z) ))
+	/ (beta * beta - k * k);
+    }
+    if ( k > kmax ) break;
+  }
+    return - amp * 2 * M_PI * alpha * out;
 }
 double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
 				    double t,
