@@ -36,6 +36,7 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
         """
         Potential.__init__(self,amp=amp)
+        self.hasC= True
         self._new= new
         self._kmaxFac= kmaxFac
         self._glorder= glorder
