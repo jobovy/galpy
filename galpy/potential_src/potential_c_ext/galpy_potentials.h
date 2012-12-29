@@ -95,3 +95,6 @@ double JaffePotentialzforce(double,double,double,double,
 				     int, double *);
 double JaffePotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
+//DoubleExponentialDiskPotential
+double DoubleExponentialDiskPotentialEval(double ,double , double, double,
+					  int , double *);
