@@ -45,6 +45,11 @@ void parse_actionAngleArgs(int npot,
       actionAngleArgs->potentialEval= &JaffePotentialEval;
       actionAngleArgs->nargs= 2;
       break;
+    case 11: //DoubleExponentialDiskPotential, XX arguments
+      actionAngleArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
+      //Look at pot_args to figure out the number of arguments
+      actionAngleArgs->nargs= 6 + 2 * *(pot_args+5) + 2 * *(pot_args+4);
+      break;
     }
     actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
     for (jj=0; jj < actionAngleArgs->nargs; jj++){
