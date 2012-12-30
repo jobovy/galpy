@@ -60,6 +60,7 @@ def _parse_pot(pot):
             pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
             pot_args.extend([p._j1zeros[ii] for ii in range(p._nzeros+1)])
             pot_args.extend([p._dj1zeros[ii] for ii in range(p._nzeros+1)])
+            pot_args.extend([p._kp._amp,p._kp.alpha])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
