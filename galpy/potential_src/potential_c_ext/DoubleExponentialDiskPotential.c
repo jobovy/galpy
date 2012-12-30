@@ -8,14 +8,23 @@
 double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 				  double t,
 				  int nargs, double *args){
+  double amp, alpha;
+  int nzeros, glorder;
+  if ( R > 6. ) { //Approximate as Keplerian
+    nzeros= (int) *(args+4);
+    glorder= (int) *(args+5);
+    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
+    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
+    return - *args * amp * pow(R*R+z*z,1.-0.5*alpha) / (alpha - 2.);
+  }
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
+  amp= *args++;
+  alpha= *args++;
   double beta= *args++;
   double kmaxFac= *args++;
   double kmax= kmaxFac * beta;
-  int nzeros= (int) *args++;
-  int glorder= (int) *args++;
+  nzeros= (int) *args++;
+  glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
   double * j0zeros= args + 2 * glorder;
@@ -40,14 +49,23 @@ double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
 					    double t,
 					    int nargs, double *args){
+  double amp, alpha;
+  int nzeros,glorder;
+  if ( R > 6. ) { //Approximate as Keplerian
+    nzeros= (int) *(args+4);
+    glorder= (int) *(args+5);
+    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
+    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
+    return - *args * amp * R * pow(R*R+z*z,-0.5*alpha);
+  }
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
+  amp= *args++;
+  alpha= *args++;
   double beta= *args++;
   double kmaxFac= *args++;
   double kmax= 2. * kmaxFac * beta;
-  int nzeros= (int) *args++;
-  int glorder= (int) *args++;
+  nzeros= (int) *args++;
+  glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
   double * j1zeros= args + 2 * glorder + 2 * (nzeros + 1);
@@ -72,14 +90,23 @@ double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
 double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
 						  double t,
 						  int nargs, double *args){
+  double amp, alpha;
+  int nzeros, glorder;
+  if ( R > 6. ) { //Approximate as Keplerian
+    nzeros= (int) *(args+4);
+    glorder= (int) *(args+5);
+    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
+    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
+    return - *args * amp * pow(R,-alpha + 1.);
+  }
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
+  amp= *args++;
+  alpha= *args++;
   double beta= *args++;
   double kmaxFac= *args++;
   double kmax= 2. * kmaxFac * beta;
-  int nzeros= (int) *args++;
-  int glorder= (int) *args++;
+  nzeros= (int) *args++;
+  glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
   double * j1zeros= args + 2 * glorder + 2 * (nzeros + 1);
@@ -103,14 +130,23 @@ double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
 double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
 					    double t,
 					    int nargs, double *args){
+  double amp, alpha;
+  int nzeros, glorder;
+  if ( R > 6. ) { //Approximate as Keplerian
+    nzeros= (int) *(args+4);
+    glorder= (int) *(args+5);
+    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
+    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
+    return - *args * amp * z * pow(R*R+z*z,-0.5*alpha);
+  }
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
+  amp= *args++;
+  alpha= *args++;
   double beta= *args++;
   double kmaxFac= *args++;
   double kmax= kmaxFac * beta;
-  int nzeros= (int) *args++;
-  int glorder= (int) *args++;
+  nzeros= (int) *args++;
+  glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
   double * j0zeros= args + 2 * glorder;
