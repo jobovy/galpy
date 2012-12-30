@@ -224,7 +224,6 @@ class actionAngleStaeckelGrid():
                 sin2psi= 2.*thisEz/thisv2/(1.+sinh2u0) #latter is cosh2u0
                 sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
                 psiz= numpy.arcsin(numpy.sqrt(sin2psi))
-                print psiz-psi
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
