@@ -471,6 +471,7 @@ void calcZmax(int ndata,
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int chunk= CHUNKSIZE;
+  gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,z_lo,z_hi)				\
   shared(zmax,JzRoot,params,s,z,Ez,R,max_iter)
@@ -497,7 +498,6 @@ void calcZmax(int ndata,
 	z_hi*= 1.1;
       }
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JzRoot+tid, z_lo, z_hi);
       if (status == GSL_EINVAL) {
 	*(zmax+ii) = -9999.99;
@@ -519,10 +519,10 @@ void calcZmax(int ndata,
 	*(zmax+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(zmax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
+  gsl_set_error_handler (NULL);
   for (tid=0; tid < nthreads; tid++)
     gsl_root_fsolver_free( (s+tid)->s);
   free(s);
