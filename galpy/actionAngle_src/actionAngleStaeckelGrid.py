@@ -241,6 +241,15 @@ class actionAngleStaeckelGrid():
                                                                  order=3,
                                                                  prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
+                jrindiv, lzindiv, jzindiv= self._aA(R[indx],
+                                                    vR[indx],
+                                                    vT[indx],
+                                                    z[indx],
+                                                    vz[indx],
+                                                    **kwargs)
+                jr[indx]= jrindiv
+                jz[indx]= jzindiv
+                """
                 jrindiv= numpy.empty(numpy.sum(indx))
                 jzindiv= numpy.empty(numpy.sum(indx))
                 for ii in range(numpy.sum(indx)):
@@ -259,6 +268,7 @@ class actionAngleStaeckelGrid():
                         jzindiv[ii]= numpy.nan
                 jr[indx]= jrindiv
                 jz[indx]= jzindiv
+                """
         else:
             jr,Lz, jz= self(numpy.array([R]),
                             numpy.array([vR]),
