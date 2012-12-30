@@ -129,7 +129,7 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
       leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments
-      leapFuncArgs->nargs= 6 + 2 * *(pot_args+5) + 4 * *(pot_args+4);
+      leapFuncArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 );
       break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
