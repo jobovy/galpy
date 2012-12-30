@@ -470,6 +470,7 @@ void calcUminUmax(int ndata,
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int chunk= CHUNKSIZE;
+  gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,u_lo,u_hi,meps,peps)				\
   shared(umin,umax,JRRoot,params,s,ux,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0,max_iter)
@@ -507,7 +508,6 @@ void calcUminUmax(int ndata,
 	  u_lo*= 0.9;
 	}
 	//Find root
-	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
 	  *(umin+ii) = -9999.99;
@@ -531,7 +531,6 @@ void calcUminUmax(int ndata,
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
@@ -543,7 +542,6 @@ void calcUminUmax(int ndata,
 	  u_hi*= 1.1;
 	}
 	//Find root
-	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
 	  *(umin+ii) = -9999.99;
@@ -567,7 +565,6 @@ void calcUminUmax(int ndata,
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -580,7 +577,6 @@ void calcUminUmax(int ndata,
       }
       u_hi= (u_lo < 0.9 * *(ux+ii)) ? u_lo / 0.9 / 0.9: *(ux+ii);
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
 	*(umin+ii) = -9999.99;
@@ -604,7 +600,6 @@ void calcUminUmax(int ndata,
 	*(umax+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
@@ -615,7 +610,6 @@ void calcUminUmax(int ndata,
       }
       u_lo= (u_hi > 1.1 * *(ux+ii)) ? u_hi / 1.1 / 1.1: *(ux+ii);
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
 	*(umin+ii) = -9999.99;
@@ -639,10 +633,10 @@ void calcUminUmax(int ndata,
 	*(umax+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
+  gsl_set_error_handler (NULL);
   for (tid=0; tid < nthreads; tid++)
     gsl_root_fsolver_free( (s+tid)->s);
   free(s);
@@ -685,6 +679,7 @@ void calcVmin(int ndata,
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int chunk= CHUNKSIZE;
+  gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,v_lo,v_hi)				\
   shared(vmin,JzRoot,params,s,vx,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2,max_iter)
@@ -721,7 +716,6 @@ void calcVmin(int ndata,
 	v_lo*= 0.9;
       }
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JzRoot+tid, v_lo, v_hi);
       if (status == GSL_EINVAL) {
 	*(vmin+ii) = -9999.99;
@@ -743,10 +737,10 @@ void calcVmin(int ndata,
 	*(vmin+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(vmin+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
+  gsl_set_error_handler (NULL);
   for (tid=0; tid < nthreads; tid++)
     gsl_root_fsolver_free( (s+tid)->s);
   free(s);
