@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <galpy_potentials.h>
