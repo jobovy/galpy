@@ -268,6 +268,7 @@ void calcRapRperi(int ndata,
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
   int chunk= CHUNKSIZE;
+  gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,R_lo,R_hi,meps,peps)				\
   shared(rperi,rap,JRRoot,params,s,R,ER,Lz,max_iter)
@@ -299,7 +300,6 @@ void calcRapRperi(int ndata,
 	  R_lo*= 0.9;
 	}
 	//Find root
-	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
 	if (status == GSL_EINVAL) {
 	  *(rperi+ii) = -9999.99;
@@ -323,7 +323,6 @@ void calcRapRperi(int ndata,
 	  *(rap+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	*(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
@@ -339,7 +338,6 @@ void calcRapRperi(int ndata,
 	  }
 	}
 	//Find root
-	gsl_set_error_handler_off();
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
 	if (status == GSL_EINVAL) {
 	  *(rperi+ii) = -9999.99;
@@ -363,7 +361,6 @@ void calcRapRperi(int ndata,
 	  *(rap+ii) = -9999.99;
 	  continue;
 	}
-	gsl_set_error_handler (NULL);
 	*(rap+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -376,7 +373,6 @@ void calcRapRperi(int ndata,
       }
       R_hi= (R_lo < 0.9 * *(R+ii)) ? R_lo / 0.9 / 0.9: *(R+ii);
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
       if (status == GSL_EINVAL) {
 	*(rperi+ii) = -9999.99;
@@ -400,7 +396,6 @@ void calcRapRperi(int ndata,
 	*(rap+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       R_lo= *(R+ii);
@@ -415,7 +410,6 @@ void calcRapRperi(int ndata,
       }
       R_lo= (R_hi > 1.1 * *(R+ii)) ? R_hi / 1.1 / 1.1: *(R+ii);
       //Find root
-      gsl_set_error_handler_off();
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
       if (status == GSL_EINVAL) {
 	*(rperi+ii) = -9999.99;
@@ -439,10 +433,10 @@ void calcRapRperi(int ndata,
 	*(rap+ii) = -9999.99;
 	continue;
       }
-      gsl_set_error_handler (NULL);
       *(rap+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
+  gsl_set_error_handler (NULL);
   for (tid=0; tid < nthreads; tid++)
     gsl_root_fsolver_free( (s+tid)->s);
   free(s);
