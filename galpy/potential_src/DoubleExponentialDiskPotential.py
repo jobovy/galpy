@@ -103,15 +103,27 @@ class DoubleExponentialDiskPotential(Potential):
         elif dR != 0 and dphi != 0:
             raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
         if self._new:
-            if R > 6.: return self._kp(R,z)
-            if R < 1.: R4max= 1.
-            else: R4max= R
+            if isinstance(R,float):
+                floatIn= True
+                R= nu.array([R])
+                z= nu.array([z])
+            else:
+                floatIn= False
+            out= nu.empty(len(R))
+            indx= (R <= 6.)
+            out[True-indx]= self._kp(R[True-indx],z[True-indx])
+            R4max= nu.copy(R)
+            R4max[(R < 1.)]= 1.
             kmax= self._kmaxFac*self._beta
-            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
-            ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
-            weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
-            evalInt= special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
-            return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
+            for jj in range(len(R)):
+                if not indx[jj]: continue
+                maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max[jj])**2.) #close enough
+                ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+                weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+                evalInt= special.jn(0,ks*R[jj])*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z[jj]))-ks*nu.exp(-self._beta*nu.fabs(z[jj])))/(self._beta**2.-ks**2.)
+                out[jj]= -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
+            if floatIn: return out[0]
+            else: return out
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
