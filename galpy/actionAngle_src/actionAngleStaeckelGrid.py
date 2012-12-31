@@ -220,10 +220,11 @@ class actionAngleStaeckelGrid():
                 thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
                 cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
                 cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
-                psi= numpy.arccos(numpy.sqrt(cos2psi))
-                sin2psi= 2.*thisEz/thisv2/(1.+sinh2u0) #latter is cosh2u0
-                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
-                psiz= numpy.arcsin(numpy.sqrt(sin2psi))
+                indxCos2psi= (cos2psi > 1.)
+                indxCos2psi+= (cos2psi < 0.)
+                indxc[indxc]= True-indxCos2psi#Handle these two cases as off-grid
+                indx= True-indxc
+                psi= numpy.arccos(numpy.sqrt(cos2psi[True-indxCos2psi]))
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
@@ -235,9 +236,18 @@ class actionAngleStaeckelGrid():
                                                                  order=3,
                                                                  prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 #Switch to Ez-calculated psi
-                coords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
+                sin2psi= 2.*thisEz[True-indxCos2psi]/thisv2[True-indxCos2psi]/(1.+sinh2u0[True-indxCos2psi]) #latter is cosh2u0
+                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
+                indxSin2psi= (sin2psi > 1.)
+                indxSin2psi+= (sin2psi < 0.)
+                indxc[indxc]= True-indxSin2psi#Handle these two cases as off-grid
+                indx= True-indxc
+                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True-indxSin2psi]))
+                newcoords= numpy.empty((3,numpy.sum(indxc)))
+                newcoords[0:2,:]= coords[0:2,True-indxSin2psi]
+                newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
                 jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
-                                                                 coords,
+                                                                 newcoords,
                                                                  order=3,
                                                                  prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
