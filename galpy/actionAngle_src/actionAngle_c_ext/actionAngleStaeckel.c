@@ -750,7 +750,9 @@ void calcVmin(int ndata,
 
 double JRStaeckelIntegrand(double u,
 			   void * p){
-  return sqrt(JRStaeckelIntegrandSquared(u,p));
+  double out= JRStaeckelIntegrandSquared(u,p);
+  if ( out <= 0.) return 0.;
+  else return sqrt(out);
 }
 double JRStaeckelIntegrandSquared(double u,
 				  void * p){
@@ -765,7 +767,9 @@ double JRStaeckelIntegrandSquared(double u,
   
 double JzStaeckelIntegrand(double v,
 			   void * p){
-  return sqrt(JzStaeckelIntegrandSquared(v,p));
+  double out= JzStaeckelIntegrandSquared(v,p);
+  if ( out <= 0. ) return 0.;
+  else return sqrt(out);
 }
 double JzStaeckelIntegrandSquared(double v,
 				  void * p){
