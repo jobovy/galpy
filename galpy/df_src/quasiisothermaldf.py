@@ -1422,14 +1422,34 @@ class quasiisothermaldf:
             #Evaluate everywhere
             vTgl= 1.5/2.*(glx+1.)
             vTglw= glw
+            #If inputs are arrays, tile
+            if isinstance(R,numpy.ndarray):
+                nR= len(R)
+                R= numpy.tile(R,(ngl,1)).T.flatten()
+                z= numpy.tile(z,(ngl,1)).T.flatten()
+                vR= numpy.tile(vR,(ngl,1)).T.flatten()
+                vz= numpy.tile(vz,(ngl,1)).T.flatten()
+                vTgl= numpy.tile(vTgl,(nR,1)).flatten()
+                vTglw= numpy.tile(vTglw,(nR,1))
+                scalarOut= False
+            else:
+                R= R+numpy.zeros(ngl)
+                vR= vR+numpy.zeros(ngl)
+                z= z+numpy.zeros(ngl)
+                vz= vz+numpy.zeros(ngl)
+                nR= 1
+                scalarOut= True
             #evaluate
-            logqeval= self(R+numpy.zeros(ngl),
-                           vR+numpy.zeros(ngl),
-                           vTgl,
-                           z+numpy.zeros(ngl),
-                           vz+numpy.zeros(ngl),
-                           log=True)
-            return numpy.sum(numpy.exp(logqeval)*vTglw)
+            logqeval= numpy.reshape(self(R,
+                                         vR,
+                                         vTgl,
+                                         z,
+                                         vz,
+                                         log=True),
+                                    (nR,ngl))
+            out= numpy.sum(numpy.exp(logqeval)*vTglw,axis=1)
+            if scalarOut: return out[0]
+            else: return out
 
     def _calc_epifreq(self,r):
         """
