@@ -35,6 +35,7 @@ plotplanarPotentials= planarPotential.plotplanarPotentials
 plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
 vcirc= plotRotcurve.vcirc
+dvcircdR= plotRotcurve.dvcircdR
 epifreq= Potential.epifreq
 verticalfreq= Potential.verticalfreq
 flattening= Potential.flattening
