@@ -338,6 +338,33 @@ class Potential:
         """
         return nu.sqrt(R*-self.Rforce(R,0.))
 
+    def dvcircdR(self,R):
+        """
+        
+        NAME:
+        
+            dvcircdR
+        
+        PURPOSE:
+        
+            calculate the derivative of the circular velocity at R wrt R
+            in this potential
+
+        INPUT:
+        
+            R - Galactocentric radius
+        
+        OUTPUT:
+        
+            derivative of the circular rotation velocity wrt R
+        
+        HISTORY:
+        
+            2013-01-08 - Written - Bovy (IAS)
+        
+        """
+        return (-self.Rforce(R,0.)+R*self.R2deriv(R,0.))/self.vcirc(R)
+
     def omegac(self,R):
         """
         
