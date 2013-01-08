@@ -133,6 +133,41 @@ def vcirc(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
 
+def dvcircdR(Pot,R):
+    """
+
+    NAME:
+
+       dvcircdR
+
+    PURPOSE:
+
+       calculate the derivative of the circular velocity wrt R at R in potential Pot
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       R - Galactocentric radius
+
+    OUTPUT:
+
+       derivative of the circular rotation velocity wrt R
+
+    HISTORY:
+
+       2013-01-08 - Written - Bovy (IAS)
+
+    """
+    from planarPotential import evaluateplanarRforces
+    from planarPotential import evaluateplanarR2derivs
+    try:
+        return (-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/vcirc(Pot,R)
+    except TypeError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return (-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/vcirc(Pot,R)
+
 def omegac(Pot,R):
     """
 
