@@ -27,6 +27,7 @@ evaluateDensities= Potential.evaluateDensities
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
+evaluateR2derivs= Potential.evaluateR2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
