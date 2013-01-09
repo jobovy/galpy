@@ -140,6 +140,25 @@ class PowerSphericalPotential(Potential):
         """
         return self._R2deriv(z,R) #Spherical potential
 
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2013-01-09 - Written - Bovy (IAS)
+        """
+        r= nu.sqrt(R**2.+z**2.)
+        return (3.-self.alpha)/4./nu.pi/r**self.alpha
+
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler potential
 
