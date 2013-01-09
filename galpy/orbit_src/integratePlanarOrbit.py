@@ -80,7 +80,7 @@ def _parse_pot(pot):
                                  p._mphio,p._p,p._phib])
         elif isinstance(p,potential.PowerSphericalPotential):
             pot_type.append(7)
-            pot_args.extend([p._amp,p.aalpha])
+            pot_args.extend([p._amp,p.alpha])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.PowerSphericalPotential):
             pot_type.append(7)
