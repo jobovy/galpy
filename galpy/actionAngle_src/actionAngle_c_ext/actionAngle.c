@@ -50,6 +50,10 @@ void parse_actionAngleArgs(int npot,
       //Look at pot_args to figure out the number of arguments
       actionAngleArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1);
       break;
+    case 12: //FlattenedPowerPotential, 4 arguments
+      actionAngleArgs->potentialEval= &FlattenedPowerPotentialEval;
+      actionAngleArgs->nargs= 4;
+      break;     
     }
     actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
     for (jj=0; jj < actionAngleArgs->nargs; jj++){
