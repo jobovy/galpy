@@ -104,6 +104,12 @@ inline void parse_leapFuncArgs_Full(int npot,
       //Look at pot_args to figure out the number of arguments
       leapFuncArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 );
       break;
+    case 12: //FlattenedPowerPotential, 4 arguments
+      leapFuncArgs->Rforce= &FlattenedPowerPotentialRforce;
+      leapFuncArgs->zforce= &FlattenedPowerPotentialzforce;
+      leapFuncArgs->phiforce= &ZeroForce;
+      leapFuncArgs->nargs= 4;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
