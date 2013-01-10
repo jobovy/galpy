@@ -131,6 +131,14 @@ inline void parse_leapFuncArgs(int npot,struct leapFuncArg * leapFuncArgs,
       //Look at pot_args to figure out the number of arguments
       leapFuncArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 );
       break;
+    case 12: //FlattenedPowerPotential, 4 arguments
+      leapFuncArgs->planarRforce= &FlattenedPowerPotentialPlanarRforce;
+      leapFuncArgs->planarphiforce= &ZeroPlanarForce;
+      leapFuncArgs->planarR2deriv= &FlattenedPowerPotentialPlanarR2deriv;
+      leapFuncArgs->planarphi2deriv= &ZeroPlanarForce;
+      leapFuncArgs->planarRphideriv= &ZeroPlanarForce;
+      leapFuncArgs->nargs= 3;
+      break;
     }
     leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
     for (jj=0; jj < leapFuncArgs->nargs; jj++){
