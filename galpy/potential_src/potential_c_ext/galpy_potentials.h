@@ -107,3 +107,11 @@ double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 //FlattenedPowerPotential
 double FlattenedPowerPotentialEval(double,double,double,double,
 				   int, double *);
+double FlattenedPowerPotentialRforce(double,double,double,double,
+				     int, double *);
+double FlattenedPowerPotentialPlanarRforce(double,double,double,double,
+					   int, double *);
+double FlattenedPowerPotentialzforce(double,double,double,double,
+				     int, double *);
+double FlattenedPowerPotentialPlanarR2deriv(double,double,double,double,
+					    int, double *);
