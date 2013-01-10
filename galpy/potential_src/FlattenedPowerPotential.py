@@ -92,7 +92,7 @@ class FlattenedPowerPotential(Potential):
             return -R/(R**2.+z**2./self.q2+self.core2)
         else:
             m2= self.core2+R**2.+z**2./self.q2
-            return -self.alpha*m2**(-self.alpha/2.-1.)*R/self.alpha
+            return -m2**(-self.alpha/2.-1.)*R
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -114,7 +114,7 @@ class FlattenedPowerPotential(Potential):
             return -z/self.q2/(R**2.+z**2./self.q2+self.core2)
         else:
             m2= self.core2+R**2.+z**2./self.q2
-            return -self.alpha*m2**(-self.alpha/2.-1.)*z/self.q2/self.alpha
+            return -m2**(-self.alpha/2.-1.)*z/self.q2
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
