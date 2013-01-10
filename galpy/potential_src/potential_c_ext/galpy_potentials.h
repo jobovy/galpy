@@ -104,3 +104,6 @@ double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
 						  int,double *);
 double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    int, double *);
+//FlattenedPowerPotential
+double FlattenedPowerPotentialEval(double,double,double,double,
+				   int, double *);
