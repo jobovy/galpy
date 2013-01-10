@@ -184,4 +184,4 @@ class FlattenedPowerPotential(Potential):
                                        (R**2.+z**2./self.q2+self.core2)**2.
         else:
             m2= self.core2+R**2.+z**2./self.q2
-            return 1./self.q2*(self.core2*(1.+2.*self.q2)+R**2.*(1.-self.alpha*self.q2)+z**2.*(2.-(1.+self.alpha)/self.q2))*m2**(-self.alpha/2.-2.)
+            return 1./self.q2*(self.core2*(1.+2.*self.q2)+R**2.*(1.-self.alpha*self.q2)+z**2.*(2.-(1.+self.alpha)/self.q2))*m2**(-self.alpha/2.-2.)/4./nu.pi
