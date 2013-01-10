@@ -19,6 +19,7 @@ from galpy.potential_src import ForceSoftening
 from galpy.potential_src import EllipticalDiskPotential
 from galpy.potential_src import CosmphiDiskPotential
 from galpy.potential_src import RazorThinExponentialDiskPotential
+from galpy.potential_src import FlattenedPowerPotential
 #
 # Functions
 #
@@ -78,6 +79,7 @@ EllipticalDiskPotential= EllipticalDiskPotential.EllipticalDiskPotential
 LopsidedDiskPotential= CosmphiDiskPotential.LopsidedDiskPotential
 CosmphiDiskPotential= CosmphiDiskPotential.CosmphiDiskPotential
 RazorThinExponentialDiskPotential= RazorThinExponentialDiskPotential.RazorThinExponentialDiskPotential
+FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
