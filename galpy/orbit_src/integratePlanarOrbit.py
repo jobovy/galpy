@@ -11,13 +11,13 @@ if _libname:
     _lib = ctypes.CDLL(_libname)
 if _lib is None:
     import sys
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError:
-        _lib = None
-    else:
-        break
+    for path in sys.path:
+        try:
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
+        except OSError:
+            _lib = None
+        else:
+            break
 if _lib is None:
     raise IOError('galpy integration module not found')
 
