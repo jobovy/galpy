@@ -1266,7 +1266,7 @@ class quasiisothermaldf:
             #Tile everything
             vTgl= numpy.tile(vTgl,(ngl,1)).T
             vRgl= numpy.tile(vRgl,(ngl,1))
-            vTglw= numpy.tile(glw,(ngl,ngl,1)).T #also tile weights
+            vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
             vRglw= numpy.tile(glw,(ngl,1))
             #evaluate
             logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
