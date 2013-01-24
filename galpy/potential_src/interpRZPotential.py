@@ -52,9 +52,16 @@ class interpRZPotential(Potential):
         if logR:
             self._rgrid= numpy.exp(self._rgrid)
         self._zgrid= numpy.linspace(*zgrid)
-        if use_c:
-            if interpPot:
+        if interpPot:
+            if use_c:
                 self._potGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid)
+            else:
+                from galpy.potential import evaluatePotentials
+                potGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+                for ii in range(len(self._rgrid)):
+                    for jj in range(len(self._zgrid)):
+                        potGrid[ii,jj]= evaluatePotentials(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                self._potGrid= potGrid
         return None
         Rforce= numpy.zeros(len(self._rgrid)*len(self._zgrid))
         zforce= numpy.zeros(len(self._rgrid)*len(self._zgrid))
