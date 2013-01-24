@@ -31,6 +31,8 @@ void calc_potential(int nR,
     for (jj=0; jj < nz; jj++){
       *(row+jj)= evaluatePotentials(*(R+ii),*(z+jj),npot,actionAngleArgs);
     }
-    put_row(out,ii,row,nz); 
+    put_row(out,ii ,row,nz); 
   }
+  free(actionAngleArgs);
+  free(row);
 }
