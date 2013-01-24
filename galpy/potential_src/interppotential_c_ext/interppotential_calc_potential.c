@@ -22,15 +22,15 @@ void calc_potential(int nR,
 		    double *out,
 		    int * err){
   int ii, jj;
-  double * row= (double *) malloc ( nR * ( sizeof ( double ) ) );
+  double * row= (double *) malloc ( nz * ( sizeof ( double ) ) );
   //Set up the potentials
   struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  for (jj=0; jj < nz; jj++){
-    for (ii=0; ii < nR; ii++){
-      *(row+ii)= evaluatePotentials(*(R+ii),*(z+jj),npot,actionAngleArgs);
+  for (ii=0; ii < nR; ii++){
+    for (jj=0; jj < nz; jj++){
+      *(row+jj)= evaluatePotentials(*(R+ii),*(z+jj),npot,actionAngleArgs);
     }
-    put_row(out,jj,row,nR); 
+    put_row(out,ii,row,nz); 
   }
 }
