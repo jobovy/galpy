@@ -4,6 +4,8 @@
 #ifndef __GALPY_ACTIONANGLE_H__
 #define __GALPY_ACTIONANGLE_H_
 #include <gsl/gsl_roots.h>
+#include <gsl/gsl_spline.h>
+#include "interp_2d.h"
 /*
   Structure declarations
 */
@@ -12,6 +14,8 @@ struct actionAngleArg{
 			  int nargs, double * args);
   int nargs;
   double * args;
+  interp_2d * i2d;
+  gsl_interp_accel * acc;
 };
 struct pragmasolver{
   gsl_root_fsolver *s;
@@ -19,6 +23,6 @@ struct pragmasolver{
 /*
   Function declarations
 */
-double evaluatePotentials(double,double,int, struct actionAngleArg *);
-void parse_actionAngleArgs(int,struct actionAngleArg *,int *,double *);
+double evaluatePotentials(double,double,int, struct potentialArg *);
+void parse_actionAngleArgs(int,struct potentialArg *,int *,double *);
 #endif /* actionAngle.h */
