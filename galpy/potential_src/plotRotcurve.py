@@ -130,7 +130,7 @@ def vcirc(Pot,R):
         sum= 0.
         for pot in Pot:
             sum+= pot.vcirc(R)**2.
-            return nu.sqrt(sum)
+        return nu.sqrt(sum)
     elif isinstance(Pot,Potential):
         return Pot.vcirc(R)
 
