@@ -50,8 +50,10 @@ class interpRZPotential(Potential):
         Potential.__init__(self,amp=1.)
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
-        if logR:
+        self._logR= logR
+        if self._logR:
             self._rgrid= numpy.exp(self._rgrid)
+            self._logrgrid= numpy.log(self._rgrid)
         self._zgrid= numpy.linspace(*zgrid)
         if interpPot:
             if use_c:
