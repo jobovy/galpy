@@ -219,7 +219,10 @@ class actionAngleAdiabaticGrid():
             vz= meta._vz
         #First work on the vertical action
         Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
-        Phio= galpy.potential.evaluatePotentials(R,0.,self._pot)
+        try:
+            Phio= galpy.potential.evaluatePotentials(R,numpy.zeros(len(R)),self._pot)
+        except TypeError:
+            Phio= galpy.potential.evaluatePotentials(R,0.,self._pot)
         Ez= Phi-Phio+vz**2./2.
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(R))
