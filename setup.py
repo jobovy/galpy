@@ -20,6 +20,7 @@ else:
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
+orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 if float(gsl_version[0]) == 0.:
     orbit_int_c_src.remove('galpy/potential_src/potential_c_ext/DoubleExponentialDiskPotential.c') #Don't compile this if there is no GSL
 
@@ -30,13 +31,14 @@ orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
                        include_dirs=['galpy/util',
+                                     'galpy/util/interp_2d',
                                      'galpy/potential_src/potential_c_ext'])
 ext_modules=[orbit_int_c]
 
 #actionAngle C extension
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
-#actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
+actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
@@ -46,7 +48,7 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
                          libraries=['m','gsl','gslcblas','gomp'],
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
-#                                       'galpy/util/interp_2d',
+                                       'galpy/util/interp_2d',
                                        'galpy/potential_src/potential_c_ext'],
                          extra_compile_args=["-fopenmp"])
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
@@ -56,7 +58,7 @@ if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
 interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
-interppotential_c_src.append('galpy/util/interp_2d/cubic_bspline_2d_coeffs.c')
+interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_c= Extension('galpy_interppotential_c',
                          sources=interppotential_c_src,
