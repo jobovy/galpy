@@ -166,7 +166,13 @@ void calcu0(int ndata,
     u_guess= 1.;
     u_lo= 0.001;
     u_hi= 100.;
+    gsl_set_error_handler_off();
     status = gsl_min_fminimizer_set (s, &u0Eq, u_guess, u_lo, u_hi);
+    if (status == GSL_EINVAL) {
+      *(u0+ii)= u_hi;
+      continue;
+    }
+    gsl_set_error_handler (NULL);
     iter= 0;
     do
       {
