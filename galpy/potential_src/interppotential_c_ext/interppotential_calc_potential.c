@@ -37,3 +37,25 @@ void calc_potential(int nR,
   free(actionAngleArgs);
   free(row);
 }
+void eval_potential(int nR,
+		    double *R,
+		    double *z,
+		    int npot,
+		    int * pot_type,
+		    double * pot_args,
+		    double *out,
+		    int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= evaluatePotentials(*(R+ii),*(z+ii),npot,actionAngleArgs);
+  }
+  if ( actionAngleArgs->i2d )
+    interp_2d_free(actionAngleArgs->i2d) ;
+  if (actionAngleArgs->acc )
+    gsl_interp_accel_free (actionAngleArgs->acc);
+  free(actionAngleArgs);
+}

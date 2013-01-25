@@ -60,6 +60,7 @@ class interpRZPotential(Potential):
         self._interpvcirc= interpvcirc
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
+        self._enable_c= enable_c
         if interpPot:
             if use_c:
                 self._potGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid)
@@ -70,6 +71,16 @@ class interpRZPotential(Potential):
                     for jj in range(len(self._zgrid)):
                         potGrid[ii,jj]= evaluatePotentials(self._rgrid[ii],self._zgrid[jj],self._origPot)
                 self._potGrid= potGrid
+            if self._logR:
+                self._potInterp= interpolate.RectBivariateSpline(self._logrgrid,
+                                                                 self._zgrid,
+                                                                 self._potGrid,
+                                                                 kx=3,ky=3,s=0.)
+            else:
+                self._potInterp= interpolate.RectBivariateSpline(self._rgrid,
+                                                                 self._zgrid,
+                                                                 self._potGrid,
+                                                                 kx=3,ky=3,s=0.)
             if enable_c:
                 self._potGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._potGrid)
         if interpvcirc:
@@ -95,8 +106,36 @@ class interpRZPotential(Potential):
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
-    def _eval(self,R,z,phi=0.,t=0.):
-        return 0.
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+        if self._interpPot and self._enable_c:
+            if isinstance(R,float):
+                R= numpy.array([R])
+            if isinstance(z,float):
+                z= numpy.array([z])
+            return eval_potential_c(self,R,z)[0]
+        from galpy.potential import evaluatePotentials
+        if self._interpPot:
+            if isinstance(R,float):
+                return self._evaluate(numpy.array([R]),numpy.array([z]))
+            out= numpy.empty_like(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
+                else:
+                    out[indx]= self._potInterp.ev(R[indx],z[indx])
+            if numpy.sum(True-indx) > 0:
+                if self._logR:
+                    out[True-indx]= evaluatePotentials(numpy.log(R[True-indx]),
+                                                       z[True-indx],
+                                                       self._origPot)
+                else:
+                    out[True-indx]= evaluatePotentials(R[True-indx],
+                                                       z[True-indx],
+                                                       self._origPot)
+            return out
+        else:
+            return evaluatePotentials(R,z,self._origPot)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         if R < self._rgrid[0] or R > self._rgrid[-1] \
@@ -231,4 +270,62 @@ def calc_2dsplinecoeffs_c(array2d):
     interppotential_calc_2dsplinecoeffs(out,out.shape[1],out.shape[0])
 
     return out
+
+def eval_potential_c(pot,R,z):
+    """
+    NAME:
+       eval_potential_c
+    PURPOSE:
+       Use C to evaluate the interpolated potential
+    INPUT:
+       pot - Potential or list of such instances
+       R - array
+       z - array
+    OUTPUT:
+       potential evaluated R and z
+    HISTORY:
+       2013-01-24 - Written - Bovy (IAS)
+    """
+    from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    #Parse the potential
+    npot, pot_type, pot_args= _parse_pot(pot)
+
+    #Set up result arrays
+    out= numpy.empty((len(R)))
+    err= ctypes.c_int(0)
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    interppotential_calc_potentialFunc= _lib.eval_potential
+    interppotential_calc_potentialFunc.argtypes= [ctypes.c_int,
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.c_int,
+                                                  ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.POINTER(ctypes.c_int)]
+
+    #Array requirements, first store old order
+    f_cont= [R.flags['F_CONTIGUOUS'],
+             z.flags['F_CONTIGUOUS']]
+    R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
+    z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
+    out= numpy.require(out,dtype=numpy.float64,requirements=['C','W'])
+
+    #Run the C code
+    interppotential_calc_potentialFunc(len(R),
+                                       R,
+                                       z,
+                                       ctypes.c_int(npot),
+                                       pot_type,
+                                       pot_args,
+                                       out,
+                                       ctypes.byref(err))
+    
+    #Reset input arrays
+    if f_cont[0]: R= numpy.asfortranarray(R)
+    if f_cont[1]: z= numpy.asfortranarray(z)
+
+    return (out,err.value)
 
