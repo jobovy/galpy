@@ -125,13 +125,14 @@ def vcirc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarRforces
-    try:
-        return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
-    except TypeError:
-        from planarPotential import RZToplanarPotential
-        Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(R*-evaluateplanarRforces(R,Pot))
+    from Potential import Potential
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.vcirc(R)**2.
+            return nu.sqrt(sum)
+    elif isinstance(Pot,Potential):
+        return Pot.vcirc(R)
 
 def dvcircdR(Pot,R):
     """

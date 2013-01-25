@@ -906,7 +906,13 @@ def epifreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS)
     
     """
-    return nu.sqrt(evaluateR2derivs(R,0.,pot)-3./R*evaluateRforces(R,0.,pot))
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.epifreq(R)**2.
+        return nu.sqrt(sum)
+    elif isinstance(Pot,Potential):
+        return Pot.epifreq(R)
 
 def verticalfreq(Pot,R):
     """
@@ -934,7 +940,13 @@ def verticalfreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS@MPIA)
     
     """
-    return nu.sqrt(evaluatez2derivs(R,0.,Pot))
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.verticalfreq(R)**2.
+        return nu.sqrt(sum)
+    elif isinstance(Pot,Potential):
+        return Pot.verticalfreq(R)
 
 def flattening(Pot,R,z):
     """
