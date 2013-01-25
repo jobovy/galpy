@@ -1,67 +1,106 @@
 #include <stdlib.h>
 #include <galpy_potentials.h>
 #include <actionAngle.h>
+#include <cubic_bspline_2d_coeffs.h>
 double evaluatePotentials(double R, double Z, 
-			  int nargs, struct actionAngleArg * actionAngleArgs){
+			  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double pot= 0.;
   for (ii=0; ii < nargs; ii++){
-    pot+= actionAngleArgs->potentialEval(R,Z,0.,0.,
-					 actionAngleArgs->nargs,
-					 actionAngleArgs->args);
-    actionAngleArgs++;
+    pot+= potentialArgs->potentialEval(R,Z,0.,0.,
+				       potentialArgs);
+    potentialArgs++;
   }
-  actionAngleArgs-= nargs;
+  potentialArgs-= nargs;
   return pot;
 }
 void parse_actionAngleArgs(int npot,
-			   struct actionAngleArg * actionAngleArgs,
+			   struct potentialArg * potentialArgs,
 			   int * pot_type,
 			   double * pot_args){
-  int ii,jj;
+  int ii,jj,kk,ll;
+  int nR, nz;
+  double * Rgrid, * zgrid, * potGrid_splinecoeffs, * row;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 3 arguments
-      actionAngleArgs->potentialEval= &LogarithmicHaloPotentialEval;
-      actionAngleArgs->nargs= 3;
+      potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
+      potentialArgs->nargs= 3;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
-      actionAngleArgs->potentialEval= &MiyamotoNagaiPotentialEval;
-      actionAngleArgs->nargs= 3;
+      potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
+      potentialArgs->nargs= 3;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
-      actionAngleArgs->potentialEval= &PowerSphericalPotentialEval;
-      actionAngleArgs->nargs= 2;
+      potentialArgs->potentialEval= &PowerSphericalPotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 8: //HernquistPotential, 2 arguments
-      actionAngleArgs->potentialEval= &HernquistPotentialEval;
-      actionAngleArgs->nargs= 2;
+      potentialArgs->potentialEval= &HernquistPotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 9: //NFWPotential, 2 arguments
-      actionAngleArgs->potentialEval= &NFWPotentialEval;
-      actionAngleArgs->nargs= 2;
+      potentialArgs->potentialEval= &NFWPotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 10: //JaffePotential, 2 arguments
-      actionAngleArgs->potentialEval= &JaffePotentialEval;
-      actionAngleArgs->nargs= 2;
+      potentialArgs->potentialEval= &JaffePotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
-      actionAngleArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
+      potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       //Look at pot_args to figure out the number of arguments
-      actionAngleArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1);
+      potentialArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1);
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
-      actionAngleArgs->potentialEval= &FlattenedPowerPotentialEval;
-      actionAngleArgs->nargs= 4;
+      potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
+      potentialArgs->nargs= 4;
       break;     
+    case 13: //interpRZPotential, XX arguments
+      //Grab the grids and the coefficients
+      nR= (int) *pot_args++;
+      nz= (int) *pot_args++;
+      Rgrid= (double *) malloc ( nR * sizeof ( double ) );
+      zgrid= (double *) malloc ( nz * sizeof ( double ) );
+      row= (double *) malloc ( nz * sizeof ( double ) );
+      potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
+      for (kk=0; kk < nR; kk++)
+	*(Rgrid+kk)= *pot_args++;
+      for (kk=0; kk < nz; kk++)
+	*(zgrid+kk)= *pot_args++;
+      for (kk=0; kk < nR; kk++){
+	for (ll=0; ll < nz; ll++)
+	  *(row+ll)= *pot_args++;
+	put_row(potGrid_splinecoeffs,kk,row,nz); 
+      }
+      potentialArgs->i2d= interp_2d_alloc(nR,nz);
+      interp_2d_init(potentialArgs->i2d,Rgrid,zgrid,potGrid_splinecoeffs,
+		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+      potentialArgs->acc= gsl_interp_accel_alloc ();
+      potentialArgs->potentialEval= &interpRZPotentialEval;
+      potentialArgs->nargs= 2;
     }
-    actionAngleArgs->args= (double *) malloc( actionAngleArgs->nargs * sizeof(double));
-    for (jj=0; jj < actionAngleArgs->nargs; jj++){
-      *(actionAngleArgs->args)= *pot_args++;
-      actionAngleArgs->args++;
+    potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
+    for (jj=0; jj < potentialArgs->nargs; jj++){
+      *(potentialArgs->args)= *pot_args++;
+      potentialArgs->args++;
     }
-    actionAngleArgs->args-= actionAngleArgs->nargs;
-    actionAngleArgs++;
+    potentialArgs->args-= potentialArgs->nargs;
+    potentialArgs++;
   }
-  actionAngleArgs-= npot;
+  potentialArgs-= npot;
 }
