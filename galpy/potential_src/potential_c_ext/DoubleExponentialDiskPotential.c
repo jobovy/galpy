@@ -6,8 +6,9 @@
 #endif
 //Double exponential disk potential
 double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
-				  double t,
-				  int nargs, double *args){
+					  double t,
+					  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   double amp, alpha;
   int nzeros, glorder;
   if ( R > 6. ) { //Approximate as Keplerian

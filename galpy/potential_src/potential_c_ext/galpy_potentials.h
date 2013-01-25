@@ -1,5 +1,17 @@
 /* C implementations of galpy potentials */
 /*
+  Structure declarations
+*/
+#include <interp_2d.h>
+struct potentialArg{
+  double (*potentialEval)(double R, double Z, double phi, double t,
+			  struct potentialArg *);
+  int nargs;
+  double * args;
+  interp_2d * i2d;
+  gsl_interp_accel * acc;
+};
+/*
   Function declarations
 */
 //ZeroForce
@@ -7,7 +19,7 @@ double ZeroPlanarForce(double, double,double,int, double *);
 double ZeroForce(double,double,double,double,int, double *);
 //LogarithmicHaloPotential
 double LogarithmicHaloPotentialEval(double ,double , double, double,
-				    int , double *);
+				    struct potentialArg *);
 double LogarithmicHaloPotentialRforce(double ,double , double, double,
 				      int , double *);
 double LogarithmicHaloPotentialPlanarRforce(double ,double, double,
@@ -36,7 +48,7 @@ double EllipticalDiskPotentialphi2deriv(double,double,double,int,double *);
 double EllipticalDiskPotentialRphideriv(double,double,double,int,double *);
 //Miyamoto-Nagai Potential
 double MiyamotoNagaiPotentialEval(double ,double , double, double,
-				  int , double *);
+				  struct potentialArg *);
 double MiyamotoNagaiPotentialRforce(double ,double , double, double,
 				    int , double *);
 double MiyamotoNagaiPotentialPlanarRforce(double ,double, double,
@@ -53,7 +65,7 @@ double LopsidedDiskPotentialphi2deriv(double,double,double,int,double *);
 double LopsidedDiskPotentialRphideriv(double,double,double,int,double *);
 //PowerSphericalPotential
 double PowerSphericalPotentialEval(double ,double , double, double,
-				   int , double *);
+				   struct potentialArg *);
 double PowerSphericalPotentialRforce(double ,double , double, double,
 				     int , double *);
 double PowerSphericalPotentialPlanarRforce(double ,double, double,
@@ -64,7 +76,7 @@ double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //HernquistPotential
 double HernquistPotentialEval(double ,double , double, double,
-			      int , double *);
+			      struct potentialArg *);
 double HernquistPotentialRforce(double ,double , double, double,
 				     int , double *);
 double HernquistPotentialPlanarRforce(double ,double, double,
@@ -75,7 +87,7 @@ double HernquistPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //NFWPotential
 double NFWPotentialEval(double ,double , double, double,
-			int , double *);
+			struct potentialArg *);
 double NFWPotentialRforce(double ,double , double, double,
 				     int , double *);
 double NFWPotentialPlanarRforce(double ,double, double,
@@ -86,7 +98,7 @@ double NFWPotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //JaffePotential
 double JaffePotentialEval(double ,double , double, double,
-			    int , double *);
+			  struct potentialArg *);
 double JaffePotentialRforce(double ,double , double, double,
 				     int , double *);
 double JaffePotentialPlanarRforce(double ,double, double,
@@ -97,7 +109,7 @@ double JaffePotentialPlanarR2deriv(double ,double, double,
 					    int , double *);
 //DoubleExponentialDiskPotential
 double DoubleExponentialDiskPotentialEval(double ,double , double, double,
-					  int , double *);
+					  struct potentialArg *);
 double DoubleExponentialDiskPotentialRforce(double,double, double,double,
 					    int, double *);
 double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
@@ -106,7 +118,7 @@ double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    int, double *);
 //FlattenedPowerPotential
 double FlattenedPowerPotentialEval(double,double,double,double,
-				   int, double *);
+				   struct potentialArg *);
 double FlattenedPowerPotentialRforce(double,double,double,double,
 				     int, double *);
 double FlattenedPowerPotentialPlanarRforce(double,double,double,double,
@@ -115,3 +127,6 @@ double FlattenedPowerPotentialzforce(double,double,double,double,
 				     int, double *);
 double FlattenedPowerPotentialPlanarR2deriv(double,double,double,double,
 					    int, double *);
+//interpRZPotential
+double interpRZPotentialEval(double ,double , double, double,
+			     struct potentialArg *);

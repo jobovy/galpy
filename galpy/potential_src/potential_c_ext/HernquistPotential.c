@@ -4,8 +4,8 @@
 //2 arguments: amp, a
 double HernquistPotentialEval(double R,double Z, double phi,
 			      double t,
-			      int nargs, double *args){
-  //Get args
+			      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   double amp= *args++;
   double a= *args;
   //Calculate Rforce

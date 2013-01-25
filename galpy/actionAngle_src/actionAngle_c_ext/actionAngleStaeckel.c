@@ -34,7 +34,7 @@ struct JRStaeckelArg{
   double sin2v0;
   double potu0v0;
   int nargs;
-  struct actionAngleArg * actionAngleArgs;
+  struct potentialArg * actionAngleArgs;
 };
 struct JzStaeckelArg{
   double E;
@@ -46,14 +46,14 @@ struct JzStaeckelArg{
   double sinh2u0;
   double potupi2;
   int nargs;
-  struct actionAngleArg * actionAngleArgs;
+  struct potentialArg * actionAngleArgs;
 };
 struct u0EqArg{
   double E;
   double Lz22delta;
   double delta;
   int nargs;
-  struct actionAngleArg * actionAngleArgs;
+  struct potentialArg * actionAngleArgs;
 };
 /*
   Function Declarations
@@ -64,22 +64,22 @@ void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,double *,int *);
 void calcJRStaeckel(int,double *,double *,double *,double *,double *,double *,
 		    double,double *,double *,double *,double *,double *,int,
-		    struct actionAngleArg *,int);
+		    struct potentialArg *,int);
 void calcJzStaeckel(int,double *,double *,double *,double *,double *,double,
 		    double *,double *,double *,double *,int,
-		    struct actionAngleArg *,int);
+		    struct potentialArg *,int);
 void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
 		  double *,double,double *,double *,double *,double *,double *,
-		  int,struct actionAngleArg *);
+		  int,struct potentialArg *);
 void calcVmin(int,double *,double *,double *,double *,double *,double *,double,
-	      double *,double *,double *,double *,int,struct actionAngleArg *);
+	      double *,double *,double *,double *,int,struct potentialArg *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRStaeckelIntegrand(double,void *);
 double JzStaeckelIntegrandSquared(double,void *);
 double JzStaeckelIntegrand(double,void *);
 double u0Equation(double,void *);
-double evaluatePotentials(double,double,int, struct actionAngleArg *);
-double evaluatePotentialsUV(double,double,double,int,struct actionAngleArg *);
+double evaluatePotentials(double,double,int, struct potentialArg *);
+double evaluatePotentialsUV(double,double,double,int,struct potentialArg *);
 /*
   Actual functions, inlines first
 */
@@ -115,7 +115,7 @@ inline void calcEL(int ndata,
 		   double *E,
 		   double *Lz,
 		   int nargs,
-		   struct actionAngleArg * actionAngleArgs){
+		   struct potentialArg * actionAngleArgs){
   int ii;
   for (ii=0; ii < ndata; ii++){
     *(E+ii)= evaluatePotentials(*(R+ii),*(z+ii),
@@ -140,7 +140,7 @@ void calcu0(int ndata,
 	    int * err){
   int ii;
   //Set up the potentials
-  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
   //setup the function to be minimized
   gsl_function u0Eq;
@@ -184,6 +184,10 @@ void calcu0(int ndata,
   }
   gsl_min_fminimizer_free (s);
   free(params);
+  if ( actionAngleArgs->i2d )
+    interp_2d_free(actionAngleArgs->i2d) ;
+  if (actionAngleArgs->acc )
+    gsl_interp_accel_free (actionAngleArgs->acc);
   free(actionAngleArgs);
   *err= status;
 }
@@ -203,7 +207,7 @@ void actionAngleStaeckel_actions(int ndata,
 				 int * err){
   int ii;
   //Set up the potentials
-  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
@@ -275,6 +279,10 @@ void actionAngleStaeckel_actions(int ndata,
   calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
 		 npot,actionAngleArgs,10);
   //Free
+  if ( actionAngleArgs->i2d )
+    interp_2d_free(actionAngleArgs->i2d) ;
+  if (actionAngleArgs->acc )
+    gsl_interp_accel_free (actionAngleArgs->acc);
   free(actionAngleArgs);
   free(E);
   free(Lz);
@@ -312,7 +320,7 @@ void calcJRStaeckel(int ndata,
 		    double * sin2v0,
 		    double * potu0v0,
 		    int nargs,
-		    struct actionAngleArg * actionAngleArgs,
+		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
 #ifdef _OPENMP
@@ -378,7 +386,7 @@ void calcJzStaeckel(int ndata,
 		    double * sinh2u0,
 		    double * potupi2,
 		    int nargs,
-		    struct actionAngleArg * actionAngleArgs,
+		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
 #ifdef _OPENMP
@@ -446,7 +454,7 @@ void calcUminUmax(int ndata,
 		  double * sin2v0,
 		  double * potu0v0,
 		  int nargs,
-		  struct actionAngleArg * actionAngleArgs){
+		  struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
@@ -537,7 +545,7 @@ void calcUminUmax(int ndata,
 	*(umin+ii)= *(ux+ii);
 	u_lo= *(ux+ii) + 0.000001;
 	u_hi= 1.1 * (*(ux+ii) + 0.000001);
-	while ( GSL_FN_EVAL(JRRoot+tid,u_hi) >= 0. ) {
+	while ( GSL_FN_EVAL(JRRoot+tid,u_hi) >= 0. && u_hi < asinh(37.5/delta)) {
 	  u_lo= u_hi; //this makes sure that brent evaluates using previous
 	  u_hi*= 1.1;
 	}
@@ -604,7 +612,7 @@ void calcUminUmax(int ndata,
       //Find starting points for maximum
       u_lo= *(ux+ii);
       u_hi= 1.1 * *(ux+ii);
-      while ( GSL_FN_EVAL(JRRoot+tid,u_hi) > 0.) {
+      while ( GSL_FN_EVAL(JRRoot+tid,u_hi) > 0. && u_hi < asinh(37.5/delta)) {
 	u_lo= u_hi; //this makes sure that brent evaluates using previous
 	u_hi*= 1.1;
       }
@@ -656,7 +664,7 @@ void calcVmin(int ndata,
 	      double * sinh2u0,
 	      double * potupi2,
 	      int nargs,
-	      struct actionAngleArg * actionAngleArgs){
+	      struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
@@ -791,7 +799,7 @@ double u0Equation(double u, void * p){
 }  
 double evaluatePotentialsUV(double u, double v, double delta,
 			    int nargs, 
-			    struct actionAngleArg * actionAngleArgs){
+			    struct potentialArg * actionAngleArgs){
   double R,z;
   uv_to_Rz(u,v,&R,&z,delta);
   return evaluatePotentials(R,z,nargs,actionAngleArgs);

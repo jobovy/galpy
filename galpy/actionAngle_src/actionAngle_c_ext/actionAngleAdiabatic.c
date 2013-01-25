@@ -27,13 +27,13 @@ struct JRAdiabaticArg{
   double ER;
   double Lz22;
   int nargs;
-  struct actionAngleArg * actionAngleArgs;
+  struct potentialArg * actionAngleArgs;
 };
 struct JzAdiabaticArg{
   double Ez;
   double R;
   int nargs;
-  struct actionAngleArg * actionAngleArgs;
+  struct potentialArg * actionAngleArgs;
 };
 /*
   Function Declarations
@@ -42,18 +42,18 @@ void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
 void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
-		     int,struct actionAngleArg *,int);
+		     int,struct potentialArg *,int);
 void calcJzAdiabatic(int,double *,double *,double *,double *,int,
-		     struct actionAngleArg *,int);
+		     struct potentialArg *,int);
 void calcRapRperi(int,double *,double *,double *,double *,double *,
-		  int,struct actionAngleArg *);
+		  int,struct potentialArg *);
 void calcZmax(int,double *,double *,double *,double *,int,
-	      struct actionAngleArg *);
+	      struct potentialArg *);
 double JRAdiabaticIntegrandSquared(double,void *);
 double JRAdiabaticIntegrand(double,void *);
 double JzAdiabaticIntegrandSquared(double,void *);
 double JzAdiabaticIntegrand(double,void *);
-double evaluateVerticalPotentials(double, double,int, struct actionAngleArg *);
+double evaluateVerticalPotentials(double, double,int, struct potentialArg *);
 /*
   Actual functions, inlines first
 */
@@ -67,7 +67,7 @@ inline void calcEREzL(int ndata,
 		      double *Ez,
 		      double *Lz,
 		      int nargs,
-		      struct actionAngleArg * actionAngleArgs){
+		      struct potentialArg * actionAngleArgs){
   int ii;
   int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
@@ -100,7 +100,7 @@ void actionAngleAdiabatic_actions(int ndata,
 				  int * err){
   int ii;
   //Set up the potentials
-  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
@@ -123,6 +123,10 @@ void actionAngleAdiabatic_actions(int ndata,
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
+  if ( actionAngleArgs->i2d )
+    interp_2d_free(actionAngleArgs->i2d) ;
+  if (actionAngleArgs->acc )
+    gsl_interp_accel_free (actionAngleArgs->acc);
   free(actionAngleArgs);
   free(ER);
   free(Ez);
@@ -138,7 +142,7 @@ void calcJRAdiabatic(int ndata,
 		     double * ER,
 		     double * Lz,
 		     int nargs,
-		     struct actionAngleArg * actionAngleArgs,
+		     struct potentialArg * actionAngleArgs,
 		     int order){
   int ii, tid, nthreads;
 #ifdef _OPENMP
@@ -191,7 +195,7 @@ void calcJzAdiabatic(int ndata,
 		     double * R,
 		     double * Ez,
 		     int nargs,
-		     struct actionAngleArg * actionAngleArgs,
+		     struct potentialArg * actionAngleArgs,
 		     int order){
   int ii, tid, nthreads;
 #ifdef _OPENMP
@@ -245,7 +249,7 @@ void calcRapRperi(int ndata,
 		  double * ER,
 		  double * Lz,
 		  int nargs,
-		  struct actionAngleArg * actionAngleArgs){
+		  struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
@@ -329,7 +333,7 @@ void calcRapRperi(int ndata,
 	*(rperi+ii)= *(R+ii);
 	R_lo= *(R+ii) + 0.0000001;
 	R_hi= 1.1 * (*(R+ii) + 0.0000001);
-	while ( GSL_FN_EVAL(JRRoot+tid,R_hi) >= 0. ) {
+	while ( GSL_FN_EVAL(JRRoot+tid,R_hi) >= 0. && R_hi < 37.5) {
 	  R_lo= R_hi; //this makes sure that brent evaluates using previous
 	  R_hi*= 1.1;
 	  if ( R_hi > 100. ) {
@@ -400,7 +404,7 @@ void calcRapRperi(int ndata,
       //Find starting points for maximum
       R_lo= *(R+ii);
       R_hi= 1.1 * *(R+ii);
-      while ( GSL_FN_EVAL(JRRoot+tid,R_hi) > 0.) {
+      while ( GSL_FN_EVAL(JRRoot+tid,R_hi) > 0. && R_hi < 37.5) {
 	R_lo= R_hi; //this makes sure that brent evaluates using previous
 	R_hi*= 1.1;
 	if ( R_hi > 100. ) {
@@ -449,7 +453,7 @@ void calcZmax(int ndata,
 	      double * R,
 	      double * Ez,
 	      int nargs,
-	      struct actionAngleArg * actionAngleArgs){
+	      struct potentialArg * actionAngleArgs){
   int ii, tid, nthreads;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
@@ -493,7 +497,7 @@ void calcZmax(int ndata,
     else {
       z_lo= fabs ( *(z+ii) );
       z_hi= ( *(z+ii) == 0. ) ? 0.1: 1.1 * fabs( *(z+ii) );
-      while ( GSL_FN_EVAL(JzRoot+tid,z_hi) >= 0. ){
+      while ( GSL_FN_EVAL(JzRoot+tid,z_hi) >= 0. && z_hi < 37.5) {
 	z_lo= z_hi; //this makes sure that brent evaluates using previous
 	z_hi*= 1.1;
       }
@@ -551,7 +555,7 @@ double JzAdiabaticIntegrandSquared(double z,
 }
 double evaluateVerticalPotentials(double R, double z,
 				  int nargs, 
-				  struct actionAngleArg * actionAngleArgs){
+				  struct potentialArg * actionAngleArgs){
   return evaluatePotentials(R,z,nargs,actionAngleArgs)
     -evaluatePotentials(R,0.,nargs,actionAngleArgs);
 }

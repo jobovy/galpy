@@ -4,7 +4,8 @@
 //3 arguments: amp, a, b
 double MiyamotoNagaiPotentialEval(double R,double z, double phi,
 				  double t,
-				  int nargs, double *args){
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args++;
