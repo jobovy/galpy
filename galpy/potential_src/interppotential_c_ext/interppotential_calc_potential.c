@@ -34,6 +34,10 @@ void calc_potential(int nR,
     }
     put_row(out,ii ,row,nz); 
   }
+  if ( actionAngleArgs->i2d )
+    interp_2d_free(actionAngleArgs->i2d) ;
+  if (actionAngleArgs->acc )
+    gsl_interp_accel_free (actionAngleArgs->acc);
   free(actionAngleArgs);
   free(row);
 }
