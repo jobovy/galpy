@@ -93,6 +93,11 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->acc= gsl_interp_accel_alloc ();
       potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->nargs= 2;
+      //clean up
+      free(Rgrid);
+      free(zgrid);
+      free(row);
+      free(potGrid_splinecoeffs);
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
