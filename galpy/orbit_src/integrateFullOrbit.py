@@ -64,6 +64,16 @@ def _parse_pot(pot):
         elif isinstance(p,potential.FlattenedPowerPotential):
             pot_type.append(12)
             pot_args.extend([p._amp,p.alpha,p.q2,p.core2])
+        elif isinstance(p,potential.interpRZPotential):
+            pot_type.append(13)
+            pot_args.extend([len(p._rgrid),len(p._zgrid)])
+            if p._logR:
+                pot_args.extend([p._logrgrid[ii] for ii in range(len(p._rgrid))])
+            else:
+                pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
+            pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
+            pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
+            pot_args.extend([p._amp,int(p._logR)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
