@@ -106,10 +106,14 @@ class actionAngleStaeckelGrid():
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
         thisy= (numpy.tile(y,(nLz,1))).flatten()
         thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
+        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+            u0pot= self._pot._origPot
+        else:
+            u0pot= self._pot
         if self._c:
             mu0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(thisE,thisLzs,
-                                                                 self._pot,
-                                                                 self._delta)[0]
+                                                                  u0pot,
+                                                                  self._delta)[0]
         else:
             if numcores > 1:
                 mu0= multi.parallel_map((lambda x: self.calcu0(thisE[x],
@@ -136,8 +140,20 @@ class actionAngleStaeckelGrid():
                                 thisv*numpy.cos(thispsi), #vR
                                 thisLzs/thisR, #vT
                                 numpy.zeros(len(thisR)), #z
-                                thisv*numpy.sin(thispsi),
-                                fixed_quad=True) #vz
+                                thisv*numpy.sin(thispsi), #vz
+                                fixed_quad=True) 
+        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+            #Interpolated potentials have problems with extreme orbits
+            indx= (mjr == 9999.99)
+            indx+= (mjz == 9999.99)
+            #Re-calculate these using the original potential, hopefully not too slow
+            tmpaA= actionAngleStaeckel.actionAngleStaeckel(pot=self._pot._origPot,delta=self._delta,c=self._c)
+            mjr[indx], dum, mjz[indx]= tmpaA(thisR[indx], #R
+                                             thisv[indx]*numpy.cos(thispsi[indx]), #vR
+                                             thisLzs[indx]/thisR[indx], #vT
+                                             numpy.zeros(numpy.sum(indx)), #z
+                                             thisv[indx]*numpy.sin(thispsi[indx]), #vz
+                                             fixed_quad=True)
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
@@ -167,8 +183,8 @@ class actionAngleStaeckelGrid():
                                                            numpy.log(u0),
                                                            kx=3,ky=3,s=0.)
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
-        self._jrFiltered= ndimage.spline_filter(self._jr,order=3)
-        self._jzFiltered= ndimage.spline_filter(self._jz,order=3)
+        self._jrFiltered= ndimage.spline_filter(numpy.log(self._jr+10.**-10.),order=3)
+        self._jzFiltered= ndimage.spline_filter(numpy.log(self._jz+10.**-10.),order=3)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -243,10 +259,10 @@ class actionAngleStaeckelGrid():
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-                jr[indxc]= ndimage.interpolation.map_coordinates(self._jrFiltered,
-                                                                 coords,
-                                                                 order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
+                jr[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._jrFiltered,
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 #Switch to Ez-calculated psi
                 sin2psi= 2.*thisEz[True-indxCos2psi]/thisv2[True-indxCos2psi]/(1.+sinh2u0[True-indxCos2psi]) #latter is cosh2u0
                 sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
@@ -258,10 +274,10 @@ class actionAngleStaeckelGrid():
                 newcoords= numpy.empty((3,numpy.sum(indxc)))
                 newcoords[0:2,:]= coords[0:2,True-indxSin2psi]
                 newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
-                jz[indxc]= ndimage.interpolation.map_coordinates(self._jzFiltered,
-                                                                 newcoords,
-                                                                 order=3,
-                                                                 prefilter=False)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
+                jz[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._jzFiltered,
+                                                                           newcoords,
+                                                                           order=3,
+                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
                 jrindiv, lzindiv, jzindiv= self._aA(R[indx],
                                                     vR[indx],
