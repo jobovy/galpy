@@ -29,7 +29,7 @@ class interpRZPotential(Potential):
     def __init__(self,
                  RZPot=None,rgrid=(0.01,2.,101),zgrid=(0.,0.2,101),logR=False,
                  interpPot=False,interpRforce=False,interpzforce=False,
-                 interpz2deriv=False,interpR2deriv=False,
+                 interpepifreq=False,interpverticalfreq=False,
                  use_c=False,enable_c=False):
         """
         NAME:
@@ -55,6 +55,9 @@ class interpRZPotential(Potential):
             self._rgrid= numpy.exp(self._rgrid)
             self._logrgrid= numpy.log(self._rgrid)
         self._zgrid= numpy.linspace(*zgrid)
+        self._interpPot= interpPot
+        self._interpverticalfreq= interpverticalfreq
+        self._interpepifreq= interpepifreq
         if interpPot:
             if use_c:
                 self._potGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid)
@@ -67,6 +70,21 @@ class interpRZPotential(Potential):
                 self._potGrid= potGrid
             if enable_c:
                 self._potGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._potGrid)
+        if interpepifreq:
+            from galpy.potential import epifreq
+            self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
+            if self._logR:
+                self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._epifreqGrid,k=3)
+            else:
+                self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._epifreqGrid,k=3)
+        self._interpverticalfreq= interpverticalfreq
+        if interpverticalfreq:
+            from galpy.potential import verticalfreq
+            self._verticalfreqGrid= numpy.array([verticalfreq(self._origPot,r) for r in self._rgrid])
+            if self._logR:
+                self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._verticalfreqGrid,k=3)
+            else:
+                self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
     def _eval(self,R,z,phi=0.,t=0.):
@@ -87,8 +105,27 @@ class interpRZPotential(Potential):
             return self._origPot.zforce(R,z)
         else:
             return self._interpzforce(R,z)
+    
+    def epifreq(self,R):
+        if self._interpepifreq or self.outofRbounds(R):
+            if self._logR:
+                return self._epifreqInterp(numpy.log(R))
+            else:
+                return self._epifreqInterp(R)
+        else:
+            from galpy.potential import epifreq
+            return epifreq(self._origPot,R)
 
-
+    def verticalfreq(self,R):
+        if self._interpverticalfreq:
+            if self._logR:
+                return self._verticalfreqInterp(numpy.log(R))
+            else:
+                return self._verticalfreqInterp(R)
+        else:
+            from galpy.potential import verticalfreq
+            return verticalfreq(self._origPot,R)
+    
 def calc_potential_c(pot,R,z):
     """
     NAME:
