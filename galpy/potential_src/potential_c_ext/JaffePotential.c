@@ -4,7 +4,8 @@
 //2 arguments: amp, a
 double JaffePotentialEval(double R,double Z, double phi,
 			  double t,
-			  int nargs, double *args){
+			  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;

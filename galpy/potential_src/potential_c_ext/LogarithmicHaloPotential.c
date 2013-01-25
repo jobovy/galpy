@@ -4,7 +4,8 @@
 //3 (2)  arguments: amp, c2, (and q)
 double LogarithmicHaloPotentialEval(double R,double Z, double phi,
 				    double t,
-				    int nargs, double *args){
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double q= *(args+1);

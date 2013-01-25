@@ -4,7 +4,8 @@
 //4 arguments: amp, alpha, q^2, and core^2
 double FlattenedPowerPotentialEval(double R,double Z, double phi,
 				   double t,
-				   int nargs, double *args){
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double alpha= *(args+1);
