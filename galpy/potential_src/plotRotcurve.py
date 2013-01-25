@@ -203,40 +203,6 @@ def omegac(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
-def epifreq(Pot,R):
-    """
-
-    NAME:
-
-       epifreq
-
-    PURPOSE:
-
-       calculate the epicycle frequency at R in potential Pot
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius
-
-    OUTPUT:
-
-       epicycle frequency
-
-    HISTORY:
-
-       2011-10-09 - Written - Bovy (IAS)
-
-    """
-    from planarPotential import evaluateplanarRforces, evaluateplanarR2derivs
-    try:
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
-    except TypeError:
-        from planarPotential import RZToplanarPotential
-        Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
-
 def lindbladR(Pot,OmegaP,m=2,**kwargs):
     """
     NAME:
