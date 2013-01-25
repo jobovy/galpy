@@ -60,7 +60,11 @@ class actionAngleAdiabaticGrid():
                                        c=self._c)
         #Build grid for Ez, first calculate Ez(zmax;R) function
         self._Rs= numpy.linspace(self._Rmin,self._Rmax,nR)
-        self._EzZmaxs= numpy.array([galpy.potential.evaluatePotentials(r,self._zmax,self._pot)-
+        try:
+            self._EzZmaxs= galpy.potential.evaluatePotentials(self._Rs,self._zmax*numpy.ones(nR),self._pot)\
+                -galpy.potential.evaluatePotentials(self._Rs,numpy.zeros(nR),self._pot)
+        except TypeError:
+            self._EzZmaxs= numpy.array([galpy.potential.evaluatePotentials(r,self._zmax,self._pot)-
                                         galpy.potential.evaluatePotentials(r,0.,self._pot) for r in self._Rs])
         self._EzZmaxsInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(self._EzZmaxs),k=3)
         y= numpy.linspace(0.,1.,nEz)
@@ -115,12 +119,18 @@ class actionAngleAdiabaticGrid():
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        self._ERRL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
+        try:
+            self._ERRL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(nLz),self._pot) +self._Lzs**2./2./self._RL**2.
+        except TypeError:
+            self._ERRL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
         self._ERRLmax= numpy.amax(self._ERRL)+1.
         self._ERRLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(-(self._ERRL-self._ERRLmax)),k=3)
         self._Ramax= 99.
-        self._ERRa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        try:
+            self._ERRa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
+        except TypeError:
+            self._ERRa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
         self._ERRamax= numpy.amax(self._ERRa)+1.
         self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(-(self._ERRa-self._ERRamax)),k=3)
