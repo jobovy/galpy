@@ -84,7 +84,7 @@ class actionAngleStaeckelGrid():
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
         try:
-            self._ERa= galpy.potential.evaluatePotentials(self._Ramax,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._Ramax**2.
+            self._ERa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
         except TypeError:
             self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
@@ -125,6 +125,7 @@ class actionAngleStaeckelGrid():
         thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
                                         u0.flatten(),
                                         thisR.flatten()),(nLz,nE))
+        self.thisv= thisv
         #reshape
         thisLzs= numpy.reshape(thisLzs,(nLz,nE))
         thispsi= numpy.tile(psis,(nLz,nE,1)).flatten()
@@ -140,17 +141,22 @@ class actionAngleStaeckelGrid():
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
-                jrLzE[ii]= numpy.amax(jr[ii,:,:])
-                jzLzE[ii]= numpy.amax(jz[ii,:,:])
+                jrLzE[ii]= numpy.amax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
+                jzLzE[ii]= numpy.amax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
         jrLzE[(jrLzE == 0.)]= numpy.amin(jrLzE[(jrLzE > 0.)])
         jzLzE[(jzLzE == 0.)]= numpy.amin(jzLzE[(jzLzE > 0.)])
         for ii in range(nLz):
             jr[ii,:,:]/= jrLzE[ii]
             jz[ii,:,:]/= jzLzE[ii]
+        #Deal w/ 9999.99
+        jr[(jr > 1.)]= 1.
+        jz[(jz > 1.)]= 1.
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
         self._u0= u0
+        self._jrLzE= jrLzE
+        self._jzLzE= jzLzE
         self._jrLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(jrLzE+10.**-5.),k=3)
         self._jzLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
