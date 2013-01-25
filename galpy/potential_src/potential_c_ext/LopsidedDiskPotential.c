@@ -20,7 +20,8 @@ inline double LopsidedDiskSmooth(double t,double tform, double tsteady){
   return smooth;
 }
 double LopsidedDiskPotentialRforce(double R,double phi,double t,
-				     int nargs, double *args){
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -36,7 +37,8 @@ double LopsidedDiskPotentialRforce(double R,double phi,double t,
     * cos( phi - phib);
 }
 double LopsidedDiskPotentialphiforce(double R,double phi,double t,
-				       int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -52,7 +54,8 @@ double LopsidedDiskPotentialphiforce(double R,double phi,double t,
     * sin( phi-phib);
 }
 double LopsidedDiskPotentialR2deriv(double R,double phi,double t,
-				      int nargs, double *args){
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -68,7 +71,8 @@ double LopsidedDiskPotentialR2deriv(double R,double phi,double t,
     * cos(phi - phib);
 } 
 double LopsidedDiskPotentialphi2deriv(double R,double phi,double t,
-					int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -84,7 +88,8 @@ double LopsidedDiskPotentialphi2deriv(double R,double phi,double t,
     * cos( phi - phib );
 } 
 double LopsidedDiskPotentialRphideriv(double R,double phi,double t,
-					int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args

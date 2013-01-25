@@ -16,7 +16,8 @@ inline double dehnenSmooth(double t,double tform, double tsteady){
   return smooth;
 }
 double DehnenBarPotentialRforce(double R,double phi,double t,
-				      int nargs, double *args){
+				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -35,7 +36,8 @@ double DehnenBarPotentialRforce(double R,double phi,double t,
     return -3.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;   
 }
 double DehnenBarPotentialphiforce(double R,double phi,double t,
-				      int nargs, double *args){
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -54,7 +56,8 @@ double DehnenBarPotentialphiforce(double R,double phi,double t,
     return -2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
 }
 double DehnenBarPotentialR2deriv(double R,double phi,double t,
-				 int nargs, double *args){
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -72,7 +75,8 @@ double DehnenBarPotentialR2deriv(double R,double phi,double t,
     return -12.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R/R;
 }
 double DehnenBarPotentialphi2deriv(double R,double phi,double t,
-				   int nargs, double *args){
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -90,7 +94,8 @@ double DehnenBarPotentialphi2deriv(double R,double phi,double t,
     return 4.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
 }
 double DehnenBarPotentialRphideriv(double R,double phi,double t,
-				   int nargs, double *args){
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args

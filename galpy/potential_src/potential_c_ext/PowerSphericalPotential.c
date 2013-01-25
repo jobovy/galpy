@@ -17,7 +17,8 @@ double PowerSphericalPotentialEval(double R,double Z, double phi,
 }
 double PowerSphericalPotentialRforce(double R,double Z, double phi,
 				      double t,
-				      int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double alpha= *args;
@@ -26,7 +27,8 @@ double PowerSphericalPotentialRforce(double R,double Z, double phi,
 }
 double PowerSphericalPotentialPlanarRforce(double R,double phi,
 					   double t,
-					   int nargs, double *args){
+					   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double alpha= *args;
@@ -35,7 +37,8 @@ double PowerSphericalPotentialPlanarRforce(double R,double phi,
 }
 double PowerSphericalPotentialzforce(double R,double Z,double phi,
 				     double t,
-				     int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double alpha= *args;
@@ -44,7 +47,8 @@ double PowerSphericalPotentialzforce(double R,double Z,double phi,
 }
 double PowerSphericalPotentialPlanarR2deriv(double R,double phi,
 					     double t,
-					     int nargs, double *args){
+					    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double alpha= *args;

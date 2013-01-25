@@ -22,7 +22,8 @@ double FlattenedPowerPotentialEval(double R,double Z, double phi,
 }
 double FlattenedPowerPotentialRforce(double R,double Z, double phi,
 				     double t,
-				     int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double alpha= *(args+1);
@@ -37,9 +38,10 @@ double FlattenedPowerPotentialRforce(double R,double Z, double phi,
     return - amp * pow(m2,-0.5 * alpha-1.) * R;
   }
 }
-double FlattenedPowerPotentialPlanarRforce(double R,double Z, double phi,
+double FlattenedPowerPotentialPlanarRforce(double R,double phi,
 					   double t,
-					   int nargs, double *args){
+					   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double alpha= *(args+1);
@@ -55,7 +57,8 @@ double FlattenedPowerPotentialPlanarRforce(double R,double Z, double phi,
 }
 double FlattenedPowerPotentialzforce(double R,double Z, double phi,
 				     double t,
-				     int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double alpha= *(args+1);
@@ -70,9 +73,10 @@ double FlattenedPowerPotentialzforce(double R,double Z, double phi,
     return - amp * pow(m2,-0.5 * alpha - 1.) * Z / q2;
   }
 }
-double FlattenedPowerPotentialPlanarR2deriv(double R,double Z, double phi,
+double FlattenedPowerPotentialPlanarR2deriv(double R,double phi,
 					    double t,
-					    int nargs, double *args){
+					    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args;
   double alpha= *(args+1);

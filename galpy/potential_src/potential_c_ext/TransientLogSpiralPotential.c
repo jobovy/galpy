@@ -3,7 +3,8 @@
 //TransientLogSpiralPotential
 //
 double TransientLogSpiralPotentialRforce(double R,double phi,double t,
-					 int nargs, double *args){
+					 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double A= *args++;
@@ -18,7 +19,8 @@ double TransientLogSpiralPotentialRforce(double R,double phi,double t,
     * sin(alpha*log(R)-m*(phi-omegas*t-gamma));
 }
 double TransientLogSpiralPotentialphiforce(double R,double phi,double t,
-					   int nargs, double *args){
+					   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double A= *args++;

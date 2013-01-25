@@ -16,7 +16,8 @@ double LogarithmicHaloPotentialEval(double R,double Z, double phi,
 }
 double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
 				      double t,
-				      int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double q= *args++;
@@ -27,7 +28,8 @@ double LogarithmicHaloPotentialRforce(double R,double Z, double phi,
 }
 double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
 					    double t,
-					    int nargs, double *args){
+					    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double c= *args;
@@ -36,7 +38,8 @@ double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
 }
 double LogarithmicHaloPotentialzforce(double R,double z,double phi,
 				      double t,
-				      int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double q= *args++;
@@ -47,7 +50,8 @@ double LogarithmicHaloPotentialzforce(double R,double z,double phi,
 }
 double LogarithmicHaloPotentialPlanarR2deriv(double R,double phi,
 					     double t,
-					     int nargs, double *args){
+					     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double c= *args;

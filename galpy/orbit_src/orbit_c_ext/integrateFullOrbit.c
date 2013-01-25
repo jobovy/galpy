@@ -16,110 +16,110 @@
   Function Declarations
 */
 void evalRectForce(double, double *, double *,
-		   int, struct leapFuncArg *);
+		   int, struct potentialArg *);
 void evalRectDeriv(double, double *, double *,
-			 int, struct leapFuncArg *);
+			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
-			      int, struct leapFuncArg *);
+			      int, struct potentialArg *);
 double calcRforce(double, double,double, double, 
-			int, struct leapFuncArg *);
+			int, struct potentialArg *);
 double calczforce(double, double,double, double, 
-			int, struct leapFuncArg *);
+			int, struct potentialArg *);
 double calcPhiforce(double, double,double, double, 
-			int, struct leapFuncArg *);
+			int, struct potentialArg *);
 double calcR2deriv(double, double, double,double, 
-			 int, struct leapFuncArg *);
+			 int, struct potentialArg *);
 double calcphi2deriv(double, double, double,double, 
-			   int, struct leapFuncArg *);
+			   int, struct potentialArg *);
 double calcRphideriv(double, double, double,double, 
-			   int, struct leapFuncArg *);
+			   int, struct potentialArg *);
 /*
   Actual functions
 */
 inline void parse_leapFuncArgs_Full(int npot,
-				    struct leapFuncArg * leapFuncArgs,
+				    struct potentialArg * potentialArgs,
 				    int * pot_type,
 				    double * pot_args){
   int ii,jj;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
-      leapFuncArgs->Rforce= &LogarithmicHaloPotentialRforce;
-      leapFuncArgs->zforce= &LogarithmicHaloPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 3;
+      potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
+      potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 3;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
-      leapFuncArgs->Rforce= &MiyamotoNagaiPotentialRforce;
-      leapFuncArgs->zforce= &MiyamotoNagaiPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 3;
+      potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
+      potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 3;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
-      leapFuncArgs->Rforce= &PowerSphericalPotentialRforce;
-      leapFuncArgs->zforce= &PowerSphericalPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &PowerSphericalPotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      potentialArgs->Rforce= &PowerSphericalPotentialRforce;
+      potentialArgs->zforce= &PowerSphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
       break;
     case 8: //HernquistPotential, 2 arguments
-      leapFuncArgs->Rforce= &HernquistPotentialRforce;
-      leapFuncArgs->zforce= &HernquistPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &HernquistPotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      potentialArgs->Rforce= &HernquistPotentialRforce;
+      potentialArgs->zforce= &HernquistPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &HernquistPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
       break;
     case 9: //NFWPotential, 2 arguments
-      leapFuncArgs->Rforce= &NFWPotentialRforce;
-      leapFuncArgs->zforce= &NFWPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &NFWPotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      potentialArgs->Rforce= &NFWPotentialRforce;
+      potentialArgs->zforce= &NFWPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &NFWPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
       break;
     case 10: //JaffePotential, 2 arguments
-      leapFuncArgs->Rforce= &JaffePotentialRforce;
-      leapFuncArgs->zforce= &JaffePotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      //leapFuncArgs->R2deriv= &JaffePotentialR2deriv;
-      //leapFuncArgs->planarphi2deriv= &ZeroForce;
-      //leapFuncArgs->planarRphideriv= &ZeroForce;
-      leapFuncArgs->nargs= 2;
+      potentialArgs->Rforce= &JaffePotentialRforce;
+      potentialArgs->zforce= &JaffePotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &JaffePotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
-      leapFuncArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
-      leapFuncArgs->zforce= &DoubleExponentialDiskPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
+      potentialArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
+      potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
       //Look at pot_args to figure out the number of arguments
-      leapFuncArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 );
+      potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 ));
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
-      leapFuncArgs->Rforce= &FlattenedPowerPotentialRforce;
-      leapFuncArgs->zforce= &FlattenedPowerPotentialzforce;
-      leapFuncArgs->phiforce= &ZeroForce;
-      leapFuncArgs->nargs= 4;
+      potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
+      potentialArgs->zforce= &FlattenedPowerPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 4;
       break;
     }
-    leapFuncArgs->args= (double *) malloc( leapFuncArgs->nargs * sizeof(double));
-    for (jj=0; jj < leapFuncArgs->nargs; jj++){
-      *(leapFuncArgs->args)= *pot_args++;
-      leapFuncArgs->args++;
+    potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
+    for (jj=0; jj < potentialArgs->nargs; jj++){
+      *(potentialArgs->args)= *pot_args++;
+      potentialArgs->args++;
     }
-    leapFuncArgs->args-= leapFuncArgs->nargs;
-    leapFuncArgs++;
+    potentialArgs->args-= potentialArgs->nargs;
+    potentialArgs++;
   }
-  leapFuncArgs-= npot;
+  potentialArgs-= npot;
 }
 void integrateFullOrbit(double *yo,
 			int nt, 
@@ -135,19 +135,19 @@ void integrateFullOrbit(double *yo,
   //Set up the forces, first count
   int ii;
   int dim;
-  struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
-  parse_leapFuncArgs_Full(npot,leapFuncArgs,pot_type,pot_args);
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
-			   int, struct leapFuncArg *),
+			   int, struct potentialArg *),
 		      int,
 		      double *,
 		      int, double *,
-		      int, struct leapFuncArg *,
+		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
-			    int,struct leapFuncArg *);
+			    int,struct potentialArg *);
   switch ( odeint_type ) {
   case 0: //leapfrog
     odeint_func= &leapfrog;
@@ -180,15 +180,15 @@ void integrateFullOrbit(double *yo,
     dim= 6;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
-    free(leapFuncArgs->args);
-    leapFuncArgs++;
+    free(potentialArgs->args);
+    potentialArgs++;
   }
-  leapFuncArgs-= npot;
-  free(leapFuncArgs);
+  potentialArgs-= npot;
+  free(potentialArgs);
   //Done!
 }
 
@@ -206,19 +206,19 @@ void integrateOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int ii;
   int dim;
-  struct leapFuncArg * leapFuncArgs= (struct leapFuncArg *) malloc ( npot * sizeof (struct leapFuncArg) );
-  parse_leapFuncArgs_Full(npot,leapFuncArgs,pot_type,pot_args);
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
-			   int, struct leapFuncArg *),
+			   int, struct potentialArg *),
 		      int,
 		      double *,
 		      int, double *,
-		      int, struct leapFuncArg *,
+		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
-			    int,struct leapFuncArg *);
+			    int,struct potentialArg *);
   switch ( odeint_type ) {
   case 0: //leapfrog
     odeint_func= &leapfrog;
@@ -251,20 +251,20 @@ void integrateOrbit_dxdv(double *yo,
     dim= 12;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,leapFuncArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
-    free(leapFuncArgs->args);
-    leapFuncArgs++;
+    free(potentialArgs->args);
+    potentialArgs++;
   }
-  leapFuncArgs-= npot;
-  free(leapFuncArgs);
+  potentialArgs-= npot;
+  free(potentialArgs);
   //Done!
 }
 
 void evalRectForce(double t, double *q, double *a,
-		   int nargs, struct leapFuncArg * leapFuncArgs){
+		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce, z, zforce;
   //q is rectangular so calculate R and phi
   x= *q;
@@ -276,15 +276,15 @@ void evalRectForce(double t, double *q, double *a,
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,leapFuncArgs);
-  zforce= calczforce(R,z,phi,t,nargs,leapFuncArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,leapFuncArgs);
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
+  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
 }
 void evalRectDeriv(double t, double *q, double *a,
-		   int nargs, struct leapFuncArg * leapFuncArgs){
+		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
   //first three derivatives are just the velocities
   *a++= *(q+3);
@@ -301,56 +301,53 @@ void evalRectDeriv(double t, double *q, double *a,
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,leapFuncArgs);
-  zforce= calczforce(R,z,phi,t,nargs,leapFuncArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,leapFuncArgs);
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
+  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
 }
 
 double calcRforce(double R, double Z, double phi, double t, 
-		  int nargs, struct leapFuncArg * leapFuncArgs){
+		  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rforce+= leapFuncArgs->Rforce(R,Z,phi,t,
-				  leapFuncArgs->nargs,
-				  leapFuncArgs->args);
-    leapFuncArgs++;
+    Rforce+= potentialArgs->Rforce(R,Z,phi,t,
+				   potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return Rforce;
 }
 double calczforce(double R, double Z, double phi, double t, 
-		  int nargs, struct leapFuncArg * leapFuncArgs){
+		  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double zforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    zforce+= leapFuncArgs->zforce(R,Z,phi,t,
-				  leapFuncArgs->nargs,
-				  leapFuncArgs->args);
-    leapFuncArgs++;
+    zforce+= potentialArgs->zforce(R,Z,phi,t,
+				   potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return zforce;
 }
 double calcPhiforce(double R, double Z, double phi, double t, 
-			  int nargs, struct leapFuncArg * leapFuncArgs){
+			  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double phiforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= leapFuncArgs->phiforce(R,Z,phi,t,
-				      leapFuncArgs->nargs,
-				      leapFuncArgs->args);
-    leapFuncArgs++;
+    phiforce+= potentialArgs->phiforce(R,Z,phi,t,
+				       potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return phiforce;
 }
 
 void evalRectDeriv_dxdv(double t, double *q, double *a,
-			int nargs, struct leapFuncArg * leapFuncArgs){
+			int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
   double R2deriv, phi2deriv, Rphideriv, dFxdx, dFxdy, dFydx, dFydy;
   //first three derivatives are just the velocities
@@ -368,9 +365,9 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,leapFuncArgs);
-  zforce= calczforce(R,z,phi,t,nargs,leapFuncArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,leapFuncArgs);
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
+  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a++= zforce;
@@ -379,9 +376,9 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a++= *(q+10);
   *a++= *(q+11);
   //for the dv derivatives we need also R2deriv, phi2deriv, and Rphideriv
-  R2deriv= calcR2deriv(R,z,phi,t,nargs,leapFuncArgs);
-  phi2deriv= calcphi2deriv(R,z,phi,t,nargs,leapFuncArgs);
-  Rphideriv= calcRphideriv(R,z,phi,t,nargs,leapFuncArgs);
+  R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
+  phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
   //..and dFxdx, dFxdy, dFydx, dFydy
   dFxdx= -cosphi*cosphi*R2deriv
     +2.*cosphi*sinphi/R/R*phiforce
@@ -409,42 +406,39 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
 }
 
 double calcR2deriv(double R, double Z, double phi, double t, 
-		   int nargs, struct leapFuncArg * leapFuncArgs){
+		   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double R2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    R2deriv+= leapFuncArgs->R2deriv(R,Z,phi,t,
-				    leapFuncArgs->nargs,
-				    leapFuncArgs->args);
-    leapFuncArgs++;
+    R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,
+				     potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return R2deriv;
 }
 
 double calcphi2deriv(double R, double Z, double phi, double t, 
-			 int nargs, struct leapFuncArg * leapFuncArgs){
+			 int nargs, struct potentialArg * potentialArgs){
   int ii;
   double phi2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    phi2deriv+= leapFuncArgs->phi2deriv(R,Z,phi,t,
-					leapFuncArgs->nargs,
-					leapFuncArgs->args);
-    leapFuncArgs++;
+    phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,
+					 potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return phi2deriv;
 }
 double calcRphideriv(double R, double Z, double phi, double t, 
-			   int nargs, struct leapFuncArg * leapFuncArgs){
+			   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double Rphideriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rphideriv+= leapFuncArgs->Rphideriv(R,Z,phi,t,
-					leapFuncArgs->nargs,
-					leapFuncArgs->args);
-    leapFuncArgs++;
+    Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,
+					 potentialArgs);
+    potentialArgs++;
   }
-  leapFuncArgs-= nargs;
+  potentialArgs-= nargs;
   return Rphideriv;
 }

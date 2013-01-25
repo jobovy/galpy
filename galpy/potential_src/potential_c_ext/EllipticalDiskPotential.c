@@ -20,7 +20,8 @@ inline double EllipticalDiskSmooth(double t,double tform, double tsteady){
   return smooth;
 }
 double EllipticalDiskPotentialRforce(double R,double phi,double t,
-				     int nargs, double *args){
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -36,7 +37,8 @@ double EllipticalDiskPotentialRforce(double R,double phi,double t,
     * cos( 2. * (phi - phib));
 }
 double EllipticalDiskPotentialphiforce(double R,double phi,double t,
-				       int nargs, double *args){
+				       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -52,7 +54,8 @@ double EllipticalDiskPotentialphiforce(double R,double phi,double t,
     * sin( 2. * (phi-phib));
 }
 double EllipticalDiskPotentialR2deriv(double R,double phi,double t,
-				      int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -68,7 +71,8 @@ double EllipticalDiskPotentialR2deriv(double R,double phi,double t,
     * cos( 2. * ( phi - phib ) );
 } 
 double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
-					int nargs, double *args){
+					struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -84,7 +88,8 @@ double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
     * cos( 2. * ( phi - phib ) );
 } 
 double EllipticalDiskPotentialRphideriv(double R,double phi,double t,
-					int nargs, double *args){
+					struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args

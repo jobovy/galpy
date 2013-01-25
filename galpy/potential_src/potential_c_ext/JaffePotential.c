@@ -14,8 +14,9 @@ double JaffePotentialEval(double R,double Z, double phi,
   return - amp * log ( 1. + a / sqrtRz );
 }
 double JaffePotentialRforce(double R,double Z, double phi,
-				double t,
-				int nargs, double *args){
+			    double t,
+			    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -24,8 +25,9 @@ double JaffePotentialRforce(double R,double Z, double phi,
   return - amp * a * R * pow( sqrtRz , -3. ) / ( 1. + a / sqrtRz );
 }
 double JaffePotentialPlanarRforce(double R,double phi,
-					    double t,
-					    int nargs, double *args){
+				  double t,
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -33,8 +35,9 @@ double JaffePotentialPlanarRforce(double R,double phi,
   return - amp * a * pow(R,-2.) / ( 1. + a / R );
 }
 double JaffePotentialzforce(double R,double Z,double phi,
-				      double t,
-				      int nargs, double *args){
+			    double t,
+			    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -43,8 +46,9 @@ double JaffePotentialzforce(double R,double Z,double phi,
   return - amp * a * Z * pow( sqrtRz , -3. ) / ( 1. + a / sqrtRz );
 }
 double JaffePotentialPlanarR2deriv(double R,double phi,
-					     double t,
-					     int nargs, double *args){
+				   double t,
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;

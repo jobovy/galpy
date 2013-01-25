@@ -31,75 +31,47 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef __BOVY_SYMPLECTICODE_H__
 #define __BOVY_SYMPLECTICODE_H__
-/*
-  Structure declarations
-*/
-struct leapFuncArg{
-  double (*Rforce)(double R, double Z, double phi, double t,
-		   int nargs, double * args);
-  double (*zforce)(double R, double Z, double phi, double t,
-		   int nargs, double * args);
-  double (*phiforce)(double R, double Z, double phi, double t,
-		     int nargs, double * args);
-  double (*planarRforce)(double R,double phi, double t,
-			 int nargs, double * args);
-  double (*planarphiforce)(double R,double phi, double t,
-			   int nargs, double * args);
-  double (*R2deriv)(double R,double Z,double phi, double t,
-			  int nargs, double * args);
-  double (*phi2deriv)(double R,double Z,double phi, double t,
-			  int nargs, double * args);
-  double (*Rphideriv)(double R,double Z,double phi, double t,
-			    int nargs, double * args);
-  double (*planarR2deriv)(double R,double phi, double t,
-			  int nargs, double * args);
-  double (*planarphi2deriv)(double R,double phi, double t,
-			  int nargs, double * args);
-  double (*planarRphideriv)(double R,double phi, double t,
-			    int nargs, double * args);
-  int nargs;
-  double * args;
-};
+#include <galpy_potentials.h>
 /*
   Function declarations
 */
 void leapfrog(void (*func)(double, double *, double *,
-			   int, struct leapFuncArg *),
+			   int, struct potentialArg *),
 	      int,
 	      double *,
 	      int, double *,
-	      int, struct leapFuncArg *,
+	      int, struct potentialArg *,
 	      double, double,
 	      double *,int *);
-double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
+double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
 			      int, double *,double *,
 			      double, double *,
-			      int,struct leapFuncArg *,
+			      int,struct potentialArg *,
 			      double,double);
 void symplec4(void (*func)(double, double *, double *,
-			   int, struct leapFuncArg *),
+			   int, struct potentialArg *),
 	      int,
 	      double *,
 	      int, double *,
-	      int, struct leapFuncArg *,
+	      int, struct potentialArg *,
 	      double, double,
 	      double *,int *);
-double symplec4_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
+double symplec4_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
 			      int, double *,double *,
 			      double, double *,
-			      int,struct leapFuncArg *,
+			      int,struct potentialArg *,
 			      double,double);
 void symplec6(void (*func)(double, double *, double *,
-			   int, struct leapFuncArg *),
+			   int, struct potentialArg *),
 	      int,
 	      double *,
 	      int, double *,
-	      int, struct leapFuncArg *,
+	      int, struct potentialArg *,
 	      double, double,
 	      double *,int *);
-double symplec6_estimate_step(void (*func)(double , double *, double *,int, struct leapFuncArg *),
+double symplec6_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
 			      int, double *,double *,
 			      double, double *,
-			      int,struct leapFuncArg *,
+			      int,struct potentialArg *,
 			      double,double);
-#endif /* bovy_rk.h */
+#endif /* bovy_symplecticode.h */

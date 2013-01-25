@@ -14,7 +14,8 @@ double HernquistPotentialEval(double R,double Z, double phi,
 }
 double HernquistPotentialRforce(double R,double Z, double phi,
 				double t,
-				int nargs, double *args){
+				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -24,7 +25,8 @@ double HernquistPotentialRforce(double R,double Z, double phi,
 }
 double HernquistPotentialPlanarRforce(double R,double phi,
 					    double t,
-					    int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -32,8 +34,9 @@ double HernquistPotentialPlanarRforce(double R,double phi,
   return - amp / a * pow(1. + R / a , -2. );
 }
 double HernquistPotentialzforce(double R,double Z,double phi,
-				      double t,
-				      int nargs, double *args){
+				double t,
+				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -43,7 +46,8 @@ double HernquistPotentialzforce(double R,double Z,double phi,
 }
 double HernquistPotentialPlanarR2deriv(double R,double phi,
 					     double t,
-					     int nargs, double *args){
+				       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;

@@ -15,7 +15,8 @@ double MiyamotoNagaiPotentialEval(double R,double z, double phi,
 }
 double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
 				    double t,
-				    int nargs, double *args){
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args++;
@@ -25,7 +26,8 @@ double MiyamotoNagaiPotentialRforce(double R,double z, double phi,
 }
 double MiyamotoNagaiPotentialPlanarRforce(double R,double phi,
 					  double t,
-					  int nargs, double *args){
+					  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args++;
@@ -35,7 +37,8 @@ double MiyamotoNagaiPotentialPlanarRforce(double R,double phi,
 }
 double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
 				    double t,
-				    int nargs, double *args){
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args++;
@@ -50,7 +53,8 @@ double MiyamotoNagaiPotentialzforce(double R,double z,double phi,
 }
 double MiyamotoNagaiPotentialPlanarR2deriv(double R,double phi,
 					   double t,
-					   int nargs, double *args){
+					   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args++;

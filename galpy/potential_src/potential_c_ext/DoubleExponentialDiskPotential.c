@@ -49,7 +49,8 @@ double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 }
 double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
 					    double t,
-					    int nargs, double *args){
+					    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   double amp, alpha;
   int nzeros,glorder;
   if ( R > 6. ) { //Approximate as Keplerian
@@ -90,7 +91,8 @@ double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
 }
 double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
 						  double t,
-						  int nargs, double *args){
+						  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   double amp, alpha;
   int nzeros, glorder;
   if ( R > 6. ) { //Approximate as Keplerian
@@ -130,7 +132,8 @@ double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
 }
 double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
 					    double t,
-					    int nargs, double *args){
+					    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   double amp, alpha;
   int nzeros, glorder;
   if ( R > 6. ) { //Approximate as Keplerian

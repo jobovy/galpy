@@ -62,7 +62,7 @@ void parse_actionAngleArgs(int npot,
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       //Look at pot_args to figure out the number of arguments
-      potentialArgs->nargs= 8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1);
+      potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1));
       potentialArgs->i2d= NULL;
       potentialArgs->acc= NULL;
       break;

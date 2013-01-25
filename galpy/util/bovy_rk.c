@@ -59,11 +59,11 @@ Usage:
        double *result: result (nt blocks of size 2dim)
 */
 void bovy_rk4(void (*func)(double t, double *q, double *a,
-			   int nargs, struct leapFuncArg * leapFuncArgs),
+			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result, int * err){
   //Declare and initialize
@@ -80,19 +80,19 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= rk4_estimate_step(*func,dim,yo,dt,t,nargs,leapFuncArgs,
+  dt= rk4_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
 			rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
     for (jj=0; jj < (ndt-1); jj++) {
-      bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a);
+      bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a);
       to+= dt;
       //reset yn
       for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
     }
-    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a);
+    bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a);
     to+= dt;
     //save
     save_rk(dim,yn1,result);
@@ -109,27 +109,27 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
 }
 
 inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
-					  int nargs, struct leapFuncArg * leapFuncArgs),
+					  int nargs, struct potentialArg * potentialArgs),
 			     int dim,
 			     double * yn,double * yn1,
 			     double tn, double dt,
-			     int nargs, struct leapFuncArg * leapFuncArgs,
+			     int nargs, struct potentialArg * potentialArgs,
 			     double * ynk, double * a){
   int ii;
   //calculate k1
-  func(tn,yn,a,nargs,leapFuncArgs);
+  func(tn,yn,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 6.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii) / 2.;
   //calculate k2
-  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 3.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii) / 2.;
   //calculate k3
-  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 3.;
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + dt * *(a+ii);
   //calculate k4
-  func(tn+dt,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += dt * *(a+ii) / 6.;
   //yn1 is new value
 }
@@ -138,11 +138,11 @@ inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
   RK6 integrator, same calling sequence as RK4
 */
 void bovy_rk6(void (*func)(double t, double *q, double *a,
-			   int nargs, struct leapFuncArg * leapFuncArgs),
+			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result, int * err){
   //Declare and initialize
@@ -164,20 +164,20 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= rk6_estimate_step(*func,dim,yo,dt,t,nargs,leapFuncArgs,
+  dt= rk6_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
 			rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
   for (ii=0; ii < (nt-1); ii++){
     for (jj=0; jj < (ndt-1); jj++) {
-      bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a,
+      bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a,
 		       k1,k2,k3,k4,k5);
       to+= dt;
       //reset yn
       for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
     }
-    bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,leapFuncArgs,ynk,a,
+    bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a,
 		     k1,k2,k3,k4,k5);
     to+= dt;
     //save
@@ -211,34 +211,34 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
 72*k_4 -64*k_6)/44)
 */
 inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
-					  int nargs, struct leapFuncArg * leapFuncArgs),
+					  int nargs, struct potentialArg * potentialArgs),
 			     int dim,
 			     double * yn,double * yn1,
 			     double tn, double dt,
-			     int nargs, struct leapFuncArg * leapFuncArgs,
+			     int nargs, struct potentialArg * potentialArgs,
 			     double * ynk, double * a,
 			     double * k1, double * k2,
 			     double * k3, double * k4,
 			     double * k5){
   int ii;
   //calculate k1
-  func(tn,yn,a,nargs,leapFuncArgs);
+  func(tn,yn,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 11.* dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k1+ii)= dt * *(a+ii);
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + *(k1+ii)/3.;
   //calculate k2
-  func(tn+dt/3.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/3.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(k2+ii)= dt * *(a+ii);
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + 2. * *(k2+ii)/3.;
   //calculate k3
-  func(tn+2.*dt/3.,ynk,a,nargs,leapFuncArgs);
+  func(tn+2.*dt/3.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 81. * dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k3+ii)= dt * *(a+ii);
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( *(k1+ii) 
 						     + 4. * *(k2+ii)
 						     - *(k3+ii))/12.;
   //calculate k4
-  func(tn+dt/3.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/3.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 81.* dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k4+ii)= dt * *(a+ii);
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( -*(k1+ii) 
@@ -246,7 +246,7 @@ inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
 						     - 3. * *(k3+ii)
 						     -6.* *(k4+ii))/16.;
   //calculate k5
-  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) -= 32.* dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii);
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( 9. * *(k2+ii)
@@ -254,7 +254,7 @@ inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
 						     -6.* *(k4+ii)
 						     + 4. * *(k5+ii))/8.;
   //calculate k6
-  func(tn+dt/2.,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) -= 32.* dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //re-use k5 for k6
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( 9. * *(k1+ii)
@@ -263,7 +263,7 @@ inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
 						     + 72. * *(k4+ii)
 						     -64. * *(k5+ii))/44.;
   //calculate k7
-  func(tn+dt,ynk,a,nargs,leapFuncArgs);
+  func(tn+dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 11.* dt * *(a+ii) / 120.;  
   //yn1 is new value
 }
@@ -272,10 +272,10 @@ inline void save_rk(int dim, double *yo, double *result){
   int ii;
   for (ii=0; ii < dim; ii++) *result++= *yo++;
 }
-double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			 int dim, double *yo,
 			 double dt, double *t,
-			 int nargs,struct leapFuncArg * leapFuncArgs,
+			 int nargs,struct potentialArg * potentialArgs,
 			 double rtol,double atol){
   //return dt;
   //scalars
@@ -309,11 +309,11 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
     //do one step with step dt, and one with step dt/2.
     //dt
-    bovy_rk4_onestep(func,dim,yn,y1,to,dt,nargs,leapFuncArgs,ynk,a);
+    bovy_rk4_onestep(func,dim,yn,y1,to,dt,nargs,potentialArgs,ynk,a);
     //dt/2
-    bovy_rk4_onestep(func,dim,yn,y21,to,dt/2.,nargs,leapFuncArgs,ynk,a);
+    bovy_rk4_onestep(func,dim,yn,y21,to,dt/2.,nargs,potentialArgs,ynk,a);
     for (ii=0; ii < dim; ii++) *(y2+ii)= *(y21+ii);
-    bovy_rk4_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,leapFuncArgs,ynk,a);
+    bovy_rk4_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,potentialArgs,ynk,a);
     //Norm
     err= 0.;
     for (ii=0; ii < dim; ii++) {
@@ -335,10 +335,10 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //fflush(stdout);
   return dt;
 } 
-double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			 int dim, double *yo,
 			 double dt, double *t,
-			 int nargs,struct leapFuncArg * leapFuncArgs,
+			 int nargs,struct potentialArg * potentialArgs,
 			 double rtol,double atol){
   //return dt;
   //scalars
@@ -377,13 +377,13 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
     //do one step with step dt, and one with step dt/2.
     //dt
-    bovy_rk6_onestep(func,dim,yn,y1,to,dt,nargs,leapFuncArgs,ynk,a,
+    bovy_rk6_onestep(func,dim,yn,y1,to,dt,nargs,potentialArgs,ynk,a,
 		     k1,k2,k3,k4,k5);
     //dt/2
-    bovy_rk6_onestep(func,dim,yn,y21,to,dt/2.,nargs,leapFuncArgs,ynk,a,
+    bovy_rk6_onestep(func,dim,yn,y21,to,dt/2.,nargs,potentialArgs,ynk,a,
 		     k1,k2,k3,k4,k5);
     for (ii=0; ii < dim; ii++) *(y2+ii)= *(y21+ii);
-    bovy_rk6_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,leapFuncArgs,ynk,a,
+    bovy_rk6_onestep(func,dim,y21,y2,to+dt/2.,dt/2.,nargs,potentialArgs,ynk,a,
 		     k1,k2,k3,k4,k5);
     //Norm
     err= 0.;
@@ -435,11 +435,11 @@ Usage:
        int * err: if non-zero, something bad happened (1: maximum step reduction happened)
 */
 void bovy_dopr54(void (*func)(double t, double *q, double *a,
-			      int nargs, struct leapFuncArg * leapFuncArgs),
+			      int nargs, struct potentialArg * potentialArgs),
 		 int dim,
 		 double * yo,
 		 int nt, double *t,
-		 int nargs, struct leapFuncArg * leapFuncArgs,
+		 int nargs, struct potentialArg * potentialArgs,
 		 double rtol, double atol,
 		 double *result, int * err){
   //Declare and initialize
@@ -461,15 +461,15 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   *err= 0;
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   double dt= (*(t+1))-(*t);
-  double dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,leapFuncArgs,
+  double dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
 				   rtol,atol);
   //Integrate the system
   double to= *t;
   //set up a1
-  func(to,yn,a1,nargs,leapFuncArgs);
+  func(to,yn,a1,nargs,potentialArgs);
   for (ii=0; ii < (nt-1); ii++){
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
-			nargs,leapFuncArgs,rtol,atol,
+			nargs,potentialArgs,rtol,atol,
 			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,err);
     //save
     save_rk(dim,yn,result);
@@ -489,10 +489,10 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   free(ynk);
 }
 //one output step, consists of multiple steps potentially
-void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			 int dim, double *yo,
 			 double dt, double *to,double * dt_one,
-			 int nargs,struct leapFuncArg * leapFuncArgs,
+			 int nargs,struct potentialArg * potentialArgs,
 			 double rtol,double atol,
 			 double * a1, double * a,
 			 double * k1, double * k2,
@@ -517,16 +517,16 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
       *dt_one = (init_to + dt - *to); 
     //printf("%f,%f,%f,%f,%f\n",*dt_one,init_to+dt - *to,*to,init_to,dt);
     //fflush(stdout);
-    *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,leapFuncArgs,
+    *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,potentialArgs,
 				    rtol,atol,
 				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,
 				    accept);
   }
 }
-double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int nargs, struct leapFuncArg *),
+double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			      int dim, double *yo,
 			      double dt, double *to,
-			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      int nargs,struct potentialArg * potentialArgs,
 			      double rtol,double atol,
 			      double * a1, double * a,
 			      double * k1, double * k2,
@@ -583,14 +583,14 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
     *(ynk+ii)= *(yo+ii) + a21 * *(k1+ii);
   }
   //calculate k2
-  func(*to+c2*dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+c2*dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k2+ii)= dt * *(a+ii);
     *(ynk+ii)= *(yo+ii) + a31 * *(k1+ii) 
       + a32 * *(k2+ii);
   }
   //calculate k3
-  func(*to+c3*dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+c3*dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k3+ii)= dt * *(a+ii);
     *(yn1+ii) += b3* *(k3+ii);
@@ -599,7 +599,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
       + a42 * *(k2+ii) + a43 * *(k3+ii);
   }
   //calculate k4
-  func(*to+c4*dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+c4*dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k4+ii)= dt * *(a+ii);
     *(yn1+ii) += b4* *(k4+ii);
@@ -609,7 +609,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
       + a54 * *(k4+ii);
   }
   //calculate k5
-  func(*to+c5*dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+c5*dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k5+ii)= dt * *(a+ii);
     *(yn1+ii) += b5* *(k5+ii);
@@ -619,7 +619,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
       + a64 * *(k4+ii) + a65 * *(k5+ii);
   }
   //calculate k6
-  func(*to+dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k6+ii)= dt * *(a+ii);
     *(yn1+ii) += b6* *(k6+ii);
@@ -630,7 +630,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
       + a76 * *(k6+ii);
   }
   //calculate k7
-  func(*to+dt,ynk,a,nargs,leapFuncArgs);
+  func(*to+dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yerr+ii) += be7 * dt * *(a+ii);
   //yn1 is proposed new value
   //find maximum values

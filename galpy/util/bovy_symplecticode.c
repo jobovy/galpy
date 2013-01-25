@@ -57,7 +57,7 @@ Usage:
        double * q: current position (dimension: dim)
        double * a: will be set to the derivative
        int nargs: number of arguments the function takes
-       struct leapFuncArg * leapFuncArg structure pointer, see header file
+       struct potentialArg * potentialArg structure pointer, see header file
   Other arguments are:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
@@ -70,11 +70,11 @@ Usage:
        double *result: result (nt blocks of size 2dim)
 */
 void leapfrog(void (*func)(double t, double *q, double *a,
-			   int nargs, struct leapFuncArg * leapFuncArgs),
+			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
   //Initialize
@@ -96,7 +96,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
 			     rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -107,7 +107,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     //now drift full for a while
     for (jj=0; jj < (ndt-1); jj++){
       //kick
-      func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+      func(to+dt/2.,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,dt,a,p12);
       //drift
       leapfrog_leapq(dim,q12,p12,dt,qo);
@@ -120,7 +120,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     }
     //end with one last kick and drift
     //kick
-    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+    func(to+dt/2.,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,dt,a,po);
     //drift
     leapfrog_leapq(dim,q12,po,dt/2.,qo);
@@ -147,7 +147,7 @@ Usage:
        double * q: current position (dimension: dim)
        double * a: will be set to the derivative
        int nargs: number of arguments the function takes
-       struct leapFuncArg * leapFuncArg structure pointer, see header file
+       struct potentialArg * potentialArg structure pointer, see header file
   Other arguments are:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
@@ -160,11 +160,11 @@ Usage:
        double *result: result (nt blocks of size 2dim)
 */
 void symplec4(void (*func)(double t, double *q, double *a,
-			   int nargs, struct leapFuncArg * leapFuncArgs),
+			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
   //coefficients
@@ -194,7 +194,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
 			     rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -206,19 +206,19 @@ void symplec4(void (*func)(double t, double *q, double *a,
     //steps ignoring q4/p4 when output is not wanted
     for (jj=0; jj < (ndt-1); jj++){
       //kick for d1*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d1*dt,a,p12);
       //drift for c2*dt
       leapfrog_leapq(dim,q12,p12,c2*dt,qo);
       //kick for d2*dt
       to+= c2*dt;
-      func(to,qo,a,nargs,leapFuncArgs);
+      func(to,qo,a,nargs,potentialArgs);
       leapfrog_leapp(dim,p12,d2*dt,a,po);
       //drift for c3*dt
       leapfrog_leapq(dim,qo,po,c3*dt,q12);
       to+= c3*dt;
       //kick for d3*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d3*dt,a,p12);
       //drift for (c4+c1)*dt
       leapfrog_leapq(dim,q12,p12,(c4+c1)*dt,qo);
@@ -231,19 +231,19 @@ void symplec4(void (*func)(double t, double *q, double *a,
     }
     //steps not ignoring q4/p4 when output is wanted
     //kick for d1*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt,a,p12);
     //drift for c2*dt
     leapfrog_leapq(dim,q12,p12,c2*dt,qo);
     //kick for d2*dt
     to+= c2*dt;
-    func(to,qo,a,nargs,leapFuncArgs);
+    func(to,qo,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt,a,po);
     //drift for c3*dt
     leapfrog_leapq(dim,qo,po,c3*dt,q12);
     to+= c3*dt;
     //kick for d3*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d3*dt,a,p12);
     //drift for c4*dt
     leapfrog_leapq(dim,q12,p12,c4*dt,qo);
@@ -272,7 +272,7 @@ Usage:
        double * q: current position (dimension: dim)
        double * a: will be set to the derivative
        int nargs: number of arguments the function takes
-       struct leapFuncArg * leapFuncArg structure pointer, see header file
+       struct potentialArg * potentialArg structure pointer, see header file
   Other arguments are:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
@@ -285,11 +285,11 @@ Usage:
        double *result: result (nt blocks of size 2dim)
 */
 void symplec6(void (*func)(double t, double *q, double *a,
-			   int nargs, struct leapFuncArg * leapFuncArgs),
+			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double *t,
-	      int nargs, struct leapFuncArg * leapFuncArgs,
+	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
   //coefficients
@@ -327,7 +327,7 @@ void symplec6(void (*func)(double t, double *q, double *a,
   //Estimate necessary stepsize
   double dt= (*(t+1))-(*t);
   double init_dt= dt;
-  dt= symplec6_estimate_step(*func,dim,qo,po,dt,t,nargs,leapFuncArgs,
+  dt= symplec6_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
 			     rtol,atol);
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -339,43 +339,43 @@ void symplec6(void (*func)(double t, double *q, double *a,
     //steps ignoring q8/p8 when output is not wanted
     for (jj=0; jj < (ndt-1); jj++){
       //kick for d1*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d1*dt,a,p12);
       //drift for c2*dt
       leapfrog_leapq(dim,q12,p12,c2*dt,qo);
       to+= c2*dt;
       //kick for d2*dt
-      func(to,qo,a,nargs,leapFuncArgs);
+      func(to,qo,a,nargs,potentialArgs);
       leapfrog_leapp(dim,p12,d2*dt,a,po);
       //drift for c3*dt
       leapfrog_leapq(dim,qo,po,c3*dt,q12);
       to+= c3*dt;
       //kick for d3*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d3*dt,a,p12);
       //drift for c4*dt
       leapfrog_leapq(dim,q12,p12,c4*dt,qo);
       //kick for d4*dt
       to+= c4*dt;
-      func(to,qo,a,nargs,leapFuncArgs);
+      func(to,qo,a,nargs,potentialArgs);
       leapfrog_leapp(dim,p12,d4*dt,a,po);
       //drift for c5*dt
       leapfrog_leapq(dim,qo,po,c5*dt,q12);
       to+= c5*dt;
       //kick for d5*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d5*dt,a,p12);
       //drift for c6*dt
       leapfrog_leapq(dim,q12,p12,c6*dt,qo);
       //kick for d6*dt
       to+= c6*dt;
-      func(to,qo,a,nargs,leapFuncArgs);
+      func(to,qo,a,nargs,potentialArgs);
       leapfrog_leapp(dim,p12,d6*dt,a,po);
       //drift for c7*dt
       leapfrog_leapq(dim,qo,po,c7*dt,q12);
       to+= c7*dt;
       //kick for d7*dt
-      func(to,q12,a,nargs,leapFuncArgs);
+      func(to,q12,a,nargs,potentialArgs);
       leapfrog_leapp(dim,po,d7*dt,a,p12);
       //drift for (c8+c1)*dt
       leapfrog_leapq(dim,q12,p12,(c8+c1)*dt,qo);
@@ -388,43 +388,43 @@ void symplec6(void (*func)(double t, double *q, double *a,
     }
     //steps not ignoring q8/p8 when output is wanted
     //kick for d1*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt,a,p12);
     //drift for c2*dt
     leapfrog_leapq(dim,q12,p12,c2*dt,qo);
     to+= c2*dt;
     //kick for d2*dt
-    func(to,qo,a,nargs,leapFuncArgs);
+    func(to,qo,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt,a,po);
     //drift for c3*dt
     leapfrog_leapq(dim,qo,po,c3*dt,q12);
     to+= c3*dt;
     //kick for d3*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d3*dt,a,p12);
     //drift for c4*dt
     leapfrog_leapq(dim,q12,p12,c4*dt,qo);
     to+= c4*dt;
     //kick for d4*dt
-    func(to,qo,a,nargs,leapFuncArgs);
+    func(to,qo,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d4*dt,a,po);
     //drift for c5*dt
     leapfrog_leapq(dim,qo,po,c5*dt,q12);
     to+= c5*dt;
     //kick for d5*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d5*dt,a,p12);
     //drift for c6*dt
     leapfrog_leapq(dim,q12,p12,c6*dt,qo);
     //kick for d6*dt
     to+= c6*dt;
-    func(to,qo,a,nargs,leapFuncArgs);
+    func(to,qo,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d6*dt,a,po);
     //drift for c7*dt
     leapfrog_leapq(dim,qo,po,c7*dt,q12);
     to+= c7*dt;
     //kick for d7*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d7*dt,a,p12);
     //drift for c8*dt
     leapfrog_leapq(dim,q12,p12,c8*dt,qo);
@@ -443,10 +443,10 @@ void symplec6(void (*func)(double t, double *q, double *a,
   //We're done
 }
 
-double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
+double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct potentialArg *),
 			      int dim, double *qo,double *po,
 			      double dt, double *t,
-			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      int nargs,struct potentialArg * potentialArgs,
 			      double rtol,double atol){
   //return dt;
   //scalars
@@ -486,15 +486,15 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
-    func(to+dt/2.,q12,a,nargs,leapFuncArgs);
+    func(to+dt/2.,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,dt,a,p11);
     leapfrog_leapq(dim,q12,p11,dt/2.,q11);
     //dt/2.
     leapfrog_leapq(dim,qo,po,dt/4.,q12);
-    func(to+dt/4.,q12,a,nargs,leapFuncArgs);
+    func(to+dt/4.,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,dt/2.,a,ptmp);
     leapfrog_leapq(dim,q12,ptmp,dt/2.,qtmp);//Take full step combining two half
-    func(to+3.*dt/4.,qtmp,a,nargs,leapFuncArgs);
+    func(to+3.*dt/4.,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,dt/2.,a,p12);
     leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half   
     //Norm
@@ -519,10 +519,10 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   return dt;
 }
 
-double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
+double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct potentialArg *),
 			      int dim, double *qo,double *po,
 			      double dt, double *t,
-			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      int nargs,struct potentialArg * potentialArgs,
 			      double rtol,double atol){
   //return dt;
   //coefficients
@@ -575,19 +575,19 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
     to+= c1*dt;
     //kick for d1*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt,a,p12);
     //drift for c2*dt
     leapfrog_leapq(dim,q12,p12,c2*dt,qtmp);
     //kick for d2*dt
     to+= c2*dt;
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt,a,ptmp);
     //drift for c3*dt
     leapfrog_leapq(dim,qtmp,ptmp,c3*dt,q12);
     to+= c3*dt;
     //kick for d3*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d3*dt,a,p11);
     //drift for c4*dt
     leapfrog_leapq(dim,q12,p11,c4*dt,q11);
@@ -602,37 +602,37 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
     leapfrog_leapq(dim,qo,po,c1*dt/2.,q12);
     to+= c1*dt/2.;
     //kick for d1*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt/2.,a,p12);
     //drift for c2*dt/2
     leapfrog_leapq(dim,q12,p12,c2*dt/2.,qtmp);
     //kick for d2*dt/2
     to+= c2*dt/2.;
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt/2.,a,ptmp);
     //drift for c3*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c3*dt/2.,q12);
     to+= c3*dt/2.;
     //kick for d3*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d3*dt/2.,a,p12);
     //drift for (c4+c1)*dt/2, skipping q4/p4
     leapfrog_leapq(dim,q12,p12,(c1+c4)*dt/2.,qtmp);
     to+= (c1+c4)*dt/2.;
     //kick for d1*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d1*dt/2.,a,ptmp);
     //drift for c2*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c2*dt/2.,q12);
     //kick for d2*dt/2
     to+= c2*dt/2.;
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d2*dt/2.,a,p12);
     //drift for c3*dt/2
     leapfrog_leapq(dim,q12,p12,c3*dt/2.,qtmp);
     to+= c3*dt/2.;
     //kick for d3*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d3*dt/2.,a,ptmp);
     //drift for c4*dt/2.
     leapfrog_leapq(dim,qtmp,ptmp,c4*dt/2.,q12);
@@ -663,10 +663,10 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   return dt;
 }
 
-double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct leapFuncArg *),
+double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct potentialArg *),
 			      int dim, double *qo,double *po,
 			      double dt, double *t,
-			      int nargs,struct leapFuncArg * leapFuncArgs,
+			      int nargs,struct potentialArg * potentialArgs,
 			      double rtol,double atol){
   //return dt;
   //coefficients
@@ -727,43 +727,43 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
     to+= c1*dt;
     //kick for d1*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt,a,p12);
     //drift for c2*dt
     leapfrog_leapq(dim,q12,p12,c2*dt,qtmp);
     to+= c2*dt;
     //kick for d2*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt,a,ptmp);
     //drift for c3*dt
     leapfrog_leapq(dim,qtmp,ptmp,c3*dt,q12);
     to+= c3*dt;
     //kick for d3*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d3*dt,a,p12);
     //drift for c4*dt
     leapfrog_leapq(dim,q12,p12,c4*dt,qtmp);
     to+= c4*dt;
     //kick for d4*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d4*dt,a,ptmp);
     //drift for c5*dt
     leapfrog_leapq(dim,qtmp,ptmp,c5*dt,q12);
     to+= c5*dt;
     //kick for d5*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d5*dt,a,p12);
     //drift for c6*dt
     leapfrog_leapq(dim,q12,p12,c6*dt,qtmp);
     to+= c6*dt;
     //kick for d6*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d6*dt,a,ptmp);
     //drift for c7*dt
     leapfrog_leapq(dim,qtmp,ptmp,c7*dt,q12);
     to+= c7*dt;
     //kick for d7*dt
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d7*dt,a,p11);
     //drift for c8*dt
     leapfrog_leapq(dim,q12,p11,c8*dt,q11);
@@ -778,85 +778,85 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
     leapfrog_leapq(dim,qo,po,c1*dt/2.,q12);
     to+= c1*dt/2.;
     //kick for d1*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,po,d1*dt/2.,a,p12);
     //drift for c2*dt/2
     leapfrog_leapq(dim,q12,p12,c2*dt/2.,qtmp);
     to+= c2*dt/2.;
     //kick for d2*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d2*dt/2.,a,ptmp);
     //drift for c3*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c3*dt/2.,q12);
     to+= c3*dt/2.;
     //kick for d3*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d3*dt/2.,a,p12);
     //drift for c4*dt/2
     leapfrog_leapq(dim,q12,p12,c4*dt/2.,qtmp);
     to+= c4*dt/2.;
     //kick for d4*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d4*dt/2.,a,ptmp);
     //drift for c5*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c5*dt/2.,q12);
     to+= c5*dt/2.;
     //kick for d5*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d5*dt/2.,a,p12);
     //drift for c6*dt/2
     leapfrog_leapq(dim,q12,p12,c6*dt/2.,qtmp);
     to+= c6*dt/2.;
     //kick for d6*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d6*dt/2.,a,ptmp);
     //drift for c7*dt/2.
     leapfrog_leapq(dim,qtmp,ptmp,c7*dt/2.,q12);
     to+= c7*dt/2.;
     //kick for d7*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d7*dt/2.,a,p12);
     //drift for (c1+c8)*dt/2
     leapfrog_leapq(dim,q12,p12,(c1+c8)*dt/2.,qtmp);
     to+= (c1+c8)*dt/2.;
     //kick for d1*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d1*dt/2.,a,ptmp);
     //drift for c2*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c2*dt/2.,q12);
     to+= c2*dt/2.;
     //kick for d2*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d2*dt/2.,a,p12);
     //drift for c3*dt/2
     leapfrog_leapq(dim,q12,p12,c3*dt/2.,qtmp);
     to+= c3*dt/2.;
     //kick for d3*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d3*dt/2.,a,ptmp);
     //drift for c4*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c4*dt/2.,q12);
     to+= c4*dt/2.;
     //kick for d4*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d4*dt/2.,a,p12);
     //drift for c5*dt/2
     leapfrog_leapq(dim,q12,p12,c5*dt/2.,qtmp);
     to+= c5*dt/2.;
     //kick for d5*dt/2
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d5*dt/2.,a,ptmp);
     //drift for c6*dt/2
     leapfrog_leapq(dim,qtmp,ptmp,c6*dt/2.,q12);
     to+= c6*dt/2.;
     //kick for d6*dt/2
-    func(to,q12,a,nargs,leapFuncArgs);
+    func(to,q12,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,d6*dt/2.,a,p12);
     //drift for c7*dt/2
     leapfrog_leapq(dim,q12,p12,c7*dt/2.,qtmp);
     to+= c7*dt/2.;
     //kick for d7*dt
-    func(to,qtmp,a,nargs,leapFuncArgs);
+    func(to,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,p12,d7*dt/2.,a,ptmp);
     //drift for c8*dt/2.
     leapfrog_leapq(dim,qtmp,ptmp,c8*dt/2.,q12);

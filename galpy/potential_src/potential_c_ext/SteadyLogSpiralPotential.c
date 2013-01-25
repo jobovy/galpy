@@ -20,7 +20,8 @@ inline double dehnenSpiralSmooth(double t,double tform, double tsteady){
   return smooth;
 }
 double SteadyLogSpiralPotentialRforce(double R,double phi,double t,
-				      int nargs, double *args){
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args
@@ -37,7 +38,8 @@ double SteadyLogSpiralPotentialRforce(double R,double phi,double t,
   return amp * smooth * A / R * sin(alpha * log(R) - m * (phi-omegas*t-gamma));
 }
 double SteadyLogSpiralPotentialphiforce(double R,double phi,double t,
-				      int nargs, double *args){
+					struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //declare
   double smooth;
   //Get args

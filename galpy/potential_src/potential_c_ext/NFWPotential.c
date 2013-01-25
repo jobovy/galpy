@@ -14,8 +14,9 @@ double NFWPotentialEval(double R,double Z, double phi,
   return - amp * log ( 1. + sqrtRz / a ) / sqrtRz;
 }
 double NFWPotentialRforce(double R,double Z, double phi,
-				double t,
-				int nargs, double *args){
+			  double t,
+			  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -26,7 +27,8 @@ double NFWPotentialRforce(double R,double Z, double phi,
 }
 double NFWPotentialPlanarRforce(double R,double phi,
 					    double t,
-					    int nargs, double *args){
+				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -35,7 +37,8 @@ double NFWPotentialPlanarRforce(double R,double phi,
 }
 double NFWPotentialzforce(double R,double Z,double phi,
 			  double t,
-			  int nargs, double *args){
+			  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
@@ -45,8 +48,9 @@ double NFWPotentialzforce(double R,double Z,double phi,
   return amp * Z * (1. / Rz / (a + sqrtRz)-log(1.+sqrtRz / a)/sqrtRz/Rz);
 }
 double NFWPotentialPlanarR2deriv(double R,double phi,
-					     double t,
-					     int nargs, double *args){
+				 double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
   double a= *args;
