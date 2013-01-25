@@ -75,12 +75,18 @@ class actionAngleStaeckelGrid():
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        self._ERL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
+        try:
+            self._ERL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._RL**2.
+        except TypeError:
+            self._ERL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
         self._ERLmax= numpy.amax(self._ERL)+1.
         self._ERLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
-        self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        try:
+            self._ERa= galpy.potential.evaluatePotentials(self._Ramax,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._Ramax**2.
+        except TypeError:
+            self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
