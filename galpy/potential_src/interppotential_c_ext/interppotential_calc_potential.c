@@ -8,6 +8,7 @@
 //Potentials
 #include <galpy_potentials.h>
 #include <actionAngle.h>
+#include <interp_2d.h>
 #include <cubic_bspline_2d_coeffs.h>
 /*
   MAIN FUNCTIONS
@@ -24,7 +25,7 @@ void calc_potential(int nR,
   int ii, jj;
   double * row= (double *) malloc ( nz * ( sizeof ( double ) ) );
   //Set up the potentials
-  struct actionAngleArg * actionAngleArgs= (struct actionAngleArg *) malloc ( npot * sizeof (struct actionAngleArg) );
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args);
   //Run through the grid and calculate
   for (ii=0; ii < nR; ii++){
