@@ -23,6 +23,7 @@ Use as ``Potential-instance.method(...)``
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
    Rforce <potentialrforce.rst>
+   rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    vcirc <potentialvcirc.rst>
@@ -53,6 +54,7 @@ Use as ``method(...)``
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   rl <potentialrls.rst>
    vcirc <potentialvcircs.rst>
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
