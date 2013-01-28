@@ -17,6 +17,8 @@ Quick-start guide
 .. toctree::
    :maxdepth: 2
 
+   installation.rst
+
    getting_started.rst
 
    basic_df.rst
