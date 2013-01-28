@@ -135,18 +135,31 @@ class Potential:
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
+
            R2deriv
+
         PURPOSE:
+
            evaluate the second radial derivative
+
         INPUT:
-           R
-           Z
-           phi
-           t
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
         OUTPUT:
+
            d2phi/dR2
+
         HISTORY:
+
            2011-10-09 - Written - Bovy (IAS)
+
         """
         try:
             return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
@@ -156,18 +169,31 @@ class Potential:
     def z2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
+
            z2deriv
+
         PURPOSE:
+
            evaluate the second vertical derivative
+
         INPUT:
-           R
-           Z
-           phi
-           t
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
         OUTPUT:
+
            d2phi/dz2
+
         HISTORY:
+
            2012-07-25 - Written - Bovy (IAS@MPIA)
+
         """
         try:
             return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
