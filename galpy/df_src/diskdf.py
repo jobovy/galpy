@@ -350,15 +350,25 @@ class diskdf:
     def targetSigma2(self,R,log=False):
         """
         NAME:
+
            targetSigma2
+
         PURPOSE:
+
            evaluate the target Sigma_R^2(R)
+
         INPUT:
+
             R - radius at which to evaluate (/ro)
+
         OUTPUT:
+
            target Sigma_R^2(R)
+
            log - if True, return the log (default: False)
+
         HISTORY:
+
            2010-03-28 - Written - Bovy (NYU)
         """
         return self._surfaceSigmaProfile.sigma2(R,log=log)
@@ -366,15 +376,25 @@ class diskdf:
     def targetSurfacemass(self,R,log=False):
          """
          NAME:
+
             targetSurfacemass
+
          PURPOSE:
+
             evaluate the target surface mass at R
+
          INPUT:
+
             R - radius at which to evaluate
+
             log - if True, return the log (default: False)
+
          OUTPUT:
+
             Sigma(R)
+
          HISTORY:
+
             2010-03-28 - Written - Bovy (NYU)
          """
          return self._surfaceSigmaProfile.surfacemass(R,log=log)
@@ -382,17 +402,29 @@ class diskdf:
     def targetSurfacemassLOS(self,d,l,log=False,deg=True):
         """
         NAME:
+
             targetSurfacemassLOS
+
         PURPOSE:
+
             evaluate the target surface mass along the LOS given l and d
+
         INPUT:
+
             d - distance along the line of sight
+
             l - Galactic longitude (in deg, unless deg=False)
+
             deg= if False, l is in radians
+
             log - if True, return the log (default: False)
+
         OUTPUT:
+
             Sigma(d,l)
+
         HISTORY:
+
             2011-03-23 - Written - Bovy (NYU)
         """
         #Calculate R and phi
@@ -413,21 +445,37 @@ class diskdf:
                        romberg=False,nsigma=None,relative=None):
         """
         NAME:
+
            surfacemassLOS
+
         PURPOSE:
+
            evaluate the surface mass along the LOS given l and d
+
         INPUT:
+
            d - distance along the line of sight
+
            l - Galactic longitude (in deg, unless deg=False)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            target= if True, use target surfacemass (default)
+
            romberg - if True, use a romberg integrator (default: False)
+
            deg= if False, l is in radians
+
         OUTPUT:
+
            Sigma(d,l)
+
         HISTORY:
+
            2011-03-24 - Written - Bovy (NYU)
         """
         #Calculate R and phi
@@ -446,18 +494,30 @@ class diskdf:
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
         NAME:
+
            sampledSurfacemassLOS
+
         PURPOSE:
+
            sample a distance along the line of sight
+
         INPUT:
+
            l - Galactic longitude (in rad)
+
            n= number of distances to sample
+
            maxd= maximum distance to consider (for the rejection sampling)
+
            target= if True, sample from the 'target' surface mass density,
                    rather than the actual surface mass density (default=True)
+
         OUTPUT:
+
            list of samples
+
         HISTORY:
+
            2011-03-24 - Written - Bovy (NYU)
         """
         #First calculate where the maximum is
@@ -491,20 +551,34 @@ class diskdf:
     def sampleVRVT(self,R,n=1,nsigma=None,target=True):
         """
         NAME:
+
            sampleVRVT
+
         PURPOSE:
+
            sample a radial and azimuthal velocity at R
+
         INPUT:
+
            R - Galactocentric distance
+
            n= number of distances to sample
+
            nsigma= number of sigma to rejection-sample on
+
            target= if True, sample using the 'target' sigma_R
                    rather than the actual sigma_R (default=True)
+
         OUTPUT:
+
            list of samples
+
         BUGS:
+
            should use the fact that vR and vT separate
+
         HISTORY:
+
            2011-03-24 - Written - Bovy (NYU)
         """
         #Determine where the max of the v-distribution is using asymmetric drift
@@ -532,20 +606,33 @@ class diskdf:
                   target=True):
         """
         NAME:
+
            sampleLOS
+
         PURPOSE:
+
            sample along a given LOS
+
         INPUT:
+
            los - line of sight (in deg, unless deg=False)
+
            n= number of desired samples
+
            deg= los in degrees? (default=True)
+
            target= if True, use target surface mass and sigma2 profiles
                    (default=True)
+
         OUTPUT:
+
            returns list of Orbits
+
         BUGS:
            target=False uses target distribution for derivatives (this is a detail)
+
         HISTORY:
+
            2011-03-24 - Started  - Bovy (NYU)
         """
         if deg:
@@ -566,15 +653,25 @@ class diskdf:
     def asymmetricdrift(self,R):
         """
         NAME:
+
            asymmetricdrift
+
         PURPOSE:
+
            calculate the asymmetric drift (vc-mean-vphi)
+
         INPUT:
+
            R - radius at which to calculate the asymmetric drift (/ro)
+
         OUTPUT:
+
            asymmetric drift at R
+
         HISTORY:
+
            2011-04-02 - Written - Bovy (NYU)
+
         """
         sigmaR2= self.targetSigma2(R)
         return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -585,19 +682,33 @@ class diskdf:
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
+
            surfacemass
+
         PURPOSE:
+
            calculate the surface-mass at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate the surfacemass density (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            surface mass at R
+
         HISTORY:
+
            2010-03-XX - Written - Bovy (NYU)
+
         """
         if nsigma == None:
             nsigma= _NSIGMA
@@ -634,22 +745,37 @@ class diskdf:
     def sigma2surfacemass(self,R,romberg=False,nsigma=None,
                                 relative=False):
         """
+
         NAME:
+
            sigma2surfacemass
+
         PURPOSE:
+
            calculate the product sigma_R^2 x surface-mass at R by 
            marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate the sigma_R^2 x surfacemass 
                density (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            sigma_R^2 x surface-mass at R
+
         HISTORY:
+
            2010-03-XX - Written - Bovy (NYU)
+
         """
         if nsigma == None:
             nsigma= _NSIGMA
@@ -687,24 +813,41 @@ class diskdf:
                            relative=False,phi=0.,deriv=None):
         """
         NAME:
+
            vmomentsurfacemass
+
         PURPOSE:
+
            calculate the an arbitrary moment of the velocity distribution 
            at R times the surfacmass
+
         INPUT:
+
            R - radius at which to calculate the moment(/ro)
+
            n - vR^n
+
            m - vT^m
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
            deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
                                        R or phi
+
         OUTPUT:
+
            <vR^n vT^m  x surface-mass> at R
+
         HISTORY:
+
            2011-03-30 - Written - Bovy (NYU)
+
         """
         #odd moments of vR are zero
         if isinstance(n,int) and n%2 == 1:
@@ -761,21 +904,37 @@ class diskdf:
 
     def oortA(self,R,romberg=False,nsigma=None,phi=0.):
         """
+
         NAME:
+
            oortA
+
         PURPOSE:
+
            calculate the Oort function A
+
         INPUT:
+
            R - radius at which to calculate A (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            Oort A at R
+
         HISTORY:
+
            2011-04-19 - Written - Bovy (NYU)
+
         BUGS:
+
            could be made more efficient, e.g., surfacemass is calculated multiple times
         """
         #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
@@ -792,20 +951,35 @@ class diskdf:
     def oortB(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            oortB
+
         PURPOSE:
+
            calculate the Oort function B
+
         INPUT:
+
            R - radius at which to calculate B (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            Oort B at R
+
         HISTORY:
+
            2011-04-19 - Written - Bovy (NYU)
+
         BUGS:
+
            could be made more efficient, e.g., surfacemass is calculated multiple times
         """
         #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
@@ -822,20 +996,35 @@ class diskdf:
     def oortC(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            oortC
+
         PURPOSE:
+
            calculate the Oort function C
+
         INPUT:
+
            R - radius at which to calculate C (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            Oort C at R
+
         HISTORY:
+
            2011-04-19 - Written - Bovy (NYU)
+
         BUGS:
+
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
         """
@@ -850,20 +1039,35 @@ class diskdf:
     def oortK(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            oortK
+
         PURPOSE:
+
            calculate the Oort function K
+
         INPUT:
+
            R - radius at which to calculate K (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            Oort K at R
+
         HISTORY:
+
            2011-04-19 - Written - Bovy (NYU)
+
         BUGS:
+
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
         """
@@ -878,37 +1082,64 @@ class diskdf:
     def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            sigma2
+
         PURPOSE:
+
            calculate sigma_R^2 at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate sigma_R^2 density (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            sigma_R^2 at R
+
         HISTORY:
+
            2010-03-XX - Written - Bovy (NYU)
         """
         return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
 
     def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
         """
+
         NAME:
+
            sigmaT2
+
         PURPOSE:
+
            calculate sigma_T^2 at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate sigma_T^2 (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            sigma_T^2 at R
+
         HISTORY:
+
            2011-03-30 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
@@ -920,18 +1151,31 @@ class diskdf:
     def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            sigmaR2 (duplicate of sigma2 for consistency)
+
         PURPOSE:
+
            calculate sigma_R^2 at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate sigma_R^2 (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            sigma_R^2 at R
+
         HISTORY:
+
            2011-03-30 - Written - Bovy (NYU)
         """
         return self.sigma2(R,romberg=romberg,nsigma=nsigma)
@@ -939,18 +1183,31 @@ class diskdf:
     def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            meanvT
+
         PURPOSE:
+
            calculate <vT> at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vT> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            <vT> at R
+
         HISTORY:
+
            2011-03-30 - Written - Bovy (NYU)
         """
         return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
@@ -959,18 +1216,31 @@ class diskdf:
     def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            meanvR
+
         PURPOSE:
+
            calculate <vR> at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vR> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            <vR> at R
+
         HISTORY:
+
            2011-03-30 - Written - Bovy (NYU)
         """
         return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
@@ -979,18 +1249,31 @@ class diskdf:
     def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            skewvT
+
         PURPOSE:
+
            calculate skew in vT at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vR> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            skewvT
+
         HISTORY:
+
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
@@ -1006,18 +1289,31 @@ class diskdf:
     def skewvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            skewvR
+
         PURPOSE:
+
            calculate skew in vR at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vR> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            skewvR
+
         HISTORY:
+
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
@@ -1033,18 +1329,31 @@ class diskdf:
     def kurtosisvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            kurtosisvT
+
         PURPOSE:
+
            calculate excess kurtosis in vT at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vR> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            kurtosisvT
+
         HISTORY:
+
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
@@ -1062,18 +1371,31 @@ class diskdf:
     def kurtosisvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
+
            kurtosisvR
+
         PURPOSE:
+
            calculate excess kurtosis in vR at R by marginalizing over velocity
+
         INPUT:
+
            R - radius at which to calculate <vR> (/ro)
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
         KEYWORDS:
+
            romberg - if True, use a romberg integrator (default: False)
+
         OUTPUT:
+
            kurtosisvR
+
         HISTORY:
+
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
