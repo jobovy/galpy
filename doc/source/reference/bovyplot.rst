@@ -1,6 +1,8 @@
 galpy.util.bovy_plot
 ====================
 
+Various plotting routines:
+
 .. toctree::
    :maxdepth: 2
 
