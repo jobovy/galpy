@@ -21,11 +21,14 @@ Use as ``Potential-instance.method(...)``
    plot <potentialplot.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   R2deriv <potentialr2deriv.rst>
    Rforce <potentialrforce.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    vcirc <potentialvcirc.rst>
+   verticalfreq <potentialverticalfreq.rst>
    vesc <potentialvesc.rst>
+   z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
 
 
@@ -41,7 +44,9 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluateR2derivs <potentialr2derivs.rst>
    evaluateRforces <potentialrforces.rst>
+   evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
    lindbladR <potentiallindbladRs.rst>
    omegac <potentialomegacs.rst>
@@ -49,6 +54,7 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    vcirc <potentialvcircs.rst>
+   verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
 
 Specific potentials
