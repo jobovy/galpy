@@ -186,6 +186,48 @@ The whole orbit can also be obtained using the function ``getOrbit``
 which returns a matrix of phase-space points with dimensions [ntimes,ndim].
 
 
+Fast orbit integration
+------------------------
+
+The standard orbit integration is done purely in python using standard
+scipy integrators. When fast orbit integration is needed for batch
+integration of a large number of orbits, a set of orbit integration
+routines are written in C that can be accessed for most potentials, as
+long as they have C implementations, which can be checked by using the
+attribute ``hasC``
+
+>>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
+>>> mp.hasC
+True
+
+Fast C integrators can be accessed through the ``method=`` keyword of
+the ``orbit.integrate`` method. Currently available integrators are
+
+* rk4_c
+* rk6_c
+* dopr54_c
+
+which are Runge-Kutta and Dormand-Prince methods. There are also a
+number of symplectic integrators available
+
+* leapfrog_c
+* symplec4_c
+* symplec6_c
+
+The higher order symplectic integrators are described in `Yoshida
+(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
+
+For most applications I recommend ``dopr54_c``. For example, compare
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> timeit(o.integrate(ts,mp))
+1 loops, best of 3: 553 ms per loop
+>>> timeit(o.integrate(ts,mp,method='dopr54_c'))
+galpyWarning: Using C implementation to integrate orbits
+10 loops, best of 3: 25.6 ms per loop
+
+As this example shows, galpy will issue a warning that C is being
+used. Speed-ups by a factor of 20 are typical.
 
 Example: The eccentricity distribution of the Milky Way's thick disk
 ---------------------------------------------------------------------
