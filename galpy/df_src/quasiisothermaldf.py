@@ -236,7 +236,8 @@ class quasiisothermaldf:
         lsf= numpy.log(sf)
         return -dz/(lsf[1]-lsf[0])
 
-    def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,**kwargs):
+    def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=20,
+                      **kwargs):
         """
         NAME:
            surfacemass_z
@@ -244,6 +245,8 @@ class quasiisothermaldf:
            calculate the vertically-integrated surface density
         INPUT:
            R - Galactocentric radius
+           fixed_quad= if True (default), use Gauss-Legendre integration
+           fixed_order= (20), order of GL integration to use
            nz= number of zs to use to estimate
            zmax=m minimum z to use
            density kwargs
@@ -252,6 +255,9 @@ class quasiisothermaldf:
         HISTORY:
            2012-08-30 - Written - Bovy (IAS)
         """
+        if fixed_quad:
+            return 2.*integrate.fixed_quad(lambda x: self.density(R*numpy.ones(fixed_order),x),
+                                           0.,.5,n=fixed_order)[0]
         zs= numpy.linspace(0.,zmax,nz)
         sf= numpy.array([self.density(R,z,**kwargs) for z in zs])
         lsf= numpy.log(sf)
@@ -260,12 +266,8 @@ class quasiisothermaldf:
                                                 lsf,
                                                 k=3)
         #Integrate
-        if fixed_quad:
-            return 2.*integrate.fixed_quad((lambda x: numpy.exp(lsfInterp(x))),
-                                           0.,1.,n=20)
-        else:
-            return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
-                                     0.,1.)[0]
+        return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
+                                 0.,1.)[0]
 
     def vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
@@ -292,6 +294,10 @@ class quasiisothermaldf:
         HISTORY:
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
+        if isinstance(R,numpy.ndarray):
+            return numpy.array([self.vmomentdensity(r,zz,n,m,o,nsigma=nsigma,
+                                                    mc=mc,nmc=nmc,
+                                                    gl=gl,ngl=ngl,**kwargs) for r,zz in zip(R,z)])
         if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                 actionAngle.actionAngleAdiabaticGrid)):
             if n % 2 == 1. or o % 2 == 1.:
