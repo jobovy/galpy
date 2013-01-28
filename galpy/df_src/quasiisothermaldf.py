@@ -1,7 +1,7 @@
 #A 'Binney' quasi-isothermal DF
 import math
 import numpy
-from scipy import optimize, interpolate, integrate, linalg
+from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
 _NSIGMA=4
@@ -187,7 +187,7 @@ class quasiisothermaldf:
             elif numpy.isnan(out): return 0.
             return out
 
-    def estimate_hr(self,R,z=0.,nR=11,dR=2./3.,**kwargs):
+    def estimate_hr(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
         NAME:
            estimate_hr
@@ -196,38 +196,23 @@ class quasiisothermaldf:
         INPUT:
            R - Galactocentric radius
            z= height (default: 0 pc)
-           nR= number of Rs to use to estimate
            dR- range in R to use
-           Rmax=m minimum R to use
            density kwargs
         OUTPUT:
            estimated hR
         HISTORY:
            2012-09-11 - Written - Bovy (IAS)
+           2013-01-28 - Re-written - Bovy
         """
-        Rs= numpy.linspace(R-dR/2.,R+dR/2.,nR)
+        Rs= [R-dR/2.,R+dR/2.]
         if z is None:
             sf= numpy.array([self.surfacemass_z(r) for r in Rs])
         else:
             sf= numpy.array([self.density(r,z,**kwargs) for r in Rs])
-        indx= (sf != 0.)
-        Rs= Rs[indx]
-        sf= sf[indx]
-        nR= numpy.sum(indx)
         lsf= numpy.log(sf)
-        #Fit
-        #Put the dat in the appropriate arrays and matrices
-        Y= lsf
-        A= numpy.ones((nR,2))
-        A[:,1]= Rs
-        #Now compute the best fit and the uncertainties
-        bestfit= numpy.dot(A.T,Y.T)
-        bestfitvar= numpy.dot(A.T,A)
-        bestfitvar= linalg.inv(bestfitvar)
-        bestfit= numpy.dot(bestfitvar,bestfit)
-        return -1./bestfit[1]
+        return -dR/(lsf[1]-lsf[0])
 
-    def estimate_hz(self,R,nz=11,zmin=0.1,zmax=0.3,**kwargs):
+    def estimate_hz(self,R,z,dz=10.**-8.,**kwargs):
         """
         NAME:
            estimate_hz
@@ -235,33 +220,21 @@ class quasiisothermaldf:
            estimate the exponential scale height at R
         INPUT:
            R - Galactocentric radius
-           nz= number of zs to use to estimate
-           zmin=m minimum z to use
-           zmax=m minimum z to use
+           dz - z range to use
            density kwargs
         OUTPUT:
            estimated hz
         HISTORY:
            2012-08-30 - Written - Bovy (IAS)
+           2013-01-28 - Re-written - Bovy
         """
-        zs= numpy.linspace(zmin,zmax,nz)
+        if z == 0.:
+            zs= [z,z+dz]
+        else:
+            zs= [z-dz/2.,z+dz/2.]
         sf= numpy.array([self.density(R,z,**kwargs) for z in zs])
-        indx= (sf != 0.)
-        zs= zs[indx]
-        sf= sf[indx]
-        nz= numpy.sum(indx)
         lsf= numpy.log(sf)
-        #Fit
-        #Put the dat in the appropriate arrays and matrices
-        Y= lsf
-        A= numpy.ones((nz,2))
-        A[:,1]= zs
-        #Now compute the best fit and the uncertainties
-        bestfit= numpy.dot(A.T,Y.T)
-        bestfitvar= numpy.dot(A.T,A)
-        bestfitvar= linalg.inv(bestfitvar)
-        bestfit= numpy.dot(bestfitvar,bestfit)
-        return -1./bestfit[1]
+        return -dz/(lsf[1]-lsf[0])
 
     def surfacemass_z(self,R,nz=7,zmax=1.,**kwargs):
         """
