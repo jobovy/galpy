@@ -199,7 +199,7 @@ class quasiisothermaldf:
            nR= number of Rs to use to estimate
            dR- range in R to use
            Rmax=m minimum R to use
-           surfacemass kwargs
+           density kwargs
         OUTPUT:
            estimated hR
         HISTORY:
@@ -209,7 +209,7 @@ class quasiisothermaldf:
         if z is None:
             sf= numpy.array([self.surfacemass_z(r) for r in Rs])
         else:
-            sf= numpy.array([self.surfacemass(r,z,**kwargs) for r in Rs])
+            sf= numpy.array([self.density(r,z,**kwargs) for r in Rs])
         indx= (sf != 0.)
         Rs= Rs[indx]
         sf= sf[indx]
@@ -238,14 +238,14 @@ class quasiisothermaldf:
            nz= number of zs to use to estimate
            zmin=m minimum z to use
            zmax=m minimum z to use
-           surfacemass kwargs
+           density kwargs
         OUTPUT:
            estimated hz
         HISTORY:
            2012-08-30 - Written - Bovy (IAS)
         """
         zs= numpy.linspace(zmin,zmax,nz)
-        sf= numpy.array([self.surfacemass(R,z,**kwargs) for z in zs])
+        sf= numpy.array([self.density(R,z,**kwargs) for z in zs])
         indx= (sf != 0.)
         zs= zs[indx]
         sf= sf[indx]
@@ -273,14 +273,14 @@ class quasiisothermaldf:
            R - Galactocentric radius
            nz= number of zs to use to estimate
            zmax=m minimum z to use
-           surfacemass kwargs
+           density kwargs
         OUTPUT:
            \Sigma(R)
         HISTORY:
            2012-08-30 - Written - Bovy (IAS)
         """
         zs= numpy.linspace(0.,zmax,nz)
-        sf= numpy.array([self.surfacemass(R,z,**kwargs) for z in zs])
+        sf= numpy.array([self.density(R,z,**kwargs) for z in zs])
         lsf= numpy.log(sf)
         #Interpolate
         lsfInterp= interpolate.UnivariateSpline(zs,
@@ -290,17 +290,17 @@ class quasiisothermaldf:
         return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
                                  0.,1.)[0]
 
-    def vmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
-                           _returnmc=False,_vrs=None,_vts=None,_vzs=None,
-                           _rawgausssamples=False,
-                           gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
-                           **kwargs):
+    def vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
+                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                       _rawgausssamples=False,
+                       gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
+                       **kwargs):
         """
         NAME:
-           vmomentsurfacemass
+           vmomentdensity
         PURPOSE:
            calculate the an arbitrary moment of the velocity distribution 
-           at R times the surfacmass
+           at R times the density
         INPUT:
            R - radius at which to calculate the moment(/ro)
            n - vR^n
@@ -311,7 +311,7 @@ class quasiisothermaldf:
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
         OUTPUT:
-           <vR^n vT^m  x surface-mass> at R
+           <vR^n vT^m  x density> at R,z
         HISTORY:
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
@@ -439,12 +439,12 @@ class quasiisothermaldf:
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
         
-    def jmomentsurfacemass(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
-                           _returnmc=False,_vrs=None,_vts=None,_vzs=None,
-                           **kwargs):
+    def jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                       **kwargs):
         """
         NAME:
-           jmomentsurfacemass
+           jmomentdensity
         PURPOSE:
            calculate the an arbitrary moment of an action
            of the velocity distribution 
@@ -459,7 +459,7 @@ class quasiisothermaldf:
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
         OUTPUT:
-           <jr^n lz^m jz^o  x surface-mass> at R
+           <jr^n lz^m jz^o  x density> at R
         HISTORY:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
@@ -504,16 +504,16 @@ class quasiisothermaldf:
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**2.*gamma*sigmaz1
         
-    def surfacemass(self,R,z,nsigma=None,mc=False,nmc=10000,
-                    gl=True,ngl=_DEFAULTNGL,**kwargs):
+    def density(self,R,z,nsigma=None,mc=False,nmc=10000,
+                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
-           surfacemass
+           density
         PURPOSE:
-           calculate the surface-mass at R by marginalizing over velocity
+           calculate the density at R,z by marginalizing over velocity
         INPUT:
-           R - radius at which to calculate the surfacemass density
-           z - height at which to calculate the surfacemass density
+           R - radius at which to calculate the density
+           z - height at which to calculate the density
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
            scipy.integrate.tplquad kwargs epsabs and epsrel
@@ -522,14 +522,14 @@ class quasiisothermaldf:
            gl= if True, calculate using Gauss-Legendre integration
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
-           surface mass at (R,z)
+           density at (R,z)
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        return self.vmomentsurfacemass(R,z,0.,0.,0.,
-                                       nsigma=nsigma,mc=mc,nmc=nmc,
-                                       gl=gl,ngl=ngl,
-                                       **kwargs)
+        return self.vmomentdensity(R,z,0.,0.,0.,
+                                   nsigma=nsigma,mc=mc,nmc=nmc,
+                                   gl=gl,ngl=ngl,
+                                   **kwargs)
     
     def sigmaR2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -554,27 +554,27 @@ class quasiisothermaldf:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,2.,0.,0.,
+            return self.vmomentdensity(R,z,2.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,2.,0.,0.,
+            return self.vmomentdensity(R,z,2.,0.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,2.,0.,0.,
+            return (self.vmomentdensity(R,z,2.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -601,27 +601,27 @@ class quasiisothermaldf:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,1.,0.,1.,
+            return self.vmomentdensity(R,z,1.,0.,1.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,1.,0.,1.,
+            return self.vmomentdensity(R,z,1.,0.,1.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,1.,0.,1.,
+            return (self.vmomentdensity(R,z,1.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -648,36 +648,36 @@ class quasiisothermaldf:
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            tsigmar2= self.vmomentsurfacemass(R,z,2.,0.,0.,
+            tsigmar2= self.vmomentdensity(R,z,2.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
-            tsigmaz2= self.vmomentsurfacemass(R,z,0.,0.,2.,
+            tsigmaz2= self.vmomentdensity(R,z,0.,0.,2.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
-            tsigmarz= self.vmomentsurfacemass(R,z,1.,0.,1.,
+            tsigmarz= self.vmomentdensity(R,z,1.,0.,1.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
             return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            tsigmar2= self.vmomentsurfacemass(R,z,2.,0.,0.,
+            tsigmar2= self.vmomentdensity(R,z,2.,0.,0.,
                                              ngl=ngl,gl=gl,
                                              _glqeval=glqeval,
                                              **kwargs)/surfmass
-            tsigmaz2= self.vmomentsurfacemass(R,z,0.,0.,2.,
+            tsigmaz2= self.vmomentdensity(R,z,0.,0.,2.,
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
-            tsigmarz= self.vmomentsurfacemass(R,z,1.,0.,1.,
+            tsigmarz= self.vmomentdensity(R,z,1.,0.,1.,
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
@@ -708,27 +708,27 @@ class quasiisothermaldf:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,0.,2.,
+            return self.vmomentdensity(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,0.,2.,
+            return self.vmomentdensity(R,z,0.,0.,2.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,0.,0.,2.,
+            return (self.vmomentdensity(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -755,27 +755,27 @@ class quasiisothermaldf:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,1.,0.,
+            return self.vmomentdensity(R,z,0.,1.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,1.,0.,
+            return self.vmomentdensity(R,z,0.,1.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,0.,1.,0.,
+            return (self.vmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -802,27 +802,27 @@ class quasiisothermaldf:
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,1.,0.,0.,
+            return self.vmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,1.,0.,0.,
+            return self.vmomentdensity(R,z,1.,0.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,1.,0.,0.,
+            return (self.vmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -849,27 +849,27 @@ class quasiisothermaldf:
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,0.,1.,
+            return self.vmomentdensity(R,z,0.,0.,1.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentsurfacemass(R,z,0.,0.,1.,
+            return self.vmomentdensity(R,z,0.,0.,1.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else:
-            return (self.vmomentsurfacemass(R,z,0.,0.,1.,
+            return (self.vmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -896,40 +896,40 @@ class quasiisothermaldf:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            mvt= self.vmomentsurfacemass(R,z,0.,1.,0.,
+            mvt= self.vmomentdensity(R,z,0.,1.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
-            return self.vmomentsurfacemass(R,z,0.,2.,0.,
+            return self.vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                            **kwargs)/surfmass\
                                            -mvt**2.
         elif gl:
-            surfmass, glqeval= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            mvt= self.vmomentsurfacemass(R,z,0.,1.,0.,
+            mvt= self.vmomentdensity(R,z,0.,1.,0.,
                                          ngl=ngl,gl=gl,
                                          _glqeval=glqeval,
                                          **kwargs)/surfmass
-            return self.vmomentsurfacemass(R,z,0.,2.,0.,
+            return self.vmomentdensity(R,z,0.,2.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass-mvt**2.
 
         else:
-            surfmass= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass= self.vmomentdensity(R,z,0.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,
                                               **kwargs)
-            return (self.vmomentsurfacemass(R,z,0.,2.,0.,
+            return (self.vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass\
-                        -(self.vmomentsurfacemass(R,z,0.,2.,0.,
+                        -(self.vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass)**2.)
 
@@ -953,18 +953,18 @@ class quasiisothermaldf:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentsurfacemass(R,z,1.,0.,0.,
+            return self.jmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else:
-            return (self.jmomentsurfacemass(R,z,1.,0.,0.,
+            return (self.jmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -988,18 +988,18 @@ class quasiisothermaldf:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentsurfacemass(R,z,0.,1.,0.,
+            return self.jmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else:
-            return (self.jmomentsurfacemass(R,z,0.,1.,0.,
+            return (self.jmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1023,18 +1023,18 @@ class quasiisothermaldf:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentsurfacemass(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentsurfacemass(R,z,0.,0.,1.,
+            return self.jmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else:
-            return (self.jmomentsurfacemass(R,z,0.,0.,1.,
+            return (self.jmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentsurfacemass(R,z,0.,0.,0.,
+                    self.vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
