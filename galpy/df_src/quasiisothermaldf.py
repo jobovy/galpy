@@ -236,7 +236,7 @@ class quasiisothermaldf:
         lsf= numpy.log(sf)
         return -dz/(lsf[1]-lsf[0])
 
-    def surfacemass_z(self,R,nz=7,zmax=1.,**kwargs):
+    def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,**kwargs):
         """
         NAME:
            surfacemass_z
@@ -260,8 +260,12 @@ class quasiisothermaldf:
                                                 lsf,
                                                 k=3)
         #Integrate
-        return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
-                                 0.,1.)[0]
+        if fixed_quad:
+            return 2.*integrate.fixed_quad((lambda x: numpy.exp(lsfInterp(x))),
+                                           0.,1.,n=20)
+        else:
+            return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
+                                     0.,1.)[0]
 
     def vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
