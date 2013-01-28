@@ -66,12 +66,14 @@ Specific potentials
    potentialdoubleexp.rst
    potentialdoublepowerspher.rst
    potentialjaffe.rst
+   potentialflattenedpower.rst
    potentialhernquist.rst
    potentialkepler.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
    potentialnfw.rst
    potentialpowerspher.rst
+   potentialrazorexp.rst
 
 In addition to these classes, a Milky-Way-like potential is defined as ``galpy.potential.MWPotential``. This potential is defined as
 
@@ -148,6 +150,9 @@ In addition, a two-dimensional bar potential and a two spiral potentials are inc
    :maxdepth: 2
 
    potentialdehnenbar.rst
+   potentialcosmphidisk.rst
+   potentialellipticaldisk.rst
+   potentiallopsideddisk.rst
    potentialsteadylogspiral.rst
    potentialtransientlogspiral.rst
 
