@@ -82,6 +82,22 @@ The integrator used is not symplectic, so the energy error grows with time, but 
 
 .. image:: images/mp-orbit-E.png
 
+When we use a symplectic leapfrog integrator, we see that the energy
+error remains constant
+
+>>> o.integrate(ts,mp,method='leapfrog')
+>>> o.plotE(xlabel=r'$t$',ylabel=r'$E(t)/E(0)$')
+
+.. image:: images/mp-orbit-Esymp.png
+
+Because stars have typically only orbited the center of their galaxy
+tens of times, using symplectic integrators is mostly unnecessary
+(compared to planetary systems which orbits millions or billions of
+times). galpy contains fast integrators written in C, which can be
+accessed through the ``method=`` keyword (e.g.,
+``integrate(...,method='dopr54_c')`` is a fast high-order
+Dormand-Prince method).
+
 When we integrate for much longer we see how the orbit fills up a
 torus (this could take a minute)
 
