@@ -18,22 +18,39 @@ class DoubleExponentialDiskPotential(Potential):
                  new=True,kmaxFac=2.,glorder=10):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a double-exponential disk potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            hr - disk scale-length in terms of ro
+
            hz - scale-height
+
            tol - relative accuracy of potential-evaluations
+
            maxiter - scipy.integrate keyword
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            DoubleExponentialDiskPotential object
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
+
+           2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.hasC= True
