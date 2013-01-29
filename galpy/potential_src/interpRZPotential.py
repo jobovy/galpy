@@ -229,9 +229,9 @@ class interpRZPotential(Potential):
             if isinstance(z,float):
                 z= numpy.array([z])
             if self._zsym:
-                return eval_rforce_c(self,R,numpy.fabs(z))[0]
+                return eval_force_c(self,R,numpy.fabs(z))[0]
             else:
-                return eval_rforce_c(self,R,z)[0]
+                return eval_force_c(self,R,z)[0]
         from galpy.potential import evaluateRforces
         if self._interpRforce:
             if isinstance(R,float):
@@ -268,10 +268,10 @@ class interpRZPotential(Potential):
                 R= numpy.array([R])
             if isinstance(z,float):
                 z= numpy.array([z])
-            if self._zsym and z < 0.:
-                return -eval_zforce_c(self,R,numpy.fabs(z))[0]
+            if self._zsym:
+                return sign(z) * eval_force_c(self,R,numpy.fabs(z),zforce=True)[0]
             else:
-                return eval_rforce_c(self,R,z)[0]
+                return eval_force_c(self,R,z,zforce=True)[0]
         from galpy.potential import evaluatezforces
         if self._interpzforce:
             if isinstance(R,float):
@@ -279,9 +279,9 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
             if numpy.sum(indx) > 0:
-                if self._zsym and z < 0.:
+                if self._zsym:
                     if self._logR:
-                        out[indx]= -self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                        out[indx]= sign(z) * self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
                     else:
                         out[indx]= -self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
                 else:
@@ -546,3 +546,75 @@ def eval_potential_c(pot,R,z):
 
     return (out,err.value)
 
+def eval_force_c(pot,R,z,zforce=False):
+    """
+    NAME:
+       eval_force_c
+    PURPOSE:
+       Use C to evaluate the interpolated potential's forces
+    INPUT:
+       pot - Potential or list of such instances
+       R - array
+       z - array
+       zforce= if True, return the vertical force, otherwise return the radial force
+    OUTPUT:
+       force evaluated R and z
+    HISTORY:
+       2013-01-29 - Written - Bovy (IAS)
+    """
+    from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    #Parse the potential
+    npot, pot_type, pot_args= _parse_pot(pot)
+
+    #check input
+    if isinstance(z,float):
+        z= numpy.ones(len(R))*z
+    if isinstance(R,float):
+        R= numpy.ones(len(z))*R
+
+    #Set up result arrays
+    out= numpy.empty((len(R)))
+    err= ctypes.c_int(0)
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    if zforce:
+        interppotential_calc_forceFunc= _lib.eval_zforce
+    else:
+        interppotential_calc_forceFunc= _lib.eval_rforce
+    interppotential_calc_forceFunc.argtypes= [ctypes.c_int,
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.c_int,
+                                                  ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.POINTER(ctypes.c_int)]
+
+    #Array requirements, first store old order
+    f_cont= [R.flags['F_CONTIGUOUS'],
+             z.flags['F_CONTIGUOUS']]
+    R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
+    z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
+    out= numpy.require(out,dtype=numpy.float64,requirements=['C','W'])
+
+    #Run the C code
+    interppotential_calc_forceFunc(len(R),
+                                   R,
+                                   z,
+                                   ctypes.c_int(npot),
+                                   pot_type,
+                                   pot_args,
+                                   out,
+                                   ctypes.byref(err))
+    
+    #Reset input arrays
+    if f_cont[0]: R= numpy.asfortranarray(R)
+    if f_cont[1]: z= numpy.asfortranarray(z)
+
+    return (out,err.value)
+
+def sign(x):
+    out= numpy.ones_like(x)
+    out[(x < 0.)]= -1.
+    return out
