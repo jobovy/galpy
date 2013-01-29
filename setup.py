@@ -57,7 +57,9 @@ if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
 #interppotential C extension
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
 interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
+interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_c= Extension('galpy_interppotential_c',
@@ -65,7 +67,9 @@ interppotential_c= Extension('galpy_interppotential_c',
                          libraries=['m','gsl','gslcblas'],
                          include_dirs=['galpy/potential_src/potential_c_ext',
                                        'galpy/util/interp_2d',
+                                       'galpy/util/',
                                        'galpy/actionAngle_src/actionAngle_c_ext',
+                                       'galpy/orbit_src/orbit_c_ext',
                                        'galpy/potential_src/interppotential_c_ext'])
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(interppotential_c)
