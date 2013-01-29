@@ -290,6 +290,12 @@ def eval_potential_c(pot,R,z):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot)
 
+    #check input
+    if isinstance(z,float):
+        z= numpy.ones(len(R))*z
+    if isinstance(R,float):
+        R= numpy.ones(len(z))*R
+
     #Set up result arrays
     out= numpy.empty((len(R)))
     err= ctypes.c_int(0)
