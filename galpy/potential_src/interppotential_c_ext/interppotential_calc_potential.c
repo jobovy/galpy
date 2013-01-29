@@ -140,3 +140,61 @@ void eval_potential(int nR,
   }
   free(potentialArgs);
 }
+void eval_rforce(int nR,
+		 double *R,
+		 double *z,
+		 int npot,
+		 int * pot_type,
+		 double * pot_args,
+		 double *out,
+		 int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= calcRforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
+  }
+  for (ii=0; ii < npot; ii++) {
+    if ( (potentialArgs+ii)->i2drforce )
+      interp_2d_free((potentialArgs+ii)->i2drforce) ;
+    if ((potentialArgs+ii)->accrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ( (potentialArgs+ii)->i2dzforce )
+      interp_2d_free((potentialArgs+ii)->i2dzforce) ;
+    if ((potentialArgs+ii)->acczforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    free((potentialArgs+ii)->args);
+  }
+  free(potentialArgs);
+}
+void eval_zforce(int nR,
+		 double *R,
+		 double *z,
+		 int npot,
+		 int * pot_type,
+		 double * pot_args,
+		 double *out,
+		 int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= calczforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
+  }
+  for (ii=0; ii < npot; ii++) {
+    if ( (potentialArgs+ii)->i2drforce )
+      interp_2d_free((potentialArgs+ii)->i2drforce) ;
+    if ((potentialArgs+ii)->accrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ( (potentialArgs+ii)->i2dzforce )
+      interp_2d_free((potentialArgs+ii)->i2dzforce) ;
+    if ((potentialArgs+ii)->acczforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    free((potentialArgs+ii)->args);
+  }
+  free(potentialArgs);
+}
