@@ -19,3 +19,35 @@ double interpRZPotentialEval(double R,double z, double phi,
   return amp * interp_2d_eval_cubic_bspline(potentialArgs->i2d,y,fabs(z),
 					    potentialArgs->acc);
 }
+double interpRZPotentialRforce(double R,double z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double y;
+  double amp= *args++;
+  int logR= (int) *args;
+  if ( logR == 1)
+    y= log(R);
+  else
+    y= R;
+  //Calculate potential through interpolation
+  return amp * interp_2d_eval_cubic_bspline(potentialArgs->i2drforce,y,fabs(z),
+					    potentialArgs->accrforce);
+}
+double interpRZPotentialzforce(double R,double z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double y;
+  double amp= *args++;
+  int logR= (int) *args;
+  if ( logR == 1)
+    y= log(R);
+  else
+    y= R;
+  //Calculate potential through interpolation
+  return amp * interp_2d_eval_cubic_bspline(potentialArgs->i2dzforce,y,fabs(z),
+					    potentialArgs->acczforce);
+}
