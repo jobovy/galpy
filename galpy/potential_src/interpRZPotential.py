@@ -32,7 +32,7 @@ class interpRZPotential(Potential):
                  interpDens=False,
                  interpvcirc=False,
                  interpepifreq=False,interpverticalfreq=False,
-                 use_c=False,enable_c=False):
+                 use_c=False,enable_c=False,zsym=True):
         """
         NAME:
            __init__
@@ -43,6 +43,10 @@ class interpRZPotential(Potential):
            rgrid - R grid to be given to linspace
            zgrid - z grid to be given to linspace
            logR - if True, rgrid is in the log of R
+           interpPot, interpRfoce, interpzforce, interpDens,interpvcirc, interpeopifreq, interpverticalfreq= if True, interpolate these functions
+           use_c= use C to speed up the calculation
+           enable_c= enable use of C for interpolations
+           zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
         OUTPUT:
            instance
         HISTORY:
@@ -63,6 +67,7 @@ class interpRZPotential(Potential):
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
         self._enable_c= enable_c
+        self._zsym= zsym
         if interpPot:
             if use_c:
                 self._potGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid)
@@ -137,7 +142,10 @@ class interpRZPotential(Potential):
                 R= numpy.array([R])
             if isinstance(z,float):
                 z= numpy.array([z])
-            return eval_potential_c(self,R,numpy.fabs(z))[0]
+            if self._zsym:
+                return eval_potential_c(self,R,numpy.fabs(z))[0]
+            else:
+                return eval_potential_c(self,R,z)[0]
         from galpy.potential import evaluatePotentials
         if self._interpPot:
             if isinstance(R,float):
@@ -145,10 +153,16 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
             if numpy.sum(indx) > 0:
-                if self._logR:
-                    out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                if self._zsym:
+                    if self._logR:
+                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                    else:
+                        out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
                 else:
-                    out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
+                    if self._logR:
+                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
+                    else:
+                        out[indx]= self._potInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
                 if self._logR:
                     out[True-indx]= evaluatePotentials(numpy.log(R[True-indx]),
@@ -199,7 +213,10 @@ class interpRZPotential(Potential):
                 R= numpy.array([R])
             if isinstance(z,float):
                 z= numpy.array([z])
-            return eval_dens_c(self,R,numpy.fabs(z))[0]
+            if self._zsym:
+                return eval_dens_c(self,R,numpy.fabs(z))[0]
+            else:
+                return eval_dens_c(self,R,z)[0]
         from galpy.potential import evaluateDensities
         if self._interpDens:
             if isinstance(R,float):
@@ -207,10 +224,16 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
             if numpy.sum(indx) > 0:
-                if self._logR:
-                    out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx])))-10.**-10.
+                if self._zsym:
+                    if self._logR:
+                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx])))-10.**-10.
+                    else:
+                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],numpy.fabs(z[indx])))-10.**-10.
                 else:
-                    out[indx]= numpy.exp(self._densInterp.ev(R[indx],numpy.fabs(z[indx])))-10.**-10.
+                    if self._logR:
+                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
+                    else:
+                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
             if numpy.sum(True-indx) > 0:
                 if self._logR:
                     out[True-indx]= evaluateDensities(numpy.log(R[True-indx]),
