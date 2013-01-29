@@ -190,10 +190,13 @@ void calcu0(int ndata,
   }
   gsl_min_fminimizer_free (s);
   free(params);
-  if ( actionAngleArgs->i2d )
-    interp_2d_free(actionAngleArgs->i2d) ;
-  if (actionAngleArgs->acc )
-    gsl_interp_accel_free (actionAngleArgs->acc);
+  for (ii=0; ii < npot; ii++) {
+    if ( (actionAngleArgs+ii)->i2d )
+      interp_2d_free((actionAngleArgs+ii)->i2d) ;
+    if ((actionAngleArgs+ii)->acc )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    free((actionAngleArgs+ii)->args);
+  }
   free(actionAngleArgs);
   *err= status;
 }
@@ -285,10 +288,13 @@ void actionAngleStaeckel_actions(int ndata,
   calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,
 		 npot,actionAngleArgs,10);
   //Free
-  if ( actionAngleArgs->i2d )
-    interp_2d_free(actionAngleArgs->i2d) ;
-  if (actionAngleArgs->acc )
-    gsl_interp_accel_free (actionAngleArgs->acc);
+  for (ii=0; ii < npot; ii++) {
+    if ( (actionAngleArgs+ii)->i2d )
+      interp_2d_free((actionAngleArgs+ii)->i2d) ;
+    if ((actionAngleArgs+ii)->acc )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    free((actionAngleArgs+ii)->args);
+  }
   free(actionAngleArgs);
   free(E);
   free(Lz);

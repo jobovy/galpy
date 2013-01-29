@@ -123,10 +123,13 @@ void actionAngleAdiabatic_actions(int ndata,
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
   calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
-  if ( actionAngleArgs->i2d )
-    interp_2d_free(actionAngleArgs->i2d) ;
-  if (actionAngleArgs->acc )
-    gsl_interp_accel_free (actionAngleArgs->acc);
+  for (ii=0; ii < npot; ii++) {
+    if ( (actionAngleArgs+ii)->i2d )
+      interp_2d_free((actionAngleArgs+ii)->i2d) ;
+    if ((actionAngleArgs+ii)->acc )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    free((actionAngleArgs+ii)->args);
+  }
   free(actionAngleArgs);
   free(ER);
   free(Ez);
