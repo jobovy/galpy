@@ -34,6 +34,10 @@ struct potentialArg{
   double * args;
   interp_2d * i2d;
   gsl_interp_accel * acc;
+  interp_2d * i2drforce;
+  gsl_interp_accel * accrforce;
+  interp_2d * i2dzforce;
+  gsl_interp_accel * acczforce;
 };
 /*
   Function declarations
@@ -175,4 +179,8 @@ double FlattenedPowerPotentialPlanarR2deriv(double,double,double,
 //interpRZPotential
 double interpRZPotentialEval(double ,double , double, double,
 			     struct potentialArg *);
+double interpRZPotentialRforce(double ,double , double, double,
+			       struct potentialArg *);
+double interpRZPotentialzforce(double ,double , double, double,
+			       struct potentialArg *);
 #endif /* galpy_potentials.h */
