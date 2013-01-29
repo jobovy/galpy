@@ -14,6 +14,7 @@ Use as ``Potential-instance.method(...)``
 
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
+   dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
    lindbladR <potentiallindbladR.rst>
    omegac <potentialomegac.rst>
@@ -41,6 +42,7 @@ Use as ``method(...)``
 .. toctree::
    :maxdepth: 2
 
+   dvcircdR <potentialdvcircdrs.rst>
    epifreq <potentialepifreqs.rst>
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
