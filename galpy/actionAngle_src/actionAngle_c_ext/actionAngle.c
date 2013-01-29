@@ -69,6 +69,8 @@ void parse_actionAngleArgs(int npot,
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
       potentialArgs->nargs= 4;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
       break;     
     case 13: //interpRZPotential, XX arguments
       //Grab the grids and the coefficients
