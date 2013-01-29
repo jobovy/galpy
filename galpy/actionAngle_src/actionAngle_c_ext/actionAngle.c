@@ -100,6 +100,7 @@ void parse_actionAngleArgs(int npot,
       free(zgrid);
       free(row);
       free(potGrid_splinecoeffs);
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
