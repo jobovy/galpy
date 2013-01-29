@@ -363,11 +363,18 @@ class FullOrbit(OrbitTop):
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                     pot,phi=self.orbit[ii,5],
-                                     t=self.t[ii])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
-                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
+        try:
+            self.Es= [evaluatePotentials(self.orbit[:,0],self.orbit[:,3],
+                                         pot,phi=self.orbit[:,5],
+                                         t=self.t)+
+                      self.orbit[:,1]**2./2.+self.orbit[:,2]**2./2.+
+                      self.orbit[:,4]**2./2. for ii in range(len(self.t))]
+        except TypeError:
+            self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
+                                         pot,phi=self.orbit[ii,5],
+                                         t=self.t[ii])+
+                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
+                      self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):
