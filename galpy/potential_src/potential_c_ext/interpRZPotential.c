@@ -48,6 +48,12 @@ double interpRZPotentialzforce(double R,double z, double phi,
   else
     y= R;
   //Calculate potential through interpolation
-  return amp * interp_2d_eval_cubic_bspline(potentialArgs->i2dzforce,y,fabs(z),
-					    potentialArgs->acczforce);
+  if ( z < 0. )
+    return - amp * interp_2d_eval_cubic_bspline(potentialArgs->i2dzforce,y,
+						-z,
+						potentialArgs->acczforce);
+  else
+    return amp * interp_2d_eval_cubic_bspline(potentialArgs->i2dzforce,y,
+						z,
+						potentialArgs->acczforce);
 }
