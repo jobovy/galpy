@@ -210,14 +210,9 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= self._potInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                if self._logR:
-                    out[True-indx]= evaluatePotentials(numpy.log(R[True-indx]),
-                                                       z[True-indx],
-                                                       self._origPot)
-                else:
-                    out[True-indx]= evaluatePotentials(R[True-indx],
-                                                       z[True-indx],
-                                                       self._origPot)
+                out[True-indx]= evaluatePotentials(R[True-indx],
+                                                   z[True-indx],
+                                                   self._origPot)
             return out
         else:
             return evaluatePotentials(R,z,self._origPot)
@@ -250,14 +245,9 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= self._rforceInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                if self._logR:
-                    out[True-indx]= evaluateRforces(numpy.log(R[True-indx]),
-                                                    z[True-indx],
-                                                    self._origPot)
-                else:
-                    out[True-indx]= evaluateRforces(R[True-indx],
-                                                    z[True-indx],
-                                                    self._origPot)
+                out[True-indx]= evaluateRforces(R[True-indx],
+                                                z[True-indx],
+                                                self._origPot)
             return out
         else:
             return evaluateRforces(R,z,self._origPot)
@@ -283,21 +273,16 @@ class interpRZPotential(Potential):
                     if self._logR:
                         out[indx]= sign(z) * self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
                     else:
-                        out[indx]= -self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                        out[indx]= sign(z) * self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
                 else:
                     if self._logR:
                         out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),z[indx])
                     else:
                         out[indx]= self._zforceInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                if self._logR:
-                    out[True-indx]= evaluatezforces(numpy.log(R[True-indx]),
-                                                    z[True-indx],
-                                                    self._origPot)
-                else:
-                    out[True-indx]= evaluatezforces(R[True-indx],
-                                                    z[True-indx],
-                                                    self._origPot)
+                out[True-indx]= evaluatezforces(R[True-indx],
+                                                z[True-indx],
+                                                self._origPot)
             return out
         else:
             return evaluatezforces(R,z,self._origPot)
@@ -345,14 +330,9 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
             if numpy.sum(True-indx) > 0:
-                if self._logR:
-                    out[True-indx]= evaluateDensities(numpy.log(R[True-indx]),
-                                                      z[True-indx],
-                                                      self._origPot)
-                else:
-                    out[True-indx]= evaluateDensities(R[True-indx],
-                                                      z[True-indx],
-                                                      self._origPot)
+                out[True-indx]= evaluateDensities(R[True-indx],
+                                                  z[True-indx],
+                                                  self._origPot)
             return out
         else:
             return evaluateDensities(R,z,self._origPot)
