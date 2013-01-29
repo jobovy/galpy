@@ -40,7 +40,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
        2012-12-10 - Written - Bovy (IAS)
     """
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays
     jr= numpy.empty(len(R))

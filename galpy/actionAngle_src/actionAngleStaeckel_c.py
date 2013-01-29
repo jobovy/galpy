@@ -43,7 +43,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if u0 is None:
         u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays
     jr= numpy.empty(len(R))
@@ -128,7 +128,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
        2012-12-03 - Written - Bovy (IAS)
     """
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays
     u0= numpy.empty(len(E))

@@ -22,7 +22,7 @@ if _lib is None:
 if _lib is None:
     raise IOError('galpy integration module not found')
 
-def _parse_pot(pot):
+def _parse_pot(pot,potforactions=False):
     """Parse the potential so it can be fed to C"""
     #Figure out what's in pot
     if not isinstance(pot,list):
@@ -72,7 +72,11 @@ def _parse_pot(pot):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
+            if potforactions:
+                pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
+            else:
+                pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
+                pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
