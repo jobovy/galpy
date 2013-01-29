@@ -29,6 +29,7 @@ class interpRZPotential(Potential):
     def __init__(self,
                  RZPot=None,rgrid=(0.01,2.,101),zgrid=(0.,0.2,101),logR=False,
                  interpPot=False,interpRforce=False,interpzforce=False,
+                 interpDens=False,
                  interpvcirc=False,
                  interpepifreq=False,interpverticalfreq=False,
                  use_c=False,enable_c=False):
@@ -57,6 +58,7 @@ class interpRZPotential(Potential):
             self._logrgrid= numpy.log(self._rgrid)
         self._zgrid= numpy.linspace(*zgrid)
         self._interpPot= interpPot
+        self._interpDens= interpDens
         self._interpvcirc= interpvcirc
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
@@ -83,6 +85,29 @@ class interpRZPotential(Potential):
                                                                  kx=3,ky=3,s=0.)
             if enable_c:
                 self._potGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._potGrid)
+        if interpDens:
+            if False:
+                raise NotImplementedError("Using C to calculate an interpolation grid for the density is not supported currently")
+                self._densGrid, err= calc_dens_c(self._origPot,self._rgrid,self._zgrid)
+            else:
+                from galpy.potential import evaluateDensities
+                densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+                for ii in range(len(self._rgrid)):
+                    for jj in range(len(self._zgrid)):
+                        densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                self._densGrid= densGrid
+            if self._logR:
+                self._densInterp= interpolate.RectBivariateSpline(self._logrgrid,
+                                                                  self._zgrid,
+                                                                  numpy.log(self._densGrid+10.**-10.),
+                                                                  kx=3,ky=3,s=0.)
+            else:
+                self._densInterp= interpolate.RectBivariateSpline(self._rgrid,
+                                                                  self._zgrid,
+                                                                  numpy.log(self._densGrid+10.**-10.),
+                                                                  kx=3,ky=3,s=0.)
+            if False:
+                self._densGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._densGrid)
         if interpvcirc:
             from galpy.potential import vcirc
             self._vcircGrid= numpy.array([vcirc(self._origPot,r) for r in self._rgrid])
@@ -112,7 +137,7 @@ class interpRZPotential(Potential):
                 R= numpy.array([R])
             if isinstance(z,float):
                 z= numpy.array([z])
-            return eval_potential_c(self,R,z)[0]
+            return eval_potential_c(self,R,numpy.fabs(z))[0]
         from galpy.potential import evaluatePotentials
         if self._interpPot:
             if isinstance(R,float):
@@ -121,9 +146,9 @@ class interpRZPotential(Potential):
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
             if numpy.sum(indx) > 0:
                 if self._logR:
-                    out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
+                    out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
                 else:
-                    out[indx]= self._potInterp.ev(R[indx],z[indx])
+                    out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
             if numpy.sum(True-indx) > 0:
                 if self._logR:
                     out[True-indx]= evaluatePotentials(numpy.log(R[True-indx]),
@@ -153,6 +178,52 @@ class interpRZPotential(Potential):
         else:
             return self._interpzforce(R,z)
     
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2013-01-29 - Written - Bovy (IAS)
+        """
+        if self._interpDens and False:#self._enable_c:
+            if isinstance(R,float):
+                R= numpy.array([R])
+            if isinstance(z,float):
+                z= numpy.array([z])
+            return eval_dens_c(self,R,numpy.fabs(z))[0]
+        from galpy.potential import evaluateDensities
+        if self._interpDens:
+            if isinstance(R,float):
+                return self._dens(numpy.array([R]),numpy.array([z]))
+            out= numpy.empty_like(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx])))-10.**-10.
+                else:
+                    out[indx]= numpy.exp(self._densInterp.ev(R[indx],numpy.fabs(z[indx])))-10.**-10.
+            if numpy.sum(True-indx) > 0:
+                if self._logR:
+                    out[True-indx]= evaluateDensities(numpy.log(R[True-indx]),
+                                                      z[True-indx],
+                                                      self._origPot)
+                else:
+                    out[True-indx]= evaluateDensities(R[True-indx],
+                                                      z[True-indx],
+                                                      self._origPot)
+            return out
+        else:
+            return evaluateDensities(R,z,self._origPot)
+
     def vcirc(self,R):
         if self._interpvcirc:
             if self._logR:
