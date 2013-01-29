@@ -40,8 +40,14 @@ void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int * pot_type,
 			     double * pot_args){
-  int ii,jj;
+  int ii,jj,kk,ll;
+  int nR, nz;
+  double * Rgrid, * zgrid, * potGrid_splinecoeffs, * row;
   for (ii=0; ii < npot; ii++){
+    potentialArgs->i2drforce= NULL;
+    potentialArgs->accrforce= NULL;
+    potentialArgs->i2dzforce= NULL;
+    potentialArgs->acczforce= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -109,6 +115,46 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 4;
+      break;
+    case 13: //interpRZPotential, XX arguments
+      //Grab the grids and the coefficients
+      nR= (int) *pot_args++;
+      nz= (int) *pot_args++;
+      Rgrid= (double *) malloc ( nR * sizeof ( double ) );
+      zgrid= (double *) malloc ( nz * sizeof ( double ) );
+      row= (double *) malloc ( nz * sizeof ( double ) );
+      potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
+      for (kk=0; kk < nR; kk++)
+	*(Rgrid+kk)= *pot_args++;
+      for (kk=0; kk < nz; kk++)
+	*(zgrid+kk)= *pot_args++;
+      for (kk=0; kk < nR; kk++){
+	for (ll=0; ll < nz; ll++)
+	  *(row+ll)= *pot_args++;
+	put_row(potGrid_splinecoeffs,kk,row,nz); 
+      }
+      potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
+      interp_2d_init(potentialArgs->i2drforce,Rgrid,zgrid,potGrid_splinecoeffs,
+		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+      potentialArgs->accrforce= gsl_interp_accel_alloc ();
+      for (kk=0; kk < nR; kk++){
+	for (ll=0; ll < nz; ll++)
+	  *(row+ll)= *pot_args++;
+	put_row(potGrid_splinecoeffs,kk,row,nz); 
+      }
+      potentialArgs->i2dzforce= interp_2d_alloc(nR,nz);
+      interp_2d_init(potentialArgs->i2dzforce,Rgrid,zgrid,potGrid_splinecoeffs,
+		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+      potentialArgs->acczforce= gsl_interp_accel_alloc ();
+      potentialArgs->Rforce= &interpRZPotentialRforce;
+      potentialArgs->zforce= &interpRZPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      //clean up
+      free(Rgrid);
+      free(zgrid);
+      free(row);
+      free(potGrid_splinecoeffs);
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
