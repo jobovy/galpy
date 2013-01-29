@@ -31,6 +31,7 @@ class interpRZPotential(Potential):
                  interpPot=False,interpRforce=False,interpzforce=False,
                  interpDens=False,
                  interpvcirc=False,
+                 interpdvcircdr=False,
                  interpepifreq=False,interpverticalfreq=False,
                  use_c=False,enable_c=False,zsym=True):
         """
@@ -43,7 +44,7 @@ class interpRZPotential(Potential):
            rgrid - R grid to be given to linspace
            zgrid - z grid to be given to linspace
            logR - if True, rgrid is in the log of R
-           interpPot, interpRfoce, interpzforce, interpDens,interpvcirc, interpeopifreq, interpverticalfreq= if True, interpolate these functions
+           interpPot, interpRfoce, interpzforce, interpDens,interpvcirc, interpeopifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
            use_c= use C to speed up the calculation
            enable_c= enable use of C for interpolations
            zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
@@ -66,6 +67,7 @@ class interpRZPotential(Potential):
         self._interpzforce= interpzforce
         self._interpDens= interpDens
         self._interpvcirc= interpvcirc
+        self._interpdvcircdr= interpdvcircdr
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
         self._enable_c= enable_c
@@ -166,6 +168,13 @@ class interpRZPotential(Potential):
                 self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._vcircGrid,k=3)
             else:
                 self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._vcircGrid,k=3)
+        if interpdvcircdr:
+            from galpy.potential import dvcircdR
+            self._dvcircdrGrid= numpy.array([dvcircdR(self._origPot,r) for r in self._rgrid])
+            if self._logR:
+                self._dvcircdrInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._dvcircdrGrid,k=3)
+            else:
+                self._dvcircdrInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._dvcircdrGrid,k=3)
         if interpepifreq:
             from galpy.potential import epifreq
             self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
@@ -346,6 +355,16 @@ class interpRZPotential(Potential):
         else:
             from galpy.potential import vcirc
             return vcirc(self._origPot,R)
+
+    def dvcircdR(self,R):
+        if self._interpdvcircdr:
+            if self._logR:
+                return self._dvcircdrInterp(numpy.log(R))
+            else:
+                return self._dvcircdrInterp(R)
+        else:
+            from galpy.potential import dvcircdR
+            return dvcircdR(self._origPot,R)
 
     def epifreq(self,R):
         if self._interpepifreq:
