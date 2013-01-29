@@ -6,7 +6,6 @@
 double interpRZPotentialEval(double R,double z, double phi,
 			     double t,
 			     struct potentialArg * potentialArgs){
-  int nargs= potentialArgs->nargs;
   double * args= potentialArgs->args;
   //Get args
   double y;
