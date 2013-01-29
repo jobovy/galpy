@@ -62,6 +62,8 @@ class interpRZPotential(Potential):
             self._logrgrid= numpy.log(self._rgrid)
         self._zgrid= numpy.linspace(*zgrid)
         self._interpPot= interpPot
+        self._interpRforce= interpRforce
+        self._interpzforce= interpzforce
         self._interpDens= interpDens
         self._interpvcirc= interpvcirc
         self._interpepifreq= interpepifreq
@@ -90,6 +92,50 @@ class interpRZPotential(Potential):
                                                                  kx=3,ky=3,s=0.)
             if enable_c:
                 self._potGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._potGrid)
+        if interpRforce:
+            if use_c:
+                self._rforceGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid,rforce=True)
+            else:
+                from galpy.potential import evaluateRforces
+                rforceGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+                for ii in range(len(self._rgrid)):
+                    for jj in range(len(self._zgrid)):
+                        rforceGrid[ii,jj]= evaluateRforces(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                self._rforceGrid= rforceGrid
+            if self._logR:
+                self._rforceInterp= interpolate.RectBivariateSpline(self._logrgrid,
+                                                                    self._zgrid,
+                                                                    self._rforceGrid,
+                                                                    kx=3,ky=3,s=0.)
+            else:
+                self._rforceInterp= interpolate.RectBivariateSpline(self._rgrid,
+                                                                    self._zgrid,
+                                                                    self._rforceGrid,
+                                                                    kx=3,ky=3,s=0.)
+            if enable_c:
+                self._rforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._rforceGrid)
+        if interpzforce:
+            if use_c:
+                self._zforceGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid,zforce=True)
+            else:
+                from galpy.potential import evaluatezforces
+                zforceGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+                for ii in range(len(self._rgrid)):
+                    for jj in range(len(self._zgrid)):
+                        zforceGrid[ii,jj]= evaluatezforces(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                self._zforceGrid= zforceGrid
+            if self._logR:
+                self._zforceInterp= interpolate.RectBivariateSpline(self._logrgrid,
+                                                                    self._zgrid,
+                                                                    self._zforceGrid,
+                                                                    kx=3,ky=3,s=0.)
+            else:
+                self._zforceInterp= interpolate.RectBivariateSpline(self._rgrid,
+                                                                    self._zgrid,
+                                                                    self._zforceGrid,
+                                                                    kx=3,ky=3,s=0.)
+            if enable_c:
+                self._zforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._zforceGrid)
         if interpDens:
             if False:
                 raise NotImplementedError("Using C to calculate an interpolation grid for the density is not supported currently")
@@ -177,20 +223,84 @@ class interpRZPotential(Potential):
             return evaluatePotentials(R,z,self._origPot)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
-        if R < self._rgrid[0] or R > self._rgrid[-1] \
-                or z < self._zgrid[0] or z > self._zgrid[-1]:
-            print "Current position out of range of interpolation, consider interpolating on a larger range"
-            return self._origPot.Rforce(R,z)
+        if self._interpRforce and self._enable_c:
+            if isinstance(R,float):
+                R= numpy.array([R])
+            if isinstance(z,float):
+                z= numpy.array([z])
+            if self._zsym:
+                return eval_rforce_c(self,R,numpy.fabs(z))[0]
+            else:
+                return eval_rforce_c(self,R,z)[0]
+        from galpy.potential import evaluateRforces
+        if self._interpRforce:
+            if isinstance(R,float):
+                return self._Rforce(numpy.array([R]),numpy.array([z]))
+            out= numpy.empty_like(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if numpy.sum(indx) > 0:
+                if self._zsym:
+                    if self._logR:
+                        out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                    else:
+                        out[indx]= self._rforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                else:
+                    if self._logR:
+                        out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),z[indx])
+                    else:
+                        out[indx]= self._rforceInterp.ev(R[indx],z[indx])
+            if numpy.sum(True-indx) > 0:
+                if self._logR:
+                    out[True-indx]= evaluateRforces(numpy.log(R[True-indx]),
+                                                    z[True-indx],
+                                                    self._origPot)
+                else:
+                    out[True-indx]= evaluateRforces(R[True-indx],
+                                                    z[True-indx],
+                                                    self._origPot)
+            return out
         else:
-            return self._interpRforce(R,z)
+            return evaluateRforces(R,z,self._origPot)
 
     def _zforce(self,R,z,phi=0.,t=0.):
-        if R < self._rgrid[0] or R > self._rgrid[-1] \
-                or z < self._zgrid[0] or z > self._zgrid[-1]:
-            print "Current position out of range of interpolation, consider interpolating on a larger range"
-            return self._origPot.zforce(R,z)
+        if self._interpzforce and self._enable_c:
+            if isinstance(R,float):
+                R= numpy.array([R])
+            if isinstance(z,float):
+                z= numpy.array([z])
+            if self._zsym and z < 0.:
+                return -eval_zforce_c(self,R,numpy.fabs(z))[0]
+            else:
+                return eval_rforce_c(self,R,z)[0]
+        from galpy.potential import evaluatezforces
+        if self._interpzforce:
+            if isinstance(R,float):
+                return self._zforce(numpy.array([R]),numpy.array([z]))
+            out= numpy.empty_like(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if numpy.sum(indx) > 0:
+                if self._zsym and z < 0.:
+                    if self._logR:
+                        out[indx]= -self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                    else:
+                        out[indx]= -self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                else:
+                    if self._logR:
+                        out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),z[indx])
+                    else:
+                        out[indx]= self._zforceInterp.ev(R[indx],z[indx])
+            if numpy.sum(True-indx) > 0:
+                if self._logR:
+                    out[True-indx]= evaluatezforces(numpy.log(R[True-indx]),
+                                                    z[True-indx],
+                                                    self._origPot)
+                else:
+                    out[True-indx]= evaluatezforces(R[True-indx],
+                                                    z[True-indx],
+                                                    self._origPot)
+            return out
         else:
-            return self._interpzforce(R,z)
+            return evaluatezforces(R,z,self._origPot)
     
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -277,7 +387,7 @@ class interpRZPotential(Potential):
             from galpy.potential import verticalfreq
             return verticalfreq(self._origPot,R)
     
-def calc_potential_c(pot,R,z):
+def calc_potential_c(pot,R,z,rforce=False,zforce=False):
     """
     NAME:
        calc_potential_c
@@ -287,10 +397,12 @@ def calc_potential_c(pot,R,z):
        pot - Potential or list of such instances
        R - grid in R
        z - grid in z
+       rforce=, zforce= if either of these is True, calculate the radial or vertical force instead
     OUTPUT:
        potential on the grid (2D array)
     HISTORY:
        2013-01-24 - Written - Bovy (IAS)
+       2013-01-29 - Added forces - Bovy (IAS)
     """
     from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
@@ -302,7 +414,12 @@ def calc_potential_c(pot,R,z):
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
-    interppotential_calc_potentialFunc= _lib.calc_potential
+    if rforce:
+        interppotential_calc_potentialFunc= _lib.calc_rforce
+    elif zforce:
+        interppotential_calc_potentialFunc= _lib.calc_zforce
+    else:
+        interppotential_calc_potentialFunc= _lib.calc_potential
     interppotential_calc_potentialFunc.argtypes= [ctypes.c_int,
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                   ctypes.c_int,
