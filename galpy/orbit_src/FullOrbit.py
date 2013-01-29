@@ -364,11 +364,12 @@ class FullOrbit(OrbitTop):
         else:
             d1= 't'
         try:
-            self.Es= [evaluatePotentials(self.orbit[:,0],self.orbit[:,3],
-                                         pot,phi=self.orbit[:,5],
-                                         t=self.t)+
-                      self.orbit[:,1]**2./2.+self.orbit[:,2]**2./2.+
-                      self.orbit[:,4]**2./2. for ii in range(len(self.t))]
+            self.Es= evaluatePotentials(self.orbit[:,0],self.orbit[:,3],
+                                        pot,phi=self.orbit[:,5],
+                                        t=self.t)\
+                                        +self.orbit[:,1]**2./2.\
+                                        +self.orbit[:,2]**2./2.\
+                                        +self.orbit[:,4]**2./2.
         except TypeError:
             self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                          pot,phi=self.orbit[ii,5],
