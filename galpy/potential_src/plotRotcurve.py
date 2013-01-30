@@ -89,14 +89,8 @@ def calcRotcurve(Pot,Rs):
         grid=1
         Rs= nu.array([Rs])
     rotcurve= nu.zeros(grid)
-    from planarPotential import evaluateplanarRforces
     for ii in range(grid):
-        try:
-            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
-        except TypeError:
-            from planarPotential import RZToplanarPotential
-            Pot= RZToplanarPotential(Pot)
-            rotcurve[ii]= nu.sqrt(Rs[ii]*-evaluateplanarRforces(Rs[ii],Pot))
+        rotcurve[ii]= vcirc(Pot,Rs[ii])
     return rotcurve
 
 def vcirc(Pot,R):
