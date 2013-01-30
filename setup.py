@@ -26,7 +26,7 @@ if float(gsl_version[0]) == 0.:
 
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
-    orbit_libraries.extend(['m','gsl','gslcblas'])
+    orbit_libraries.extend(['gsl','gslcblas'])
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
