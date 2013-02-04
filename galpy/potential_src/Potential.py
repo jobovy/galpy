@@ -602,7 +602,7 @@ class Potential:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        plotRotcurve(self.toPlanar(),*args,**kwargs)
+        plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
