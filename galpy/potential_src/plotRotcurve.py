@@ -52,6 +52,7 @@ def plotRotcurve(Pot,*args,**kwargs):
             pickle.dump(rotcurve,savefile)
             pickle.dump(Rs,savefile)
             savefile.close()
+    print Rs, rotcurve
     if not kwargs.has_key('xlabel'):
         kwargs['xlabel']= r"$R/R_0$"
     if not kwargs.has_key('ylabel'):
