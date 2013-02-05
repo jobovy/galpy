@@ -5,6 +5,7 @@ import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
+from galpy.util import multi
 from Potential import Potential
 _DEBUG= False
 #Find and load the library
@@ -33,7 +34,8 @@ class interpRZPotential(Potential):
                  interpvcirc=False,
                  interpdvcircdr=False,
                  interpepifreq=False,interpverticalfreq=False,
-                 use_c=False,enable_c=False,zsym=True):
+                 use_c=False,enable_c=False,zsym=True,
+                 numcores=None):
         """
         NAME:
            __init__
@@ -48,6 +50,7 @@ class interpRZPotential(Potential):
            use_c= use C to speed up the calculation
            enable_c= enable use of C for interpolations
            zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+           numcores= if set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE)
         OUTPUT:
            instance
         HISTORY:
@@ -163,28 +166,44 @@ class interpRZPotential(Potential):
                 self._densGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._densGrid)
         if interpvcirc:
             from galpy.potential import vcirc
-            self._vcircGrid= numpy.array([vcirc(self._origPot,r) for r in self._rgrid])
+            if not numcores is None:
+                self._vcircGrid= multi.parallel_map((lambda x: vcirc(self._origPot,self._rgrid[x])),
+                                                    range(len(self._rgrid)),numcores=numcores)
+            else:
+                self._vcircGrid= numpy.array([vcirc(self._origPot,r) for r in self._rgrid])
             if self._logR:
                 self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._vcircGrid,k=3)
             else:
                 self._vcircInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._vcircGrid,k=3)
         if interpdvcircdr:
             from galpy.potential import dvcircdR
-            self._dvcircdrGrid= numpy.array([dvcircdR(self._origPot,r) for r in self._rgrid])
+            if not numcores is None:
+                self._dvcircdrGrid= multi.parallel_map((lambda x: dvcircdR(self._origPot,self._rgrid[x])),
+                                                       range(len(self._rgrid)),numcores=numcores)
+            else:
+                self._dvcircdrGrid= numpy.array([dvcircdR(self._origPot,r) for r in self._rgrid])
             if self._logR:
                 self._dvcircdrInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._dvcircdrGrid,k=3)
             else:
                 self._dvcircdrInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._dvcircdrGrid,k=3)
         if interpepifreq:
             from galpy.potential import epifreq
-            self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
+            if not numcores is None:
+                self._epifreqGrid= multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
+                                                      range(len(self._rgrid)),numcores=numcores)
+            else:
+                self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             if self._logR:
                 self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._epifreqGrid,k=3)
             else:
                 self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._epifreqGrid,k=3)
         if interpverticalfreq:
             from galpy.potential import verticalfreq
-            self._verticalfreqGrid= numpy.array([verticalfreq(self._origPot,r) for r in self._rgrid])
+            if not numcores is None:
+                self._verticalfreqGrid= multi.parallel_map((lambda x: verticalfreq(self._origPot,self._rgrid[x])),
+                                                       range(len(self._rgrid)),numcores=numcores)
+            else:
+                self._verticalfreqGrid= numpy.array([verticalfreq(self._origPot,r) for r in self._rgrid])
             if self._logR:
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid,self._verticalfreqGrid,k=3)
             else:
