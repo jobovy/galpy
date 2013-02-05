@@ -171,7 +171,6 @@ void eval_potential(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,potentialArgs,pot_type,pot_args);
   //Run through and evaluate
-  shared(npot,potentialArgs,R,z,nR)
   for (ii=0; ii < nR; ii++){
     *(out+ii)= evaluatePotentials(*(R+ii),*(z+ii),npot,potentialArgs);
   }
@@ -197,7 +196,6 @@ void eval_rforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through and evaluate
-  shared(npot,potentialArgs,R,z,nR)
   for (ii=0; ii < nR; ii++){
     *(out+ii)= calcRforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
   }
@@ -227,7 +225,6 @@ void eval_zforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through and evaluate
-  shared(npot,potentialArgs,R,z,nR)
   for (ii=0; ii < nR; ii++){
     *(out+ii)= calczforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
   }
