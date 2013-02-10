@@ -403,7 +403,7 @@ class DoubleExponentialDiskPotential(Potential):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
                 return out
-            if R > 18.*self._hr or R > 6.: return self._kp.R2deriv(R,z)
+            if R > 16.*self._hr or R > 6.: return self._kp.R2deriv(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= 2.*self._kmaxFac*self._beta
