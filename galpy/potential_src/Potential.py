@@ -1041,7 +1041,8 @@ def rl(Pot,lz):
     try:
         return optimize.brentq(_rlfunc,10.**-5.,rstart,
                                args=(math.fabs(lz),
-                                     Pot))
+                                     Pot),
+                               maxiter=200,disp=False)
     except ValueError: #Probably lz small and starting lz to great
         rlower= _rlFindStart(10.**-5.,
                              math.fabs(lz),
