@@ -194,10 +194,16 @@ class interpRZPotential(Potential):
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             indx= True-numpy.isnan(self._epifreqGrid)
-            if self._logR:
-                self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid[indx],self._epifreqGrid[indx],k=3)
+            if numpy.sum(indx) < 4:
+                if self._logR:
+                    self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid[indx],self._epifreqGrid[indx],k=1)
+                else:
+                    self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid[indx],self._epifreqGrid[indx],k=1)
             else:
-                self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid[indx],self._epifreqGrid[indx],k=3)
+                if self._logR:
+                    self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid[indx],self._epifreqGrid[indx],k=3)
+                else:
+                    self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid[indx],self._epifreqGrid[indx],k=3)
         if interpverticalfreq:
             from galpy.potential import verticalfreq
             if not numcores is None:
