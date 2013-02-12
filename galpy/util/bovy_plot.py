@@ -565,6 +565,8 @@ def bovy_dens2d(X,**kwargs):
 
        Contours:
        
+       justcontours - if True, only draw contours
+
        contours - if True, draw contours (10 by default)
 
        levels - contour-levels
@@ -637,8 +639,13 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('noaxes')
     else:
         noaxes= False
+    if (kwargs.has_key('justcontours') and kwargs['justcontours']):
+        justcontours= True
+    else:
+        justcontours= False
+    if kwargs.has_key('justcontours'): kwargs.pop('justcontours')
     if (kwargs.has_key('contours') and kwargs['contours']) or \
-            kwargs.has_key('levels') or \
+            kwargs.has_key('levels') or justcontours or \
             (kwargs.has_key('cntrmass') and kwargs['cntrmass']):
         contours= True
     else:
@@ -748,12 +755,13 @@ def bovy_dens2d(X,**kwargs):
         fig.sca(axScatter)
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
-    out= pyplot.imshow(X,extent=extent,**kwargs)
+    if not justcontours:
+        out= pyplot.imshow(X,extent=extent,**kwargs)
     pyplot.axis(extent)
     _add_axislabels(xlabel,ylabel)
     _add_ticks()
     #Add colorbar
-    if cb:
+    if cb and not justcontours:
         if shrink is None:
             if kwargs.has_key('aspect'):
                 shrink= sc.amin([float(kwargs['aspect'])*0.87,1.])
@@ -801,6 +809,8 @@ def bovy_dens2d(X,**kwargs):
             return cntrThis
         elif retAxes:
             return pyplot.gca()
+        elif justcontours:
+            return cntrThis
         else:
             return out
     histx= sc.nansum(X.T,axis=1)*m.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
@@ -821,6 +831,8 @@ def bovy_dens2d(X,**kwargs):
         return cntrThis
     elif retAxes:
         return (axScatter,axHistx,axHisty)
+    elif justcontours:
+        return cntrThis
     else:
         return out
 
