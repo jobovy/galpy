@@ -389,7 +389,7 @@ class Potential:
             2013-01-08 - Written - Bovy (IAS)
         
         """
-        return (-self.Rforce(R,0.)+R*self.R2deriv(R,0.))/self.vcirc(R)
+        return 0.5*(-self.Rforce(R,0.)+R*self.R2deriv(R,0.))/self.vcirc(R)
 
     def omegac(self,R):
         """
