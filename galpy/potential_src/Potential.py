@@ -19,7 +19,7 @@ import math
 import numpy as nu
 from scipy import optimize
 import galpy.util.bovy_plot as plot
-from plotRotcurve import plotRotcurve, lindbladR, vcirc
+from plotRotcurve import plotRotcurve, vcirc
 from plotEscapecurve import plotEscapecurve
 _INF= 1000000.
 class Potential:
@@ -1066,4 +1066,98 @@ def _rlFindStart(rl,lz,pot,lower=False):
         else:
             rtry*= 2.
     return rtry
+
+def lindbladR(Pot,OmegaP,m=2,**kwargs):
+    """
+    NAME:
+
+       lindbladR
+
+    PURPOSE:
+
+       calculate the radius of a Lindblad resonance
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       OmegaP - pattern speed
+
+       m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
+          use m='corotation' for corotation
+       +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+
+    OUTPUT:
+
+       radius of Linblad resonance, None if there is no resonance
+
+    HISTORY:
+
+       2011-10-09 - Written - Bovy (IAS)
+
+    """
+    if isinstance(m,str):
+        if 'corot' in m.lower():
+            corotation= True
+        else:
+            raise IOError("'m' input not recognized, should be an integer or 'corotation'")
+    else:
+        corotation= False
+    if corotation:
+        try:
+            out= optimize.brentq(_corotationR_eq,0.0000001,1000.,
+                                 args=(Pot,OmegaP),**kwargs)
+        except ValueError:
+            return None
+        except RuntimeError:
+            raise
+        return out
+    else:
+        try:
+            out= optimize.brentq(_lindbladR_eq,0.0000001,1000.,
+                                 args=(Pot,OmegaP,m),**kwargs)
+        except ValueError:
+            return None
+        except RuntimeError:
+            raise
+        return out
+
+def _corotationR_eq(R,Pot,OmegaP):
+    return omegac(Pot,R)-OmegaP
+def _lindbladR_eq(R,Pot,OmegaP,m):
+    return m*(omegac(Pot,R)-OmegaP)-epifreq(Pot,R)
+
+def omegac(Pot,R):
+    """
+
+    NAME:
+
+       omegac
+
+    PURPOSE:
+
+       calculate the circular angular speed velocity at R in potential Pot
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       R - Galactocentric radius
+
+    OUTPUT:
+
+       circular angular speed
+
+    HISTORY:
+
+       2011-10-09 - Written - Bovy (IAS)
+
+    """
+    from planarPotential import evaluateplanarRforces
+    try:
+        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
+    except TypeError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
