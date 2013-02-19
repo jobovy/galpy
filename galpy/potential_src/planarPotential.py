@@ -1,7 +1,7 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from Potential import PotentialError, Potential
-from plotRotcurve import plotRotcurve, lindbladR
+from Potential import PotentialError, Potential, lindbladR
+from plotRotcurve import plotRotcurve
 from plotEscapecurve import plotEscapecurve
 _INF= 1000000.
 class planarPotential:
