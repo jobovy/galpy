@@ -124,6 +124,11 @@ class quasiisothermaldf:
             kwargs.pop('log')
         else:
             log= False
+        if kwargs.has_key('_return_actions'):
+            _return_actions= kwargs['_return_actions']
+            kwargs.pop('_return_actions')
+        else:
+            _return_actions= False
         #First parse args
         if len(args) == 1: #(jr,lz,jz)
             jr,lz,jz= args[0]
@@ -171,8 +176,7 @@ class quasiisothermaldf:
             if isinstance(lz,numpy.ndarray):
                 out[numpy.isnan(out)]= -numpy.finfo(numpy.dtype(numpy.float64)).max
                 if self._cutcounter: out[(lz < 0.)]= -numpy.finfo(numpy.dtype(numpy.float64)).max
-            elif numpy.isnan(out): return -numpy.finfo(numpy.dtype(numpy.float64)).max
-            return out
+            elif numpy.isnan(out): out= -numpy.finfo(numpy.dtype(numpy.float64)).max
         else:
             srm2= numpy.exp(-2.*lnsr)
             fsr= Omega*numpy.exp(lnsurfmass)*srm2/math.pi/kappa\
@@ -184,7 +188,10 @@ class quasiisothermaldf:
             if isinstance(lz,numpy.ndarray):
                 out[numpy.isnan(out)]= 0.
                 if self._cutcounter: out[(lz < 0.)]= 0.
-            elif numpy.isnan(out): return 0.
+            elif numpy.isnan(out): out= 0.
+        if _return_actions:
+            return (out,jr,lz,jz)
+        else:
             return out
 
     def estimate_hr(self,R,z=0.,dR=10.**-8.,**kwargs):
@@ -273,6 +280,8 @@ class quasiisothermaldf:
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                        _rawgausssamples=False,
                        gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
+                       _return_actions=False,_jr=None,_lz=None,_jz=None,
+                       _sigmaR1=None,_sigmaz1=None,
                        **kwargs):
         """
         NAME:
@@ -289,6 +298,9 @@ class quasiisothermaldf:
            nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
            mc= if True, calculate using Monte Carlo integration
            nmc= if mc, use nmc samples
+           gl= use Gauss-Legendre
+           _returngl= if True, return the evaluated DF
+           _return_actions= if True, return the evaluated actions (does not work with _returngl currently)
         OUTPUT:
            <vR^n vT^m  x density> at R,z
         HISTORY:
@@ -304,9 +316,14 @@ class quasiisothermaldf:
                 return 0. #we know this must be the case
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        if _sigmaR1 is None:
+            sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        else:
+            sigmaR1= _sigmaR1
+        if _sigmaz1 is None:
+            sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        else:
+            sigmaz1= _sigmaz1
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
         gamma= numpy.sqrt(0.5)
@@ -366,20 +383,30 @@ class quasiisothermaldf:
             vRglw= numpy.tile(numpy.reshape(vRglw,(1,ngl)).T,(ngl,1,ngl))
             vzglw= numpy.tile(vzglw,(ngl,ngl,1))
             #evaluate
-            if _glqeval is None:
-                logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl*ngl),
-                                             vRgl.flatten(),
-                                             vTgl.flatten(),
-                                             z+numpy.zeros(ngl*ngl*ngl),
-                                             vzgl.flatten(),
-                                             log=True),
-                                        (ngl,ngl,ngl))
+            if _glqeval is None and _jr is None:
+                logqeval, jr, lz, jz= self(R+numpy.zeros(ngl*ngl*ngl),
+                                           vRgl.flatten(),
+                                           vTgl.flatten(),
+                                           z+numpy.zeros(ngl*ngl*ngl),
+                                           vzgl.flatten(),
+                                           log=True,
+                                           _return_actions=True)
+                logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
+            elif not _jr is None:
+                logqeval, jr, lz, jz= self((_jr,_lz,_jz),
+                                           log=True,
+                                           _return_actions=True)
+                logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
             else:
                 logqeval= _glqeval
             if _returngl:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
                                   *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
                         logqeval)
+            elif _return_actions:
+                return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
+                        jr,lz,jz)
             else:
                 return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
                                  *vTglw*vRglw*vzglw*sigmaR1*sigmaz1)
@@ -448,7 +475,6 @@ class quasiisothermaldf:
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= (self._ro-R)/self._hr
         sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
         sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
