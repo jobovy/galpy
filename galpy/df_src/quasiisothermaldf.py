@@ -420,6 +420,12 @@ class quasiisothermaldf:
                                            _return_actions=True,
                                                                  _return_freqs=True)
                 logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
+            elif not _jr is None and _rg is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self((_jr,_lz,_jz),
+                                                                 log=True,
+                                                                 _return_actions=True,
+                                                                 _return_freqs=True)
+                logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega= self((_jr,_lz,_jz),
                                            rg=_rg,kappa=_kappa,nu=_nu,
