@@ -129,6 +129,25 @@ class quasiisothermaldf:
             kwargs.pop('_return_actions')
         else:
             _return_actions= False
+        if kwargs.has_key('_return_freqs'):
+            _return_freqs= kwargs['_return_freqs']
+            kwargs.pop('_return_freqs')
+        else:
+            _return_freqs= False
+        if kwargs.has_key('rg'):
+            thisrg= kwargs['rg']
+            kwargs.pop('rg')
+            kappa= kwargs['kappa']
+            kwargs.pop('kappa')
+            nu= kwargs['nu']
+            kwargs.pop('nu')
+            Omega= kwargs['Omega']
+            kwargs.pop('Omega')
+        else:
+            thisrg= None
+            kappa= None
+            nu= None
+            Omega= None
         #First parse args
         if len(args) == 1: #(jr,lz,jz)
             jr,lz,jz= args[0]
@@ -145,10 +164,11 @@ class quasiisothermaldf:
             if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
             else: return 0.
         #First calculate rg
-        thisrg= self.rg(lz)
-        #Then calculate the epicycle and vertical frequencies
-        kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
-        Omega= numpy.fabs(lz)/thisrg/thisrg
+        if thisrg is None:
+            thisrg= self.rg(lz)
+            #Then calculate the epicycle and vertical frequencies
+            kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
+            Omega= numpy.fabs(lz)/thisrg/thisrg
         #calculate surface-densities and sigmas
         lnsurfmass= (self._ro-thisrg)/self._hr
         lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
@@ -189,8 +209,12 @@ class quasiisothermaldf:
                 out[numpy.isnan(out)]= 0.
                 if self._cutcounter: out[(lz < 0.)]= 0.
             elif numpy.isnan(out): out= 0.
-        if _return_actions:
+        if _return_actions and _return_freqs:
+            return (out,jr,lz,jz,thisrg,kappa,nu,Omega)
+        elif _return_actions:
             return (out,jr,lz,jz)
+        elif _return_freqs:
+            return (out,thisrg,kappa,nu,Omega)
         else:
             return out
 
@@ -281,6 +305,8 @@ class quasiisothermaldf:
                        _rawgausssamples=False,
                        gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
                        _return_actions=False,_jr=None,_lz=None,_jz=None,
+                       _return_freqs=False,
+                       _rg=None,_kappa=None,_nu=None,_Omega=None,
                        _sigmaR1=None,_sigmaz1=None,
                        **kwargs):
         """
@@ -301,6 +327,7 @@ class quasiisothermaldf:
            gl= use Gauss-Legendre
            _returngl= if True, return the evaluated DF
            _return_actions= if True, return the evaluated actions (does not work with _returngl currently)
+           _return_freqs= if True, return the evaluated frequencies and rg (does not work with _returngl currently)
         OUTPUT:
            <vR^n vT^m  x density> at R,z
         HISTORY:
@@ -384,18 +411,22 @@ class quasiisothermaldf:
             vzglw= numpy.tile(vzglw,(ngl,ngl,1))
             #evaluate
             if _glqeval is None and _jr is None:
-                logqeval, jr, lz, jz= self(R+numpy.zeros(ngl*ngl*ngl),
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self(R+numpy.zeros(ngl*ngl*ngl),
                                            vRgl.flatten(),
                                            vTgl.flatten(),
                                            z+numpy.zeros(ngl*ngl*ngl),
                                            vzgl.flatten(),
                                            log=True,
-                                           _return_actions=True)
+                                           _return_actions=True,
+                                                                 _return_freqs=True)
                 logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
-            elif not _jr is None:
-                logqeval, jr, lz, jz= self((_jr,_lz,_jz),
+            elif not _jr is None and not _rg is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self((_jr,_lz,_jz),
+                                           rg=_rg,kappa=_kappa,nu=_nu,
+                                           Omega=_Omega
                                            log=True,
-                                           _return_actions=True)
+                                           _return_actions=True,
+                                                                 _return_freqs=True)
                 logqeval= numpy.reshape(logqeval,(ngl,ngl,ngl))
             else:
                 logqeval= _glqeval
@@ -403,6 +434,11 @@ class quasiisothermaldf:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
                                   *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
                         logqeval)
+            elif _return_actions and _return_freqs:
+                return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
+                        jr,lz,jz,
+                        rg,kappa,nu,Omega)
             elif _return_actions:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
                                   *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
