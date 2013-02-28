@@ -64,7 +64,7 @@ class MovingObjectPotential(Potential):
                 self._softening= PlummerSoftening(softening_length=softening_length)
         else:
             self._softening= softening
-        if normalize:
+        if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):

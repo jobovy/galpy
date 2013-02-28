@@ -49,7 +49,7 @@ class TwoPowerSphericalPotential(Potential):
         else:
             Potential.__init__(self,amp=amp)
             self.integerSelf= None
-            if normalize:
+            if normalize or isinstance(normalize,(int,float)):
                 self.normalize(normalize)
         return None
 
@@ -222,7 +222,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
-            if normalize:
+            if normalize or isinstance(normalize,(int,float)):
                 self.normalize(normalize)
         return None
 
@@ -329,7 +329,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         self.a= a
         self.alpha= 1
         self.beta= 4
-        if normalize:
+        if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
         self.hasC= True
         return None
@@ -437,7 +437,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         self.a= a
         self.alpha= 2
         self.beta= 4
-        if normalize:
+        if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
         self.hasC= True
         return None
@@ -546,7 +546,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         self.a= a
         self.alpha= 1
         self.beta= 3
-        if normalize:
+        if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
         self.hasC= True
         return None

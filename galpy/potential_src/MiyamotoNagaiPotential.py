@@ -48,7 +48,7 @@ class MiyamotoNagaiPotential(Potential):
         self._a= a
         self._b= b
         self._b2= self._b**2.
-        if normalize:
+        if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
         self.hasC= True
 
