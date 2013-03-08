@@ -237,7 +237,7 @@ class quasiisothermaldf:
         """
         Rs= [R-dR/2.,R+dR/2.]
         if z is None:
-            sf= numpy.array([self.surfacemass_z(r) for r in Rs])
+            sf= numpy.array([self.surfacemass_z(r,**kwargs) for r in Rs])
         else:
             sf= numpy.array([self.density(r,z,**kwargs) for r in Rs])
         lsf= numpy.log(sf)
@@ -309,7 +309,7 @@ class quasiisothermaldf:
         lsf= numpy.log(sf)/2.
         return -dR/(lsf[1]-lsf[0])
 
-    def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=20,
+    def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=8,
                       **kwargs):
         """
         NAME:
