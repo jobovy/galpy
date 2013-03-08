@@ -263,9 +263,51 @@ class quasiisothermaldf:
             zs= [z,z+dz]
         else:
             zs= [z-dz/2.,z+dz/2.]
-        sf= numpy.array([self.density(R,z,**kwargs) for z in zs])
+        sf= numpy.array([self.density(R,zz,**kwargs) for zz in zs])
         lsf= numpy.log(sf)
         return -dz/(lsf[1]-lsf[0])
+
+    def estimate_hsr(self,R,z=0.,dR=10.**-8.,**kwargs):
+        """
+        NAME:
+           estimate_hsr
+        PURPOSE:
+           estimate the exponential scale length of the radial dispersion at R
+        INPUT:
+           R - Galactocentric radius
+           z= height (default: 0 pc)
+           dR- range in R to use
+           density kwargs
+        OUTPUT:
+           estimated hsR
+        HISTORY:
+           2013-03-08 - Written - Bovy (IAS)
+        """
+        Rs= [R-dR/2.,R+dR/2.]
+        sf= numpy.array([self.sigmaR2(r,z,**kwargs) for r in Rs])
+        lsf= numpy.log(sf)/2.
+        return -dR/(lsf[1]-lsf[0])
+
+    def estimate_hsz(self,R,z=0.,dR=10.**-8.,**kwargs):
+        """
+        NAME:
+           estimate_hsz
+        PURPOSE:
+           estimate the exponential scale length of the vertical dispersion at R
+        INPUT:
+           R - Galactocentric radius
+           z= height (default: 0 pc)
+           dR- range in R to use
+           density kwargs
+        OUTPUT:
+           estimated hsz
+        HISTORY:
+           2013-03-08 - Written - Bovy (IAS)
+        """
+        Rs= [R-dR/2.,R+dR/2.]
+        sf= numpy.array([self.sigmaz2(r,z,**kwargs) for r in Rs])
+        lsf= numpy.log(sf)/2.
+        return -dR/(lsf[1]-lsf[0])
 
     def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=20,
                       **kwargs):
