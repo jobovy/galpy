@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 import pickle
@@ -20,6 +21,7 @@ def save_pickles(savefilename,*args):
     saving= True
     interrupted= False
     file, tmp_savefilename= tempfile.mkstemp() #savefilename+'.tmp'
+    os.close(file) #Easier this way
     while saving:
         try:
             savefile= open(tmp_savefilename,'wb')
