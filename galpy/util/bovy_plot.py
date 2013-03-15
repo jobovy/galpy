@@ -1052,7 +1052,7 @@ def scatterplot(x,y,*args,**kwargs):
         levels= kwargs['levels']
         kwargs.pop('levels')
     else:
-        levels= special.erf(0.5*sc.arange(1,4))
+        levels= special.erf(sc.arange(1,4)/sc.sqrt(2.))
     if kwargs.has_key('aspect'):
         aspect= kwargs['aspect']
         kwargs.pop('aspect')
