@@ -102,10 +102,10 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return R/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                  self.beta-self.alpha,
-                                                  4.-self.alpha,
-                                                  -r/self.a)
+            return -R/r**self.alpha*special.hyp2f1(3.-self.alpha,
+                                                   self.beta-self.alpha,
+                                                   4.-self.alpha,
+                                                   -r/self.a)
     def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -126,10 +126,10 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return z/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                  self.beta-self.alpha,
-                                                  4.-self.alpha,
-                                                  -r/self.a)
+            return -z/r**self.alpha*special.hyp2f1(3.-self.alpha,
+                                                   self.beta-self.alpha,
+                                                   4.-self.alpha,
+                                                   -r/self.a)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
