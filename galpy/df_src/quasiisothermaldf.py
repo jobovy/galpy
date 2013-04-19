@@ -480,20 +480,20 @@ class quasiisothermaldf:
                 logqeval= _glqeval
             if _returngl:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
                         logqeval)
             elif _return_actions and _return_freqs:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
                         jr,lz,jz,
                         rg,kappa,nu,Omega)
             elif _return_actions:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
                         jr,lz,jz)
             else:
                 return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1)
+                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1*3.)
         elif mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:
@@ -1351,12 +1351,12 @@ class quasiisothermaldf:
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
-                vRgl= 4.*sigmaR1/2.*(glx+1.)
+                vRgl= (glx+1.)
                 vRglw= glw
             else:
-                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                vRgl= (glx12+1.)
                 vRgl= list(vRgl)
-                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                vRgl.extend(-(glx12+1.))
                 vRgl= numpy.array(vRgl)
                 vRglw= glw12
                 vRglw= list(vRglw)
@@ -1368,55 +1368,79 @@ class quasiisothermaldf:
             vRgl= numpy.tile(vRgl,(ngl,1))
             vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
             vRglw= numpy.tile(glw,(ngl,1))
+            #If inputs are arrays, tile
+            if isinstance(R,numpy.ndarray):
+                nR= len(R)
+                R= numpy.tile(R,(ngl,ngl,1)).T.flatten()
+                z= numpy.tile(z,(ngl,ngl,1)).T.flatten()
+                vz= numpy.tile(vz,(ngl,ngl,1)).T.flatten()
+                vTgl= numpy.tile(vTgl,(nR,1,1)).flatten()
+                vRgl= numpy.tile(vRgl,(nR,1,1)).flatten()
+                vTglw= numpy.tile(vTglw,(nR,1,1))
+                vRglw= numpy.tile(vRglw,(nR,1,1))
+                scalarOut= False
+            else:
+                R= R+numpy.zeros(ngl*ngl)
+                z= z+numpy.zeros(ngl*ngl)
+                vz= vz+numpy.zeros(ngl*ngl)
+                nR= 1
+                scalarOut= True
+            vRgl*= numpy.tile(4.*sigmaR1/2.,(ngl,ngl,1)).T.flatten()
             #evaluate
             if _jr is None:
-                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
-                                             vRgl.flatten(),
-                                             vTgl.flatten(),
-                                             z+numpy.zeros(ngl*ngl),
-                                             vz+numpy.zeros(ngl*ngl),
-                                             log=True,
-                                             _return_actions=True,
-                                             _return_freqs=True),
-                                        (ngl,ngl))
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self(R,
+                                                                 vRgl.flatten(),
+                                                                 vTgl.flatten(),
+                                                                 z,
+                                                                 vz,
+                                                                 log=True,
+                                                                 _return_actions=True,
+                                                                 _return_freqs=True)
+                logqeval= numpy.reshape(logqeval,(nR,ngl*ngl))
             elif not _jr is None and not _rg is None:
-                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self((_jr,_lz,_jz),
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self((_jr,_lz,_jz),
                                            rg=_rg,kappa=_kappa,nu=_nu,
                                            Omega=_Omega,
                                            log=True,
                                            _return_actions=True,
-                                           _return_freqs=True),
-                                        (ngl,ngl))
+                                           _return_freqs=True)
+                logqeval= numpy.reshape(logqeval,(nR,ngl*ngl))
             elif not _jr is None and _rg is None:
-                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self((_jr,_lz,_jz),
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self((_jr,_lz,_jz),
                                            log=True,
                                            _return_actions=True,
-                                           _return_freqs=True),
-                                        (ngl,ngl))
+                                           _return_freqs=True)
+                logqeval= numpy.reshape(logqeval,(nR,ngl*ngl))
             elif _jr is None and not _rg is None:
-                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= self(R,
                                              vRgl.flatten(),
                                              vTgl.flatten(),
-                                             z+numpy.zeros(ngl*ngl),
-                                             vz+numpy.zeros(ngl*ngl),
+                                             z,
+                                             vz,
                                              rg=_rg,kappa=_kappa,nu=_nu,
                                              Omega=_Omega,
                                              log=True,
                                              _return_actions=True,
-                                             _return_freqs=True),
-                                        (ngl,ngl))
+                                             _return_freqs=True)
+                logqeval= numpy.reshape(logqeval,(nR,ngl*ngl))
+            vRglw= numpy.reshape(vRglw,(nR,ngl*ngl))
+            vTglw= numpy.reshape(vTglw,(nR,ngl*ngl))
+            if scalarOut:
+                result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)[0]*sigmaR1*1.5
+            else:
+                result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)*sigmaR1*1.5
             if _return_actions and _return_freqs:
-                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                return (result,
                         jr,lz,jz,
                         rg, kappa, nu, Omega)          
             elif _return_freqs:
-                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                return (result,
                         rg, kappa, nu, Omega)
             elif _return_actions:
-                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                return (result,
                         jr,lz,jz)
             else:
-                return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1)
+                return result
 
     def pvRvT(self,vR,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
