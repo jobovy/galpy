@@ -1310,7 +1310,11 @@ class quasiisothermaldf:
                                     (ngl,ngl))
             return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw*sigmaR1*sigmaz1)
 
-    def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
+    def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2,
+            _return_actions=False,_jr=None,_lz=None,_jz=None,
+            _return_freqs=False,
+            _rg=None,_kappa=None,_nu=None,_Omega=None,
+            _sigmaR1=None):
         """
         NAME:
            pvz
@@ -1327,7 +1331,10 @@ class quasiisothermaldf:
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        if _sigmaR1 is None:
+            sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        else:
+            sigmaR1= _sigmaR1
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -1362,14 +1369,54 @@ class quasiisothermaldf:
             vTglw= numpy.tile(glw,(ngl,1)).T #also tile weights
             vRglw= numpy.tile(glw,(ngl,1))
             #evaluate
-            logqeval= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
-                                         vRgl.flatten(),
-                                         vTgl.flatten(),
-                                         z+numpy.zeros(ngl*ngl),
-                                         vz+numpy.zeros(ngl*ngl),
-                                         log=True),
-                                    (ngl,ngl))
-            return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1)
+            if _jr is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                                             vRgl.flatten(),
+                                             vTgl.flatten(),
+                                             z+numpy.zeros(ngl*ngl),
+                                             vz+numpy.zeros(ngl*ngl),
+                                             log=True,
+                                             _return_actions=True,
+                                             _return_freqs=True),
+                                        (ngl,ngl))
+            elif not _jr is None and not _rg is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self((_jr,_lz,_jz),
+                                           rg=_rg,kappa=_kappa,nu=_nu,
+                                           Omega=_Omega,
+                                           log=True,
+                                           _return_actions=True,
+                                           _return_freqs=True),
+                                        (ngl,ngl))
+            elif not _jr is None and _rg is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self((_jr,_lz,_jz),
+                                           log=True,
+                                           _return_actions=True,
+                                           _return_freqs=True),
+                                        (ngl,ngl))
+            elif _jr is None and not _rg is None:
+                logqeval, jr, lz, jz, rg, kappa, nu, Omega= numpy.reshape(self(R+numpy.zeros(ngl*ngl),
+                                             vRgl.flatten(),
+                                             vTgl.flatten(),
+                                             z+numpy.zeros(ngl*ngl),
+                                             vz+numpy.zeros(ngl*ngl),
+                                             rg=_rg,kappa=_kappa,nu=_nu,
+                                             Omega=_Omega,
+                                             log=True,
+                                             _return_actions=True,
+                                             _return_freqs=True),
+                                        (ngl,ngl))
+            if _return_actions and _return_freqs:
+                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                        jr,lz,jz,
+                        rg, kappa, nu, Omega)          
+            elif _return_freqs:
+                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                        rg, kappa, nu, Omega)
+            elif _return_actions:
+                return (numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1),
+                        jr,lz,jz)
+            else:
+                return numpy.sum(numpy.exp(logqeval)*vTglw*vRglw*sigmaR1)
 
     def pvRvT(self,vR,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
