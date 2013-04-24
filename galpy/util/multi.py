@@ -101,13 +101,17 @@ def run_tasks(procs, err_q, out_q, num):
 
   except Exception, e:
     # kill all slave processes on ctrl-C
-    die(procs)
-    raise e
+    try:
+      die(procs)
+    finally:
+      raise e
 
   if not err_q.empty():
     # kill all on any exception from any one slave
-    die(procs)
-    raise err_q.get()
+    try:
+      die(procs)
+    finally:
+      raise err_q.get()
 
   # Processes finish in arbitrary order. Process IDs double
   # as index in the resultant array.
