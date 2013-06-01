@@ -43,6 +43,7 @@ verticalfreq= Potential.verticalfreq
 flattening= Potential.flattening
 rl= Potential.rl
 omegac= Potential.omegac
+vterm= Potential.vterm
 lindbladR= Potential.lindbladR
 plotRotcurve= plotRotcurve.plotRotcurve
 calcEscapecurve= plotEscapecurve.calcEscapecurve

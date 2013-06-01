@@ -585,6 +585,38 @@ class Potential:
         """
         return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z)/self.zforce(R,z)))
 
+    def vterm(self,l,deg=True):
+        """
+        
+        NAME:
+        
+            vterm
+        
+        PURPOSE:
+        
+            calculate the terminal velocity at l in this potential
+
+        INPUT:
+        
+            l - Galactic longitude [deg/rad]
+
+            deg= if True (default), l in deg
+        
+        OUTPUT:
+        
+            terminal velocity
+        
+        HISTORY:
+        
+            2013-05-31 - Written - Bovy (IAS)
+        
+        """
+        if deg:
+            sinl= nu.sin(l/180.*nu.pi)
+        else:
+            sinl= nu.sin(l)
+        return sinl*(self.omegac(sinl)-self.omegac(1.))
+
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
@@ -1003,6 +1035,40 @@ def flattening(Pot,R,z):
     
     """
     return nu.sqrt(nu.fabs(z/R*evaluateRforces(R,z,Pot)/evaluatezforces(R,z,Pot)))
+
+def vterm(Pot,l,deg=True):
+    """
+    
+    NAME:
+    
+        vterm
+        
+    PURPOSE:
+    
+        calculate the terminal velocity at l in this potential
+
+    INPUT:
+    
+        Pot - Potential instance
+    
+        l - Galactic longitude [deg/rad]
+        
+        deg= if True (default), l in deg
+        
+    OUTPUT:
+        
+        terminal velocity
+        
+    HISTORY:
+        
+        2013-05-31 - Written - Bovy (IAS)
+        
+    """
+    if deg:
+        sinl= nu.sin(l/180.*nu.pi)
+    else:
+        sinl= nu.sin(l)
+    return sinl*(omegac(Pot,sinl)-omegac(Pot,1.))
 
 def rl(Pot,lz):
     """
