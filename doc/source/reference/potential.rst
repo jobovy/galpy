@@ -30,6 +30,7 @@ Use as ``Potential-instance.method(...)``
    vcirc <potentialvcirc.rst>
    verticalfreq <potentialverticalfreq.rst>
    vesc <potentialvesc.rst>
+   vterm <potentialvterm.rst>
    z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
 
@@ -60,6 +61,7 @@ Use as ``method(...)``
    vcirc <potentialvcircs.rst>
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
+   vterm <potentialvterms.rst>
 
 Specific potentials
 ++++++++++++++++++++
