@@ -13,7 +13,7 @@ class quasiisothermaldf:
                  cutcounter=False,
                  _precomputerg=True,_precomputergrmax=None,
                  _precomputergnLz=51,
-                 ro=1.,lo=10./220.*8.):
+                 ro=1.,lo=10./220./8.):
         """
         NAME:
            __init__
