@@ -588,6 +588,8 @@ def bovy_dens2d(X,**kwargs):
 
        retAxes= return all Axes instances
 
+       retCont= return the contour instance
+
     OUTPUT:
 
     HISTORY:
@@ -733,6 +735,11 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('retAxes')
     else:
         retAxes= False
+    if kwargs.has_key('retCont'):
+        retCont= kwargs['retCont']
+        kwargs.pop('retCont')
+    else:
+        retCont= False
     if onedhists:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
@@ -757,9 +764,10 @@ def bovy_dens2d(X,**kwargs):
     ax.set_autoscale_on(False)
     if not justcontours:
         out= pyplot.imshow(X,extent=extent,**kwargs)
-    pyplot.axis(extent)
-    _add_axislabels(xlabel,ylabel)
-    _add_ticks()
+    if not overplot:
+        pyplot.axis(extent)
+        _add_axislabels(xlabel,ylabel)
+        _add_ticks()
     #Add colorbar
     if cb and not justcontours:
         if shrink is None:
@@ -809,6 +817,8 @@ def bovy_dens2d(X,**kwargs):
             return cntrThis
         elif retAxes:
             return pyplot.gca()
+        elif retCont:
+            return cont
         elif justcontours:
             return cntrThis
         else:
