@@ -6,6 +6,7 @@ from galpy.potential_src import MiyamotoNagaiPotential
 from galpy.potential_src import LogarithmicHaloPotential
 from galpy.potential_src import DoubleExponentialDiskPotential
 from galpy.potential_src import PowerSphericalPotential
+from galpy.potential_src import PowerSphericalPotentialwCutoff
 from galpy.potential_src import TwoPowerSphericalPotential
 from galpy.potential_src import plotRotcurve
 from galpy.potential_src import plotEscapecurve
@@ -66,6 +67,7 @@ DoubleExponentialDiskPotential= DoubleExponentialDiskPotential.DoubleExponential
 LogarithmicHaloPotential= LogarithmicHaloPotential.LogarithmicHaloPotential
 KeplerPotential= PowerSphericalPotential.KeplerPotential
 PowerSphericalPotential= PowerSphericalPotential.PowerSphericalPotential
+PowerSphericalPotentialwCutoff= PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff
 NFWPotential= TwoPowerSphericalPotential.NFWPotential
 JaffePotential= TwoPowerSphericalPotential.JaffePotential
 HernquistPotential= TwoPowerSphericalPotential.HernquistPotential
