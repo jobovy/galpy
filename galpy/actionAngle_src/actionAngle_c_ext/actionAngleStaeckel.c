@@ -170,6 +170,7 @@ void calcu0(int ndata,
     status = gsl_min_fminimizer_set (s, &u0Eq, u_guess, u_lo, u_hi);
     if (status == GSL_EINVAL) {
       *(u0+ii)= u_hi;
+      gsl_set_error_handler (NULL);
       continue;
     }
     gsl_set_error_handler (NULL);
