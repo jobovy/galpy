@@ -12,7 +12,7 @@ double interpRZPotentialEval(double R,double z, double phi,
   double amp= *args++;
   int logR= (int) *args;
   if ( logR == 1)
-    y= log(R);
+    y= ( R > 0. ) ? log(R): -20.72326583694641;
   else
     y= R;
   //Calculate potential through interpolation
@@ -28,7 +28,7 @@ double interpRZPotentialRforce(double R,double z, double phi,
   double amp= *args++;
   int logR= (int) *args;
   if ( logR == 1)
-    y= log(R);
+    y= ( R > 0. ) ? log(R): -20.72326583694641;
   else
     y= R;
   //Calculate potential through interpolation
@@ -44,7 +44,7 @@ double interpRZPotentialzforce(double R,double z, double phi,
   double amp= *args++;
   int logR= (int) *args;
   if ( logR == 1)
-    y= log(R);
+    y= ( R > 0. ) ? log(R): -20.72326583694641;
   else
     y= R;
   //Calculate potential through interpolation
