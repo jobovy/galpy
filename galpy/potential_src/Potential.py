@@ -879,7 +879,7 @@ def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   ncontours=21,savefilename=None):
+                   ncontours=21,savefilename=None,aspect=None):
         """
         NAME:
            plotPotentials
@@ -929,11 +929,13 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                 pickle.dump(Rs,savefile)
                 pickle.dump(zs,savefile)
                 savefile.close()
+        if aspect is None:
+            aspect=.75*(rmax-rmin)/(zmax-zmin)
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+                                aspect=aspect,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
-                                aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
