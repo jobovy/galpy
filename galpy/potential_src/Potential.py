@@ -879,7 +879,7 @@ def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   ncontours=21,savefilename=None):
+                   ncontours=21,savefilename=None,aspect=None):
         """
         NAME:
            plotPotentials
@@ -921,7 +921,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= evaluatePotentials(Rs[ii],zs[jj],Pot)
+                    potRz[ii,jj]= evaluatePotentials(nu.fabs(Rs[ii]),
+                                                     zs[jj],Pot)
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
@@ -929,11 +930,80 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                 pickle.dump(Rs,savefile)
                 pickle.dump(zs,savefile)
                 savefile.close()
+        if aspect is None:
+            aspect=.75*(rmax-rmin)/(zmax-zmin)
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+                                aspect=aspect,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
-                                aspect=.75*(rmax-rmin)/(zmax-zmin),
+                                cntrls='-',
+                                levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
+                                                   ncontours))
+
+def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                  ncontours=21,savefilename=None,aspect=None,log=False):
+        """
+        NAME:
+           plotDensities
+        PURPOSE:
+           plot the density a set of potentials
+        INPUT:
+           Pot - Potential or list of Potential instances
+
+           rmin - minimum R
+
+           rmax - maximum R
+
+           nrs - grid in R
+
+           zmin - minimum z
+
+           zmax - maximum z
+
+           nzs - grid in z
+
+           ncontours - number of contours
+
+           savefilename - save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2013-07-05 - Written - Bovy (IAS)
+        """
+        if not savefilename == None and os.path.exists(savefilename):
+            print "Restoring savefile "+savefilename+" ..."
+            savefile= open(savefilename,'rb')
+            potRz= pickle.load(savefile)
+            Rs= pickle.load(savefile)
+            zs= pickle.load(savefile)
+            savefile.close()
+        else:
+            Rs= nu.linspace(rmin,rmax,nrs)
+            zs= nu.linspace(zmin,zmax,nzs)
+            potRz= nu.zeros((nrs,nzs))
+            for ii in range(nrs):
+                for jj in range(nzs):
+                    potRz[ii,jj]= evaluateDensities(nu.fabs(Rs[ii]),
+                                                    zs[jj],Pot)
+            if not savefilename == None:
+                print "Writing savefile "+savefilename+" ..."
+                savefile= open(savefilename,'wb')
+                pickle.dump(potRz,savefile)
+                pickle.dump(Rs,savefile)
+                pickle.dump(zs,savefile)
+                savefile.close()
+        if aspect is None:
+            aspect=.75*(rmax-rmin)/(zmax-zmin)
+        if log:
+            potRz= nu.log(potRz)
+        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_yarg',contours=True,
+                                xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+                                aspect=aspect,
+                                xrange=[rmin,rmax],
+                                yrange=[zmin,zmax],
                                 cntrls='-',
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
