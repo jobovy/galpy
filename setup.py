@@ -1,7 +1,6 @@
 from setuptools import setup
 from distutils.core import Extension
 import subprocess
-import os, os.path
 import glob
 
 longDescription= ""
@@ -15,14 +14,14 @@ except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
     gsl_version= gsl_version.split('.')
+#HACK for testing
+#gsl_version= ['0','0']
 
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
-if float(gsl_version[0]) == 0.:
-    orbit_int_c_src.remove('galpy/potential_src/potential_c_ext/DoubleExponentialDiskPotential.c') #Don't compile this if there is no GSL
 
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
@@ -33,7 +32,9 @@ orbit_int_c= Extension('galpy_integrate_c',
                        include_dirs=['galpy/util',
                                      'galpy/util/interp_2d',
                                      'galpy/potential_src/potential_c_ext'])
-ext_modules=[orbit_int_c]
+ext_modules=[]
+if float(gsl_version[0]) >= 1.:
+    ext_modules.append(orbit_int_c)
 
 #actionAngle C extension
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
