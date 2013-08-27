@@ -666,7 +666,7 @@ void calcFreqsFromDerivsStaeckel(int ndata,
 				 double * djzdE,
 				 double * djzdLz,
 				 double * djzdI3){
-  int ii, nthreads;
+  int ii;
   double detA;
   int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
@@ -675,11 +675,11 @@ void calcFreqsFromDerivsStaeckel(int ndata,
   for (ii=0; ii < ndata; ii++){
     //First calculate the determinant of the relevant matrix
     detA= *(djrdE+ii) * *(djzdI3+ii) - *(djzdE+ii) * *(djrdI3+ii);
-    printf("%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
-	   *(djrdE+ii),*(djrdLz+ii),*(djrdI3+ii),
-	   *(djzdE+ii),*(djzdLz+ii),*(djzdI3+ii),detA,
-	   *(djrdI3+ii) * *(djzdLz+ii),*(djzdI3+ii) * *(djrdLz+ii));
-    fflush(stdout);
+    //printf("%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+    //*(djrdE+ii),*(djrdLz+ii),*(djrdI3+ii),
+    //*(djzdE+ii),*(djzdLz+ii),*(djzdI3+ii),detA,
+    //*(djrdI3+ii) * *(djzdLz+ii),*(djzdI3+ii) * *(djrdLz+ii));
+    //fflush(stdout);
     //Then calculate the frequencies
     *(Omegar+ii)= *(djzdI3+ii) / detA;
     *(Omegaz+ii)= - *(djrdI3+ii) / detA;
@@ -761,20 +761,20 @@ void calcdJRStaeckel(int ndata,
     *(djrdE+ii)= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
     fflush(stdout);
     (dJRInt+tid)->function = &dJRdEHighStaeckelIntegrand;
-    *(djrdE+ii)= *(djrdE+ii) + gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
-    *(djrdE+ii)= *(djrdE+ii) * delta * delta / M_PI / sqrt(2.);
+    *(djrdE+ii)+= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
+    *(djrdE+ii)*= delta / M_PI / sqrt(2.);
     //then calculate djrdLz
     (dJRInt+tid)->function = &dJRdLzLowStaeckelIntegrand;
     *(djrdLz+ii)= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
     (dJRInt+tid)->function = &dJRdLzHighStaeckelIntegrand;
-    *(djrdLz+ii)= *(djrdLz+ii) + gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
-    *(djrdLz+ii)= - *(Lz+ii) * *(djrdLz+ii) / M_PI / sqrt(2.);
+    *(djrdLz+ii)+= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
+    *(djrdLz+ii)*= - *(Lz+ii) / M_PI / sqrt(2.) / delta;
     //then calculate djrdI3
     (dJRInt+tid)->function = &dJRdI3LowStaeckelIntegrand;
     *(djrdI3+ii)= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
     (dJRInt+tid)->function = &dJRdI3HighStaeckelIntegrand;
-    *(djrdI3+ii)= *(djrdI3+ii) + gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
-    *(djrdI3+ii)= *(djrdI3+ii) * delta * delta / M_PI / sqrt(2.);
+    *(djrdI3+ii)+= gsl_integration_glfixed (dJRInt+tid,0.,mid,T);
+    *(djrdI3+ii)*= -delta / M_PI / sqrt(2.);
   }
   free(dJRInt);
   free(params);
@@ -851,22 +851,22 @@ void calcdJzStaeckel(int ndata,
     //Integrate
     *(djzdE+ii)= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     (dJzInt+tid)->function = &dJzdEHighStaeckelIntegrand;
-    *(djzdE+ii)= *(djzdE+ii)+gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
-    *(djzdE+ii)= *(djzdE+ii)* sqrt(2.) * delta * delta / M_PI;
+    *(djzdE+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
+    *(djzdE+ii)*= sqrt(2.) * delta / M_PI;
     //Then calculate dJzdLz
     (dJzInt+tid)->function = &dJzdLzLowStaeckelIntegrand;
     //Integrate
     *(djzdLz+ii)= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     (dJzInt+tid)->function = &dJzdLzHighStaeckelIntegrand;
-    *(djzdLz+ii)= *(djzdLz+ii)+gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
-    *(djzdLz+ii)= - *(Lz+ii) * *(djzdLz+ii)* sqrt(2.) / M_PI;
+    *(djzdLz+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
+    *(djzdLz+ii)*= - *(Lz+ii) * sqrt(2.) / M_PI / delta;
     //Then calculate dJzdI3
     (dJzInt+tid)->function = &dJzdI3LowStaeckelIntegrand;
     //Integrate
     *(djzdI3+ii)= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
     (dJzInt+tid)->function = &dJzdI3HighStaeckelIntegrand;
-    *(djzdI3+ii)= *(djzdI3+ii)+gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
-    *(djzdI3+ii)= *(djzdI3+ii)* sqrt(2.) * delta * delta / M_PI;
+    *(djzdI3+ii)+= gsl_integration_glfixed (dJzInt+tid,0.,mid,T);
+    *(djzdI3+ii)*= sqrt(2.) * delta / M_PI;
   }
   free(dJzInt);
   free(params);
@@ -1246,8 +1246,6 @@ double dJRdELowStaeckelIntegrand(double t,
 				 void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
   double u= params->umin + t * t;
-  printf("value: %f, %f\n",t, 2. * t * dJRdEStaeckelIntegrand(u,p));
-  fflush(stdout);
   return 2. * t * dJRdEStaeckelIntegrand(u,p);
 }
 double dJRdEHighStaeckelIntegrand(double t,
