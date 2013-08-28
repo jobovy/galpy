@@ -1322,6 +1322,14 @@ void calcAnglesStaeckel(int ndata,
       + *(dI3dLz+ii) * ( I3r1 + I3r2 );
     *(Angler+ii)= fmod(*(Angler+ii),2. * M_PI);
     *(Anglez+ii)= fmod(*(Anglez+ii),2. * M_PI);
+    while ( *(Angler+ii) < 0. )
+      *(Angler+ii)+= 2. * M_PI;
+    while ( *(Anglez+ii) < 0. )
+      *(Anglez+ii)+= 2. * M_PI;
+    while ( *(Angler+ii) > 2. * M_PI )
+      *(Angler+ii)-= 2. * M_PI;
+    while ( *(Anglez+ii) > 2. * M_PI )
+      *(Anglez+ii)-= 2. * M_PI;
   }
   free(AngleuInt);
   free(AnglevInt);
