@@ -47,7 +47,8 @@ class actionAngleStaeckel():
         self._pot= kwargs['pot']
         if not kwargs.has_key('delta'):
             raise IOError("Must specify delta= for actionAngleStaeckel")
-        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
+        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
+                           or not kwargs.has_key('c')):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             self._c= True
         else:
