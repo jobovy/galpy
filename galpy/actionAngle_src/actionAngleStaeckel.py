@@ -74,7 +74,7 @@ class actionAngleStaeckel():
                  if there is a time given as well
            scipy.integrate.quadrature keywords
         OUTPUT:
-           (jr,lz,jz), where jr=[jr,jrerr], and jz=[jz,jzerr]
+           (jr,lz,jz)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
@@ -156,8 +156,7 @@ class actionAngleStaeckel():
                  if there is a time given as well
            scipy.integrate.quadrature keywords
         OUTPUT:
-            (jr,lz,jz,Omegar,Omegaphi,Omegaz),
-            where jr=[jr,jrerr], and jz=[jz,jzerr]
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
@@ -194,37 +193,14 @@ class actionAngleStaeckel():
                 if kwargs.has_key('u0'): kwargs.pop('u0')
             else:
                 u0= None
-            jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
+            jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
-                return (jr,Lz,jz)
+                return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if (len(args) == 5 or len(args) == 6) \
-                    and isinstance(args[0],nu.ndarray):
-                ojr= nu.zeros((len(args[0])))
-                olz= nu.zeros((len(args[0])))
-                ojz= nu.zeros((len(args[0])))
-                for ii in range(len(args[0])):
-                    if len(args) == 5:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii])
-                    elif len(args) == 6:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii],args[5][ii])
-                    tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
-                    ojr[ii]= tjr[0]
-                    ojz[ii]= tjz[0]
-                    olz[ii]= tlz
-                return (ojr,olz,ojz)
-            else:
-                #Set up the actionAngleStaeckelSingle object
-                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=self._delta)
-                return (aASingle.JR(**copy.copy(kwargs)),
-                        aASingle._R*aASingle._vT,
-                        aASingle.Jz(**copy.copy(kwargs)))
+            raise NotImplementedError("actionsFreqs with c=False not implemented")
 
     def JR(self,*args,**kwargs):
         """
