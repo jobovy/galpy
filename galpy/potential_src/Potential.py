@@ -200,6 +200,40 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
+    def Rzderiv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           Rzderiv
+
+        PURPOSE:
+
+           evaluate the mixed R,z derivative
+
+        INPUT:
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
+        OUTPUT:
+
+           d2phi/dz/dR
+
+        HISTORY:
+
+           2013-08-26 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._Rzderiv(R,Z,phi=phi,t=t)
+        except AttributeError:
+            raise PotentialError("'_Rzderiv' function not implemented for this potential")      
+
     def normalize(self,norm,t=0.):
         """
         NAME:
@@ -877,6 +911,37 @@ def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
         return Pot.z2deriv(R,z,phi=phi,t=t)
     else:
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
+
+def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
+    """
+    NAME:
+       evaluateRzderivs
+    PURPOSE:
+       convenience function to evaluate a possible sum of potentials
+    INPUT:
+       R - cylindrical Galactocentric distance
+
+       z - distance above the plane
+
+       Pot - a potential or list of potentials
+
+       phi - azimuth (optional)
+
+       t - time (optional)
+    OUTPUT:
+       d2Phi/dz/dR(R,z,phi,t)
+    HISTORY:
+       2013-08-28 - Written - Bovy (IAS)
+    """
+    if isinstance(Pot,list):
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.Rzderiv(R,z,phi=phi,t=t)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.Rzderiv(R,z,phi=phi,t=t)
+    else:
+        raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                    ncontours=21,savefilename=None,aspect=None):
