@@ -103,15 +103,15 @@ void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
-			double *,double *,double *,double *,double *,double,
 			double *,double *,double *,double *,double *,double *,
-			double *,double *,double *,int,struct potentialArg *,
-			int);
+			double *,double,double *,double *,double *,double *,
+			double *,double *,double *,double *,double *,int,
+			struct potentialArg *,int);
 void calcFreqsFromDerivsStaeckel(int,double *,double *,double *,
 				 double *,double *,double *,
 				 double *,double *,double *,double *);
-void calcdI3dJFromDerivsStaeckel(int,double *,double *,double *,
-				 double *,double *);
+void calcdI3dJFromDerivsStaeckel(int,double *,double *,double *,double *,
+				 double *,double *,double *,double *);
 void calcJRStaeckel(int,double *,double *,double *,double *,double *,double *,
 		    double,double *,double *,double *,double *,double *,int,
 		    struct potentialArg *,int);
@@ -785,10 +785,11 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 			      dJzdE,dJzdLz,dJzdI3);		      
   double *dI3dJR= (double *) malloc ( ndata * sizeof(double) );
   double *dI3dJz= (double *) malloc ( ndata * sizeof(double) );
-  calcdI3dJFromDerivsStaeckel(ndata,dI3dJR,dI3dJz,detA,
-			      dJRdE,dJzdE);
+  double *dI3dLz= (double *) malloc ( ndata * sizeof(double) );
+  calcdI3dJFromDerivsStaeckel(ndata,dI3dJR,dI3dJz,dI3dLz,detA,
+			      dJRdE,dJzdE,dJRdLz,dJzdLz);
   calcAnglesStaeckel(ndata,Angler,Anglephi,Anglez,
-		     Omegar,Omegaz,dI3dJR,dI3dJz,
+		     Omegar,Omegaphi,Omegaz,dI3dJR,dI3dJz,dI3dLz,
 		     dJRdE,dJRdLz,dJRdI3,
 		     dJzdE,dJzdLz,dJzdI3,
 		     ux,vx,pux,pvx,
@@ -864,17 +865,21 @@ void calcFreqsFromDerivsStaeckel(int ndata,
 void calcdI3dJFromDerivsStaeckel(int ndata,
 				 double * dI3dJR,
 				 double * dI3dJz,
+				 double * dI3dLz,
 				 double * detA,
 				 double * djrdE,
-				 double * djzdE){
+				 double * djzdE,
+				 double * djrdLz,
+				 double * djzdLz){
   int ii;
   int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
   private(ii)							\
-  shared(djrdE,djzdE,dI3dJR,dI3dJz,detA)
+  shared(djrdE,djzdE,djrdLz,djzdLz,dI3dJR,dI3dJz,dI3dLz,detA)
   for (ii=0; ii < ndata; ii++){
     *(dI3dJR+ii)= - *(djzdE+ii) / *(detA+ii);
     *(dI3dJz+ii)= *(djrdE+ii) / *(detA+ii);
+    *(dI3dLz+ii)= -( *(djrdE+ii) * *(djzdLz+ii) - *(djzdE+ii) * *(djrdLz+ii) ) / *(detA+ii);
   }
 }		 
 void calcdJRStaeckel(int ndata,
@@ -1066,9 +1071,11 @@ void calcAnglesStaeckel(int ndata,
 			double * Anglephi,
 			double * Anglez,
 			double * Omegar,
+			double * Omegaphi,
 			double * Omegaz,
 			double * dI3dJR,
 			double * dI3dJz,
+			double * dI3dLz,
 			double * dJRdE,
 			double * dJRdLz,
 			double * dJRdI3,
@@ -1098,8 +1105,8 @@ void calcAnglesStaeckel(int ndata,
 			struct potentialArg * actionAngleArgs,
 			int order){
   int ii, tid, nthreads;
-  double Or1, Or2, I3r1, I3r2;
-  double mid, midpoint, phitmp;
+  double Or1, Or2, I3r1, I3r2,phitmp;
+  double mid, midpoint;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -1311,6 +1318,8 @@ void calcAnglesStaeckel(int ndata,
     *(Anglez+ii)= *(Omegaz+ii) * ( Or1 + Or2 ) 
       + *(dI3dJz+ii) * ( I3r1 + I3r2 );
     *(Anglephi+ii)+= phitmp;
+    *(Anglephi+ii)+= *(Omegaphi+ii) * ( Or1 + Or2 ) 
+      + *(dI3dLz+ii) * ( I3r1 + I3r2 );
     *(Angler+ii)= fmod(*(Angler+ii),2. * M_PI);
     *(Anglez+ii)= fmod(*(Anglez+ii),2. * M_PI);
   }
