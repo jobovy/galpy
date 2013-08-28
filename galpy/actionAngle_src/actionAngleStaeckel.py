@@ -878,36 +878,36 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     if vtry < 0.000000001: return 0.   
     return vtry
 
-def estimateDeltaStaeckel(*args,**kwargs):
+def estimateDeltaStaeckel(R,z,pot=None):
     """
     NAME:
        estimateDeltaStaeckel
     PURPOSE:
        Estimate a good value for delta using eqn. (9) in Sanders (2012)
     INPUT:
-       Either:
-          R,vR,vT,z,vz
-       or
-          E,Lz
+       R,z = coordinates
        pot= Potential instance or list thereof
     OUTPUT:
        delta
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
     """
-    if not kwargs.has_key('pot'):
+    if pot is None:
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
-    pot= kwargs['pot']
-    if len(args) == 5:
-        R, vR, vT, z, vz= args
-    elif len(args) == 6:
-        R, vR, vT, z, vz, phi= args
-    elif len(args) == 2: #E,Lz
-        E, Lz= args
-        raise NotImplementedError("Specifying E and Lz is currently not supported")
-    delta2= (z**2.-R**2. #eqn. (9) has a sign error
-             +(3.*R*evaluatezforces(R,z,pot)
-               -3.*z*evaluateRforces(R,z,pot)
-               +R*z*(evaluateR2derivs(R,z,pot)
-                     -evaluatez2derivs(R,z,pot)))/evaluateRzderivs(R,z,pot))
+    if isinstance(R,nu.ndarray):
+        delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
+                           +(3.*R[ii]*evaluatezforces(R[ii],z[ii],pot)
+                             -3.*z[ii]*evaluateRforces(R[ii],z[ii],pot)
+                             +R[ii]*z[ii]*(evaluateR2derivs(R[ii],z[ii],pot)
+                                           -evaluatez2derivs(R[ii],z[ii],pot)))/evaluateRzderivs(R[ii],z[ii],pot)) for ii in range(len(R))])
+        indx= (delta2 < 0.)*(delta2 > -10.**-10.)
+        delta2[indx]= 0.
+        delta2= nu.median(delta2[True-nu.isnan(delta2)])
+    else:
+        delta2= (z**2.-R**2. #eqn. (9) has a sign error
+                 +(3.*R*evaluatezforces(R,z,pot)
+                   -3.*z*evaluateRforces(R,z,pot)
+                   +R*z*(evaluateR2derivs(R,z,pot)
+                         -evaluatez2derivs(R,z,pot)))/evaluateRzderivs(R,z,pot))
+        if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
     return nu.sqrt(delta2)
