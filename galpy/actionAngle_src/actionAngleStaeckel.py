@@ -202,6 +202,68 @@ class actionAngleStaeckel():
         else:
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
+    def actionsFreqsAngles(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqsAngles
+        PURPOSE:
+           evaluate the actions, frequencies, and angles 
+           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz,phi (MUST HAVE PHI)
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
+                                       or not kwargs.has_key('c'))):
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            if len(args) == 5: #R,vR.vT, z, vz
+                raise IOError("Must specify phi")
+            elif len(args) == 6: #R,vR.vT, z, vz, phi
+                R,vR,vT, z, vz, phi= args
+            else:
+                meta= actionAngle(*args)
+                R= meta._R
+                vR= meta._vR
+                vT= meta._vT
+                z= meta._z
+                vz= meta._vz
+                phi= meta._phi
+            if isinstance(R,float):
+                R= nu.array([R])
+                vR= nu.array([vR])
+                vT= nu.array([vT])
+                z= nu.array([z])
+                vz= nu.array([vz])
+                phi= nu.array([phi])
+            Lz= R*vT
+            if self._useu0:
+                #First calculate u0
+                if kwargs.has_key('u0'):
+                    u0= kwargs['u0']
+                else:
+                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
+                                                                         self._pot,
+                                                                         self._delta)[0]
+                if kwargs.has_key('u0'): kwargs.pop('u0')
+            else:
+                u0= None
+            jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
+                self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+            if err == 0:
+                return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+            else:
+                raise RuntimeError("C-code for calculation actions failed; try with c=False")
+        else:
+            raise NotImplementedError("actionsFreqs with c=False not implemented")
+
     def JR(self,*args,**kwargs):
         """
         NAME:
