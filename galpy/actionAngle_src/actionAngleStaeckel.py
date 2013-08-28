@@ -78,7 +78,91 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if self._c or (ext_loaded and kwargs.has_key('c') and kwargs['c']):
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
+                                       or not kwargs.has_key('c'))):
+            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+            if len(args) == 5: #R,vR.vT, z, vz
+                R,vR,vT, z, vz= args
+            elif len(args) == 6: #R,vR.vT, z, vz, phi
+                R,vR,vT, z, vz, phi= args
+            else:
+                meta= actionAngle(*args)
+                R= meta._R
+                vR= meta._vR
+                vT= meta._vT
+                z= meta._z
+                vz= meta._vz
+            if isinstance(R,float):
+                R= nu.array([R])
+                vR= nu.array([vR])
+                vT= nu.array([vT])
+                z= nu.array([z])
+                vz= nu.array([vz])
+            Lz= R*vT
+            if self._useu0:
+                #First calculate u0
+                if kwargs.has_key('u0'):
+                    u0= kwargs['u0']
+                else:
+                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
+                                                                         self._pot,
+                                                                         self._delta)[0]
+                if kwargs.has_key('u0'): kwargs.pop('u0')
+            else:
+                u0= None
+            jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
+                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+            if err == 0:
+                return (jr,Lz,jz)
+            else:
+                raise RuntimeError("C-code for calculation actions failed; try with c=False")
+        else:
+            if (len(args) == 5 or len(args) == 6) \
+                    and isinstance(args[0],nu.ndarray):
+                ojr= nu.zeros((len(args[0])))
+                olz= nu.zeros((len(args[0])))
+                ojz= nu.zeros((len(args[0])))
+                for ii in range(len(args[0])):
+                    if len(args) == 5:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii])
+                    elif len(args) == 6:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii],args[5][ii])
+                    tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
+                    ojr[ii]= tjr[0]
+                    ojz[ii]= tjz[0]
+                    olz[ii]= tlz
+                return (ojr,olz,ojz)
+            else:
+                #Set up the actionAngleStaeckelSingle object
+                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                                     delta=self._delta)
+                return (aASingle.JR(**copy.copy(kwargs)),
+                        aASingle._R*aASingle._vT,
+                        aASingle.Jz(**copy.copy(kwargs)))
+
+    def actionsFreqs(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqs
+        PURPOSE:
+           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz),
+            where jr=[jr,jrerr], and jz=[jz,jzerr]
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
+                                       or not kwargs.has_key('c'))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
