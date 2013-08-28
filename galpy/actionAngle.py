@@ -13,6 +13,10 @@ from galpy.actionAngle_src import actionAngleStaeckelGrid
 UnboundError= actionAngle.UnboundError
 
 #
+# Functions
+#
+estimateDeltaStaeckel= actionAngleStaeckel.estimateDeltaStaeckel
+#
 # Classes
 #
 actionAngle= actionAngle.actionAngle
