@@ -12,11 +12,10 @@
 ###############################################################################
 import copy
 import warnings
-import math as m
 import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
-    evaluatezforces
+    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs
 from galpy.util import bovy_coords #for prolate confocal transforms
 from actionAngle import actionAngle, UnboundError
 try:
@@ -879,3 +878,36 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     if vtry < 0.000000001: return 0.   
     return vtry
 
+def estimateDeltaStaeckel(*args,**kwargs):
+    """
+    NAME:
+       estimateDeltaStaeckel
+    PURPOSE:
+       Estimate a good value for delta using eqn. (9) in Sanders (2012)
+    INPUT:
+       Either:
+          R,vR,vT,z,vz
+       or
+          E,Lz
+       pot= Potential instance or list thereof
+    OUTPUT:
+       delta
+    HISTORY:
+       2013-08-28 - Written - Bovy (IAS)
+    """
+    if not kwargs.has_key('pot'):
+        raise IOError("pot= needs to be set to a Potential instance or list thereof")
+    pot= kwargs['pot']
+    if len(args) == 5:
+        R, vR, vT, z, vz= args
+    elif len(args) == 6:
+        R, vR, vT, z, vz, phi= args
+    elif len(args) == 2: #E,Lz
+        E, Lz= args
+        raise NotImplementedError("Specifying E and Lz is currently not supported")
+    delta2= (z**2.-R**2. #eqn. (9) has a sign error
+             +(3.*R*evaluatezforces(R,z,pot)
+               -3.*z*evaluateRforces(R,z,pot)
+               +R*z*(evaluateR2derivs(R,z,pot)
+                     -evaluatez2derivs(R,z,pot)))/evaluateRzderivs(R,z,pot))
+    return nu.sqrt(delta2)
