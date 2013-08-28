@@ -885,7 +885,7 @@ def estimateDeltaStaeckel(R,z,pot=None):
     PURPOSE:
        Estimate a good value for delta using eqn. (9) in Sanders (2012)
     INPUT:
-       R,z = coordinates
+       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
        pot= Potential instance or list thereof
     OUTPUT:
        delta
