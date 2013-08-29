@@ -414,6 +414,25 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         return self.a*(self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
             /(self.a+sqrtRz)**3.
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
+        return -self.a*R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3.
+
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
     def __init__(self,amp=1.,a=1.,normalize=False):
@@ -522,6 +541,26 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return self.a*(self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
             /sqrtRz**4./(self.a+sqrtRz)**2.
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
+        return -self.a*R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
+            *(self.a+sqrtRz)**-2.
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
@@ -638,3 +677,23 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
                     -(2.*R**2.-z**2.)*(self.a**2.+R**2.+z**2.+2.*self.a*sqrtRz)\
                     *numpy.log(1.+sqrtRz/self.a))\
                     /Rz**2.5/(self.a+sqrtRz)**2.
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        Rz= R**2.+z**2.
+        sqrtRz= numpy.sqrt(Rz)
+        return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.

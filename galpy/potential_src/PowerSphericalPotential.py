@@ -140,6 +140,24 @@ class PowerSphericalPotential(Potential):
         """
         return self._R2deriv(z,R) #Spherical potential
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAs)
+        """
+        return -self.alpha*R*z*(R**2.+z**2.)**(-1.-self.alpha/2.)
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:

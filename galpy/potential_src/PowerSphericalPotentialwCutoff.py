@@ -142,6 +142,25 @@ class PowerSphericalPotentialwCutoff(Potential):
         r= nu.sqrt(R*R+z*z)
         return z**2./r*(2./self.rc**4.*(r/self.rc)**(-1.-self.alpha)*nu.exp(-(r/self.rc)**2.)-3./r**4.*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))+self._mass(r)/r**3.
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        r= nu.sqrt(R*R+z*z)
+        return R*z/r*(2./self.rc**4.*(r/self.rc)**(-1.-self.alpha)*nu.exp(-(r/self.rc)**2.)-3./r**4.*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:

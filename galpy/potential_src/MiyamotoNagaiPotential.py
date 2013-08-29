@@ -186,3 +186,24 @@ class MiyamotoNagaiPotential(Potential):
                      + (self._b2 + R**2. - 2.*z**2.)*(self._b2 + z**2.)**1.5
                      +self._a* (3.*self._b2**2. - 4.*z**4. + self._b2*(R**2. - z**2.)))/
                     ((self._b2 + z**2.)**1.5* (R**2. + asqrtbz**2.)**2.5))
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        sqrtbz= nu.sqrt(self._b2+z**2.)
+        asqrtbz= self._a+sqrtbz
+        return -(3.*R*z*asqrtbz
+                 /sqrtbz/(R**2.+asqrtbz**2.)**2.5)

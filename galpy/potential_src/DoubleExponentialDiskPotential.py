@@ -500,6 +500,41 @@ class DoubleExponentialDiskPotential(Potential):
             return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
         raise NotImplementedError("none 'new' z2deriv not implemented for DoubleExponentialDiskPotential")
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+        """
+        if self._new:
+            if isinstance(R,nu.ndarray):
+                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
+                out= nu.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
+                return out
+            if R > 6.: return self._kp.Rzderiv(R,z)
+            if R < 1.: R4max= 1.
+            else: R4max= R
+            kmax= 2.*self._kmaxFac*self._beta
+            maxj1zeroIndx= nu.argmin((self._j1zeros-kmax*R4max)**2.) #close enough
+            ks= nu.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
+            weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
+            evalInt= ks**2.*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(nu.exp(-ks*nu.fabs(z))-nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
+            if z >= 0.:
+                return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+            else:
+                return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+        raise NotImplementedError("none 'new' Rzderiv not implemented for DoubleExponentialDiskPotential")
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:

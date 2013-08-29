@@ -322,6 +322,10 @@ class interpRZPotential(Potential):
         else:
             return evaluatezforces(R,z,self._origPot)
     
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        from galpy.potential import evaluateRzderivs
+        return evaluateRzderivs(R,z,self._origPot)
+    
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
