@@ -78,6 +78,9 @@ def _parse_pot(pot,potforactions=False):
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])
+        elif isinstance(p,potential.IsochronePotential):
+            pot_type.append(14)
+            pot_args.extend([p._amp,p.b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

@@ -101,6 +101,12 @@ void parse_actionAngleArgs(int npot,
       free(row);
       free(potGrid_splinecoeffs);
       break;
+    case 14: //IsochronePotential, 2 arguments
+      potentialArgs->potentialEval= &IsochronePotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->acc= NULL;
+      break;     
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

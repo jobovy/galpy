@@ -156,6 +156,12 @@ void parse_leapFuncArgs_Full(int npot,
       free(row);
       free(potGrid_splinecoeffs);
       break;
+    case 14: //IsochronePotential, 2 arguments
+      potentialArgs->Rforce= &IsochronePotentialRforce;
+      potentialArgs->zforce= &IsochronePotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

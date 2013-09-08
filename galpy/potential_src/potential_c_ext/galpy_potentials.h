@@ -183,4 +183,15 @@ double interpRZPotentialRforce(double ,double , double, double,
 			       struct potentialArg *);
 double interpRZPotentialzforce(double ,double , double, double,
 			       struct potentialArg *);
+//IsochronePotential
+double IsochronePotentialEval(double ,double , double, double,
+			      struct potentialArg *);
+double IsochronePotentialRforce(double ,double , double, double,
+				struct potentialArg *);
+double IsochronePotentialPlanarRforce(double ,double, double,
+				      struct potentialArg *);
+double IsochronePotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double IsochronePotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
 #endif /* galpy_potentials.h */

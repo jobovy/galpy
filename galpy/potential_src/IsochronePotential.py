@@ -36,7 +36,7 @@ class IsochronePotential(Potential):
         self.b2= self.b**2.
         if normalize or isinstance(normalize,(int,float)):
             self.normalize(normalize)
-        self.hasC= False
+        self.hasC= True
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
