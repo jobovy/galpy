@@ -132,7 +132,7 @@ class FullOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],thiso[3],thispot,
+            return evaluatePotentials(thiso[0],thiso[3],pot,
                                       phi=thiso[5],t=t)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.\
