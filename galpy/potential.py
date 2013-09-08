@@ -3,6 +3,7 @@ from galpy.potential_src import planarPotential
 from galpy.potential_src import linearPotential
 from galpy.potential_src import verticalPotential
 from galpy.potential_src import MiyamotoNagaiPotential
+from galpy.potential_src import IsochronePotential
 from galpy.potential_src import LogarithmicHaloPotential
 from galpy.potential_src import DoubleExponentialDiskPotential
 from galpy.potential_src import PowerSphericalPotential
@@ -65,6 +66,7 @@ planarAxiPotential= planarPotential.planarAxiPotential
 planarPotential= planarPotential.planarPotential
 linearPotential= linearPotential.linearPotential
 MiyamotoNagaiPotential= MiyamotoNagaiPotential.MiyamotoNagaiPotential
+IsochronePotential= IsochronePotential.IsochronePotential
 DoubleExponentialDiskPotential= DoubleExponentialDiskPotential.DoubleExponentialDiskPotential
 LogarithmicHaloPotential= LogarithmicHaloPotential.LogarithmicHaloPotential
 KeplerPotential= PowerSphericalPotential.KeplerPotential
