@@ -249,6 +249,5 @@ class actionAngleIsochrone():
             angler= angler % (2.*nu.pi)
             anglephi= anglephi % (2.*nu.pi)
             anglez= anglez % (2.*nu.pi)
-            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez,
-                    psi,tan11,tan12)
+            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
