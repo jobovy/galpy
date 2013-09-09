@@ -9,8 +9,9 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+import copy
 import numpy as nu
-from actionAngle import actionAngle, UnboundError
+from actionAngle import actionAngle
 from galpy.potential import IsochronePotential
 class actionAngleIsochrone():
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
@@ -94,6 +95,7 @@ class actionAngleIsochrone():
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= self._ip(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
+            #Actions
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             Jr= self.amp/nu.sqrt(-2.*E)\
@@ -143,16 +145,17 @@ class actionAngleIsochrone():
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= self._ip(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
+            #Actions
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             Jr= self.amp/nu.sqrt(-2.*E)\
                 -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
+            #Frequencies
             Omegar= (-2.*E)**1.5/self.amp
             Omegaz= 0.5*(1.+L/nu.sqrt(L2+4.*self.amp*self.b))*Omegar
-            if Lz > 0.:
-                Omegaphi= Omegaz
-            else:
-                Omegaphi= -Omegaz
+            Omegaphi= copy.copy(Omegaz)
+            indx= Lz < 0.
+            Omegaphi[indx]*= -1.
             return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz)
 
     def actionsFreqsAngles(self,*args,**kwargs):
@@ -184,12 +187,14 @@ class actionAngleIsochrone():
             vT= meta._vT
             z= meta._z
             vz= meta._vz
+            phi= meta._phi
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
+            phi= nu.array([phi])
         if self._c:
             pass
         else:
@@ -199,14 +204,51 @@ class actionAngleIsochrone():
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= self._ip(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
+            #Actions
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             Jr= self.amp/nu.sqrt(-2.*E)\
                 -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
+            #Frequencies
             Omegar= (-2.*E)**1.5/self.amp
             Omegaz= 0.5*(1.+L/nu.sqrt(L2+4.*self.amp*self.b))*Omegar
-            Omegaphi= Omegaz
+            Omegaphi= copy.copy(Omegaz)
             indx= Lz < 0.
             Omegaphi[indx]*= -1.
-            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz)
+            #Angles
+            c= -self.amp/2./E-self.b
+            e2= 1.-L2/self.amp/c*(1.+self.b/c)
+            e= nu.sqrt(e2)
+            s= 1.+nu.sqrt(1.+(R**2.+z**2.)/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+            eta= nu.arccos(coseta)
+            costheta= z/nu.sqrt(R**2.+z**2.)
+            sintheta= R/nu.sqrt(R**2.+z**2.)
+            vrindx= (vR*sintheta+vz*costheta) < 0.
+            eta[vrindx]= 2.*nu.pi-eta[vrindx]
+            angler= eta-e*c/(c+self.b)*nu.sin(eta)
+            tan11= nu.arctan(nu.sqrt((1.+e)/(1.-e))*nu.tan(0.5*eta))
+            tan12= nu.arctan(nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))*nu.tan(0.5*eta))
+            vzindx= (-vz*sintheta+vR*costheta) > 0.
+            tan11[tan11 < 0.]+= nu.pi
+            tan12[tan12 < 0.]+= nu.pi
+            i= nu.arccos(Lz/L)
+            sinpsi= costheta/nu.sin(i)
+            psi= nu.arcsin(sinpsi)
+            psi[vzindx]= nu.pi-psi[vzindx]
+            psi= psi % (2.*nu.pi)
+            anglez= psi+Omegaz/Omegar*angler\
+                -tan11-1./nu.sqrt(1.+4*self.amp*self.b/L2)*tan12
+            sinu= z/R/nu.tan(i)
+            u= nu.arcsin(sinu)
+            u[vzindx]= nu.pi-u[vzindx]
+            Omega= phi-u
+            anglephi= Omega
+            anglephi[indx]-= anglez[indx]
+            anglephi[True-indx]+= anglez[True-indx]
+            angler= angler % (2.*nu.pi)
+            anglephi= anglephi % (2.*nu.pi)
+            anglez= anglez % (2.*nu.pi)
+            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez,
+                    psi,tan11,tan12)
 
