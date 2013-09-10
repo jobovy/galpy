@@ -106,7 +106,10 @@ class actionAngleIsochroneApprox():
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           scipy.integrate.quadrature keywords
+           nonaxi= set to True to also calculate Lz using the isochrone 
+                   approximation for non-axisymmetric potentials
+           cumul= if True, return the cumulative average actions (to look 
+                  at convergence)
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -117,7 +120,7 @@ class actionAngleIsochroneApprox():
         if len(args) == 6:
             R,vR,vT, z, vz, phi= args
             if isinstance(R,float):
-                o= Orbit([R,vR,vT,z,vz])
+                o= Orbit([R,vR,vT,z,vz,phi])
                 o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
                 this_orbit= o.getOrbit()
                 R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
@@ -125,8 +128,9 @@ class actionAngleIsochroneApprox():
                 vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
                 z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
                 vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
+                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
             if len(R.shape) == 1: #not integrated yet
-                os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii]]) for ii in range(R.shape[0])]
+                os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 args[0]= os
         if isinstance(args[0],Orbit) \
                 or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)):
@@ -144,6 +148,7 @@ class actionAngleIsochroneApprox():
             vT= nu.empty((no,ntJ))
             z= nu.empty((no,ntJ))
             vz= nu.empty((no,ntJ))
+            phi= nu.empty((no,ntJ))
             for ii in range(len(os)):
                 this_orbit= os[ii].getOrbit()
                 R[ii,:]= this_orbit[:,0]
@@ -151,6 +156,7 @@ class actionAngleIsochroneApprox():
                 vT[ii,:]= this_orbit[:,2]
                 z[ii,:]= this_orbit[:,3]
                 vz[ii,:]= this_orbit[:,4]
+                phi[ii,:]= this_orbit[:,5]
         if self._c:
             pass
         else:
@@ -159,8 +165,28 @@ class actionAngleIsochroneApprox():
                                                vR.flatten(),
                                                vT.flatten(),
                                                z.flatten(),
-                                               vz.flatten())
-            return (R,vR,vT,z,vz)
+                                               vz.flatten(),
+                                               phi.flatten())
+            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= nu.reshape(acfs[6],R.shape)
+            anglezI= nu.reshape(acfs[8],R.shape)
+            danglerI= ((nu.roll(anglerI,-1)-anglerI) % (2.*nu.pi))[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1)-anglezI) % (2.*nu.pi))[:,:-1]
+            if kwargs.has_key('cumul') and kwargs['cumul']:
+                sumFunc= nu.cumsum
+            else:
+                sumFunc= nu.sum
+            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
+            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+                lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
+                anglephiI= nu.reshape(acfs[7],R.shape)
+                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % (2.*nu.pi))[:,:-1]
+                lz= nu.sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+            else:
+                lz= R[:,0]*vT[:,0]
+            return (jr,lz,jz)
 
     def actionsFreqs(self,*args,**kwargs):
         """
