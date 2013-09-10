@@ -115,52 +115,7 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if len(args) == 5:
-            raise IOError("Must specify phi for actionAngleIsochroneApprox")
-        if len(args) == 6:
-            R,vR,vT, z, vz, phi= args
-            RasOrbit= False
-            if isinstance(R,float):
-                o= Orbit([R,vR,vT,z,vz,phi])
-                o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
-                this_orbit= o.getOrbit()
-                R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
-                vR= nu.reshape(this_orbit[:,1],(1,self._ntintJ))
-                vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
-                z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
-                vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
-                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
-            if len(R.shape) == 1: #not integrated yet
-                os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
-                RasOrbit= True
-        if isinstance(args[0],Orbit) \
-                or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
-                or RasOrbit:
-            if RasOrbit:
-                pass
-            elif not isinstance(args[0],list):
-                os= [args[0]]
-            else:
-                os= args[0]
-            if not hasattr(os[0],'orbit'): #not integrated yet
-                [o.integrate(self._tsJ,pot=self._pot,
-                             method=self._integrate_method) for o in os]
-            ntJ= os[0].getOrbit().shape[0]
-            no= len(os)
-            R= nu.empty((no,ntJ))
-            vR= nu.empty((no,ntJ))
-            vT= nu.empty((no,ntJ))
-            z= nu.empty((no,ntJ))
-            vz= nu.empty((no,ntJ))
-            phi= nu.empty((no,ntJ))
-            for ii in range(len(os)):
-                this_orbit= os[ii].getOrbit()
-                R[ii,:]= this_orbit[:,0]
-                vR[ii,:]= this_orbit[:,1]
-                vT[ii,:]= this_orbit[:,2]
-                z[ii,:]= this_orbit[:,3]
-                vz[ii,:]= this_orbit[:,4]
-                phi[ii,:]= this_orbit[:,5]
+        R,vR,vT,z,vz,phi= self._parse_args(*args)
         if self._c:
             pass
         else:
@@ -200,53 +155,21 @@ class actionAngleIsochroneApprox():
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz:
+                 1) floats: phase-space value for single object
+                 2) numpy.ndarray: [N] phase-space values for N objects 
+                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
+                    times
+              b) Orbit instance or list thereof; can be integrated already
+           nonaxi= set to True to also calculate Lz using the isochrone 
+                   approximation for non-axisymmetric potentials
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2013-09-10 - Written - Bovy (IAS)
         """
-        if len(args) == 5: #R,vR.vT, z, vz
-            R,vR,vT, z, vz= args
-        elif len(args) == 6: #R,vR.vT, z, vz, phi
-            R,vR,vT, z, vz, phi= args
-        else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
-        if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
-        if self._c:
-            pass
-        else:
-            Lz= R*vT
-            Lx= -z*vT
-            Ly= z*vR-R*vz
-            L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._ip(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
-            L= nu.sqrt(L2)
-            #Actions
-            Jphi= Lz
-            Jz= L-nu.fabs(Lz)
-            Jr= self.amp/nu.sqrt(-2.*E)\
-                -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
-            #Frequencies
-            Omegar= (-2.*E)**1.5/self.amp
-            Omegaz= 0.5*(1.+L/nu.sqrt(L2+4.*self.amp*self.b))*Omegar
-            Omegaphi= copy.copy(Omegaz)
-            indx= Lz < 0.
-            Omegaphi[indx]*= -1.
-            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz)
+        acfs= self.actionsFreqsAngles(*args,**kwargs)
+        return (acfs[0],acfs[1],acfs[2],acfs[3],acfs[4],acfs[5])
 
     def actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -257,14 +180,18 @@ class actionAngleIsochroneApprox():
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz,phi (MUST HAVE PHI)
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz:
+                 1) floats: phase-space value for single object
+                 2) numpy.ndarray: [N] phase-space values for N objects 
+                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
+                    times
+              b) Orbit instance or list thereof; can be integrated already
+           nonaxi= set to True to also calculate Lz using the isochrone 
+                   approximation for non-axisymmetric potentials
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2013-09-10 - Written - Bovy (IAS)
         """
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
@@ -341,3 +268,52 @@ class actionAngleIsochroneApprox():
             anglez= anglez % (2.*nu.pi)
             return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
+    def _parse_args(self,*args):
+        """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
+        if len(args) == 5:
+            raise IOError("Must specify phi for actionAngleIsochroneApprox")
+        if len(args) == 6:
+            R,vR,vT, z, vz, phi= args
+            RasOrbit= False
+            if isinstance(R,float):
+                o= Orbit([R,vR,vT,z,vz,phi])
+                o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
+                this_orbit= o.getOrbit()
+                R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
+                vR= nu.reshape(this_orbit[:,1],(1,self._ntintJ))
+                vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
+                z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
+                vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
+                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+            if len(R.shape) == 1: #not integrated yet
+                os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
+                RasOrbit= True
+        if isinstance(args[0],Orbit) \
+                or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
+                or RasOrbit:
+            if RasOrbit:
+                pass
+            elif not isinstance(args[0],list):
+                os= [args[0]]
+            else:
+                os= args[0]
+            if not hasattr(os[0],'orbit'): #not integrated yet
+                [o.integrate(self._tsJ,pot=self._pot,
+                             method=self._integrate_method) for o in os]
+            ntJ= os[0].getOrbit().shape[0]
+            no= len(os)
+            R= nu.empty((no,ntJ))
+            vR= nu.empty((no,ntJ))
+            vT= nu.empty((no,ntJ))
+            z= nu.empty((no,ntJ))
+            vz= nu.empty((no,ntJ))
+            phi= nu.empty((no,ntJ))
+            for ii in range(len(os)):
+                this_orbit= os[ii].getOrbit()
+                R[ii,:]= this_orbit[:,0]
+                vR[ii,:]= this_orbit[:,1]
+                vT[ii,:]= this_orbit[:,2]
+                z[ii,:]= this_orbit[:,3]
+                vz[ii,:]= this_orbit[:,4]
+                phi[ii,:]= this_orbit[:,5]
+        return (R,vR,vT,z,vz,phi)
