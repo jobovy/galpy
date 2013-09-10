@@ -35,7 +35,7 @@ class actionAngleIsochroneApprox():
            tintJ= (default: 100) time to integrate orbits for to estimate 
                   actions
            tintA= (default: 20) time to integrate orbits for to estimate angles
-           ntintJ= (default: 1000) number of time-integration points
+           ntintJ= (default: 10000) number of time-integration points
                   actions
            ntintA= (default: 100) number of time-integration points
            integrate_method= (default: 'dopr54_c') integration method to use
@@ -68,7 +68,7 @@ class actionAngleIsochroneApprox():
         if kwargs.has_key('ntintJ'):
             self._ntintJ= kwargs['ntintJ']
         else:
-            self._ntintJ= 1000
+            self._ntintJ= 10000
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         if kwargs.has_key('tintA'):
             self._tintA= kwargs['tintA']
@@ -270,11 +270,11 @@ class actionAngleIsochroneApprox():
 
     def _parse_args(self,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
+        RasOrbit= False
         if len(args) == 5:
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6:
             R,vR,vT, z, vz, phi= args
-            RasOrbit= False
             if isinstance(R,float):
                 o= Orbit([R,vR,vT,z,vz,phi])
                 o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
