@@ -119,6 +119,7 @@ class actionAngleIsochroneApprox():
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6:
             R,vR,vT, z, vz, phi= args
+            RasOrbit= False
             if isinstance(R,float):
                 o= Orbit([R,vR,vT,z,vz,phi])
                 o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
@@ -131,10 +132,13 @@ class actionAngleIsochroneApprox():
                 phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
             if len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
-                args[0]= os
+                RasOrbit= True
         if isinstance(args[0],Orbit) \
-                or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)):
-            if not isinstance(args[0],list):
+                or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
+                or RasOrbit:
+            if RasOrbit:
+                pass
+            elif not isinstance(args[0],list):
                 os= [args[0]]
             else:
                 os= args[0]
