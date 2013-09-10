@@ -142,7 +142,7 @@ class actionAngleIsochroneApprox():
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % (2.*nu.pi))[:,:-1]
-                lz= nu.sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+                lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
             return (jr,lz,jz)
@@ -193,80 +193,38 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if len(args) == 5: #R,vR.vT, z, vz
-            R,vR,vT, z, vz= args
-        elif len(args) == 6: #R,vR.vT, z, vz, phi
-            R,vR,vT, z, vz, phi= args
-        else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
-            phi= meta._phi
-        if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
-            phi= nu.array([phi])
+        R,vR,vT,z,vz,phi= self._parse_args(*args)
         if self._c:
             pass
         else:
-            Lz= R*vT
-            Lx= -z*vT
-            Ly= z*vR-R*vz
-            L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._ip(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
-            L= nu.sqrt(L2)
-            #Actions
-            Jphi= Lz
-            Jz= L-nu.fabs(Lz)
-            Jr= self.amp/nu.sqrt(-2.*E)\
-                -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
-            #Frequencies
-            Omegar= (-2.*E)**1.5/self.amp
-            Omegaz= 0.5*(1.+L/nu.sqrt(L2+4.*self.amp*self.b))*Omegar
-            Omegaphi= copy.copy(Omegaz)
-            indx= Lz < 0.
-            Omegaphi[indx]*= -1.
-            #Angles
-            c= -self.amp/2./E-self.b
-            e2= 1.-L2/self.amp/c*(1.+self.b/c)
-            e= nu.sqrt(e2)
-            s= 1.+nu.sqrt(1.+(R**2.+z**2.)/self.b**2.)
-            coseta= 1/e*(1.-self.b/c*(s-2.))
-            eta= nu.arccos(coseta)
-            costheta= z/nu.sqrt(R**2.+z**2.)
-            sintheta= R/nu.sqrt(R**2.+z**2.)
-            vrindx= (vR*sintheta+vz*costheta) < 0.
-            eta[vrindx]= 2.*nu.pi-eta[vrindx]
-            angler= eta-e*c/(c+self.b)*nu.sin(eta)
-            tan11= nu.arctan(nu.sqrt((1.+e)/(1.-e))*nu.tan(0.5*eta))
-            tan12= nu.arctan(nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))*nu.tan(0.5*eta))
-            vzindx= (-vz*sintheta+vR*costheta) > 0.
-            tan11[tan11 < 0.]+= nu.pi
-            tan12[tan12 < 0.]+= nu.pi
-            i= nu.arccos(Lz/L)
-            sinpsi= costheta/nu.sin(i)
-            psi= nu.arcsin(sinpsi)
-            psi[vzindx]= nu.pi-psi[vzindx]
-            psi= psi % (2.*nu.pi)
-            anglez= psi+Omegaz/Omegar*angler\
-                -tan11-1./nu.sqrt(1.+4*self.amp*self.b/L2)*tan12
-            sinu= z/R/nu.tan(i)
-            u= nu.arcsin(sinu)
-            u[vzindx]= nu.pi-u[vzindx]
-            Omega= phi-u
-            anglephi= Omega
-            anglephi[indx]-= anglez[indx]
-            anglephi[True-indx]+= anglez[True-indx]
-            angler= angler % (2.*nu.pi)
-            anglephi= anglephi % (2.*nu.pi)
-            anglez= anglez % (2.*nu.pi)
-            return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+            #Use self._aAI to calculate the actions and angles in the isochrone potential
+            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
+                                               vR.flatten(),
+                                               vT.flatten(),
+                                               z.flatten(),
+                                               vz.flatten(),
+                                               phi.flatten())
+            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= nu.reshape(acfs[6],R.shape)
+            anglezI= nu.reshape(acfs[8],R.shape)
+            danglerI= ((nu.roll(anglerI,-1)-anglerI) % (2.*nu.pi))[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1)-anglezI) % (2.*nu.pi))[:,:-1]
+            if kwargs.has_key('cumul') and kwargs['cumul']:
+                sumFunc= nu.cumsum
+            else:
+                sumFunc= nu.sum
+            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
+            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+                lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
+                anglephiI= nu.reshape(acfs[7],R.shape)
+                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % (2.*nu.pi))[:,:-1]
+                lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+            else:
+                lz= R[:,0]*vT[:,0]
+            return (jr,lz,jz)
+
 
     def _parse_args(self,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
