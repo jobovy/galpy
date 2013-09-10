@@ -112,11 +112,10 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if len(args) == 5 or len(args) == 6:
-            if len(args) == 5: #R,vR.vT, z, vz
-                R,vR,vT, z, vz= args
-            elif len(args) == 6: #R,vR.vT, z, vz, phi
-                R,vR,vT, z, vz, phi= args
+        if len(args) == 5:
+            raise IOError("Must specify phi for actionAngleIsochroneApprox")
+        if len(args) == 6:
+            R,vR,vT, z, vz, phi= args
             if isinstance(R,float):
                 o= Orbit([R,vR,vT,z,vz])
                 o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
@@ -155,6 +154,12 @@ class actionAngleIsochroneApprox():
         if self._c:
             pass
         else:
+            #Use self._aAI to calculate the actions and angles in the isochrone potential
+            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
+                                               vR.flatten(),
+                                               vT.flatten(),
+                                               z.flatten(),
+                                               vz.flatten())
             return (R,vR,vT,z,vz)
 
     def actionsFreqs(self,*args,**kwargs):
