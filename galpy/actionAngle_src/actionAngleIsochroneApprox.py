@@ -275,3 +275,25 @@ class actionAngleIsochroneApprox():
                 vz[ii,:]= this_orbit[:,4]
                 phi[ii,:]= this_orbit[:,5]
         return (R,vR,vT,z,vz,phi)
+
+def estimateBIsochrone(R,z,pot=None):
+    """
+    NAME:
+       estimateBIsochrone
+    PURPOSE:
+       Estimate a good value for the scale of the isochrone potential
+    INPUT:
+       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
+       pot= Potential instance or list thereof
+    OUTPUT:
+       b
+    HISTORY:
+       2013-09-10 - Skeleton written - Bovy (IAS)
+    """
+    if pot is None:
+        raise IOError("pot= needs to be set to a Potential instance or list thereof")
+    if isinstance(R,nu.ndarray):
+        pass
+    else:
+        pass
+    return 1.
