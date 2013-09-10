@@ -6,6 +6,7 @@ from galpy.actionAngle_src import actionAngleAdiabatic
 from galpy.actionAngle_src import actionAngleAdiabaticGrid
 from galpy.actionAngle_src import actionAngleStaeckel
 from galpy.actionAngle_src import actionAngleStaeckelGrid
+from galpy.actionAngle_src import actionAngleIsochrone
 
 #
 # Exceptions
@@ -28,3 +29,4 @@ actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle
 actionAngleStaeckel= actionAngleStaeckel.actionAngleStaeckel
 actionAngleStaeckelGrid= actionAngleStaeckelGrid.actionAngleStaeckelGrid
+actionAngleIsochrone= actionAngleIsochrone.actionAngleIsochrone
