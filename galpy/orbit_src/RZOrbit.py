@@ -323,7 +323,7 @@ class RZOrbit(OrbitTop):
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
+            kwargs['ylabel']= r'$E_z$'
         if d1 == 't':
             plot.bovy_plot(nu.array(self.t),nu.array(self.Ezs)/self.Ezs[0],
                            *args,**kwargs)
