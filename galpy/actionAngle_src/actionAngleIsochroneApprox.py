@@ -13,7 +13,10 @@
 #
 ###############################################################################
 import copy
+import math
 import numpy as nu
+from scipy import optimize
+from galpy.potential import dvcircdR, vcirc
 from galpy.orbit import Orbit
 from galpy.actionAngle import actionAngleIsochrone
 from actionAngle import actionAngle
@@ -281,19 +284,27 @@ def estimateBIsochrone(R,z,pot=None):
     NAME:
        estimateBIsochrone
     PURPOSE:
-       Estimate a good value for the scale of the isochrone potential
+       Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
     INPUT:
        R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
        pot= Potential instance or list thereof
     OUTPUT:
        b
     HISTORY:
-       2013-09-10 - Skeleton written - Bovy (IAS)
+       2013-09-12 - Written - Bovy (IAS)
     """
     if pot is None:
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
-        pass
+        bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
+        return nu.median(bs[True-nu.isnan(bs)])
     else:
-        pass
-    return 1.
+        r2= R**2.+z**2
+        r= math.sqrt(r2)
+        dlvcdlr= dvcircdR(pot,r)/vcirc(pot,r)*r
+        try:
+            b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
+                               0.01,100.)
+        except:
+            b= nu.nan
+        return b
