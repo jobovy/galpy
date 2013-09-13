@@ -156,10 +156,11 @@ def dvcircdR(Pot,R):
     """
     from planarPotential import evaluateplanarRforces
     from planarPotential import evaluateplanarR2derivs
+    tvc= vcirc(Pot,R)
     try:
-        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/vcirc(Pot,R)
+        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
     except TypeError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/vcirc(Pot,R)
+        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
 
