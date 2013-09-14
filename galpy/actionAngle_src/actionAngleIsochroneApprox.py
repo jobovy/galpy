@@ -337,7 +337,8 @@ def estimateBIsochrone(R,z,pot=None):
        R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
        pot= Potential instance or list thereof
     OUTPUT:
-       b
+       b if 1 R,Z given
+       bmin,bmedian,bmax if multiple R given       
     HISTORY:
        2013-09-12 - Written - Bovy (IAS)
     """
@@ -345,7 +346,9 @@ def estimateBIsochrone(R,z,pot=None):
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
-        return nu.median(bs[True-nu.isnan(bs)])
+        return (nu.amin(bs[True-nu.isnan(bs)]),
+                nu.median(bs[True-nu.isnan(bs)]),
+                nu.amax(bs[True-nu.isnan(bs)]))
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)
