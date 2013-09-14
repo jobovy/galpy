@@ -15,6 +15,7 @@
 import copy
 import math
 import numpy as nu
+import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
 from galpy.orbit import Orbit
@@ -189,14 +190,24 @@ class actionAngleIsochroneApprox():
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
+           maxn= (default: 2) Use a grid in vec(n) up to this n (zero-based)
            nonaxi= set to True to also calculate Lz using the isochrone 
                    approximation for non-axisymmetric potentials
+           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT WAS SETUP WHEN SETTING UP THE OBJECT)
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
         R,vR,vT,z,vz,phi= self._parse_args(*args)
+        if kwargs.has_key('ts'):
+            ts= kwargs['ts']
+        else:
+            ts= self._tsJ
+        if kwargs.has_key('maxn'):
+            maxn= kwargs['maxn']
+        else:
+            maxn= 2
         if self._c:
             pass
         else:
@@ -226,7 +237,44 @@ class actionAngleIsochroneApprox():
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
-            return (jr,lz,jz)
+            #Now do an 'angle-fit'
+            angleRT= dePeriod(acfs[6])
+            anglephiT= dePeriod(acfs[7])
+            angleZT= dePeriod(acfs[8])
+            #Write the angle-fit as Y=AX, build A and Y
+            nt= len(angleRT)
+            nn= maxn*(2*maxn-1)-maxn #remove 0,0,0
+            A= nu.zeros((nt,2+nn))
+            A[:,0]= 1.
+            A[:,1]= ts
+            #sorting the phi and Z grids this way makes it easy to exclude the origin
+            phig= list(nu.arange(-maxn+1,maxn,1))
+            phig.sort(key = lambda x: abs(x))
+            phig= nu.array(phig,dtype='int')
+            grid= nu.meshgrid(nu.arange(maxn),
+                              phig,
+                              indexing='ij')
+            gridR= grid[0].flatten()[1:] #remove 0,0,0
+            gridZ= grid[1].flatten()[1:]
+            mask = nu.ones(len(gridR), dtype=bool)
+            mask[:2*maxn-3:2]= False
+            gridR= gridR[mask]
+            gridZ= gridZ[mask]
+            tangleR= nu.tile(angleRT,(nn,1)).T
+            tgridR= nu.tile(gridR,(nt,1))
+            tangleZ= nu.tile(angleZT,(nn,1)).T
+            tgridZ= nu.tile(gridZ,(nt,1))
+            sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
+            A[:,2:]= sinnR
+            #Matrix magic
+            atainv= linalg.inv(nu.dot(A.T,A))
+            angleR= nu.sum(atainv[0,:]*nu.dot(A.T,angleRT))
+            OmegaR= nu.sum(atainv[1,:]*nu.dot(A.T,angleRT))
+            anglephi= nu.sum(atainv[0,:]*nu.dot(A.T,anglephiT))
+            Omegaphi= nu.sum(atainv[1,:]*nu.dot(A.T,anglephiT))
+            angleZ= nu.sum(atainv[0,:]*nu.dot(A.T,angleZT))
+            OmegaZ= nu.sum(atainv[1,:]*nu.dot(A.T,angleZT))
+            return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,angleR,anglephi,angleZ)
 
 
     def _parse_args(self,*args):
@@ -308,3 +356,10 @@ def estimateBIsochrone(R,z,pot=None):
         except:
             b= nu.nan
         return b
+
+def dePeriod(arr):
+    """make an array of periodic angles increase linearly"""
+    diff= arr-nu.roll(arr,1)
+    w= diff < -6.
+    addto= nu.cumsum(w.astype(int))
+    return arr+2.*nu.pi*addto
