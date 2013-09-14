@@ -190,7 +190,7 @@ class actionAngleIsochroneApprox():
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           maxn= (default: 2) Use a grid in vec(n) up to this n (zero-based)
+           maxn= (default: 3) Use a grid in vec(n) up to this n (zero-based)
            nonaxi= set to True to also calculate Lz using the isochrone 
                    approximation for non-axisymmetric potentials
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT WAS SETUP WHEN SETTING UP THE OBJECT)
@@ -207,7 +207,7 @@ class actionAngleIsochroneApprox():
         if kwargs.has_key('maxn'):
             maxn= kwargs['maxn']
         else:
-            maxn= 2
+            maxn= 3
         if self._c:
             pass
         else:
