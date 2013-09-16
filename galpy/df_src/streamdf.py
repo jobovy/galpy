@@ -132,7 +132,7 @@ class streamdf:
                             +(vY-self._progenitor_vY)**2.
                             +(vZ-self._progenitor_vZ)**2.))
         logdf= _mylogsumexp(logdft,axis=1)
-        out= numpy.sum(logdf)-3.*R.shape[0]*numpy.log(self._sigv*self._sigx)
+        out= numpy.sum(logdf)-3.*X.shape[0]*numpy.log(self._sigv*self._sigx)
         if log:
             return out
         else:
