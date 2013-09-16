@@ -239,7 +239,12 @@ class actionAngleIsochroneApprox():
                 lz= R[:,0]*vT[:,0]
             #Now do an 'angle-fit'
             angleRT= dePeriod(acfs[6])
-            anglephiT= dePeriod(acfs[7])
+            if nu.median(acfs[7]-nu.roll(acfs[7],1)) < 0.: #anglephi is decreasing
+                anglephiT= dePeriod(2.*nu.pi-acfs[7])
+                negFreqPhi= True
+            else:
+                anglephiT= dePeriod(acfs[7])
+                negFreqPhi= False
             angleZT= dePeriod(acfs[8])
             #Write the angle-fit as Y=AX, build A and Y
             nt= len(angleRT)
@@ -274,6 +279,9 @@ class actionAngleIsochroneApprox():
             Omegaphi= nu.sum(atainv[1,:]*nu.dot(A.T,anglephiT))
             angleZ= nu.sum(atainv[0,:]*nu.dot(A.T,angleZT))
             OmegaZ= nu.sum(atainv[1,:]*nu.dot(A.T,angleZT))
+            if negFreqPhi:
+                Omegaphi= -Omegaphi
+                anglephi= 2.*nu.pi-anglephi
             return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,angleR,anglephi,angleZ)
 
 
