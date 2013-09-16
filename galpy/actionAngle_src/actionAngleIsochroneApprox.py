@@ -22,6 +22,7 @@ from galpy.orbit import Orbit
 from galpy.actionAngle import actionAngleIsochrone
 from actionAngle import actionAngle
 from galpy.potential import IsochronePotential
+_TWOPI= 2.*nu.pi
 class actionAngleIsochroneApprox():
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2013?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies"""
     def __init__(self,*args,**kwargs):
@@ -38,10 +39,8 @@ class actionAngleIsochroneApprox():
            pot= potential to calculate action-angle variables for
            tintJ= (default: 100) time to integrate orbits for to estimate 
                   actions
-           tintA= (default: 20) time to integrate orbits for to estimate angles
            ntintJ= (default: 10000) number of time-integration points
                   actions
-           ntintA= (default: 100) number of time-integration points
            integrate_method= (default: 'dopr54_c') integration method to use
         OUTPUT:
         HISTORY:
@@ -74,15 +73,6 @@ class actionAngleIsochroneApprox():
         else:
             self._ntintJ= 10000
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
-        if kwargs.has_key('tintA'):
-            self._tintA= kwargs['tintA']
-        else:
-            self._tintA= 20.
-        if kwargs.has_key('ntintA'):
-            self._ntintA= kwargs['ntintA']
-        else:
-            self._ntintA= 100
-        self._tsA= nu.linspace(0.,self._tintA,self._ntintA)
         if kwargs.has_key('integrate_method'):
             self._integrate_method= kwargs['integrate_method']
         else:
@@ -119,7 +109,7 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(*args)
+        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
         if self._c:
             pass
         else:
@@ -134,8 +124,8 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
-            danglerI= ((nu.roll(anglerI,-1)-anglerI) % (2.*nu.pi))[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1)-anglezI) % (2.*nu.pi))[:,:-1]
+            danglerI= ((nu.roll(anglerI,-1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
                 sumFunc= nu.cumsum
             else:
@@ -145,7 +135,7 @@ class actionAngleIsochroneApprox():
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
-                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % (2.*nu.pi))[:,:-1]
+                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
@@ -193,17 +183,19 @@ class actionAngleIsochroneApprox():
            maxn= (default: 3) Use a grid in vec(n) up to this n (zero-based)
            nonaxi= set to True to also calculate Lz using the isochrone 
                    approximation for non-axisymmetric potentials
-           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT WAS SETUP WHEN SETTING UP THE OBJECT)
+           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(*args)
+        R,vR,vT,z,vz,phi= self._parse_args(True,*args)
         if kwargs.has_key('ts'):
             ts= kwargs['ts']
         else:
-            ts= self._tsJ
+            ts= nu.empty(R.shape[1])
+            ts[self._ntintJ-1:]= self._tsJ
+            ts[:self._ntintJ-1]= -self._tsJ[1:][::-1]
         if kwargs.has_key('maxn'):
             maxn= kwargs['maxn']
         else:
@@ -222,8 +214,8 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
-            danglerI= ((nu.roll(anglerI,-1)-anglerI) % (2.*nu.pi))[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1)-anglezI) % (2.*nu.pi))[:,:-1]
+            danglerI= ((nu.roll(anglerI,-1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
                 sumFunc= nu.cumsum
             else:
@@ -233,14 +225,14 @@ class actionAngleIsochroneApprox():
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
-                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % (2.*nu.pi))[:,:-1]
+                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
             #Now do an 'angle-fit'
             angleRT= dePeriod(acfs[6])
             if nu.median(acfs[7]-nu.roll(acfs[7],1)) < 0.: #anglephi is decreasing
-                anglephiT= dePeriod(2.*nu.pi-acfs[7])
+                anglephiT= dePeriod(_TWOPI-acfs[7])
                 negFreqPhi= True
             else:
                 anglephiT= dePeriod(acfs[7])
@@ -281,11 +273,14 @@ class actionAngleIsochroneApprox():
             OmegaZ= nu.sum(atainv[1,:]*nu.dot(A.T,angleZT))
             if negFreqPhi:
                 Omegaphi= -Omegaphi
-                anglephi= 2.*nu.pi-anglephi
-            return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,angleR,anglephi,angleZ)
+                anglephi= _TWOPI-anglephi
+            return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                    angleR % _TWOPI,
+                    anglephi % _TWOPI,
+                    angleZ % _TWOPI)
 
 
-    def _parse_args(self,*args):
+    def _parse_args(self,freqsAngles=True,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
         RasOrbit= False
         if len(args) == 5:
@@ -333,7 +328,38 @@ class actionAngleIsochroneApprox():
                 z[ii,:]= this_orbit[:,3]
                 vz[ii,:]= this_orbit[:,4]
                 phi[ii,:]= this_orbit[:,5]
-        return (R,vR,vT,z,vz,phi)
+        if freqsAngles: #also integrate backwards in time, such that the requested point is not at the edge
+            no= R.shape[0]
+            nt= R.shape[1]
+            oR= nu.empty((no,2*nt-1))
+            ovR= nu.empty((no,2*nt-1))
+            ovT= nu.empty((no,2*nt-1))
+            oz= nu.empty((no,2*nt-1))
+            ovz= nu.empty((no,2*nt-1))
+            ophi= nu.empty((no,2*nt-1))
+            oR[:,nt-1:]= R
+            ovR[:,nt-1:]= vR
+            ovT[:,nt-1:]= vT
+            oz[:,nt-1:]= z
+            ovz[:,nt-1:]= vz
+            ophi[:,nt-1:]= phi
+            #load orbits
+            os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
+            #integrate orbits
+            [o.integrate(self._tsJ,pot=self._pot,
+                         method=self._integrate_method) for o in os]
+            #extract phase-space points along the orbit
+            ts= self._tsJ
+            for ii in range(no):
+                oR[ii,:nt-1]= os[0].R(ts[1:])[::-1] #drop t=0, which we have
+                ovR[ii,:nt-1]= -os[0].vR(ts[1:])[::-1] #already
+                ovT[ii,:nt-1]= -os[0].vT(ts[1:])[::-1] # reverse, such that 
+                oz[ii,:nt-1]= os[0].z(ts[1:])[::-1] #everything is in the 
+                ovz[ii,:nt-1]= -os[0].vz(ts[1:])[::-1] #right order
+                ophi[ii,:nt-1]= os[0].phi(ts[1:])[::-1] #!
+            return (oR,ovR,ovT,oz,ovz,ophi)
+        else:
+            return (R,vR,vT,z,vz,phi)
 
 def estimateBIsochrone(R,z,pot=None):
     """
@@ -373,4 +399,4 @@ def dePeriod(arr):
     diff= arr-nu.roll(arr,1)
     w= diff < -6.
     addto= nu.cumsum(w.astype(int))
-    return arr+2.*nu.pi*addto
+    return arr+_TWOPI*addto
