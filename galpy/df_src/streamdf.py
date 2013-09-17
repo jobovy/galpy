@@ -36,7 +36,7 @@ class streamdf:
         self._progenitor= progenitor
         self._ts= ts
         if not self._ts is None: self._nts= len(self._ts)
-        if self._aA is None: #direct integration, so the progenitor needs to be integrated
+        if True:
             if not isinstance(self._progenitor,Orbit):
                 raise IOError('progenitor= kwargs needs to be an Orbit instance')
             if not hasattr(self._progenitor,'orbit'): #not integrated yet
@@ -52,6 +52,11 @@ class streamdf:
             self._progenitor_z= self._progenitor.z(self._ts)
             self._progenitor_vz= self._progenitor.vz(self._ts)
             self._progenitor_phi= self._progenitor.phi(self._ts)
+            self._progenitor_rperi= numpy.amin(self._progenitor_R**2.+
+                                               self._progenitor_Z**2.)
+            self._progenitor_rap= numpy.amax(self._progenitor_R**2.+
+                                             self._progenitor_Z**2.)
+        if self._aA is None: #direct integration, so we need the progenitor orbit in rectangular coordinates
             tX, tY, tZ= bovy_coords.cyl_to_rect(self._progenitor_R,
                                                 self._progenitor_phi,
                                                 self._progenitor_z)
@@ -65,10 +70,6 @@ class streamdf:
             self._progenitor_vX= tvX
             self._progenitor_vY= tvY
             self._progenitor_vZ= tvZ
-            self._progenitor_rperi= numpy.amin(self._progenitor_R**2.+
-                                               self._progenitor_Z**2.)
-            self._progenitor_rap= numpy.amax(self._progenitor_R**2.+
-                                             self._progenitor_Z**2.)
             #Assume that dr/rperi ~ sigmar/Vcirc(rperi)
             if sigx is None:
                 self._sigx= self._sigv/potential.vcirc(self._pot,
@@ -78,6 +79,19 @@ class streamdf:
                 self._sigx= sigx
             self._sigx2= self._sigx**2.
             self._sigv2= self._sigv**2.
+        else: #calculate estimates sigmas for the actions
+            self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
+            self._siglz= self._progenitor.rperi()*self._sigv
+            self._sigjz= 2.*self._progenitor.zmax()/numpy.pi*self._sigv
+            if sigx is None:
+                self._sigx= self._siglz/self._progenitor.R()/self._progenitor.vT() #estimate spread in angles as dimensionless actions-spread
+            else:
+                self._sigx= sigx
+            self._sigangle= self._sigx
+            self._sigjr2= self._sigjr**2.
+            self._siglz2= self._siglz**2.
+            self._sigjz2= self._sigjz**2.
+            self._sigangle2= self._sigangle**2.
         return None
         
     def __call__(self,*args,**kwargs):
