@@ -53,9 +53,9 @@ class streamdf:
             self._progenitor_vz= self._progenitor.vz(self._ts)
             self._progenitor_phi= self._progenitor.phi(self._ts)
             self._progenitor_rperi= numpy.amin(self._progenitor_R**2.+
-                                               self._progenitor_Z**2.)
+                                               self._progenitor_z**2.)
             self._progenitor_rap= numpy.amax(self._progenitor_R**2.+
-                                             self._progenitor_Z**2.)
+                                             self._progenitor_z**2.)
         if self._aA is None: #direct integration, so we need the progenitor orbit in rectangular coordinates
             tX, tY, tZ= bovy_coords.cyl_to_rect(self._progenitor_R,
                                                 self._progenitor_phi,
@@ -92,6 +92,17 @@ class streamdf:
             self._siglz2= self._siglz**2.
             self._sigjz2= self._sigjz**2.
             self._sigangle2= self._sigangle**2.
+            #Also calculate actions, frequencies, and angles for the progenitor
+            acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
+            self._progenitor_jr= acfs[0][0]
+            self._progenitor_lz= acfs[1][0]
+            self._progenitor_jz= acfs[2][0]
+            self._progenitor_Omegar= acfs[3]
+            self._progenitor_Omegaphi= acfs[4]
+            self._progenitor_Omegaz= acfs[5]
+            self._progenitor_angler= acfs[6]
+            self._progenitor_anglephi= acfs[7]
+            self._progenitor_anglez= acfs[8]
         return None
         
     def __call__(self,*args,**kwargs):
@@ -160,6 +171,8 @@ class streamdf:
             kwargs.pop('log')
         else:
             log= False
+        jr,lz,jz,Or,Ophi,Oz,ar,aphi,az= self.prepData4aA(*args,**kwargs)
+        
         raise NotImplementedError("Using action-angle framework not immplemented yet")
 
     def prepData4Direct(self,*args,**kwargs):
@@ -173,7 +186,7 @@ class streamdf:
         INPUT:
            __call__ inputs
         OUTPUT:
-           X,Y,Z,vX,vY,vZ [nobj,ntimes]
+           X,Y,Z,vX,vY,vZ each [nobj,ntimes]
         HISTORY:
            2013-09-16 - Written - Bovy (IAS)
         """
@@ -184,6 +197,24 @@ class streamdf:
             X,Y,Z= bovy_coords.cyl_to_rect(R,phi,z)
             vX,vY,vZ= bovy_coords.cyl_to_rect_vec(vR,vT,vz,phi)
         return (X,Y,Z,vX,vY,vZ)
+
+    def prepData4aA(self,*args,**kwargs):
+        """
+        NAME:
+           prepData4aA
+        PURPOSE:
+           prepare stream data for the action-angle method
+        INPUT:
+           __call__ inputs
+        OUTPUT:
+           jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez; each [nobj,ntimes]
+        HISTORY:
+           2013-09-17 - Written - Bovy (IAS)
+        """
+        if len(args) == 9: #actions, frequencies, and angles are given
+            return args
+        R,vR,vT,z,vz,phi= self._parse_call_args(False,*args)
+        return self._aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
 
     def _parse_call_args(self,directIntegration=True,*args):
         """Helper function to parse the arguments to the __call__ and related functions"""
@@ -241,6 +272,25 @@ class streamdf:
                         vz[ii,:]= this_orbit[:,4]
                         phi[ii,:]= this_orbit[:,5]
             return (R,vR,vT,z,vz,phi)
+        else:
+            if len(args) == 5:
+                raise IOError("Must specify phi for streamdf")
+            elif len(args) == 6:
+                return args
+            elif isinstance(args[0],Orbit):
+                return (o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
+            elif isinstance(args[0],list) and isinstance(args[0][0],Orbit):
+                R, vR, vT, z, vz, phi= [], [], [], [], [], []
+                for o in args[0]:
+                    R.append(o.R())
+                    vR.append(o.vR())
+                    vT.append(o.vT())
+                    z.append(o.z())
+                    vz.append(o.vz())
+                    phi.append(o.phi())
+                return (numpy.array(R),numpy.array(vR),numpy.array(vT),
+                        numpy.array(z),numpy.array(vz),numpy.array(phi))
+            
 
 def _mylogsumexp(arr,axis=0):
     """Faster logsumexp?"""
