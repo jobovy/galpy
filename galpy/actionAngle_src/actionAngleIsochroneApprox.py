@@ -124,8 +124,8 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
-            danglerI= ((nu.roll(anglerI,-1)-anglerI) % _TWOPI)[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1)-anglezI) % _TWOPI)[:,:-1]
+            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
                 sumFunc= nu.cumsum
             else:
@@ -135,7 +135,7 @@ class actionAngleIsochroneApprox():
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
-                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % _TWOPI)[:,:-1]
+                danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
@@ -214,8 +214,8 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
-            danglerI= ((nu.roll(anglerI,-1)-anglerI) % _TWOPI)[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1)-anglezI) % _TWOPI)[:,:-1]
+            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
                 sumFunc= nu.cumsum
             else:
@@ -225,25 +225,27 @@ class actionAngleIsochroneApprox():
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
-                danglephiI= ((nu.roll(anglephiI,-1)-anglephiI) % _TWOPI)[:,:-1]
+                danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
-                lz= R[:,0]*vT[:,0]
+                lz= R[:,len(ts)/2]*vT[:,len(ts)/2]
             #Now do an 'angle-fit'
-            angleRT= dePeriod(acfs[6])
-            if nu.median(acfs[7]-nu.roll(acfs[7],1)) < 0.: #anglephi is decreasing
-                anglephiT= dePeriod(_TWOPI-acfs[7])
-                negFreqPhi= True
-            else:
-                anglephiT= dePeriod(acfs[7])
-                negFreqPhi= False
-            angleZT= dePeriod(acfs[8])
+            angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
+            acfs7= nu.reshape(acfs[7],R.shape)
+            negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+            anglephiT= nu.empty(acfs7.shape)
+            anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
+            negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+            negFreqPhi[negFreqIndx]= True
+            anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+            angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
             #Write the angle-fit as Y=AX, build A and Y
-            nt= len(angleRT)
+            nt= len(ts)
+            no= R.shape[0]
             nn= maxn*(2*maxn-1)-maxn #remove 0,0,0
-            A= nu.zeros((nt,2+nn))
-            A[:,0]= 1.
-            A[:,1]= ts
+            A= nu.zeros((no,nt,2+nn))
+            A[:,:,0]= 1.
+            A[:,:,1]= ts
             #sorting the phi and Z grids this way makes it easy to exclude the origin
             phig= list(nu.arange(-maxn+1,maxn,1))
             phig.sort(key = lambda x: abs(x))
@@ -253,27 +255,32 @@ class actionAngleIsochroneApprox():
                               indexing='ij')
             gridR= grid[0].flatten()[1:] #remove 0,0,0
             gridZ= grid[1].flatten()[1:]
-            mask = nu.ones(len(gridR), dtype=bool)
+            mask = nu.ones(len(gridR),dtype=bool)
             mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
             gridZ= gridZ[mask]
-            tangleR= nu.tile(angleRT,(nn,1)).T
-            tgridR= nu.tile(gridR,(nt,1))
-            tangleZ= nu.tile(angleZT,(nn,1)).T
-            tgridZ= nu.tile(gridZ,(nt,1))
+            tangleR= nu.tile(angleRT.T,(nn,1,1)).T
+            tgridR= nu.tile(gridR,(no,nt,1))
+            tangleZ= nu.tile(angleZT.T,(nn,1,1)).T
+            tgridZ= nu.tile(gridZ,(no,nt,1))
             sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
-            A[:,2:]= sinnR
+            A[:,:,2:]= sinnR
             #Matrix magic
-            atainv= linalg.inv(nu.dot(A.T,A))
-            angleR= nu.sum(atainv[0,:]*nu.dot(A.T,angleRT))
-            OmegaR= nu.sum(atainv[1,:]*nu.dot(A.T,angleRT))
-            anglephi= nu.sum(atainv[0,:]*nu.dot(A.T,anglephiT))
-            Omegaphi= nu.sum(atainv[1,:]*nu.dot(A.T,anglephiT))
-            angleZ= nu.sum(atainv[0,:]*nu.dot(A.T,angleZT))
-            OmegaZ= nu.sum(atainv[1,:]*nu.dot(A.T,angleZT))
-            if negFreqPhi:
-                Omegaphi= -Omegaphi
-                anglephi= _TWOPI-anglephi
+            atainv= nu.empty((no,2+nn,2+nn))
+            AT= nu.transpose(A,axes=(0,2,1))
+            for ii in range(no):
+                atainv[ii,:,:,]= linalg.inv(nu.dot(AT[ii,:,:],A[ii,:,:]))
+            ATAR= nu.sum(AT*nu.transpose(nu.tile(angleRT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            ATAT= nu.sum(AT*nu.transpose(nu.tile(anglephiT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            ATAZ= nu.sum(AT*nu.transpose(nu.tile(angleZT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            angleR= nu.sum(atainv[:,0,:]*ATAR,axis=1)
+            OmegaR= nu.sum(atainv[:,1,:]*ATAR,axis=1)
+            anglephi= nu.sum(atainv[:,0,:]*ATAT,axis=1)
+            Omegaphi= nu.sum(atainv[:,1,:]*ATAT,axis=1)
+            angleZ= nu.sum(atainv[:,0,:]*ATAZ,axis=1)
+            OmegaZ= nu.sum(atainv[:,1,:]*ATAZ,axis=1)
+            Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
+            anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
             return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
                     angleR % _TWOPI,
                     anglephi % _TWOPI,
@@ -351,12 +358,12 @@ class actionAngleIsochroneApprox():
             #extract phase-space points along the orbit
             ts= self._tsJ
             for ii in range(no):
-                oR[ii,:nt-1]= os[0].R(ts[1:])[::-1] #drop t=0, which we have
-                ovR[ii,:nt-1]= -os[0].vR(ts[1:])[::-1] #already
-                ovT[ii,:nt-1]= -os[0].vT(ts[1:])[::-1] # reverse, such that 
-                oz[ii,:nt-1]= os[0].z(ts[1:])[::-1] #everything is in the 
-                ovz[ii,:nt-1]= -os[0].vz(ts[1:])[::-1] #right order
-                ophi[ii,:nt-1]= os[0].phi(ts[1:])[::-1] #!
+                oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
+                ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
+                ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
+                oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
+                ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
+                ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
             return (oR,ovR,ovT,oz,ovz,ophi)
         else:
             return (R,vR,vT,z,vz,phi)
@@ -396,7 +403,7 @@ def estimateBIsochrone(R,z,pot=None):
 
 def dePeriod(arr):
     """make an array of periodic angles increase linearly"""
-    diff= arr-nu.roll(arr,1)
+    diff= arr-nu.roll(arr,1,axis=1)
     w= diff < -6.
-    addto= nu.cumsum(w.astype(int))
+    addto= nu.cumsum(w.astype(int),axis=1)
     return arr+_TWOPI*addto
