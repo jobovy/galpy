@@ -1,5 +1,6 @@
 from setuptools import setup
 from distutils.core import Extension
+import sys
 import subprocess
 import glob
 
@@ -9,7 +10,11 @@ longDescription= ""
 cmd= ['gsl-config',
       '--version']
 try:
-    gsl_version= subprocess.check_output(cmd)
+    if sys.version_info < (2,7): #subprocess.check_output does not exist
+        gsl_version= subprocess.Popen(cmd,
+                                      stdout=subprocess.PIPE).communicate()[0]
+    else:
+        gsl_version= subprocess.check_output(cmd)
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
