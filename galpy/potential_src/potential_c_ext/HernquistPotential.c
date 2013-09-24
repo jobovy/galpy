@@ -10,7 +10,7 @@ double HernquistPotentialEval(double R,double Z, double phi,
   double a= *args;
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
-  return - amp / (1. + sqrtRz / a );
+  return - amp / (1. + sqrtRz / a ) / 2. / a;
 }
 double HernquistPotentialRforce(double R,double Z, double phi,
 				double t,
@@ -21,7 +21,7 @@ double HernquistPotentialRforce(double R,double Z, double phi,
   double a= *args;
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
-  return - amp * R / a / sqrtRz * pow(1. + sqrtRz / a , -2. );
+  return - amp * R / a / sqrtRz * pow(1. + sqrtRz / a , -2. ) / 2. / a;
 }
 double HernquistPotentialPlanarRforce(double R,double phi,
 					    double t,
@@ -31,7 +31,7 @@ double HernquistPotentialPlanarRforce(double R,double phi,
   double amp= *args++;
   double a= *args;
   //Calculate Rforce
-  return - amp / a * pow(1. + R / a , -2. );
+  return - amp / a * pow(1. + R / a , -2. ) / 2. / a;
 }
 double HernquistPotentialzforce(double R,double Z,double phi,
 				double t,
@@ -42,7 +42,7 @@ double HernquistPotentialzforce(double R,double Z,double phi,
   double a= *args;
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
-  return - amp * Z / a / sqrtRz * pow(1. + sqrtRz / a , -2. );
+  return - amp * Z / a / sqrtRz * pow(1. + sqrtRz / a , -2. ) / 2. / a;
 }
 double HernquistPotentialPlanarR2deriv(double R,double phi,
 					     double t,
@@ -52,5 +52,5 @@ double HernquistPotentialPlanarR2deriv(double R,double phi,
   double amp= *args++;
   double a= *args;
   //Calculate R2deriv
-  return -2. * amp / a / a * pow(1. + R / a, -3. );
+  return -amp / a / a / a * pow(1. + R / a, -3. );
 }

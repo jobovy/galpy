@@ -351,7 +351,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            return -1./(1.+numpy.sqrt(R**2.+z**2.)/self.a)
+            return -1./(1.+numpy.sqrt(R**2.+z**2.)/self.a)/2./self.a
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -374,7 +374,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
+        return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -392,7 +392,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2.
+        return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -411,8 +411,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2011-10-09 - Written - Bovy (IAS)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return self.a*(self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
-            /(self.a+sqrtRz)**3.
+        return (self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
+            /(self.a+sqrtRz)**3./2.
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -431,7 +431,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2013-08-28 - Written - Bovy (IAS)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -self.a*R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3.
+        return -R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3./2.
 
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
@@ -478,7 +478,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            return -numpy.log(1.+self.a/numpy.sqrt(R**2.+z**2.))
+            return -numpy.log(1.+self.a/numpy.sqrt(R**2.+z**2.))/self.a
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -501,7 +501,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -self.a*R/sqrtRz**3./(1.+self.a/sqrtRz)
+        return -R/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -520,7 +520,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -self.a*z/sqrtRz**3./(1.+self.a/sqrtRz)
+        return -z/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -539,7 +539,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2011-10-09 - Written - Bovy (IAS)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return self.a*(self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
+        return (self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
             /sqrtRz**4./(self.a+sqrtRz)**2.
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
@@ -559,7 +559,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2013-08-28 - Written - Bovy (IAS)
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -self.a*R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
+        return -R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
             *(self.a+sqrtRz)**-2.
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
