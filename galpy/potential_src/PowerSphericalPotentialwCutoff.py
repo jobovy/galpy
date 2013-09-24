@@ -182,4 +182,4 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _mass(self,r):
         """Helper function that has the mass"""
-        return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)
+        return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
