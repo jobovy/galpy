@@ -111,24 +111,43 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_zforce' function not implemented for this potential")
 
-    def dens(self,R,z,phi=0.,t=0.,_forcepoisson=False):
+    def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         """
         NAME:
+
            dens
+
         PURPOSE:
+
            evaluate the density rho(R,z,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
+
+        KEYWORDS:
+
+           forcepoisson= if True, calculate the density through the Poisson 
+                         equation, even if an explicit expression for the 
+                         density exists
+
         OUTPUT:
+
            rho (R,z,phi,t)
+
         HISTORY:
+
            2010-08-08 - Written - Bovy (NYU)
+
         """
         try:
-            if _forcepoisson: raise AttributeError #Hack!
+            if forcepoisson: raise AttributeError #Hack!
             return self._amp*self._dens(R,z,phi=phi,t=t)
         except AttributeError:
             #Use the Poisson equation to get the density
