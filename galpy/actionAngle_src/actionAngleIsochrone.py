@@ -237,9 +237,9 @@ class actionAngleIsochrone():
             tan11[tan11 < 0.]+= nu.pi
             tan12[tan12 < 0.]+= nu.pi
             pindx= (Lz/L > 1.)*(Lz/L < (1.+10.**-7.))
-            Lz[pindx]= L
+            Lz[pindx]= L[pindx]
             pindx= (Lz/L < -1.)*(Lz/L > (-1.-10.**-7.))
-            Lz[pindx]= -L
+            Lz[pindx]= -L[pindx]
             i= nu.arccos(Lz/L)
             sinpsi= costheta/nu.sin(i)
             pindx= (sinpsi > 1.)*(sinpsi < (1.+10.**-7.))
