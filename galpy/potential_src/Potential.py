@@ -111,7 +111,7 @@ class Potential:
         except AttributeError:
             raise PotentialError("'_zforce' function not implemented for this potential")
 
-    def dens(self,R,z,phi=0.,t=0.):
+    def dens(self,R,z,phi=0.,t=0.,_forcepoisson=False):
         """
         NAME:
            dens
@@ -128,9 +128,14 @@ class Potential:
            2010-08-08 - Written - Bovy (NYU)
         """
         try:
+            if _forcepoisson: raise AttributeError #Hack!
             return self._amp*self._dens(R,z,phi=phi,t=t)
         except AttributeError:
-            raise PotentialError("'_dens' function not implemented for this potential")
+            #Use the Poisson equation to get the density
+            return (-self.Rforce(R,z,phi=phi,t=t)/R
+                     +self.R2deriv(R,z,phi=phi,t=t)
+                     +self.phi2deriv(R,z,phi=phi,t=t)/R**2.
+                     +self.z2deriv(R,z,phi=phi,t=t))/4./nu.pi
 
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
