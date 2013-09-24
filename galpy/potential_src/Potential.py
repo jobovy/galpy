@@ -272,6 +272,40 @@ class Potential:
         except AttributeError:
             return 0.
 
+    def phi2deriv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           phi2deriv
+
+        PURPOSE:
+
+           evaluate the second azimuthal derivative
+
+        INPUT:
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
+        OUTPUT:
+
+           d2Phi/dphi2
+
+        HISTORY:
+
+           2013-09-24 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
+        except AttributeError:
+            return 0.
+
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -288,7 +322,25 @@ class Potential:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return 0.
+        return 0. #default is to assume axisymmetry
+
+    def _phi2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phi2deriv
+        PURPOSE:
+           evaluate the azimuthal second derivative of the potential
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth (rad)
+           t - time (optional)
+        OUTPUT:
+           d2Phi/dphi2
+        HISTORY:
+           2013-09-24 - Written - Bovy (NYU)
+        """
+        return 0. #default is to assume axisymmetry
 
     def toPlanar(self):
         """
