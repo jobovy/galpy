@@ -236,14 +236,26 @@ class actionAngleIsochrone():
             vzindx= (-vz*sintheta+vR*costheta) > 0.
             tan11[tan11 < 0.]+= nu.pi
             tan12[tan12 < 0.]+= nu.pi
+            pindx= (Lz/L > 1.)*(Lz/L < (1.+10.**-7.))
+            Lz[pindx]= L
+            pindx= (Lz/L < -1.)*(Lz/L > (-1.-10.**-7.))
+            Lz[pindx]= -L
             i= nu.arccos(Lz/L)
             sinpsi= costheta/nu.sin(i)
+            pindx= (sinpsi > 1.)*(sinpsi < (1.+10.**-7.))
+            sinpsi[pindx]= 1.
+            pindx= (sinpsi < -1.)*(sinpsi > (-1.-10.**-7.))
+            sinpsi[pindx]= -1.           
             psi= nu.arcsin(sinpsi)
             psi[vzindx]= nu.pi-psi[vzindx]
             psi= psi % (2.*nu.pi)
             anglez= psi+Omegaz/Omegar*angler\
                 -tan11-1./nu.sqrt(1.+4*self.amp*self.b/L2)*tan12
             sinu= z/R/nu.tan(i)
+            pindx= (sinu > 1.)*(sinu < (1.+10.**-7.))
+            sinu[pindx]= 1.
+            pindx= (sinu < -1.)*(sinu > (-1.-10.**-7.))
+            sinu[pindx]= -1.           
             u= nu.arcsin(sinu)
             u[vzindx]= nu.pi-u[vzindx]
             Omega= phi-u
