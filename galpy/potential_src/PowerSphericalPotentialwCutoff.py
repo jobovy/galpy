@@ -60,7 +60,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         """
         if dR == 0 and dphi == 0:
             r= nu.sqrt(R**2.+z**2.)
-            return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+            return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -121,7 +121,8 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Written - Bovy (IAS)
         """
         r= nu.sqrt(R*R+z*z)
-        return R**2./r*(2./self.rc**4.*(r/self.rc)**(-1.-self.alpha)*nu.exp(-(r/self.rc)**2.)-3./r**4.*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))+self._mass(r)/r**3.
+        return 4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)*R**2.\
+            +self._mass(r)/r**5.*(z**2.-2.*R**2.)
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -140,7 +141,8 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Written - Bovy (IAS)
         """
         r= nu.sqrt(R*R+z*z)
-        return z**2./r*(2./self.rc**4.*(r/self.rc)**(-1.-self.alpha)*nu.exp(-(r/self.rc)**2.)-3./r**4.*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))+self._mass(r)/r**3.
+        return 4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)*z**2.\
+            +self._mass(r)/r**5.*(R**2.-2.*z**2.)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -159,7 +161,8 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-08-28 - Written - Bovy (IAS)
         """
         r= nu.sqrt(R*R+z*z)
-        return R*z/r*(2./self.rc**4.*(r/self.rc)**(-1.-self.alpha)*nu.exp(-(r/self.rc)**2.)-3./r**4.*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+        return R*z*(4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)
+                    -3.*self._mass(r)/r**5.)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
