@@ -221,6 +221,10 @@ class actionAngleIsochrone():
             e= nu.sqrt(e2)
             s= 1.+nu.sqrt(1.+(R**2.+z**2.)/self.b**2.)
             coseta= 1/e*(1.-self.b/c*(s-2.))
+            pindx= (coseta > 1.)*(coseta < (1.+10.**-7.))
+            coseta[pindx]= 1.
+            pindx= (coseta < -1.)*(coseta > (-1.-10.**-7.))
+            coseta[pindx]= -1.           
             eta= nu.arccos(coseta)
             costheta= z/nu.sqrt(R**2.+z**2.)
             sintheta= R/nu.sqrt(R**2.+z**2.)
