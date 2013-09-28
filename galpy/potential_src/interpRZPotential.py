@@ -2,6 +2,7 @@ import os
 import copy
 import ctypes
 import ctypes.util
+import warnings
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
@@ -23,7 +24,11 @@ if _lib is None:
         else:
             break
 if _lib is None:
-    raise IOError('galpy interppotential_c module not found')
+    #raise IOError('galpy interppotential_c module not found')
+    warnings.warn("interppotential_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True
 
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
@@ -73,10 +78,10 @@ class interpRZPotential(Potential):
         self._interpdvcircdr= interpdvcircdr
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
-        self._enable_c= enable_c
+        self._enable_c= enable_c*ext_loaded
         self._zsym= zsym
         if interpPot:
-            if use_c:
+            if use_c*ext_loaded:
                 self._potGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid)
             else:
                 from galpy.potential import evaluatePotentials
@@ -95,10 +100,10 @@ class interpRZPotential(Potential):
                                                                  self._zgrid,
                                                                  self._potGrid,
                                                                  kx=3,ky=3,s=0.)
-            if enable_c:
+            if enable_c*ext_loaded:
                 self._potGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._potGrid)
         if interpRforce:
-            if use_c:
+            if use_c*ext_loaded:
                 self._rforceGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid,rforce=True)
             else:
                 from galpy.potential import evaluateRforces
@@ -117,10 +122,10 @@ class interpRZPotential(Potential):
                                                                     self._zgrid,
                                                                     self._rforceGrid,
                                                                     kx=3,ky=3,s=0.)
-            if enable_c:
+            if enable_c*ext_loaded:
                 self._rforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._rforceGrid)
         if interpzforce:
-            if use_c:
+            if use_c*ext_loaded:
                 self._zforceGrid, err= calc_potential_c(self._origPot,self._rgrid,self._zgrid,zforce=True)
             else:
                 from galpy.potential import evaluatezforces
@@ -139,7 +144,7 @@ class interpRZPotential(Potential):
                                                                     self._zgrid,
                                                                     self._zforceGrid,
                                                                     kx=3,ky=3,s=0.)
-            if enable_c:
+            if enable_c*ext_loaded:
                 self._zforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._zforceGrid)
         if interpDens:
             if False:

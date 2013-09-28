@@ -13,8 +13,6 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
-from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
-    integratePlanarOrbit_dxdv_c
 def _warning(
     message,
     category = UserWarning,
@@ -22,6 +20,14 @@ def _warning(
     lineno = -1):
     print("galpyWarning: "+str(message))
 warnings.showwarning = _warning
+try:
+    from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
+        integratePlanarOrbit_dxdv_c
+except IOError:
+    warnings.warn("integratePlanarOrbit_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True   
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
@@ -324,6 +330,7 @@ class planarROrbit(planarOrbitTop):
                     break
         else:
             c_possible= pot.hasC
+        c_possible*= ext_loaded
         if '_c' in method and not c_possible:
             method= 'odeint'
         self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
@@ -495,6 +502,7 @@ class planarOrbit(planarOrbitTop):
                     break
         else:
             c_possible= pot.hasC
+        c_possible*= ext_loaded
         if '_c' in method and not c_possible:
             method= 'odeint'
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
@@ -529,6 +537,7 @@ class planarOrbit(planarOrbitTop):
                     break
         else:
             c_possible= pot.hasC
+        c_possible*= ext_loaded
         if '_c' in method and not c_possible:
             method= 'odeint'
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)

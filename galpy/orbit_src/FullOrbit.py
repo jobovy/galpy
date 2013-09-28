@@ -9,7 +9,13 @@ from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
+try:
+    from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
+except IOError:
+    warnings.warn("integrateFullOrbit_c extension module not loaded")
+    ext_loaded= False
+else:
+    ext_loaded= True
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
@@ -629,9 +635,10 @@ def _integrateFullOrbit(vxvv,pot,t,method):
         out[:,1]= vR
         out[:,2]= vT
         out[:,5]= phi
-    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+    elif ext_loaded and \
+            (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
         warnings.warn("Using C implementation to integrate orbits")
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
@@ -656,7 +663,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
         out[:,5]= phi
         out[:,3]= tmp_out[:,2]
         out[:,4]= tmp_out[:,5]
-    elif method.lower() == 'odeint':
+    elif method.lower() == 'odeint' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
         intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
