@@ -186,6 +186,8 @@ def bovy_plot(*args,**kwargs):
 
        crange - range for colorbar of scatter==True
 
+       clabel= label for colorbar
+
        overplot=True does not start a new figure
 
        onedhists - if True, make one-d histograms on the sides
