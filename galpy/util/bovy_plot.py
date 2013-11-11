@@ -17,7 +17,7 @@
 #                         
 #############################################################################
 #############################################################################
-#Copyright (c) 2010, Jo Bovy
+#Copyright (c) 2010 - 2013, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -49,6 +49,7 @@ import math as m
 import scipy as sc
 from scipy import special
 from scipy import interpolate
+from scipy import ndimage
 import matplotlib
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
@@ -584,6 +585,8 @@ def bovy_dens2d(X,**kwargs):
 
        cntrlabelsize, cntrlabelcolors,cntrinline - contour arguments
 
+       cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
+
        onedhists - if True, make one-d histograms on the sides
 
        onedhistcolor - histogram color
@@ -692,6 +695,11 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('cntrls')
     elif contours:
         cntrls= None
+    if kwargs.has_key('cntrSmooth'):
+        cntrSmooth= kwargs['cntrSmooth']
+        kwargs.pop('cntrSmooth')
+    elif contours:
+        cntrSmooth= None
     if kwargs.has_key('cntrlabelsize'):
         cntrlabelsize= kwargs['cntrlabelsize']
         kwargs.pop('cntrlabelsize')
@@ -783,7 +791,7 @@ def bovy_dens2d(X,**kwargs):
                 thiszlabel=r'$'+zlabel+'$'
             else:
                 thiszlabel=zlabel
-            CB1.set_label(zlabel)
+            CB1.set_label(thiszlabel)
     if contours or retCumImage:
         if kwargs.has_key('aspect'):
             aspect= kwargs['aspect']
@@ -804,6 +812,9 @@ def bovy_dens2d(X,**kwargs):
         else:
             cntrThis= X
         if contours:
+            if not cntrSmooth is None:
+                cntrThis= ndimage.gaussian_filter(cntrThis,cntrSmooth,
+                                                  mode='nearest')
             cont= pyplot.contour(cntrThis,levels,colors=cntrcolors,
                                  linewidths=cntrlw,extent=extent,aspect=aspect,
                                  linestyles=cntrls,origin=origin)
@@ -999,6 +1010,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        cntrlw, cntrls - linewidths and linestyles for contour
 
+       cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
+
        onedhists - if True, make one-d histograms on the sides
 
        onedhistx - if True, make one-d histograms on the side of the x distribution
@@ -1090,6 +1103,11 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('cntrls')
     elif contours:
         cntrls= None
+    if kwargs.has_key('cntrSmooth'):
+        cntrSmooth= kwargs['cntrSmooth']
+        kwargs.pop('cntrSmooth')
+    elif contours:
+        cntrSmooth= None
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
         kwargs.pop('onedhists')
@@ -1139,6 +1157,11 @@ def scatterplot(x,y,*args,**kwargs):
         kwargs.pop('onedhistlw')
     else:
         onedhistlw= None
+    if kwargs.has_key('onedhistsbins'):
+        onedhistsbins= kwargs['onedhistsbins']
+        kwargs.pop('onedhistsbins')
+    else:
+        onedhistsbins= round(0.3*sc.sqrt(ndata))
     if kwargs.has_key('overplot'):
         overplot= kwargs['overplot']
         kwargs.pop('overplot')
@@ -1212,7 +1235,7 @@ def scatterplot(x,y,*args,**kwargs):
                                     weights=weights)
     if contours:
         cumimage= bovy_dens2d(hist.T,contours=contours,levels=levels,
-                              cntrmass=contours,
+                              cntrmass=contours,cntrSmooth=cntrSmooth,
                               cntrcolors=cntrcolors,cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
@@ -1266,7 +1289,8 @@ def scatterplot(x,y,*args,**kwargs):
         else:
             return
     if onedhistx:
-        histx, edges, patches= axHistx.hist(x, bins=bins,normed=onedhistxnormed,
+        histx, edges, patches= axHistx.hist(x,bins=onedhistsbins,
+                                            normed=onedhistxnormed,
                                             weights=onedhistxweights,
                                             histtype=onedhisttype,
                                             range=sorted(xrange),
@@ -1274,7 +1298,8 @@ def scatterplot(x,y,*args,**kwargs):
                                             ec=onedhistec,ls=onedhistls,
                                             lw=onedhistlw)
     if onedhisty:
-        histy, edges, patches= axHisty.hist(y, bins=bins, orientation='horizontal',
+        histy, edges, patches= axHisty.hist(y,bins=onedhistsbins,
+                                            orientation='horizontal',
                                             weights=onedhistyweights,
                                             normed=onedhistynormed,
                                             histtype=onedhisttype,
@@ -1282,10 +1307,10 @@ def scatterplot(x,y,*args,**kwargs):
                                             color=onedhistcolor,fc=onedhistfc,
                                             ec=onedhistec,ls=onedhistls,
                                             lw=onedhistlw)
-    if onedhistx:
+    if onedhistx and not overplot:
         axHistx.set_xlim( axScatter.get_xlim() )
         axHistx.set_ylim( 0, 1.2*sc.amax(histx))
-    if onedhisty:
+    if onedhisty and not overplot:
         axHisty.set_ylim( axScatter.get_ylim() )
         axHisty.set_xlim( 0, 1.2*sc.amax(histy))
     if not onedhistx: axHistx= None
