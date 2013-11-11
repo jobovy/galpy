@@ -1224,6 +1224,11 @@ def scatterplot(x,y,*args,**kwargs):
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
+    #Set axes and labels
+    pyplot.axis(list(xrange)+list(yrange))
+    if not overplot:
+        _add_axislabels(xlabel,ylabel)
+        _add_ticks()
     binxs= []
     xedge= edges[0]
     for ii in range(len(xedge)-1):
