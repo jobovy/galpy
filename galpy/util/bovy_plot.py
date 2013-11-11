@@ -1162,11 +1162,15 @@ def scatterplot(x,y,*args,**kwargs):
     if kwargs.has_key('onedhistxweights'):
         onedhistxweights= kwargs['onedhistxweights']
         kwargs.pop('onedhistxweights')
+    elif not weights is None:
+        onedhistxweights= weights
     else:
         onedhistxweights= None
     if kwargs.has_key('onedhistyweights'):
         onedhistyweights= kwargs['onedhistyweights']
         kwargs.pop('onedhistyweights')
+    elif not weights is None:
+        onedhistyweights= weights
     else:
         onedhistyweights= None
     if kwargs.has_key('retAxes'):
