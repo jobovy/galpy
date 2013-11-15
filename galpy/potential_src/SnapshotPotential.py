@@ -1,3 +1,8 @@
+try: 
+    from pynbody import grav_omp
+except ImportError: 
+    raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
+
 from pynbody import grav_omp
 import numpy as np
 from galpy.potential import Potential
