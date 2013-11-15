@@ -22,6 +22,7 @@ from galpy.potential_src import EllipticalDiskPotential
 from galpy.potential_src import CosmphiDiskPotential
 from galpy.potential_src import RazorThinExponentialDiskPotential
 from galpy.potential_src import FlattenedPowerPotential
+from galpy.potential_src import SnapshotPotential
 #
 # Functions
 #
@@ -89,6 +90,7 @@ RazorThinExponentialDiskPotential= RazorThinExponentialDiskPotential.RazorThinEx
 FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
+SnapshotPotential = SnapshotPotential.SnapshotPotential
 
 #
 # Constants

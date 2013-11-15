@@ -5,7 +5,7 @@ except ImportError:
 
 from pynbody import grav_omp
 import numpy as np
-from galpy.potential import Potential
+from Potential import Potential
 import hashlib
 
 class SnapshotPotential(Potential):
@@ -34,7 +34,7 @@ class SnapshotPotential(Potential):
         self._point_hash = {}
         self._amp = 1.0
     
-    def __call__(self, R, z) : 
+    def __call__(self, R, z, phi = None, t = None) : 
         return self._evaluate(R,z)
 
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
@@ -45,7 +45,7 @@ class SnapshotPotential(Potential):
         pot, acc = self._setup_potential(R,z)
         return acc[:,0]
 
-    def _setup_potential(self, R, z) : 
+    def _setup_potential(self, R, z, use_pkdgrav = False) : 
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
@@ -58,6 +58,10 @@ class SnapshotPotential(Potential):
         # if we computed for these points before, return; otherwise compute
         if new_hash in self._point_hash : 
             pot, rz_acc = self._point_hash[new_hash]
+
+#        if use_pkdgrav :
+            
+
         else : 
             # set up the four points per R,z pair to mimic axisymmetry
             points = np.zeros((len(R),len(z),4,3))
