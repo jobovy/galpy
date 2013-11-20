@@ -224,10 +224,10 @@ class interpRZPotential(Potential):
                                                  
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         if self._interpPot and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
+            if isinstance(R,float) or isinstance(R,int):
+                R= numpy.array([R],dtype='float')
+            if isinstance(z,float) or isinstance(z,int):
+                z= numpy.array([z],dtype='float')
             if self._zsym:
                 return eval_potential_c(self,R,numpy.fabs(z))[0]
             else:
