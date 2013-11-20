@@ -1,5 +1,7 @@
 #galpy
 
+**Galactic Dynamics in python**
+
 [![Build Status](https://travis-ci.org/jobovy/galpy.png?branch=master)](https://travis-ci.org/jobovy/galpy)
 
 ##AUTHOR
