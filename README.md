@@ -1,5 +1,8 @@
 #galpy
 
+.. image:: https://secure.travis-ci.org/jobovy/galpy.png?branch=master
+        :target: http://travis-ci.org/jobovy/galpy
+
 ##AUTHOR
 
 Jo Bovy - bovy at ias dot edu
