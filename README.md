@@ -1,7 +1,6 @@
 #galpy
 
-.. image:: https://secure.travis-ci.org/jobovy/galpy.png?branch=master
-        :target: http://travis-ci.org/jobovy/galpy
+[![Build Status](https://travis-ci.org/jobovy/galpy.png?branch=master)](https://travis-ci.org/jobovy/galpy)
 
 ##AUTHOR
 
