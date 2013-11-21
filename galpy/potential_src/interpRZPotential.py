@@ -503,6 +503,7 @@ def calc_2dsplinecoeffs_c(array2d):
     """
     #Set up result arrays
     out= copy.copy(array2d)
+    out= numpy.require(out,dtype=numpy.float64,requirements=['C','W'])
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
