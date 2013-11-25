@@ -327,34 +327,67 @@ class streamdf:
                 return (numpy.array(R),numpy.array(vR),numpy.array(vT),
                         numpy.array(z),numpy.array(vz),numpy.array(phi))
 
-def calcaAJac(xv,aA,dxv=None,freqs=False,lb=False):
+def calcaAJac(xv,aA,dxv=None,freqs=False,
+              lb=False,coordFunc=None,
+              Vnorm=220.,Rnorm=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
     """
     NAME:
        calcaAJac
     PURPOSE:
        calculate the Jacobian d(J,theta)/d(x,v)
     INPUT:
-       xv - phase-space point (R,vR,vT,z,vz,phi)
+       xv - phase-space point: Either
+          1) [R,vR,vT,z,vz,phi]
+          2) [l,b,D,vlos,pmll,pmbb] (if lb=True, see below)
+          3) list/array of 6 numbers that can be transformed into (normalized) R,vR,vT,z,vz,phi using coordFunc
+
        aA - actionAngle instance
-       dxv - infinitesimal to use
+
+       dxv - infinitesimal to use (rescaled for lb, so think fractionally))
+
        freqs= (False) if True, go to frequencies rather than actions
-       lb= (False) if True, start with (l,b,D,mull,mubb,vlos)
+
+       lb= (False) if True, start with (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
+       Vnorm= (220) circular velocity to normalize with when lb=True
+       Rnorm= (8) Galactocentric radius to normalize with when lb=True
+       R0= (8) Galactocentric radius of the Sun (kpc)
+       Zsun= (0.025) Sun's height above the plane (kpc)
+       vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
+
+       coordFunc= (None) if set, this is a function that takes xv and returns R,vR,vT,z,vz,phi in normalized units (units where vc=1 at r=1 if the potential is normalized that way, for example)
+
     OUTPUT:
        Jacobian matrix
     HISTORY:
        2013-11-25 - Written - Bovy (IAS) 
     """
+    if lb:
+        coordFunc= lambda x: lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun)
+    if not coordFunc is None:
+        R, vR, vT, z, vz, phi= coordFunc(xv)
+    else:
+        R, vR, vT, z, vz, phi= xv[0],xv[1],xv[2],xv[3],xv[4],xv[5]
     if dxv is None:
         dxv= 10.**-8.*numpy.ones(6)
+    if lb:
+        #Re-scale some of the differences, to be more natural
+        dxv[0]*= 180./numpy.pi
+        dxv[1]*= 180./numpy.pi
+        dxv[2]*= Rnorm
+        dxv[3]*= Vnorm
+        dxv[4]*= Vnorm/4.74047/xv[2]
+        dxv[5]*= Vnorm/4.74047/xv[2]
     jac= numpy.zeros((6,6))
-    R, vR, vT, z, vz, phi= xv[0],xv[1],xv[2],xv[3],xv[4],xv[5]
     jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
         = aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
     for ii in range(6):
         temp= xv[ii]+dxv[ii] #Trick to make sure dxv is representable
         dxv[ii]= temp-xv[ii]
         xv[ii]+= dxv[ii]
-        tR, tvR, tvT, tz, tvz, tphi= xv[0],xv[1],xv[2],xv[3],xv[4],xv[5]
+        if not coordFunc is None:
+            tR, tvR, tvT, tz, tvz, tphi= coordFunc(xv)
+        else:
+            tR, tvR, tvT, tz, tvz, tphi= xv[0],xv[1],xv[2],xv[3],xv[4],xv[5]
         tjr,tlz,tjz,tOr,tOphi,tOz,tar,taphi,taz\
             = aA.actionsFreqsAngles(tR,tvR,tvT,tz,tvz,tphi,maxn=3)
         xv[ii]-= dxv[ii]
@@ -387,3 +420,19 @@ def _mylogsumexp(arr,axis=0):
     if axis == 1:
         minarr= numpy.reshape(minarr,(arr.shape[0]))
     return minarr+numpy.log(numpy.sum(numpy.exp(arr-minminarr),axis=axis))
+
+def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
+    #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
+    X,Y,Z= bovy_coords.lbd_to_XYZ(xv[0],xv[1],xv[2],degree=True)
+    R,phi,Z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,
+                                          Xsun=R0,Ysun=0.,Zsun=Zsun)
+    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(xv[3],xv[4],xv[5],
+                                               X,Y,Z,XYZ=True)
+    vR,vT,vZ= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,
+                                              vsun=vsun)
+    R/= Rnorm
+    Z/= Rnorm
+    vR/= Vnorm
+    vT/= Vnorm
+    vZ/= Vnorm
+    return (R,vR,vT,Z,vZ,phi)
