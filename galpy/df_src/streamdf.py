@@ -191,7 +191,7 @@ class streamdf:
         return (numpy.array(R),numpy.array(vR),numpy.array(vT),
                 numpy.array(z),numpy.array(vz),numpy.array(phi))
 
-def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
+def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
               Vnorm=220.,Rnorm=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
               _initacfs=None):
@@ -213,6 +213,8 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
        freqs= (False) if True, go to frequencies rather than actions
 
        dOdJ= (False), actually calculate d Frequency / d action
+
+       actionsFreqsAngles= (False) if True, calculate d(action,freq.,angle)/d (xv)
 
        lb= (False) if True, start with (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
        Vnorm= (220) circular velocity to normalize with when lb=True
@@ -244,7 +246,10 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
         dxv[3]*= Vnorm
         dxv[4]*= Vnorm/4.74047/xv[2]
         dxv[5]*= Vnorm/4.74047/xv[2]
-    jac= numpy.zeros((6,6))
+    if actionsFreqsAngles:
+        jac= numpy.zeros((9,6))
+    else:
+        jac= numpy.zeros((6,6))
     if dOdJ:
         jac2= numpy.zeros((6,6))
     if _initacfs is None:
@@ -264,7 +269,16 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
         tjr,tlz,tjz,tOr,tOphi,tOz,tar,taphi,taz\
             = aA.actionsFreqsAngles(tR,tvR,tvT,tz,tvz,tphi,maxn=3)
         xv[ii]-= dxv[ii]
-        if freqs:
+        angleIndx= 3
+        if actionsFreqsAngles:
+            jac[0,ii]= (tjr-jr)/dxv[ii]
+            jac[1,ii]= (tlz-lz)/dxv[ii]
+            jac[2,ii]= (tjz-jz)/dxv[ii]
+            jac[3,ii]= (tOr-Or)/dxv[ii]
+            jac[4,ii]= (tOphi-Ophi)/dxv[ii]
+            jac[5,ii]= (tOz-Oz)/dxv[ii]           
+            angleIndx= 6
+        elif freqs:
             jac[0,ii]= (tOr-Or)/dxv[ii]
             jac[1,ii]= (tOphi-Ophi)/dxv[ii]
             jac[2,ii]= (tOz-Oz)/dxv[ii]
@@ -276,9 +290,9 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
             jac2[0,ii]= (tOr-Or)/dxv[ii]
             jac2[1,ii]= (tOphi-Ophi)/dxv[ii]
             jac2[2,ii]= (tOz-Oz)/dxv[ii]
-        jac[3,ii]= (tar-ar)/dxv[ii]
-        jac[4,ii]= (taphi-aphi)/dxv[ii]
-        jac[5,ii]= (taz-az)/dxv[ii]
+        jac[angleIndx,ii]= (tar-ar)/dxv[ii]
+        jac[angleIndx+1,ii]= (taphi-aphi)/dxv[ii]
+        jac[angleIndx+2,ii]= (taz-az)/dxv[ii]
     if dOdJ:
         jac2[3,:]= jac[3,:]
         jac2[4,:]= jac[4,:]
