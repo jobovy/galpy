@@ -3,6 +3,7 @@ try:
 except ImportError: 
     raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
 
+import pynbody
 from pynbody import grav_omp
 import numpy as np
 from Potential import Potential
@@ -10,6 +11,7 @@ import hashlib
 from scipy.misc import derivative
 import interpRZPotential
 from scipy import interpolate 
+from os import system
 
 class SnapshotPotential(Potential):
     """Create a snapshot potential object. The potential and forces are 
@@ -133,7 +135,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
     
     def __init__(self, s, 
                  rgrid=(0.01,2.,101), zgrid=(0.,0.2,101), 
-                 enable_c = True, logR = False, zsym = True, num_threads=4) : 
+                 enable_c = True, logR = False, zsym = True, num_threads=4, use_pkdgrav = False) : 
         self._num_threads = num_threads
         self.s = s
         self._amp = 1.0
@@ -155,7 +157,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         self._zgrid = np.linspace(*zgrid)
 
         # calculate the grids
-        self._setup_potential(self._rgrid,self._zgrid)
+        self._setup_potential(self._rgrid,self._zgrid,use_pkdgrav=use_pkdgrav)
     
         if enable_c : 
             self._potGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._potGrid)
@@ -193,29 +195,66 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         return self._evaluate(R,z)
 
         
-    def _setup_potential(self, R, z, use_pkdgrav = False) : 
+    def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.1) : 
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
         if isinstance(z, float) : 
             z = np.array([z])
 
+        # set up the four points per R,z pair to mimic axisymmetry
+        points = np.zeros((len(R),len(z),4,3))
+        
+        for i in xrange(len(R)) :
+            for j in xrange(len(z)) : 
+                points[i,j] = [(R[i],0,z[j]),
+                               (0,R[i],z[j]),
+                               (-R[i],0,z[j]),
+                               (0,-R[i],z[j])]
 
-#        if use_pkdgrav :
+        points_new = points.reshape(points.size/3,3)
+
+        # set up the points to calculate the second derivatives
+        zgrad_points = np.zeros((len(points_new)*2,3))
+        rgrad_points = np.zeros((len(points_new)*2,3))
+        for i,p in enumerate(points_new) : 
+            zgrad_points[i*2] = p
+            zgrad_points[i*2][2] -= dr
+            zgrad_points[i*2+1] = p
+            zgrad_points[i*2+1][2] += dr
+            
+            rgrad_points[i*2] = p
+            rgrad_points[i*2][:2] -= p[:2]/np.sqrt(np.dot(p[:2],p[:2]))*dr
+            rgrad_points[i*2+1] = p
+            rgrad_points[i*2+1][:2] += p[:2]/np.sqrt(np.dot(p[:2],p[:2]))*dr
+                        
+
+        if use_pkdgrav :
+            raise RuntimeError("using pkdgrav not currently implemented")
+            sn = pynbody.snapshot._new(len(self.s.d)+len(self.s.g)+len(self.s.s)+len(points_new))
+            print "setting up %d grid points"%(len(points_new))
+            #sn['pos'][0:len(self.s)] = self.s['pos']
+            #sn['mass'][0:len(self.s)] = self.s['mass']
+            #sn['phi'] = 0.0
+            #sn['eps'] = 1e3
+            #sn['eps'][0:len(self.s)] = self.s['eps']
+            #sn['vel'][0:len(self.s)] = self.s['vel']
+            #sn['mass'][len(self.s):] = 1e-10
+            sn['pos'][len(self.s):] = points_new
+            sn['mass'][len(self.s):] = 0.0
+            
+                
+            sn.write(fmt=pynbody.tipsy.TipsySnap, filename='potgridsnap')
+            command = '~/bin/pkdgrav2_pthread -sz %d -n 0 +std -o potgridsnap -I potgridsnap +potout +overwrite %s'%(self._num_threads, self.s._paramfile['filename'])
+            print command
+            system(command)
+            sn = pynbody.load('potgridsnap')
+            acc = sn['accg'][len(self.s):].reshape((self.nx,self.ny,self.nz,3))
+            pot = sn['pot'][len(self.s):].reshape((self.nx,self.ny,self.nz))
             
 
         else : 
-            # set up the four points per R,z pair to mimic axisymmetry
-            points = np.zeros((len(R),len(z),4,3))
-        
-            for i in xrange(len(R)) :
-                for j in xrange(len(z)) : 
-                    points[i,j] = [(R[i],0,z[j]),
-                                   (0,R[i],z[j]),
-                                   (-R[i],0,z[j]),
-                                   (0,-R[i],z[j])]
-
-            points_new = points.reshape(points.size/3,3)
+  
             pot, acc = grav_omp.direct(self.s,points_new,num_threads=4)
 
             pot = pot.reshape(len(R)*len(z),4)
@@ -246,7 +285,45 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
                     rz_acc[i,1] += acc[i,j,2]
             rz_acc /= 4.0
             
-            
+
+            # compute the force gradients
+
+            # first get the accelerations
+            zgrad_pot, zgrad_acc = grav_omp.direct(self.s,zgrad_points,num_threads=self._num_threads)
+            rgrad_pot, rgrad_acc = grav_omp.direct(self.s,rgrad_points,num_threads=self._num_threads)
+
+            # each point from the points used above for pot and acc is straddled by 
+            # two points to get the gradient across it. Compute the gradient by 
+            # using a finite difference 
+
+            zgrad = np.zeros(len(points_new))
+            rgrad = np.zeros(len(points_new))
+
+            # do a loop through the pairs of points -- reshape the array
+            # so that each item is the pair of acceleration vectors
+            # then calculate the gradient from the two points
+            for i,zacc in enumerate(zgrad_acc.reshape((len(zgrad_acc)/2,2,3))) :
+                zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
+
+            for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
+                point = points_new[i]
+                point[2] = 0.0
+                rvec = point/np.sqrt(np.dot(point,point))
+                rgrad_vec = (np.dot(racc[1],rvec)-
+                             np.dot(racc[0],rvec)) / (dr*2.0)
+                rgrad[i] = rgrad_vec
+
+
+                        
+            self.zgrad_acc = zgrad_acc
+            self.rgrad_acc = rgrad_acc
+            self.zgrad_points = zgrad_points
+            self.rgrad_points = rgrad_points
+            # reshape the 
+            self._z2derivGrad = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1)
+            self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1)
+            self.points = points_new
+    
         self._potGrid = pot.reshape((len(R),len(z)))
         self._rforceGrid = rz_acc[:,0].reshape((len(R),len(z)))
         self._zforceGrid = rz_acc[:,1].reshape((len(R),len(z)))
