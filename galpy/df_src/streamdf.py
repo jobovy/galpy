@@ -5,7 +5,7 @@ from galpy.orbit import Orbit
 from galpy.util import bovy_coords
 class streamdf:
     """The DF of a tidal stream"""
-    def __init__(self,sigv,sigx,progenitor=None,pot=None,aA=None,
+    def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  ts=None,integrate_method='dopr54_c'):
         """
         NAME:
@@ -13,19 +13,17 @@ class streamdf:
         PURPOSE:
            Initialize a quasi-isothermal DF
         INPUT:
-           sigv - radial velocity dispersion of the 'progenitor'
-           sigx - spatial velocity dispersion of the 'progenitor'
+           sigv - radial velocity dispersion of the progenitor
            progenitor= progenitor orbit as Orbit instance 
-                       (if not integrated, given with +t velocity)
            pot= Potential instance or list thereof
-           aA= actionAngle instance used to convert (x,v) to actions if
-               action-angle coordinates are used to fit the stream
+           aA= actionAngle instance used to convert (x,v) to actions
            ts= times used in orbit integrations
            integrate_method= (default: 'dopr54_c') integration method to use
         OUTPUT:
            object
         HISTORY:
            2013-09-16 - Started - Bovy (IAS)
+           2013-11-25 - Started over - Bovy (IAS)
         """
         self._sigv= sigv
         if pot is None:
@@ -36,79 +34,36 @@ class streamdf:
         self._progenitor= progenitor
         self._ts= ts
         if not self._ts is None: self._nts= len(self._ts)
-        if self._aA is None: #direct integration, so we need the progenitor orbit in rectangular coordinates
-            if not isinstance(self._progenitor,Orbit):
-                raise IOError('progenitor= kwargs needs to be an Orbit instance')
-            if not hasattr(self._progenitor,'orbit'): #not integrated yet
-                #First flip the velocity for backward integration
-                self._progenitor._orb.vxvv[1]= -self._progenitor._orb.vxvv[1]
-                self._progenitor._orb.vxvv[2]= -self._progenitor._orb.vxvv[2]
-                self._progenitor._orb.vxvv[4]= -self._progenitor._orb.vxvv[4]
-                self._progenitor.integrate(self._ts,self._pot,
-                                           method=self._integrate_method)
-            self._progenitor_R= self._progenitor.R(self._ts)
-            self._progenitor_vR= self._progenitor.vR(self._ts)
-            self._progenitor_vT= self._progenitor.vT(self._ts)
-            self._progenitor_z= self._progenitor.z(self._ts)
-            self._progenitor_vz= self._progenitor.vz(self._ts)
-            self._progenitor_phi= self._progenitor.phi(self._ts)
-            self._progenitor_rperi= numpy.amin(self._progenitor_R**2.+
-                                               self._progenitor_z**2.)
-            self._progenitor_rap= numpy.amax(self._progenitor_R**2.+
-                                             self._progenitor_z**2.)
-            tX, tY, tZ= bovy_coords.cyl_to_rect(self._progenitor_R,
-                                                self._progenitor_phi,
-                                                self._progenitor_z)
-            tvX, tvY, tvZ= bovy_coords.cyl_to_rect_vec(self._progenitor_vR,
-                                                       self._progenitor_vT,
-                                                       self._progenitor_vz,
-                                                       self._progenitor_phi)
-            self._progenitor_X= tX
-            self._progenitor_Y= tY
-            self._progenitor_Z= tZ
-            self._progenitor_vX= tvX
-            self._progenitor_vY= tvY
-            self._progenitor_vZ= tvZ
-            #Assume that dr/rperi ~ sigmar/Vcirc(rperi)
-            if sigx is None:
-                self._sigx= self._sigv/potential.vcirc(self._pot,
-                                                       self._progenitor_rperi)\
-                                                       *self._progenitor_rperi
-            else:
-                self._sigx= sigx
-            self._sigx2= self._sigx**2.
-            self._sigv2= self._sigv**2.
-            self._lnsigx= numpy.log(self._sigx)
-            self._lnsigv= numpy.log(self._sigv)
-        else: #calculate estimates sigmas for the actions
-            #Calculate actions, frequencies, and angles for the progenitor
-            acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
-            self._progenitor_jr= acfs[0][0]
-            self._progenitor_lz= acfs[1][0]
-            self._progenitor_jz= acfs[2][0]
-            self._progenitor_Omegar= acfs[3]
-            self._progenitor_Omegaphi= acfs[4]
-            self._progenitor_Omegaz= acfs[5]
-            self._progenitor_angler= acfs[6]
-            self._progenitor_anglephi= acfs[7]
-            self._progenitor_anglez= acfs[8]
-            #From the progenitor orbit, determine the sigmas in J and angle
-            self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
-            self._siglz= self._progenitor.rperi()*self._sigv
-            self._sigjz= 2.*self._progenitor.zmax()/numpy.pi*self._sigv
-            if sigx is None:
-                self._sigx= self._siglz/self._progenitor.R()/self._progenitor.vT() #estimate spread in angles as dimensionless actions-spread
-            else:
-                self._sigx= sigx
-            self._sigangle= self._sigx
-            self._sigjr2= self._sigjr**2.
-            self._siglz2= self._siglz**2.
-            self._sigjz2= self._sigjz**2.
-            self._sigangle2= self._sigangle**2.
-            self._lnsigjr= numpy.log(self._sigjr)
-            self._lnsiglz= numpy.log(self._siglz)
-            self._lnsigjz= numpy.log(self._sigjz)
-            self._lnsigangle= numpy.log(self._sigangle)
+        #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
+        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
+        self._progenitor_jr= acfs[0][0]
+        self._progenitor_lz= acfs[1][0]
+        self._progenitor_jz= acfs[2][0]
+        self._progenitor_Omegar= acfs[3]
+        self._progenitor_Omegaphi= acfs[4]
+        self._progenitor_Omegaz= acfs[5]
+        self._progenitor_angler= acfs[6]
+        self._progenitor_anglephi= acfs[7]
+        self._progenitor_anglez= acfs[8]
+        #Calculate dO/dJ Jacobian at the progenitor
+        self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
+                               self._aA,dxv=None,dOdJ=True,
+                               _initacfs=acfs)
+
+        #From the progenitor orbit, determine the sigmas in J and angle
+        self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
+        self._siglz= self._progenitor.rperi()*self._sigv
+        self._sigjz= 2.*self._progenitor.zmax()/numpy.pi*self._sigv
+        self._sigx= self._siglz/self._progenitor.R()/self._progenitor.vT() #estimate spread in angles as dimensionless actions-spread
+        self._sigangle= self._sigx
+        self._sigjr2= self._sigjr**2.
+        self._siglz2= self._siglz**2.
+        self._sigjz2= self._sigjz**2.
+        self._sigangle2= self._sigangle**2.
+        self._lnsigjr= numpy.log(self._sigjr)
+        self._lnsiglz= numpy.log(self._siglz)
+        self._lnsigjz= numpy.log(self._sigjz)
+        self._lnsigangle= numpy.log(self._sigangle)
         return None
         
     def __call__(self,*args,**kwargs):
@@ -327,9 +282,10 @@ class streamdf:
                 return (numpy.array(R),numpy.array(vR),numpy.array(vT),
                         numpy.array(z),numpy.array(vz),numpy.array(phi))
 
-def calcaAJac(xv,aA,dxv=None,freqs=False,
+def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
               lb=False,coordFunc=None,
-              Vnorm=220.,Rnorm=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
+              Vnorm=220.,Rnorm=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
+              _initacfs=None):
     """
     NAME:
        calcaAJac
@@ -346,6 +302,8 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,
        dxv - infinitesimal to use (rescaled for lb, so think fractionally))
 
        freqs= (False) if True, go to frequencies rather than actions
+
+       dOdJ= (False), actually calculate d Frequency / d action
 
        lb= (False) if True, start with (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
        Vnorm= (220) circular velocity to normalize with when lb=True
@@ -378,8 +336,14 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,
         dxv[4]*= Vnorm/4.74047/xv[2]
         dxv[5]*= Vnorm/4.74047/xv[2]
     jac= numpy.zeros((6,6))
-    jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
-        = aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
+    if dOdJ:
+        jac2= numpy.zeros((6,6))
+    if _initacfs is None:
+        jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
+            = aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
+    else:
+        jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
+            = _initacfs
     for ii in range(6):
         temp= xv[ii]+dxv[ii] #Trick to make sure dxv is representable
         dxv[ii]= temp-xv[ii]
@@ -399,9 +363,18 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,
             jac[0,ii]= (tjr-jr)/dxv[ii]
             jac[1,ii]= (tlz-lz)/dxv[ii]
             jac[2,ii]= (tjz-jz)/dxv[ii]
+        if dOdJ:
+            jac2[0,ii]= (tOr-Or)/dxv[ii]
+            jac2[1,ii]= (tOphi-Ophi)/dxv[ii]
+            jac2[2,ii]= (tOz-Oz)/dxv[ii]
         jac[3,ii]= (tar-ar)/dxv[ii]
         jac[4,ii]= (taphi-aphi)/dxv[ii]
         jac[5,ii]= (taz-az)/dxv[ii]
+    if dOdJ:
+        jac2[3,:]= jac[3,:]
+        jac2[4,:]= jac[4,:]
+        jac2[5,:]= jac[5,:]
+        jac= numpy.dot(jac2,numpy.linalg.inv(jac))[0:3,0:3]
     return jac
 
 def _mylogsumexp(arr,axis=0):
