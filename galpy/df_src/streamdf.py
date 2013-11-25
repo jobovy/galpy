@@ -1,10 +1,11 @@
 #The DF of a tidal stream
 import numpy
 from galpy.orbit import Orbit
-from galpy.util import bovy_coords
+from galpy.util import bovy_coords, stable_cholesky
 class streamdf:
     """The DF of a tidal stream"""
-    def __init__(self,sigv,progenitor=None,pot=None,aA=None):
+    def __init__(self,sigv,progenitor=None,pot=None,aA=None,
+                 deltaAngle=0.3):
         """
         NAME:
            __init__
@@ -15,6 +16,7 @@ class streamdf:
            progenitor= progenitor orbit as Orbit instance 
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
+           deltaAngle= (0.3) estimate of 'dispersion' in largest angle
         OUTPUT:
            object
         HISTORY:
@@ -22,6 +24,7 @@ class streamdf:
            2013-11-25 - Started over - Bovy (IAS)
         """
         self._sigv= sigv
+        self._deltaAngle= deltaAngle
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= pot
@@ -42,21 +45,25 @@ class streamdf:
         self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
                                self._aA,dxv=None,dOdJ=True,
                                _initacfs=acfs)
-
         #From the progenitor orbit, determine the sigmas in J and angle
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
         self._siglz= self._progenitor.rperi()*self._sigv
         self._sigjz= 2.*self._progenitor.zmax()/numpy.pi*self._sigv
-        self._sigx= self._siglz/self._progenitor.R()/self._progenitor.vT() #estimate spread in angles as dimensionless actions-spread
-        self._sigangle= self._sigx
-        self._sigjr2= self._sigjr**2.
-        self._siglz2= self._siglz**2.
-        self._sigjz2= self._sigjz**2.
-        self._sigangle2= self._sigangle**2.
-        self._lnsigjr= numpy.log(self._sigjr)
-        self._lnsiglz= numpy.log(self._siglz)
-        self._lnsigjz= numpy.log(self._sigjz)
+        #Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
+        self._sigjmatrix= numpy.diag([self._sigjr**2.,
+                                      self._siglz**2.,
+                                      self._sigjz**2.])
+        self._sigomatrix= numpy.dot(self._dOdJp,
+                                    numpy.dot(self._sigjmatrix,self._dOdJp.T))
+        #Estimate angle spread as the ratio of the largest to the middle eigenvalue
+        self._sigomatrixEig= numpy.linalg.eig(self._sigomatrix)
+        sortedEig= sorted(self._sigomatrixEig[0])
+        self._sigangle2= sortedEig[1]/sortedEig[2]*self._deltaAngle
+        self._sigangle= numpy.sqrt(self._sigangle2)
         self._lnsigangle= numpy.log(self._sigangle)
+        #Store cholesky of sigomatrix for fast evaluation
+        self._sigomatrixL= stable_cholesky(self._sigomatrix,10.**-8.)
+        self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
         return None
         
     def __call__(self,*args,**kwargs):
