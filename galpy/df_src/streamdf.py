@@ -108,35 +108,7 @@ class streamdf:
         HISTORY:
            2013-09-16 - Written - Bovy (IAS)
         """
-        if self._aA is None:
-            return self._callDirectIntegration(*args,**kwargs)
-        else:
-            return self._callActionAngleMethod(*args,**kwargs)
-
-    def _callDirectIntegration(self,*args,**kwargs):
-        """Evaluate the DF using direct integration"""
-        #First parse log
-        if kwargs.has_key('log'):
-            log= kwargs['log']
-            kwargs.pop('log')
-        else:
-            log= False
-        X,Y,Z,vX,vY,vZ= self.prepData4Direct(*args,**kwargs)
-        #For each object, marginalize over time
-        logdft= -0.5*(1./self._sigx2\
-                          *((X-self._progenitor_X)**2.
-                            +(Y-self._progenitor_Y)**2.
-                            +(Z-self._progenitor_Z)**2.)
-                      +1./self._sigv2\
-                          *((vX-self._progenitor_vX)**2.
-                            +(vY-self._progenitor_vY)**2.
-                            +(vZ-self._progenitor_vZ)**2.))
-        logdf= _mylogsumexp(logdft,axis=1)
-        out= numpy.sum(logdf)-3.*X.shape[0]*(self._lnsigv+self._lnsigx)
-        if log:
-            return out
-        else:
-            return numpy.exp(out)
+        return self._callActionAngleMethod(*args,**kwargs)
 
     def _callActionAngleMethod(self,*args,**kwargs):
         """Evaluate the DF using the action-angle formalism"""
@@ -162,29 +134,6 @@ class streamdf:
             return out
         else:
             return numpy.exp(out)
-
-    def prepData4Direct(self,*args,**kwargs):
-        """
-        NAME:
-           prepData4Direct
-        PURPOSE:
-           prepare stream data for the direct integration method
-           (integrate and transform, can then be re-used for different DF but
-           same potential)
-        INPUT:
-           __call__ inputs
-        OUTPUT:
-           X,Y,Z,vX,vY,vZ each [nobj,ntimes]
-        HISTORY:
-           2013-09-16 - Written - Bovy (IAS)
-        """
-        R,vR,vT,z,vz,phi= self._parse_call_args(True,*args)
-        if kwargs.has_key('rect') and kwargs['rect']:
-            X,Y,Z,vX,vY,vZ= R,vR,vT,z,vz,phi
-        else:
-            X,Y,Z= bovy_coords.cyl_to_rect(R,phi,z)
-            vX,vY,vZ= bovy_coords.cyl_to_rect_vec(vR,vT,vz,phi)
-        return (X,Y,Z,vX,vY,vZ)
 
     def prepData4aA(self,*args,**kwargs):
         """
@@ -223,78 +172,24 @@ class streamdf:
 
     def _parse_call_args(self,directIntegration=True,*args):
         """Helper function to parse the arguments to the __call__ and related functions"""
-        if directIntegration:
-            RasOrbit= False
-            if len(args) == 5:
-                raise IOError("Must specify phi for streamdf")
-            if len(args) == 6:
-                R,vR,vT,z,vz,phi= args
-                if isinstance(R,float):
-                    o= Orbit([R,-vR,-vT,z,-vz,phi])
-                    o.integrate(self._ts,
-                                pot=self._pot,
-                                method=self._integrate_method)
-                    this_orbit= o.getOrbit()
-                    R= numpy.reshape(this_orbit[:,0],(1,self._nts))
-                    vR= numpy.reshape(this_orbit[:,1],(1,self._nts))
-                    vT= numpy.reshape(this_orbit[:,2],(1,self._nts))
-                    z= numpy.reshape(this_orbit[:,3],(1,self._nts))
-                    vz= numpy.reshape(this_orbit[:,4],(1,self._nts))
-                    phi= numpy.reshape(this_orbit[:,5],(1,self._nts))
-                if len(R.shape) == 1: #not integrated yet
-                    os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
-                    RasOrbit= True
-            if isinstance(args[0],Orbit) \
-                    or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
-                    or RasOrbit:
-                if RasOrbit:
-                    pass
-                elif not isinstance(args[0],list):
-                    os= [args[0]]
-                else:
-                    os= args[0]
-                if not hasattr(os[0],'orbit'): #not integrated yet
-                    for o in os: #flip velocities for backwards integration
-                        o._orb.vxvv[1]= -o._orb.vxvv[1]
-                        o._orb.vxvv[2]= -o._orb.vxvv[2]
-                        o._orb.vxvv[4]= -o._orb.vxvv[4]
-                    [o.integrate(self._ts,pot=self._pot,
-                                 method=self._integrate_method) for o in os]
-                    nts= os[0].getOrbit().shape[0]
-                    no= len(os)
-                    R= numpy.empty((no,nts))
-                    vR= numpy.empty((no,nts))
-                    vT= numpy.empty((no,nts))
-                    z= numpy.empty((no,nts))
-                    vz= numpy.empty((no,nts))
-                    phi= numpy.empty((no,nts))
-                    for ii in range(len(os)):
-                        this_orbit= os[ii].getOrbit()
-                        R[ii,:]= this_orbit[:,0]
-                        vR[ii,:]= this_orbit[:,1]
-                        vT[ii,:]= this_orbit[:,2]
-                        z[ii,:]= this_orbit[:,3]
-                        vz[ii,:]= this_orbit[:,4]
-                        phi[ii,:]= this_orbit[:,5]
-            return (R,vR,vT,z,vz,phi)
-        else:
-            if len(args) == 5:
-                raise IOError("Must specify phi for streamdf")
-            elif len(args) == 6:
-                return args
-            elif isinstance(args[0],Orbit):
-                return (o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
-            elif isinstance(args[0],list) and isinstance(args[0][0],Orbit):
-                R, vR, vT, z, vz, phi= [], [], [], [], [], []
-                for o in args[0]:
-                    R.append(o.R())
-                    vR.append(o.vR())
-                    vT.append(o.vT())
-                    z.append(o.z())
-                    vz.append(o.vz())
-                    phi.append(o.phi())
-                return (numpy.array(R),numpy.array(vR),numpy.array(vT),
-                        numpy.array(z),numpy.array(vz),numpy.array(phi))
+        if len(args) == 5:
+            raise IOError("Must specify phi for streamdf")
+        elif len(args) == 6:
+            return args
+        elif isinstance(args[0],Orbit):
+            o= args[0]
+            return (o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
+        elif isinstance(args[0],list) and isinstance(args[0][0],Orbit):
+            R, vR, vT, z, vz, phi= [], [], [], [], [], []
+            for o in args[0]:
+                R.append(o.R())
+                vR.append(o.vR())
+                vT.append(o.vT())
+                z.append(o.z())
+                vz.append(o.vz())
+                phi.append(o.phi())
+        return (numpy.array(R),numpy.array(vR),numpy.array(vT),
+                numpy.array(z),numpy.array(vz),numpy.array(phi))
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,
               lb=False,coordFunc=None,
