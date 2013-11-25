@@ -1,12 +1,10 @@
 #The DF of a tidal stream
 import numpy
-from galpy import potential
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords
 class streamdf:
     """The DF of a tidal stream"""
-    def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 ts=None,integrate_method='dopr54_c'):
+    def __init__(self,sigv,progenitor=None,pot=None,aA=None):
         """
         NAME:
            __init__
@@ -17,8 +15,6 @@ class streamdf:
            progenitor= progenitor orbit as Orbit instance 
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
-           ts= times used in orbit integrations
-           integrate_method= (default: 'dopr54_c') integration method to use
         OUTPUT:
            object
         HISTORY:
@@ -29,11 +25,8 @@ class streamdf:
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= pot
-        self._integrate_method= integrate_method
         self._aA= aA
         self._progenitor= progenitor
-        self._ts= ts
-        if not self._ts is None: self._nts= len(self._ts)
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
         self._progenitor_jr= acfs[0][0]
