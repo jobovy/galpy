@@ -17,11 +17,12 @@ from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs
 from galpy.util import bovy_coords #for prolate confocal transforms
+from galpy.util import galpyWarning
 from actionAngle import actionAngle, UnboundError
 try:
     import actionAngleStaeckel_c
 except IOError:
-    warnings.warn("actionAngle_c extension module not loaded")
+    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True

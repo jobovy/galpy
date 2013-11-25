@@ -14,12 +14,13 @@ import copy
 import warnings
 import math as m
 import numpy as nu
+from galpy.util import galpyWarning
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
 try:
     import actionAngleAdiabatic_c
 except IOError:
-    warnings.warn("actionAngle_c extension module not loaded")
+    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True

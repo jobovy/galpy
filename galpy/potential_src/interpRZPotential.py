@@ -6,7 +6,7 @@ import warnings
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
-from galpy.util import multi
+from galpy.util import multi, galpyWarning
 from Potential import Potential
 _DEBUG= False
 #Find and load the library
@@ -25,7 +25,8 @@ if _lib is None:
             break
 if _lib is None:
     #raise IOError('galpy interppotential_c module not found')
-    warnings.warn("interppotential_c extension module not loaded")
+    warnings.warn("interppotential_c extension module not loaded",
+                  galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True

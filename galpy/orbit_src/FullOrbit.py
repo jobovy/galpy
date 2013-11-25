@@ -7,12 +7,14 @@ from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
     KeplerPotential
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
+from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 try:
     from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
 except IOError:
-    warnings.warn("integrateFullOrbit_c extension module not loaded")
+    warnings.warn("integrateFullOrbit_c extension module not loaded",
+                  galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True
@@ -638,7 +640,8 @@ def _integrateFullOrbit(vxvv,pot,t,method):
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",
+                      galpyWarning)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
                              vxvv[0]*nu.sin(vxvv[5]),
