@@ -44,7 +44,6 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10
         """
-        if method == 'leapfrog_c': method= 'odeint'
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
