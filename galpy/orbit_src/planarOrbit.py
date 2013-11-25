@@ -1,6 +1,5 @@
 import math as m
 import warnings
-import copy
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
@@ -14,19 +13,7 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
-class galpyWarning(Warning):
-    pass
-old_showwarning= copy.copy(warnings.showwarning)
-def _warning(
-    message,
-    category = galpyWarning,
-    filename = '',
-    lineno = -1):
-    if issubclass(category,galpyWarning):
-        print("galpyWarning: "+str(message))
-    else:
-        old_showwarning(message,category,filename,lineno)
-warnings.showwarning = _warning
+from galpy.util import galpyWarning
 try:
     from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
         integratePlanarOrbit_dxdv_c
