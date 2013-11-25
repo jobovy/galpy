@@ -1,5 +1,6 @@
 import math as m
 import warnings
+import copy
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
@@ -13,18 +14,25 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials, planarPotentialFromRZPotential
 from galpy.potential_src.Potential import Potential
+class galpyWarning(Warning):
+    pass
+old_showwarning= copy.copy(warnings.showwarning)
 def _warning(
     message,
-    category = UserWarning,
+    category = galpyWarning,
     filename = '',
     lineno = -1):
-    print("galpyWarning: "+str(message))
+    if issubclass(category,galpyWarning):
+        print("galpyWarning: "+str(message))
+    else:
+        old_showwarning(message,category,filename,lineno)
 warnings.showwarning = _warning
 try:
     from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
         integratePlanarOrbit_dxdv_c
 except IOError:
-    warnings.warn("integratePlanarOrbit_c extension module not loaded")
+    warnings.warn("integratePlanarOrbit_c extension module not loaded",
+                  galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True   
@@ -799,7 +807,7 @@ def _integrateOrbit(vxvv,pot,t,method):
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
@@ -874,7 +882,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         #raise NotImplementedError("C implementation of phase space integration not implemented yet")
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
@@ -1020,5 +1028,5 @@ def _rectForce(x,pot,t=0.):
 
 def _parse_warnmessage(msg):
     if msg == 1:
-        warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate")
+        warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate",galpyWarning)
         
