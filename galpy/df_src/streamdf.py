@@ -5,7 +5,7 @@ from galpy.util import bovy_coords, stable_cholesky
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 deltaAngle=0.3):
+                 sigMeanOffset=1.5,deltaAngle=0.3):
         """
         NAME:
            __init__
@@ -16,6 +16,10 @@ class streamdf:
            progenitor= progenitor orbit as Orbit instance 
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
+           sigMeanOffset= (1.5) offset between the mean of the frequencies
+                          and the progenitor, in units of the largest 
+                          eigenvalue of the frequency covariance matrix 
+                          (along the largest eigenvector)
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
         OUTPUT:
            object
@@ -24,6 +28,7 @@ class streamdf:
            2013-11-25 - Started over - Bovy (IAS)
         """
         self._sigv= sigv
+        self._sigMeanOffset= sigMeanOffset
         self._deltaAngle= deltaAngle
         if pot is None:
             raise IOError("pot= must be set")
@@ -38,9 +43,11 @@ class streamdf:
         self._progenitor_Omegar= acfs[3]
         self._progenitor_Omegaphi= acfs[4]
         self._progenitor_Omegaz= acfs[5]
+        self._progenitor_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3)
         self._progenitor_angler= acfs[6]
         self._progenitor_anglephi= acfs[7]
         self._progenitor_anglez= acfs[8]
+        self._progenitor_angle= numpy.array([acfs[6],acfs[7],acfs[8]]).reshape(3)
         #Calculate dO/dJ Jacobian at the progenitor
         self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
                                self._aA,dxv=None,dOdJ=True,
@@ -61,6 +68,13 @@ class streamdf:
         self._sigangle2= sortedEig[1]/sortedEig[2]*self._deltaAngle
         self._sigangle= numpy.sqrt(self._sigangle2)
         self._lnsigangle= numpy.log(self._sigangle)
+        #Estimate the frequency mean as lying along the direction of the largest eigenvalue
+        self._sigomean= self._progenitor_Omega\
+            +self._sigMeanOffset\
+            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))\
+            *self._sigomatrixEig[1][:,numpy.argmax(self._sigomatrixEig[0])]
+#numpy.dot(self._dOdJp,
+#                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         #Store cholesky of sigomatrix for fast evaluation
         self._sigomatrixL= stable_cholesky(self._sigomatrix,10.**-8.)
         self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
