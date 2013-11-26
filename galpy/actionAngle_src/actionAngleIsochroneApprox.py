@@ -12,7 +12,6 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import copy
 import math
 import numpy as nu
 import numpy.linalg as linalg
@@ -20,8 +19,8 @@ from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
 from galpy.orbit import Orbit
 from galpy.actionAngle import actionAngleIsochrone
-from actionAngle import actionAngle
 from galpy.potential import IsochronePotential
+from galpy.util import bovy_plot
 _TWOPI= 2.*nu.pi
 class actionAngleIsochroneApprox():
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2013?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies"""
@@ -286,6 +285,164 @@ class actionAngleIsochroneApprox():
                     anglephi % _TWOPI,
                     angleZ % _TWOPI)
 
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+           plot
+        PURPOSE:
+           plot the angles vs. each other, to check whether the isochrone
+           approximation is good
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz:
+                 floats: phase-space value for single object
+              b) Orbit instance
+           type= ('araz') type of plot to make
+              a) 'araz': az vs. ar, with color-coded aphi
+              b) 'araphi': aphi vs. ar, with color-coded az
+              c) 'azaphi': aphi vs. az, with color-coded ar
+              d) 'jr': cumulative average of jr with time, to assess convergence
+              e) 'lz': same as 'jr' but for lz
+              f) 'jz': same as 'jr' but for jz
+           deperiod= (False), if True, de-period the angles
+            +plot kwargs
+        OUTPUT:
+           plot to output
+        HISTORY:
+           2013-09-10 - Written - Bovy (IAS)
+        """
+        #Kwargs
+        if not kwargs.has_key('type'):
+            type= 'araz'
+        else:
+            type= kwargs['type']
+            kwargs.pop('type')
+        if not kwargs.has_key('deperiod'):
+            deperiod= False
+        else:
+            deperiod= kwargs['deperiod']
+            kwargs.pop('deperiod')
+        #Parse input
+        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
+        #Use self._aAI to calculate the actions and angles in the isochrone potential
+        acfs= self._aAI.actionsFreqsAngles(R.flatten(),
+                                           vR.flatten(),
+                                           vT.flatten(),
+                                           z.flatten(),
+                                           vz.flatten(),
+                                           phi.flatten())
+        if type == 'jr' or type == 'lz' or type == 'jz':
+            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= nu.reshape(acfs[6],R.shape)
+            anglezI= nu.reshape(acfs[8],R.shape)
+            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
+            if True:
+                sumFunc= nu.cumsum
+            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
+            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
+            lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
+            anglephiI= nu.reshape(acfs[7],R.shape)
+            danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
+            lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+            ts= self._tsJ[:-1]
+            if type == 'jr':
+                bovy_plot.bovy_plot(ts,jr[0,:],c=anglerI[0,:-1],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    xlabel=r'$t$',
+                                    ylabel=r'$J_R$',
+                                    clabel=r'$\theta_R$',
+                                    vmin=0.,vmax=2.*nu.pi,
+                                    crange=[0.,2.*nu.pi],
+                                    colorbar=True,
+                                    **kwargs)
+            elif type == 'lz':
+                bovy_plot.bovy_plot(ts,lz[0,:],c=anglephiI[0,:-1],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    xlabel=r'$t$',
+                                    ylabel=r'$L_Z$',
+                                    clabel=r'$\theta_\phi$',
+                                    vmin=0.,vmax=2.*nu.pi,
+                                    crange=[0.,2.*nu.pi],
+                                    colorbar=True,
+                                    **kwargs)
+            elif type == 'jz':
+                bovy_plot.bovy_plot(ts,jz[0,:],c=anglezI[0,:-1],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    xlabel=r'$t$',
+                                    ylabel=r'$J_Z$',
+                                    clabel=r'$\theta_Z$',
+                                    vmin=0.,vmax=2.*nu.pi,
+                                    crange=[0.,2.*nu.pi],
+                                    colorbar=True,
+                                    **kwargs)
+        else:
+            if deperiod:
+                angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
+                acfs7= nu.reshape(acfs[7],R.shape)
+                negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+                anglephiT= nu.empty(acfs7.shape)
+                anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
+                negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+                negFreqPhi[negFreqIndx]= True
+                anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+                angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                xrange= None
+                yrange= None
+                vmin, vmax= None, None
+                crange= None
+            else:
+                angleRT= nu.reshape(acfs[6],R.shape)
+                anglephiT= nu.reshape(acfs[7],R.shape)
+                angleZT= nu.reshape(acfs[8],R.shape)
+                xrange= [-0.5,2.*nu.pi+0.5]
+                yrange= [-0.5,2.*nu.pi+0.5]
+                vmin, vmax= 0.,2.*nu.pi
+                crange= [vmin,vmax]
+            if type == 'araz':
+                bovy_plot.bovy_plot(angleRT[0,:],angleZT[0,:],
+                                    c=anglephiT[0,:],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    xlabel=r'$\theta_R$',
+                                    ylabel=r'$\theta_Z$',
+                                    clabel=r'$\theta_\phi$',
+                                    xrange=xrange,yrange=yrange,
+                                    vmin=vmin,vmax=vmax,
+                                    crange=crange,
+                                    colorbar=True,
+                                    **kwargs)           
+            elif type == 'araphi':
+                bovy_plot.bovy_plot(angleRT[0,:],anglephiT[0,:],
+                                    c=angleZT[0,:],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    xlabel=r'$\theta_R$',
+                                    clabel=r'$\theta_Z$',
+                                    ylabel=r'$\theta_\phi$',
+                                    xrange=xrange,yrange=yrange,
+                                    vmin=vmin,vmax=vmax,
+                                    crange=crange,
+                                    colorbar=True,
+                                    **kwargs)           
+            elif type == 'azaphi':
+                bovy_plot.bovy_plot(angleZT[0,:],anglephiT[0,:],
+                                    c=angleRT[0,:],s=20.,
+                                    scatter=True,
+                                    edgecolor='none',
+                                    clabel=r'$\theta_R$',
+                                    xlabel=r'$\theta_Z$',
+                                    ylabel=r'$\theta_\phi$',
+                                    xrange=xrange,yrange=yrange,
+                                    vmin=vmin,vmax=vmax,
+                                    crange=crange,
+                                    colorbar=True,
+                                    **kwargs)           
+        return None
 
     def _parse_args(self,freqsAngles=True,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
