@@ -13,6 +13,7 @@
 #
 ###############################################################################
 import math
+import warnings
 import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
@@ -20,8 +21,9 @@ from galpy.potential import dvcircdR, vcirc
 from galpy.orbit import Orbit
 from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
-from galpy.util import bovy_plot
+from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
+_ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 class actionAngleIsochroneApprox():
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2013?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies"""
     def __init__(self,*args,**kwargs):
@@ -123,6 +125,12 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
+            if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
+            if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
@@ -135,6 +143,9 @@ class actionAngleIsochroneApprox():
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
+                if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                    warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
                 lz= R[:,0]*vT[:,0]
@@ -213,6 +224,12 @@ class actionAngleIsochroneApprox():
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
+            if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
+            if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.has_key('cumul') and kwargs['cumul']:
@@ -224,6 +241,9 @@ class actionAngleIsochroneApprox():
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
+                if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                    warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
