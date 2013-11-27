@@ -524,31 +524,6 @@ class Orbit:
         """
         return self._orb.zmax(analytic=analytic,pot=pot)
 
-    def wp(self,pot=None):
-        """
-        NAME:
-
-           wp
-
-        PURPOSE:
-
-           calculate the azimuthal angle
-
-        INPUT:
-
-           pot - potential
-
-        OUTPUT:
-
-           wp
-
-        HISTORY:
-
-           2010-11-30 - Written - Bovy (NYU)
-
-        """
-        return self._orb.wp(pot=pot)
-
     def jr(self,pot=None,**kwargs):
         """
         NAME:
@@ -601,7 +576,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -611,9 +594,11 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.Jphi(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA(self)[1]
 
     def jz(self,pot=None,**kwargs):
         """
@@ -629,7 +614,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -639,9 +632,11 @@ class Orbit:
 
            2012-06-01 - Written - Bovy (IAS)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.Jz(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA(self)[2][0]
 
     def wr(self,pot=None,**kwargs):
         """
@@ -657,7 +652,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -667,9 +670,49 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.angleR(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqsAngles(self)[6][0]
+
+    def wp(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           wp
+
+        PURPOSE:
+
+           calculate the azimuthal angle
+
+        INPUT:
+
+           pot - potential
+
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           wp
+
+        HISTORY:
+
+           2010-11-30 - Written - Bovy (NYU)
+
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
+        """
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqsAngles(self)[7][0]
 
     def wz(self,pot=None,**kwargs):
         """
@@ -685,7 +728,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -695,9 +746,11 @@ class Orbit:
 
            2012-06-01 - Written - Bovy (IAS)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.anglez(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqsAngles(self)[8][0]
 
     def Tr(self,pot=None,**kwargs):
         """
