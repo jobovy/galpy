@@ -16,6 +16,7 @@ import time as time_module
 import warnings
 import numpy as nu
 from scipy import integrate
+from galpy.util import galpyWarning
 try:
     import bovy_mcmc
     _BOVY_MCMC_LOADED= True
@@ -376,7 +377,8 @@ class evolveddiskdf:
             meanvR= self._initdf._estimatemeanvR(R,phi=az)
             meanvT= self._initdf._estimatemeanvT(R,phi=az)
         else:
-            warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions")
+            warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
+                          galpyWarning)
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az))
             sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az))
             meanvR= self._initdf.meanvR(R,phi=az)

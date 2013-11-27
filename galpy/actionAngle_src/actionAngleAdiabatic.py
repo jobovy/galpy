@@ -14,12 +14,13 @@ import copy
 import warnings
 import math as m
 import numpy as nu
+from galpy.util import galpyWarning
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
 try:
     import actionAngleAdiabatic_c
 except IOError:
-    warnings.warn("actionAngle_c extension module not loaded")
+    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True
@@ -147,7 +148,6 @@ class actionAngleAdiabatic():
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         #Set up the actionAngleAxi object
-        meta= actionAngle(*args)
         if isinstance(self._pot,list):
             thispot= [p.toPlanar() for p in self._pot]
         else:
@@ -188,4 +188,58 @@ class actionAngleAdiabatic():
                                gamma=self._gamma)
         return aAAxi.Jz(**kwargs)
 
+    def calcRapRperi(self,*args,**kwargs):
+        """
+        NAME:
+           calcRapRperi
+        PURPOSE:
+           calculate the apocenter and pericenter radii
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+        OUTPUT:
+           (rperi,rap)
+        HISTORY:
+           2013-11-27 - Written - Bovy (IAS)
+        """
+        #Set up the actionAngleAxi object
+        if isinstance(self._pot,list):
+            thispot= [p.toPlanar() for p in self._pot]
+        else:
+            thispot= self._pot.toPlanar()
+        aAAxi= actionAngleAxi(*args,pot=thispot,
+                               gamma=self._gamma)
+        return aAAxi.calcRapRperi(**kwargs)
         
+    def calczmax(self,*args,**kwargs):
+        """
+        NAME:
+           calczmax
+        PURPOSE:
+           calculate the maximum height
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+        OUTPUT:
+           zmax
+        HISTORY:
+           2012-06-01 - Written - Bovy (IAS)
+        """
+        #Set up the actionAngleAxi object
+        meta= actionAngle(*args)
+        if isinstance(self._pot,list):
+            thispot= [p.toPlanar() for p in self._pot]
+        else:
+            thispot= self._pot.toPlanar()
+        if isinstance(self._pot,list):
+            thisverticalpot= [p.toVertical(meta._R) for p in self._pot]
+        else:
+            thisverticalpot= self._pot.toVertical(meta._R)
+        aAAxi= actionAngleAxi(*args,pot=thispot,
+                               verticalPot=thisverticalpot,
+                               gamma=self._gamma)
+        return aAAxi.calczmax(**kwargs)

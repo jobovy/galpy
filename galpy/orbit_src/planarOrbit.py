@@ -4,27 +4,18 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-from galpy import actionAngle
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
-    KeplerPotential
 from OrbitTop import OrbitTop
-from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
-    evaluateplanarPotentials, planarPotentialFromRZPotential
+    RZToplanarPotential, evaluateplanarphiforces,\
+    evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
-def _warning(
-    message,
-    category = UserWarning,
-    filename = '',
-    lineno = -1):
-    print("galpyWarning: "+str(message))
-warnings.showwarning = _warning
+from galpy.util import galpyWarning
 try:
     from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
         integratePlanarOrbit_dxdv_c
 except IOError:
-    warnings.warn("integratePlanarOrbit_c extension module not loaded")
+    warnings.warn("integratePlanarOrbit_c extension module not loaded",
+                  galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True   
@@ -60,9 +51,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -124,9 +114,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -149,9 +138,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -159,81 +147,9 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
-    def zmax(self):
+    def zmax(self,pot=None,analytic=False):
         raise AttributeError("planarOrbit does not have a zmax")
     
-    def wp(self,pot=None):
-        """
-        NAME:
-           wp
-        PURPOSE:
-           calculate the azimuthal angle
-        INPUT:
-           pot - potential
-        OUTPUT:
-           wp
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if len(self.vxvv) < 4:
-            raise AttributeError("'Orbit' does not track azimuth")
-        else:
-            return self.vxvv[-1]
-
-    def _setupaA(self,pot=None):
-        """
-        NAME:
-           _setupaA
-        PURPOSE:
-           set up an actionAngle module for this Orbit
-        INPUT:
-           pot - potential
-        OUTPUT:
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if pot is None:
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit or specify pot=")
-        if isinstance(pot,Potential) or isinstance(pot,list):
-            thispot= RZToplanarPotential(pot)
-        else:
-            thispot= pot
-        if isinstance(thispot,LogarithmicHaloPotential) or \
-                (isinstance(thispot,planarPotentialFromRZPotential) and \
-                     isinstance(thispot._RZPot,LogarithmicHaloPotential)):
-            self._aA= actionAngle.actionAngleFlat(self.vxvv[0],
-                                                  self.vxvv[1],
-                                                  self.vxvv[2])
-        elif isinstance(thispot,KeplerPotential) or \
-                (isinstance(thispot,planarPotentialFromRZPotential) and \
-                     isinstance(thispot._RZPot,KeplerPotential)):
-            self._aA= actionAngle.actionAnglePower(self.vxvv[0],
-                                                   self.vxvv[1],
-                                                   self.vxvv[2],
-                                                   beta=-0.5)
-        elif isinstance(thispot,PowerSphericalPotential) or \
-                (isinstance(thispot,planarPotentialFromRZPotential) and \
-                     isinstance(thispot._RZPot,PowerSphericalPotential)):
-            if isinstance(thispot,planarPotentialFromRZPotential) and \
-                    isinstance(thispot._RZPot,PowerSphericalPotential):
-                thispot= thispot._RZPot
-            if thispot.alpha == 2.:
-                self._aA= actionAngle.actionAngleFlat(self.vxvv[0],
-                                                      self.vxvv[1],
-                                                      self.vxvv[2])
-            else:
-                self._aA= actionAngle.actionAnglePower(self.vxvv[0],
-                                                       self.vxvv[1],
-                                                       self.vxvv[2],
-                                                       beta=1.-thispot.alpha/2.)
-        else:
-            
-            self._aA= actionAngle.actionAngleAxi(self.vxvv[0],self.vxvv[1],
-                                                 self.vxvv[2],pot=thispot)
-
     def plotJacobi(self,*args,**kwargs):
         """
         NAME:
@@ -610,9 +526,8 @@ class planarOrbit(planarOrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -799,7 +714,7 @@ def _integrateOrbit(vxvv,pot,t,method):
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
@@ -874,7 +789,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
         #raise NotImplementedError("C implementation of phase space integration not implemented yet")
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
@@ -1020,5 +935,5 @@ def _rectForce(x,pot,t=0.):
 
 def _parse_warnmessage(msg):
     if msg == 1:
-        warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate")
+        warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate",galpyWarning)
         

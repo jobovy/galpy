@@ -2,17 +2,16 @@ import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy import actionAngle
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
-    KeplerPotential
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
+from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 try:
     from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
 except IOError:
-    warnings.warn("integrateFullOrbit_c extension module not loaded")
+    warnings.warn("integrateFullOrbit_c extension module not loaded",
+                  galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True
@@ -53,7 +52,6 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-08-01 - Written - Bovy (NYU)
         """
-        if method == 'leapfrog_c': method= 'odeint'
         #Reset things that may have been defined by a previous integration
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
@@ -166,8 +164,8 @@ class FullOrbit(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -190,8 +188,8 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -214,8 +212,8 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -239,103 +237,12 @@ class FullOrbit(OrbitTop):
            2012-06-01 - Added analytic calculation - Bovy (IAS)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            zmax= self._aA.calczmax()
+            self._setupaA(pot=pot,type='adiabatic')
+            zmax= self._aA.calczmax(self)
             return zmax
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
-
-    def wp(self,pot=None):
-        """
-        NAME:
-           wp
-        PURPOSE:
-           calculate the azimuthal angle
-        INPUT:
-           pot - potential
-        OUTPUT:
-           wp
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if len(self.vxvv) < 6:
-            raise AttributeError("'Orbit' does not track azimuth")
-        else:
-            return self.vxvv[-1]
-
-    def _resetaA(self,pot=None):
-        """
-        NAME:
-           _resetaA
-        PURPOSE:
-           re-set up an actionAngle module for this Orbit
-           ONLY TO BE CALLED FROM WITHIN SETUPAA
-        INPUT:
-           pot - potential
-        OUTPUT:
-           True if reset happened, False otherwise
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
-        """
-        if not pot is None and pot != self._aAPot:
-            delattr(self,'_aA')
-            return True
-        else:
-            pass #Already set up
-
-    def _setupaA(self,pot=None):
-        """
-        NAME:
-           _setupaA
-        PURPOSE:
-           set up an actionAngle module for this Orbit
-        INPUT:
-           pot - potential
-        OUTPUT:
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if hasattr(self,'_aA'): 
-            if not self._resetaA(pot=pot): return None
-        if pot is None:
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit or specify pot=")
-        self._aAPot= pot
-        L= self.L().flatten()
-        R= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
-        vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/R
-        vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/R
-        z= self.vxvv[3]
-        vz= self.vxvv[4]
-        if isinstance(pot,LogarithmicHaloPotential):
-            self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
-                                                  verticalPot=pot.toVertical(R))
-        elif isinstance(pot,KeplerPotential):
-            self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,beta=-0.5,
-                                                   verticalPot=pot.toVertical(R))
-        elif isinstance(pot,PowerSphericalPotential):
-            if pot.alpha == 2.:
-                self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
-                                                  verticalPot=pot.toVertical(R))                
-            else:
-                self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,
-                                                       beta=1.\
-                                                           -pot.alpha/2.,
-                                                       verticalPot=pot.toVertical(R))
-        else:
-            if isinstance(pot,list):
-                thispot= [p.toPlanar() for p in pot]
-            else:
-                thispot= pot.toPlanar()
-            if isinstance(pot,list):
-                thisverticalpot= [p.toVertical(R) for p in pot]
-            else:
-                thisverticalpot= pot.toVertical(R)
-            self._aA= actionAngle.actionAngleAxi(R,vR,vT,z,vz,pot=thispot,
-                                                 verticalPot=thisverticalpot)
 
     def plotE(self,*args,**kwargs):
         """
@@ -639,7 +546,8 @@ def _integrateFullOrbit(vxvv,pot,t,method):
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
-        warnings.warn("Using C implementation to integrate orbits")
+        warnings.warn("Using C implementation to integrate orbits",
+                      galpyWarning)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
                              vxvv[0]*nu.sin(vxvv[5]),

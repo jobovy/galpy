@@ -336,15 +336,16 @@ def bovy_plot(*args,**kwargs):
         kwargs.pop('clabel')
     else:
         clabel=None
-    if kwargs.has_key('xrange'):
+    if kwargs.has_key('xrange') and not kwargs['xrange'] is None:
         xlimits=kwargs['xrange']
         kwargs.pop('xrange')
     else:
         if isinstance(args[0],list):
             xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
         else:
-            xlimits=(args[0].min(),args[0].max())           
-    if kwargs.has_key('yrange'):
+            xlimits=(args[0].min(),args[0].max())
+    if kwargs.has_key('xrange'): kwargs.pop('xrange')
+    if kwargs.has_key('yrange') and not kwargs['yrange'] is None:
         ylimits=kwargs['yrange']
         kwargs.pop('yrange')
     else:
@@ -352,7 +353,8 @@ def bovy_plot(*args,**kwargs):
             ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
-    if kwargs.has_key('crange'):
+    if kwargs.has_key('yrange'): kwargs.pop('yrange')
+    if kwargs.has_key('crange') and not kwargs['crange'] is None:
         climits=kwargs['crange']
         kwargs.pop('crange')
     elif not scatter:
@@ -363,6 +365,7 @@ def bovy_plot(*args,**kwargs):
         climits=(kwargs['c'].min(),kwargs['c'].max())
     else:
         climits= None
+    if kwargs.has_key('crange'): kwargs.pop('crange')
     if scatter:
         out= pyplot.scatter(*args,**kwargs)
     elif loglog:

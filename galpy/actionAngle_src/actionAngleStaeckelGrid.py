@@ -14,12 +14,13 @@ import math
 import warnings
 import numpy
 from scipy import interpolate, optimize, ndimage
+from galpy.util import galpyWarning
 import actionAngleStaeckel
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 try:
     import actionAngleStaeckel_c
 except IOError:
-    warnings.warn("actionAngle_c extension module not loaded")
+    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True

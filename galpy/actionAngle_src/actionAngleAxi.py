@@ -19,7 +19,7 @@ from scipy import optimize, integrate
 from actionAngle import *
 from actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, evaluateplanarPotentials
+    evaluateplanarPotentials
 from galpy.potential import vcirc
 _EPS= 10.**-15.
 class actionAngleAxi(actionAngle,actionAngleVertical):

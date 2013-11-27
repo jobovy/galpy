@@ -1,8 +1,23 @@
 import os
 import shutil
+import warnings
+import copy
 import tempfile
 import pickle
 import numpy
+class galpyWarning(Warning):
+    pass
+old_showwarning= copy.copy(warnings.showwarning)
+def _warning(
+    message,
+    category = galpyWarning,
+    filename = '',
+    lineno = -1):
+    if issubclass(category,galpyWarning):
+        print("galpyWarning: "+str(message))
+    else:
+        old_showwarning(message,category,filename,lineno)
+warnings.showwarning = _warning
 def save_pickles(savefilename,*args):
     """
     NAME:
@@ -59,3 +74,21 @@ def logsumexp(arr,axis=0):
     if axis == 1:
         minarr= numpy.reshape(minarr,(arr.shape[0]))
     return minarr+numpy.log(numpy.sum(numpy.exp(arr-minminarr),axis=axis))
+
+def stable_cholesky(x,tiny):
+    """
+    NAME:
+       stable_cholesky
+    PURPOSE:
+       Stable version of the cholesky decomposition
+    INPUT:
+       x - (sc.array) positive definite matrix
+       tiny - (double) tiny number to add to the covariance matrix to make the decomposition stable
+    OUTPUT:
+       L - (matrix) lower matrix
+    REVISION HISTORY:
+       2009-09-25 - Written - Bovy (NYU)
+    """
+    thisx= x+tiny*numpy.eye(x.shape[0])
+    L= numpy.linalg.cholesky(thisx)
+    return L

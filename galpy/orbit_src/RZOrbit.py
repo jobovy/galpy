@@ -44,7 +44,6 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10
         """
-        if method == 'leapfrog_c': method= 'odeint'
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
@@ -156,7 +155,9 @@ class RZOrbit(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
+            return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -178,7 +179,9 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
+            return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -200,7 +203,9 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            raise AttributeError("To analytically calculate the eccentricity, use a FullOrbit (for now)")
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
+            return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -220,7 +225,9 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            raise AttributeError("To analytically calculate zmax, use a FullOrbit (for now)")
+            self._setupaA(pot=pot,type='adiabatic')
+            zmax= self._aA.calczmax(self)
+            return zmax
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
