@@ -491,8 +491,12 @@ class actionAngleIsochroneApprox():
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
+                if len(os[0]._orb.vxvv) != 6:
+                    raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
+                if len(os[0]._orb.vxvv) != 6:
+                    raise IOError("Must specify phi for actionAngleIsochroneApprox")
             if not hasattr(os[0],'orbit'): #not integrated yet
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method) for o in os]
