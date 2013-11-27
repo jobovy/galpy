@@ -467,10 +467,14 @@ class actionAngleIsochroneApprox():
     def _parse_args(self,freqsAngles=True,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
         RasOrbit= False
-        if len(args) == 5:
+        if len(args) == 5 or len(args) == 3:
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
-        if len(args) == 6:
-            R,vR,vT, z, vz, phi= args
+        if len(args) == 6 or len(args) == 4:
+            if len(args) == 6:
+                R,vR,vT, z, vz, phi= args
+            else:
+                R,vR,vT, phi= args
+                z, vz= 0., 0.
             if isinstance(R,float):
                 o= Orbit([R,vR,vT,z,vz,phi])
                 o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
@@ -491,11 +495,11 @@ class actionAngleIsochroneApprox():
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) != 6:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) != 6:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             if not hasattr(os[0],'orbit'): #not integrated yet
                 [o.integrate(self._tsJ,pot=self._pot,
@@ -505,25 +509,28 @@ class actionAngleIsochroneApprox():
             R= nu.empty((no,ntJ))
             vR= nu.empty((no,ntJ))
             vT= nu.empty((no,ntJ))
-            z= nu.empty((no,ntJ))
-            vz= nu.empty((no,ntJ))
+            z= nu.zeros((no,ntJ))+10.**-7. #To avoid numpy warnings for
+            vz= nu.zeros((no,ntJ))+10.**-7. #planarOrbits
             phi= nu.empty((no,ntJ))
             for ii in range(len(os)):
                 this_orbit= os[ii].getOrbit()
                 R[ii,:]= this_orbit[:,0]
                 vR[ii,:]= this_orbit[:,1]
                 vT[ii,:]= this_orbit[:,2]
-                z[ii,:]= this_orbit[:,3]
-                vz[ii,:]= this_orbit[:,4]
-                phi[ii,:]= this_orbit[:,5]
+                if this_orbit.shape[1] == 6:
+                    z[ii,:]= this_orbit[:,3]
+                    vz[ii,:]= this_orbit[:,4]
+                    phi[ii,:]= this_orbit[:,5]
+                else:
+                    phi[ii,:]= this_orbit[:,3]
         if freqsAngles: #also integrate backwards in time, such that the requested point is not at the edge
             no= R.shape[0]
             nt= R.shape[1]
             oR= nu.empty((no,2*nt-1))
             ovR= nu.empty((no,2*nt-1))
             ovT= nu.empty((no,2*nt-1))
-            oz= nu.empty((no,2*nt-1))
-            ovz= nu.empty((no,2*nt-1))
+            oz= nu.zeros((no,2*nt-1))+10.**-7. #To avoid numpy warnings for
+            ovz= nu.zeros((no,2*nt-1))+10.**-7. #planarOrbits
             ophi= nu.empty((no,2*nt-1))
             oR[:,nt-1:]= R
             ovR[:,nt-1:]= vR
@@ -542,8 +549,9 @@ class actionAngleIsochroneApprox():
                 oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
                 ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
                 ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
-                oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
-                ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
+                if os[ii].getOrbit().shape[1] == 6:
+                    oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
+                    ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
                 ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
             return (oR,ovR,ovT,oz,ovz,ophi)
         else:
