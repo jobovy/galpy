@@ -223,17 +223,21 @@ class interpRZPotential(Potential):
         return None
                                                  
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+        if isinstance(R,float) or isinstance(R,int):
+            R= numpy.array([R],dtype='float')
+        if isinstance(z,float) or isinstance(z,int):
+            z= numpy.array([z],dtype='float')
+
         if self._interpPot and self._enable_c:
-            if isinstance(R,float) or isinstance(R,int):
-                R= numpy.array([R],dtype='float')
-            if isinstance(z,float) or isinstance(z,int):
-                z= numpy.array([z],dtype='float')
             if self._zsym:
                 return eval_potential_c(self,R,numpy.fabs(z))[0]
             else:
                 return eval_potential_c(self,R,z)[0]
         from galpy.potential import evaluatePotentials
         if self._interpPot:
+            if len(z) == 1 and len(R) != 1: z = numpy.resize(z,len(R))
+            if len(R) == 1 and len(z) != 1: R = numpy.resize(R,len(z))
+
             if isinstance(R,float):
                 return self._evaluate(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
@@ -258,17 +262,21 @@ class interpRZPotential(Potential):
             return evaluatePotentials(R,z,self._origPot)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
+        if isinstance(R,float):
+            R= numpy.array([R])
+        if isinstance(z,float):
+            z= numpy.array([z])
+
         if self._interpRforce and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
             if self._zsym:
                 return eval_force_c(self,R,numpy.fabs(z))[0]
             else:
                 return eval_force_c(self,R,z)[0]
         from galpy.potential import evaluateRforces
         if self._interpRforce:
+            if len(z) == 1 and len(R) != 1: z = numpy.resize(z,len(R))
+            if len(R) == 1 and len(z) != 1: R = numpy.resize(R,len(z))
+
             if isinstance(R,float):
                 return self._Rforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
@@ -293,17 +301,21 @@ class interpRZPotential(Potential):
             return evaluateRforces(R,z,self._origPot)
 
     def _zforce(self,R,z,phi=0.,t=0.):
+        if isinstance(R,float):
+            R= numpy.array([R])
+        if isinstance(z,float):
+            z= numpy.array([z])
+
         if self._interpzforce and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
             if self._zsym:
                 return sign(z) * eval_force_c(self,R,numpy.fabs(z),zforce=True)[0]
             else:
                 return eval_force_c(self,R,z,zforce=True)[0]
         from galpy.potential import evaluatezforces
         if self._interpzforce:
+            if len(z) == 1 and len(R) != 1: z = numpy.resize(z,len(R))
+            if len(R) == 1 and len(z) != 1: R = numpy.resize(R,len(z))
+
             if isinstance(R,float):
                 return self._zforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
