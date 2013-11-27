@@ -5,7 +5,8 @@ from galpy.util import bovy_coords, stable_cholesky
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 sigMeanOffset=1.5,deltaAngle=0.3):
+                 sigMeanOffset=1.5,deltaAngle=0.3,leading=True,
+                 deltaAngleTrack=numpy.pi):
         """
         NAME:
            __init__
@@ -13,14 +14,18 @@ class streamdf:
            Initialize a quasi-isothermal DF
         INPUT:
            sigv - radial velocity dispersion of the progenitor
+           leading= (True) if True, model the leading part of the stream
+                           if False, model the trailing part
            progenitor= progenitor orbit as Orbit instance 
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
            sigMeanOffset= (1.5) offset between the mean of the frequencies
                           and the progenitor, in units of the largest 
                           eigenvalue of the frequency covariance matrix 
-                          (along the largest eigenvector)
+                          (along the largest eigenvector), should be positive;
+                          to model the trailing part, set leading=False
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
+           deltaAngleTrack= (pi) angle to estimate the stream track over
         OUTPUT:
            object
         HISTORY:
@@ -69,17 +74,55 @@ class streamdf:
         self._sigangle= numpy.sqrt(self._sigangle2)
         self._lnsigangle= numpy.log(self._sigangle)
         #Estimate the frequency mean as lying along the direction of the largest eigenvalue
+        self._dsigomeanProgDirection= self._sigomatrixEig[1][:,numpy.argmax(self._sigomatrixEig[0])]
+        self._progenitor_Omega_along_dOmega= \
+            numpy.dot(self._progenitor_Omega,self._dsigomeanProgDirection)
+        #Make sure we are modeling the correct part of the stream
+        self._leading= leading
+        self._sigMeanSign= 1.
+        if self._leading and self._progenitor_Omega_along_dOmega < 0.:
+            self._sigMeanSign= -1.
+        elif not self._leading and self._progenitor_Omega_along_dOmega > 0.:
+            self._sigMeanSign= -1.
+        self._dsigomeanProgDirection= numpy.fabs(self._dsigomeanProgDirection
         self._sigomean= self._progenitor_Omega\
-            +self._sigMeanOffset\
+            +self._sigMeanOffset*self._sigMeanSign\
             *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))\
-            *self._sigomatrixEig[1][:,numpy.argmax(self._sigomatrixEig[0])]
+            *self._dsigomeanProgDirection
 #numpy.dot(self._dOdJp,
 #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
+        self._dsigomeanProg= self._sigomean-self._progenitor_Omega
         #Store cholesky of sigomatrix for fast evaluation
         self._sigomatrixL= stable_cholesky(self._sigomatrix,10.**-8.)
         self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
+        #Determine the stream track
+        self._determine_stream_track(deltaAngleTrack)
         return None
-        
+
+    def estimateTdisrupt(self,deltaAngle):
+        """
+        NAME:
+           estimateTdisrupt
+        PURPOSE:
+           estimate the time of disruption
+        INPUT:
+           deltaAngle- spread in angle since disruption
+        OUTPUT:
+           time in natural units
+        HISTORY:
+           2013-11-27 - Written - Bovy (IAS)
+        """
+        return deltaAngle\
+            /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
+
+    def _determine_stream_track(self,deltaAngleTrack):
+        """Determine the track of the stream in real space"""
+        #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
+        self._deltaAngleTrack= deltaAngleTrack
+        dt= self._deltaAngleTrack\
+            /
+        return None                  
+
     def __call__(self,*args,**kwargs):
         """
         NAME:
