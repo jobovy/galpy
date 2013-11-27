@@ -563,7 +563,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -573,9 +581,11 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.JR(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA(self)[0][0]
 
     def jp(self,pot=None,**kwargs):
         """

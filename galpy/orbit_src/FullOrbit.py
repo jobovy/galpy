@@ -265,7 +265,7 @@ class FullOrbit(OrbitTop):
         else:
             return self.vxvv[-1]
 
-    def _resetaA(self,pot=None):
+    def _resetaA(self,pot=None,type=None):
         """
         NAME:
            _resetaA
@@ -279,13 +279,14 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
         """
-        if not pot is None and pot != self._aAPot:
+        if (not pot is None and pot != self._aAPot) \
+                or (not type is None and type != self._aAType):
             delattr(self,'_aA')
             return True
         else:
             pass #Already set up
 
-    def _setupaA(self,pot=None):
+    def _setupaA(self,pot=None,type='adiabatic',**kwargs):
         """
         NAME:
            _setupaA
@@ -293,50 +294,36 @@ class FullOrbit(OrbitTop):
            set up an actionAngle module for this Orbit
         INPUT:
            pot - potential
+           type= ('adiabatic') type of actionAngle module to use
+              1) 'adiabatic'
+              2) 'staeckel'
+              3) 'isochroneApprox'
         OUTPUT:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
+           2013-11-27 - Re-written in terms of new actionAngle modules - Bovy (IAS)
         """
-        if hasattr(self,'_aA'): 
-            if not self._resetaA(pot=pot): return None
+        if hasattr(self,'_aA'):
+            if not self._resetaA(pot=pot,type=type): return None
         if pot is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
         self._aAPot= pot
-        L= self.L().flatten()
-        R= nu.sqrt(self.vxvv[0]**2.+self.vxvv[3]**2.)
-        vT= nu.sqrt(L[0]**2.+L[1]**2.+L[2]**2.)/R
-        vR= (self.x()*self.vx()+self.y()*self.vy()+self.z()*self.vz())/R
-        z= self.vxvv[3]
-        vz= self.vxvv[4]
-        if isinstance(pot,LogarithmicHaloPotential):
-            self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
-                                                  verticalPot=pot.toVertical(R))
-        elif isinstance(pot,KeplerPotential):
-            self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,beta=-0.5,
-                                                   verticalPot=pot.toVertical(R))
-        elif isinstance(pot,PowerSphericalPotential):
-            if pot.alpha == 2.:
-                self._aA= actionAngle.actionAngleFlat(R,vR,vT,z,vz,
-                                                  verticalPot=pot.toVertical(R))                
-            else:
-                self._aA= actionAngle.actionAnglePower(R,vR,vT,z,vz,
-                                                       beta=1.\
-                                                           -pot.alpha/2.,
-                                                       verticalPot=pot.toVertical(R))
-        else:
-            if isinstance(pot,list):
-                thispot= [p.toPlanar() for p in pot]
-            else:
-                thispot= pot.toPlanar()
-            if isinstance(pot,list):
-                thisverticalpot= [p.toVertical(R) for p in pot]
-            else:
-                thisverticalpot= pot.toVertical(R)
-            self._aA= actionAngle.actionAngleAxi(R,vR,vT,z,vz,pot=thispot,
-                                                 verticalPot=thisverticalpot)
+        self._aAType= type
+        #Setup
+        if self._aAType.lower() == 'adiabatic':
+            self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
+                                                       **kwargs)
+        elif self._aAType.lower() == 'staeckel':
+            self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
+                                                      **kwargs)
+        elif self._aAType.lower() == 'isochroneapprox':
+            from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
+            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
+                                                 **kwargs)
+        return None
 
     def plotE(self,*args,**kwargs):
         """
