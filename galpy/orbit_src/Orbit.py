@@ -798,7 +798,7 @@ class Orbit:
 
         PURPOSE:
 
-           calculate the radial period
+           calculate the azimuthal period
 
         INPUT:
 
@@ -903,6 +903,112 @@ class Orbit:
         """
         self._orb._setupaA(pot=pot,**kwargs)
         return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
+
+    def Or(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Or
+
+        PURPOSE:
+
+           calculate the radial frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           Or
+
+        HISTORY:
+
+           2013-11-27 - Written - Bovy (IAS)
+
+        """
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqs(self)[3][0]
+
+    def Op(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Op
+
+        PURPOSE:
+
+           calculate the azimuthal frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           Tp
+
+        HISTORY:
+
+           2013-11-27 - Written - Bovy (IAS)
+        """
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqs(self)[4][0]
+
+    def Oz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Oz
+
+        PURPOSE:
+
+           calculate the vertical frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           Oz
+
+        HISTORY:
+
+           2013-11-27 - Written - Bovy (IAS)
+        """
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqs(self)[5][0]
 
     def R(self,*args,**kwargs):
         """
