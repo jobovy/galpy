@@ -6,7 +6,9 @@ class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  sigMeanOffset=1.5,deltaAngle=0.3,leading=True,
-                 deltaAngleTrack=numpy.pi):
+                 deltaAngleTrack=1.5,nTrackChunks=11,
+                 Vnorm=220.,Rnorm=8.,
+                 R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
         """
         NAME:
            __init__
@@ -25,7 +27,16 @@ class streamdf:
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
-           deltaAngleTrack= (pi) angle to estimate the stream track over
+           deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
+           nTrackChunks= (11) number of chunks to divide the progenitor track in
+
+           Coordinate transformation inputs:
+              Vnorm= (220) circular velocity to normalize velocities with
+              Rnorm= (8) Galactocentric radius to normalize positions with
+              R0= (8) Galactocentric radius of the Sun (kpc)
+              Zsun= (0.025) Sun's height above the plane (kpc)
+              vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
+
         OUTPUT:
            object
         HISTORY:
@@ -96,7 +107,12 @@ class streamdf:
         self._sigomatrixL= stable_cholesky(self._sigomatrix,10.**-8.)
         self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
         #Determine the stream track
-        self._determine_stream_track(deltaAngleTrack)
+        self._Vnorm= Vnorm
+        self._Rnorm= Rnorm
+        self._R0= R0
+        self._Zsun= Zsun
+        self._vsun= vsun
+        self._determine_stream_track(deltaAngleTrack,nTrackChunks)
         return None
 
     def estimateTdisrupt(self,deltaAngle):
@@ -115,14 +131,104 @@ class streamdf:
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
-    def _determine_stream_track(self,deltaAngleTrack):
+    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         self._deltaAngleTrack= deltaAngleTrack
+        self._nTrackChunks= nTrackChunks
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
-        print dt
-        return None                  
+        self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
+        #Instantiate another Orbit for the progenitor orbit where there is data
+        if dt < 0.:
+            self._trackts= numpy.linspace(0.,-dt,self._nTrackChunks)
+            #Flip velocities before integrating
+            self._progenitorTrack= Orbit([self._progenitor.R(0.),
+                                          -self._progenitor.vR(0.),
+                                          -self._progenitor.vT(0.),
+                                          self._progenitor.z(0.),
+                                          -self._progenitor.vz(0.),
+                                          self._progenitor.phi(0.)])
+        else:
+            self._progenitorTrack= self._progenitor(0.)
+        self._progenitorTrack.integrate(self._trackts,self._pot)
+        if dt < 0.:
+            #Flip velocities again
+            self._progenitorTrack._orb.orbit[:,1]= -self._progenitorTrack._orb.orbit[:,1]
+            self._progenitorTrack._orb.orbit[:,2]= -self._progenitorTrack._orb.orbit[:,2]
+            self._progenitorTrack._orb.orbit[:,4]= -self._progenitorTrack._orb.orbit[:,4]
+        #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
+        allAcfsTrack= numpy.empty((self._nTrackChunks,9))
+        alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
+        thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
+                                    self._nTrackChunks)
+        ObsTrack= numpy.empty((self._nTrackChunks,6))
+        llbbdistkwargs= {}
+        vlospmllpmbbkwargs= {}
+        vlospmllpmbbkwargs['obs']= [self._R0,0.,self._Zsun,
+                                    self._vsun[0],self._vsun[1],self._vsun[2]]
+        llbbdistkwargs['obs']= [self._R0,0.,self._Zsun]
+        vlospmllpmbbkwargs['ro']= self._Rnorm
+        llbbdistkwargs['ro']= self._Rnorm
+        vlospmllpmbbkwargs['vo']= self._Vnorm
+        for ii in range(self._nTrackChunks):
+            tacfs= self._aA.actionsFreqsAngles(self._progenitorTrack(self._trackts[ii]),
+                                         maxn=3)
+            allAcfsTrack[ii,0]= tacfs[0][0]
+            allAcfsTrack[ii,1]= tacfs[1][0]
+            allAcfsTrack[ii,2]= tacfs[2][0]
+            for jj in range(3,9):
+                allAcfsTrack[ii,jj]= tacfs[jj]
+            tjac= calcaAJac(self._progenitorTrack(self._trackts[ii])._orb.vxvv,
+                            self._aA,
+                            dxv=None,freqs=True,
+                            lb=True,
+                            Vnorm=self._Vnorm,Rnorm=self._Rnorm,
+                            R0=self._R0,Zsun=self._Zsun,
+                            vsun=self._vsun,
+                            _initacfs=tacfs)
+            alljacsTrack[ii,:,:]= tjac
+            tinvjac= numpy.linalg.inv(tjac)
+            if False and ii == 0:
+                #Calculate the necessary angle offset, to make the stream
+                #match up with the progenitor
+                angleOffset= -numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))\
+                    *(numpy.sum(numpy.dot(tinvjac[3:,3:],
+                                          self._dsigomeanProgDirection)*\
+                                    numpy.dot(tinvjac[3:,:3],
+                                              self._dsigomeanProgDirection))\
+                          /numpy.sum(numpy.dot(tinvjac[3:,3:],
+                                               self._dsigomeanProgDirection)**2.))
+                thetasTrack+= angleOffset
+            theseAngles= numpy.mod(self._progenitor_angle\
+                                       +thetasTrack[ii]\
+                                       *self._sigMeanSign\
+                                       *self._dsigomeanProgDirection,
+                                   2.*numpy.pi)
+            diffAngles= theseAngles-allAcfsTrack[ii,6:]
+            diffAngles[(diffAngles > numpy.pi)]= diffAngles[(diffAngles > numpy.pi)]-2.*numpy.pi
+            diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
+            diffFreqs= self._sigomean-allAcfsTrack[ii,3:6]
+            #print "diff", theseAngles,allAcfsTrack[ii,6:],diffAngles
+            ObsTrack[ii,:]= numpy.dot(tinvjac,
+                                      numpy.hstack((diffFreqs,diffAngles)))
+            print ii, ObsTrack[ii,:]
+            ObsTrack[ii,0]+= \
+                self._progenitorTrack(self._trackts[ii]).ll(**llbbdistkwargs)
+            ObsTrack[ii,1]+= \
+                self._progenitorTrack(self._trackts[ii]).bb(**llbbdistkwargs)
+            ObsTrack[ii,2]+= \
+                self._progenitorTrack(self._trackts[ii]).dist(**llbbdistkwargs)
+            ObsTrack[ii,3]+= \
+                self._progenitorTrack(self._trackts[ii]).vlos(**vlospmllpmbbkwargs)
+            ObsTrack[ii,4]+= \
+                self._progenitorTrack(self._trackts[ii]).pmll(**vlospmllpmbbkwargs)
+            ObsTrack[ii,5]+= \
+                self._progenitorTrack(self._trackts[ii]).pmbb(**vlospmllpmbbkwargs)               
+        self._thetasTrack= thetasTrack
+        self._ObsTrack= ObsTrack
+        self._allAcfsTrack= allAcfsTrack
+        return None
 
     def __call__(self,*args,**kwargs):
         """
@@ -334,9 +440,25 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
             jac2[0,ii]= (tOr-Or)/dxv[ii]
             jac2[1,ii]= (tOphi-Ophi)/dxv[ii]
             jac2[2,ii]= (tOz-Oz)/dxv[ii]
-        jac[angleIndx,ii]= (tar-ar)/dxv[ii]
-        jac[angleIndx+1,ii]= (taphi-aphi)/dxv[ii]
-        jac[angleIndx+2,ii]= (taz-az)/dxv[ii]
+        #For the angles, make sure we do not hit a turning point
+        if tar-ar > numpy.pi:
+            jac[angleIndx,ii]= (tar-ar-2.*numpy.pi)/dxv[ii]
+        elif tar-ar < -numpy.pi:
+            jac[angleIndx,ii]= (tar-ar+2.*numpy.pi)/dxv[ii]
+        else:
+            jac[angleIndx,ii]= (tar-ar)/dxv[ii]
+        if taphi-aphi > numpy.pi:
+            jac[angleIndx+1,ii]= (taphi-aphi-2.*numpy.pi)/dxv[ii]
+        elif taphi-aphi < -numpy.pi:
+            jac[angleIndx+1,ii]= (taphi-aphi+2.*numpy.pi)/dxv[ii]
+        else:
+            jac[angleIndx+1,ii]= (taphi-aphi)/dxv[ii]
+        if taz-az > numpy.pi:
+            jac[angleIndx+2,ii]= (taz-az-2.*numpy.pi)/dxv[ii]
+        if taz-az < -numpy.pi:
+            jac[angleIndx+2,ii]= (taz-az+2.*numpy.pi)/dxv[ii]
+        else:
+            jac[angleIndx+2,ii]= (taz-az)/dxv[ii]
     if dOdJ:
         jac2[3,:]= jac[3,:]
         jac2[4,:]= jac[4,:]
