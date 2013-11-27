@@ -40,11 +40,13 @@ class actionAngle:
             self._R= vxvv[0]
             self._vR= vxvv[1]
             self._vT= vxvv[2]
-            if len(vxvv) > 3:
+            if len(vxvv) > 4:
                 self._z= vxvv[3]
                 self._vz= vxvv[4]
                 if len(vxvv) > 5:
                     self._phi= vxvv[5]
+            elif len(vxvv) > 3:
+                self._phi= vxvv[3]
         if hasattr(self,'_z'): #calculate the polar angle
             if self._z == 0.: self._theta= m.pi/2.
             else: self._theta= m.atan(self._R/self._z)
