@@ -766,7 +766,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -776,9 +784,11 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.TR(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[3][0]
 
     def Tp(self,pot=None,**kwargs):
         """
@@ -794,7 +804,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -804,9 +822,11 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.Tphi(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[4][0]
 
     def TrTp(self,pot=None,**kwargs):
         """
@@ -822,7 +842,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -832,9 +860,11 @@ class Orbit:
 
            2010-11-30 - Written - Bovy (NYU)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.I(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi
  
     def Tz(self,pot=None,**kwargs):
         """
@@ -850,7 +880,15 @@ class Orbit:
 
            pot - potential
 
-           +scipy.integrate.quadrature keywords
+           type= ('adiabatic') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+           +actionAngle module setup kwargs
 
         OUTPUT:
 
@@ -860,9 +898,11 @@ class Orbit:
 
            2012-06-01 - Written - Bovy (IAS)
 
+           2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
+
         """
-        self._orb._setupaA(pot=pot)
-        return self._orb._aA.Tz(**kwargs)
+        self._orb._setupaA(pot=pot,**kwargs)
+        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
 
     def R(self,*args,**kwargs):
         """
