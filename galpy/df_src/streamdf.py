@@ -84,7 +84,7 @@ class streamdf:
             self._sigMeanSign= -1.
         elif not self._leading and self._progenitor_Omega_along_dOmega > 0.:
             self._sigMeanSign= -1.
-        self._dsigomeanProgDirection= numpy.fabs(self._dsigomeanProgDirection
+        self._progenitor_Omega_along_dOmega*= self._sigMeanSign 
         self._sigomean= self._progenitor_Omega\
             +self._sigMeanOffset*self._sigMeanSign\
             *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))\
@@ -120,7 +120,8 @@ class streamdf:
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         self._deltaAngleTrack= deltaAngleTrack
         dt= self._deltaAngleTrack\
-            /
+            /self._progenitor_Omega_along_dOmega
+        print dt
         return None                  
 
     def __call__(self,*args,**kwargs):
