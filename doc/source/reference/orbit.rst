@@ -33,6 +33,9 @@ Methods
    jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
+   Op <orbitOp.rst>
+   Or <orbitOr.rst>
+   Oz <orbitOz.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
