@@ -2,7 +2,6 @@ import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy import actionAngle
 from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
     KeplerPotential
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
@@ -264,66 +263,6 @@ class FullOrbit(OrbitTop):
             raise AttributeError("'Orbit' does not track azimuth")
         else:
             return self.vxvv[-1]
-
-    def _resetaA(self,pot=None,type=None):
-        """
-        NAME:
-           _resetaA
-        PURPOSE:
-           re-set up an actionAngle module for this Orbit
-           ONLY TO BE CALLED FROM WITHIN SETUPAA
-        INPUT:
-           pot - potential
-        OUTPUT:
-           True if reset happened, False otherwise
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
-        """
-        if (not pot is None and pot != self._aAPot) \
-                or (not type is None and type != self._aAType):
-            delattr(self,'_aA')
-            return True
-        else:
-            pass #Already set up
-
-    def _setupaA(self,pot=None,type='adiabatic',**kwargs):
-        """
-        NAME:
-           _setupaA
-        PURPOSE:
-           set up an actionAngle module for this Orbit
-        INPUT:
-           pot - potential
-           type= ('adiabatic') type of actionAngle module to use
-              1) 'adiabatic'
-              2) 'staeckel'
-              3) 'isochroneApprox'
-        OUTPUT:
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-           2013-11-27 - Re-written in terms of new actionAngle modules - Bovy (IAS)
-        """
-        if hasattr(self,'_aA'):
-            if not self._resetaA(pot=pot,type=type): return None
-        if pot is None:
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit or specify pot=")
-        self._aAPot= pot
-        self._aAType= type
-        #Setup
-        if self._aAType.lower() == 'adiabatic':
-            self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
-                                                       **kwargs)
-        elif self._aAType.lower() == 'staeckel':
-            self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
-                                                      **kwargs)
-        elif self._aAType.lower() == 'isochroneapprox':
-            from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
-            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
-                                                 **kwargs)
-        return None
 
     def plotE(self,*args,**kwargs):
         """
