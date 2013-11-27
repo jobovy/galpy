@@ -2,8 +2,6 @@ import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
-    KeplerPotential
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 from galpy.util import galpyWarning

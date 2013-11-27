@@ -4,14 +4,10 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-from galpy import actionAngle
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential,\
-    KeplerPotential
 from OrbitTop import OrbitTop
-from RZOrbit import RZOrbit
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, RZToplanarPotential, evaluateplanarphiforces,\
-    evaluateplanarPotentials, planarPotentialFromRZPotential
+    RZToplanarPotential, evaluateplanarphiforces,\
+    evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
 from galpy.util import galpyWarning
 try:
