@@ -152,3 +152,19 @@ def mass_in_1010msol(vo,ro):
     """
     return vo**2.*ro/_G*10.**-7.
 
+def time_in_Gyr(vo,ro):
+    """
+    NAME:
+       time_in_Gyr
+    PURPOSE:
+       convert a time to Gyr
+    INPUT:
+       vo - velocity unit in km/s
+       ro - length unit in kpc
+    OUTPUT:
+       conversion from units where vo=1. at ro=1.
+    HISTORY:
+       2013-09-01 - Written - Bovy (IAS)
+    """
+    return ro/vo/_kmsInPcMyr
+
