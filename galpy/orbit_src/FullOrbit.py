@@ -246,24 +246,6 @@ class FullOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
-    def wp(self,pot=None):
-        """
-        NAME:
-           wp
-        PURPOSE:
-           calculate the azimuthal angle
-        INPUT:
-           pot - potential
-        OUTPUT:
-           wp
-        HISTORY:
-           2010-11-30 - Written - Bovy (NYU)
-        """
-        if len(self.vxvv) < 6:
-            raise AttributeError("'Orbit' does not track azimuth")
-        else:
-            return self.vxvv[-1]
-
     def plotE(self,*args,**kwargs):
         """
         NAME:
