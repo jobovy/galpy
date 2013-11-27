@@ -164,8 +164,8 @@ class FullOrbit(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -188,8 +188,8 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -212,8 +212,8 @@ class FullOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -237,8 +237,8 @@ class FullOrbit(OrbitTop):
            2012-06-01 - Added analytic calculation - Bovy (IAS)
         """
         if analytic:
-            self._setupaA(pot=pot)
-            zmax= self._aA.calczmax()
+            self._setupaA(pot=pot,type='adiabatic')
+            zmax= self._aA.calczmax(self)
             return zmax
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")

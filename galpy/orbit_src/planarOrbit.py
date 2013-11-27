@@ -51,9 +51,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -115,9 +114,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -140,9 +138,8 @@ class planarOrbitTop(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
@@ -150,7 +147,7 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
-    def zmax(self):
+    def zmax(self,pot=None,analytic=False):
         raise AttributeError("planarOrbit does not have a zmax")
     
     def plotJacobi(self,*args,**kwargs):
@@ -529,9 +526,8 @@ class planarOrbit(planarOrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            if not hasattr(self,'_aA'):
-                self._setupaA(pot=pot)
-            (rperi,rap)= self._aA.calcRapRperi()
+            self._setupaA(pot=pot,type='adiabatic')
+            (rperi,rap)= self._aA.calcRapRperi(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
