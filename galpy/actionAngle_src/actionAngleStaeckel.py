@@ -78,8 +78,7 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -160,8 +159,7 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -220,8 +218,7 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if self._c or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 raise IOError("Must specify phi")
