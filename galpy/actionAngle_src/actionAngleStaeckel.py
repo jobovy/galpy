@@ -72,14 +72,15 @@ class actionAngleStaeckel():
               a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
+            c= True/False; overrides the object's c= keyword to use C or not
            scipy.integrate.quadrature keywords
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if self._c and (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -118,6 +119,7 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
                 ojr= nu.zeros((len(args[0])))
@@ -160,8 +162,8 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if self._c and (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -220,8 +222,8 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if self._c and (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                                       or not kwargs.has_key('c'))):
+        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
             #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             if len(args) == 5: #R,vR.vT, z, vz
                 raise IOError("Must specify phi")

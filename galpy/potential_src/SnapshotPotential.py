@@ -91,7 +91,6 @@ class SnapshotPotential(Potential):
                                    (0,-R[i],z[j])]
 
             points_new = points.reshape(points.size/3,3)
-            print 'num threads = ', self._num_threads
             pot, acc = grav_omp.direct(self.s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R)*len(z),4)
