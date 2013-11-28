@@ -163,14 +163,6 @@ class streamdf:
         thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
-        llbbdistkwargs= {}
-        vlospmllpmbbkwargs= {}
-        vlospmllpmbbkwargs['obs']= [self._R0,0.,self._Zsun,
-                                    self._vsun[0],self._vsun[1],self._vsun[2]]
-        llbbdistkwargs['obs']= [self._R0,0.,self._Zsun]
-        vlospmllpmbbkwargs['ro']= self._Rnorm
-        llbbdistkwargs['ro']= self._Rnorm
-        vlospmllpmbbkwargs['vo']= self._Vnorm
         for ii in range(self._nTrackChunks):
             tacfs= self._aA.actionsFreqsAngles(self._progenitorTrack(self._trackts[ii]),
                                          maxn=3)
@@ -182,24 +174,10 @@ class streamdf:
             tjac= calcaAJac(self._progenitorTrack(self._trackts[ii])._orb.vxvv,
                             self._aA,
                             dxv=None,freqs=True,
-                            lb=True,
-                            Vnorm=self._Vnorm,Rnorm=self._Rnorm,
-                            R0=self._R0,Zsun=self._Zsun,
-                            vsun=self._vsun,
+                            lb=False,
                             _initacfs=tacfs)
             alljacsTrack[ii,:,:]= tjac
             tinvjac= numpy.linalg.inv(tjac)
-            if False and ii == 0:
-                #Calculate the necessary angle offset, to make the stream
-                #match up with the progenitor
-                angleOffset= -numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))\
-                    *(numpy.sum(numpy.dot(tinvjac[3:,3:],
-                                          self._dsigomeanProgDirection)*\
-                                    numpy.dot(tinvjac[3:,:3],
-                                              self._dsigomeanProgDirection))\
-                          /numpy.sum(numpy.dot(tinvjac[3:,3:],
-                                               self._dsigomeanProgDirection)**2.))
-                thetasTrack+= angleOffset
             theseAngles= numpy.mod(self._progenitor_angle\
                                        +thetasTrack[ii]\
                                        *self._sigMeanSign\
@@ -212,19 +190,18 @@ class streamdf:
             #print "diff", theseAngles,allAcfsTrack[ii,6:],diffAngles
             ObsTrack[ii,:]= numpy.dot(tinvjac,
                                       numpy.hstack((diffFreqs,diffAngles)))
-            print ii, ObsTrack[ii,:]
             ObsTrack[ii,0]+= \
-                self._progenitorTrack(self._trackts[ii]).ll(**llbbdistkwargs)
+                self._progenitorTrack(self._trackts[ii]).R()
             ObsTrack[ii,1]+= \
-                self._progenitorTrack(self._trackts[ii]).bb(**llbbdistkwargs)
+                self._progenitorTrack(self._trackts[ii]).vR()
             ObsTrack[ii,2]+= \
-                self._progenitorTrack(self._trackts[ii]).dist(**llbbdistkwargs)
+                self._progenitorTrack(self._trackts[ii]).vT()
             ObsTrack[ii,3]+= \
-                self._progenitorTrack(self._trackts[ii]).vlos(**vlospmllpmbbkwargs)
+                self._progenitorTrack(self._trackts[ii]).z()
             ObsTrack[ii,4]+= \
-                self._progenitorTrack(self._trackts[ii]).pmll(**vlospmllpmbbkwargs)
+                self._progenitorTrack(self._trackts[ii]).vz()
             ObsTrack[ii,5]+= \
-                self._progenitorTrack(self._trackts[ii]).pmbb(**vlospmllpmbbkwargs)               
+                self._progenitorTrack(self._trackts[ii]).phi()
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._allAcfsTrack= allAcfsTrack
