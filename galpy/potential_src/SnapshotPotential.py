@@ -12,6 +12,7 @@ from scipy.misc import derivative
 import interpRZPotential
 from scipy import interpolate 
 from os import system
+from galpy.util import multi
 
 class SnapshotPotential(Potential):
     """Create a snapshot potential object. The potential and forces are 
@@ -34,10 +35,11 @@ class SnapshotPotential(Potential):
 
     """
 
-    def __init__(self, s, num_threads=4) : 
+    def __init__(self, s, num_threads=pynbody.config['number_of_threads']) : 
         self.s = s
         self._point_hash = {}
         self._amp = 1.0
+        self._num_threads = num_threads
     
     def __call__(self, R, z, phi = None, t = None) : 
         # cast the points into arrays for compatibility
@@ -60,6 +62,7 @@ class SnapshotPotential(Potential):
         
 
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
+        from galpy.potential import vcirc
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
@@ -88,7 +91,8 @@ class SnapshotPotential(Potential):
                                    (0,-R[i],z[j])]
 
             points_new = points.reshape(points.size/3,3)
-            pot, acc = grav_omp.direct(self.s,points_new,num_threads=4)
+            print 'num threads = ', self._num_threads
+            pot, acc = grav_omp.direct(self.s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R)*len(z),4)
             acc = acc.reshape(len(R)*len(z),4,3)
@@ -135,57 +139,88 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
     
     def __init__(self, s, 
                  rgrid=(0.01,2.,101), zgrid=(0.,0.2,101), 
-                 enable_c = True, logR = False, zsym = True, num_threads=4, use_pkdgrav = False) : 
+                 interpepifreq = False, interpverticalfreq = False, interpvcirc = False, interpPot = False,
+                 interpDens = False, interpdvcircdr = False,
+                 enable_c = True, logR = False, zsym = True, num_threads=pynbody.config['number_of_threads'], use_pkdgrav = False) : 
         self._num_threads = num_threads
         self.s = s
         self._amp = 1.0
         
         self._interpPot = True
         self._interpRforce = True
+        self._interpzforce = True
+        self._interpvcirc = True
+        self._interpepifreq = True
+        self._interpverticalfreq = True
 
         self._zsym = zsym
         self._enable_c = enable_c
 
         self._logR = logR
 
+        # make the potential accessible at points beyond the grid
+        self._origPot = SnapshotPotential(s, num_threads)
+
         # setup the grid
         self._rgrid = np.linspace(*rgrid)
         if logR : 
             self._rgrid = np.exp(self._rgrid)
             self._logrgrid = np.log(self._rgrid)
+            rs = self._logrgrid
+        else : 
+            rs = self._rgrid
 
         self._zgrid = np.linspace(*zgrid)
 
         # calculate the grids
         self._setup_potential(self._rgrid,self._zgrid,use_pkdgrav=use_pkdgrav)
-    
+
         if enable_c : 
-            self._potGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._potGrid)
+            self._potGrid_splinecoeffs    = interpRZPotential.calc_2dsplinecoeffs_c(self._potGrid)
             self._rforceGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._rforceGrid)
             self._zforceGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._zforceGrid)
 
         else :
-            if self._logR:
-                self._potInterp= interpolate.RectBivariateSpline(self._logrgrid,
-                                                                 self._zgrid,
-                                                                 self._potGrid,
-                                                                 kx=3,ky=3,s=0.)
-                self._rforceInterp= interpolate.RectBivariateSpline(self._logrgrid,
-                                                                    self._zgrid,
-                                                                    self._rforceGrid,
-                                                                    kx=3,ky=3,s=0.)
-            else:
-                self._potInterp= interpolate.RectBivariateSpline(self._rgrid,
-                                                                 self._zgrid,
-                                                                 self._potGrid,
-                                                                 kx=3,ky=3,s=0.)
-                self._rforceInterp= interpolate.RectBivariateSpline(self._rgrid,
-                                                                    self._zgrid,
-                                                                    self._rforceGrid,
-                                                                    kx=3,ky=3,s=0.)
+            self._potInterp= interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._potGrid,
+                                                             kx=3,ky=3,s=0.)
+            self._rforceInterp= interpolate.RectBivariateSpline(rs,
+                                                                self._zgrid,
+                                                                self._rforceGrid,
+                                                                kx=3,ky=3,s=0.)
+            self._zforceInterp= interpolate.RectBivariateSpline(rs,
+                                                                self._zgrid,
+                                                                self._zforceGrid,
+                                                                kx=3,ky=3,s=0.)
+
+        self._R2interp = interpolate.RectBivariateSpline(rs,
+                                                         self._zgrid,
+                                                         self._R2derivGrid,
+                                                         kx=3,ky=3,s=0.)
+            
+        self._z2interp = interpolate.RectBivariateSpline(rs,
+                                                         self._zgrid,
+                                                         self._z2derivGrid,
+                                                         kx=3,ky=3,s=0.)
+         
+        # setup the derived quantities
+
+        self._vcircGrid = np.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
+        self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0]-
+                                    3./self._rgrid*self._rforceGrid[:,0])
+
+        self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
+        
+        self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid, k=3)
+        self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
+        self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
+
+            
+
            
 
-    def __call__(self, R, z) : 
+    def __call__(self, R, z, phi = 0.0, t = 0.0) : 
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
@@ -196,6 +231,8 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
 
         
     def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.1) : 
+        from galpy.potential import vcirc
+
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
@@ -249,13 +286,13 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             print command
             system(command)
             sn = pynbody.load('potgridsnap')
-            acc = sn['accg'][len(self.s):].reshape((self.nx,self.ny,self.nz,3))
-            pot = sn['pot'][len(self.s):].reshape((self.nx,self.ny,self.nz))
+            acc = sn['accg'][len(self.s):].reshape(len(R)*len(z),4,3)
+            pot = sn['pot'][len(self.s):].reshape(len(R)*len(z),4)
             
 
         else : 
   
-            pot, acc = grav_omp.direct(self.s,points_new,num_threads=4)
+            pot, acc = grav_omp.direct(self.s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R)*len(z),4)
             acc = acc.reshape(len(R)*len(z),4,3)
@@ -279,7 +316,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             # shape = (1,4,3) not (4,3)
             acc = acc.reshape((len(rz_acc),4,3))
 
-            for i in xrange(len(R)) : 
+            for i in xrange(len(R)*len(z)) : 
                 for j,rvec in enumerate(rvecs) : 
                     rz_acc[i,0] += acc[i,j].dot(rvec)
                     rz_acc[i,1] += acc[i,j,2]
@@ -319,12 +356,23 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             self.rgrad_acc = rgrad_acc
             self.zgrad_points = zgrad_points
             self.rgrad_points = rgrad_points
-            # reshape the 
-            self._z2derivGrad = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1)
-            self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1)
+            # reshape the arrays
+            self._z2derivGrid = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
+            self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
             self.points = points_new
     
         self._potGrid = pot.reshape((len(R),len(z)))
         self._rforceGrid = rz_acc[:,0].reshape((len(R),len(z)))
         self._zforceGrid = rz_acc[:,1].reshape((len(R),len(z)))
-                                               
+    
+    def _R2deriv(self,R,Z,phi=0.,t=0.): 
+        if not phi == 0.0 or not t == 0.0 : 
+            raise RuntimeError("Only axisymmetric potentials are supported")
+        if self._zsym: Z = np.abs(Z)
+        return self._R2interp(R,Z)
+
+    def _z2deriv(self,R,Z,phi=None,t=None):
+        if not phi == 0.0 or not t == 0.0 : 
+            raise RuntimeError("Only axisymmetric potentials are supported")
+        if self._zsym: Z = np.abs(Z)
+        return self._z2interp(R,Z)

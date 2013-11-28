@@ -90,6 +90,7 @@ RazorThinExponentialDiskPotential= RazorThinExponentialDiskPotential.RazorThinEx
 FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
+InterpSnapshotPotential = SnapshotPotential.InterpSnapshotPotential
 SnapshotPotential = SnapshotPotential.SnapshotPotential
 
 #
