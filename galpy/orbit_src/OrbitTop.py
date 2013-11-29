@@ -1075,6 +1075,7 @@ class OrbitTop:
         HISTORY:
            2010-07-26 - Written - Bovy (NYU)
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
         """
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
@@ -1279,6 +1280,7 @@ class OrbitTop:
            2010-07-26 - Written - Bovy (NYU)
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2010-01-08 - Adapted to 3D - Bovy (NYU)
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
         """
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
