@@ -1069,6 +1069,7 @@ class OrbitTop:
            plot aspects of an Orbit
         INPUT:
            bovy_plot args and kwargs
+           +kwargs for ra,dec,ll,bb, etc. functions
         OUTPUT:
            plot
         HISTORY:
@@ -1146,15 +1147,15 @@ class OrbitTop:
         elif d1 == 'phi':
             x= self.phi(self.t)
         elif d1.lower() == 'ra':
-            x= self.ra(self.t)
+            x= self.ra(self.t,**kwargs)
         elif d1.lower() == 'dec':
-            x= self.dec(self.t)
+            x= self.dec(self.t,**kwargs)
         elif d1 == 'll':
-            x= self.ll(self.t)
+            x= self.ll(self.t,**kwargs)
         elif d1 == 'bb':
-            x= self.bb(self.t)
+            x= self.bb(self.t,**kwargs)
         elif d1 == 'dist':
-            x= self.dist(self.t)
+            x= self.dist(self.t,**kwargs)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -1190,16 +1191,17 @@ class OrbitTop:
         elif d2 == 'phi':
             y= self.phi(self.t)
         elif d2.lower() == 'ra':
-            y= self.ra(self.t)
+            y= self.ra(self.t,**kwargs)
         elif d2.lower() == 'dec':
-            y= self.dec(self.t)
+            y= self.dec(self.t,**kwargs)
         elif d2 == 'll':
-            y= self.ll(self.t)
+            y= self.ll(self.t,**kwargs)
         elif d2 == 'bb':
-            y= self.bb(self.t)
+            y= self.bb(self.t,**kwargs)
         elif d2 == 'dist':
-            y= self.dist(self.t)
-
+            y= self.dist(self.t,**kwargs)
+        if kwargs.has_key('ro'): kwargs.pop('ro')
+        if kwargs.has_key('obs'): kwargs.pop('obs')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -1297,15 +1299,15 @@ class OrbitTop:
         elif d1 == 'phi':
             x= self.phi(self.t)
         elif d1.lower() == 'ra':
-            x= self.ra(self.t)
+            x= self.ra(self.t,**kwargs)
         elif d1.lower() == 'dec':
-            x= self.dec(self.t)
+            x= self.dec(self.t,**kwargs)
         elif d1 == 'll':
-            x= self.ll(self.t)
+            x= self.ll(self.t,**kwargs)
         elif d1 == 'bb':
-            x= self.bb(self.t)
+            x= self.bb(self.t,**kwargs)
         elif d1 == 'dist':
-            x= self.dist(self.t)
+            x= self.dist(self.t,**kwargs)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -1341,15 +1343,15 @@ class OrbitTop:
         elif d2 == 'phi':
             y= self.phi(self.t)
         elif d2.lower() == 'ra':
-            y= self.ra(self.t)
+            y= self.ra(self.t,**kwargs)
         elif d2.lower() == 'dec':
-            y= self.dec(self.t)
+            y= self.dec(self.t,**kwargs)
         elif d2 == 'll':
-            y= self.ll(self.t)
+            y= self.ll(self.t,**kwargs)
         elif d2 == 'bb':
-            y= self.bb(self.t)
+            y= self.bb(self.t,**kwargs)
         elif d2 == 'dist':
-            y= self.dist(self.t)
+            y= self.dist(self.t,**kwargs)
         if d3 == 't':
             z= nu.array(self.t)
         elif d3 == 'R':
@@ -1385,16 +1387,17 @@ class OrbitTop:
         elif d3 == 'phi':
             z= self.phi(self.t)
         elif d3.lower() == 'ra':
-            z= self.ra(self.t)
+            z= self.ra(self.t,**kwargs)
         elif d3.lower() == 'dec':
-            z= self.dec(self.t)
+            z= self.dec(self.t,**kwargs)
         elif d3 == 'll':
-            z= self.ll(self.t)
+            z= self.ll(self.t,**kwargs)
         elif d3 == 'bb':
-            z= self.bb(self.t)
+            z= self.bb(self.t,**kwargs)
         elif d3 == 'dist':
-            z= self.dist(self.t)
-
+            z= self.dist(self.t,**kwargs)
+        if kwargs.has_key('ro'): kwargs.pop('ro')
+        if kwargs.has_key('obs'): kwargs.pop('obs')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
