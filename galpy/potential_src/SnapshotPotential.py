@@ -386,3 +386,124 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             raise RuntimeError("Only axisymmetric potentials are supported")
         if self._zsym: Z = np.abs(Z)
         return self._z2interp(R,Z)
+
+    def normalize(self, R0=8.0) :
+        """ 
+
+        Normalize all positions by R0 and velocities by Vc(R0).  
+        
+        If :class:`~scipy.interpolate.RectBivariateSpline` or
+        :class:`~scipy.interpolate.InterpolatedUnivariateSpline` are
+        used, redefine them for use with the rescaled coordinates.  
+        
+        To undo the normalization, call
+        :func:`~galpy.potential.SnapshotPotential.InterpSnapshotPotential.denormalize`.
+
+        """
+
+        Vc0 = self.vcirc(R0)
+        Phi0 = np.abs(self.Rforce(R0,0.0))
+
+        self._normR0 = R0
+        self._normVc0 = Vc0
+        self._normPhi0 = Phi0
+
+        # rescale the simulation 
+        self._posunit = self._s['pos'].units
+        self._velunit = self._s['vel'].units
+        self._s['pos'].convert_units('%s kpc'%R0)
+        self._s['vel'].convert_units('%s km s**-1'%Vc0)
+        
+        
+        # rescale the grid
+        self._rgrid /= R0
+        if self._logR: 
+            self._logrgrid -= np.log(R0)
+            rs = self._logrgrid
+        else : 
+            rs = self._rgrid
+
+        self._zgrid /= R0
+
+        # rescale the potential 
+        self._amp /= Phi0        
+
+        self._savedsplines = {}
+        
+        # rescale anything using splines
+        if not self._enable_c and self._interpPot : 
+            for spline,name in zip([self._potInterp, self._rforceInterp, self._zforceInterp],
+                                    ["pot", "rforce", "zforce"]): 
+                self._savedsplines[name] = spline
+            
+            self._potInterp= interpolate.RectBivariateSpline(rs, self._zgrid, self._potGrid, kx=3,ky=3,s=0.)
+            self._rforceInterp= interpolate.RectBivariateSpline(rs, self._zgrid, self._rforceGrid, kx=3,ky=3,s=0.)
+            self._zforceInterp= interpolate.RectBivariateSpline(rs, self._zgrid, self._zforceGrid, kx=3,ky=3,s=0.)
+        
+        if self._interpPot : 
+            self._savedsplines['vcirc'] = self._vcircInterp
+            self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid/Vc0, k=3)
+
+        if self._interpepifreq:
+            self._savedsplines['R2deriv'] = self._R2interp
+            self._savedsplines['epifreq'] = self._epifreqInterp
+            self._R2interp = interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._R2derivGrid, kx=3,ky=3,s=0.)
+            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
+
+        if self._interpverticalfreq: 
+            self._savedsplines['z2deriv'] = self._z2interp
+            self._savedsplines['verticalfreq'] = self._verticalfreqInterp
+            self._z2interp = interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._z2derivGrid,
+                                                             kx=3,ky=3,s=0.)
+            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
+
+
+    def denormalize(self) : 
+        """
+
+        Undo the normalization.
+
+        """
+        R0 = self._normR0
+        Vc0 = self._normVc0
+        Phi0 = self._normPhi0
+        
+        # rescale the simulation
+        self._s['pos'].convert_units(self._posunit)
+        self._s['vel'].convert_units(self._velunit)
+        
+        # rescale the grid
+        self._rgrid *= R0
+        if self._logR: 
+            self._logrgrid += np.log(R0)
+            rs = self._logrgrid
+        else : 
+            rs = self._rgrid
+
+        self._zgrid *= R0
+
+        # rescale the potential 
+        self._amp *= Phi0        
+        
+        # restore the splines
+        if not self._enable_c and self._interpPot : 
+            for spline,name in zip([self._potInterp, self._rforceInterp, self._zforceInterp],
+                                    ["pot", "rforce", "zforce"]): 
+                spline = self._savedsplines[name] 
+
+        if self._interpPot : self._vcircInterp = self._savedsplines['vcirc']
+        
+        if self._interpepifreq : 
+            self._R2interp = self._savedsplines['R2deriv']
+            self._epifreqInterp = self._savedsplines['epifreq']
+
+        if self._interpverticalfreq: 
+            self._z2interp = self._savedsplines['z2deriv']
+            self._verticalfreqInterp = self._savedsplines['verticalfreq']
+
+
+      

@@ -234,7 +234,9 @@ class interpRZPotential(Potential):
                 return eval_potential_c(self,R,numpy.fabs(z))[0]
             else:
                 return eval_potential_c(self,R,z)[0]
+
         from galpy.potential import evaluatePotentials
+
         if self._interpPot:
             if len(z) == 1 and len(R) != 1: z = numpy.resize(z,len(R))
             if len(R) == 1 and len(z) != 1: R = numpy.resize(R,len(z))
