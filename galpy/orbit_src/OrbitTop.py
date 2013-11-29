@@ -1079,11 +1079,22 @@ class OrbitTop:
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                     'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                    'ra':r'$\alpha\ [\mathrm{deg}]$',
-                    'dec':r'$\delta\ [\mathrm{deg}]$',
-                    'll':r'$l\ [\mathrm{deg}]$',
-                    'bb':r'$b\ [\mathrm{deg}]$',
-                    'dist':r'$d\ [\mathrm{kpc}]$'}
+                    'ra':r'$\alpha\ (\mathrm{deg})$',
+                    'dec':r'$\delta\ (\mathrm{deg})$',
+                    'll':r'$l\ (\mathrm{deg})$',
+                    'bb':r'$b\ (\mathrm{deg})$',
+                    'dist':r'$d\ [\mathrm{kpc}]$',
+                    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                    'helioX':r'$X\ (\mathrm{kpc})$',
+                    'helioY':r'$Y\ (\mathrm{kpc})$',
+                    'helioZ':r'$Z\ (\mathrm{kpc})$',
+                    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                    'W':r'$W\ (\mathrm{km\,s}^{-1})$'}
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
             if len(self.vxvv) == 3:
@@ -1156,6 +1167,28 @@ class OrbitTop:
             x= self.bb(self.t,**kwargs)
         elif d1 == 'dist':
             x= self.dist(self.t,**kwargs)
+        elif d1 == 'pmra':
+            x= self.pmra(self.t,**kwargs)
+        elif d1 == 'pmdec':
+            x= self.pmdec(self.t,**kwargs)
+        elif d1 == 'pmll':
+            x= self.pmll(self.t,**kwargs)
+        elif d1 == 'pmbb':
+            x= self.pmbb(self.t,**kwargs)
+        elif d1 == 'vlos':
+            x= self.vlos(self.t,**kwargs)
+        elif d1 == 'helioX':
+            x= self.helioX(self.t,**kwargs)
+        elif d1 == 'helioY':
+            x= self.helioY(self.t,**kwargs)
+        elif d1 == 'helioZ':
+            x= self.helioZ(self.t,**kwargs)
+        elif d1 == 'U':
+            x= self.U(self.t,**kwargs)
+        elif d1 == 'V':
+            x= self.V(self.t,**kwargs)
+        elif d1 == 'W':
+            x= self.W(self.t,**kwargs)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -1200,7 +1233,30 @@ class OrbitTop:
             y= self.bb(self.t,**kwargs)
         elif d2 == 'dist':
             y= self.dist(self.t,**kwargs)
+        elif d2 == 'pmra':
+            y= self.pmra(self.t,**kwargs)
+        elif d2 == 'pmdec':
+            y= self.pmdec(self.t,**kwargs)
+        elif d2 == 'pmll':
+            y= self.pmll(self.t,**kwargs)
+        elif d2 == 'pmbb':
+            y= self.pmbb(self.t,**kwargs)
+        elif d2 == 'vlos':
+            y= self.vlos(self.t,**kwargs)
+        elif d2 == 'helioX':
+            y= self.helioX(self.t,**kwargs)
+        elif d2 == 'helioY':
+            y= self.helioY(self.t,**kwargs)
+        elif d2 == 'helioZ':
+            y= self.helioZ(self.t,**kwargs)
+        elif d2 == 'U':
+            y= self.U(self.t,**kwargs)
+        elif d2 == 'V':
+            y= self.V(self.t,**kwargs)
+        elif d2 == 'W':
+            y= self.W(self.t,**kwargs)
         if kwargs.has_key('ro'): kwargs.pop('ro')
+        if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
         #Plot
         if not kwargs.has_key('xlabel'):
@@ -1227,11 +1283,22 @@ class OrbitTop:
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                     'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                    'ra':r'$\alpha\ [\mathrm{deg}]$',
-                    'dec':r'$\delta\ [\mathrm{deg}]$',
-                    'll':r'$l\ [\mathrm{deg}]$',
-                    'bb':r'$b\ [\mathrm{deg}]$',
-                    'dist':r'$d\ [\mathrm{kpc}]$'}
+                    'ra':r'$\alpha\ (\mathrm{deg})$',
+                    'dec':r'$\delta\ (\mathrm{deg})$',
+                    'll':r'$l\ (\mathrm{deg})$',
+                    'bb':r'$b\ (\mathrm{deg})$',
+                    'dist':r'$d\ [\mathrm{kpc}]$',
+                    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                    'helioX':r'$X\ (\mathrm{kpc})$',
+                    'helioY':r'$Y\ (\mathrm{kpc})$',
+                    'helioZ':r'$Z\ (\mathrm{kpc})$',
+                    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                    'W':r'$W\ (\mathrm{km\,s}^{-1})$'}
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
                 and not kwargs.has_key('d3'):
@@ -1308,6 +1375,28 @@ class OrbitTop:
             x= self.bb(self.t,**kwargs)
         elif d1 == 'dist':
             x= self.dist(self.t,**kwargs)
+        elif d1 == 'pmra':
+            x= self.pmra(self.t,**kwargs)
+        elif d1 == 'pmdec':
+            x= self.pmdec(self.t,**kwargs)
+        elif d1 == 'pmll':
+            x= self.pmll(self.t,**kwargs)
+        elif d1 == 'pmbb':
+            x= self.pmbb(self.t,**kwargs)
+        elif d1 == 'vlos':
+            x= self.vlos(self.t,**kwargs)
+        elif d1 == 'helioX':
+            x= self.helioX(self.t,**kwargs)
+        elif d1 == 'helioY':
+            x= self.helioY(self.t,**kwargs)
+        elif d1 == 'helioZ':
+            x= self.helioZ(self.t,**kwargs)
+        elif d1 == 'U':
+            x= self.U(self.t,**kwargs)
+        elif d1 == 'V':
+            x= self.V(self.t,**kwargs)
+        elif d1 == 'W':
+            x= self.W(self.t,**kwargs)
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
@@ -1352,6 +1441,28 @@ class OrbitTop:
             y= self.bb(self.t,**kwargs)
         elif d2 == 'dist':
             y= self.dist(self.t,**kwargs)
+        elif d2 == 'pmra':
+            y= self.pmra(self.t,**kwargs)
+        elif d2 == 'pmdec':
+            y= self.pmdec(self.t,**kwargs)
+        elif d2 == 'pmll':
+            y= self.pmll(self.t,**kwargs)
+        elif d2 == 'pmbb':
+            y= self.pmbb(self.t,**kwargs)
+        elif d2 == 'vlos':
+            y= self.vlos(self.t,**kwargs)
+        elif d2 == 'helioX':
+            y= self.helioX(self.t,**kwargs)
+        elif d2 == 'helioY':
+            y= self.helioY(self.t,**kwargs)
+        elif d2 == 'helioZ':
+            y= self.helioZ(self.t,**kwargs)
+        elif d2 == 'U':
+            y= self.U(self.t,**kwargs)
+        elif d2 == 'V':
+            y= self.V(self.t,**kwargs)
+        elif d2 == 'W':
+            y= self.W(self.t,**kwargs)
         if d3 == 't':
             z= nu.array(self.t)
         elif d3 == 'R':
@@ -1396,7 +1507,30 @@ class OrbitTop:
             z= self.bb(self.t,**kwargs)
         elif d3 == 'dist':
             z= self.dist(self.t,**kwargs)
+        elif d3 == 'pmra':
+            z= self.pmra(self.t,**kwargs)
+        elif d3 == 'pmdec':
+            z= self.pmdec(self.t,**kwargs)
+        elif d3 == 'pmll':
+            z= self.pmll(self.t,**kwargs)
+        elif d3 == 'pmbb':
+            z= self.pmbb(self.t,**kwargs)
+        elif d3 == 'vlos':
+            z= self.vlos(self.t,**kwargs)
+        elif d3 == 'helioX':
+            z= self.helioX(self.t,**kwargs)
+        elif d3 == 'helioY':
+            z= self.helioY(self.t,**kwargs)
+        elif d3 == 'helioZ':
+            z= self.helioZ(self.t,**kwargs)
+        elif d3 == 'U':
+            z= self.U(self.t,**kwargs)
+        elif d3 == 'V':
+            z= self.V(self.t,**kwargs)
+        elif d3 == 'W':
+            z= self.W(self.t,**kwargs)
         if kwargs.has_key('ro'): kwargs.pop('ro')
+        if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
         #Plot
         if not kwargs.has_key('xlabel'):
