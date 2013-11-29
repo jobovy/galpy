@@ -36,9 +36,10 @@ class SnapshotPotential(Potential):
     """
 
     def __init__(self, s, num_threads=pynbody.config['number_of_threads']) : 
-        self.s = s
+        Potential.__init__(self,amp=1.0)
+
+        self._s = s
         self._point_hash = {}
-        self._amp = 1.0
         self._num_threads = num_threads
     
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
@@ -48,9 +49,6 @@ class SnapshotPotential(Potential):
     def _Rforce(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
         return acc[:,0]
-
-#    def _R2deriv(self, R,z,phi=None,t=None) : 
-        
 
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
         from galpy.potential import vcirc
@@ -82,7 +80,7 @@ class SnapshotPotential(Potential):
                                    (0,-R[i],z[j])]
 
             points_new = points.reshape(points.size/3,3)
-            pot, acc = grav_omp.direct(self.s,points_new,num_threads=self._num_threads)
+            pot, acc = grav_omp.direct(self._s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R)*len(z),4)
             acc = acc.reshape(len(R)*len(z),4,3)
@@ -129,29 +127,40 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
     
     def __init__(self, s, 
                  rgrid=(0.01,2.,101), zgrid=(0.,0.2,101), 
-                 interpepifreq = False, interpverticalfreq = False, interpvcirc = False, interpPot = False,
-                 interpDens = False, interpdvcircdr = False,
-                 enable_c = True, logR = False, zsym = True, num_threads=pynbody.config['number_of_threads'], use_pkdgrav = False) : 
-        self._num_threads = num_threads
-        self.s = s
-        self._amp = 1.0
+                 interpepifreq = False, interpverticalfreq = False, interpPot = True,
+                 enable_c = True, logR = False, zsym = True, 
+                 numcores=pynbody.config['number_of_threads'], use_pkdgrav = False) : 
         
-        self._interpPot = True
-        self._interpRforce = True
-        self._interpzforce = True
-        self._interpvcirc = True
-        self._interpepifreq = True
-        self._interpverticalfreq = True
+        # inititalize using the base class
+        Potential.__init__(self,amp=1.0)
 
-        self._zsym = zsym
+        # other properties
+        self._numcores = numcores
+        self._s = s 
+
+        # the interpRZPotential class sets this flag
         self._enable_c = enable_c
-
-        self._logR = logR
+                
+        # set up the flags for interpolated quantities
+        # since the potential and force are always calculated together, 
+        # set the force interpolations to true if potential is true and 
+        # vice versa
+        self._interpPot = interpPot or interpRforce or interpzforce
+        self._interpRforce = self._interpPot
+        self._interpzforce = self._interpPot
+        self._interpvcirc = self._interpPot
+        
+        # these require additional calculations so set them seperately
+        self._interpepifreq = interpepifreq
+        self._interpverticalfreq = interpverticalfreq
 
         # make the potential accessible at points beyond the grid
-        self._origPot = SnapshotPotential(s, num_threads)
+        self._origPot = SnapshotPotential(s, numcores)
 
         # setup the grid
+        self._zsym = zsym
+        self._logR = logR
+        
         self._rgrid = np.linspace(*rgrid)
         if logR : 
             self._rgrid = np.exp(self._rgrid)
@@ -165,7 +174,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         # calculate the grids
         self._setup_potential(self._rgrid,self._zgrid,use_pkdgrav=use_pkdgrav)
 
-        if enable_c : 
+        if enable_c and interpPot: 
             self._potGrid_splinecoeffs    = interpRZPotential.calc_2dsplinecoeffs_c(self._potGrid)
             self._rforceGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._rforceGrid)
             self._zforceGrid_splinecoeffs = interpRZPotential.calc_2dsplinecoeffs_c(self._zforceGrid)
@@ -183,31 +192,54 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
                                                                 self._zgrid,
                                                                 self._zforceGrid,
                                                                 kx=3,ky=3,s=0.)
-
-        self._R2interp = interpolate.RectBivariateSpline(rs,
-                                                         self._zgrid,
-                                                         self._R2derivGrid,
-                                                         kx=3,ky=3,s=0.)
+        if interpepifreq:
+            self._R2interp = interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._R2derivGrid,
+                                                             kx=3,ky=3,s=0.)
             
-        self._z2interp = interpolate.RectBivariateSpline(rs,
-                                                         self._zgrid,
-                                                         self._z2derivGrid,
-                                                         kx=3,ky=3,s=0.)
+        if interpverticalfreq: 
+            self._z2interp = interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._z2derivGrid,
+                                                             kx=3,ky=3,s=0.)
          
         # setup the derived quantities
-
-        self._vcircGrid = np.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
-        self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0]-
-                                    3./self._rgrid*self._rforceGrid[:,0])
-
-        self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
+        if interpPot: 
+            self._vcircGrid = np.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
+            self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid, k=3)
         
-        self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid, k=3)
-        self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
-        self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
+        if interpepifreq: 
+            self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0] - 3./self._rgrid*self._rforceGrid[:,0])
+            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
+            
+        if interpverticalfreq:
+            self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
+            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
 
         
     def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.1) : 
+        """
+        
+        Calculates the potential and force grids for the snapshot for
+        use with other galpy functions.
+        
+        **Input**:
+
+        *R*: R grid coordinates 
+        
+        *z*: z grid coordinates
+
+        **Optional Keywords**: 
+        
+        *use_pkdgrav*: (False) whether to use pkdgrav for the gravity
+         calculation
+
+        *dr*: (0.1) offset to use for the gradient calculation - the
+         points are positioned at +/- dr from the centrlal point
+         
+        """
+
         from galpy.potential import vcirc
 
         # cast the points into arrays for compatibility
@@ -227,6 +259,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
                                (0,-R[i],z[j])]
 
         points_new = points.reshape(points.size/3,3)
+        self.points = points_new
 
         # set up the points to calculate the second derivatives
         zgrad_points = np.zeros((len(points_new)*2,3))
@@ -245,7 +278,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
 
         if use_pkdgrav :
             raise RuntimeError("using pkdgrav not currently implemented")
-            sn = pynbody.snapshot._new(len(self.s.d)+len(self.s.g)+len(self.s.s)+len(points_new))
+            sn = pynbody.snapshot._new(len(self._s.d)+len(self._s.g)+len(self._s.s)+len(points_new))
             print "setting up %d grid points"%(len(points_new))
             #sn['pos'][0:len(self.s)] = self.s['pos']
             #sn['mass'][0:len(self.s)] = self.s['mass']
@@ -254,93 +287,93 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             #sn['eps'][0:len(self.s)] = self.s['eps']
             #sn['vel'][0:len(self.s)] = self.s['vel']
             #sn['mass'][len(self.s):] = 1e-10
-            sn['pos'][len(self.s):] = points_new
-            sn['mass'][len(self.s):] = 0.0
+            sn['pos'][len(self._s):] = points_new
+            sn['mass'][len(self._s):] = 0.0
             
                 
             sn.write(fmt=pynbody.tipsy.TipsySnap, filename='potgridsnap')
-            command = '~/bin/pkdgrav2_pthread -sz %d -n 0 +std -o potgridsnap -I potgridsnap +potout +overwrite %s'%(self._num_threads, self.s._paramfile['filename'])
+            command = '~/bin/pkdgrav2_pthread -sz %d -n 0 +std -o potgridsnap -I potgridsnap +potout +overwrite %s'%(self._numcores, self._s._paramfile['filename'])
             print command
             system(command)
             sn = pynbody.load('potgridsnap')
-            acc = sn['accg'][len(self.s):].reshape(len(R)*len(z),4,3)
-            pot = sn['pot'][len(self.s):].reshape(len(R)*len(z),4)
+            acc = sn['accg'][len(self._s):].reshape(len(R)*len(z),4,3)
+            pot = sn['pot'][len(self._s):].reshape(len(R)*len(z),4)
             
 
         else : 
-  
-            pot, acc = grav_omp.direct(self.s,points_new,num_threads=self._num_threads)
-
-            pot = pot.reshape(len(R)*len(z),4)
-            acc = acc.reshape(len(R)*len(z),4,3)
-
-            # need to average the potentials
-            if len(pot) > 1:
-                pot = pot.mean(axis=1)
-            else : 
-                pot = pot.mean()
-
-
-            # get the radial accelerations
-            rz_acc = np.zeros((len(R)*len(z),2))
-            rvecs = [(1.0,0.0,0.0),
-                     (0.0,1.0,0.0),
-                     (-1.0,0.0,0.0),
-                     (0.0,-1.0,0.0)]
-        
-            # reshape the acc to make sure we have a leading index even
-            # if we are only evaluating a single point, i.e. we have
-            # shape = (1,4,3) not (4,3)
-            acc = acc.reshape((len(rz_acc),4,3))
-
-            for i in xrange(len(R)*len(z)) : 
-                for j,rvec in enumerate(rvecs) : 
-                    rz_acc[i,0] += acc[i,j].dot(rvec)
-                    rz_acc[i,1] += acc[i,j,2]
-            rz_acc /= 4.0
             
+            if self._interpPot: 
+                pot, acc = grav_omp.direct(self._s,points_new,num_threads=self._numcores)
+
+                pot = pot.reshape(len(R)*len(z),4)
+                acc = acc.reshape(len(R)*len(z),4,3)
+
+                # need to average the potentials
+                if len(pot) > 1:
+                    pot = pot.mean(axis=1)
+                else : 
+                    pot = pot.mean()
+
+
+                # get the radial accelerations
+                rz_acc = np.zeros((len(R)*len(z),2))
+                rvecs = [(1.0,0.0,0.0),
+                         (0.0,1.0,0.0),
+                         (-1.0,0.0,0.0),
+                         (0.0,-1.0,0.0)]
+        
+                # reshape the acc to make sure we have a leading index even
+                # if we are only evaluating a single point, i.e. we have
+                # shape = (1,4,3) not (4,3)
+                acc = acc.reshape((len(rz_acc),4,3))
+
+                for i in xrange(len(R)*len(z)) : 
+                    for j,rvec in enumerate(rvecs) : 
+                        rz_acc[i,0] += acc[i,j].dot(rvec)
+                        rz_acc[i,1] += acc[i,j,2]
+                rz_acc /= 4.0
+            
+                self._potGrid = pot.reshape((len(R),len(z)))
+                self._rforceGrid = rz_acc[:,0].reshape((len(R),len(z)))
+                self._zforceGrid = rz_acc[:,1].reshape((len(R),len(z)))
 
             # compute the force gradients
 
             # first get the accelerations
-            zgrad_pot, zgrad_acc = grav_omp.direct(self.s,zgrad_points,num_threads=self._num_threads)
-            rgrad_pot, rgrad_acc = grav_omp.direct(self.s,rgrad_points,num_threads=self._num_threads)
+            if self._interpverticalfreq : 
+                zgrad_pot, zgrad_acc = grav_omp.direct(self._s,zgrad_points,num_threads=self._numcores)
+                # each point from the points used above for pot and acc is straddled by 
+                # two points to get the gradient across it. Compute the gradient by 
+                # using a finite difference 
 
-            # each point from the points used above for pot and acc is straddled by 
-            # two points to get the gradient across it. Compute the gradient by 
-            # using a finite difference 
+                zgrad = np.zeros(len(points_new))
+                
+                # do a loop through the pairs of points -- reshape the array
+                # so that each item is the pair of acceleration vectors
+                # then calculate the gradient from the two points
+                for i,zacc in enumerate(zgrad_acc.reshape((len(zgrad_acc)/2,2,3))) :
+                    zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
+                
+                # reshape the arrays
+                self._z2derivGrid = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
 
-            zgrad = np.zeros(len(points_new))
-            rgrad = np.zeros(len(points_new))
+            # do the same for the radial component
+            if self._interpepifreq:
+                rgrad_pot, rgrad_acc = grav_omp.direct(self._s,rgrad_points,num_threads=self._numcores)
+                rgrad = np.zeros(len(points_new))
 
-            # do a loop through the pairs of points -- reshape the array
-            # so that each item is the pair of acceleration vectors
-            # then calculate the gradient from the two points
-            for i,zacc in enumerate(zgrad_acc.reshape((len(zgrad_acc)/2,2,3))) :
-                zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
-
-            for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
-                point = points_new[i]
-                point[2] = 0.0
-                rvec = point/np.sqrt(np.dot(point,point))
-                rgrad_vec = (np.dot(racc[1],rvec)-
-                             np.dot(racc[0],rvec)) / (dr*2.0)
-                rgrad[i] = rgrad_vec
+                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
+                    point = points_new[i]
+                    point[2] = 0.0
+                    rvec = point/np.sqrt(np.dot(point,point))
+                    rgrad_vec = (np.dot(racc[1],rvec)-
+                                 np.dot(racc[0],rvec)) / (dr*2.0)
+                    rgrad[i] = rgrad_vec
+                
+                self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
 
 
-                        
-            self.zgrad_acc = zgrad_acc
-            self.rgrad_acc = rgrad_acc
-            self.zgrad_points = zgrad_points
-            self.rgrad_points = rgrad_points
-            # reshape the arrays
-            self._z2derivGrid = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
-            self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
-            self.points = points_new
     
-        self._potGrid = pot.reshape((len(R),len(z)))
-        self._rforceGrid = rz_acc[:,0].reshape((len(R),len(z)))
-        self._zforceGrid = rz_acc[:,1].reshape((len(R),len(z)))
     
     def _R2deriv(self,R,Z,phi=0.,t=0.): 
         if not phi == 0.0 or not t == 0.0 : 
