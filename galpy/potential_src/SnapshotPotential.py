@@ -41,15 +41,6 @@ class SnapshotPotential(Potential):
         self._amp = 1.0
         self._num_threads = num_threads
     
-    def __call__(self, R, z, phi = None, t = None) : 
-        # cast the points into arrays for compatibility
-        if isinstance(R,float) : 
-            R = np.array([R])
-        if isinstance(z, float) : 
-            z = np.array([z])
-
-        return self._evaluate(R,z)
-
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
         return pot
@@ -214,19 +205,6 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid, k=3)
         self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
         self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
-
-            
-
-           
-
-    def __call__(self, R, z, phi = 0.0, t = 0.0) : 
-        # cast the points into arrays for compatibility
-        if isinstance(R,float) : 
-            R = np.array([R])
-        if isinstance(z, float) : 
-            z = np.array([z])
-
-        return self._evaluate(R,z)
 
         
     def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.1) : 
