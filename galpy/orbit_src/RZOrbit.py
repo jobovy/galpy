@@ -95,6 +95,95 @@ class RZOrbit(OrbitTop):
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
+    def ER(self,*args,**kwargs):
+        """
+        NAME:
+           ER
+        PURPOSE:
+           calculate the radial energy
+        INPUT:
+           t - (optional) time at which to get the energy
+           pot= potential instance or list of such instances
+        OUTPUT:
+           radial energy
+        HISTORY:
+           2013-11-30 - Written - Bovy (IAS)
+        """
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],0.,pot,
+                                      t=t)\
+                                      +thiso[1]**2./2.\
+                                      +thiso[2]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],0.,
+                                                pot,
+                                                t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2. for ii in range(len(t))])
+
+    def Ez(self,*args,**kwargs):
+        """
+        NAME:
+           Ez
+        PURPOSE:
+           calculate the vertical energy
+        INPUT:
+           t - (optional) time at which to get the energy
+           pot= potential instance or list of such instances
+        OUTPUT:
+           vertical energy
+        HISTORY:
+           2013-11-30 - Written - Bovy (IAS)
+        """
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],thiso[3],pot,
+                                      t=t)\
+                                      -evaluatePotentials(thiso[0],0.,pot,
+                                                          t=t)\
+                                                          +thiso[4]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
+                                                pot,
+                                                t=t[ii])\
+                                 -evaluatePotentials(thiso[0,ii],0.,
+                                                     pot,
+                                                t=t[ii])\
+                                 +thiso[4,ii]**2./2. for ii in range(len(t))])
+
     def Jacobi(self,*args,**kwargs):
         """
         NAME:

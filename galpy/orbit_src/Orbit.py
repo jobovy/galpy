@@ -387,6 +387,60 @@ class Orbit:
         """
         return self._orb.L(*args,**kwargs)
 
+    def ER(self,*args,**kwargs):
+        """
+        NAME:
+
+           ER
+
+        PURPOSE:
+
+           calculate the radial energy
+
+        INPUT:
+
+           t - (optional) time at which to get the radius
+
+           pot= Potential instance or list of such instances
+
+        OUTPUT:
+
+           radial energy
+
+        HISTORY:
+
+           2013-11-30 - Written - Bovy (IAS)
+
+        """
+        return self._orb.ER(*args,**kwargs)
+
+    def Ez(self,*args,**kwargs):
+        """
+        NAME:
+
+           Ez
+
+        PURPOSE:
+
+           calculate the vertical energy
+
+        INPUT:
+
+           t - (optional) time at which to get the radius
+
+           pot= Potential instance or list of such instances
+
+        OUTPUT:
+
+           vertical energy
+
+        HISTORY:
+
+           2013-11-30 - Written - Bovy (IAS)
+
+        """
+        return self._orb.Ez(*args,**kwargs)
+
     def Jacobi(self,*args,**kwargs):
         """
         NAME:
