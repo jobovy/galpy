@@ -22,6 +22,8 @@ Methods
    dist <orbitdist.rst>
    E <orbitE.rst>
    e <orbitecc.rst>
+   ER <orbitER.rst>
+   Ez <orbitEz.rst>
    integrate <orbitint.rst>
    getOrbit <orbitgetorbit.rst>
    helioX <orbitheliox.rst>
