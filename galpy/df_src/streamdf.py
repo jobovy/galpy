@@ -1,5 +1,4 @@
 #The DF of a tidal stream
-import time
 import numpy
 from scipy import special
 from galpy.orbit import Orbit
@@ -59,23 +58,7 @@ class streamdf:
         self._aA= aA
         self._progenitor= progenitor
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
-        pR,pvR,pvT,pZ,pvZ,pphi= aA._parse_args(True,self._progenitor)
-        pts= numpy.empty(pR.shape[1])
-        pts[aA._ntintJ-1:]= aA._tsJ
-        pts[:aA._ntintJ-1]= -aA._tsJ[1:][::-1]
-        #acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
-        acfs= aA.actionsFreqsAngles(pR,pvR,pvT,pZ,pvZ,pphi,maxn=3,ts=pts,_retacfs=True)
-        #Store aA integration of the progenitor orbit for re-use
-        self._pR= pR
-        self._pvR= pvR
-        self._pvT= pvT
-        self._pZ= pZ
-        self._pvZ= pvZ
-        self._pphi= pphi
-        self._pts= pts
-        self._pacfs= acfs[9]
-        acfs= (acfs[0],acfs[1],acfs[2],acfs[3],acfs[4],acfs[5],acfs[6],
-               acfs[7],acfs[8])
+        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
         self._progenitor_jz= acfs[2][0]
@@ -161,34 +144,28 @@ class streamdf:
         self._nTrackChunks= nTrackChunks
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
-        #We re-use the fine integration of the progenitor's orbit from the aA
-        #calculation, so we map to the closest times in that orbit on a regular
-        #grid in time
-        self._progenitorTrack= self._progenitor(0.)
-        if dt < 0:
-            skippdt= int(numpy.floor(dt/(self._pts[1]-self._pts[0])/self._nTrackChunks))
-            self._trackts= self._pts[(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            #Load integrated orbit into the new orbit instance
-            self._progenitorTrack._orb.orbit= numpy.empty((len(self._trackts),6))
-            self._progenitorTrack._orb.orbit[:,0]= self._pR[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            self._progenitorTrack._orb.orbit[:,1]= self._pvR[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            self._progenitorTrack._orb.orbit[:,2]= self._pvT[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            self._progenitorTrack._orb.orbit[:,3]= self._pZ[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            self._progenitorTrack._orb.orbit[:,4]= self._pvZ[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
-            self._progenitorTrack._orb.orbit[:,5]= self._pphi[0,(len(self._pts)+1)/2-1+skippdt*self._nTrackChunks:(len(self._pts)+1)/2:-skippdt][::-1]
+        self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
+        #Instantiate another Orbit for the progenitor orbit where there is data
+        #This can be somewhat sped up by re-using the previously integrated
+        #progenitor orbit, but because the computational cost is dominated
+        #by the calculation of the Jacobian, this does not gain much (~few %)
+        if dt < 0.:
+            self._trackts= numpy.linspace(0.,-dt,self._nTrackChunks)
+            #Flip velocities before integrating
+            self._progenitorTrack= Orbit([self._progenitor.R(0.),
+                                          -self._progenitor.vR(0.),
+                                          -self._progenitor.vT(0.),
+                                          self._progenitor.z(0.),
+                                          -self._progenitor.vz(0.),
+                                          self._progenitor.phi(0.)])
         else:
-            skippdt= int(numpy.ceil(dt/(self._pts[1]-self._pts[0])/self._nTrackChunks))
-            self._trackts= self._pts[(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            #Load integrated orbit into the new orbit instance
-            self._progenitorTrack._orb.orbit= numpy.empty((len(self._trackts),6))
-            self._progenitorTrack._orb.orbit[:,0]= self._pR[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            self._progenitorTrack._orb.orbit[:,1]= self._pvR[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            self._progenitorTrack._orb.orbit[:,2]= self._pvT[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            self._progenitorTrack._orb.orbit[:,3]= self._pZ[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            self._progenitorTrack._orb.orbit[:,4]= self._pvZ[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-            self._progenitorTrack._orb.orbit[:,5]= self._pphi[0,(len(self._pts)+1)/2-1:(len(self._pts)+1)/2+skippdt*self._nTrackChunks:skippdt]
-        self._progenitorTrack._orb.t= self._trackts
-        self._nTrackChunks= len(self._trackts) #just to be sure
+            self._progenitorTrack= self._progenitor(0.)
+        self._progenitorTrack.integrate(self._trackts,self._pot)
+        if dt < 0.:
+            #Flip velocities again
+            self._progenitorTrack._orb.orbit[:,1]= -self._progenitorTrack._orb.orbit[:,1]
+            self._progenitorTrack._orb.orbit[:,2]= -self._progenitorTrack._orb.orbit[:,2]
+            self._progenitorTrack._orb.orbit[:,4]= -self._progenitorTrack._orb.orbit[:,4]
         #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
         allAcfsTrack= numpy.empty((self._nTrackChunks,9))
         alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
@@ -196,17 +173,8 @@ class streamdf:
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
         for ii in range(self._nTrackChunks):
-            tpindx= (len(self._pts)+1)/2-1+skippdt*ii
-            #This re-uses the already integrated progenitor orbit
-            tacfs= self._aA.actionsFreqsAngles(self._pR,
-                                               self._pvR,
-                                               self._pvT,
-                                               self._pZ,
-                                               self._pvZ,
-                                               self._pphi,
-                                               _acfs=self._pacfs,
-                                               ts=self._pts-self._pts[tpindx],
-                                               maxn=3)
+            tacfs= self._aA.actionsFreqsAngles(self._progenitorTrack(self._trackts[ii]),
+                                         maxn=3)
             allAcfsTrack[ii,0]= tacfs[0][0]
             allAcfsTrack[ii,1]= tacfs[1][0]
             allAcfsTrack[ii,2]= tacfs[2][0]
@@ -229,6 +197,7 @@ class streamdf:
             diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
             thisFreq= self.meanOmega(thetasTrack[ii])
             diffFreqs= thisFreq-allAcfsTrack[ii,3:6]
+            #print "diff", theseAngles,allAcfsTrack[ii,6:],diffAngles
             ObsTrack[ii,:]= numpy.dot(tinvjac,
                                       numpy.hstack((diffFreqs,diffAngles)))
             ObsTrack[ii,0]+= \
