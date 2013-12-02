@@ -169,6 +169,7 @@ class streamdf:
         #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
         allAcfsTrack= numpy.empty((self._nTrackChunks,9))
         alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
+        allinvjacsTrack= numpy.empty((self._nTrackChunks,6,6))
         thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
@@ -187,6 +188,7 @@ class streamdf:
                             _initacfs=tacfs)
             alljacsTrack[ii,:,:]= tjac
             tinvjac= numpy.linalg.inv(tjac)
+            allinvjacsTrack[ii,:,:]= tinvjac
             theseAngles= numpy.mod(self._progenitor_angle\
                                        +thetasTrack[ii]\
                                        *self._sigMeanSign\
@@ -215,6 +217,62 @@ class streamdf:
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._allAcfsTrack= allAcfsTrack
+        self._alljacsTrack= alljacsTrack
+        self._allinvjacsTrack= allinvjacsTrack
+        return None
+
+    def calc_stream_lb(self,
+                       Vnorm=None,Rnorm=None,
+                       R0=None,Zsun=None,vsun=None):
+        """
+        NAME:
+           calc_stream_lb
+        PURPOSE:
+           convert the stream track to observational coordinates and store
+        INPUT:
+           Coordinate transformation inputs (all default to the instance-wide
+           values):
+              Vnorm= circular velocity to normalize velocities with
+              Rnorm= Galactocentric radius to normalize positions with
+              R0= Galactocentric radius of the Sun (kpc)
+              Zsun= Sun's height above the plane (kpc)
+              vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2013-12-02 - Written - Bovy (IAS)
+        """
+        if Vnorm is None:
+            Vnorm= self._Vnorm
+        if Rnorm is None:
+            Rnorm= self._Rnorm
+        if R0 is None:
+            R0= self._R0
+        if Zsun is None:
+            Zsun= self._Zsun
+        if vsun is None:
+            vsun= self._vsun
+        self._ObsTrackLB= numpy.empty_like(self._ObsTrack)
+        XYZ= bovy_coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*Rnorm,
+                                          self._ObsTrack[:,5],
+                                          self._ObsTrack[:,3]*Rnorm,
+                                          Xsun=R0,Zsun=Zsun)
+        vXYZ= bovy_coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*Vnorm,
+                                              self._ObsTrack[:,2]*Vnorm,
+                                              self._ObsTrack[:,4]*Vnorm,
+                                              self._ObsTrack[:,5],
+                                              vsun=vsun)
+        slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                    degree=True)
+        svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                                slbd[:,0],slbd[:,1],slbd[:,2],
+                                                degree=True)
+        self._ObsTrackLB[:,0]= slbd[:,0]
+        self._ObsTrackLB[:,1]= slbd[:,1]
+        self._ObsTrackLB[:,2]= slbd[:,2]
+        self._ObsTrackLB[:,3]= svlbd[:,0]
+        self._ObsTrackLB[:,4]= svlbd[:,1]
+        self._ObsTrackLB[:,5]= svlbd[:,2]
         return None
 
     def meanOmega(self,dangle,oned=False):
