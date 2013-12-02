@@ -118,7 +118,7 @@ class streamdf:
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
-        #self._determine_stream_track(deltaAngleTrack,nTrackChunks)
+        self._determine_stream_track(deltaAngleTrack,nTrackChunks)
         return None
 
     def estimateTdisrupt(self,deltaAngle):
@@ -146,6 +146,7 @@ class streamdf:
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
         #Instantiate another Orbit for the progenitor orbit where there is data
+        #BOVY: ALL OF THIS CAN BE SPED UP BY RE_USING THE FINE_GRAINED INTEGRATION IN PROGENITOR'S ACFS
         if dt < 0.:
             self._trackts= numpy.linspace(0.,-dt,self._nTrackChunks)
             #Flip velocities before integrating
@@ -192,7 +193,8 @@ class streamdf:
             diffAngles= theseAngles-allAcfsTrack[ii,6:]
             diffAngles[(diffAngles > numpy.pi)]= diffAngles[(diffAngles > numpy.pi)]-2.*numpy.pi
             diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
-            diffFreqs= self._sigomean-allAcfsTrack[ii,3:6]
+            thisFreq= self.meanOmega(thetasTrack[ii])
+            diffFreqs= thisFreq-allAcfsTrack[ii,3:6]
             #print "diff", theseAngles,allAcfsTrack[ii,6:],diffAngles
             ObsTrack[ii,:]= numpy.dot(tinvjac,
                                       numpy.hstack((diffFreqs,diffAngles)))
@@ -232,10 +234,6 @@ class streamdf:
         dOmin= dangle/self._tdisrupt
         meandO= self._sigMeanOffset\
             *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
-        print meandO*bovy_conversion.freq_in_Gyr(self._Vnorm,self._Rnorm), dOmin*bovy_conversion.freq_in_Gyr(self._Vnorm,self._Rnorm), (meandO-dOmin)\
-            /numpy.sqrt(2.)/self._sortedSigOEig[2]
-        print special.erf((meandO-dOmin)\
-                              /numpy.sqrt(2.)/numpy.sqrt(self._sortedSigOEig[2]))
         dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
                    *numpy.exp(-(meandO-dOmin)**2.\
                                    /2./self._sortedSigOEig[2])/
