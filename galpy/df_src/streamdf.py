@@ -6,7 +6,7 @@ from galpy.util import bovy_coords, stable_cholesky, bovy_conversion
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 tdisrupt=None,sigMeanOffset=1.5,deltaAngle=0.3,leading=True,
+                 tdisrupt=None,sigMeanOffset=6.,deltaAngle=0.3,leading=True,
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
@@ -23,7 +23,7 @@ class streamdf:
            progenitor= progenitor orbit as Orbit instance 
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
-           sigMeanOffset= (1.5) offset between the mean of the frequencies
+           sigMeanOffset= (6.) offset between the mean of the frequencies
                           and the progenitor, in units of the largest 
                           eigenvalue of the frequency covariance matrix 
                           (along the largest eigenvector), should be positive;
