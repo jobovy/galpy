@@ -1,11 +1,12 @@
 #The DF of a tidal stream
 import numpy
+from scipy import special
 from galpy.orbit import Orbit
-from galpy.util import bovy_coords, stable_cholesky
+from galpy.util import bovy_coords, stable_cholesky, bovy_conversion
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 sigMeanOffset=1.5,deltaAngle=0.3,leading=True,
+                 tdisrupt=None,sigMeanOffset=1.5,deltaAngle=0.3,leading=True,
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
@@ -16,6 +17,7 @@ class streamdf:
            Initialize a quasi-isothermal DF
         INPUT:
            sigv - radial velocity dispersion of the progenitor
+           tdisrupt= (5 Gyr) time since start of disruption (natural units)
            leading= (True) if True, model the leading part of the stream
                            if False, model the trailing part
            progenitor= progenitor orbit as Orbit instance 
@@ -44,6 +46,10 @@ class streamdf:
            2013-11-25 - Started over - Bovy (IAS)
         """
         self._sigv= sigv
+        if tdisrupt is None:
+            self._tdisrupt= 5./bovy_conversion.time_in_Gyr(Vnorm,Rnorm)
+        else:
+            self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
         self._deltaAngle= deltaAngle
         if pot is None:
@@ -80,8 +86,8 @@ class streamdf:
                                     numpy.dot(self._sigjmatrix,self._dOdJp.T))
         #Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig= numpy.linalg.eig(self._sigomatrix)
-        sortedEig= sorted(self._sigomatrixEig[0])
-        self._sigangle2= sortedEig[1]/sortedEig[2]*self._deltaAngle
+        self._sortedSigOEig= sorted(self._sigomatrixEig[0])
+        self._sigangle2= self._sortedSigOEig[1]/self._sortedSigOEig[2]*self._deltaAngle
         self._sigangle= numpy.sqrt(self._sigangle2)
         self._lnsigangle= numpy.log(self._sigangle)
         #Estimate the frequency mean as lying along the direction of the largest eigenvalue
@@ -112,7 +118,7 @@ class streamdf:
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
-        self._determine_stream_track(deltaAngleTrack,nTrackChunks)
+        #self._determine_stream_track(deltaAngleTrack,nTrackChunks)
         return None
 
     def estimateTdisrupt(self,deltaAngle):
@@ -206,6 +212,40 @@ class streamdf:
         self._ObsTrack= ObsTrack
         self._allAcfsTrack= allAcfsTrack
         return None
+
+    def meanOmega(self,dangle,oned=False):
+        """
+        NAME:
+           meanOmega
+        PURPOSE:
+           calculate the mean frequency as a function of angle, assuming a 
+           uniform time distribution up to a maximum time
+        INPUT:
+           dangle - angle offset
+           oned= (False) if True, return the 1D offset from the progenitor
+                         (along the direction of disruption)
+        OUTPUT:
+           mean Omega
+        HISTORY:
+           2013-12-01 - Written - Bovy (IAS)
+        """
+        dOmin= dangle/self._tdisrupt
+        meandO= self._sigMeanOffset\
+            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
+        print meandO*bovy_conversion.freq_in_Gyr(self._Vnorm,self._Rnorm), dOmin*bovy_conversion.freq_in_Gyr(self._Vnorm,self._Rnorm), (meandO-dOmin)\
+            /numpy.sqrt(2.)/self._sortedSigOEig[2]
+        print special.erf((meandO-dOmin)\
+                              /numpy.sqrt(2.)/numpy.sqrt(self._sortedSigOEig[2]))
+        dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                   *numpy.exp(-(meandO-dOmin)**2.\
+                                   /2./self._sortedSigOEig[2])/
+                (1.+special.erf((meandO-dOmin)\
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
+                   +meandO)
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign
 
     def __call__(self,*args,**kwargs):
         """
