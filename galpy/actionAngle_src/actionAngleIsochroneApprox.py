@@ -214,12 +214,14 @@ class actionAngleIsochroneApprox():
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                               vR.flatten(),
-                                               vT.flatten(),
-                                               z.flatten(),
-                                               vz.flatten(),
-                                               phi.flatten())
+            if kwargs.has_key('_acfs'): acfs= kwargs['_acfs']
+            else:
+                acfs= self._aAI.actionsFreqsAngles(R.flatten(),
+                                                   vR.flatten(),
+                                                   vT.flatten(),
+                                                   z.flatten(),
+                                                   vz.flatten(),
+                                                   phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -300,10 +302,16 @@ class actionAngleIsochroneApprox():
             OmegaZ= nu.sum(atainv[:,1,:]*ATAZ,axis=1)
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
-            return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
-                    angleR % _TWOPI,
-                    anglephi % _TWOPI,
-                    angleZ % _TWOPI)
+            if kwargs.has_key('_retacfs') and kwargs['_retacfs']:
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                        angleR % _TWOPI,
+                        anglephi % _TWOPI,
+                        angleZ % _TWOPI,acfs)
+            else:
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                        angleR % _TWOPI,
+                        anglephi % _TWOPI,
+                        angleZ % _TWOPI)
 
     def plot(self,*args,**kwargs):
         """
@@ -467,6 +475,7 @@ class actionAngleIsochroneApprox():
     def _parse_args(self,freqsAngles=True,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
         RasOrbit= False
+        integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3:
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6 or len(args) == 4:
@@ -485,9 +494,11 @@ class actionAngleIsochroneApprox():
                 z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
                 vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
                 phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+                integrated= False
             if len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 RasOrbit= True
+                integrated= False
         if isinstance(args[0],Orbit) \
                 or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
                 or RasOrbit:
@@ -504,6 +515,7 @@ class actionAngleIsochroneApprox():
             if not hasattr(os[0],'orbit'): #not integrated yet
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method) for o in os]
+                integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)
             R= nu.empty((no,ntJ))
@@ -523,7 +535,7 @@ class actionAngleIsochroneApprox():
                     phi[ii,:]= this_orbit[:,5]
                 else:
                     phi[ii,:]= this_orbit[:,3]
-        if freqsAngles: #also integrate backwards in time, such that the requested point is not at the edge
+        if freqsAngles and not integrated: #also integrate backwards in time, such that the requested point is not at the edge
             no= R.shape[0]
             nt= R.shape[1]
             oR= nu.empty((no,2*nt-1))
