@@ -8,6 +8,7 @@ class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,deltaAngle=0.3,leading=True,
+                 sigangle=None,
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
@@ -31,6 +32,8 @@ class streamdf:
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
+           sigangle= (sigv/100) estimate of the angle spread of the debris 
+                     initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
            nTrackChunks= (11) number of chunks to divide the progenitor track in
            multi= (None) if set, use multi-processing
@@ -91,8 +94,11 @@ class streamdf:
         #Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig= numpy.linalg.eig(self._sigomatrix)
         self._sortedSigOEig= sorted(self._sigomatrixEig[0])
-        self._sigangle2= self._sortedSigOEig[1]/self._sortedSigOEig[2]*self._deltaAngle
-        self._sigangle= numpy.sqrt(self._sigangle2)
+        if sigangle is None:
+            self._sigangle= self._sigv/100.
+        else:
+            self._sigangle= sigangle
+        self._sigangle2= self._sigangle**2.
         self._lnsigangle= numpy.log(self._sigangle)
         #Estimate the frequency mean as lying along the direction of the largest eigenvalue
         self._dsigomeanProgDirection= self._sigomatrixEig[1][:,numpy.argmax(self._sigomatrixEig[0])]
