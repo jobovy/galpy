@@ -1,6 +1,9 @@
 Action-angle coordinates
 =========================
 
+.. WARNING::
+   The action-angle modules are currently being re-developed, so much of the documentation on this page is severely out-of-date!
+
 galpy can calculate actions and angles for spherical and axisymmetric
 potentials. These are implemented in a separate module
 ``galpy.actionAngle``, but the preferred method for accessing these is
