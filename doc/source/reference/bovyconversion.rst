@@ -1,3 +1,5 @@
+.. _bovyconversion:
+
 galpy.util.bovy_conversion
 ===========================
 
