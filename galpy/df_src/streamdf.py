@@ -1,15 +1,17 @@
 #The DF of a tidal stream
 import numpy
+import multiprocessing
 from scipy import special
 from galpy.orbit import Orbit
-from galpy.util import bovy_coords, stable_cholesky, bovy_conversion
+from galpy.util import bovy_coords, stable_cholesky, bovy_conversion, multi
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,deltaAngle=0.3,leading=True,
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
-                 R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25]):
+                 R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
+                 multi=None):
         """
         NAME:
            __init__
@@ -31,6 +33,7 @@ class streamdf:
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
            nTrackChunks= (11) number of chunks to divide the progenitor track in
+           multi= (None) if set, use multi-processing
 
            Coordinate transformation inputs:
               Vnorm= (220) circular velocity to normalize velocities with
@@ -57,6 +60,7 @@ class streamdf:
         self._pot= pot
         self._aA= aA
         self._progenitor= progenitor
+        self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
         self._progenitor_jr= acfs[0][0]
@@ -173,47 +177,37 @@ class streamdf:
         thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
-        for ii in range(self._nTrackChunks):
-            tacfs= self._aA.actionsFreqsAngles(self._progenitorTrack(self._trackts[ii]),
-                                         maxn=3)
-            allAcfsTrack[ii,0]= tacfs[0][0]
-            allAcfsTrack[ii,1]= tacfs[1][0]
-            allAcfsTrack[ii,2]= tacfs[2][0]
-            for jj in range(3,9):
-                allAcfsTrack[ii,jj]= tacfs[jj]
-            tjac= calcaAJac(self._progenitorTrack(self._trackts[ii])._orb.vxvv,
-                            self._aA,
-                            dxv=None,freqs=True,
-                            lb=False,
-                            _initacfs=tacfs)
-            alljacsTrack[ii,:,:]= tjac
-            tinvjac= numpy.linalg.inv(tjac)
-            allinvjacsTrack[ii,:,:]= tinvjac
-            theseAngles= numpy.mod(self._progenitor_angle\
-                                       +thetasTrack[ii]\
-                                       *self._sigMeanSign\
-                                       *self._dsigomeanProgDirection,
-                                   2.*numpy.pi)
-            diffAngles= theseAngles-allAcfsTrack[ii,6:]
-            diffAngles[(diffAngles > numpy.pi)]= diffAngles[(diffAngles > numpy.pi)]-2.*numpy.pi
-            diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
-            thisFreq= self.meanOmega(thetasTrack[ii])
-            diffFreqs= thisFreq-allAcfsTrack[ii,3:6]
-            #print "diff", theseAngles,allAcfsTrack[ii,6:],diffAngles
-            ObsTrack[ii,:]= numpy.dot(tinvjac,
-                                      numpy.hstack((diffFreqs,diffAngles)))
-            ObsTrack[ii,0]+= \
-                self._progenitorTrack(self._trackts[ii]).R()
-            ObsTrack[ii,1]+= \
-                self._progenitorTrack(self._trackts[ii]).vR()
-            ObsTrack[ii,2]+= \
-                self._progenitorTrack(self._trackts[ii]).vT()
-            ObsTrack[ii,3]+= \
-                self._progenitorTrack(self._trackts[ii]).z()
-            ObsTrack[ii,4]+= \
-                self._progenitorTrack(self._trackts[ii]).vz()
-            ObsTrack[ii,5]+= \
-                self._progenitorTrack(self._trackts[ii]).phi()
+        if self._multi is None:
+            for ii in range(self._nTrackChunks):
+                multiOut= _determine_stream_track_single(self._aA,
+                                                         self._progenitorTrack,
+                                                         self._trackts[ii],
+                                                         self._progenitor_angle,
+                                                         self._sigMeanSign,
+                                                         self._dsigomeanProgDirection,
+                                                         self.meanOmega,
+                                                         thetasTrack[ii])
+                allAcfsTrack[ii,:]= multiOut[0]
+                alljacsTrack[ii,:,:]= multiOut[1]
+                allinvjacsTrack[ii,:,:]= multiOut[2]
+                ObsTrack[ii,:]= multiOut[3]
+        else:
+            multiOut= multi.parallel_map(\
+                (lambda x: _determine_stream_track_single(self._aA,self._progenitorTrack,self._trackts[x],
+                                                          self._progenitor_angle,
+                                                          self._sigMeanSign,
+                                                          self._dsigomeanProgDirection,
+                                                          self.meanOmega,
+                                                          thetasTrack[x])),
+                range(self._nTrackChunks),
+                numcores=numpy.amin([self._nTrackChunks,
+                                     multiprocessing.cpu_count(),
+                                     self._multi]))
+            for ii in range(self._nTrackChunks):
+                allAcfsTrack[ii,:]= multiOut[ii][0]
+                alljacsTrack[ii,:,:]= multiOut[ii][1]
+                allinvjacsTrack[ii,:,:]= multiOut[ii][2]
+                ObsTrack[ii,:]= multiOut[ii][3]
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._allAcfsTrack= allAcfsTrack
@@ -415,6 +409,57 @@ class streamdf:
                 phi.append(o.phi())
         return (numpy.array(R),numpy.array(vR),numpy.array(vT),
                 numpy.array(z),numpy.array(vz),numpy.array(phi))
+
+def _determine_stream_track_single(aA,progenitorTrack,trackt,
+                                   progenitor_angle,sigMeanSign,
+                                   dsigomeanProgDirection,meanOmega,
+                                   thetasTrack):
+    #Setup output
+    allAcfsTrack= numpy.empty((9))
+    alljacsTrack= numpy.empty((6,6))
+    allinvjacsTrack= numpy.empty((6,6))
+    ObsTrack= numpy.empty((6))
+    #Calculate
+    tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt),
+                                       maxn=3)
+    allAcfsTrack[0]= tacfs[0][0]
+    allAcfsTrack[1]= tacfs[1][0]
+    allAcfsTrack[2]= tacfs[2][0]
+    for jj in range(3,9):
+        allAcfsTrack[jj]= tacfs[jj]
+    tjac= calcaAJac(progenitorTrack(trackt)._orb.vxvv,
+                    aA,
+                    dxv=None,freqs=True,
+                    lb=False,
+                    _initacfs=tacfs)
+    alljacsTrack[:,:]= tjac
+    tinvjac= numpy.linalg.inv(tjac)
+    allinvjacsTrack[:,:]= tinvjac
+    theseAngles= numpy.mod(progenitor_angle\
+                               +thetasTrack\
+                               *sigMeanSign\
+                               *dsigomeanProgDirection,
+                           2.*numpy.pi)
+    diffAngles= theseAngles-allAcfsTrack[6:]
+    diffAngles[(diffAngles > numpy.pi)]= diffAngles[(diffAngles > numpy.pi)]-2.*numpy.pi
+    diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
+    thisFreq= meanOmega(thetasTrack)
+    diffFreqs= thisFreq-allAcfsTrack[3:6]
+    ObsTrack[:]= numpy.dot(tinvjac,
+                              numpy.hstack((diffFreqs,diffAngles)))
+    ObsTrack[0]+= \
+        progenitorTrack(trackt).R()
+    ObsTrack[1]+= \
+        progenitorTrack(trackt).vR()
+    ObsTrack[2]+= \
+        progenitorTrack(trackt).vT()
+    ObsTrack[3]+= \
+        progenitorTrack(trackt).z()
+    ObsTrack[4]+= \
+        progenitorTrack(trackt).vz()
+    ObsTrack[5]+= \
+        progenitorTrack(trackt).phi()
+    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack]
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
