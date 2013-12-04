@@ -6,6 +6,7 @@ from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi
 _INTERPDURINGSETUP= True
+_USEINTERP= True
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
@@ -14,7 +15,8 @@ class streamdf:
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
-                 multi=None,interpTrack=_INTERPDURINGSETUP):
+                 multi=None,interpTrack=_INTERPDURINGSETUP,
+                 useInterp=_USEINTERP):
         """
         NAME:
            __init__
@@ -42,6 +44,8 @@ class streamdf:
                         setting up the instance (can be done by hand by 
                         calling self._interpolate_stream_track() and 
                         self._interpolate_stream_track_aA())
+           useInterp= (might change), use interpolation by default when 
+                      calculating approximated frequencies and angles
            multi= (None) if set, use multi-processing
 
            Coordinate transformation inputs:
@@ -136,7 +140,8 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         self._determine_stream_track(deltaAngleTrack,nTrackChunks)
-        if interpTrack:
+        self._useInterp= useInterp
+        if interpTrack or self._useInterp:
             self._interpolate_stream_track()
             self._interpolate_stream_track_aA()
         return None
@@ -577,7 +582,11 @@ class streamdf:
         HISTORY:
            2013-12-03 - Written - Bovy (IAS)
         """
-        return self._callActionAngleMethod(*args,**kwargs)
+        #First calculate the actionAngle coordinates if they're not given 
+        #as such
+        freqsAngles= self._parse_call_args(*args,**kwargs)
+        print freqsAngles
+        return None
 
     def _callActionAngleMethod(self,*args,**kwargs):
         """Evaluate the DF using the action-angle formalism"""
@@ -639,15 +648,30 @@ class streamdf:
         daz[(daz > 4.)]-= 2.*numpy.pi
         return (djr,dlz,djz,dOr,dOphi,dOz,dar,daphi,daz)
 
-    def _parse_call_args(self,directIntegration=True,*args):
-        """Helper function to parse the arguments to the __call__ and related functions"""
+    def _parse_call_args(self,*args,**kwargs):
+        """Helper function to parse the arguments to the __call__ and related functions,
+        return [6,nobj] array of frequencies (:3) and angles (3:)"""
+        if kwargs.has_key('interp'):
+            interp= kwargs['interp']
+        else:
+            interp= self._useInterp
         if len(args) == 5:
             raise IOError("Must specify phi for streamdf")
         elif len(args) == 6:
-            return args
+            if kwargs.has_key('aAInput') and kwargs['aAInput']:
+                if isinstance(args[0],(int,float,numpy.float32,numpy.float64)):
+                    out= numpy.empty((6,1))
+                else:
+                    out= numpy.empty((6,len(args[0])))
+                for ii in range(6):
+                    out[ii,:]= args[ii]
+                return out
+            else:
+                return self._approxaA(*args,interp=interp)
         elif isinstance(args[0],Orbit):
             o= args[0]
-            return (o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
+            return self._approxaA(o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi(),
+                                  interp=interp)
         elif isinstance(args[0],list) and isinstance(args[0][0],Orbit):
             R, vR, vT, z, vz, phi= [], [], [], [], [], []
             for o in args[0]:
@@ -657,8 +681,10 @@ class streamdf:
                 z.append(o.z())
                 vz.append(o.vz())
                 phi.append(o.phi())
-        return (numpy.array(R),numpy.array(vR),numpy.array(vT),
-                numpy.array(z),numpy.array(vz),numpy.array(phi))
+            return self._approxaA(numpy.array(R),numpy.array(vR),
+                                  numpy.array(vT),numpy.array(z),
+                                  numpy.array(vz),numpy.array(phi),
+                                  interp=interp)
 
 def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    progenitor_angle,sigMeanSign,
