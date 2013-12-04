@@ -5,6 +5,7 @@ from scipy import special, interpolate
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi
+_INTERPDURINGSETUP= True
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
@@ -13,7 +14,7 @@ class streamdf:
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
-                 multi=None):
+                 multi=None,interpTrack=_INTERPDURINGSETUP):
         """
         NAME:
            __init__
@@ -37,6 +38,10 @@ class streamdf:
                      initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
            nTrackChunks= (11) number of chunks to divide the progenitor track in
+           interpTrack= (might change), interpolate the stream track while 
+                        setting up the instance (can be done by hand by 
+                        calling self._interpolate_stream_track() and 
+                        self._interpolate_stream_track_aA())
            multi= (None) if set, use multi-processing
 
            Coordinate transformation inputs:
@@ -131,7 +136,9 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         self._determine_stream_track(deltaAngleTrack,nTrackChunks)
-        self._interpolate_stream_track()
+        if interpTrack:
+            self._interpolate_stream_track()
+            self._interpolate_stream_track_aA()
         return None
 
     def estimateTdisrupt(self,deltaAngle):
