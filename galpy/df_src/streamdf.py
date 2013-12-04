@@ -222,6 +222,22 @@ class streamdf:
         self._allAcfsTrack= allAcfsTrack
         self._alljacsTrack= alljacsTrack
         self._allinvjacsTrack= allinvjacsTrack
+        #Also calculate _ObsTrackXY in XYZ,vXYZ coordinates
+        self._ObsTrackXY= numpy.empty_like(self._ObsTrack)
+        TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
+        TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
+        TrackZ= self._ObsTrack[:,3]
+        TrackvX, TrackvY, TrackvZ=\
+            bovy_coords.cyl_to_rect_vec(self._ObsTrack[:,1],
+                                        self._ObsTrack[:,2],
+                                        self._ObsTrack[:,4],
+                                        self._ObsTrack[:,5])
+        self._ObsTrackXY[:,0]= TrackX
+        self._ObsTrackXY[:,1]= TrackY
+        self._ObsTrackXY[:,2]= TrackZ
+        self._ObsTrackXY[:,3]= TrackvX
+        self._ObsTrackXY[:,4]= TrackvY
+        self._ObsTrackXY[:,5]= TrackvZ
         return None
 
     def _interpolate_stream_track(self):
@@ -383,33 +399,37 @@ class streamdf:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
 
-    def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi):
-        """Find the point on the stream track closest to a given phase-space
-        point"""
-        diagMetric= copy.copy(self._sigomatrixEig[0])
-        diagMetric/= numpy.sqrt(numpy.sum(diagMetric**2.)) #arbitrary
-        diagMetric= numpy.ones(3)*1000.
-        diagMetric[numpy.argmax(self._sigomatrixEig[0])]= 1.
-        metric3d= numpy.dot(self._sigomatrixEig[1],
-                            numpy.dot(numpy.diag(diagMetric),
-                                      numpy.linalg.inv(self._sigomatrixEig[1])))
-        self._metric_for_closest= numpy.zeros((6,6))
-        self._metric_for_closest[:3,:3]= numpy.eye(3)*1000.
-        self._metric_for_closest[3:,3:]= metric3d
-        self._metric_for_closest_track= numpy.empty((self._nTrackChunks,6,6))
-        for ii in range(self._nTrackChunks):
-            tmpMatrix= numpy.dot(self._allinvjacsTrack[ii],
-                                 numpy.dot(self._metric_for_closest,
-                                           self._allinvjacsTrack[ii].T))
-            self._metric_for_closest_track[ii]= \
-                fast_cholesky_invert(tmpMatrix,tiny=10.**-8.,logdet=False)
-        #Calculate metric distance for each track point
-        dist2= numpy.empty(self._nTrackChunks)
-        thisxv= numpy.array([R,vR,vT,z,vz,phi])
-        for ii in range(self._nTrackChunks):
-            dist2[ii]= numpy.sum((thisxv-self._ObsTrack[ii])\
-                                    *numpy.dot(self._metric_for_closest_track[ii],
-                                               (thisxv-self._ObsTrack[ii])))
+    def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False):
+        """
+        NAME:
+           _find_closest_trackpoint
+        PURPOSE:
+           find the closest point on the stream track to a given point
+        INPUT:
+           R,vR,vT,z,vz,phi - phase-space coordinates of the given point
+           interp= (True), if True, return the index of the interpolated track
+           xy= (False) if True, input is X,Y,Z,vX,vY,vZ in Galactocentric rectangular coordinates
+        OUTPUT:
+           index into the track of the closest track point
+        HISTORY:
+           2013-12-04 - Written - Bovy (IAS)
+        """
+        if xy:
+            X= R
+            Y= vR
+            Z= vT
+        else:
+            X= R*numpy.cos(phi)
+            Y= R*numpy.cos(phi)
+            Z= z
+        if interp:
+            dist2= (X-self._interpolatedObsTrackXY[:,0])**2.\
+                +(Y-self._interpolatedObsTrackXY[:,1])**2.\
+                +(Z-self._interpolatedObsTrackXY[:,2])**2.
+        else:
+            dist2= (X-self._ObsTrackXY[:,0])**2.\
+                +(Y-self._ObsTrackXY[:,1])**2.\
+                +(Z-self._ObsTrackXY[:,2])**2.
         print dist2
         return numpy.argmin(dist2)
 
