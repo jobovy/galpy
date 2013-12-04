@@ -1,9 +1,11 @@
 #The DF of a tidal stream
+import copy
 import numpy
 import multiprocessing
 from scipy import special
 from galpy.orbit import Orbit
-from galpy.util import bovy_coords, stable_cholesky, bovy_conversion, multi
+from galpy.util import bovy_coords, fast_cholesky_invert, \
+    bovy_conversion, multi
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
@@ -120,7 +122,8 @@ class streamdf:
 #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         self._dsigomeanProg= self._sigomean-self._progenitor_Omega
         #Store cholesky of sigomatrix for fast evaluation
-        self._sigomatrixL= stable_cholesky(self._sigomatrix,10.**-8.)
+        self._sigomatrixL, self._sigomatrixLogdet= \
+            fast_cholesky_invert(self._sigomatrix,tiny=10.**-8.,logdet=True)
         self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
         #Determine the stream track
         self._Vnorm= Vnorm
@@ -304,6 +307,36 @@ class streamdf:
         else:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
+
+    def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi):
+        """Find the point on the stream track closest to a given phase-space
+        point"""
+        diagMetric= copy.copy(self._sigomatrixEig[0])
+        diagMetric/= numpy.sqrt(numpy.sum(diagMetric**2.)) #arbitrary
+        diagMetric= numpy.ones(3)*1000.
+        diagMetric[numpy.argmax(self._sigomatrixEig[0])]= 1.
+        metric3d= numpy.dot(self._sigomatrixEig[1],
+                            numpy.dot(numpy.diag(diagMetric),
+                                      numpy.linalg.inv(self._sigomatrixEig[1])))
+        self._metric_for_closest= numpy.zeros((6,6))
+        self._metric_for_closest[:3,:3]= numpy.eye(3)*1000.
+        self._metric_for_closest[3:,3:]= metric3d
+        self._metric_for_closest_track= numpy.empty((self._nTrackChunks,6,6))
+        for ii in range(self._nTrackChunks):
+            tmpMatrix= numpy.dot(self._allinvjacsTrack[ii],
+                                 numpy.dot(self._metric_for_closest,
+                                           self._allinvjacsTrack[ii].T))
+            self._metric_for_closest_track[ii]= \
+                fast_cholesky_invert(tmpMatrix,tiny=10.**-8.,logdet=False)
+        #Calculate metric distance for each track point
+        dist2= numpy.empty(self._nTrackChunks)
+        thisxv= numpy.array([R,vR,vT,z,vz,phi])
+        for ii in range(self._nTrackChunks):
+            dist2[ii]= numpy.sum((thisxv-self._ObsTrack[ii])\
+                                    *numpy.dot(self._metric_for_closest_track[ii],
+                                               (thisxv-self._ObsTrack[ii])))
+        print dist2
+        return numpy.argmin(dist2)
 
     def __call__(self,*args,**kwargs):
         """
