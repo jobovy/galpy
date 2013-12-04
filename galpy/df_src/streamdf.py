@@ -2,7 +2,7 @@
 import copy
 import numpy
 import multiprocessing
-from scipy import special
+from scipy import special, interpolate
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi
@@ -224,6 +224,53 @@ class streamdf:
         self._allinvjacsTrack= allinvjacsTrack
         return None
 
+    def _interpolate_stream_track(self):
+        """Build interpolations of the stream track"""
+        TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
+        TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
+        TrackZ= self._ObsTrack[:,3]
+        TrackvX, TrackvY, TrackvZ=\
+            bovy_coords.cyl_to_rect_vec(self._ObsTrack[:,1],
+                                        self._ObsTrack[:,2],
+                                        self._ObsTrack[:,4],
+                                        self._ObsTrack[:,5])
+        #Interpolate
+        self._interpTrackX=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackX,k=3)
+        self._interpTrackY=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackY,k=3)
+        self._interpTrackZ=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackZ,k=3)
+        self._interpTrackvX=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackvX,k=3)
+        self._interpTrackvY=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackvY,k=3)
+        self._interpTrackvZ=\
+            interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                     TrackvZ,k=3)
+        #Now store an interpolated version of the stream track
+        self._interpolatedThetasTrack=\
+            numpy.linspace(0.,self._deltaAngleTrack,1001)
+        self._interpolatedObsTrackXY= numpy.empty((len(self._interpolatedThetasTrack),6))
+        self._interpolatedObsTrackXY[:,0]=\
+            self._interpTrackX(self._interpolatedThetasTrack)
+        self._interpolatedObsTrackXY[:,1]=\
+            self._interpTrackY(self._interpolatedThetasTrack)
+        self._interpolatedObsTrackXY[:,2]=\
+            self._interpTrackZ(self._interpolatedThetasTrack)
+        self._interpolatedObsTrackXY[:,3]=\
+            self._interpTrackvX(self._interpolatedThetasTrack)
+        self._interpolatedObsTrackXY[:,4]=\
+            self._interpTrackvY(self._interpolatedThetasTrack)
+        self._interpolatedObsTrackXY[:,5]=\
+            self._interpTrackvZ(self._interpolatedThetasTrack)
+        return None
+
     def calc_stream_lb(self,
                        Vnorm=None,Rnorm=None,
                        R0=None,Zsun=None,vsun=None):
@@ -276,6 +323,34 @@ class streamdf:
         self._ObsTrackLB[:,3]= svlbd[:,0]
         self._ObsTrackLB[:,4]= svlbd[:,1]
         self._ObsTrackLB[:,5]= svlbd[:,2]
+        if hasattr(self,'_interpolatedObsTrackXY'):
+            #Do the same for the interpolated track
+            self._interpolatedObsTrackLB=\
+                numpy.empty_like(self._interpolatedObsTrackXY)
+            XYZ=\
+                bovy_coords.galcenrect_to_XYZ(\
+                self._interpolatedObsTrackXY[:,0]*Rnorm,
+                self._interpolatedObsTrackXY[:,1]*Rnorm,
+                self._interpolatedObsTrackXY[:,2]*Rnorm,
+                Xsun=R0,Zsun=Zsun)
+            vXYZ=\
+                bovy_coords.galcenrect_to_vxvyvz(\
+                self._interpolatedObsTrackXY[:,3]*Vnorm,
+                self._interpolatedObsTrackXY[:,4]*Vnorm,
+                self._interpolatedObsTrackXY[:,5]*Vnorm,
+                vsun=vsun)
+            slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                        degree=True)
+            svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                                    slbd[:,0],slbd[:,1],
+                                                    slbd[:,2],
+                                                    degree=True)
+            self._interpolatedObsTrackLB[:,0]= slbd[:,0]
+            self._interpolatedObsTrackLB[:,1]= slbd[:,1]
+            self._interpolatedObsTrackLB[:,2]= slbd[:,2]
+            self._interpolatedObsTrackLB[:,3]= svlbd[:,0]
+            self._interpolatedObsTrackLB[:,4]= svlbd[:,1]
+            self._interpolatedObsTrackLB[:,5]= svlbd[:,2]
         return None
 
     def meanOmega(self,dangle,oned=False):
