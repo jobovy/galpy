@@ -1,5 +1,4 @@
 #The DF of a tidal stream
-import copy
 import numpy
 import multiprocessing
 from scipy import special, interpolate
@@ -132,6 +131,7 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         self._determine_stream_track(deltaAngleTrack,nTrackChunks)
+        self._interpolate_stream_track()
         return None
 
     def estimateTdisrupt(self,deltaAngle):
@@ -186,6 +186,7 @@ class streamdf:
         thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
+        ObsTrackAA= numpy.empty((self._nTrackChunks,6))
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
@@ -200,6 +201,7 @@ class streamdf:
                 alljacsTrack[ii,:,:]= multiOut[1]
                 allinvjacsTrack[ii,:,:]= multiOut[2]
                 ObsTrack[ii,:]= multiOut[3]
+                ObsTrackAA[ii,:]= multiOut[4]
         else:
             multiOut= multi.parallel_map(\
                 (lambda x: _determine_stream_track_single(self._aA,self._progenitorTrack,self._trackts[x],
@@ -217,8 +219,10 @@ class streamdf:
                 alljacsTrack[ii,:,:]= multiOut[ii][1]
                 allinvjacsTrack[ii,:,:]= multiOut[ii][2]
                 ObsTrack[ii,:]= multiOut[ii][3]
+                ObsTrackAA[ii,:]= multiOut[ii][4]
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
+        self._ObsTrackAA= ObsTrackAA
         self._allAcfsTrack= allAcfsTrack
         self._alljacsTrack= alljacsTrack
         self._allinvjacsTrack= allinvjacsTrack
@@ -242,6 +246,8 @@ class streamdf:
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
+        if hasattr(self,'_interpolatedThetasTrack'):
+            return None #Already did this
         TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
         TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
         TrackZ= self._ObsTrack[:,3]
@@ -285,6 +291,49 @@ class streamdf:
             self._interpTrackvY(self._interpolatedThetasTrack)
         self._interpolatedObsTrackXY[:,5]=\
             self._interpTrackvZ(self._interpolatedThetasTrack)
+        #Also in cylindrical coordinates
+        self._interpolatedObsTrack= \
+            numpy.empty((len(self._interpolatedThetasTrack),6))
+        tR,tphi,tZ= bovy_coords.rect_to_cyl(self._interpolatedObsTrackXY[:,0],
+                                            self._interpolatedObsTrackXY[:,1],
+                                            self._interpolatedObsTrackXY[:,2])
+        tvR,tvT,tvZ=\
+            bovy_coords.rect_to_cyl_vec(self._interpolatedObsTrackXY[:,3],
+                                        self._interpolatedObsTrackXY[:,4],
+                                        self._interpolatedObsTrackXY[:,5],
+                                        tR,tphi,tZ,cyl=True)
+        self._interpolatedObsTrack[:,0]= tR
+        self._interpolatedObsTrack[:,1]= tvR
+        self._interpolatedObsTrack[:,2]= tvT
+        self._interpolatedObsTrack[:,3]= tZ
+        self._interpolatedObsTrack[:,4]= tvZ
+        self._interpolatedObsTrack[:,5]= tphi
+        return None
+
+    def _interpolate_stream_track_aA(self):
+        """Build interpolations of the stream track in action-angle coordinates"""
+        if hasattr(self,'_interpolatedObsTrackAA'):
+            return None #Already did this
+        #Calculate 1D meanOmega on a fine grid in angle and interpolate
+        if not hasattr(self,'_interpolatedThetasTrack'):
+            self._interpolate_stream_track()
+        dmOs= numpy.array([self.meanOmega(da,oned=True) 
+                          for da in self._interpolatedThetasTrack])
+        self._interpTrackAAdmeanOmegaOneD=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._interpolatedThetasTrack,dmOs,k=3)
+        #Build the interpolated AA
+        self._interpolatedObsTrackAA=\
+            numpy.empty((len(self._interpolatedThetasTrack),6))
+        for ii in range(len(self._interpolatedThetasTrack)):
+            self._interpolatedObsTrackAA[ii,:3]=\
+                self._progenitor_Omega+dmOs[ii]*self._dsigomeanProgDirection\
+                *self._sigMeanSign   
+            self._interpolatedObsTrackAA[ii,3:]=\
+                self._progenitor_angle+self._interpolatedThetasTrack[ii]\
+                *self._dsigomeanProgDirection*self._sigMeanSign
+            self._interpolatedObsTrackAA[ii,3:]=\
+                numpy.mod(self._interpolatedObsTrackAA[ii,3:],2.*numpy.pi)
         return None
 
     def calc_stream_lb(self,
@@ -420,7 +469,7 @@ class streamdf:
             Z= vT
         else:
             X= R*numpy.cos(phi)
-            Y= R*numpy.cos(phi)
+            Y= R*numpy.sin(phi)
             Z= z
         if interp:
             dist2= (X-self._interpolatedObsTrackXY[:,0])**2.\
@@ -430,8 +479,65 @@ class streamdf:
             dist2= (X-self._ObsTrackXY[:,0])**2.\
                 +(Y-self._ObsTrackXY[:,1])**2.\
                 +(Z-self._ObsTrackXY[:,2])**2.
-        print dist2
         return numpy.argmin(dist2)
+
+    def _approxaA(self,R,vR,vT,z,vz,phi,interp=True):
+        """
+        NAME:
+           _approxaA
+        PURPOSE:
+           return action-angle coordinates for a point based on the linear 
+           approximation around the stream track
+        INPUT:
+           R,vR,vT,z,vz,phi - phase-space coordinates of the given point
+           interp= (True), if True, use the interpolated track
+        OUTPUT:
+           (Or,Op,Oz,ar,ap,az)
+        HISTORY:
+           2013-12-03 - Written - Bovy (IAS)
+        """
+        if isinstance(R,(int,float,numpy.float32,numpy.float64)): #Scalar input
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
+            phi= numpy.array([phi])
+        closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+                                                    z[ii],vz[ii],phi[ii],
+                                                    interp=interp,
+                                                    xy=False) 
+                      for ii in range(len(R))]
+        out= numpy.empty((6,len(R)))
+        for ii in range(len(R)):
+            dxv= numpy.empty(6)
+            if interp:
+                dxv[0]= R[ii]-self._interpolatedObsTrack[closestIndx[ii],0]
+                dxv[1]= vR[ii]-self._interpolatedObsTrack[closestIndx[ii],1]
+                dxv[2]= vT[ii]-self._interpolatedObsTrack[closestIndx[ii],2]
+                dxv[3]= z[ii]-self._interpolatedObsTrack[closestIndx[ii],3]
+                dxv[4]= vz[ii]-self._interpolatedObsTrack[closestIndx[ii],4]
+                dxv[5]= phi[ii]-self._interpolatedObsTrack[closestIndx[ii],5]
+                jacIndx= self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+                                                       z[ii],vz[ii],phi[ii],
+                                                       interp=False,
+                                                       xy=False)
+            else:
+                dxv[0]= R[ii]-self._ObsTrack[closestIndx[ii],0]
+                dxv[1]= vR[ii]-self._ObsTrack[closestIndx[ii],1]
+                dxv[2]= vT[ii]-self._ObsTrack[closestIndx[ii],2]
+                dxv[3]= z[ii]-self._ObsTrack[closestIndx[ii],3]
+                dxv[4]= vz[ii]-self._ObsTrack[closestIndx[ii],4]
+                dxv[5]= phi[ii]-self._ObsTrack[closestIndx[ii],5]
+                jacIndx= closestIndx[ii]
+            #Apply closest jacobian
+            out[:,ii]= numpy.dot(self._alljacsTrack[jacIndx,:,:],
+                                 dxv)
+            if interp:
+                out[:,ii]+= self._interpolatedObsTrackAA[closestIndx[ii]]
+            else:
+                out[:,ii]+= self._ObsTrackAA[closestIndx[ii]]
+        return out            
 
     def __call__(self,*args,**kwargs):
         """
@@ -553,6 +659,7 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
     alljacsTrack= numpy.empty((6,6))
     allinvjacsTrack= numpy.empty((6,6))
     ObsTrack= numpy.empty((6))
+    ObsTrackAA= numpy.empty((6))
     #Calculate
     tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt),
                                        maxn=3)
@@ -574,10 +681,12 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                *sigMeanSign\
                                *dsigomeanProgDirection,
                            2.*numpy.pi)
+    ObsTrackAA[3:]= theseAngles
     diffAngles= theseAngles-allAcfsTrack[6:]
     diffAngles[(diffAngles > numpy.pi)]= diffAngles[(diffAngles > numpy.pi)]-2.*numpy.pi
     diffAngles[(diffAngles < -numpy.pi)]= diffAngles[(diffAngles < -numpy.pi)]+2.*numpy.pi
     thisFreq= meanOmega(thetasTrack)
+    ObsTrackAA[:3]= thisFreq
     diffFreqs= thisFreq-allAcfsTrack[3:6]
     ObsTrack[:]= numpy.dot(tinvjac,
                               numpy.hstack((diffFreqs,diffAngles)))
@@ -593,7 +702,7 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         progenitorTrack(trackt).vz()
     ObsTrack[5]+= \
         progenitorTrack(trackt).phi()
-    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack]
+    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA]
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
