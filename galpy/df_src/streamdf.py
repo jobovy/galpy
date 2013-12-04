@@ -537,6 +537,11 @@ class streamdf:
                 dxv[4]= vz[ii]-self._ObsTrack[closestIndx[ii],4]
                 dxv[5]= phi[ii]-self._ObsTrack[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            #Make sure phi hasn't wrapped around
+            if dxv[5] > numpy.pi:
+                dxv[5]-= 2.*numpy.pi
+            elif dxv[5] < -numpy.pi:
+                dxv[5]+= 2.*numpy.pi
             #Apply closest jacobian
             out[:,ii]= numpy.dot(self._alljacsTrack[jacIndx,:,:],
                                  dxv)
@@ -554,25 +559,23 @@ class streamdf:
            evaluate the DF
         INPUT:
            Either:
-              a)(jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple
-                 where:
-                    jr - radial action
-                    lz - z-component of angular momentum
-                    jz - vertical action
+              a) R,vR,vT,z,vz,phi ndarray [nobjects]
+              b)(Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple if 
+                aaInput
+                where:
                     Omegar - radial frequency
                     Omegaphi - azimuthal frequency
                     Omegaz - vertical frequency
                     angler - radial angle
                     anglephi - azimuthal angle
                     anglez - vertical angle
-              b) R,vR,vT,z,vz,phi ndarray [nobjects,ntimes]
               c) Orbit instance or list thereof
            log= if True, return the natural log
-           rect= if True, R,vR,vT,z,vz,phi is actually X,Y,Z,vX,vY,vZ
+           aaInput= (False) if True, option b above
         OUTPUT:
            value of DF
         HISTORY:
-           2013-09-16 - Written - Bovy (IAS)
+           2013-12-03 - Written - Bovy (IAS)
         """
         return self._callActionAngleMethod(*args,**kwargs)
 
