@@ -36,8 +36,8 @@ class streamdf:
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
-           sigangle= (sigv/100) estimate of the angle spread of the debris 
-                     initially
+           sigangle= (sigv/100/[1km/s]=2.2sigv in natural coordinates)
+                     estimate of the angle spread of the debris initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
            nTrackChunks= (11) number of chunks to divide the progenitor track in
            interpTrack= (might change), interpolate the stream track while 
@@ -105,7 +105,7 @@ class streamdf:
         self._sigomatrixEig= numpy.linalg.eig(self._sigomatrix)
         self._sortedSigOEig= sorted(self._sigomatrixEig[0])
         if sigangle is None:
-            self._sigangle= self._sigv/100.
+            self._sigangle= self._sigv*2.2
         else:
             self._sigangle= sigangle
         self._sigangle2= self._sigangle**2.
@@ -130,9 +130,12 @@ class streamdf:
 #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         self._dsigomeanProg= self._sigomean-self._progenitor_Omega
         #Store cholesky of sigomatrix for fast evaluation
-        self._sigomatrixL, self._sigomatrixLogdet= \
-            fast_cholesky_invert(self._sigomatrix,tiny=10.**-8.,logdet=True)
-        self._sigomatrixDet= numpy.linalg.det(self._sigomatrix)
+        self._sigomatrixNorm=\
+            numpy.sqrt(numpy.sum(self._sigomatrix**2.))
+        self._sigomatrixinv, self._sigomatrixLogdet= \
+            fast_cholesky_invert(self._sigomatrix/self._sigomatrixNorm,
+                                 tiny=10.**-15.,logdet=True)
+        self._sigomatrixinv/= self._sigomatrixNorm
         #Determine the stream track
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
@@ -582,71 +585,58 @@ class streamdf:
         HISTORY:
            2013-12-03 - Written - Bovy (IAS)
         """
-        #First calculate the actionAngle coordinates if they're not given 
-        #as such
-        freqsAngles= self._parse_call_args(*args,**kwargs)
-        print freqsAngles
-        return None
-
-    def _callActionAngleMethod(self,*args,**kwargs):
-        """Evaluate the DF using the action-angle formalism"""
         #First parse log
         if kwargs.has_key('log'):
             log= kwargs['log']
             kwargs.pop('log')
         else:
-            log= False
-        djr,dlz,djz,dOr,dOphi,dOz,dar,daphi,daz= self.prepData4aA(*args,**kwargs)
-        no= len(djr)
-        logdfJ= numpy.sum(-0.5*(1./self._sigjr2*djr**2.
-                                +1./self._siglz2*dlz**2.
-                                +1./self._sigjz2*djz**2.))\
-                                -no*(self._lnsigjr+self._lnsiglz+self._lnsigjz)
-        da2= dar**2.+daphi**2.+daz**2.
-        do2= dOr**2.+dOphi**2.+dOz**2.
-        doa= dar*dOr+daphi*dOphi+daz*dOz
-        logdfA= numpy.sum(-0.5/self._sigangle2*(da2-doa**2./do2)\
-                               -0.5*numpy.log(do2))-2.*no*self._lnsigangle
-        out= logdfA+logdfJ
+            log= True
+        dOmega, dangle= self.prepData4Call(*args,**kwargs)
+        #Omega part
+        logdfOmega= -0.5*numpy.sum(dOmega*
+                                   numpy.dot(self._sigomatrixinv,dOmega),
+                                   axis=0)-0.5*self._sigomatrixLogdet
+        #Angle part
+        dangle2= numpy.sum(dangle**2.,axis=0)
+        dOmega2= numpy.sum(dOmega**2.,axis=0)
+        dOmegaAngle= numpy.sum(dOmega*dangle,axis=0)
+        logdfA= -0.5/self._sigangle2*(dangle2-dOmegaAngle**2./dOmega2)\
+            -2.*self._lnsigangle
+        #Finite stripping part
+        a0= dOmegaAngle/numpy.sqrt(2.)/self._sigangle/numpy.sqrt(dOmega2)
+        ad= numpy.sqrt(dOmega2)/numpy.sqrt(2.)/self._sigangle\
+            *(self._tdisrupt-dOmegaAngle/dOmega2)
+        loga= numpy.log((special.erf(a0)+special.erf(ad))/2.) #divided by 2 st 0 for well-within the stream
+        out= logdfA+logdfOmega+loga
         if log:
             return out
         else:
             return numpy.exp(out)
 
-    def prepData4aA(self,*args,**kwargs):
+    def prepData4Call(self,*args,**kwargs):
         """
         NAME:
-           prepData4aA
+           prepData4Call
         PURPOSE:
-           prepare stream data for the action-angle method
+           prepare stream data for the __call__ method
         INPUT:
            __call__ inputs
         OUTPUT:
-           djr,dlz,djz,dOmegar,dOmegaphi,dOmegaz,dangler,danglephi,danglez; each [nobj,ntimes]; differences wrt the progenitor
+           dOmegar,dOmegaphi,dOmegaz,dangler,danglephi,danglez; each [nobj,ntimes]; differences wrt the progenitor
         HISTORY:
-           2013-09-17 - Written - Bovy (IAS)
+           2013-12-04 - Written - Bovy (IAS)
         """
-        if len(args) == 9: #actions, frequencies, and angles are given
-            return args
-        R,vR,vT,z,vz,phi= self._parse_call_args(False,*args)
-        jr,lz,jz,Or,Ophi,Oz,ar,aphi,az= self._aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
-        djr= jr-self._progenitor_jr
-        dlz= lz-self._progenitor_lz
-        djz= jz-self._progenitor_jz
-        dOr= Or-self._progenitor_Omegar
-        dOphi= Ophi-self._progenitor_Omegaphi
-        dOz= Oz-self._progenitor_Omegaz
-        dar= ar-self._progenitor_angler
-        daphi= aphi-self._progenitor_anglephi
-        daz= az-self._progenitor_anglez
+        #First calculate the actionAngle coordinates if they're not given 
+        #as such
+        freqsAngles= self._parse_call_args(*args,**kwargs)
+        dOmega= freqsAngles[:3,:]\
+            -numpy.tile(self._progenitor_Omega.T,(freqsAngles.shape[1],1)).T
+        dangle= freqsAngles[3:,:]\
+            -numpy.tile(self._progenitor_angle.T,(freqsAngles.shape[1],1)).T
         #Assuming single wrap, resolve large angle differences (wraps should be marginalized over)
-        dar[(dar < -4.)]+= 2.*numpy.pi
-        dar[(dar > 4.)]-= 2.*numpy.pi
-        daphi[(daphi < -4.)]+= 2.*numpy.pi
-        daphi[(daphi > 4.)]-= 2.*numpy.pi
-        daz[(daz < -4.)]+= 2.*numpy.pi
-        daz[(daz > 4.)]-= 2.*numpy.pi
-        return (djr,dlz,djz,dOr,dOphi,dOz,dar,daphi,daz)
+        dangle[(dangle < -4.)]+= 2.*numpy.pi
+        dangle[(dangle > 4.)]-= 2.*numpy.pi
+        return (dOmega,dangle)
 
     def _parse_call_args(self,*args,**kwargs):
         """Helper function to parse the arguments to the __call__ and related functions,
