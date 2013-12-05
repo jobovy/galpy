@@ -469,6 +469,33 @@ class streamdf:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
 
+    def sigOmega(self,dangle):
+        """
+        NAME:
+           meanOmega
+        PURPOSE:
+           calculate the 1D sigma in frequency as a function of angle, 
+           assuming a uniform time distribution up to a maximum time
+        INPUT:
+           dangle - angle offset
+        OUTPUT:
+           sigma Omega
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        dOmin= dangle/self._tdisrupt
+        meandO= self._sigMeanOffset\
+            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
+        sO1D2= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                     *(meandO+dOmin)\
+                     *numpy.exp(-(meandO-dOmin)**2.\
+                                   /2./self._sortedSigOEig[2])/
+                (1.+special.erf((meandO-dOmin)\
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
+                   +meandO**2.+self._sortedSigOEig[2])
+        mO= self.meanOmega(dangle,oned=True)
+        return numpy.sqrt(sO1D2-mO**2.)
+
     def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False):
         """
         NAME:
@@ -742,6 +769,15 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         progenitorTrack(trackt).phi()
     return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,
             detdOdJ]
+
+def _determine_stream_spread_single(aA,progenitorTrack,trackt,
+                                    progenitor_angle,sigMeanSign,
+                                    dsigomeanProgDirection,meanOmega,
+                                    thetasTrack,
+                                    allAcfsTrack,alljacsTrack,allinvjacsTrack,
+                                    ObsTrack,ObsTrackAA):
+    #Estimate the spread
+    pass
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
