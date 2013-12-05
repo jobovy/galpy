@@ -1,4 +1,5 @@
 #The DF of a tidal stream
+import copy
 import numpy
 import multiprocessing
 from scipy import special, interpolate
@@ -298,6 +299,11 @@ class streamdf:
         self._ObsTrackXY[:,4]= TrackvY
         self._ObsTrackXY[:,5]= TrackvZ
         return None
+
+    def _determine_stream_spread(self):
+        """Determine the spread around the stream track, just sets matrices that describe the covariances"""
+
+
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
@@ -804,15 +810,37 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
     return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,
             detdOdJ]
 
-def _determine_stream_spread_single(aA,progenitorTrack,trackt,
-                                    progenitor_angle,sigMeanSign,
-                                    dsigomeanProgDirection,meanOmega,
+def _determine_stream_spread_single(sigomatrixEig,
                                     thetasTrack,
-                                    allAcfsTrack,alljacsTrack,allinvjacsTrack,
-                                    ObsTrack,ObsTrackAA):
+                                    sigangle2,
+                                    sigOmega,
+                                    allinvjacsTrack):
     #Estimate the spread in all frequencies and angles
-
-    pass
+    sigObig2= sigOmega(thetasTrack)**2.
+    tsigOdiag= copy.copy(sigomatrixEig[0])
+    tsigOdiag[numpy.argmax(tsigOdiag)]= sigObig2
+    tsigO= numpy.dot(sigomatrixEig[1],
+                     numpy.dot(numpy.diag(tsigOdiag),
+                               numpy.linalg.inv(sigomatrixEig[1])))
+    #angles
+    tsigadiag= numpy.ones(3)*sigangle2
+    tsigadiag[numpy.argmax(tsigOdiag)]= 1.
+    tsiga= numpy.dot(sigomatrixEig[1],
+                    numpy.dot(numpy.diag(tsigadiag),
+                              numpy.linalg.inv(sigomatrixEig[1])))
+    #correlations
+    correlations= numpy.diag(numpy.ones(3))*numpy.sqrt(tsigOdiag*tsigadiag)
+    correlations[numpy.argmax(tsigOdiag),numpy.argmax(tsigOdiag)]= 0.
+    correlations= numpy.dot(sigomatrixEig[1],
+                            numpy.dot(correlations,
+                                      numpy.linalg.inv(sigomatrixEig[1])))
+    #Now convert
+    fullMatrix= numpy.empty((6,6))
+    fullMatrix[:3,:3]= tsigO
+    fullMatrix[3:,3:]= tsiga
+    fullMatrix[3:,:3]= correlations
+    fullMatrix[:3,3:]= correlations.T
+    return numpy.dot(allinvjacsTrack,numpy.dot(fullMatrix,allinvjacsTrack.T))
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
