@@ -608,6 +608,7 @@ class streamdf:
             *(self._tdisrupt-dOmegaAngle/dOmega2)
         loga= numpy.log((special.erf(a0)+special.erf(ad))/2.) #divided by 2 st 0 for well-within the stream
         out= logdfA+logdfOmega+loga
+        print "BOVY: NEED TO ADD JACOBIAN"
         if log:
             return out
         else:
