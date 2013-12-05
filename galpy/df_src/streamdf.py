@@ -166,6 +166,23 @@ class streamdf:
         out= numpy.arccos(numpy.sum(self._progenitor_Omega*self._dsigomeanProgDirection)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))/numpy.pi*180.
         if out > 90.: return out-180.
 
+    def freqEigvalRatio(self):
+        """
+        NAME:
+           freqEigvalRatio
+        PURPOSE:
+           calculate the ratio between the largest and 2nd-to-largest 
+           eigenvalue of dO/dJ (if this is big, a 1D stream will form)
+        INPUT:
+           (none)
+        OUTPUT:
+           ratio between eigenvalues of dO / dJ
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        return numpy.sqrt(self._sortedSigOEig)[2]\
+            /numpy.sqrt(self._sortedSigOEig)[1]
+
     def estimateTdisrupt(self,deltaAngle):
         """
         NAME:
