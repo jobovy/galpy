@@ -628,7 +628,7 @@ class streamdf:
         INPUT:
            __call__ inputs
         OUTPUT:
-           dOmegar,dOmegaphi,dOmegaz,dangler,danglephi,danglez; each [nobj,ntimes]; differences wrt the progenitor
+           (dOmega,dangle); wrt the progenitor; each [3,nobj]
         HISTORY:
            2013-12-04 - Written - Bovy (IAS)
         """
