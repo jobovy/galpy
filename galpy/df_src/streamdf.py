@@ -149,6 +149,23 @@ class streamdf:
             self._interpolate_stream_track_aA()
         return None
 
+    def misalignment(self):
+        """
+        NAME:
+           misalignment
+        PURPOSE:
+           calculate the misalignment between the progenitor's frequency
+           and the direction along which the stream disrupts
+        INPUT:
+           (none)
+        OUTPUT:
+           misalignment in degree
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        out= numpy.arccos(numpy.sum(self._progenitor_Omega*self._dsigomeanProgDirection)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))/numpy.pi*180.
+        if out > 90.: return out-180.
+
     def estimateTdisrupt(self,deltaAngle):
         """
         NAME:
@@ -776,7 +793,8 @@ def _determine_stream_spread_single(aA,progenitorTrack,trackt,
                                     thetasTrack,
                                     allAcfsTrack,alljacsTrack,allinvjacsTrack,
                                     ObsTrack,ObsTrackAA):
-    #Estimate the spread
+    #Estimate the spread in all frequencies and angles
+
     pass
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
