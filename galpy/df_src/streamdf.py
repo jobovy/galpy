@@ -202,6 +202,7 @@ class streamdf:
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
         ObsTrackAA= numpy.empty((self._nTrackChunks,6))
+        detdOdJps= numpy.empty((self._nTrackChunks))
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
@@ -217,6 +218,7 @@ class streamdf:
                 allinvjacsTrack[ii,:,:]= multiOut[2]
                 ObsTrack[ii,:]= multiOut[3]
                 ObsTrackAA[ii,:]= multiOut[4]
+                detdOdJps[ii]= multiOut[5]
         else:
             multiOut= multi.parallel_map(\
                 (lambda x: _determine_stream_track_single(self._aA,self._progenitorTrack,self._trackts[x],
@@ -235,12 +237,16 @@ class streamdf:
                 allinvjacsTrack[ii,:,:]= multiOut[ii][2]
                 ObsTrack[ii,:]= multiOut[ii][3]
                 ObsTrackAA[ii,:]= multiOut[ii][4]
+                detdOdJps[ii]= multiOut[ii][5]
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._ObsTrackAA= ObsTrackAA
         self._allAcfsTrack= allAcfsTrack
         self._alljacsTrack= alljacsTrack
         self._allinvjacsTrack= allinvjacsTrack
+        self._detdOdJps= detdOdJps
+        self._meandetdOdJp= numpy.mean(self._detdOdJps)
+        self._logmeandetdOdJp= numpy.log(self._meandetdOdJp)
         #Also calculate _ObsTrackXY in XYZ,vXYZ coordinates
         self._ObsTrackXY= numpy.empty_like(self._ObsTrack)
         TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
@@ -607,8 +613,7 @@ class streamdf:
         ad= numpy.sqrt(dOmega2)/numpy.sqrt(2.)/self._sigangle\
             *(self._tdisrupt-dOmegaAngle/dOmega2)
         loga= numpy.log((special.erf(a0)+special.erf(ad))/2.) #divided by 2 st 0 for well-within the stream
-        out= logdfA+logdfOmega+loga
-        print "BOVY: NEED TO ADD JACOBIAN"
+        out= logdfA+logdfOmega+loga+self._logmeandetdOdJp
         if log:
             return out
         else:
@@ -687,6 +692,7 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
     allinvjacsTrack= numpy.empty((6,6))
     ObsTrack= numpy.empty((6))
     ObsTrackAA= numpy.empty((6))
+    detdOdJ= numpy.empty(6)
     #Calculate
     tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt),
                                        maxn=3)
@@ -697,12 +703,17 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         allAcfsTrack[jj]= tacfs[jj]
     tjac= calcaAJac(progenitorTrack(trackt)._orb.vxvv,
                     aA,
-                    dxv=None,freqs=True,
+                    dxv=None,actionsFreqsAngles=True,
                     lb=False,
                     _initacfs=tacfs)
-    alljacsTrack[:,:]= tjac
-    tinvjac= numpy.linalg.inv(tjac)
+    alljacsTrack[:,:]= tjac[3:,:]
+    tinvjac= numpy.linalg.inv(tjac[3:,:])
     allinvjacsTrack[:,:]= tinvjac
+    #Also store detdOdJ
+    jindx= numpy.array([True,True,True,False,False,False,True,True,True],
+                       dtype='bool')
+    dOdJ= numpy.dot(tjac[3:,:],numpy.linalg.inv(tjac[jindx,:]))[0:3,0:3]
+    detdOdJ= numpy.linalg.det(dOdJ)
     theseAngles= numpy.mod(progenitor_angle\
                                +thetasTrack\
                                *sigMeanSign\
@@ -729,7 +740,8 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         progenitorTrack(trackt).vz()
     ObsTrack[5]+= \
         progenitorTrack(trackt).phi()
-    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA]
+    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,
+            detdOdJ]
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
