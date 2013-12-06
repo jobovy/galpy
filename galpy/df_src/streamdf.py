@@ -517,6 +517,7 @@ class streamdf:
                 +(Z-self._ObsTrackXY[:,2])**2.
         return numpy.argmin(dist2)
 
+#########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
     def meanOmega(self,dangle,oned=False):
         """
         NAME:
@@ -572,7 +573,6 @@ class streamdf:
         mO= self.meanOmega(dangle,oned=True)
         return numpy.sqrt(sO1D2-mO**2.)
 
-#########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
     def ptdAngle(self,t,dangle):
         """
         NAME:
@@ -614,9 +614,9 @@ class streamdf:
         """
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
-        num= integrate.quad(lambda x: x*self.ptangle(x,dangle),
+        num= integrate.quad(lambda x: x*self.ptdAngle(x,dangle),
                               Tlow,Thigh)[0]
-        denom= integrate.quad(self.ptangle,Tlow,Thigh,(dangle,))[0]
+        denom= integrate.quad(self.ptdAngle,Tlow,Thigh,(dangle,))[0]
         if denom == 0.: return numpy.nan
         else: return num/denom
 
@@ -635,14 +635,101 @@ class streamdf:
         """
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
-        numsig2= integrate.quad(lambda x: x**2.*self.ptangle(x,dangle),
+        numsig2= integrate.quad(lambda x: x**2.*self.ptdAngle(x,dangle),
                                 Tlow,Thigh)[0]
-        nummean= integrate.quad(lambda x: x*self.ptangle(x,dangle),
+        nummean= integrate.quad(lambda x: x*self.ptdAngle(x,dangle),
                                 Tlow,Thigh)[0]
-        denom= integrate.quad(self.ptangle,Tlow,Thigh,(dangle,))[0]
+        denom= integrate.quad(self.ptdAngle,Tlow,Thigh,(dangle,))[0]
         if denom == 0.: return numpy.nan
         else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)
 
+    def pangledAngle(self,angleperp,dangle):
+        """
+        NAME:
+           pangledAngle
+        PURPOSE:
+           return the probability of a given perpendicular angle  at a given
+           angle along the stream
+        INPUT:
+           angleperp - perpendicular angle
+           dangle - angle offset along the stream
+        OUTPUT:
+           p(angle_perp|dangle)
+        HISTORY:
+           2013-12-06 - Written - Bovy (IAS)
+        """
+        if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
+            angleperp= numpy.array([angleperp])
+        out= numpy.zeros(len(angleperp))
+        out= numpy.array([\
+                integrate.quad(self._pangledAnglet,0.,self._tdisrupt,
+                               (ap,dangle))[0] for ap in angleperp])
+        return out
+
+    def meanangledAngle(self,dangle):
+        """
+        NAME:
+           meanangledAngle
+        PURPOSE:
+           calculate the mean perpendicular angle at a given angle
+        INPUT:
+           dangle - angle offset along the stream
+        OUTPUT:
+           mean perpendicular angle
+        HISTORY:
+           2013-12-06 - Written - Bovy (IAS)
+        """
+        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[1])*self._tdisrupt*5.,
+                           self._sigangle])
+        num= integrate.quad(lambda x: x*self.pangledAngle(x,dangle),
+                            aplow,-aplow)[0]
+        denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
+        if denom == 0.: return numpy.nan
+        else: return num/denom
+
+    def sigangledAngle(self,dangle,assumeZeroMean=True):
+        """
+        NAME:
+           sigangledAngle
+        PURPOSE:
+           calculate the dispersion in the perpendicular angle at a given angle
+        INPUT:
+           dangle - angle offset along the stream
+           assumeZeroMean= (True) if True, assume that the mean is zero (should be)
+        OUTPUT:
+           dispersion in the perpendicular angle at this angle
+        HISTORY:
+           2013-12-06 - Written - Bovy (IAS)
+        """
+        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[1])*self._tdisrupt*5.,
+                           self._sigangle])
+        numsig2= integrate.quad(lambda x: x**2.*self.pangledAngle(x,dangle),
+                                aplow,-aplow)[0]
+        if not assumeZeroMean:
+            nummean= integrate.quad(lambda x: x*self.pangledAngle(x,dangle),
+                                    aplow,-aplow)[0]
+        else:
+            nummean= 0.
+        denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
+        if denom == 0.: return numpy.nan
+        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.\
+                                    +self._sigangle2)
+
+    def _pangledAnglet(self,t,angleperp,dangle):
+        """p(angle_perp|angle_par,time)"""
+        if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
+            angleperp= numpy.array([angleperp])
+            t= numpy.array([t])
+        out= numpy.zeros_like(angleperp)
+        tindx= t < self._tdisrupt
+        out[tindx]=\
+            numpy.exp(-0.5*angleperp[tindx]**2.\
+                           /(t[tindx]**2.*self._sortedSigOEig[1]+self._sigangle2))/\
+                           numpy.sqrt(t[tindx]**2.*self._sortedSigOEig[1]+self._sigangle2)\
+                           *self.ptdAngle(t[t < self._tdisrupt],dangle)
+        return out
+
+################APPROXIMATE FREQUENCY-ANGLE TRANSFORMATION#####################
     def _approxaA(self,R,vR,vT,z,vz,phi,interp=True):
         """
         NAME:
