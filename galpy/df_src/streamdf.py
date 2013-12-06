@@ -2,7 +2,7 @@
 import copy
 import numpy
 import multiprocessing
-from scipy import special, interpolate
+from scipy import special, interpolate, integrate
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi
@@ -17,7 +17,7 @@ class streamdf:
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
-                 useInterp=_USEINTERP):
+                 useInterp=_USEINTERP,nosetup=False):
         """
         NAME:
            __init__
@@ -47,6 +47,8 @@ class streamdf:
                         self._interpolate_stream_track_aA())
            useInterp= (might change), use interpolation by default when 
                       calculating approximated frequencies and angles
+           nosetup= (False) if True, don't setup the stream track and anything
+                            else that is expensive
            multi= (None) if set, use multi-processing
 
            Coordinate transformation inputs:
@@ -130,6 +132,8 @@ class streamdf:
 #numpy.dot(self._dOdJp,
 #                          numpy.array([self._sigjr,self._siglz,self._sigjz]))
         self._dsigomeanProg= self._sigomean-self._progenitor_Omega
+        self._meandO= self._sigMeanOffset\
+            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
         #Store cholesky of sigomatrix for fast evaluation
         self._sigomatrixNorm=\
             numpy.sqrt(numpy.sum(self._sigomatrix**2.))
@@ -143,11 +147,12 @@ class streamdf:
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
-        self._determine_stream_track(deltaAngleTrack,nTrackChunks)
-        self._useInterp= useInterp
-        if interpTrack or self._useInterp:
-            self._interpolate_stream_track()
-            self._interpolate_stream_track_aA()
+        if not nosetup:
+            self._determine_stream_track(deltaAngleTrack,nTrackChunks)
+            self._useInterp= useInterp
+            if interpTrack or self._useInterp:
+                self._interpolate_stream_track()
+                self._interpolate_stream_track_aA()
         return None
 
     def misalignment(self):
@@ -200,6 +205,7 @@ class streamdf:
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
+############################STREAM TRACK FUNCTIONS#############################
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
@@ -302,8 +308,7 @@ class streamdf:
 
     def _determine_stream_spread(self):
         """Determine the spread around the stream track, just sets matrices that describe the covariances"""
-
-
+        pass
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
@@ -479,63 +484,6 @@ class streamdf:
             self._interpolatedObsTrackLB[:,5]= svlbd[:,2]
         return None
 
-    def meanOmega(self,dangle,oned=False):
-        """
-        NAME:
-           meanOmega
-        PURPOSE:
-           calculate the mean frequency as a function of angle, assuming a 
-           uniform time distribution up to a maximum time
-        INPUT:
-           dangle - angle offset
-           oned= (False) if True, return the 1D offset from the progenitor
-                         (along the direction of disruption)
-        OUTPUT:
-           mean Omega
-        HISTORY:
-           2013-12-01 - Written - Bovy (IAS)
-        """
-        dOmin= dangle/self._tdisrupt
-        meandO= self._sigMeanOffset\
-            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
-        dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
-                   *numpy.exp(-(meandO-dOmin)**2.\
-                                   /2./self._sortedSigOEig[2])/
-                (1.+special.erf((meandO-dOmin)\
-                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
-                   +meandO)
-        if oned: return dO1D
-        else:
-            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
-                *self._sigMeanSign
-
-    def sigOmega(self,dangle):
-        """
-        NAME:
-           meanOmega
-        PURPOSE:
-           calculate the 1D sigma in frequency as a function of angle, 
-           assuming a uniform time distribution up to a maximum time
-        INPUT:
-           dangle - angle offset
-        OUTPUT:
-           sigma Omega
-        HISTORY:
-           2013-12-05 - Written - Bovy (IAS)
-        """
-        dOmin= dangle/self._tdisrupt
-        meandO= self._sigMeanOffset\
-            *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
-        sO1D2= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
-                     *(meandO+dOmin)\
-                     *numpy.exp(-(meandO-dOmin)**2.\
-                                   /2./self._sortedSigOEig[2])/
-                (1.+special.erf((meandO-dOmin)\
-                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
-                   +meandO**2.+self._sortedSigOEig[2])
-        mO= self.meanOmega(dangle,oned=True)
-        return numpy.sqrt(sO1D2-mO**2.)
-
     def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False):
         """
         NAME:
@@ -568,6 +516,132 @@ class streamdf:
                 +(Y-self._ObsTrackXY[:,1])**2.\
                 +(Z-self._ObsTrackXY[:,2])**2.
         return numpy.argmin(dist2)
+
+    def meanOmega(self,dangle,oned=False):
+        """
+        NAME:
+           meanOmega
+        PURPOSE:
+           calculate the mean frequency as a function of angle, assuming a 
+           uniform time distribution up to a maximum time
+        INPUT:
+           dangle - angle offset
+           oned= (False) if True, return the 1D offset from the progenitor
+                         (along the direction of disruption)
+        OUTPUT:
+           mean Omega
+        HISTORY:
+           2013-12-01 - Written - Bovy (IAS)
+        """
+        dOmin= dangle/self._tdisrupt
+        meandO= self._meandO
+        dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                   *numpy.exp(-0.5*(meandO-dOmin)**2.\
+                                   /self._sortedSigOEig[2])/
+                (1.+special.erf((meandO-dOmin)\
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
+                   +meandO)
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign
+
+    def sigOmega(self,dangle):
+        """
+        NAME:
+           sigmaOmega
+        PURPOSE:
+           calculate the 1D sigma in frequency as a function of angle, 
+           assuming a uniform time distribution up to a maximum time
+        INPUT:
+           dangle - angle offset
+        OUTPUT:
+           sigma Omega
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        dOmin= dangle/self._tdisrupt
+        meandO= self._meandO
+        sO1D2= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                     *(meandO+dOmin)\
+                     *numpy.exp(-0.5*(meandO-dOmin)**2.\
+                                   /self._sortedSigOEig[2])/
+                (1.+special.erf((meandO-dOmin)\
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
+                   +meandO**2.+self._sortedSigOEig[2])
+        mO= self.meanOmega(dangle,oned=True)
+        return numpy.sqrt(sO1D2-mO**2.)
+
+#########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def ptdAngle(self,t,dangle):
+        """
+        NAME:
+           ptdangle
+        PURPOSE:
+           return the probability of a given stripping time at a given
+           angle along the stream
+        INPUT:
+           t - stripping time
+           dangle - angle offset along the stream
+        OUTPUT:
+           p(td|dangle)
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        if isinstance(t,(int,float,numpy.float32,numpy.float64)):
+            t= numpy.array([t])
+        out= numpy.zeros(len(t))
+        dO= dangle/t[t < self._tdisrupt]
+        #p(t|a) = \int dO p(O,t|a) = \int dO p(t|O,a) p(O|a) = \int dO delta (t-a/O)p(O|a) = O*2/a p(O|a); p(O|a) = \int dt p(a|O,t) p(O)p(t) = 1/O p(O)
+        out[t < self._tdisrupt]=\
+            dO**2./dangle*numpy.exp(-0.5*(dO-self._meandO)**2.\
+                                         /self._sortedSigOEig[2])/\
+                                         numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
+    def meantdAngle(self,dangle):
+        """
+        NAME:
+           meantdAngle
+        PURPOSE:
+           calculate the mean stripping time at a given angle
+        INPUT:
+           dangle - angle offset along the stream
+        OUTPUT:
+           mean stripping time at this dangle
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
+        Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
+        num= integrate.quad(lambda x: x*self.ptangle(x,dangle),
+                              Tlow,Thigh)[0]
+        denom= integrate.quad(self.ptangle,Tlow,Thigh,(dangle,))[0]
+        if denom == 0.: return numpy.nan
+        else: return num/denom
+
+    def sigtdAngle(self,dangle):
+        """
+        NAME:
+           sigtdAngle
+        PURPOSE:
+           calculate the dispersion in the stripping times at a given angle
+        INPUT:
+           dangle - angle offset along the stream
+        OUTPUT:
+           dispersion in the stripping times at this angle
+        HISTORY:
+           2013-12-05 - Written - Bovy (IAS)
+        """
+        Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
+        Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
+        numsig2= integrate.quad(lambda x: x**2.*self.ptangle(x,dangle),
+                                Tlow,Thigh)[0]
+        nummean= integrate.quad(lambda x: x*self.ptangle(x,dangle),
+                                Tlow,Thigh)[0]
+        denom= integrate.quad(self.ptangle,Tlow,Thigh,(dangle,))[0]
+        if denom == 0.: return numpy.nan
+        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)
 
     def _approxaA(self,R,vR,vT,z,vz,phi,interp=True):
         """
