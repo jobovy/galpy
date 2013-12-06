@@ -643,7 +643,7 @@ class streamdf:
         if denom == 0.: return numpy.nan
         else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)
 
-    def pangledAngle(self,angleperp,dangle):
+    def pangledAngle(self,angleperp,dangle,smallest=False):
         """
         NAME:
            pangledAngle
@@ -653,6 +653,7 @@ class streamdf:
         INPUT:
            angleperp - perpendicular angle
            dangle - angle offset along the stream
+           smallest= (False) calculate for smallest eigenvalue direction rather than for middle
         OUTPUT:
            p(angle_perp|dangle)
         HISTORY:
@@ -663,10 +664,10 @@ class streamdf:
         out= numpy.zeros(len(angleperp))
         out= numpy.array([\
                 integrate.quad(self._pangledAnglet,0.,self._tdisrupt,
-                               (ap,dangle))[0] for ap in angleperp])
+                               (ap,dangle,smallest))[0] for ap in angleperp])
         return out
 
-    def meanangledAngle(self,dangle):
+    def meanangledAngle(self,dangle,smallest=False):
         """
         NAME:
            meanangledAngle
@@ -674,20 +675,25 @@ class streamdf:
            calculate the mean perpendicular angle at a given angle
         INPUT:
            dangle - angle offset along the stream
+           smallest= (False) calculate for smallest eigenvalue direction rather than for middle
         OUTPUT:
            mean perpendicular angle
         HISTORY:
            2013-12-06 - Written - Bovy (IAS)
         """
-        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[1])*self._tdisrupt*5.,
+        if smallest: eigIndx= 0
+        else: eigIndx= 1
+        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])\
+                               *self._tdisrupt*5.,
                            self._sigangle])
-        num= integrate.quad(lambda x: x*self.pangledAngle(x,dangle),
+        num= integrate.quad(lambda x: x*self.pangledAngle(x,dangle,smallest),
                             aplow,-aplow)[0]
-        denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
+        denom= integrate.quad(self.pangledAngle,aplow,-aplow,
+                              (dangle,smallest))[0]
         if denom == 0.: return numpy.nan
         else: return num/denom
 
-    def sigangledAngle(self,dangle,assumeZeroMean=True):
+    def sigangledAngle(self,dangle,assumeZeroMean=True,smallest=False):
         """
         NAME:
            sigangledAngle
@@ -696,15 +702,18 @@ class streamdf:
         INPUT:
            dangle - angle offset along the stream
            assumeZeroMean= (True) if True, assume that the mean is zero (should be)
+           smallest= (False) calculate for smallest eigenvalue direction rather than for middle
         OUTPUT:
            dispersion in the perpendicular angle at this angle
         HISTORY:
            2013-12-06 - Written - Bovy (IAS)
         """
-        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[1])*self._tdisrupt*5.,
+        if smallest: eigIndx= 0
+        else: eigIndx= 1
+        aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])*self._tdisrupt*5.,
                            self._sigangle])
         numsig2= integrate.quad(lambda x: x**2.*self.pangledAngle(x,dangle),
-                                aplow,-aplow)[0]
+                                    aplow,-aplow)[0]
         if not assumeZeroMean:
             nummean= integrate.quad(lambda x: x*self.pangledAngle(x,dangle),
                                     aplow,-aplow)[0]
@@ -715,8 +724,10 @@ class streamdf:
         else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.\
                                     +self._sigangle2)
 
-    def _pangledAnglet(self,t,angleperp,dangle):
+    def _pangledAnglet(self,t,angleperp,dangle,smallest):
         """p(angle_perp|angle_par,time)"""
+        if smallest: eigIndx= 0
+        else: eigIndx= 1      
         if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
             angleperp= numpy.array([angleperp])
             t= numpy.array([t])
@@ -724,8 +735,8 @@ class streamdf:
         tindx= t < self._tdisrupt
         out[tindx]=\
             numpy.exp(-0.5*angleperp[tindx]**2.\
-                           /(t[tindx]**2.*self._sortedSigOEig[1]+self._sigangle2))/\
-                           numpy.sqrt(t[tindx]**2.*self._sortedSigOEig[1]+self._sigangle2)\
+                           /(t[tindx]**2.*self._sortedSigOEig[eigIndx]+self._sigangle2))/\
+                           numpy.sqrt(t[tindx]**2.*self._sortedSigOEig[eigIndx]+self._sigangle2)\
                            *self.ptdAngle(t[t < self._tdisrupt],dangle)
         return out
 
@@ -973,9 +984,11 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
 
 def _determine_stream_spread_single(sigomatrixEig,
                                     thetasTrack,
-                                    sigangle2,
                                     sigOmega,
+                                    sigAngle,
                                     allinvjacsTrack):
+    """sigAngle input may either be a function that returns the dispersion in
+    perpendicular angle as a function of parallel angle, or a value"""
     #Estimate the spread in all frequencies and angles
     sigObig2= sigOmega(thetasTrack)**2.
     tsigOdiag= copy.copy(sigomatrixEig[0])
@@ -984,13 +997,17 @@ def _determine_stream_spread_single(sigomatrixEig,
                      numpy.dot(numpy.diag(tsigOdiag),
                                numpy.linalg.inv(sigomatrixEig[1])))
     #angles
+    if hasattr(sigAngle,'__call__'):
+        sigangle2= sigAngle(thetasTrack)**2.
+    else:
+        sigangle2= sigAngle**2.
     tsigadiag= numpy.ones(3)*sigangle2
     tsigadiag[numpy.argmax(tsigOdiag)]= 1.
     tsiga= numpy.dot(sigomatrixEig[1],
                     numpy.dot(numpy.diag(tsigadiag),
                               numpy.linalg.inv(sigomatrixEig[1])))
-    #correlations
-    correlations= numpy.diag(numpy.ones(3))*numpy.sqrt(tsigOdiag*tsigadiag)
+    #correlations, assume half correlated for now (can be calculated)
+    correlations= numpy.diag(0.5*numpy.ones(3))*numpy.sqrt(tsigOdiag*tsigadiag)
     correlations[numpy.argmax(tsigOdiag),numpy.argmax(tsigOdiag)]= 0.
     correlations= numpy.dot(sigomatrixEig[1],
                             numpy.dot(correlations,
