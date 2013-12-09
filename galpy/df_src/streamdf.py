@@ -5,9 +5,25 @@ import multiprocessing
 from scipy import special, interpolate, integrate
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
-    bovy_conversion, multi
+    bovy_conversion, multi, bovy_plot
 _INTERPDURINGSETUP= True
 _USEINTERP= True
+_labelDict= {'x': r'$X$',
+             'y': r'$Y$',
+             'z': r'$Z$',
+             'r': r'$R$',
+             'phi': r'$\phi$',
+             'vx':r'$V_X$',
+             'vy':r'$V_Y$',
+             'vz':r'$V_Z$',
+             'vr':r'$V_R$',
+             'vt':r'$V_T$',
+             'l':r'$\mathrm{Galactic\ longitude\, (deg)}$',
+             'b':r'$\mathrm{Galactic\ latitude\, (deg)}$',
+             'dist':r'$\mathrm{distance\, (kpc)}$',
+             'pmll':r'$\mu_l\,(\mathrm{mas\,yr}^{-1})$',
+             'pmbb':r'$\mu_b\,(\mathrm{mas\,yr}^{-1})$',
+             'vlos':r'$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$'}
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
@@ -206,6 +222,77 @@ class streamdf:
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
 ############################STREAM TRACK FUNCTIONS#############################
+    def plotTrack(self,d1='x',d2='z',interp=True,
+                  *args,**kwargs):
+        """
+        NAME:
+           plotTrack
+        PURPOSE:
+           plot the stream track
+        INPUT:
+           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
+               'vR','vt','l','b','dist','pmll','pmbb','vlos')
+           d2= plot this on the Y axis (same list as for d1)
+           interp= (True) if True, use the interpolated stream track
+           bovy_plot.bovy_plot args and kwargs
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2013-12-09 - Written - Bovy (IAS)
+        """
+        if not hasattr(self,'_ObsTrackLB') and \
+                (d1.lower() == 'l' or d1.lower() == 'b' 
+                 or d1.lower() == 'dist' or d1.lower() == 'pmll' 
+                 or d1.lower() == 'pmbb' or d1.lower() == 'vlos'
+                 or d2.lower() == 'l' or d2.lower() == 'b' 
+                 or d2.lower() == 'dist' or d2.lower() == 'pmll' 
+                 or d2.lower() == 'pmbb' or d2.lower() == 'vlos'):
+            self.calc_stream_lb()
+        tx= self._parse_track_dim(d1,interp=interp)
+        ty= self._parse_track_dim(d2,interp=interp)
+        bovy_plot.bovy_plot(tx,ty,*args,
+                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            **kwargs)
+        return None
+
+    def _parse_track_dim(self,d1,interp=True):
+        """Parse the dimension to plot the stream track for"""
+        if interp: interpStr= 'interpolated'
+        else: interpStr= ''
+        if d1.lower() == 'x':
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,0]
+        elif d1.lower() == 'y':
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,1]
+        elif d1.lower() == 'z':
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,2]
+        elif d1.lower() == 'r':
+            tx= self.__dict__['_%sObsTrack' % interpStr][:,0]
+        elif d1.lower() == 'phi':
+            tx= self.__dict__['_%sObsTrack' % interpStr][:,5]
+        elif d1.lower() == 'vx': 
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,3]
+        elif d1.lower() == 'vy':
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,4]
+        elif d1.lower() == 'vz':
+            tx= self.__dict__['_%sObsTrackXY' % interpStr][:,5]
+        elif d1.lower() == 'vr':
+            tx= self.__dict__['_%sObsTrack' % interpStr][:,1]
+        elif d1.lower() == 'vt':
+            tx= self.__dict__['_%sObsTrack' % interpStr][:,2]
+        elif d1.lower() == 'l':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,0]
+        elif d1.lower() == 'b':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,1]
+        elif d1.lower() == 'dist':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,2]
+        elif d1.lower() == 'pmll':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,4]
+        elif d1.lower() == 'pmbb':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,5]
+        elif d1.lower() == 'vlos':
+            tx= self.__dict__['_%sObsTrackLB' % interpStr][:,3]
+        return tx        
+
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
