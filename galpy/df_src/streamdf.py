@@ -18,8 +18,8 @@ _labelDict= {'x': r'$X$',
              'vz':r'$V_Z$',
              'vr':r'$V_R$',
              'vt':r'$V_T$',
-             'l':r'$\mathrm{Galactic\ longitude\, (deg)}$',
-             'b':r'$\mathrm{Galactic\ latitude\, (deg)}$',
+             'll':r'$\mathrm{Galactic\ longitude\, (deg)}$',
+             'bb':r'$\mathrm{Galactic\ latitude\, (deg)}$',
              'dist':r'$\mathrm{distance\, (kpc)}$',
              'pmll':r'$\mu_l\,(\mathrm{mas\,yr}^{-1})$',
              'pmbb':r'$\mu_b\,(\mathrm{mas\,yr}^{-1})$',
@@ -94,7 +94,8 @@ class streamdf:
         self._progenitor= progenitor
         self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
-        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3)
+        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
+                                    _firstFlip=(not leading))
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
         self._progenitor_jz= acfs[2][0]
@@ -231,7 +232,7 @@ class streamdf:
            plot the stream track
         INPUT:
            d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
-               'vR','vt','l','b','dist','pmll','pmbb','vlos')
+               'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
            d2= plot this on the Y axis (same list as for d1)
            interp= (True) if True, use the interpolated stream track
            bovy_plot.bovy_plot args and kwargs
@@ -241,15 +242,39 @@ class streamdf:
            2013-12-09 - Written - Bovy (IAS)
         """
         if not hasattr(self,'_ObsTrackLB') and \
-                (d1.lower() == 'l' or d1.lower() == 'b' 
+                (d1.lower() == 'll' or d1.lower() == 'bb' 
                  or d1.lower() == 'dist' or d1.lower() == 'pmll' 
                  or d1.lower() == 'pmbb' or d1.lower() == 'vlos'
-                 or d2.lower() == 'l' or d2.lower() == 'b' 
+                 or d2.lower() == 'll' or d2.lower() == 'bb' 
                  or d2.lower() == 'dist' or d2.lower() == 'pmll' 
                  or d2.lower() == 'pmbb' or d2.lower() == 'vlos'):
             self.calc_stream_lb()
         tx= self._parse_track_dim(d1,interp=interp)
         ty= self._parse_track_dim(d2,interp=interp)
+        bovy_plot.bovy_plot(tx,ty,*args,
+                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            **kwargs)
+        return None
+
+    def plotProgenitor(self,d1='x',d2='z',
+                       *args,**kwargs):
+        """
+        NAME:
+           plotProgenitor
+        PURPOSE:
+           plot the progenitor orbit
+        INPUT:
+           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
+               'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
+           d2= plot this on the Y axis (same list as for d1)
+           bovy_plot.bovy_plot args and kwargs
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2013-12-09 - Written - Bovy (IAS)
+        """
+        tx= self._parse_prog_dim(d1)
+        ty= self._parse_prog_dim(d2)
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
@@ -279,9 +304,9 @@ class streamdf:
             tx= self.__dict__['_%sObsTrack' % interpStr][:,1]
         elif d1.lower() == 'vt':
             tx= self.__dict__['_%sObsTrack' % interpStr][:,2]
-        elif d1.lower() == 'l':
+        elif d1.lower() == 'll':
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,0]
-        elif d1.lower() == 'b':
+        elif d1.lower() == 'bb':
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,1]
         elif d1.lower() == 'dist':
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,2]
