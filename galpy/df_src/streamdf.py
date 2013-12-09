@@ -640,7 +640,7 @@ class streamdf:
         num= integrate.quad(lambda x: x*self.ptdAngle(x,dangle),
                               Tlow,Thigh)[0]
         denom= integrate.quad(self.ptdAngle,Tlow,Thigh,(dangle,))[0]
-        if denom == 0.: return numpy.nan
+        if denom == 0.: return self._tdisrupt
         else: return num/denom
 
     def sigtdAngle(self,dangle):
@@ -716,7 +716,8 @@ class streamdf:
         if denom == 0.: return numpy.nan
         else: return num/denom
 
-    def sigangledAngle(self,dangle,assumeZeroMean=True,smallest=False):
+    def sigangledAngle(self,dangle,assumeZeroMean=True,smallest=False,
+                       simple=False):
         """
         NAME:
            sigangledAngle
@@ -728,11 +729,16 @@ class streamdf:
            smallest= (False) calculate for smallest eigenvalue direction rather than for middle
         OUTPUT:
            dispersion in the perpendicular angle at this angle
+           simple= (False), if True, return an even simpler estimate
         HISTORY:
            2013-12-06 - Written - Bovy (IAS)
         """
         if smallest: eigIndx= 0
         else: eigIndx= 1
+        if simple:
+            dt= self.meantdAngle(dangle)
+            return numpy.sqrt(self._sigangle2*2.
+                              +self._sortedSigOEig[eigIndx]*dt**2.)
         aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])*self._tdisrupt*5.,
                            self._sigangle])
         numsig2= integrate.quad(lambda x: x**2.*self.pangledAngle(x,dangle),
