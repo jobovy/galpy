@@ -194,13 +194,18 @@ class actionAngleIsochroneApprox():
            nonaxi= set to True to also calculate Lz using the isochrone 
                    approximation for non-axisymmetric potentials
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
+           _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(True,*args)
-        if kwargs.has_key('ts'):
+        if kwargs.has_key('_firstFlip'):
+            _firstFlip= kwargs['_firstFlip']
+        else:
+            _firstFlip= False
+        R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
+        if kwargs.has_key('ts') and not kwargs['ts'] is None:
             ts= kwargs['ts']
         else:
             ts= nu.empty(R.shape[1])
@@ -472,7 +477,7 @@ class actionAngleIsochroneApprox():
                                     **kwargs)           
         return None
 
-    def _parse_args(self,freqsAngles=True,*args):
+    def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
@@ -513,8 +518,21 @@ class actionAngleIsochroneApprox():
                 if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             if not hasattr(os[0],'orbit'): #not integrated yet
+                if _firstFlip:
+                    for o in os:
+                        o._orb.vxvv[1]= -o._orb.vxvv[1]
+                        o._orb.vxvv[2]= -o._orb.vxvv[2]
+                        o._orb.vxvv[4]= -o._orb.vxvv[4]
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method) for o in os]
+                if _firstFlip:
+                    for o in os:
+                        o._orb.vxvv[1]= -o._orb.vxvv[1]
+                        o._orb.vxvv[2]= -o._orb.vxvv[2]
+                        o._orb.vxvv[4]= -o._orb.vxvv[4]
+                        o._orb.orbit[:,1]= -o._orb.orbit[:,1]
+                        o._orb.orbit[:,2]= -o._orb.orbit[:,2]
+                        o._orb.orbit[:,4]= -o._orb.orbit[:,4]
                 integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)
@@ -544,27 +562,48 @@ class actionAngleIsochroneApprox():
             oz= nu.zeros((no,2*nt-1))+10.**-7. #To avoid numpy warnings for
             ovz= nu.zeros((no,2*nt-1))+10.**-7. #planarOrbits
             ophi= nu.empty((no,2*nt-1))
-            oR[:,nt-1:]= R
-            ovR[:,nt-1:]= vR
-            ovT[:,nt-1:]= vT
-            oz[:,nt-1:]= z
-            ovz[:,nt-1:]= vz
-            ophi[:,nt-1:]= phi
+            if _firstFlip:
+                oR[:,:nt]= R[:,::-1]
+                ovR[:,:nt]= vR[:,::-1]
+                ovT[:,:nt]= vT[:,::-1]
+                oz[:,:nt]= z[:,::-1]
+                ovz[:,:nt]= vz[:,::-1]
+                ophi[:,:nt]= phi[:,::-1]
+            else:
+                oR[:,nt-1:]= R
+                ovR[:,nt-1:]= vR
+                ovT[:,nt-1:]= vT
+                oz[:,nt-1:]= z
+                ovz[:,nt-1:]= vz
+                ophi[:,nt-1:]= phi
             #load orbits
-            os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
+            if _firstFlip:
+                os= [Orbit([R[ii,0],vR[ii,0],vT[ii,0],z[ii,0],vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
+            else:
+                os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
             #integrate orbits
             [o.integrate(self._tsJ,pot=self._pot,
                          method=self._integrate_method) for o in os]
             #extract phase-space points along the orbit
             ts= self._tsJ
-            for ii in range(no):
-                oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
-                ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
-                ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
-                if os[ii].getOrbit().shape[1] == 6:
-                    oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
-                    ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
-                ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
+            if _firstFlip:
+                for ii in range(no):
+                    oR[ii,nt:]= os[ii].R(ts[1:]) #drop t=0, which we have
+                    ovR[ii,nt:]= os[ii].vR(ts[1:]) #already
+                    ovT[ii,nt:]= os[ii].vT(ts[1:]) # reverse, such that 
+                    if os[ii].getOrbit().shape[1] == 6:
+                        oz[ii,nt:]= os[ii].z(ts[1:]) #everything is in the 
+                        ovz[ii,nt:]= os[ii].vz(ts[1:]) #right order
+                    ophi[ii,nt:]= os[ii].phi(ts[1:]) #!
+            else:
+                for ii in range(no):
+                    oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
+                    ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
+                    ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
+                    if os[ii].getOrbit().shape[1] == 6:
+                        oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
+                        ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
+                    ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
             return (oR,ovR,ovT,oz,ovz,ophi)
         else:
             return (R,vR,vT,z,vz,phi)
