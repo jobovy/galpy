@@ -306,7 +306,7 @@ class streamdf:
         self._ObsTrackXY[:,5]= TrackvZ
         return None
 
-    def _determine_stream_spread(self):
+    def _determine_stream_spread(self,simple=True):
         """Determine the spread around the stream track, just sets matrices that describe the covariances"""
         allErrCovs= numpy.empty((self._nTrackChunks,6,6))
         if self._multi is None:
@@ -314,14 +314,14 @@ class streamdf:
                 allErrCovs[ii]= _determine_stream_spread_single(self._sigomatrixEig,
                                                                 self._thetasTrack[ii],
                                                                 self.sigOmega,
-                                                                self.sigangledAngle,
+                                                                lambda y: self.sigangledAngle(y,simple=simple),
                                                                 self._allinvjacsTrack[ii])
         else:
             multiOut= multi.parallel_map(\
                 (lambda x: _determine_stream_spread_single(self._sigomatrixEig,
                                                                 self._thetasTrack[x],
                                                                 self.sigOmega,
-                                                                self.sigangledAngle,
+                                                                lambda y: self.sigangledAngle(y,simple=simple),
                                                                 self._allinvjacsTrack[x])),
 
                 range(self._nTrackChunks),
