@@ -273,8 +273,14 @@ class streamdf:
         HISTORY:
            2013-12-09 - Written - Bovy (IAS)
         """
-        tx= self._parse_prog_dim(d1)
-        ty= self._parse_prog_dim(d2)
+        tts= self._progenitor._orb.t[self._progenitor._orb.t \
+                                          < self._trackts[-1]]
+        obs= [self._R0,0.,self._Zsun]
+        obs.extend(self._vsun)
+        tx= self._parse_progenitor_dim(d1,tts,ro=self._Rnorm,vo=self._Vnorm,
+                                       obs=obs)
+        ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
+                                       obs=obs)
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
@@ -316,6 +322,42 @@ class streamdf:
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,5]
         elif d1.lower() == 'vlos':
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,3]
+        return tx        
+
+    def _parse_progenitor_dim(self,d1,ts,ro=None,vo=None,obs=None):
+        """Parse the dimension to plot the progenitor orbit for"""
+        if d1.lower() == 'x':
+            tx= self._progenitor.x(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'y':
+            tx= self._progenitor.y(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'z':
+            tx= self._progenitor.z(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'r':
+            tx= self._progenitor.R(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'phi':
+            tx= self._progenitor.phi(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vx': 
+            tx= self._progenitor.vx(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vy':
+            tx= self._progenitor.vy(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vz':
+            tx= self._progenitor.vz(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vr':
+            tx= self._progenitor.vR(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vt':
+            tx= self._progenitor.vT(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'll':
+            tx= self._progenitor.ll(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'bb':
+            tx= self._progenitor.bb(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'dist':
+            tx= self._progenitor.dist(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'pmll':
+            tx= self._progenitor.pmll(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'pmbb':
+            tx= self._progenitor.pmbb(ts,ro=ro,vo=vo,obs=obs)
+        elif d1.lower() == 'vlos':
+            tx= self._progenitor.vlos(ts,ro=ro,vo=vo,obs=obs)
         return tx        
 
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
