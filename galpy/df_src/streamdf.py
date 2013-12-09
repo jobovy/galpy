@@ -308,7 +308,30 @@ class streamdf:
 
     def _determine_stream_spread(self):
         """Determine the spread around the stream track, just sets matrices that describe the covariances"""
-        pass
+        allErrCovs= numpy.empty((self._nTrackChunks,6,6))
+        if self._multi is None:
+            for ii in range(self._nTrackChunks):
+                allErrCovs[ii]= _determine_stream_spread_single(self._sigomatrixEig,
+                                                                self._thetasTrack[ii],
+                                                                self.sigOmega,
+                                                                self.sigangledAngle,
+                                                                self._allinvjacsTrack[ii])
+        else:
+            multiOut= multi.parallel_map(\
+                (lambda x: _determine_stream_spread_single(self._sigomatrixEig,
+                                                                self._thetasTrack[x],
+                                                                self.sigOmega,
+                                                                self.sigangledAngle,
+                                                                self._allinvjacsTrack[x])),
+
+                range(self._nTrackChunks),
+                numcores=numpy.amin([self._nTrackChunks,
+                                     multiprocessing.cpu_count(),
+                                     self._multi]))
+            for ii in range(self._nTrackChunks):
+                allErrCovs[ii]= multiOut[ii]
+        self._allErrCovs= allErrCovs
+        return None
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
