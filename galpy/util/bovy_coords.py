@@ -1042,6 +1042,49 @@ def cyl_to_rect_vec(vr,vt,vz,phi):
     vy= vr*sc.sin(phi)+vt*sc.cos(phi)
     return (vx,vy,vz)
 
+def cyl_to_rect_jac(*args):
+    """
+    NAME:
+       cyl_to_rect_jac
+    PURPOSE:
+       calculate the Jacobian of the cylindrical to rectangular conversion
+    INPUT:
+       R, phi, Z- cylindrical coordinates
+       vR, vT, vZ- cylindrical velocities
+       if 6 inputs: R,vR,vT,z,vz,phi
+       if 3: R, phi, Z
+    OUTPUT:
+       jacobian d(rect)/d(cyl)
+    HISTORY:
+       2013-12-09 - Written - Bovy (IAS)
+    """
+    out= sc.zeros((6,6))
+    if len(args) == 3:
+        R, phi, Z= args
+        vR, vT, vZ= 0., 0., 0.
+        outIndx= sc.array([True,False,False,True,False,True],dtype='bool')
+    elif len(args) == 6:
+        R, vR, vT, Z, vZ, phi= args
+        outIndx= sc.ones(6,dtype='bool')
+    cp= sc.cos(phi)
+    sp= sc.sin(phi)
+    out[0,0]= cp
+    out[0,5]= -R*sp
+    out[1,0]= sp
+    out[1,5]= R*cp
+    out[2,3]= 1.
+    out[3,1]= cp
+    out[3,2]= -sp
+    out[3,5]= -vT*cp-vR*sp
+    out[4,1]= sp
+    out[4,2]= cp
+    out[4,5]= -vT*sp+vR*cp
+    out[5,4]= 1.
+    if len(args) == 3:
+        out= out[:3,outIndx]
+        out[:,[1,2]]= out[:,[2,1]]
+    return out
+
 def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
     """
     NAME:
