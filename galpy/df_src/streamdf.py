@@ -443,17 +443,48 @@ class streamdf:
         indx1= numpy.array([[relevantDict[d1.lower()],relevantDict[d2.lower()]],
                             [relevantDict[d1.lower()],relevantDict[d2.lower()]]])
         cov= relevantCov[:,indx0,indx1] #cov contains all nTrackChunks covs
-        out= numpy.empty((self._nTrackChunks,2))
-        eigDir= numpy.array([1.,0.])
-        for ii in range(self._nTrackChunks):
-            covEig= numpy.linalg.eig(cov[ii])
-            minIndx= numpy.argmin(covEig[0])
-            minEigvec= covEig[1][:,minIndx] #this is the direction of the transverse spread
-            if numpy.sum(minEigvec*eigDir) < 0.: minEigvec*= -1. #Keep them pointing in the same direction
-            out[ii]= minEigvec*numpy.sqrt(covEig[0][minIndx])
-            eigDir= minEigvec
-        if interp:
-            raise NotImplementedError("interpolation of spread not implemented yet ...")
+        if not interp:
+            out= numpy.empty((self._nTrackChunks,2))
+            eigDir= numpy.array([1.,0.])
+            for ii in range(self._nTrackChunks):
+                covEig= numpy.linalg.eig(cov[ii])
+                minIndx= numpy.argmin(covEig[0])
+                minEigvec= covEig[1][:,minIndx] #this is the direction of the transverse spread
+                if numpy.sum(minEigvec*eigDir) < 0.: minEigvec*= -1. #Keep them pointing in the same direction
+                out[ii]= minEigvec*numpy.sqrt(covEig[0][minIndx])
+                eigDir= minEigvec
+        else:
+            #We slerp the minor eigenvector and interpolate the eigenvalue
+            #First store all of the eigenvectors on the track
+            allEigval= numpy.empty(self._nTrackChunks)
+            allEigvec= numpy.empty((self._nTrackChunks,2))
+            eigDir= numpy.array([1.,0.])
+            for ii in range(self._nTrackChunks):
+                covEig= numpy.linalg.eig(cov[ii])
+                minIndx= numpy.argmin(covEig[0])
+                minEigvec= covEig[1][:,minIndx] #this is the direction of the transverse spread
+                if numpy.sum(minEigvec*eigDir) < 0.: minEigvec*= -1. #Keep them pointing in the same direction
+                allEigval[ii]= numpy.sqrt(covEig[0][minIndx])
+                allEigvec[ii]= minEigvec
+                eigDir= minEigvec
+            #Now interpolate where needed
+            interpEigval=\
+                interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                         allEigval,k=3)
+            interpolatedEigval= interpEigval(self._interpolatedThetasTrack)
+            #Interpolate in chunks
+            interpolatedEigvec= numpy.empty((len(self._interpolatedThetasTrack),
+                                             2))
+            for ii in range(self._nTrackChunks-1):
+                slerpOmega= numpy.arccos(numpy.sum(allEigvec[ii]*allEigvec[ii+1]))
+                slerpts= (self._interpolatedThetasTrack-self._thetasTrack[ii])/\
+                    (self._thetasTrack[ii+1]-self._thetasTrack[ii])
+                slerpIndx= (slerpts >= 0.)*(slerpts <= 1.)
+                for jj in range(2):
+                    interpolatedEigvec[slerpIndx,jj]=\
+                        (numpy.sin((1-slerpts[slerpIndx])*slerpOmega)*allEigvec[ii,jj]
+                         +numpy.sin(slerpts[slerpIndx]*slerpOmega)*allEigvec[ii+1,jj])/numpy.sin(slerpOmega)
+            out= numpy.tile(interpolatedEigval.T,(2,1)).T*interpolatedEigvec
         return (out[:,0],out[:,1])
 
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
