@@ -223,7 +223,7 @@ class streamdf:
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
 ############################STREAM TRACK FUNCTIONS#############################
-    def plotTrack(self,d1='x',d2='z',interp=True,spread=False,
+    def plotTrack(self,d1='x',d2='z',interp=True,spread=0,
                   *args,**kwargs):
         """
         NAME:
@@ -235,7 +235,7 @@ class streamdf:
                'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
            d2= plot this on the Y axis (same list as for d1)
            interp= (True) if True, use the interpolated stream track
-           spread= (False) if True, also plot the spread around the track
+           spread= (0) if int > 0, also plot the spread around the track as spread x sigma
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -256,53 +256,37 @@ class streamdf:
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
         if spread:
-            sx, sy= self._parse_track_spread(d1,d2,interp=interp)
+            addx, addy= self._parse_track_spread(d1,d2,interp=interp)
+            if (kwargs.has_key('ls') and kwargs['ls'] == 'none') \
+                    or (kwargs.has_key('linestyle') \
+                            and kwargs['linestyle'] == 'none'):
+                if kwargs.has_key('ls'): kwargs.pop('ls')
+                if kwargs.has_key('linestyle'): kwargs.pop('linestyle')
+                spreadls= 'none'
+            else:
+                spreadls= '--'
+            if kwargs.has_key('marker'):
+                spreadmarker= kwargs['marker']
+                kwargs.pop('marker')
+            else:
+                spreadmarker= None
+            if kwargs.has_key('color'):
+                spreadcolor= kwargs['color']
+            else:
+                spreadcolor= None
+            if kwargs.has_key('lw'):
+                spreadlw= kwargs['lw']
+            else:
+                spreadlw= None
+            bovy_plot.bovy_plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
+                                marker=spreadmarker,color=spreadcolor,
+                                lw=spreadlw,
+                                overplot=True)
+            bovy_plot.bovy_plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
+                                marker=spreadmarker,color=spreadcolor,
+                                lw=spreadlw,
+                                overplot=True)            
         return None
-
-    def _parse_track_spread(d1,d2,interp=True):
-        """Determine the spread around the track"""
-        okaySpreadR= ['r','vr','vt','z','vz','phi']
-        okaySpreadXY= ['x','y','z','vx','vy','vz']
-        okaySpreadLB= ['ll','bb','dist','vlos','pmll','pmbb']
-        #Determine which coordinate system we're in
-        coord= [False,False,False] #R, XY, LB
-        if d1.lower() in okaySpreadR and d2.lower() in okaySpreadR:
-            coord[0]= True
-        elif d1.lower() in okaySpreadXY and d2.lower() in okaySpreadXY:
-            coord[1]= True
-        elif d1.lower() in okaySpreadLB and d2.lower() in okaySpreadLB:
-            coord[2]= True
-        else:
-            raise NotImplementedError("plotting the spread for coordinates from different systems not implemented yet ...")
-        if coord[0]:
-            relevantCov= self._allErrCovs
-        elif coord[1]:
-            relevantCov= self._allErrCovsXY
-        elif coord[2]:
-            relevantCov= self._allErrCovsLB
-        indxDict= {}
-        indxDict['r']= 0
-        indxDict['vr']= 1
-        indxDict['vt']= 2
-        indxDict['z']= 3
-        indxDict['vz']= 4
-        indxDict['phi']= 5
-        indxDictXY= {}
-        indxDictXY['x']= 0
-        indxDictXY['y']= 1
-        indxDictXY['z']= 2
-        indxDictXY['vx']= 3
-        indxDictXY['vy']= 4
-        indxDictXY['vz']= 5
-        indxDictLB= {}
-        indxDictLB['ll']= 0
-        indxDictLB['bb']= 1
-        indxDictLB['dist']= 2
-        indxDictLB['vlos']= 3
-        indxDictLB['pmll']= 4
-        indxDictLB['pmbb']= 5
-            
-        
 
     def plotProgenitor(self,d1='x',d2='z',
                        *args,**kwargs):
@@ -407,6 +391,70 @@ class streamdf:
         elif d1.lower() == 'vlos':
             tx= self._progenitor.vlos(ts,ro=ro,vo=vo,obs=obs)
         return tx        
+
+    def _parse_track_spread(self,d1,d2,interp=True):
+        """Determine the spread around the track"""
+        okaySpreadR= ['r','vr','vt','z','vz','phi']
+        okaySpreadXY= ['x','y','z','vx','vy','vz']
+        okaySpreadLB= ['ll','bb','dist','vlos','pmll','pmbb']
+        #Determine which coordinate system we're in
+        coord= [False,False,False] #R, XY, LB
+        if d1.lower() in okaySpreadR and d2.lower() in okaySpreadR:
+            coord[0]= True
+        elif d1.lower() in okaySpreadXY and d2.lower() in okaySpreadXY:
+            coord[1]= True
+        elif d1.lower() in okaySpreadLB and d2.lower() in okaySpreadLB:
+            coord[2]= True
+        else:
+            raise NotImplementedError("plotting the spread for coordinates from different systems not implemented yet ...")
+        #Get the right 2D Jacobian
+        indxDict= {}
+        indxDict['r']= 0
+        indxDict['vr']= 1
+        indxDict['vt']= 2
+        indxDict['z']= 3
+        indxDict['vz']= 4
+        indxDict['phi']= 5
+        indxDictXY= {}
+        indxDictXY['x']= 0
+        indxDictXY['y']= 1
+        indxDictXY['z']= 2
+        indxDictXY['vx']= 3
+        indxDictXY['vy']= 4
+        indxDictXY['vz']= 5
+        indxDictLB= {}
+        indxDictLB['ll']= 0
+        indxDictLB['bb']= 1
+        indxDictLB['dist']= 2
+        indxDictLB['vlos']= 3
+        indxDictLB['pmll']= 4
+        indxDictLB['pmbb']= 5
+        if coord[0]:
+            relevantCov= self._allErrCovs
+            relevantDict= indxDict
+        elif coord[1]:
+            relevantCov= self._allErrCovsXY
+            relevantDict= indxDictXY
+        elif coord[2]:
+            relevantCov= self._allErrCovsLB
+            relevantDict= indxDictLB
+        indx0= numpy.array([[relevantDict[d1.lower()],relevantDict[d1.lower()]],
+                            [relevantDict[d2.lower()],relevantDict[d2.lower()]]])
+        indx1= numpy.array([[relevantDict[d1.lower()],relevantDict[d2.lower()]],
+                            [relevantDict[d1.lower()],relevantDict[d2.lower()]]])
+        cov= relevantCov[:,indx0,indx1] #cov contains all nTrackChunks covs
+        out= numpy.empty((self._nTrackChunks,2))
+        eigDir= numpy.array([1.,0.])
+        for ii in range(self._nTrackChunks):
+            covEig= numpy.linalg.eig(cov[ii])
+            minIndx= numpy.argmin(covEig[0])
+            minEigvec= covEig[1][:,minIndx] #this is the direction of the transverse spread
+            if numpy.sum(minEigvec*eigDir) < 0.: minEigvec*= -1. #Keep them pointing in the same direction
+            out[ii]= minEigvec*numpy.sqrt(covEig[0][minIndx])
+            eigDir= minEigvec
+        if interp:
+            raise NotImplementedError("interpolation of spread not implemented yet ...")
+        return (out[:,0],out[:,1])
 
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
