@@ -1085,6 +1085,44 @@ def cyl_to_rect_jac(*args):
         out[:,[1,2]]= out[:,[2,1]]
     return out
 
+def galcenrect_to_XYZ_jac(*args,**kwargs):
+    """
+    NAME:
+       galcenrect_to_XYZ_jac
+    PURPOSE:
+       calculate the Jacobian of the Galactocentric rectangular to Galactic 
+       coordinates
+    INPUT:
+       X,Y,Z- Galactocentric rectangular coordinates
+       vX, vY, vZ- Galactocentric rectangular velocities
+       if 6 inputs: X,Y,Z,vX,vY,vZ
+       if 3: X,Y,Z
+       
+       Xsun, Ysun, Zsun= Sun's position
+       vsun= Sun's velocity
+    OUTPUT:
+       jacobian d(galcen.)/d(Galactic)
+    HISTORY:
+       2013-12-09 - Written - Bovy (IAS)
+    """
+    if kwargs.has_key('Xsun'): Xsun= kwargs['Xsun']
+    else: Xsun= 1.
+    if kwargs.has_key('Ysun'): Ysun= kwargs['Ysun']
+    else: Ysun= 0.
+    if kwargs.has_key('Zsun'): Zsun= kwargs['Zsun']
+    else: Zsun= 1.
+    if kwargs.has_key('vsun'): vsun= kwargs['vsun']
+    else: vsun= [0.,1.,0.]
+    out= sc.zeros((6,6))
+    out[0,0]= -1.
+    out[1,1]= 1.
+    out[2,2]= 1.
+    if len(args) == 3: return out[:3,:3]
+    out[3,3]= -1.
+    out[4,4]= 1.
+    out[5,5]= 1.
+    return out
+
 def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
     """
     NAME:
