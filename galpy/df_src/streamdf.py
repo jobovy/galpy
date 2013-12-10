@@ -223,7 +223,7 @@ class streamdf:
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
 ############################STREAM TRACK FUNCTIONS#############################
-    def plotTrack(self,d1='x',d2='z',interp=True,
+    def plotTrack(self,d1='x',d2='z',interp=True,spread=False,
                   *args,**kwargs):
         """
         NAME:
@@ -235,6 +235,7 @@ class streamdf:
                'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
            d2= plot this on the Y axis (same list as for d1)
            interp= (True) if True, use the interpolated stream track
+           spread= (False) if True, also plot the spread around the track
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -254,7 +255,54 @@ class streamdf:
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
+        if spread:
+            sx, sy= self._parse_track_spread(d1,d2,interp=interp)
         return None
+
+    def _parse_track_spread(d1,d2,interp=True):
+        """Determine the spread around the track"""
+        okaySpreadR= ['r','vr','vt','z','vz','phi']
+        okaySpreadXY= ['x','y','z','vx','vy','vz']
+        okaySpreadLB= ['ll','bb','dist','vlos','pmll','pmbb']
+        #Determine which coordinate system we're in
+        coord= [False,False,False] #R, XY, LB
+        if d1.lower() in okaySpreadR and d2.lower() in okaySpreadR:
+            coord[0]= True
+        elif d1.lower() in okaySpreadXY and d2.lower() in okaySpreadXY:
+            coord[1]= True
+        elif d1.lower() in okaySpreadLB and d2.lower() in okaySpreadLB:
+            coord[2]= True
+        else:
+            raise NotImplementedError("plotting the spread for coordinates from different systems not implemented yet ...")
+        if coord[0]:
+            relevantCov= self._allErrCovs
+        elif coord[1]:
+            relevantCov= self._allErrCovsXY
+        elif coord[2]:
+            relevantCov= self._allErrCovsLB
+        indxDict= {}
+        indxDict['r']= 0
+        indxDict['vr']= 1
+        indxDict['vt']= 2
+        indxDict['z']= 3
+        indxDict['vz']= 4
+        indxDict['phi']= 5
+        indxDictXY= {}
+        indxDictXY['x']= 0
+        indxDictXY['y']= 1
+        indxDictXY['z']= 2
+        indxDictXY['vx']= 3
+        indxDictXY['vy']= 4
+        indxDictXY['vz']= 5
+        indxDictLB= {}
+        indxDictLB['ll']= 0
+        indxDictLB['bb']= 1
+        indxDictLB['dist']= 2
+        indxDictLB['vlos']= 3
+        indxDictLB['pmll']= 4
+        indxDictLB['pmbb']= 5
+            
+        
 
     def plotProgenitor(self,d1='x',d2='z',
                        *args,**kwargs):
@@ -485,6 +533,13 @@ class streamdf:
             for ii in range(self._nTrackChunks):
                 allErrCovs[ii]= multiOut[ii]
         self._allErrCovs= allErrCovs
+        #Also propagate to XYZ coordinates
+        allErrCovsXY= numpy.empty_like(self._allErrCovs)
+        for ii in range(self._nTrackChunks):
+            tjac= bovy_coords.cyl_to_rect_jac(*self._ObsTrack[ii])
+            allErrCovsXY[ii]=\
+                numpy.dot(tjac,numpy.dot(self._allErrCovs[ii],tjac.T))
+        self._allErrCovsXY= allErrCovsXY
         return None
 
     def _interpolate_stream_track(self):
@@ -795,6 +850,7 @@ class streamdf:
                               Tlow,Thigh)[0]
         denom= integrate.quad(self.ptdAngle,Tlow,Thigh,(dangle,))[0]
         if denom == 0.: return self._tdisrupt
+        elif numpy.isnan(denom): return 0.
         else: return num/denom
 
     def sigtdAngle(self,dangle):
