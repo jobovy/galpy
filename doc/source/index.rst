@@ -64,7 +64,7 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 Acknowledging galpy
 --------------------
 
-Please link back to ``http://code.google.com/p/galpy/`` . When using the ``galpy.actionAngle`` modules, please cite `arXiv/1309.0809 <http://arxiv.org/abs/1309.0809>`_ in addition to the papers describing the algorithm used. When orbit ingrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
+Please link back to ``http://code.google.com/p/galpy/`` . When using the ``galpy.actionAngle`` modules, please cite `arXiv/1309.0809 <http://arxiv.org/abs/1309.0809>`_ in addition to the papers describing the algorithm used. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
 
 
 Indices and tables
