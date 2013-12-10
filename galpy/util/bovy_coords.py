@@ -1123,6 +1123,60 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
     out[5,5]= 1.
     return out
 
+def lbd_to_XYZ_jac(*args,**kwargs):
+    """
+    NAME:
+       lbd_to_XYZ_jac
+    PURPOSE:
+       calculate the Jacobian of the Galactic spherical coordinates to
+       Galactic rectangular coordinates transformation
+    INPUT:
+       l,b,D- Galactic spherical coordinates
+       vlos,pmll,pmbb- Galactic spherical velocities (some as proper motions)
+       if 6 inputs: l,b,D,vlos,pmll,pmbb
+       if 3: l,b,D
+    OUTPUT:
+       jacobian
+    HISTORY:
+       2013-12-09 - Written - Bovy (IAS)
+    """
+    out= sc.zeros((6,6))
+    if len(args) == 3:
+        l,b,D= args
+        vlos, pmll, pmbb= 0., 0., 0.
+    elif len(args) == 6:
+        l,b,D,vlos,pmll,pmbb= args
+    cl= sc.cos(l)
+    sl= sc.sin(l)
+    cb= sc.cos(b)
+    sb= sc.sin(b)
+    out[0,0]= -D*cb*sl
+    out[0,1]= -D*sb*cl
+    out[0,2]= cb*cl
+    out[1,0]= D*cb*cl
+    out[1,1]= -D*sb*sl
+    out[1,2]= cb*sl
+    out[2,1]= D*cb
+    out[2,2]= sb
+    if len(args) == 3: return out[:3,:3]
+    out[3,0]= -sl*cb*vlos-cl*_K*D*pmll+sb*sl*_K*D*pmbb
+    out[3,1]= -cl*sb*vlos-cb*cl*_K*D*pmbb
+    out[3,2]= -sl*_K*pmll-sb*cl*_K*pmbb
+    out[3,3]= cl*cb
+    out[3,4]= -sl*_K*D
+    out[3,5]= -cl*sb*_K*D
+    out[4,0]= cl*cb*vlos-sl*_K*D*pmll-cl*sb*_K*D*pmbb
+    out[4,1]= -sl*sb*vlos-sl*cb*_K*D*pmbb
+    out[4,2]= cl*_K*pmll-sl*sb*_K*pmbb
+    out[4,3]= sl*cb
+    out[4,4]= cl*_K*D
+    out[4,5]= -sl*sb*_K*D
+    out[5,1]= cb*vlos-sb*_K*D*pmbb
+    out[5,2]= cb*_K*pmbb
+    out[5,3]= sb
+    out[5,5]= cb*_K*D
+    return out
+
 def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
     """
     NAME:
