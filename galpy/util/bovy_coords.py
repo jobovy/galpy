@@ -1097,22 +1097,11 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        vX, vY, vZ- Galactocentric rectangular velocities
        if 6 inputs: X,Y,Z,vX,vY,vZ
        if 3: X,Y,Z
-       
-       Xsun, Ysun, Zsun= Sun's position
-       vsun= Sun's velocity
     OUTPUT:
        jacobian d(galcen.)/d(Galactic)
     HISTORY:
        2013-12-09 - Written - Bovy (IAS)
     """
-    if kwargs.has_key('Xsun'): Xsun= kwargs['Xsun']
-    else: Xsun= 1.
-    if kwargs.has_key('Ysun'): Ysun= kwargs['Ysun']
-    else: Ysun= 0.
-    if kwargs.has_key('Zsun'): Zsun= kwargs['Zsun']
-    else: Zsun= 1.
-    if kwargs.has_key('vsun'): vsun= kwargs['vsun']
-    else: vsun= [0.,1.,0.]
     out= sc.zeros((6,6))
     out[0,0]= -1.
     out[1,1]= 1.
@@ -1146,6 +1135,9 @@ def lbd_to_XYZ_jac(*args,**kwargs):
         vlos, pmll, pmbb= 0., 0., 0.
     elif len(args) == 6:
         l,b,D,vlos,pmll,pmbb= args
+    if kwargs.has_key('degree') and kwargs['degree']:
+        l*= _DEGTORAD
+        b*= _DEGTORAD
     cl= sc.cos(l)
     sl= sc.sin(l)
     cb= sc.cos(b)
@@ -1158,7 +1150,11 @@ def lbd_to_XYZ_jac(*args,**kwargs):
     out[1,2]= cb*sl
     out[2,1]= D*cb
     out[2,2]= sb
-    if len(args) == 3: return out[:3,:3]
+    if len(args) == 3:
+        if kwargs.has_key('degree') and kwargs['degree']:
+            out[:,0]*= _DEGTORAD
+            out[:,1]*= _DEGTORAD
+        return out[:3,:3]
     out[3,0]= -sl*cb*vlos-cl*_K*D*pmll+sb*sl*_K*D*pmbb
     out[3,1]= -cl*sb*vlos-cb*cl*_K*D*pmbb
     out[3,2]= -sl*_K*pmll-sb*cl*_K*pmbb
@@ -1175,6 +1171,9 @@ def lbd_to_XYZ_jac(*args,**kwargs):
     out[5,2]= cb*_K*pmbb
     out[5,3]= sb
     out[5,5]= cb*_K*D
+    if kwargs.has_key('degree') and kwargs['degree']:
+        out[:,0]*= _DEGTORAD
+        out[:,1]*= _DEGTORAD
     return out
 
 def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
