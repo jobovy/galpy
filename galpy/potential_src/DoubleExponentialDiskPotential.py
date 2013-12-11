@@ -5,7 +5,9 @@
 #                                      rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z
 ###############################################################################
 import numpy as nu
+import warnings
 from scipy import special, integrate
+from galpy.util import galpyWarning
 from Potential import Potential
 from PowerSphericalPotential import KeplerPotential
 _TOL= 1.4899999999999999e-15
@@ -118,7 +120,8 @@ class DoubleExponentialDiskPotential(Potential):
         elif dR == 2 and dphi == 0:
             return self._R2deriv(R,z,phi=phi,t=t)
         elif dR != 0 and dphi != 0:
-            raise NotImplementedWarning("High-order derivatives for DoubleExponentialDiskPotential not implemented")
+            warnings.warn("High-order derivatives for DoubleExponentialDiskPotential not implemented",galpyWarning)
+            return None
         if self._new:
             if isinstance(R,float):
                 floatIn= True
@@ -141,6 +144,7 @@ class DoubleExponentialDiskPotential(Potential):
                 out[jj]= -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
             if floatIn: return out[0]
             else: return out
+        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
@@ -222,6 +226,7 @@ class DoubleExponentialDiskPotential(Potential):
             weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
             evalInt= ks*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
             return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
+        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandSmallk,
@@ -307,6 +312,7 @@ class DoubleExponentialDiskPotential(Potential):
                 return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
             else:
                 return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
         if self._zforceNotSetUp:
             self._zforceNotSetUp= False
             self._typicalKz= self._zforce(self._ro,self._hz)
@@ -417,6 +423,7 @@ class DoubleExponentialDiskPotential(Potential):
             evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*nu.exp(-ks2*nu.fabs(z))-ks2*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks2**2.)
             return nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
                                       -nu.sum(weights2*evalInt2))
+        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
         notConvergedSmall= True
         notConvergedLarge= True
         smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
