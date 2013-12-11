@@ -8,6 +8,7 @@ from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot
 _INTERPDURINGSETUP= True
 _USEINTERP= True
+_USESIMPLE= True
 _labelDict= {'x': r'$X$',
              'y': r'$Y$',
              'z': r'$Z$',
@@ -279,7 +280,7 @@ class streamdf:
             if kwargs.has_key('lw'):
                 spreadlw= kwargs['lw']
             else:
-                spreadlw= None
+                spreadlw= 1.
             bovy_plot.bovy_plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
                                 marker=spreadmarker,color=spreadcolor,
                                 lw=spreadlw,
@@ -487,6 +488,9 @@ class streamdf:
                         (numpy.sin((1-slerpts[slerpIndx])*slerpOmega)*allEigvec[ii,jj]
                          +numpy.sin(slerpts[slerpIndx]*slerpOmega)*allEigvec[ii+1,jj])/numpy.sin(slerpOmega)
             out= numpy.tile(interpolatedEigval.T,(2,1)).T*interpolatedEigvec
+        if coord[2]: #if LB, undo rescalings that were applied before
+            out[:,0]*= self._ErrCovsLBScale[relevantDict[d1.lower()]]
+            out[:,1]*= self._ErrCovsLBScale[relevantDict[d2.lower()]]
         return (out[:,0],out[:,1])
 
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
@@ -589,7 +593,7 @@ class streamdf:
         self._ObsTrackXY[:,5]= TrackvZ
         return None
 
-    def _determine_stream_spread(self,simple=True):
+    def _determine_stream_spread(self,simple=_USESIMPLE):
         """Determine the spread around the stream track, just sets matrices that describe the covariances"""
         allErrCovs= numpy.empty((self._nTrackChunks,6,6))
         if self._multi is None:
@@ -621,7 +625,51 @@ class streamdf:
             allErrCovsXY[ii]=\
                 numpy.dot(tjac,numpy.dot(self._allErrCovs[ii],tjac.T))
         self._allErrCovsXY= allErrCovsXY
+        self._determine_stream_spreadLB(simple=simple)
         return None
+
+    def _determine_stream_spreadLB(self,simple=_USESIMPLE,
+                                   Rnorm=None,Vnorm=None,
+                                   R0=None,Zsun=None,vsun=None):
+        """Determine the spread in the stream in observable coordinates"""
+        if not hasattr(self,'_allErrCovs'):
+            self._determine_stream_spread(simple=simple)
+        if Rnorm is None:
+            Rnorm= self._Rnorm
+        if Vnorm is None:
+            Vnorm= self._Vnorm
+        if R0 is None:
+            R0= self._R0
+        if Zsun is None:
+            Zsun= self._Zsun
+        if vsun is None:
+            vsun= self._vsun
+        allErrCovsLB= numpy.empty_like(self._allErrCovs)
+        obs= [R0,0.,Zsun]
+        obs.extend(vsun)
+        obskwargs= {}
+        obskwargs['ro']= Rnorm
+        obskwargs['vo']= Vnorm
+        obskwargs['obs']= obs
+        self._ErrCovsLBScale= [180.,90.,
+                               self._progenitor.dist(**obskwargs),
+                               numpy.fabs(self._progenitor.vlos(**obskwargs)),
+                               numpy.sqrt(self._progenitor.pmll(**obskwargs)**2.
+                                          +self._progenitor.pmbb(**obskwargs)**2.),
+                               numpy.sqrt(self._progenitor.pmll(**obskwargs)**2.
+                                          +self._progenitor.pmbb(**obskwargs)**2.)]
+        for ii in range(self._nTrackChunks):
+            tjacXY= bovy_coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
+            tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
+                                               degree=True)
+            tjacLB[:3,:]/= Rnorm 
+            tjacLB[3:,:]/= Vnorm 
+            for jj in range(6):
+                tjacLB[:,jj]*= self._ErrCovsLBScale[jj]
+            tjac= numpy.dot(numpy.linalg.inv(tjacLB),tjacXY)
+            allErrCovsLB[ii]=\
+                numpy.dot(tjac,numpy.dot(self._allErrCovsXY[ii],tjac.T))
+        self._allErrCovsLB= allErrCovsLB
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
@@ -795,6 +843,11 @@ class streamdf:
             self._interpolatedObsTrackLB[:,3]= svlbd[:,0]
             self._interpolatedObsTrackLB[:,4]= svlbd[:,1]
             self._interpolatedObsTrackLB[:,5]= svlbd[:,2]
+        if hasattr(self,'_allErrCovsLB'):
+            #Re-calculate this
+            self._determine_stream_spreadLB(simple=_USESIMPLE,
+                                            Vnorm=Vnorm,Rnorm=Rnorm,
+                                            R0=R0,Zsun=Zsun,vsun=vsun)
         return None
 
     def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False):
@@ -904,7 +957,10 @@ class streamdf:
         if isinstance(t,(int,float,numpy.float32,numpy.float64)):
             t= numpy.array([t])
         out= numpy.zeros(len(t))
-        dO= dangle/t[t < self._tdisrupt]
+        if t > 0.:
+            dO= dangle/t[t < self._tdisrupt]
+        else:
+            return 0.
         #p(t|a) = \int dO p(O,t|a) = \int dO p(t|O,a) p(O|a) = \int dO delta (t-a/O)p(O|a) = O*2/a p(O|a); p(O|a) = \int dt p(a|O,t) p(O)p(t) = 1/O p(O)
         out[t < self._tdisrupt]=\
             dO**2./dangle*numpy.exp(-0.5*(dO-self._meandO)**2.\
