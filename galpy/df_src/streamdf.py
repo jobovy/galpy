@@ -170,6 +170,8 @@ class streamdf:
             if interpTrack or self._useInterp:
                 self._interpolate_stream_track()
                 self._interpolate_stream_track_aA()
+            self.calc_stream_lb()
+            self._determine_stream_spread()
         return None
 
     def misalignment(self):
