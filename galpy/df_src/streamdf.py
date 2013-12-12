@@ -850,7 +850,8 @@ class streamdf:
                                             R0=R0,Zsun=Zsun,vsun=vsun)
         return None
 
-    def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False):
+    def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False,
+                                 usev=False):
         """
         NAME:
            _find_closest_trackpoint
@@ -859,7 +860,8 @@ class streamdf:
         INPUT:
            R,vR,vT,z,vz,phi - phase-space coordinates of the given point
            interp= (True), if True, return the index of the interpolated track
-           xy= (False) if True, input is X,Y,Z,vX,vY,vZ in Galactocentric rectangular coordinates
+           xy= (False) if True, input is X,Y,Z,vX,vY,vZ in Galactocentric rectangular coordinates; if xy, some coordinates may be missing (given as None) and they will not be used
+           usev= (False) if True, also use velocities to find the closest point
         OUTPUT:
            index into the track of the closest track point
         HISTORY:
@@ -873,14 +875,40 @@ class streamdf:
             X= R*numpy.cos(phi)
             Y= R*numpy.sin(phi)
             Z= z
+        if xy and usev:
+            vX= z
+            vY= vz
+            vZ= phi
+        elif usev:
+            vX= vR*numpy.cos(phi)-vT*numpy.sin(phi)
+            vY= vR*numpy.sin(phi)+vT*numpy.cos(phi)
+            vZ= vz
+        present= [not X is None,not Y is None,not Z is None]
+        if usev: present.extend([not vX is None,not vY is None,not vZ is None])
+        present= numpy.array(present,dtype='float')
+        if X is None: X= 0.
+        if Y is None: Y= 0.
+        if Z is None: Z= 0.
+        if usev and vX is None: vX= 0.
+        if usev and vY is None: vY= 0.
+        if usev and vZ is None: vZ= 0.
         if interp:
-            dist2= (X-self._interpolatedObsTrackXY[:,0])**2.\
-                +(Y-self._interpolatedObsTrackXY[:,1])**2.\
-                +(Z-self._interpolatedObsTrackXY[:,2])**2.
+            dist2= present[0]*(X-self._interpolatedObsTrackXY[:,0])**2.\
+                +present[1]*(Y-self._interpolatedObsTrackXY[:,1])**2.\
+                +present[2]*(Z-self._interpolatedObsTrackXY[:,2])**2.
+            if usev:
+                dist2+= present[3]*(vX-self._interpolatedObsTrackXY[:,3])**2.\
+                    +present[4]*(vY-self._interpolatedObsTrackXY[:,4])**2.\
+                    +present[5]*(vZ-self._interpolatedObsTrackXY[:,5])**2.
         else:
-            dist2= (X-self._ObsTrackXY[:,0])**2.\
-                +(Y-self._ObsTrackXY[:,1])**2.\
-                +(Z-self._ObsTrackXY[:,2])**2.
+            dist2= present[0]*(X-self._ObsTrackXY[:,0])**2.\
+                +present[1]*(Y-self._ObsTrackXY[:,1])**2.\
+                +present[2]*(Z-self._ObsTrackXY[:,2])**2.
+            if usev:
+                dist2+= present[3]*(vX-self._ObsTrackXY[:,3])**2.\
+                    +present[4]*(vY-self._ObsTrackXY[:,4])**2.\
+                    +present[5]*(vZ-self._ObsTrackXY[:,5])**2.
+        print dist2
         return numpy.argmin(dist2)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
@@ -1180,6 +1208,7 @@ class streamdf:
                 out[:,ii]+= self._ObsTrackAA[closestIndx[ii]]
         return out            
 
+################################EVALUATE THE DF################################
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -1296,6 +1325,18 @@ class streamdf:
                                   numpy.array(vT),numpy.array(z),
                                   numpy.array(vz),numpy.array(phi),
                                   interp=interp)
+
+    def _trackoffsetXY(xy,**kwargs):
+        """Calculate the offset from the track in some quantities, given others,
+        input xy=[X,Y,Z,vX,vY,vZ] if None, not given and will be filled in"""
+        if kwargs.has_key('interp'):
+            interp= kwargs['interp']
+        else:
+            interp= self._useInterp
+        #What are we looking for
+        coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
+        #First find the nearest track point
+
 
 def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    progenitor_angle,sigMeanSign,
