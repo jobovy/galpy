@@ -908,7 +908,6 @@ class streamdf:
                 dist2+= present[3]*(vX-self._ObsTrackXY[:,3])**2.\
                     +present[4]*(vY-self._ObsTrackXY[:,4])**2.\
                     +present[5]*(vZ-self._ObsTrackXY[:,5])**2.
-        print dist2
         return numpy.argmin(dist2)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
@@ -1326,17 +1325,64 @@ class streamdf:
                                   numpy.array(vz),numpy.array(phi),
                                   interp=interp)
 
-    def _trackoffsetXY(xy,**kwargs):
-        """Calculate the offset from the track in some quantities, given others,
-        input xy=[X,Y,Z,vX,vY,vZ] if None, not given and will be filled in"""
+    def gaussApproxXY(self,xy,**kwargs):
+        """
+        NAME:
+           gaussApproxXY
+        PURPOSE:
+           return the mean and variance of a Gaussian approximation to the
+           stream DF at a given phase-space point in Galactocentric
+           rectangular coordinates (distribution is over missing directions)
+        INPUT:
+           xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
+           interp= (object-wide interp default) if True, use the interpolated
+                   stream track
+           cindx= index of the closest point on the (interpolated) stream track
+                  if not given, determined from the dimensions given
+        OUTPUT:
+           (mean,variance) of the approximate Gaussian DF for the missing 
+           directions in xy
+        HISTORY:
+           2013-12-12 - Written - Bovy (IAS)
+        """
         if kwargs.has_key('interp'):
             interp= kwargs['interp']
         else:
             interp= self._useInterp
         #What are we looking for
         coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
+        nGiven= numpy.sum(coordGiven)
         #First find the nearest track point
-
+        if not kwargs.has_key('cindx'):
+            cindx= self._find_closest_trackpoint(*xy,xy=True,interp=interp,
+                                                  usev=True)
+        else:
+            cindx= kwargs['cindx']
+        #Get the covariance matrix
+        if interp:
+            raise NotImplementedError("Using interpolated Jacobians not implemented yet")
+        else:
+            tcov= self._allErrCovsXY[cindx]
+            tmean= self._ObsTrackXY[cindx]
+        #Fancy indexing to recover V22, V11, and V12; V22, V11, V12 as in Appendix B of 0905.2979v1
+        V11indx0= numpy.array([[ii for jj in range(6-nGiven)] for ii in range(6) if not coordGiven[ii]])
+        V11indx1= numpy.array([[ii for ii in range(6) if not coordGiven[ii]] for jj in range(6-nGiven)])
+        V11= tcov[V11indx0,V11indx1]
+        V22indx0= numpy.array([[ii for jj in range(nGiven)] for ii in range(6) if coordGiven[ii]])
+        V22indx1= numpy.array([[ii for ii in range(6) if coordGiven[ii]] for jj in range(nGiven)])
+        V22= tcov[V22indx0,V22indx1]
+        V12indx0= numpy.array([[ii for jj in range(nGiven)] for ii in range(6) if not coordGiven[ii]])
+        V12indx1= numpy.array([[ii for ii in range(6) if coordGiven[ii]] for jj in range(6-nGiven)])
+        V12= tcov[V12indx0,V12indx1]
+        #Also get m1 and m2, again following Appendix B of 0905.2979v1
+        m1= tmean[True-coordGiven]
+        m2= tmean[coordGiven]
+        #conditional mean and variance
+        V22inv= numpy.linalg.inv(V22)
+        v2= numpy.array([xy[ii] for ii in range(6) if coordGiven[ii]])
+        condMean= m1+numpy.dot(V12,numpy.dot(V22inv,v2-m2))
+        condVar= V11-numpy.dot(V12,numpy.dot(V22inv,V12.T))
+        return (condMean,condVar)
 
 def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    progenitor_angle,sigMeanSign,
