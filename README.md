@@ -20,6 +20,12 @@ See [here](http://jobovy.github.com/galpy)
 
 Standard python setup.py build/install
 
+A few simple tests can be run with
+
+```
+nosetests -v -w nose/
+```
+
 ##DEPENDENCIES
 
 This package requires [NumPy](http://numpy.scipy.org/), [Scipy] (http://www.scipy.org/), and [Matplotlib] (http://matplotlib.sourceforge.net/).
