@@ -10,7 +10,9 @@ or::
 	> python setup.py install --prefix=~/local
 
 for a local installation. A basic installation works with just the
-numpy/scipy/matplotlib stack.
+numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
+
+		       > nosetests -v -w nose/
 
 
 Advanced installation
