@@ -9,7 +9,8 @@ before_install:
 # command to install dependencies
 install:
  - python setup.py install
-script: true
+script:
+ - nosetests -v -w nose/
 notifications:
   email:
     recipients:

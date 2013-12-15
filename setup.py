@@ -95,6 +95,6 @@ setup(name='galpy',
                 'galpy/actionAngle_src'],
       package_data={'galpy/df_src':['data/*.sav']},
 #      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
-      install_requires=['numpy','scipy','matplotlib'],
+      install_requires=['numpy','scipy','matplotlib','nose'],
       ext_modules=ext_modules
       )
