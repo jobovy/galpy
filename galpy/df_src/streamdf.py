@@ -3,9 +3,10 @@ import copy
 import numpy
 import multiprocessing
 from scipy import special, interpolate, integrate
+from scipy.misc import logsumexp
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
-    bovy_conversion, multi, bovy_plot
+    bovy_conversion, multi, bovy_plot, stable_cho_factor
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
@@ -1324,6 +1325,107 @@ class streamdf:
                                   numpy.array(vT),numpy.array(z),
                                   numpy.array(vz),numpy.array(phi),
                                   interp=interp)
+    def callMarg(self,xy,**kwargs):
+        """
+        NAME:
+           callMarg
+        PURPOSE:
+           evaluate the DF, marginalizing over some directions
+        INPUT:
+           xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
+           interp= (object-wide interp default) if True, use the interpolated
+                   stream track
+           cindx= index of the closest point on the (interpolated) stream track
+                  if not given, determined from the dimensions given          
+           nsigma= (4) number of sigma to marginalize the DF over (approximate sigma)
+           ngl= (20) order of Gauss-Legendre integration
+        OUTPUT:
+           p(xy) marginalized over missing directions in xy
+        HISTORY:
+           2013-12-16 - Written - Bovy (IAS)
+        """
+        coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
+        if numpy.sum(coordGiven) == 6:
+            raise NotImplementedError("When specifying all coordinates, please use __call__ instead of callMarg")
+        #First construct the Gaussian approximation at this xy
+        gaussmean, gaussvar= self.gaussApproxXY(xy,**kwargs)
+        cholvar, chollower= stable_cho_factor(gaussvar)
+        #Now Gauss-legendre integrate over missing directions
+        if kwargs.has_key('ngl'):
+            ngl= kwargs['ngl']
+        else:
+            ngl= 20
+        if kwargs.has_key('nsigma'):
+            nsigma= kwargs['nsigma']
+        else:
+            nsigma= 4
+        glx, glw= numpy.polynomial.legendre.leggauss(ngl)
+        coordEval= []
+        weightEval= []
+        jj= 0
+        baseX= (glx+1)/2.
+        baseX= list(baseX)
+        baseX.extend(-(glx+1)/2.)
+        baseX= numpy.array(baseX)
+        baseW= glw
+        baseW= list(baseW)
+        baseW.extend(glw)
+        baseW= numpy.array(baseW)
+        for ii in range(6):
+            if not coordGiven[ii]:
+                coordEval.append(nsigma*baseX)
+                weightEval.append(baseW)
+                jj+= 1
+            else:
+                coordEval.append(xy[ii]*numpy.ones(1))
+                weightEval.append(numpy.ones(1))
+        mgrid= numpy.meshgrid(*coordEval,indexing='ij')
+        mgridNotGiven= numpy.array([mgrid[ii].flatten() for ii in range(6) 
+                                    if not coordGiven[ii]])
+        mgridNotGiven= numpy.dot(cholvar,mgridNotGiven)
+        jj= 0
+        if coordGiven[0]: iX= mgrid[0]
+        else:
+            iX= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        if coordGiven[1]: iY= mgrid[1]
+        else:
+            iY= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        if coordGiven[2]: iZ= mgrid[2]
+        else:
+            iZ= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        if coordGiven[3]: ivX= mgrid[3]
+        else:
+            ivX= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        if coordGiven[4]: ivY= mgrid[4]
+        else:
+            ivY= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        if coordGiven[5]: ivZ= mgrid[5]
+        else:
+            ivZ= mgridNotGiven[jj]+gaussmean[jj]
+            jj+= 1
+        iXw, iYw, iZw, ivXw, ivYw, ivZw=\
+            numpy.meshgrid(*weightEval,indexing='ij')
+        #Convert to cylindrical coordinates
+        iR,iphi,iZ=\
+            bovy_coords.rect_to_cyl(iX.flatten(),iY.flatten(),iZ.flatten())
+        ivR,ivT,ivZ=\
+            bovy_coords.rect_to_cyl_vec(ivX.flatten(),ivY.flatten(),
+                                        ivZ.flatten(),
+                                        iR,iphi,iZ,cyl=True)
+        logdf= self(iR,ivR,ivT,iZ,ivZ,iphi,log=True)
+        return logsumexp(logdf
+                         +numpy.log(iXw.flatten())
+                         +numpy.log(iYw.flatten())
+                         +numpy.log(iZw.flatten())
+                         +numpy.log(ivXw.flatten())
+                         +numpy.log(ivYw.flatten())
+                         +numpy.log(ivZw.flatten()))\
+                         +0.5*numpy.log(numpy.linalg.det(gaussvar))
 
     def gaussApproxXY(self,xy,**kwargs):
         """
