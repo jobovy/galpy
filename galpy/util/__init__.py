@@ -91,7 +91,6 @@ def stable_cho_factor(x,tiny=_TINY):
     REVISION HISTORY:
        2009-09-25 - Written - Bovy (NYU)
     """
-    
     return linalg.cho_factor(x+numpy.sum(numpy.diag(x))*tiny*numpy.eye(x.shape[0]),lower=True)
 
 def fast_cholesky_invert(A,logdet=False,tiny=_TINY):
