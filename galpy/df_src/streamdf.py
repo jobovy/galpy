@@ -440,7 +440,7 @@ class streamdf:
             relevantCov= self._allErrCovsXY
             relevantDict= indxDictXY
         elif coord[2]:
-            relevantCov= self._allErrCovsLB
+            relevantCov= self._allErrCovsLBUnscaled
             relevantDict= indxDictLB
         indx0= numpy.array([[relevantDict[d1.lower()],relevantDict[d1.lower()]],
                             [relevantDict[d2.lower()],relevantDict[d2.lower()]]])
@@ -730,7 +730,7 @@ class streamdf:
                     teig[1][:,sortIndx[jj]]*= -1.
                 eigDir[jj]= teig[1][:,sortIndx[jj]]
             allErrCovsEigvecLB[ii]= teig[1][:,sortIndx]
-        self._allErrCovsLB= allErrCovsLB
+        self._allErrCovsLBUnscaled= allErrCovsLB
         #Interpolate the allErrCovsLB covariance matrices along the interpolated track
         #Interpolate the eigenvalues
         interpAllErrCovsEigvalLB=\
@@ -761,7 +761,7 @@ class streamdf:
                 numpy.dot(interpolatedEigvec[ii],
                           numpy.dot(numpy.diag(interpolatedEigval[:,ii]),
                                     interpolatedEigvec[ii].T))
-        self._interpolatedAllErrCovsLB= interpolatedAllErrCovsLB
+        self._interpolatedAllErrCovsLBUnscaled= interpolatedAllErrCovsLB
         return None
 
     def _interpolate_stream_track(self):
@@ -936,7 +936,7 @@ class streamdf:
             self._interpolatedObsTrackLB[:,3]= svlbd[:,0]
             self._interpolatedObsTrackLB[:,4]= svlbd[:,1]
             self._interpolatedObsTrackLB[:,5]= svlbd[:,2]
-        if hasattr(self,'_allErrCovsLB'):
+        if hasattr(self,'_allErrCovsLBUnscaled'):
             #Re-calculate this
             self._determine_stream_spreadLB(simple=_USESIMPLE,
                                             Vnorm=Vnorm,Rnorm=Rnorm,
@@ -1655,18 +1655,19 @@ class streamdf:
             cindx= kwargs['cindx']
         #Get the covariance matrix
         if interp and lb:
-            tcov= self._interpolatedAllErrCovsLB[cindx]
+            tcov= self._interpolatedAllErrCovsLBUnscaled[cindx]
             tmean= self._interpolatedObsTrackLB[cindx]
         elif interp and not lb:
             tcov= self._interpolatedAllErrCovsXY[cindx]
             tmean= self._interpolatedObsTrackXY[cindx]
         elif not interp and lb:
-            tcov= self._allErrCovsLB[cindx]
+            tcov= self._allErrCovsLBUnscaled[cindx]
             tmean= self._ObsTrackLB[cindx]
         elif not interp and not lb:
             tcov= self._allErrCovsXY[cindx]
             tmean= self._ObsTrackXY[cindx]
         if lb:#Apply scale factors
+            tcov= copy.copy(tcov)
             tcov*= numpy.tile(self._ErrCovsLBScale,(6,1))
             tcov*= numpy.tile(self._ErrCovsLBScale,(6,1)).T
         #Fancy indexing to recover V22, V11, and V12; V22, V11, V12 as in Appendix B of 0905.2979v1
