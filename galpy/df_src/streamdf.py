@@ -1666,6 +1666,9 @@ class streamdf:
         elif not interp and not lb:
             tcov= self._allErrCovsXY[cindx]
             tmean= self._ObsTrackXY[cindx]
+        if lb:#Apply scale factors
+            tcov*= numpy.tile(self._ErrCovsLBScale,(6,1))
+            tcov*= numpy.tile(self._ErrCovsLBScale,(6,1)).T
         #Fancy indexing to recover V22, V11, and V12; V22, V11, V12 as in Appendix B of 0905.2979v1
         V11indx0= numpy.array([[ii for jj in range(6-nGiven)] for ii in range(6) if not coordGiven[ii]])
         V11indx1= numpy.array([[ii for ii in range(6) if not coordGiven[ii]] for jj in range(6-nGiven)])
