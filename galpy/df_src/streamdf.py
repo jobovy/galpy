@@ -1378,7 +1378,8 @@ class streamdf:
         NAME:
            callMargXY
         PURPOSE:
-           evaluate the DF, marginalizing over some directions
+           evaluate the DF, marginalizing over some directions, in 
+           Galactocentric rectangular coordinates
         INPUT:
            xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
            interp= (object-wide interp default) if True, use the interpolated
