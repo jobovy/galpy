@@ -628,6 +628,7 @@ class streamdf:
             tjac= bovy_coords.cyl_to_rect_jac(*self._ObsTrack[ii])
             allErrCovsXY[ii]=\
                 numpy.dot(tjac,numpy.dot(self._allErrCovs[ii],tjac.T))
+            #Eigen decomposition for interpolation
             teig= numpy.linalg.eig(allErrCovsXY[ii])
             #Sort them to match them up later
             sortIndx= numpy.argsort(teig[0])
@@ -704,6 +705,9 @@ class streamdf:
                                           +self._progenitor.pmbb(**obskwargs)**2.),
                                numpy.sqrt(self._progenitor.pmll(**obskwargs)**2.
                                           +self._progenitor.pmbb(**obskwargs)**2.)]
+        allErrCovsEigvalLB= numpy.empty((len(self._thetasTrack),6))
+        allErrCovsEigvecLB= numpy.empty_like(self._allErrCovs)
+        eigDir= numpy.array([numpy.array([1.,0.,0.,0.,0.,0.]) for ii in range(6)])
         for ii in range(self._nTrackChunks):
             tjacXY= bovy_coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
             tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
@@ -715,7 +719,50 @@ class streamdf:
             tjac= numpy.dot(numpy.linalg.inv(tjacLB),tjacXY)
             allErrCovsLB[ii]=\
                 numpy.dot(tjac,numpy.dot(self._allErrCovsXY[ii],tjac.T))
+            #Eigen decomposition for interpolation
+            teig= numpy.linalg.eig(allErrCovsLB[ii])
+            #Sort them to match them up later
+            sortIndx= numpy.argsort(teig[0])
+            allErrCovsEigvalLB[ii]= teig[0][sortIndx]
+            #Make sure the eigenvectors point in the same direction
+            for jj in range(6):
+                if numpy.sum(eigDir[jj]*teig[1][:,sortIndx[jj]]) < 0.:
+                    teig[1][:,sortIndx[jj]]*= -1.
+                eigDir[jj]= teig[1][:,sortIndx[jj]]
+            allErrCovsEigvecLB[ii]= teig[1][:,sortIndx]
         self._allErrCovsLB= allErrCovsLB
+        #Interpolate the allErrCovsLB covariance matrices along the interpolated track
+        #Interpolate the eigenvalues
+        interpAllErrCovsEigvalLB=\
+            [interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                      allErrCovsEigvalLB[:,ii],
+                                                      k=3) for ii in range(6)]
+        #Now build the interpolated allErrCovsXY using slerp
+        interpolatedAllErrCovsLB= numpy.empty((len(self._interpolatedThetasTrack),
+                                               6,6))
+        interpolatedEigval=\
+            numpy.array([interpAllErrCovsEigvalLB[ii](self._interpolatedThetasTrack) for ii in range(6)]) #6,ninterp
+        #Interpolate in chunks
+        interpolatedEigvec= numpy.empty((len(self._interpolatedThetasTrack),
+                                         6,6))
+        for ii in range(self._nTrackChunks-1):
+            slerpOmegas=\
+                [numpy.arccos(numpy.sum(allErrCovsEigvecLB[ii,:,jj]*allErrCovsEigvecLB[ii+1,:,jj])) for jj in range(6)]
+            slerpts= (self._interpolatedThetasTrack-self._thetasTrack[ii])/\
+                (self._thetasTrack[ii+1]-self._thetasTrack[ii])
+            slerpIndx= (slerpts >= 0.)*(slerpts <= 1.)
+            for jj in range(6):
+                for kk in range(6):
+                    interpolatedEigvec[slerpIndx,kk,jj]=\
+                    (numpy.sin((1-slerpts[slerpIndx])*slerpOmegas[jj])*allErrCovsEigvecLB[ii,kk,jj]
+                     +numpy.sin(slerpts[slerpIndx]*slerpOmegas[jj])*allErrCovsEigvecLB[ii+1,kk,jj])/numpy.sin(slerpOmegas[jj])
+        for ii in range(len(self._interpolatedThetasTrack)):
+            interpolatedAllErrCovsLB[ii]=\
+                numpy.dot(interpolatedEigvec[ii],
+                          numpy.dot(numpy.diag(interpolatedEigval[:,ii]),
+                                    interpolatedEigvec[ii].T))
+        self._interpolatedAllErrCovsLB= interpolatedAllErrCovsLB
+        return None
 
     def _interpolate_stream_track(self):
         """Build interpolations of the stream track"""
