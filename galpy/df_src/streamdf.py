@@ -1637,20 +1637,33 @@ class streamdf:
             interp= kwargs['interp']
         else:
             interp= self._useInterp
+        if kwargs.has_key('lb'):
+            lb= kwargs['lb']
+        else:
+            lb= False
         #What are we looking for
         coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
         nGiven= numpy.sum(coordGiven)
         #First find the nearest track point
-        if not kwargs.has_key('cindx'):
+        if not kwargs.has_key('cindx') and lb:
+            cindx= self._find_closest_trackpointLB(*xy,interp=interp,
+                                                  usev=True)
+        elif not kwargs.has_key('cindx') and not lb:
             cindx= self._find_closest_trackpoint(*xy,xy=True,interp=interp,
                                                   usev=True)
         else:
             cindx= kwargs['cindx']
         #Get the covariance matrix
-        if interp:
+        if interp and lb:
+            tcov= self._interpolatedAllErrCovsLB[cindx]
+            tmean= self._interpolatedObsTrackLB[cindx]
+        elif interp and not lb:
             tcov= self._interpolatedAllErrCovsXY[cindx]
             tmean= self._interpolatedObsTrackXY[cindx]
-        else:
+        elif not interp and lb:
+            tcov= self._allErrCovsLB[cindx]
+            tmean= self._ObsTrackLB[cindx]
+        elif not interp and not lb:
             tcov= self._allErrCovsXY[cindx]
             tmean= self._ObsTrackXY[cindx]
         #Fancy indexing to recover V22, V11, and V12; V22, V11, V12 as in Appendix B of 0905.2979v1
