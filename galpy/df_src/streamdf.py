@@ -1003,6 +1003,95 @@ class streamdf:
                     +present[5]*(vZ-self._ObsTrackXY[:,5])**2.
         return numpy.argmin(dist2)
 
+    def _find_closest_trackpointLB(self,l,b,D,vlos,pmll,pmbb,interp=True,
+                                   usev=False):
+        """
+        NAME:
+           _find_closest_trackpointLB
+        PURPOSE:
+           find the closest point on the stream track to a given point in 
+           (l,b,...) coordinates
+        INPUT:
+           l,b,D,vlos,pmll,pmbb- coordinates in (deg,deg,kpc,km/s,mas/yr,mas/yr)
+           interp= (True) if True, return the closest index on the interpolated track
+           usev= (False) if True, also use the velocity components (default is
+                 to only use the positions)
+        OUTPUT:
+           index of closest track point on the interpolated or not-interpolated
+           track
+        HISTORY:
+           2013-12-17- Written - Bovy (IAS)
+        """
+        if interp:
+            nTrackPoints= len(self._interpolatedThetasTrack)
+        else:
+            nTrackPoints= len(self._thetasTrack)
+        if l is None:
+            l= 0.
+            trackL= numpy.zeros(nTrackPoints)
+        elif interp:
+            trackL= self._interpolatedObsTrackLB[:,0]
+        else:
+            trackL= self._ObsTrackLB[:,0]
+        if b is None:
+            b= 0.
+            trackB= numpy.zeros(nTrackPoints)
+        elif interp:
+            trackB= self._interpolatedObsTrackLB[:,1]
+        else:
+            trackB= self._ObsTrackLB[:,1]
+        if D is None:
+            D= 1.
+            trackD= numpy.ones(nTrackPoints)
+        elif interp:
+            trackD= self._interpolatedObsTrackLB[:,2]
+        else:
+            trackD= self._ObsTrackLB[:,2]
+        if usev:
+            if vlos is None:
+                vlos= 0.
+                trackVlos= numpy.zeros(nTrackPoints)
+            elif interp:
+                trackVlos= self._interpolatedObsTrackLB[:,3]
+            else:
+                trackVlos= self._ObsTrackLB[:,3]
+            if pmll is None:
+                pmll= 0.
+                trackPmll= numpy.zeros(nTrackPoints)
+            elif interp:
+                trackPmll= self._interpolatedObsTrackLB[:,4]
+            else:
+                trackPmll= self._ObsTrackLB[:,4]
+            if pmbb is None:
+                pmbb= 0.
+                trackPmbb= numpy.zeros(nTrackPoints)
+            elif interp:
+                trackPmbb= self._interpolatedObsTrackLB[:,5]
+            else:
+                trackPmbb= self._ObsTrackLB[:,5]
+        #Calculate rectangular coordinates
+        XYZ= bovy_coords.lbd_to_XYZ(l,b,D,degree=True)
+        trackXYZ= bovy_coords.lbd_to_XYZ(trackL,trackB,trackD,degree=True)
+        if usev:
+            vxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,
+                                                     XYZ[0],XYZ[1],XYZ[2],
+                                                     XYZ=True)
+            trackvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(trackVlos,trackPmll,
+                                                          trackPmbb,
+                                                          trackXYZ[:,0],
+                                                          trackXYZ[:,1],
+                                                          trackXYZ[:,2],
+                                                          XYZ=True)
+        #Calculate distance
+        dist2= (XYZ[0]-trackXYZ[:,0])**2.\
+            +(XYZ[1]-trackXYZ[:,1])**2.\
+            +(XYZ[2]-trackXYZ[:,2])**2.
+        if usev:
+            dist2+= (vxvyvz[0]-trackvxvyvz[:,0])**2.\
+                +(vxvyvz[1]-trackvxvyvz[:,1])**2.\
+                +(vxvyvz[2]-trackvxvyvz[:,2])**2.
+        return numpy.argmin(dist2)            
+
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
     def meanOmega(self,dangle,oned=False):
         """
@@ -1537,6 +1626,7 @@ class streamdf:
                    stream track
            cindx= index of the closest point on the (interpolated) stream track
                   if not given, determined from the dimensions given
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the Gaussian approximation in these coordinates is returned
         OUTPUT:
            (mean,variance) of the approximate Gaussian DF for the missing 
            directions in xy
