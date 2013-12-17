@@ -1533,7 +1533,7 @@ class streamdf:
         if numpy.sum(coordGiven) == 6:
             raise NotImplementedError("When specifying all coordinates, please use __call__ instead of callMarg")
         #First construct the Gaussian approximation at this xy
-        gaussmean, gaussvar= self.gaussApproxXY(xy,**kwargs)
+        gaussmean, gaussvar= self.gaussApprox(xy,**kwargs)
         cholvar, chollower= stable_cho_factor(gaussvar)
         #Now Gauss-legendre integrate over missing directions
         if kwargs.has_key('ngl'):
@@ -1612,10 +1612,10 @@ class streamdf:
                          +numpy.log(ivZw.flatten()))\
                          +0.5*numpy.log(numpy.linalg.det(gaussvar))
 
-    def gaussApproxXY(self,xy,**kwargs):
+    def gaussApprox(self,xy,**kwargs):
         """
         NAME:
-           gaussApproxXY
+           gaussApprox
         PURPOSE:
            return the mean and variance of a Gaussian approximation to the
            stream DF at a given phase-space point in Galactocentric
