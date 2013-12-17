@@ -621,11 +621,56 @@ class streamdf:
         self._allErrCovs= allErrCovs
         #Also propagate to XYZ coordinates
         allErrCovsXY= numpy.empty_like(self._allErrCovs)
+        allErrCovsEigvalXY= numpy.empty((len(self._thetasTrack),6))
+        allErrCovsEigvecXY= numpy.empty_like(self._allErrCovs)
+        eigDir= numpy.array([numpy.array([1.,0.,0.,0.,0.,0.]) for ii in range(6)])
         for ii in range(self._nTrackChunks):
             tjac= bovy_coords.cyl_to_rect_jac(*self._ObsTrack[ii])
             allErrCovsXY[ii]=\
                 numpy.dot(tjac,numpy.dot(self._allErrCovs[ii],tjac.T))
+            teig= numpy.linalg.eig(allErrCovsXY[ii])
+            #Sort them to match them up later
+            sortIndx= numpy.argsort(teig[0])
+            allErrCovsEigvalXY[ii]= teig[0][sortIndx]
+            #Make sure the eigenvectors point in the same direction
+            for jj in range(6):
+                if numpy.sum(eigDir[jj]*teig[1][:,sortIndx[jj]]) < 0.:
+                    teig[1][:,sortIndx[jj]]*= -1.
+                eigDir[jj]= teig[1][:,sortIndx[jj]]
+            allErrCovsEigvecXY[ii]= teig[1][:,sortIndx]
         self._allErrCovsXY= allErrCovsXY
+        #Interpolate the allErrCovsXY covariance matrices along the interpolated track
+        #Interpolate the eigenvalues
+        interpAllErrCovsEigvalXY=\
+            [interpolate.InterpolatedUnivariateSpline(self._thetasTrack,
+                                                      allErrCovsEigvalXY[:,ii],
+                                                      k=3) for ii in range(6)]
+        #Now build the interpolated allErrCovsXY using slerp
+        interpolatedAllErrCovsXY= numpy.empty((len(self._interpolatedThetasTrack),
+                                               6,6))
+        interpolatedEigval=\
+            numpy.array([interpAllErrCovsEigvalXY[ii](self._interpolatedThetasTrack) for ii in range(6)]) #6,ninterp
+        #Interpolate in chunks
+        interpolatedEigvec= numpy.empty((len(self._interpolatedThetasTrack),
+                                         6,6))
+        for ii in range(self._nTrackChunks-1):
+            slerpOmegas=\
+                [numpy.arccos(numpy.sum(allErrCovsEigvecXY[ii,:,jj]*allErrCovsEigvecXY[ii+1,:,jj])) for jj in range(6)]
+            slerpts= (self._interpolatedThetasTrack-self._thetasTrack[ii])/\
+                (self._thetasTrack[ii+1]-self._thetasTrack[ii])
+            slerpIndx= (slerpts >= 0.)*(slerpts <= 1.)
+            for jj in range(6):
+                for kk in range(6):
+                    interpolatedEigvec[slerpIndx,kk,jj]=\
+                    (numpy.sin((1-slerpts[slerpIndx])*slerpOmegas[jj])*allErrCovsEigvecXY[ii,kk,jj]
+                     +numpy.sin(slerpts[slerpIndx]*slerpOmegas[jj])*allErrCovsEigvecXY[ii+1,kk,jj])/numpy.sin(slerpOmegas[jj])
+        for ii in range(len(self._interpolatedThetasTrack)):
+            interpolatedAllErrCovsXY[ii]=\
+                numpy.dot(interpolatedEigvec[ii],
+                          numpy.dot(numpy.diag(interpolatedEigval[:,ii]),
+                                    interpolatedEigvec[ii].T))
+        self._interpolatedAllErrCovsXY= interpolatedAllErrCovsXY
+        #Also interpolate in l and b coordinates
         self._determine_stream_spreadLB(simple=simple)
         return None
 
@@ -1328,10 +1373,10 @@ class streamdf:
                                   numpy.array(vT),numpy.array(z),
                                   numpy.array(vz),numpy.array(phi),
                                   interp=interp)
-    def callMarg(self,xy,**kwargs):
+    def callMargXY(self,xy,**kwargs):
         """
         NAME:
-           callMarg
+           callMargXY
         PURPOSE:
            evaluate the DF, marginalizing over some directions
         INPUT:
@@ -1465,7 +1510,8 @@ class streamdf:
             cindx= kwargs['cindx']
         #Get the covariance matrix
         if interp:
-            raise NotImplementedError("Using interpolated Jacobians not implemented yet")
+            tcov= self._interpolatedAllErrCovsXY[cindx]
+            tmean= self._interpolatedObsTrackXY[cindx]
         else:
             tcov= self._allErrCovsXY[cindx]
             tmean= self._ObsTrackXY[cindx]
