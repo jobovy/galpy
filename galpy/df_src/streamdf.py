@@ -1243,8 +1243,11 @@ class streamdf:
             log= True
         dOmega, dangle= self.prepData4Call(*args,**kwargs)
         #Omega part
-        logdfOmega= -0.5*numpy.sum(dOmega*
-                                   numpy.dot(self._sigomatrixinv,dOmega),
+        dOmega4dfOmega= dOmega\
+            -numpy.tile(self._dsigomeanProg.T,(dOmega.shape[1],1)).T
+        logdfOmega= -0.5*numpy.sum(dOmega4dfOmega*
+                                   numpy.dot(self._sigomatrixinv,
+                                             dOmega4dfOmega),
                                    axis=0)-0.5*self._sigomatrixLogdet
         #Angle part
         dangle2= numpy.sum(dangle**2.,axis=0)
@@ -1337,8 +1340,8 @@ class streamdf:
                    stream track
            cindx= index of the closest point on the (interpolated) stream track
                   if not given, determined from the dimensions given          
-           nsigma= (4) number of sigma to marginalize the DF over (approximate sigma)
-           ngl= (20) order of Gauss-Legendre integration
+           nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
+           ngl= (10) order of Gauss-Legendre integration
         OUTPUT:
            p(xy) marginalized over missing directions in xy
         HISTORY:
@@ -1354,11 +1357,11 @@ class streamdf:
         if kwargs.has_key('ngl'):
             ngl= kwargs['ngl']
         else:
-            ngl= 20
+            ngl= 10
         if kwargs.has_key('nsigma'):
             nsigma= kwargs['nsigma']
         else:
-            nsigma= 4
+            nsigma= 3
         glx, glw= numpy.polynomial.legendre.leggauss(ngl)
         coordEval= []
         weightEval= []
