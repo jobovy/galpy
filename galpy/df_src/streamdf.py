@@ -762,6 +762,22 @@ class streamdf:
                           numpy.dot(numpy.diag(interpolatedEigval[:,ii]),
                                     interpolatedEigvec[ii].T))
         self._interpolatedAllErrCovsLBUnscaled= interpolatedAllErrCovsLB
+        #Also calculate the (l,b,..) -> (X,Y,..) Jacobian at all of the interpolated and not interpolated points
+        trackLogDetJacLB= numpy.empty_like(self._thetasTrack)
+        interpolatedTrackLogDetJacLB=\
+            numpy.empty_like(self._interpolatedThetasTrack)
+        for ii in range(self._nTrackChunks):
+            tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
+                                                degree=True)
+            trackLogDetJacLB[ii]= numpy.log(numpy.linalg.det(tjacLB))
+        self._trackLogDetJacLB= trackLogDetJacLB
+        for ii in range(len(self._interpolatedThetasTrack)):
+            tjacLB=\
+                bovy_coords.lbd_to_XYZ_jac(*self._interpolatedObsTrackLB[ii],
+                                            degree=True)
+            interpolatedTrackLogDetJacLB[ii]=\
+                numpy.log(numpy.linalg.det(tjacLB))
+        self._interpolatedTrackLogDetJacLB= interpolatedTrackLogDetJacLB
         return None
 
     def _interpolate_stream_track(self):
@@ -1509,13 +1525,14 @@ class streamdf:
                                   numpy.array(vT),numpy.array(z),
                                   numpy.array(vz),numpy.array(phi),
                                   interp=interp)
-    def callMargXY(self,xy,**kwargs):
+    def callMarg(self,xy,**kwargs):
         """
         NAME:
-           callMargXY
+           callMarg
         PURPOSE:
            evaluate the DF, marginalizing over some directions, in 
-           Galactocentric rectangular coordinates
+           Galactocentric rectangular coordinates (or in observed 
+           l,b,D,vlos,pmll,pmbb) coordinates)
         INPUT:
            xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
            interp= (object-wide interp default) if True, use the interpolated
@@ -1524,6 +1541,12 @@ class streamdf:
                   if not given, determined from the dimensions given          
            nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
            ngl= (10) order of Gauss-Legendre integration
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the marginalized PDF in these coordinates is returned          
+           Vnorm= (220) circular velocity to normalize with when lb=True
+           Rnorm= (8) Galactocentric radius to normalize with when lb=True
+           R0= (8) Galactocentric radius of the Sun (kpc)
+           Zsun= (0.025) Sun's height above the plane (kpc)
+           vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
         OUTPUT:
            p(xy) marginalized over missing directions in xy
         HISTORY:
@@ -1595,13 +1618,78 @@ class streamdf:
             jj+= 1
         iXw, iYw, iZw, ivXw, ivYw, ivZw=\
             numpy.meshgrid(*weightEval,indexing='ij')
-        #Convert to cylindrical coordinates
-        iR,iphi,iZ=\
-            bovy_coords.rect_to_cyl(iX.flatten(),iY.flatten(),iZ.flatten())
-        ivR,ivT,ivZ=\
-            bovy_coords.rect_to_cyl_vec(ivX.flatten(),ivY.flatten(),
-                                        ivZ.flatten(),
-                                        iR,iphi,iZ,cyl=True)
+        if kwargs.has_key('lb') and kwargs['lb']: #Convert to Galactocentric cylindrical coordinates
+            #Setup coordinate transformation kwargs
+            if not kwargs.has_key('Vnorm'):
+                Vnorm= self._Vnorm
+            else:
+                Vnorm= kwargs['Vnorm']
+            if not kwargs.has_key('Rnorm'):
+                Rnorm= self._Rnorm
+            else:
+                Rnorm= kwargs['Rnorm']
+            if not kwargs.has_key('R0'):
+                R0= self._R0
+            else:
+                R0= kwargs['R0']
+            if not kwargs.has_key('Zsun'):
+                Zsun= self._Zsun
+            else:
+                Zsun= kwargs['Zsun']
+            if not kwargs.has_key('vsun'):
+                vsun= self._vsun
+            else:
+                vsun= kwargs['vsun']
+            tXYZ= bovy_coords.lbd_to_XYZ(iX.flatten(),iY.flatten(),
+                                         iZ.flatten(),
+                                         degree=True)
+            iR,iphi,iZ= bovy_coords.XYZ_to_galcencyl(tXYZ[:,0],tXYZ[:,1],
+                                                     tXYZ[:,2],
+                                                     Xsun=R0,Ysun=0.,Zsun=Zsun)
+            tvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(ivX.flatten(),
+                                                      ivY.flatten(),
+                                                      ivZ.flatten(),
+                                                      tXYZ[:,0],tXYZ[:,1],
+                                                      tXYZ[:,2],XYZ=True)
+            ivR,ivT,ivZ= bovy_coords.vxvyvz_to_galcencyl(tvxvyvz[:,0],
+                                                         tvxvyvz[:,1],
+                                                         tvxvyvz[:,2],
+                                                         iR,iphi,iZ,
+                                                         galcen=True,
+                                                         vsun=vsun)
+            iR/= Rnorm
+            iZ/= Rnorm
+            ivR/= Vnorm
+            ivT/= Vnorm
+            ivZ/= Vnorm
+        else:
+            #Convert to cylindrical coordinates
+            iR,iphi,iZ=\
+                bovy_coords.rect_to_cyl(iX.flatten(),iY.flatten(),iZ.flatten())
+            ivR,ivT,ivZ=\
+                bovy_coords.rect_to_cyl_vec(ivX.flatten(),ivY.flatten(),
+                                            ivZ.flatten(),
+                                            iR,iphi,iZ,cyl=True)
+        #Add the additional Jacobian dXdY/dldb... if necessary
+        if kwargs.has_key('lb') and kwargs['lb']:
+            #Find the nearest track point
+            if kwargs.has_key('interp'):
+                interp= kwargs['interp']
+            else:
+                interp= self._useInterp
+            if not kwargs.has_key('cindx'):
+                cindx= self._find_closest_trackpointLB(*xy,interp=interp,
+                                                        usev=True)
+            else:
+                cindx= kwargs['cindx']
+            #Only l,b,d,... to Galactic X,Y,Z,... is necessary because going
+            #from Galactic to Galactocentric has Jacobian determinant 1
+            if interp:
+                addLogDet= self._interpolatedTrackLogDetJacLB[cindx]
+            else:
+                addLogDet= self._trackLogDetJacLB[cindx]
+        else:
+            addLogDet= 0.
         logdf= self(iR,ivR,ivT,iZ,ivZ,iphi,log=True)
         return logsumexp(logdf
                          +numpy.log(iXw.flatten())
@@ -1610,7 +1698,8 @@ class streamdf:
                          +numpy.log(ivXw.flatten())
                          +numpy.log(ivYw.flatten())
                          +numpy.log(ivZw.flatten()))\
-                         +0.5*numpy.log(numpy.linalg.det(gaussvar))
+                         +0.5*numpy.log(numpy.linalg.det(gaussvar))\
+                         +addLogDet
 
     def gaussApprox(self,xy,**kwargs):
         """
