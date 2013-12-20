@@ -240,6 +240,7 @@ class streamdf:
            d2= plot this on the Y axis (same list as for d1)
            interp= (True) if True, use the interpolated stream track
            spread= (0) if int > 0, also plot the spread around the track as spread x sigma
+           scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -254,13 +255,18 @@ class streamdf:
                  or d2.lower() == 'dist' or d2.lower() == 'pmll' 
                  or d2.lower() == 'pmbb' or d2.lower() == 'vlos'):
             self.calc_stream_lb()
-        tx= self._parse_track_dim(d1,interp=interp)
-        ty= self._parse_track_dim(d2,interp=interp)
+        if kwargs.has_key('scaleToPhysical'):
+            phys= kwargs['scaleToPhysical']
+            kwargs.pop('scaleToPhysical')
+        else:
+            phys= False
+        tx= self._parse_track_dim(d1,interp=interp,phys=phys)
+        ty= self._parse_track_dim(d2,interp=interp,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
         if spread:
-            addx, addy= self._parse_track_spread(d1,d2,interp=interp)
+            addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys)
             if (kwargs.has_key('ls') and kwargs['ls'] == 'none') \
                     or (kwargs.has_key('linestyle') \
                             and kwargs['linestyle'] == 'none'):
@@ -303,6 +309,7 @@ class streamdf:
            d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
                'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
            d2= plot this on the Y axis (same list as for d1)
+           scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -313,16 +320,21 @@ class streamdf:
                                           < self._trackts[-1]]
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
+        if kwargs.has_key('scaleToPhysical'):
+            phys= kwargs['scaleToPhysical']
+            kwargs.pop('scaleToPhysical')
+        else:
+            phys= False
         tx= self._parse_progenitor_dim(d1,tts,ro=self._Rnorm,vo=self._Vnorm,
-                                       obs=obs)
+                                       obs=obs,phys=phys)
         ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
-                                       obs=obs)
+                                       obs=obs,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1],ylabel=_labelDict[d2],
                             **kwargs)
         return None
 
-    def _parse_track_dim(self,d1,interp=True):
+    def _parse_track_dim(self,d1,interp=True,phys=False):
         """Parse the dimension to plot the stream track for"""
         if interp: interpStr= 'interpolated'
         else: interpStr= ''
@@ -358,9 +370,19 @@ class streamdf:
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,5]
         elif d1.lower() == 'vlos':
             tx= self.__dict__['_%sObsTrackLB' % interpStr][:,3]
+        if phys and (d1.lower() == 'x' or d1.lower() == 'y' \
+                         or d1.lower() == 'z' or d1.lower() == 'r'):
+            tx= copy.copy(tx)
+            tx*= self._Rnorm
+        if phys and (d1.lower() == 'vx' or d1.lower() == 'vy' \
+                         or d1.lower() == 'vz' or d1.lower() == 'vr' \
+                         or d1.lower() == 'vt'):
+            tx= copy.copy(tx)
+            tx*= self._Vnorm
         return tx        
 
-    def _parse_progenitor_dim(self,d1,ts,ro=None,vo=None,obs=None):
+    def _parse_progenitor_dim(self,d1,ts,ro=None,vo=None,obs=None,
+                              phys=False):
         """Parse the dimension to plot the progenitor orbit for"""
         if d1.lower() == 'x':
             tx= self._progenitor.x(ts,ro=ro,vo=vo,obs=obs)
@@ -394,9 +416,18 @@ class streamdf:
             tx= self._progenitor.pmbb(ts,ro=ro,vo=vo,obs=obs)
         elif d1.lower() == 'vlos':
             tx= self._progenitor.vlos(ts,ro=ro,vo=vo,obs=obs)
+        if phys and (d1.lower() == 'x' or d1.lower() == 'y' \
+                         or d1.lower() == 'z' or d1.lower() == 'r'):
+            tx= copy.copy(tx)
+            tx*= self._Rnorm
+        if phys and (d1.lower() == 'vx' or d1.lower() == 'vy' \
+                         or d1.lower() == 'vz' or d1.lower() == 'vr' \
+                         or d1.lower() == 'vt'):
+            tx= copy.copy(tx)
+            tx*= self._Vnorm
         return tx        
 
-    def _parse_track_spread(self,d1,d2,interp=True):
+    def _parse_track_spread(self,d1,d2,interp=True,phys=False):
         """Determine the spread around the track"""
         okaySpreadR= ['r','vr','vt','z','vz','phi']
         okaySpreadXY= ['x','y','z','vx','vy','vz']
@@ -436,9 +467,23 @@ class streamdf:
         if coord[0]:
             relevantCov= self._allErrCovs
             relevantDict= indxDict
+            if phys:#apply scale factors
+                tcov= copy.copy(relevantCov)
+                scaleFac= numpy.array([self._Rnorm,self._Vnorm,self._Vnorm,
+                                       self._Rnorm,self._Vnorm,1.])
+                tcov*= numpy.tile(scaleFac,(6,1))
+                tcov*= numpy.tile(scaleFac,(6,1)).T
+                relevantCov= tcov
         elif coord[1]:
             relevantCov= self._allErrCovsXY
             relevantDict= indxDictXY
+            if phys:#apply scale factors
+                tcov= copy.copy(relevantCov)
+                scaleFac= numpy.array([self._Rnorm,self._Rnorm,self._Rnorm,
+                                       self._Vnorm,self._Vnorm,self._Vnorm])
+                tcov*= numpy.tile(scaleFac,(6,1))
+                tcov*= numpy.tile(scaleFac,(6,1)).T
+                relevantCov= tcov
         elif coord[2]:
             relevantCov= self._allErrCovsLBUnscaled
             relevantDict= indxDictLB
