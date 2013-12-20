@@ -274,7 +274,7 @@ class streamdf:
                 if kwargs.has_key('linestyle'): kwargs.pop('linestyle')
                 spreadls= 'none'
             else:
-                spreadls= '--'
+                spreadls= '-.'
             if kwargs.has_key('marker'):
                 spreadmarker= kwargs['marker']
                 kwargs.pop('marker')
