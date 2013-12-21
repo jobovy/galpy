@@ -110,6 +110,24 @@ gives the projection onto (R,vR):
 
 .. image:: images/lp-orbit-integration-RvR.png
 
+We can also plot the orbit in other coordinate systems such as
+Galactic longitude and latitude
+
+>>> o.plot('k.',d1='ll',d2='bb')
+
+which shows
+
+.. image:: images/lp-orbit-integration-lb.png
+
+or RA and Dec
+
+>>> o.plot('k.',d1='ra',d2='dec')
+
+.. image:: images/lp-orbit-integration-radec.png
+
+See the documentation of the o.plot function and the o.ra(), o.ll(),
+etc. functions on how to provide the necessary parameters for the
+coordinate transformations.
 
 Orbit characterization
 ------------------------
@@ -161,15 +179,24 @@ Accessing the raw orbit
 
 The value of ``R``, ``vR``, ``vT``, ``z``, ``vz``, ``x``, ``vx``,
 ``y``, ``vy``, ``phi``, and ``vphi`` at any time can be obtained by
-calling the corresponding function with as argument the time. If no
-time is given the initial condition is returned, and if a time is
-requested at which the orbit was not saved spline interpolation is
-used to return the value. Examples include
+calling the corresponding function with as argument the time (the same
+holds for other coordinates ``ra``, ``dec``, ``pmra``, ``pmdec``,
+``vra``, ``vdec``, ``ll``, ``bb``, ``pmll``, ``pmbb``, ``vll``,
+``vbb``, ``vlos``, ``dist``, ``helioX``, ``helioY``, ``helioZ``,
+``U``, ``V``, and ``W``). If no time is given the initial condition is
+returned, and if a time is requested at which the orbit was not saved
+spline interpolation is used to return the value. Examples include
 
 >>> o.R(1.)
 1.1545076874679474
 >>> o.phi(99.)
 88.105603035901169
+>>> o.ra(2.,obs=[8.,0.,0.],ro=8.)
+array([ 285.76403985])
+>>> o.helioX(5.)
+array([ 1.24888927])
+>>> o.pmll(10.,obs=[8.,0.,0.,0.,245.,0.],ro=8.,vo=230.)
+array([-6.45263888])
 
 We can also initialize an ``Orbit`` instance using the phase-space
 position of another ``Orbit`` instance evaulated at time t. For
