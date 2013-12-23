@@ -1923,7 +1923,8 @@ class streamdf:
         return (condMean,condVar)
 
 ################################SAMPLE THE DF##################################
-    def sample(self,n,returnaAdt=False,returndt=False,interp=None):
+    def sample(self,n,returnaAdt=False,returndt=False,interp=None,
+               xy=False,lb=False):
         """
         NAME:
             sample
@@ -1935,6 +1936,9 @@ class streamdf:
             returndT= (False) if True, also return the time since the star was
                       stripped
             interp= (object-wide default) use interpolation of the stream track
+            xy= (False) if True, return Galactocentric rectangular coordinates
+            lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb 
+                coordinates
         OUTPUT:
             (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
         HISTORY:
@@ -1972,11 +1976,28 @@ class streamdf:
         RvR= self._approxaAInv(Om[0,:],Om[1,:],Om[2,:],
                                angle[0,:],angle[1,:],angle[2,:],
                                interp=interp)
-        if returndt:
+        if returndt and not xy and not lb:
             return (RvR,dt)
-        else:
+        elif not xy and not lb:
             return RvR
-    
+        if xy:
+            sX= RvR[0]*numpy.cos(RvR[5])
+            sY= RvR[0]*numpy.sin(RvR[5])
+            sZ= RvR[3]
+            svX, svY, svZ=\
+                bovy_coords.cyl_to_rect_vec(RvR[1],
+                                            RvR[2],
+                                            RvR[4],
+                                            RvR[5])            
+            out= numpy.empty((6,n))
+            out[0]= sX
+            out[1]= sY
+            out[2]= sZ
+            out[3]= svX
+            out[4]= svY
+            out[5]= svZ
+            return out
+
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
     mO, sO2= params
