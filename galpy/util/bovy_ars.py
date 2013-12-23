@@ -46,8 +46,8 @@ def bovy_ars(domain,isDomainFinite,abcissae,hx,hpx,nsamples=1,
        isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
        abcissae        - initial list of abcissae (must lie on either side
                          of the peak in hx if the domain is unbounded
-       hx              - function that evaluates h(x)
-       hpx             - function that evaluates hp(x)
+       hx              - function that evaluates h(x) = ln g(x)
+       hpx             - function that evaluates hp(x) =  d h(x) / d x
        nsamples        - (optional) number of desired samples (default=1)
        hxparams        - (optional) a tuple of parameters for h(x) and h'(x)
        maxn            - (optional) maximum number of updates to the hull
