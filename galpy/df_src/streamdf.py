@@ -1490,13 +1490,14 @@ class streamdf:
         logdfOmega= -0.5*numpy.sum(dOmega4dfOmega*
                                    numpy.dot(self._sigomatrixinv,
                                              dOmega4dfOmega),
-                                   axis=0)-0.5*self._sigomatrixLogdet
+                                   axis=0)-0.5*self._sigomatrixLogdet\
+                                   +numpy.log(numpy.fabs(numpy.dot(self._dsigomeanProgDirection,dOmega)))
         #Angle part
         dangle2= numpy.sum(dangle**2.,axis=0)
         dOmega2= numpy.sum(dOmega**2.,axis=0)
         dOmegaAngle= numpy.sum(dOmega*dangle,axis=0)
         logdfA= -0.5/self._sigangle2*(dangle2-dOmegaAngle**2./dOmega2)\
-            -2.*self._lnsigangle
+            -2.*self._lnsigangle-0.5*numpy.log(dOmega2)
         #Finite stripping part
         a0= dOmegaAngle/numpy.sqrt(2.)/self._sigangle/numpy.sqrt(dOmega2)
         ad= numpy.sqrt(dOmega2)/numpy.sqrt(2.)/self._sigangle\
