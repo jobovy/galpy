@@ -1525,6 +1525,19 @@ class streamdf:
                 dOa[4]= ap[ii]-self._ObsTrackAA[closestIndx[ii],4]
                 dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            #Make sure the angles haven't wrapped around
+            if dOa[3] > numpy.pi:
+                dOa[3]-= 2.*numpy.pi
+            elif dOa[3] < -numpy.pi:
+                dOa[3]+= 2.*numpy.pi
+            if dOa[4] > numpy.pi:
+                dOa[4]-= 2.*numpy.pi
+            elif dOa[4] < -numpy.pi:
+                dOa[4]+= 2.*numpy.pi
+            if dOa[5] > numpy.pi:
+                dOa[5]-= 2.*numpy.pi
+            elif dOa[5] < -numpy.pi:
+                dOa[5]+= 2.*numpy.pi
             #Apply closest jacobian
             out[:,ii]= numpy.dot(self._allinvjacsTrack[jacIndx,:,:],
                                  dOa)
@@ -1910,7 +1923,7 @@ class streamdf:
         return (condMean,condVar)
 
 ################################SAMPLE THE DF##################################
-    def sample(self,n,returnaAdt=False):
+    def sample(self,n,returnaAdt=False,returndt=False,interp=None):
         """
         NAME:
             sample
@@ -1919,11 +1932,16 @@ class streamdf:
         INPUT:
             n - number of points to return
             returnaAdt= (False) if True, return (Omega,angle,dt)
+            returndT= (False) if True, also return the time since the star was
+                      stripped
+            interp= (object-wide default) use interpolation of the stream track
         OUTPUT:
-            (R,vR,vT,z,vz,phi) of points on the stream
+            (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
         HISTORY:
             2013-12-22 - Written - Bovy (IAS)
         """
+        if interp is None:
+            interp= self._useInterp
         #First sample frequencies
         #Sample frequency along largest eigenvalue using ARS
         dO1s=\
@@ -1951,7 +1969,13 @@ class streamdf:
         if returnaAdt:
             return (Om,angle,dt)
         #Propagate to R,vR,etc.
-        
+        RvR= self._approxaAInv(Om[0,:],Om[1,:],Om[2,:],
+                               angle[0,:],angle[1,:],angle[2,:],
+                               interp=interp)
+        if returndt:
+            return (RvR,dt)
+        else:
+            return RvR
     
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
