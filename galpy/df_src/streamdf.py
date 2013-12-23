@@ -125,6 +125,7 @@ class streamdf:
                                     numpy.dot(self._sigjmatrix,self._dOdJp.T))
         #Estimate angle spread as the ratio of the largest to the middle eigenvalue
         self._sigomatrixEig= numpy.linalg.eig(self._sigomatrix)
+        self._sigomatrixEigsortIndx= numpy.argsort(self._sigomatrixEig[0])
         self._sortedSigOEig= sorted(self._sigomatrixEig[0])
         if sigangle is None:
             self._sigangle= self._sigv*2.2
@@ -1826,7 +1827,7 @@ class streamdf:
         return (condMean,condVar)
 
 ################################SAMPLE THE DF##################################
-    def sample(self,n):
+    def sample(self,n,returnaAdt=False):
         """
         NAME:
             sample
@@ -1834,6 +1835,7 @@ class streamdf:
             sample from the DF
         INPUT:
             n - number of points to return
+            returnaAdt= (False) if True, return (Omega,angle,dt)
         OUTPUT:
             (R,vR,vT,z,vz,phi) of points on the stream
         HISTORY:
@@ -1841,14 +1843,30 @@ class streamdf:
         """
         #First sample frequencies
         #Sample frequency along largest eigenvalue using ARS
-        dOs=\
+        dO1s=\
             bovy_ars.bovy_ars([0.,0.],[True,False],
                               [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
                                self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
                               _h_ars,_hp_ars,nsamples=n,
                               hxparams=(self._meandO,self._sortedSigOEig[2]),
                               maxn=100)
-        return dOs
+        dO1s= numpy.array(dO1s)*self._sigMeanSign
+        dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
+        dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
+        #Rotate into dOs in R,phi,z coordinates
+        dO= numpy.vstack((dO3s,dO2s,dO1s))
+        dO= numpy.dot(self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx],
+                      dO)
+        Om= dO+numpy.tile(self._progenitor_Omega.T,(n,1)).T
+        #Also generate angles
+        da= numpy.random.normal(size=(3,n))*self._sigangle
+        #And a random time
+        dt= numpy.random.uniform(size=n)*self._tdisrupt
+        #Integrate the orbits relative to the progenitor
+        da+= dO*numpy.tile(dt,(3,1))
+        angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
+        if returnaAdt:
+            return (Om,angle,dt)
     
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
