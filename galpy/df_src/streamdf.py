@@ -1924,7 +1924,9 @@ class streamdf:
 
 ################################SAMPLE THE DF##################################
     def sample(self,n,returnaAdt=False,returndt=False,interp=None,
-               xy=False,lb=False):
+               xy=False,lb=False,
+               Vnorm=None,Rnorm=None,
+               R0=None,Zsun=None,vsun=None):
         """
         NAME:
             sample
@@ -1939,6 +1941,13 @@ class streamdf:
             xy= (False) if True, return Galactocentric rectangular coordinates
             lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb 
                 coordinates
+            +Coordinate transformation inputs (all default to the instance-wide
+            values):
+              Vnorm= circular velocity to normalize velocities with
+              Rnorm= Galactocentric radius to normalize positions with
+              R0= Galactocentric radius of the Sun (kpc)
+              Zsun= Sun's height above the plane (kpc)
+              vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
         OUTPUT:
             (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
         HISTORY:
@@ -1996,6 +2005,40 @@ class streamdf:
             out[3]= svX
             out[4]= svY
             out[5]= svZ
+            return out
+        if lb:
+            if Vnorm is None:
+                Vnorm= self._Vnorm
+            if Rnorm is None:
+                Rnorm= self._Rnorm
+            if R0 is None:
+                R0= self._R0
+            if Zsun is None:
+                Zsun= self._Zsun
+            if vsun is None:
+                vsun= self._vsun
+            XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*Rnorm,
+                                              RvR[5],
+                                              RvR[3]*Rnorm,
+                                              Xsun=R0,Zsun=Zsun)
+            vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*Vnorm,
+                                                  RvR[2]*Vnorm,
+                                                  RvR[4]*Vnorm,
+                                                  RvR[5],
+                                                  vsun=vsun)
+            slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                        degree=True)
+            svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                                    slbd[:,0],slbd[:,1],
+                                                    slbd[:,2],
+                                                    degree=True)
+            out= numpy.empty((6,n))
+            out[0]= slbd[:,0]
+            out[1]= slbd[:,1]
+            out[2]= slbd[:,2]
+            out[3]= svlbd[:,0]
+            out[4]= svlbd[:,1]
+            out[5]= svlbd[:,2]
             return out
 
 def _h_ars(x,params):
