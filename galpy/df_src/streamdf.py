@@ -6,7 +6,7 @@ from scipy import special, interpolate, integrate
 from scipy.misc import logsumexp
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
-    bovy_conversion, multi, bovy_plot, stable_cho_factor
+    bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
@@ -1824,6 +1824,40 @@ class streamdf:
         condMean= m1+numpy.dot(V12,numpy.dot(V22inv,v2-m2))
         condVar= V11-numpy.dot(V12,numpy.dot(V22inv,V12.T))
         return (condMean,condVar)
+
+################################SAMPLE THE DF##################################
+    def sample(self,n):
+        """
+        NAME:
+            sample
+        PURPOSE:
+            sample from the DF
+        INPUT:
+            n - number of points to return
+        OUTPUT:
+            (R,vR,vT,z,vz,phi) of points on the stream
+        HISTORY:
+            2013-12-22 - Written - Bovy (IAS)
+        """
+        #First sample frequencies
+        #Sample frequency along largest eigenvalue using ARS
+        dOs=\
+            bovy_ars.bovy_ars([0.,0.],[True,False],
+                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
+                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
+                              _h_ars,_hp_ars,nsamples=n,
+                              hxparams=(self._meandO,self._sortedSigOEig[2]),
+                              maxn=100)
+        return dOs
+    
+def _h_ars(x,params):
+    """ln p(Omega) for ARS"""
+    mO, sO2= params
+    return -0.5*(x-mO)**2./sO2+numpy.log(x)
+def _hp_ars(x,params):
+    """d ln p(Omega) / d Omega for ARS"""
+    mO, sO2= params
+    return -(x-mO)/sO2+1./x
 
 def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    progenitor_angle,sigMeanSign,
