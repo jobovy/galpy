@@ -1154,6 +1154,31 @@ class streamdf:
                 +(vxvyvz[2]-trackvxvyvz[:,2])**2.
         return numpy.argmin(dist2)            
 
+    def _find_closest_trackpointaA(self,Or,Op,Oz,ar,ap,az,interp=True):
+        """
+        NAME:
+           _find_closest_trackpointaA
+        PURPOSE:
+           find the closest point on the stream track to a given point in
+           frequency-angle coordinates
+        INPUT:
+           Or,Op,Oz,ar,ap,az - phase-space coordinates of the given point
+           interp= (True), if True, return the index of the interpolated track
+        OUTPUT:
+           index into the track of the closest track point
+        HISTORY:
+           2013-12-22 - Written - Bovy (IAS)
+        """
+        #Calculate angle offset along the stream parallel to the stream track
+        angle= numpy.hstack((ar,ap,az))
+        da= angle-self._progenitor_angle
+        dapar= self._sigMeanSign*numpy.sum(da*self._dsigomeanProgDirection)
+        if interp:
+            dist= numpy.fabs(dapar-self._interpolatedThetasTrack)
+        else:
+            dist= numpy.fabs(dapar-self._thetasTrack)
+        return numpy.argmin(dist)
+
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
     def meanOmega(self,dangle,oned=False):
         """
@@ -1449,6 +1474,64 @@ class streamdf:
                 out[:,ii]+= self._interpolatedObsTrackAA[closestIndx[ii]]
             else:
                 out[:,ii]+= self._ObsTrackAA[closestIndx[ii]]
+        return out            
+
+    def _approxaAInv(self,Or,Op,Oz,ar,ap,az,interp=True):
+        """
+        NAME:
+           _approxaAInv
+        PURPOSE:
+           return R,vR,... coordinates for a point based on the linear 
+           approximation around the stream track
+        INPUT:
+           Or,Op,Oz,ar,ap,az - phase space coordinates in frequency-angle 
+                               space
+           interp= (True), if True, use the interpolated track
+        OUTPUT:
+           (R,vR,vT,z,vz,phi)
+        HISTORY:
+           2013-12-22 - Written - Bovy (IAS)
+        """
+        if isinstance(Or,(int,float,numpy.float32,numpy.float64)): #Scalar input
+            Or= numpy.array([Or])
+            Op= numpy.array([Op])
+            Oz= numpy.array([Oz])
+            ar= numpy.array([ar])
+            ap= numpy.array([ap])
+            az= numpy.array([az])
+        #Calculate apar, angle offset along the stream
+        closestIndx= [self._find_closest_trackpointaA(Or[ii],Op[ii],Oz[ii],
+                                                      ar[ii],ap[ii],az[ii],
+                                                      interp=interp)\
+                          for ii in range(len(Or))]
+        out= numpy.empty((6,len(Or)))
+        for ii in range(len(Or)):
+            dOa= numpy.empty(6)
+            if interp:
+                dOa[0]= Or[ii]-self._interpolatedObsTrackAA[closestIndx[ii],0]
+                dOa[1]= Op[ii]-self._interpolatedObsTrackAA[closestIndx[ii],1]
+                dOa[2]= Oz[ii]-self._interpolatedObsTrackAA[closestIndx[ii],2]
+                dOa[3]= ar[ii]-self._interpolatedObsTrackAA[closestIndx[ii],3]
+                dOa[4]= ap[ii]-self._interpolatedObsTrackAA[closestIndx[ii],4]
+                dOa[5]= az[ii]-self._interpolatedObsTrackAA[closestIndx[ii],5]
+                jacIndx= self._find_closest_trackpointaA(Or[ii],Op[ii],Oz[ii],
+                                                         ar[ii],ap[ii],az[ii],
+                                                         interp=False)
+            else:
+                dOa[0]= Or[ii]-self._ObsTrackAA[closestIndx[ii],0]
+                dOa[1]= Op[ii]-self._ObsTrackAA[closestIndx[ii],1]
+                dOa[2]= Oz[ii]-self._ObsTrackAA[closestIndx[ii],2]
+                dOa[3]= ar[ii]-self._ObsTrackAA[closestIndx[ii],3]
+                dOa[4]= ap[ii]-self._ObsTrackAA[closestIndx[ii],4]
+                dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
+                jacIndx= closestIndx[ii]
+            #Apply closest jacobian
+            out[:,ii]= numpy.dot(self._allinvjacsTrack[jacIndx,:,:],
+                                 dOa)
+            if interp:
+                out[:,ii]+= self._interpolatedObsTrack[closestIndx[ii]]
+            else:
+                out[:,ii]+= self._ObsTrack[closestIndx[ii]]
         return out            
 
 ################################EVALUATE THE DF################################
@@ -1867,6 +1950,8 @@ class streamdf:
         angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
         if returnaAdt:
             return (Om,angle,dt)
+        #Propagate to R,vR,etc.
+        
     
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
