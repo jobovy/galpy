@@ -18,8 +18,7 @@ import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
-from galpy.orbit import Orbit
-from galpy.actionAngle import actionAngleIsochrone
+from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
@@ -539,6 +538,7 @@ class actionAngleIsochroneApprox():
 
     def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
+        from galpy.orbit import Orbit
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3:
