@@ -110,7 +110,7 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
+        R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
         if self._c:
             pass
         else:
@@ -356,7 +356,7 @@ class actionAngleIsochroneApprox():
             deperiod= kwargs['deperiod']
             kwargs.pop('deperiod')
         #Parse input
-        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
+        R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
         acfs= self._aAI.actionsFreqsAngles(R.flatten(),
                                            vR.flatten(),
