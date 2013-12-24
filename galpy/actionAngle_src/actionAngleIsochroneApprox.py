@@ -338,6 +338,7 @@ class actionAngleIsochroneApprox():
               e) 'lz': same as 'jr' but for lz
               f) 'jz': same as 'jr' but for jz
            deperiod= (False), if True, de-period the angles
+           downsample= (False) if True, downsample what's plotted to 400 points
             +plot kwargs
         OUTPUT:
            plot to output
@@ -355,8 +356,13 @@ class actionAngleIsochroneApprox():
         else:
             deperiod= kwargs['deperiod']
             kwargs.pop('deperiod')
+        if not kwargs.has_key('downsample'):
+            downsample= False
+        else:
+            downsample= kwargs['downsample']
+            kwargs.pop('downsample')
         #Parse input
-        R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
+        R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
         acfs= self._aAI.actionsFreqsAngles(R.flatten(),
                                            vR.flatten(),
@@ -381,33 +387,59 @@ class actionAngleIsochroneApprox():
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             ts= self._tsJ[:-1]
             if type == 'jr':
-                bovy_plot.bovy_plot(ts,jr[0,:],c=anglerI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= jr[0,::int(round(self._ntintJ/400))]/jr[0,-1]
+                    plotz= anglerI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= jr[0,:]/jr[0,-1]
+                    plotz= anglerI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,
+                                    c=plotz,
+                                    s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_R$',
+                                    ylabel=r'$J_R / \langle J_R \rangle$',
                                     clabel=r'$\theta_R$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'lz':
-                bovy_plot.bovy_plot(ts,lz[0,:],c=anglephiI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= lz[0,::int(round(self._ntintJ/400))]/lz[0,-1]
+                    plotz= anglephiI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= lz[0,:]/lz[0,-1]
+                    plotz= anglephiI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$L_Z$',
+                                    ylabel=r'$L_Z / \langle L_Z \rangle$',
                                     clabel=r'$\theta_\phi$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'jz':
-                bovy_plot.bovy_plot(ts,jz[0,:],c=anglezI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= jz[0,::int(round(self._ntintJ/400))]/jz[0,-1]
+                    plotz= anglezI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= jz[0,:]/jz[0,-1]
+                    plotz= anglezI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_Z$',
+                                    ylabel=r'$J_Z / \langle J_Z \rangle$',
                                     clabel=r'$\theta_Z$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
@@ -415,30 +447,44 @@ class actionAngleIsochroneApprox():
                                     **kwargs)
         else:
             if deperiod:
-                angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
-                acfs7= nu.reshape(acfs[7],R.shape)
-                negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
-                anglephiT= nu.empty(acfs7.shape)
-                anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
-                negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
-                negFreqPhi[negFreqIndx]= True
-                anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
-                angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                if 'ar' in type:
+                    angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
+                else:
+                    angleRT= nu.reshape(acfs[6],R.shape)
+                if 'aphi' in type:
+                    acfs7= nu.reshape(acfs[7],R.shape)
+                    negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+                    anglephiT= nu.empty(acfs7.shape)
+                    anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
+                    negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+                    negFreqPhi[negFreqIndx]= True
+                    anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+                else:
+                    anglephiT= nu.reshape(acfs[7],R.shape)
+                if 'az' in type:
+                    angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                else:
+                    angleZT= nu.reshape(acfs[8],R.shape)
                 xrange= None
                 yrange= None
-                vmin, vmax= None, None
-                crange= None
             else:
                 angleRT= nu.reshape(acfs[6],R.shape)
                 anglephiT= nu.reshape(acfs[7],R.shape)
                 angleZT= nu.reshape(acfs[8],R.shape)
                 xrange= [-0.5,2.*nu.pi+0.5]
                 yrange= [-0.5,2.*nu.pi+0.5]
-                vmin, vmax= 0.,2.*nu.pi
-                crange= [vmin,vmax]
+            vmin, vmax= 0.,2.*nu.pi
+            crange= [vmin,vmax]
             if type == 'araz':
-                bovy_plot.bovy_plot(angleRT[0,:],angleZT[0,:],
-                                    c=anglephiT[0,:],s=20.,
+                if downsample:
+                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
+                    ploty= angleZT[0,::int(round(self._ntintJ/400))]
+                    plotz= anglephiT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleRT[0,:]
+                    ploty= angleZT[0,:]
+                    plotz= anglephiT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$\theta_R$',
@@ -450,8 +496,15 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)           
             elif type == 'araphi':
-                bovy_plot.bovy_plot(angleRT[0,:],anglephiT[0,:],
-                                    c=angleZT[0,:],s=20.,
+                if downsample:
+                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
+                    plotz= angleZT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleRT[0,:]
+                    ploty= anglephiT[0,:]
+                    plotz= angleZT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$\theta_R$',
@@ -463,8 +516,15 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)           
             elif type == 'azaphi':
-                bovy_plot.bovy_plot(angleZT[0,:],anglephiT[0,:],
-                                    c=angleRT[0,:],s=20.,
+                if downsample:
+                    plotx= angleZT[0,::int(round(self._ntintJ/400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
+                    plotz= angleRT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleZT[0,:]
+                    ploty= anglephiT[0,:]
+                    plotz= angleRT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     clabel=r'$\theta_R$',
