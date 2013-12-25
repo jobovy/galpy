@@ -162,6 +162,13 @@ Another example of this is for an exponential disk potential
 >>> from galpy.potential import DoubleExponentialDiskPotential
 >>> dp= DoubleExponentialDiskPotential(hr=1./4.,hz=1./20.,normalize=1.)
 
+The density computed using the Poisson equation now requires multiple
+numerical integrations, so the agreement between the analytical
+density and that computed using the Poisson equation is slightly less good, but still better than a percent
+
+>>> (dp.dens(1.,0.,forcepoisson=True)-dp.dens(1.,0.))/dp.dens(1.,0.)
+0.0032522956769123019
+
 The density is
 
 >>> plotDensities(dp,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
