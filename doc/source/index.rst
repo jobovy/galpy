@@ -21,6 +21,8 @@ Quick-start guide
 
    getting_started.rst
 
+   potential.rst
+
    basic_df.rst
 
    orbit.rst

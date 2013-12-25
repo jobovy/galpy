@@ -1,3 +1,4 @@
+.. _potential-api:
 Potential
 =========
 

@@ -49,6 +49,7 @@ As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
 
 >>> from galpy.potential import MWPotential
 
+.. _units:
 Units in galpy
 --------------
 
