@@ -116,7 +116,65 @@ evaluation of the forces for lists of Potential instances, such that
 Densities
 ---------
 
+galpy can also calculate the densities corresponding to gravitational
+potentials. For many potentials, the densities are explicitly
+implemented, but if they are not, the density is calculated using the
+Poisson equation (second derivatives of the potential have to be
+implemented for this). For example, for the Miyamoto-Nagai potential,
+the density is explicitly implemented
 
+>>> mp.dens(1.,0.)
+1.1145444383277576
+
+and we can also calculate this using the Poisson equation
+
+>>> mp.dens(1.,0.,forcepoisson=True)
+1.1145444383277574
+
+which are the same to machine precision
+
+>>> mp.dens(1.,0.,forcepoisson=True)-mp.dens(1.,0.)
+-2.2204460492503131e-16
+
+Similarly, all of the potentials in ``galpy.potential.MWPotential``
+have explicitly-implemented densities, so we can do
+
+>>> from galpy.potential import evaluateDensities
+>>> evaluateDensities(1.,0.,MWPotential)
+0.71812049194200644
+
+In physical coordinates, this becomes
+
+>>> evaluateDensities(1.,0.,MWPotential)*bovy_conversion.dens_in_msolpc3(220.,8.)
+0.1262386383150029 #Msol / pc^3
+
+We can also plot densities
+
+>>> from galpy.potential import plotDensities
+>>> plotDensities(MWPotential,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+
+which gives
+
+.. image:: images/MWPotential-density.png
+
+Another example of this is for an exponential disk potential
+
+>>> from galpy.potential import DoubleExponentialDiskPotential
+>>> dp= DoubleExponentialDiskPotential(hr=1./4.,hz=1./20.,normalize=1.)
+
+The density is
+
+>>> plotDensities(dp,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+
+.. image:: images/dp-density.png
+
+and the potential is
+
+>>> dp.plot(rmin=0.1,zmin=-0.25,zmax=0.25)
+
+.. image:: images/dp-potential.png
+
+Clearly, the potential is much less flattened than the density.
 
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
