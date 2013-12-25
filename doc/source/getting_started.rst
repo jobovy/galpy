@@ -49,9 +49,9 @@ As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
 
 >>> from galpy.potential import MWPotential
 
-.. _units:
 Units in galpy
 --------------
+.. _units:
 
 Above we normalized the potentials such that they give a circular
 velocity of 1 at R=1. These are the standard galpy units (sometimes

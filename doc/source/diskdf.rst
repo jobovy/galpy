@@ -78,9 +78,9 @@ and the same for the velocity-dispersion profile
 galpy will automatically save any new corrections that you calculate. 
 
 
-
-Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar
+Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar 
 ---------------------------------------------------------------------------------------
+.. _hercules:
 
 We can combine the orbit integration capabilities of galpy with the
 provided distribution functions and see the effect of the Galactic bar

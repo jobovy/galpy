@@ -186,5 +186,64 @@ Clearly, the potential is much less flattened than the density.
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
 
+We can also compute the properties of close-to-circular orbits. First
+of all, we can calculate the circular velocity and its derivative
+
+>>> mp.vcirc(1.)
+1.0
+>>> mp.dvcircdR(1.)
+-0.163777427566978
+
+or, for lists of Potential instances
+
+>>> from galpy.potential import vcirc
+>>> vcirc(MWPotential,1.)
+1.0
+>>> from galpy.potential import dvcircdR
+>>> dvcircdR(MWPotential,1.)
+0.012084123754590059
+
+We can also calculate the various frequencies for close-to-circular
+orbits. For example, the rotational frequency
+
+>>> mp.omegac(0.8)
+1.2784598203204887
+>>> from galpy.potential import omegac
+>>> omegac(MWPotential,0.8)
+1.2389547535552212
+
+and the epicycle frequency
+
+>>> mp.epifreq(0.8)
+1.7774973530267848
+>>> from galpy.potential import epifreq
+>>> epifreq(MWPotential,0.8)
+1.8144833328444094
+
+as well as the vertical frequency
+
+>>> mp.verticalfreq(1.0)
+3.7859388972001828
+>>> from galpy.potential import verticalfreq
+>>> verticalfreq(MWPotential,1.)
+3.0000000000000004
+
+
+For close-to-circular orbits, we can also compute the radii of the
+Lindblad resonances. For example, for a frequency similar to that of
+the Milky Way's bar
+
+>>> mp.lindbladR(5./3.,m='corotation') #args are pattern speed and m of pattern
+0.6027911166042229 #~ 5kpc
+>>> print mp.lindbladR(5./3.,m=2)
+None
+>>> mp.lindbladR(5./3.,m=-2)
+0.9906190683480501
+
+The ``None`` here means that there is no inner Lindblad resonance, the
+``m=-2`` resonance is in the Solar neighborhood (see the section on
+the :ref:`Hercules stream <hercules>` in this documentation).
+
+
 Adding potentials to the galpy framework
 -----------------------------------------
