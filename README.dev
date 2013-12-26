@@ -13,13 +13,13 @@ format
 potential_src/potential_c_ext/galpy_potentials.h
 
 3) Edit the code under orbit_src/orbit_c_ext/integratePlanarOrbit.c to
-set up your new potential (in the 'leapfrog' function)
+set up your new potential (in the 'parse_leapFuncArgs' function)
 
 4) Edit the code in orbit_src/integratePlanarOrbit.py to set up your
 new potential
 
 5) Edit the code under orbit_src/orbit_c_ext/integrateFullOrbit.c to
-set up your new potential (in the 'leapfrog' function)
+set up your new potential (in the 'parse_leapFuncArgs_Full' function)
 
 6) Edit the code in orbit_src/integrateFullOrbit.py to set up your
 new potential
