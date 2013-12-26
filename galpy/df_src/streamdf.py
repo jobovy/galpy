@@ -113,6 +113,7 @@ class streamdf:
         self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
                                self._aA,dxv=None,dOdJ=True,
                                _initacfs=acfs)
+        self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
         #From the progenitor orbit, determine the sigmas in J and angle
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
         self._siglz= self._progenitor.rperi()*self._sigv
@@ -177,7 +178,7 @@ class streamdf:
             self._determine_stream_spread()
         return None
 
-    def misalignment(self):
+    def misalignment(self,isotropic=False):
         """
         NAME:
            misalignment
@@ -185,31 +186,43 @@ class streamdf:
            calculate the misalignment between the progenitor's frequency
            and the direction along which the stream disrupts
         INPUT:
-           (none)
+           isotropic= (False), if True, return the misalignment assuming an
+                      isotropic action distribution
         OUTPUT:
            misalignment in degree
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
-        out= numpy.arccos(numpy.sum(self._progenitor_Omega*self._dsigomeanProgDirection)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))/numpy.pi*180.
+        if isotropic:
+            dODir= self._dOdJpEig[1][:,numpy.argmax(numpy.fabs(self._dOdJpEig[0]))]
+        else:
+            dODir= self._dsigomeanProgDirection
+        out= numpy.arccos(numpy.sum(self._progenitor_Omega*dODir)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))/numpy.pi*180.
         if out > 90.: return out-180.
+        else: return out
 
-    def freqEigvalRatio(self):
+    def freqEigvalRatio(self,isotropic=False):
         """
         NAME:
            freqEigvalRatio
         PURPOSE:
-           calculate the ratio between the largest and 2nd-to-largest 
-           eigenvalue of dO/dJ (if this is big, a 1D stream will form)
+           calculate the ratio between the largest and 2nd-to-largest (in abs)
+           eigenvalue of sqrt(dO/dJ^T V_J dO/dJ) 
+           (if this is big, a 1D stream will form)
         INPUT:
-           (none)
+           isotropic= (False), if True, return the ratio assuming an
+                      isotropic action distribution (i.e., just of dO/dJ)
         OUTPUT:
-           ratio between eigenvalues of dO / dJ
+           ratio between eigenvalues of |dO / dJ|
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
-        return numpy.sqrt(self._sortedSigOEig)[2]\
-            /numpy.sqrt(self._sortedSigOEig)[1]
+        if isotropic:
+            sortedEig= sorted(numpy.fabs(self._dOdJpEig[0]))
+            return sortedEig[2]/sortedEig[1]
+        else:
+            return numpy.sqrt(self._sortedSigOEig)[2]\
+                /numpy.sqrt(self._sortedSigOEig)[1]
 
     def estimateTdisrupt(self,deltaAngle):
         """
