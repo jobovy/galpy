@@ -247,3 +247,112 @@ the :ref:`Hercules stream <hercules>` in this documentation).
 
 Adding potentials to the galpy framework
 -----------------------------------------
+
+Potentials in galpy can be used in many places such as orbit
+integration, distribution functions, or the calculation of
+action-angle variables, and in most cases any instance of a potential
+class that inherits from the general ``Potential`` class (or a list of
+such instances) can be given. For example, all orbit integration
+routines work with any list of instances of the general ``Potential``
+class. Adding new potentials to galpy therefore allows them to be used
+everywhere in galpy where general ``Potential`` instances can be
+used. Adding a new class of potentials to galpy consists of the
+following series of steps (some of these are also given in the file
+``README.dev`` in the galpy distribution):
+
+1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp)`` method should   be called to setup the amplitude. To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+
+  The new potential class should implement some of the following
+  functions: 
+
+  * ``_evaluate(R,z,phi=0,t=0,dR=0,dphi=0)`` which evaluates the
+    potential itself (*without* the amp factor, which is added in the
+    ``__call__`` method of the general Potential class). This function
+    should also call the relevant derivatives if dR or dphi is not
+    equal to zero (this is used only in some of the razor-thin disk
+    distribution functions, so doing this properly is not that
+    important).
+
+  * ``_Rforce(self,R,z,phi=0.,t=0.)`` which evaluates the radial force
+    in cylindrical coordinates (-d potential / d R).
+
+  * ``_zforce(self,R,z,phi=0.,t=0.)`` which evaluates the vertical force
+    in cylindrical coordinates (-d potential / d z).
+
+  * ``_R2deriv(self,R,z,phi=0.,t=0.)`` which evaluates the second
+    (cylindrical) radial derivative of the potential (d^2 potential /
+    d R^2).
+
+  * ``_z2deriv(self,R,z,phi=0.,t=0.)`` which evaluates the second
+    (cylindrical) vertical derivative of the potential (d^2 potential /
+    d z^2).
+
+  * ``_Rzderiv(self,R,z,phi=0.,t=0.)`` which evaluates the mixed
+    (cylindrical) radial and vertical derivative of the potential (d^2
+    potential / d R d z).
+
+  * ``_dens(self,R,z,phi=0.,t=0.)`` which evaluates the density. If
+    not given, the density is computed using the Poisson equation from
+    the first and second derivatives of the potential (if all are
+    implemented).
+
+  * ``_phiforce(self,R,z,phi=0.,t=0.)``: the azimuthal force in
+    cylindrical coordinates (assumed zero if not implemented).
+
+  * ``_phi2deriv(self,R,z,phi=0.,t=0.)``: the second azimuthal
+    derivative of the potential in cylindrical coordinates (d^2
+    potential / d phi^2; assumed zero if not given).
+
+  * ``_Rphideriv(self,R,z,phi=0.,t=0.)``: the mixed radial and
+    azimuthal derivative of the potential in cylindrical coordinates
+    (d^2 potential / d R d phi; assumed zero if not given).
+
+  The code for ``galpy.potential.MiyamotoNagaiPotential`` gives a good
+  template to follow for 3D axisymmetric potentials. Similarly, the
+  code for ``galpy.potential.CosmphiDiskPotential`` provides a good
+  template for 2D, non-axisymmetric potentials.
+
+  After this step, the new potential will work in any part of galpy
+  that uses pure python potentials. To get the potential to work with
+  the C implementations of orbit integration or action-angle
+  calculations, the potential also has to be implemented in C and the
+  potential has to be passed from python to C.
+
+2. To add a C implementation of the potential, implement it in a .c file under ``potential_src/potential_c_ext``. Look at ``potential_src/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential_src/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
+
+ For orbit integration, the functions such as:
+
+ * double LogarithmicHaloPotentialRforce(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
+ * double LogarithmicHaloPotentialzforce(double R,double Z, double phi,double t,struct potentialArg * potentialArgs) 
+
+ are most important. For some of the action-angle calculations
+
+ * double LogarithmicHaloPotentialEval(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
+ is most important (i.e., for those algorithms that evaluate the potential). The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential_src/potential_c_ext/galpy_potentials.h``.
+
+3. Add the potential's function declarations to
+``potential_src/potential_c_ext/galpy_potentials.h``
+
+4. (4. and 5. for planar orbit integration) Edit the code under
+``orbit_src/orbit_c_ext/integratePlanarOrbit.c`` to set up your new
+potential (in the **parse_leapFuncArgs** function).
+
+5. Edit the code in ``orbit_src/integratePlanarOrbit.py`` to set up your
+new potential (in the **_parse_pot** function).
+
+6. Edit the code under ``orbit_src/orbit_c_ext/integrateFullOrbit.c`` to
+set up your new potential (in the **parse_leapFuncArgs_Full** function).
+
+7. Edit the code in ``orbit_src/integrateFullOrbit.py`` to set up your
+new potential (in the **_parse_pot** function).
+
+8. (for using the actionAngleStaeckel methods in C) Edit the code in
+``actionAngle_src/actionAngle_c_ext/actionAngle.c`` to parse the new
+potential (in the **parse_actionAngleArgs** function).
+
+9. Finally, add ``self.hasC= True`` to the initialization of the
+potential in question (after the initialization of the super class, or
+otherwise it will be undone).
+
+After following the relevant steps, the new potential class can be
+used in any galpy context in which C is used to speed up computations.
