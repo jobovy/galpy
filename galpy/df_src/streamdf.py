@@ -55,7 +55,7 @@ class streamdf:
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
            deltaAngle= (0.3) estimate of 'dispersion' in largest angle
-           sigangle= (sigv/100/[1km/s]=2.2sigv in natural coordinates)
+           sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
                      estimate of the angle spread of the debris initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
            nTrackChunks= (11) number of chunks to divide the progenitor track in
@@ -129,7 +129,7 @@ class streamdf:
         self._sigomatrixEigsortIndx= numpy.argsort(self._sigomatrixEig[0])
         self._sortedSigOEig= sorted(self._sigomatrixEig[0])
         if sigangle is None:
-            self._sigangle= self._sigv*2.2
+            self._sigangle= self._sigv*1.8
         else:
             self._sigangle= sigangle
         self._sigangle2= self._sigangle**2.
@@ -1393,7 +1393,7 @@ class streamdf:
         else: eigIndx= 1
         if simple:
             dt= self.meantdAngle(dangle)
-            return numpy.sqrt(self._sigangle2*2.
+            return numpy.sqrt(self._sigangle2
                               +self._sortedSigOEig[eigIndx]*dt**2.)
         aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])*self._tdisrupt*5.,
                            self._sigangle])
@@ -1406,8 +1406,7 @@ class streamdf:
             nummean= 0.
         denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
         if denom == 0.: return numpy.nan
-        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.\
-                                    +self._sigangle2)
+        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)\
 
     def _pangledAnglet(self,t,angleperp,dangle,smallest):
         """p(angle_perp|angle_par,time)"""
