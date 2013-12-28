@@ -72,6 +72,11 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
+        if kwargs.has_key('fixed_quad'):
+            fixed_quad= kwargs['fixed_quad']
+            kwargs.pop('fixed_quad')
+        else:
+            fixed_quad= False
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
         elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -103,28 +108,32 @@ class actionAngleSpherical(actionAngle):
             Jz= L-nu.fabs(Lz)
             #JR requires some more work
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= m.sqrt(R**2.+z**2.)
+            axiR= nu.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
-            axiaA= actionAngleAxi(axiR,axivR,axivT,pot=self._2dpot)
-            (rperi,rap)= axiaA.calcRapRperi()
-            EL= axiaA.calcEL()
-            E, L= EL
-            if kwargs.has_key('fixed_quad'):
-                fixed_quad= kwargs['fixed_quad']
-                kwargs.pop('fixed_quad')
-            else:
-                fixed_quad= False
-            if fixed_quad:
-                Jr= integrate.fixed_quad(_JrSphericalIntegrand,rperi,rap,
-                                         args=(E,L,self._2dpot),
-                                         n=10,
-                                         **kwargs)[0]/nu.pi
-            else:
-                Jr= (nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
-                                             args=(E,L,self._2dpot),
-                                             **kwargs)))[0]/nu.pi
-            return (Jr,Jphi,Jz)
+            if not isinstance(R,(nu.ndarray)):
+                axiR= nu.array([axiR])
+                axivR= nu.array([axivR])
+                axivT= nu.array([axivT])
+            Jr= []
+            for ii in range(len(axiR)):
+                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
+                                      pot=self._2dpot)
+                (rperi,rap)= axiaA.calcRapRperi()
+                EL= axiaA.calcEL()
+                E, L= EL
+                if fixed_quad:
+                    Jr.append(integrate.fixed_quad(_JrSphericalIntegrand,
+                                                   rperi,rap,
+                                                   args=(E,L,self._2dpot),
+                                                   n=10,
+                                                   **kwargs)[0]/nu.pi)
+                else:
+                    Jr.append((nu.array(integrate.quad(_JrSphericalIntegrand,
+                                                       rperi,rap,
+                                                       args=(E,L,self._2dpot),
+                                                       **kwargs)))[0]/nu.pi)
+            return (nu.array(Jr),Jphi,Jz)
     
     def angle1(self,**kwargs):
         """
