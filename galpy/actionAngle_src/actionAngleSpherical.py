@@ -19,39 +19,101 @@
 ###############################################################################
 import math as m
 import numpy as nu
-from scipy import optimize, integrate
+from scipy import integrate
 from actionAngle import *
 from actionAngleAxi import actionAngleAxi, potentialAxi
-from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    planarPotential, evaluateplanarPotentials
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
-           __init__ DONE
+           __init__
         PURPOSE:
            initialize an actionAngleSpherical object
         INPUT:
-           Either:
-              a) R,vR,vT
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-              pot= potential or list of potentials (planarPotentials)
+           pot= a Spherical potential
         OUTPUT:
         HISTORY:
-           2011-03-03 - Written - Bovy (NYU)
+           2013-12-28 - Written - Bovy (IAS)
         """
-        actionAngle.__init__(self,*args,**kwargs)
         if not kwargs.has_key('pot'):
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= kwargs['pot']
-        #Also set up an actionAngleAxi object for EL and rap/rperi calculations
-        axiR= m.sqrt(self._R**2.+self._z**2.)
-        axivT= self.J2()[0]/axiR
-        axivR= (self._x*self._vx+self._y*self._vy+self._z*self._vz)/axiR
-        self._axi= actionAngleAxi(axiR,axivR,axivT,pot=self._pot)
+        #Also store a 'planar' (2D) version of the potential
+        if isinstance(self._pot,list):
+            self._2dpot= [p.toPlanar() for p in self._pot]
+        else:
+            self._2dpot= self._pot.toPlanar()
+        #The following for if we ever implement this code in C
+        self._c= False
+        ext_loaded= False
+        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
+                           or not kwargs.has_key('c')):
+            self._c= True
+        else:
+            self._c= False
         return None
+
+    def __call__(self,*args,**kwargs):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           evaluate the actions (jr,lz,jz)
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+           (jr,lz,jz)
+        HISTORY:
+           2013-12-28 - Written - Bovy (IAS)
+        """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            meta= actionAngle(*args)
+            R= meta._R
+            vR= meta._vR
+            vT= meta._vT
+            z= meta._z
+            vz= meta._vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
+        if self._c:
+            pass
+        else:
+            Lz= R*vT
+            Lx= -z*vT
+            Ly= z*vR-R*vz
+            L2= Lx*Lx+Ly*Ly+Lz*Lz
+            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            L= nu.sqrt(L2)
+            #Actions
+            Jphi= Lz
+            Jz= L-nu.fabs(Lz)
+            #JR requires some more work
+            #Set up an actionAngleAxi object for EL and rap/rperi calculations
+            axiR= m.sqrt(R**2.+z**2.)
+            axivT= L/axiR
+            axivR= (R*vR+z*vz)/axiR
+            axiaA= actionAngleAxi(axiR,axivR,axivT,pot=self._2dpot)
+            (rperi,rap)= axiaA.calcRapRperi()
+            print rperi, rap
+            EL= axiaA.calcEL()
+            E, L= EL
+            Jr= (nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
+                                         args=(E,L,self._2dpot),
+                                         **kwargs)))[0]/nu.pi
+            return (Jr,Jphi,Jz)
     
     def angle1(self,**kwargs):
         """
@@ -369,7 +431,7 @@ class actionAngleSpherical(actionAngle):
         (rperi,rap)= self.calcRapRperi()
         EL= self.calcEL()
         E, L= EL
-        self._J3= (2.*nu.array(integrate.quad(_J3SphericalIntegrand,rperi,rap,
+        self._J3= (2.*nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
                                               args=(E,L,self._pot),
                                               **kwargs)))
         return self._J3
@@ -408,22 +470,22 @@ class actionAngleSpherical(actionAngle):
         self._rperirap= self._axi.calcRapRperi()
         return self._rperirap
 
-def _J3SphericalIntegrand(r,E,L,pot):
-    """The J_3 integrand DONE"""
+def _JrSphericalIntegrand(r,E,L,pot):
+    """The J_r integrand"""
     return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
 
 def _T3SphericalIntegrandSmall(t,E,L,pot,rperi):
     r= rperi+t**2.#part of the transformation
-    return 2.*t/_J3SphericalIntegrand(r,E,L,pot)
+    return 2.*t/_JrSphericalIntegrand(r,E,L,pot)
 
 def _T3SphericalIntegrandLarge(t,E,L,pot,rap):
     r= rap-t**2.#part of the transformation
-    return 2.*t/_J3SphericalIntegrand(r,E,L,pot)
+    return 2.*t/_JrSphericalIntegrand(r,E,L,pot)
 
 def _ISphericalIntegrandSmall(t,E,L,pot,rperi):
     r= rperi+t**2.#part of the transformation
-    return 2.*t/_J3SphericalIntegrand(r,E,L,pot)/r**2.
+    return 2.*t/_JrSphericalIntegrand(r,E,L,pot)/r**2.
 
 def _ISphericalIntegrandLarge(t,E,L,pot,rap):
     r= rap-t**2.#part of the transformation
-    return 2.*t/_J3SphericalIntegrand(r,E,L,pot)/r**2.
+    return 2.*t/_JrSphericalIntegrand(r,E,L,pot)/r**2.
