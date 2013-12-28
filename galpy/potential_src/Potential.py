@@ -802,7 +802,7 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateDensities(R,z,Pot,phi=0.,t=0.):
+def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
     """
     NAME:
        evaluateDensities
@@ -818,18 +818,24 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.):
        phi - azimuth
 
        t - time
+
+       forcepoisson= if True, calculate the density through the Poisson 
+                     equation, even if an explicit expression for the 
+                     density exists
+
     OUTPUT:
        rho(R,z)
     HISTORY:
        2010-08-08 - Written - Bovy (NYU)
+       2013-12-28 - Added forcepoisson - Bovy (IAS)
     """
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.dens(R,z,phi=phi,t=t)
+            sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.dens(R,z,phi=phi,t=t)
+        return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
     else:
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
