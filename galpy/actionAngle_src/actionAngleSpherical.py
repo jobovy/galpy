@@ -221,21 +221,33 @@ class actionAngleSpherical(actionAngle):
                 else:
                     Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                     Tr= 0.
-                    if Rmean > rperi:
+                    if Rmean > rperi and not fixed_quad:
                         Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandSmall,
                                                            0.,m.sqrt(Rmean-rperi),
                                                            args=(E,L,self._2dpot,
                                                                  rperi),
                                                            **kwargs))[0]
-                    if Rmean < rap:
+                    elif Rmean > rperi and fixed_quad:
+                        Tr+= integrate.fixed_quad(_TrSphericalIntegrandSmall,
+                                                  0.,m.sqrt(Rmean-rperi),
+                                                  args=(E,L,self._2dpot,
+                                                        rperi),
+                                                  n=10,**kwargs)[0]
+                    if Rmean < rap and not fixed_quad:
                         Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandLarge,
                                                            0.,m.sqrt(rap-Rmean),
                                                            args=(E,L,self._2dpot,
                                                                  rap),
                                                            **kwargs))[0]
+                    elif Rmean < rap and fixed_quad:
+                        Tr+= integrate.fixed_quad(_TrSphericalIntegrandLarge,
+                                                  0.,m.sqrt(rap-Rmean),
+                                                  args=(E,L,self._2dpot,
+                                                        rap),
+                                                  n=10,**kwargs)[0]
                     Tr= 2.*Tr
                     Or.append(2.*nu.pi/Tr)
-            return (nu.array(Jr),Jphi,Jz,Or)
+            return (nu.array(Jr),Jphi,Jz,nu.array(Or))
     
     def angle1(self,**kwargs):
         """
