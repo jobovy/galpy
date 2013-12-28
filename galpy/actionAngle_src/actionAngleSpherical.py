@@ -65,6 +65,7 @@ class actionAngleSpherical(actionAngle):
               a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
+           fixed_quad= (False) if True, use n=10 fixed_quad integration
            scipy.integrate.quadrature keywords
         OUTPUT:
            (jr,lz,jz)
@@ -109,9 +110,20 @@ class actionAngleSpherical(actionAngle):
             (rperi,rap)= axiaA.calcRapRperi()
             EL= axiaA.calcEL()
             E, L= EL
-            Jr= (nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
+            if kwargs.has_key('fixed_quad'):
+                fixed_quad= kwargs['fixed_quad']
+                kwargs.pop('fixed_quad')
+            else:
+                fixed_quad= False
+            if fixed_quad:
+                Jr= integrate.fixed_quad(_JrSphericalIntegrand,rperi,rap,
                                          args=(E,L,self._2dpot),
-                                         **kwargs)))[0]/nu.pi
+                                         n=10,
+                                         **kwargs)[0]/nu.pi
+            else:
+                Jr= (nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
+                                             args=(E,L,self._2dpot),
+                                             **kwargs)))[0]/nu.pi
             return (Jr,Jphi,Jz)
     
     def angle1(self,**kwargs):
