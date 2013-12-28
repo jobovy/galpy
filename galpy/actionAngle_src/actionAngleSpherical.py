@@ -17,6 +17,7 @@
 #              calcRapRperi DONE
 #              calcEL DONE
 ###############################################################################
+import copy
 import math as m
 import numpy as nu
 from scipy import integrate
@@ -196,8 +197,10 @@ class actionAngleSpherical(actionAngle):
                 axiR= nu.array([axiR])
                 axivR= nu.array([axivR])
                 axivT= nu.array([axivT])
+                vT= nu.array([vT])
             Jr= []
             Or= []
+            Op= []
             for ii in range(len(axiR)):
                 axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
                                       pot=self._2dpot)
@@ -218,36 +221,66 @@ class actionAngleSpherical(actionAngle):
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
                     Or.append(self._pot.epifreq(axiR))
-                else:
-                    Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-                    Tr= 0.
-                    if Rmean > rperi and not fixed_quad:
-                        Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandSmall,
-                                                           0.,m.sqrt(Rmean-rperi),
-                                                           args=(E,L,self._2dpot,
-                                                                 rperi),
-                                                           **kwargs))[0]
-                    elif Rmean > rperi and fixed_quad:
-                        Tr+= integrate.fixed_quad(_TrSphericalIntegrandSmall,
-                                                  0.,m.sqrt(Rmean-rperi),
-                                                  args=(E,L,self._2dpot,
-                                                        rperi),
-                                                  n=10,**kwargs)[0]
-                    if Rmean < rap and not fixed_quad:
-                        Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandLarge,
-                                                           0.,m.sqrt(rap-Rmean),
-                                                           args=(E,L,self._2dpot,
-                                                                 rap),
-                                                           **kwargs))[0]
-                    elif Rmean < rap and fixed_quad:
-                        Tr+= integrate.fixed_quad(_TrSphericalIntegrandLarge,
-                                                  0.,m.sqrt(rap-Rmean),
-                                                  args=(E,L,self._2dpot,
-                                                        rap),
-                                                  n=10,**kwargs)[0]
-                    Tr= 2.*Tr
-                    Or.append(2.*nu.pi/Tr)
-            return (nu.array(Jr),Jphi,Jz,nu.array(Or))
+                    Op.append(self._pot.omegac(axiR))
+                    continue
+                Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+                Tr= 0.
+                if Rmean > rperi and not fixed_quad:
+                    Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandSmall,
+                                                       0.,m.sqrt(Rmean-rperi),
+                                                       args=(E,L,self._2dpot,
+                                                             rperi),
+                                                       **kwargs))[0]
+                elif Rmean > rperi and fixed_quad:
+                    Tr+= integrate.fixed_quad(_TrSphericalIntegrandSmall,
+                                              0.,m.sqrt(Rmean-rperi),
+                                              args=(E,L,self._2dpot,
+                                                    rperi),
+                                              n=10,**kwargs)[0]
+                if Rmean < rap and not fixed_quad:
+                    Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandLarge,
+                                                       0.,m.sqrt(rap-Rmean),
+                                                       args=(E,L,self._2dpot,
+                                                             rap),
+                                                       **kwargs))[0]
+                elif Rmean < rap and fixed_quad:
+                    Tr+= integrate.fixed_quad(_TrSphericalIntegrandLarge,
+                                              0.,m.sqrt(rap-Rmean),
+                                              args=(E,L,self._2dpot,
+                                                    rap),
+                                              n=10,**kwargs)[0]
+                Tr= 2.*Tr
+                Or.append(2.*nu.pi/Tr)
+                #Azimuthal period
+                I= 0.
+                if Rmean > rperi and not fixed_quad:
+                    I+= nu.array(integrate.quadrature(_ISphericalIntegrandSmall,
+                                                      0.,m.sqrt(Rmean-rperi),
+                                                      args=(E,L,self._2dpot,
+                                                            rperi),
+                                                      **kwargs))[0]
+                elif Rmean > rperi and fixed_quad:
+                    I+= integrate.fixed_quad(_ISphericalIntegrandSmall,
+                                             0.,m.sqrt(Rmean-rperi),
+                                             args=(E,L,self._2dpot,rperi),
+                                             n=10,**kwargs)[0]
+                if Rmean < rap and not fixed_quad:
+                    I+= nu.array(integrate.quadrature(_ISphericalIntegrandLarge,
+                                                      0.,m.sqrt(rap-Rmean),
+                                                      args=(E,L,self._2dpot,
+                                                            rap),
+                                                      **kwargs))[0]
+                elif Rmean < rap and fixed_quad:
+                    I+= integrate.fixed_quad(_ISphericalIntegrandLarge,
+                                             0.,m.sqrt(rap-Rmean),
+                                             args=(E,L,self._2dpot,rap),
+                                             n=10,**kwargs)[0]
+                I*= 2*L
+                Op.append(I*Or[-1]/2./nu.pi)
+            Op= nu.array(Op)
+            Oz= copy.copy(Op)
+            Op[vT < 0.]*= -1.
+            return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
     
     def angle1(self,**kwargs):
         """
