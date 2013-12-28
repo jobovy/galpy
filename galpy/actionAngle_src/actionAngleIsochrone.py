@@ -51,7 +51,7 @@ class actionAngleIsochrone():
         else:
             self._c= False
         if not self._c:
-            self._ip= IsochronePotential(normalize=1.,b=self.b)
+            self._ip= IsochronePotential(amp=self.amp,b=self.b)
         return None
     
     def __call__(self,*args,**kwargs):
