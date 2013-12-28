@@ -107,7 +107,6 @@ class actionAngleSpherical(actionAngle):
             axivR= (R*vR+z*vz)/axiR
             axiaA= actionAngleAxi(axiR,axivR,axivT,pot=self._2dpot)
             (rperi,rap)= axiaA.calcRapRperi()
-            print rperi, rap
             EL= axiaA.calcEL()
             E, L= EL
             Jr= (nu.array(integrate.quad(_JrSphericalIntegrand,rperi,rap,
