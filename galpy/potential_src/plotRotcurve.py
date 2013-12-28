@@ -120,12 +120,13 @@ def vcirc(Pot,R):
 
     """
     from Potential import Potential
+    from planarPotential import planarPotential
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
             sum+= pot.vcirc(R)**2.
         return nu.sqrt(sum)
-    elif isinstance(Pot,Potential):
+    elif isinstance(Pot,(Potential,planarPotential)):
         return Pot.vcirc(R)
 
 def dvcircdR(Pot,R):
