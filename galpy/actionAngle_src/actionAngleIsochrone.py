@@ -7,6 +7,8 @@
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
+#             actionsFreqs: returns (jr,lz,jz,Or,Op,Oz)
+#             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
 import copy
