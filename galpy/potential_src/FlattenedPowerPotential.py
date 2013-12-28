@@ -40,7 +40,9 @@ class FlattenedPowerPotential(Potential):
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= False
 

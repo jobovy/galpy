@@ -36,7 +36,9 @@ class PowerSphericalPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
 

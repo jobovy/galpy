@@ -29,7 +29,9 @@ class LogarithmicHaloPotential(Potential):
         self.hasC= True
         self._core2= core**2.
         self._q= q
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         return None
 
