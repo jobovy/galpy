@@ -106,7 +106,7 @@ class actionAngleSpherical(actionAngle):
             #Actions
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
-            #JR requires some more work
+            #Jr requires some more work
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
             axiR= nu.sqrt(R**2.+z**2.)
             axivT= L/axiR
@@ -134,6 +134,108 @@ class actionAngleSpherical(actionAngle):
                                                        args=(E,L,self._2dpot),
                                                        **kwargs)))[0]/nu.pi)
             return (nu.array(Jr),Jphi,Jz)
+
+    def actionsFreqs(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqs
+        PURPOSE:
+           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           fixed_quad= (False) if True, use n=10 fixed_quad integration
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+        HISTORY:
+           2013-12-28 - Written - Bovy (IAS)
+        """
+        if kwargs.has_key('fixed_quad'):
+            fixed_quad= kwargs['fixed_quad']
+            kwargs.pop('fixed_quad')
+        else:
+            fixed_quad= False
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            meta= actionAngle(*args)
+            R= meta._R
+            vR= meta._vR
+            vT= meta._vT
+            z= meta._z
+            vz= meta._vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
+        if self._c:
+            pass
+        else:
+            Lz= R*vT
+            Lx= -z*vT
+            Ly= z*vR-R*vz
+            L2= Lx*Lx+Ly*Ly+Lz*Lz
+            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            L= nu.sqrt(L2)
+            #Actions
+            Jphi= Lz
+            Jz= L-nu.fabs(Lz)
+            #Jr requires some more work
+            #Set up an actionAngleAxi object for EL and rap/rperi calculations
+            axiR= nu.sqrt(R**2.+z**2.)
+            axivT= L/axiR
+            axivR= (R*vR+z*vz)/axiR
+            if not isinstance(R,(nu.ndarray)):
+                axiR= nu.array([axiR])
+                axivR= nu.array([axivR])
+                axivT= nu.array([axivT])
+            Jr= []
+            Or= []
+            for ii in range(len(axiR)):
+                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
+                                      pot=self._2dpot)
+                (rperi,rap)= axiaA.calcRapRperi()
+                EL= axiaA.calcEL()
+                E, L= EL
+                if fixed_quad:
+                    Jr.append(integrate.fixed_quad(_JrSphericalIntegrand,
+                                                   rperi,rap,
+                                                   args=(E,L,self._2dpot),
+                                                   n=10,
+                                                   **kwargs)[0]/nu.pi)
+                else:
+                    Jr.append((nu.array(integrate.quad(_JrSphericalIntegrand,
+                                                       rperi,rap,
+                                                       args=(E,L,self._2dpot),
+                                                       **kwargs)))[0]/nu.pi)
+                #Radial period
+                if Jr[-1] < 10.**-9.: #Circular orbit
+                    Or.append(self._pot.epifreq(axiR))
+                else:
+                    Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+                    Tr= 0.
+                    if Rmean > rperi:
+                        Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandSmall,
+                                                           0.,m.sqrt(Rmean-rperi),
+                                                           args=(E,L,self._2dpot,
+                                                                 rperi),
+                                                           **kwargs))[0]
+                    if Rmean < rap:
+                        Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandLarge,
+                                                           0.,m.sqrt(rap-Rmean),
+                                                           args=(E,L,self._2dpot,
+                                                                 rap),
+                                                           **kwargs))[0]
+                    Tr= 2.*Tr
+                    Or.append(2.*nu.pi/Tr)
+            return (nu.array(Jr),Jphi,Jz,Or)
     
     def angle1(self,**kwargs):
         """
@@ -494,11 +596,11 @@ def _JrSphericalIntegrand(r,E,L,pot):
     """The J_r integrand"""
     return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
 
-def _T3SphericalIntegrandSmall(t,E,L,pot,rperi):
+def _TrSphericalIntegrandSmall(t,E,L,pot,rperi):
     r= rperi+t**2.#part of the transformation
     return 2.*t/_JrSphericalIntegrand(r,E,L,pot)
 
-def _T3SphericalIntegrandLarge(t,E,L,pot,rap):
+def _TrSphericalIntegrandLarge(t,E,L,pot,rap):
     r= rap-t**2.#part of the transformation
     return 2.*t/_JrSphericalIntegrand(r,E,L,pot)
 
