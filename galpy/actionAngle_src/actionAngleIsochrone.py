@@ -179,7 +179,7 @@ class actionAngleIsochrone():
            2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5: #R,vR.vT, z, vz
-            R,vR,vT, z, vz= args
+            raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
