@@ -30,6 +30,8 @@ typically be calculated using these three methods:
 
 These are not all implemented for each of the cases above yet.
 
+The adiabatic and Staeckel approximation have also been implemented in
+C, for extremely fast action-angle calculations (see below).
 
 Action-angle coordinates for the isochrone potential
 -----------------------------------------------------
@@ -219,24 +221,17 @@ or more explicitly comparing the two
  array([  9.04759645e-08]),
  array([  9.04759649e-08])]
 
-Action-angle coordinates for axisymmetric potentials
------------------------------------------------------
+Action-angle coordinates using the adiabatic approximation
+-----------------------------------------------------------
 
-Action-angle coordinates can also be computed for all axisymmetric
-potentials using the adiabatic approximation. Starting where we began
-for the previous example, we can initialize
+Action-angle coordinates using the Staeckel approximation
+-----------------------------------------------------------
 
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.,0.])
+Action-angle coordinates using an orbit-integration-based approximation
+-------------------------------------------------------------------------
 
-and then we can again calculate action-angle coordinates. E.g.,
-
->>> o.jr(lp)
-array([  7.22774128e-02,   5.06312577e-11])
-
-As expected, this agrees with the value in the example above, since
-the orbit is entirely in the symmetry plane. We can also calculate the
-vertical action ``o.jz()`` etcetera. See the API for full
-documentation.
+Accessing action-angle coordinates for Orbit instances
+----------------------------------------------------------
 
 
 Example: Evidence for a Lindblad resonance in the Solar neighborhood
