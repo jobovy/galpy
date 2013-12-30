@@ -279,7 +279,11 @@ class actionAngleSpherical(actionAngle):
                 #Angles
                 ar.append(self._calc_angler(Or[-1],axiR[ii],Rmean,rperi,rap,
                                             E,L,axivR[ii],fixed_quad,**kwargs))
-                az.append(0.)
+                az.append(self._calc_anglez(Or[-1],Op[-1],ar[-1],
+                                            z[ii],axiR[ii],
+                                            Rmean,rperi,rap,E,L,Lz[ii],
+                                            axivR[ii],axivz[ii],
+                                            fixed_quad,**kwargs))
             Op= nu.array(Op)
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
@@ -389,7 +393,7 @@ class actionAngleSpherical(actionAngle):
                                             n=10,**kwargs)[0]
             else:
                 wr= 0.
-            if vr < 0.: wr*= -1.
+            if vr < 0.: wr= 2*m.pi-wr
         else:
             if r < rap and not fixed_quad:
                 wr= Or*integrate.quadrature(_TrSphericalIntegrandLarge,
@@ -409,47 +413,54 @@ class actionAngleSpherical(actionAngle):
                 wr= m.pi-wr
         return wr
         
-    def angle2(self,**kwargs):
-        """
-        NAME:
-           angle2 DONE
-        PURPOSE:
-           Calculate the longitude of the ascending node
-        INPUT:
-        OUTPUT:
-           angle2 in radians + 
-           estimate of the error
-        HISTORY:
-           2011-03-03 - Written - Bovy (NYU)
-        """
-        if hasattr(self,'_angle2'): return self._angle2
-        if not hasattr(self,'_i'): self._i= m.acos(self._J1/self._J2)
-        if self._i == 0.: dstdj2= m.pi/2.
-        else: dstdj2= m.asin(m.cos(self._theta)/m.sin(self._i))
-        out= self._angle3(**kwargs)*self.T3(**kwargs)[0]/self.T2(**kwargs)[0]
-        out[0]+= dstdj2
-        #Now add the final piece dsrdj2
-        EL= self.calcEL()
-        E, L= EL
-        Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        if self._axi._R < Rmean:
-            if self._axi._R > self.rperi:
-                out+= L*nu.array(integrate.quadrature(_ISphericalIntegrandSmall,
-                                                      0.,m.sqrt(self._axi._R-rperi),
-                                                      args=(E,L,self._pot,rperi),
-                                                      **kwargs))
+    def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,
+                     fixed_quad,**kwargs):
+        #First calculate psi
+        i= nu.arccos(Lz/L)
+        sinpsi= z/r/nu.sin(i)
+        if sinpsi > 1. and sinpsi < (1.+10.**-7.):
+            sinpsi= 1.
+        if sinpsi < -1. and sinpsi > (-1.-10.**-7.):
+            sinpsi= -1.
+        psi= nu.arcsin(sinpsi)
+        if axivz > 0.: psi= nu.pi-psi
+        psi= psi % (2.*nu.pi)
+        #Calculate dSr/dL
+        dpsi= Op/Or*2.*nu.pi #this is the full I integral
+        if r < Rmean:
+            if not fixed_quad:
+                wz= L*integrate.quadrature(_ISphericalIntegrandSmall,
+                                           0.,m.sqrt(r-rperi),
+                                           args=(E,L,self._2dpot,
+                                                 rperi),
+                                           **kwargs)[0]
+            elif fixed_quad:
+                wz= L*integrate.fixed_quad(_ISphericalIntegrandSmall,
+                                           0.,m.sqrt(r-rperi),
+                                           args=(E,L,self._2dpot,
+                                                 rperi),
+                                           n=10,**kwargs)[0]
+            if vr < 0.: wz= dpsi-wz
         else:
-            if self._axi._R < self._rap:
-                out+= L*nu.array(integrate.quadrature(_ISphericalIntegrandLarge,
-                                                      0.,m.sqrt(rap-self._axi._R),
-                                                      args=(E,L,self._pot,rap),
-                                                      **kwargs))
+            if not fixed_quad:
+                wz= L*integrate.quadrature(_ISphericalIntegrandLarge,
+                                           0.,m.sqrt(rap-r),
+                                           args=(E,L,self._2dpot,
+                                                 rap),
+                                           **kwargs)[0]
+            elif fixed_quad:
+                wz= L*integrate.fixed_quad(_ISphericalIntegrandLarge,
+                                           0.,m.sqrt(rap-r),
+                                           args=(E,L,self._2dpot,
+                                                 rap),
+                                           n=10,**kwargs)[0]
+            if vr < 0.:
+                wz= dpsi/2.+wz
             else:
-                out[0]+= m.pi*self.T3(**kwargs)[0]/self.T2(**kwargs)[0]
-        if self._axi._vR < 0.:
-            out[0]+= m.pi*self.T3(**kwargs)[0]/self.T2(**kwargs)[0]
-        self._angle2= out
-        return self._angle2
+                wz= dpsi/2.-wz
+        #Add everything
+        wz= -wz+psi+Op/Or*ar
+        return wz
 
 def _JrSphericalIntegrand(r,E,L,pot):
     """The J_r integrand"""
