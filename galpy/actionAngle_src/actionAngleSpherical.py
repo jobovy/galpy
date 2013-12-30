@@ -112,10 +112,6 @@ class actionAngleSpherical(actionAngle):
             axiR= nu.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
-            if not isinstance(R,(nu.ndarray)):
-                axiR= nu.array([axiR])
-                axivR= nu.array([axivR])
-                axivT= nu.array([axivT])
             Jr= []
             for ii in range(len(axiR)):
                 axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
@@ -183,11 +179,6 @@ class actionAngleSpherical(actionAngle):
             axiR= nu.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
-            if not isinstance(R,(nu.ndarray)):
-                axiR= nu.array([axiR])
-                axivR= nu.array([axivR])
-                axivT= nu.array([axivT])
-                vT= nu.array([vT])
             Jr= []
             Or= []
             Op= []
@@ -210,6 +201,100 @@ class actionAngleSpherical(actionAngle):
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
+    
+    def actionsFreqsAngles(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqsAngles
+        PURPOSE:
+           evaluate the actions, frequencies, and angles
+           (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,ap,az)
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           fixed_quad= (False) if True, use n=10 fixed_quad integration
+           scipy.integrate.quadrature keywords
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az)
+        HISTORY:
+           2013-12-29 - Written - Bovy (IAS)
+        """
+        if kwargs.has_key('fixed_quad'):
+            fixed_quad= kwargs['fixed_quad']
+            kwargs.pop('fixed_quad')
+        else:
+            fixed_quad= False
+        if len(args) == 5: #R,vR.vT, z, vz
+            raise IOError("You need to provide phi when calculating angles")
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            meta= actionAngle(*args)
+            R= meta._R
+            vR= meta._vR
+            vT= meta._vT
+            z= meta._z
+            vz= meta._vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
+            phi= nu.array([phi])
+        if self._c:
+            pass
+        else:
+            Lz= R*vT
+            Lx= -z*vT
+            Ly= z*vR-R*vz
+            L2= Lx*Lx+Ly*Ly+Lz*Lz
+            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            L= nu.sqrt(L2)
+            #Actions
+            Jphi= Lz
+            Jz= L-nu.fabs(Lz)
+            #Jr requires some more work
+            #Set up an actionAngleAxi object for EL and rap/rperi calculations
+            axiR= nu.sqrt(R**2.+z**2.)
+            axivT= L/axiR #these are really spherical coords, called axi bc they go in actionAngleAxi
+            axivR= (R*vR+z*vz)/axiR
+            axivz= (z*vR-R*vz)/axiR
+            Jr= []
+            Or= []
+            Op= []
+            ar= []
+            az= []
+            #Calculate the longitude of the ascending node
+            asc= self._calc_long_asc(z,R,axivz,phi,Lz,L)
+            for ii in range(len(axiR)):
+                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
+                                      pot=self._2dpot)
+                (rperi,rap)= axiaA.calcRapRperi()
+                EL= axiaA.calcEL()
+                E, L= EL
+                Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
+                #Radial period
+                if Jr[-1] < 10.**-9.: #Circular orbit
+                    Or.append(self._pot.epifreq(axiR))
+                    Op.append(self._pot.omegac(axiR))
+                    continue
+                Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+                Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                #Angles
+                ar.append(0.)
+                az.append(0.)
+            Op= nu.array(Op)
+            Oz= copy.copy(Op)
+            Op[vT < 0.]*= -1.
+            ap= copy.copy(asc)
+            ap[vT < 0.]-= az
+            ap[vT >= 0.]+= az
+            return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz,
+                    ar,ap,az)
     
     def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
         if fixed_quad:
@@ -280,6 +365,18 @@ class actionAngleSpherical(actionAngle):
         I*= 2*L
         return I*Or/2./nu.pi
 
+    def _calc_long_asc(self,z,R,axivz,phi,Lz,L):
+        i= nu.arccos(Lz/L)
+        sinu= z/R/nu.tan(i)
+        pindx= (sinu > 1.)*(sinu < (1.+10.**-7.))
+        sinu[pindx]= 1.
+        pindx= (sinu < -1.)*(sinu > (-1.-10.**-7.))
+        sinu[pindx]= -1.           
+        u= nu.arcsin(sinu)
+        vzindx= axivz > 0.
+        u[vzindx]= nu.pi-u[vzindx]
+        return phi-u
+        
     def angle1(self,**kwargs):
         """
         NAME:
