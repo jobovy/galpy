@@ -58,7 +58,7 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
       Uses ``galpy.potential`` force and density routines to characterize the difference between the vertical force and the surface density at large heights above the MW midplane.
 * *The Milky Way's circular velocity curve between 4 and 14 kpc from APOGEE data*, Jo Bovy, Carlos Allende Prieto, Timothy C. Beers, et al. (2012), *Astrophys. J.* **759**, 131 (`2012ApJ...759..131B <http://adsabs.harvard.edu/abs/2012ApJ...759..131B>`_):
        Utilizes the Dehnen distribution function to inform a simple model of the velocity distribution of APOGEE stars in the Milky Way disk and to create mock data.
-* *A direct dynamical measurement of the Milky Way's disk surface density profile, disk scale length, and dark matter profile at 4 kpc < R < 9 kpc*, Jo Bovy & Hans-Walter Rix (2013), *Astrophys. J.* **779**, 115 (`arXiv/1309.0809 <http://arxiv.org/abs/1309.0809>`_):
+* *A direct dynamical measurement of the Milky Way's disk surface density profile, disk scale length, and dark matter profile at 4 kpc < R < 9 kpc*, Jo Bovy & Hans-Walter Rix (2013), *Astrophys. J.* **779**, 115 (`2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_):
      Makes use of potential models, the adiabatic and Staeckel actionAngle modules, and the quasiisothermal DF to model the dynamics of the SEGUE G dwarf sample in mono-abundance bins.
 * *Chemodynamics of the Milky Way. I. The first year of APOGEE data*, Friedrich Anders, Christina Chiappini, Basilio X. Santiago, et al. (2013), *Astron. & Astrophys.* submitted (`arXiv/1311.4549 <http://arxiv.org/abs/1311.4549>`_):
   		 Employs galpy to perform orbit integrations in ``galpy.potential.MWPotential`` to characterize the orbits of stars in the APOGEE sample.
@@ -66,7 +66,7 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 Acknowledging galpy
 --------------------
 
-Please link back to ``http://code.google.com/p/galpy/`` . When using the ``galpy.actionAngle`` modules, please cite `arXiv/1309.0809 <http://arxiv.org/abs/1309.0809>`_ in addition to the papers describing the algorithm used. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
+Please link back to ``http://code.google.com/p/galpy/`` . When using the ``galpy.actionAngle`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
 
 
 Indices and tables
