@@ -4,12 +4,117 @@ Action-angle coordinates
 .. WARNING::
    The action-angle modules are currently being re-developed, so much of the documentation on this page is severely out-of-date!
 
-galpy can calculate actions and angles for spherical and axisymmetric
-potentials. These are implemented in a separate module
-``galpy.actionAngle``, but the preferred method for accessing these is
-as methods of the ``Orbit`` class. This Section briefly explains how
-to do this.
+galpy can calculate actions and angles for a large variety of
+potentials (any time-independent potential in principle). These are
+implemented in a separate module ``galpy.actionAngle``, and the
+preferred method for accessing them is through the routines in this
+module. There is also some support for accessing the actionAngle
+routines as methods of the ``Orbit`` class.
 
+Action-angle coordinates can be calculated for the following
+potentials/approximations:
+
+* Isochrone potential
+* Spherical potentials
+* Adiabatic approximation
+* Staeckel approximation
+* A general orbit-integration-based technique
+
+There are classes corresponding to these different
+potentials/approximations and actions, frequencies, and angles can
+typically be calculated using these three methods:
+
+* __call__: returns the actions
+* actionsFreqs: returns the actions and the frequencies
+* actionsFreqsAngles: returns the actions, frequencies, and angles
+
+These are not all implemented for each of the cases above yet.
+
+
+Action-angle coordinates for the isochrone potential
+-----------------------------------------------------
+
+The isochrone potential is the only potential for which all of the
+actions, frequencies, and angles can be calculated analytically. We
+can do this in galpy by doing
+
+>>> from galpy.potential import IsochronePotential
+>>> from galpy.actionAngle import actionAngleIsochrone
+>>> ip= IsochronePotential(b=1.,normalize=1.)
+>>> aAI= actionAngleIsochrone(ip=ip)
+
+``aAI`` is now an instance that can be used to calculate action-angle
+variables for the specific isochrone potential ``ip``. Calling this
+instance returns :math:`(J_R,L_Z,J_Z)`
+
+>>> aAI(1.,0.1,1.1,0.1,0.) #inputs R,vR,vT,z,vz
+(array([ 0.00713759]), array([ 1.1]), array([ 0.00553155]))
+
+or for a more eccentric orbit
+
+>>> aAI(1.,0.5,1.3,0.2,0.1)
+(array([ 0.13769498]), array([ 1.3]), array([ 0.02574507]))
+
+Note that we can also specify ``phi``, but this is not necessary
+
+>>> aAI(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.13769498]), array([ 1.3]), array([ 0.02574507]))
+
+We can likewise calculate the frequencies as well
+
+>>> aAI.actionsFreqs(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.13769498]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 1.29136096]),
+ array([ 0.79093738]),
+ array([ 0.79093738]))
+
+The output is :math:`(J_R,L_Z,J_Z,\Omega_R,\Omega_\phi,\Omega_Z)`. For
+any spherical potential, :math:`\Omega_\phi =
+\mathrm{sgn}(L_Z)\Omega_Z`, such that the last two frequencies are the
+same.
+
+We obtain the angles as well by calling
+
+>>> aAI.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.13769498]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 1.29136096]),
+ array([ 0.79093738]),
+ array([ 0.79093738]),
+ array([ 0.57101518]),
+ array([ 5.96238847]),
+ array([ 1.24999949]))
+
+The output here is
+:math:`(J_R,L_Z,J_Z,\Omega_R,\Omega_\phi,\Omega_Z,\theta_R,\theta_\phi,\theta_Z)`.
+
+To check that these are good action-angle variables, we can calculate
+them along an orbit
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.5,1.3,0.2,0.1,0.])
+>>> ts= numpy.linspace(0.,100.,1001)
+>>> o.integrate(ts,ip)
+>>> jfa= aAI.actionsFreqsAngles(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),o.phi(ts))
+
+which works because we can provide arrays for the ``R`` etc. inputs.
+
+We can then check that the actions are constant over the orbit
+
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[0]-numpy.mean(jfa[0])))))
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[1]-numpy.mean(jfa[1])))))
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[2]-numpy.mean(jfa[2])))))
+
+which gives
+
+.. image:: images/ip-actions.png
+
+The actions are all conserved. The angles increase linearly with time
+
+.. image:: images/ip-tangles.png
 
 Action-angle coordinates for spherical potentials
 --------------------------------------------------
