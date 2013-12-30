@@ -385,20 +385,30 @@ class actionAngleSpherical(actionAngle):
     
     def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
         if r < Rmean:
-            if r > rperi:
+            if r > rperi and not fixed_quad:
                 wr= Or*integrate.quadrature(_TrSphericalIntegrandSmall,
                                             0.,m.sqrt(r-rperi),
                                             args=(E,L,self._2dpot,rperi),
                                             **kwargs)[0]
+            elif r > rperi and fixed_quad:
+                wr= Or*integrate.fixed_quad(_TrSphericalIntegrandSmall,
+                                            0.,m.sqrt(r-rperi),
+                                            args=(E,L,self._2dpot,rperi),
+                                            n=10,**kwargs)[0]
             else:
                 wr= 0.
             if vr < 0.: wr*= -1.
         else:
-            if r < rap:
+            if r < rap and not fixed_quad:
                 wr= Or*integrate.quadrature(_TrSphericalIntegrandLarge,
                                             0.,m.sqrt(rap-r),
                                             args=(E,L,self._2dpot,rap),
                                             **kwargs)[0]
+            elif r < rap and fixed_quad:
+                wr= Or*integrate.fixed_quad(_TrSphericalIntegrandLarge,
+                                            0.,m.sqrt(rap-r),
+                                            args=(E,L,self._2dpot,rap),
+                                            n=10,**kwargs)[0]
             else:
                 wr= m.pi
             if vr < 0.:
