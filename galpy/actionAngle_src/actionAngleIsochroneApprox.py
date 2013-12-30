@@ -199,6 +199,8 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
         if kwargs.has_key('_firstFlip'):
             _firstFlip= kwargs['_firstFlip']
         else:
@@ -445,6 +447,8 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)
         else:
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+                raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
                 if 'ar' in type:
                     angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
@@ -523,7 +527,7 @@ class actionAngleIsochroneApprox():
                     plotx= angleZT[0,:]
                     ploty= anglephiT[0,:]
                     plotz= angleRT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     clabel=r'$\theta_R$',
