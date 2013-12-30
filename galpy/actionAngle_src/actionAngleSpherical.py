@@ -285,14 +285,20 @@ class actionAngleSpherical(actionAngle):
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 #Angles
-                ar.append(0.)
+                ar.append(self._calc_angler(Or[-1],axiR[ii],Rmean,rperi,rap,
+                                            E,L,axivR[ii],fixed_quad,**kwargs))
                 az.append(0.)
             Op= nu.array(Op)
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
             ap= copy.copy(asc)
-            ap[vT < 0.]-= az
-            ap[vT >= 0.]+= az
+            ar= nu.array(ar)
+            az= nu.array(az)
+            ap[vT < 0.]-= az[vT < 0.]
+            ap[vT >= 0.]+= az[vT >= 0.]
+            ar= ar % (2.*nu.pi)
+            ap= ap % (2.*nu.pi)
+            az= az % (2.*nu.pi)
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz,
                     ar,ap,az)
     
@@ -376,6 +382,30 @@ class actionAngleSpherical(actionAngle):
         vzindx= axivz > 0.
         u[vzindx]= nu.pi-u[vzindx]
         return phi-u
+    
+    def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
+        if r < Rmean:
+            if r > rperi:
+                wr= Or*integrate.quadrature(_TrSphericalIntegrandSmall,
+                                            0.,m.sqrt(r-rperi),
+                                            args=(E,L,self._2dpot,rperi),
+                                            **kwargs)[0]
+            else:
+                wr= 0.
+            if vr < 0.: wr*= -1.
+        else:
+            if r < rap:
+                wr= Or*integrate.quadrature(_TrSphericalIntegrandLarge,
+                                            0.,m.sqrt(rap-r),
+                                            args=(E,L,self._2dpot,rap),
+                                            **kwargs)[0]
+            else:
+                wr= m.pi
+            if vr < 0.:
+                wr= m.pi+wr
+            else:
+                wr= m.pi-wr
+        return wr
         
     def angle1(self,**kwargs):
         """
