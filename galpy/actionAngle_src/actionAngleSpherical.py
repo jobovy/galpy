@@ -123,17 +123,7 @@ class actionAngleSpherical(actionAngle):
                 (rperi,rap)= axiaA.calcRapRperi()
                 EL= axiaA.calcEL()
                 E, L= EL
-                if fixed_quad:
-                    Jr.append(integrate.fixed_quad(_JrSphericalIntegrand,
-                                                   rperi,rap,
-                                                   args=(E,L,self._2dpot),
-                                                   n=10,
-                                                   **kwargs)[0]/nu.pi)
-                else:
-                    Jr.append((nu.array(integrate.quad(_JrSphericalIntegrand,
-                                                       rperi,rap,
-                                                       args=(E,L,self._2dpot),
-                                                       **kwargs)))[0]/nu.pi)
+                Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
             return (nu.array(Jr),Jphi,Jz)
 
     def actionsFreqs(self,*args,**kwargs):
@@ -207,17 +197,7 @@ class actionAngleSpherical(actionAngle):
                 (rperi,rap)= axiaA.calcRapRperi()
                 EL= axiaA.calcEL()
                 E, L= EL
-                if fixed_quad:
-                    Jr.append(integrate.fixed_quad(_JrSphericalIntegrand,
-                                                   rperi,rap,
-                                                   args=(E,L,self._2dpot),
-                                                   n=10,
-                                                   **kwargs)[0]/nu.pi)
-                else:
-                    Jr.append((nu.array(integrate.quad(_JrSphericalIntegrand,
-                                                       rperi,rap,
-                                                       args=(E,L,self._2dpot),
-                                                       **kwargs)))[0]/nu.pi)
+                Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
                     Or.append(self._pot.epifreq(axiR))
@@ -282,6 +262,18 @@ class actionAngleSpherical(actionAngle):
             Op[vT < 0.]*= -1.
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
     
+    def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
+        if fixed_quad:
+            return integrate.fixed_quad(_JrSphericalIntegrand,
+                                        rperi,rap,
+                                        args=(E,L,self._2dpot),
+                                        n=10,
+                                        **kwargs)[0]/nu.pi
+        else:
+            return (nu.array(integrate.quad(_JrSphericalIntegrand,
+                                            rperi,rap,
+                                            args=(E,L,self._2dpot),
+                                            **kwargs)))[0]/nu.pi
     def angle1(self,**kwargs):
         """
         NAME:
