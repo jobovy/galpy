@@ -119,45 +119,105 @@ The actions are all conserved. The angles increase linearly with time
 Action-angle coordinates for spherical potentials
 --------------------------------------------------
 
-Actions, angles, and orbital frequencies for spherical potentials can
-be calculated by first instantiating an ``Orbit`` object and then
-calling the action-angle functions. Since some of the methods assume
-that orbits are given in re-normalized coordinates, i.e.,
-``vc(1)=1``, it is prudent to only call these methods with orbits
-that are initialized in this way. For example, we initialized
-everything with
+Action-angle coordinates for any spherical potential can be calculated
+using a few orbit integrations. These are implemented in galpy in the
+``actionAngleSpherical`` module. For example, we can do
 
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> from galpy.orbit import Orbit
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.,0.])
+>>> from galpy.actionAngle import actionAngleSpherical
+>>> aAS= actionAngleSpherical(pot=lp)
 
-and then compute the radial action, specifying the potential to use
+For the same eccentric orbit as above we find
 
->>> o.jr(lp)
-array([  7.22774128e-02,   5.06312577e-11])
+>>> aAS(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.22022112]), array([ 1.3]), array([ 0.02574507]))
+>>> aAS.actionsFreqs(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.22022112]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 0.87630459]),
+ array([ 0.60872881]),
+ array([ 0.60872881]))
+>>> aAS.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.22022112]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 0.87630459]),
+ array([ 0.60872881]),
+ array([ 0.60872881]),
+ array([ 0.40443857]),
+ array([ 5.85965048]),
+ array([ 1.1472615]))
 
-The return value is the value for jr, as well as an estimate for the
-integration error.
+We can again check that the actions are conserved along the orbit and
+that the angles increase linearly with time:
 
-Once a call to any of the action-angle methods of ``Orbit`` is done,
-various parts of the calculation of these coordinates get cached for
-re-use). If any of the action-angle methods get called with a
-different potential, the cache gets reset. Therefore, we can compute
-the radial angle then as follows
+>>> o.integrate(ts,lp)
+>>> jfa= aAS.actionsFreqsAngles(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),o.phi(ts),fixed_quad=True)
 
->>> o.wr()
+where we use ``fixed_quad=True`` for a faster evaluation of the
+required one-dimensional integrals using Gaussian quadrature. We then
+plot the action fluctuations
 
-and the other relevant methods
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[0]-numpy.mean(jfa[0])))))
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[1]-numpy.mean(jfa[1])))))
+>>> plot(ts,numpy.log10(numpy.fabs((jfa[2]-numpy.mean(jfa[2])))))
 
->>> o.jp() #J_phi = L
->>> o.Tr() #The radial period
->>> o.Tp() #The azimuthal period
->>> o.TrTp() #pi*Tr/Tp
+which gives
 
-NOTE: spherical action-angle coordinates are largely untested and
-likely wrong.
+.. image:: images/lp-actions.png
 
+showing that the actions are all conserved. The angles again increase
+linearly with time
+
+.. image:: images/lp-tangles.png
+
+
+We can check the spherical action-angle calculations against the
+analytical calculations for the isochrone potential. Starting again
+from the isochrone potential used in the previous section
+
+>>> ip= IsochronePotential(b=1.,normalize=1.)
+>>> aAI= actionAngleIsochrone(ip=ip)
+>>> aAS= actionAngleSpherical(pot=ip)
+
+we can compare the actions, frequencies, and angles computed using
+both
+
+>>> aAI.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.13769498]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 1.29136096]),
+ array([ 0.79093738]),
+ array([ 0.79093738]),
+ array([ 0.57101518]),
+ array([ 5.96238847]),
+ array([ 1.24999949]))
+>>> aAS.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.)
+(array([ 0.13769498]),
+ array([ 1.3]),
+ array([ 0.02574507]),
+ array([ 1.29136096]),
+ array([ 0.79093738]),
+ array([ 0.79093738]),
+ array([ 0.57101518]),
+ array([ 5.96238838]),
+ array([ 1.2499994]))
+
+or more explicitly comparing the two
+
+>>> [r-s for r,s in zip(aAI.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.),aAS.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.))]
+[array([  6.66133815e-16]),
+ array([ 0.]),
+ array([ 0.]),
+ array([ -4.53851845e-10]),
+ array([  4.74775219e-10]),
+ array([  4.74775219e-10]),
+ array([ -1.65965242e-10]),
+ array([  9.04759645e-08]),
+ array([  9.04759649e-08])]
 
 Action-angle coordinates for axisymmetric potentials
 -----------------------------------------------------
