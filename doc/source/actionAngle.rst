@@ -228,7 +228,9 @@ For non-spherical, axisymmetric potentials galpy contains multiple
 methods for calculating approximate action--angle coordinates. The
 simplest of those is the adiabatic approximation, which works well for
 disk orbits that do not go too far from the plane, as it assumes that
-the vertical motion is decoupled from that in the plane.
+the vertical motion is decoupled from that in the plane (e.g.,
+`2010MNRAS.401.2318B
+<http://adsabs.harvard.edu/abs/2010MNRAS.401.2318B>`_).
 
 Setup is similar as for other actionAngle objects
 
