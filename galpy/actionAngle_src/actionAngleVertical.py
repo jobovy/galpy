@@ -58,9 +58,9 @@ class actionAngleVertical(actionAngle):
         zmax= self.calczmax()
         if zmax == -9999.99: return nu.array([9999.99,nu.nan])
         Ez= calcEz(self._z,self._vz,self._verticalpot)
-        self._Jz= (2.*nu.array(integrate.quad(_JzIntegrand,0.,zmax,
-                                              args=(Ez,self._verticalpot),
-                                              **kwargs)))/nu.pi
+        self._Jz= 2.*integrate.quad(_JzIntegrand,0.,zmax,
+                                    args=(Ez,self._verticalpot),
+                                    **kwargs)[0]/nu.pi
         return self._Jz
 
     def Tz(self,**kwargs):
@@ -80,9 +80,9 @@ class actionAngleVertical(actionAngle):
             return self._Tz
         zmax= self.calczmax()
         Ez= calcEz(self._z,self._vz,self._verticalpot)
-        self._Tz= (4.*nu.array(integrate.quad(_TzIntegrand,0.,zmax,
-                                              args=(Ez,self._verticalpot),
-                                              **kwargs)))
+        self._Tz= 4.*integrate.quad(_TzIntegrand,0.,zmax,
+                                    args=(Ez,self._verticalpot),
+                                    **kwargs)[0]
         return self._Tz
 
     def anglez(self,**kwargs):

@@ -126,22 +126,22 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             #TR=kappa
             gamma= m.sqrt(2./(1.+self._beta))
             kappa= 2.*self._R**(self._beta-1.)/gamma
-            self._TR= nu.array([2.*m.pi/kappa,0.])
+            self._TR= 2.*m.pi/kappa
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         EL= self.calcEL(**kwargs)
         E, L= EL
         TR= 0.
         if Rmean > rperi:
-            TR+= nu.array(integrate.quadrature(_TRAxiIntegrandSmall,
-                                               0.,m.sqrt(Rmean-rperi),
-                                               args=(E,L,self._pot,rperi),
-                                               **kwargs))
+            TR+= integrate.quadrature(_TRAxiIntegrandSmall,
+                                      0.,m.sqrt(Rmean-rperi),
+                                      args=(E,L,self._pot,rperi),
+                                      **kwargs)[0]
         if Rmean < rap:
-            TR+= nu.array(integrate.quadrature(_TRAxiIntegrandLarge,
-                                               0.,m.sqrt(rap-Rmean),
-                                               args=(E,L,self._pot,rap),
-                                               **kwargs))
+            TR+= integrate.quadrature(_TRAxiIntegrandLarge,
+                                      0.,m.sqrt(rap-Rmean),
+                                      args=(E,L,self._pot,rap),
+                                      **kwargs)[0]
         self._TR= 2.*TR
         return self._TR
 
@@ -162,12 +162,10 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             return self._Tphi
         (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi:#Circular orbit
-            return nu.array([2.*m.pi*self._R/self._vT,0.])
+            return 2.*m.pi*self._R/self._vT
         TR= self.TR(**kwargs)
         I= self.I(**kwargs)
-        Tphi= nu.zeros(2)
-        Tphi[0]= TR[0]/I[0]*m.pi
-        Tphi[1]= Tphi[0]*m.sqrt((I[1]/I[0])**2.+(TR[1]/TR[0])**2.)
+        Tphi= TR/I*m.pi
         self._Tphi= Tphi
         return self._Tphi
 
@@ -191,21 +189,21 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         if rap == rperi: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
-            self._I= nu.array([TR/Tphi*m.pi,0.])
+            self._I= TR/Tphi*m.pi
             return self._I
         EL= self.calcEL(**kwargs)
         E, L= EL
         I= 0.
         if Rmean > rperi:
-            I+= nu.array(integrate.quadrature(_IAxiIntegrandSmall,
-                                              0.,m.sqrt(Rmean-rperi),
-                                              args=(E,L,self._pot,rperi),
-                                              **kwargs))
+            I+= integrate.quadrature(_IAxiIntegrandSmall,
+                                     0.,m.sqrt(Rmean-rperi),
+                                     args=(E,L,self._pot,rperi),
+                                     **kwargs)[0]
         if Rmean < rap:
-            I+= nu.array(integrate.quadrature(_IAxiIntegrandLarge,
-                                               0.,m.sqrt(rap-Rmean),
-                                               args=(E,L,self._pot,rap),
-                                               **kwargs))
+            I+= integrate.quadrature(_IAxiIntegrandLarge,
+                                     0.,m.sqrt(rap-Rmean),
+                                     args=(E,L,self._pot,rap),
+                                     **kwargs)[0]
         self._I= I*self._R*self._vT
         return self._I
 
@@ -221,7 +219,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
         """
-        return nu.array([self._R*self._vT,0.])
+        return self._R*self._vT
 
     def JR(self,**kwargs):
         """
@@ -241,9 +239,9 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         (rperi,rap)= self.calcRapRperi(**kwargs)
         EL= self.calcEL(**kwargs)
         E, L= EL
-        self._JR= (1./nu.pi*nu.array(integrate.quad(_JRAxiIntegrand,rperi,rap,
-                                                    args=(E,L,self._pot),
-                                                    **kwargs)))
+        self._JR= 1./nu.pi*integrate.quad(_JRAxiIntegrand,rperi,rap,
+                                          args=(E,L,self._pot),
+                                          **kwargs)[0]
         return self._JR
 
     def calcEL(self,**kwargs):
@@ -263,7 +261,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         if self._gamma != 0.:
             #Adjust E
             E-= self._vT**2./2.
-            L= m.fabs(L)+self._gamma*self.Jz(**kwargs)[0]
+            L= m.fabs(L)+self._gamma*self.Jz(**kwargs)
             E+= L**2./2./self._R**2.
         return (E,L)
 
