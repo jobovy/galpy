@@ -1695,7 +1695,7 @@ class streamdf:
            cindx= index of the closest point on the (interpolated) stream track
                   if not given, determined from the dimensions given          
            nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
-           ngl= (10) order of Gauss-Legendre integration
+           ngl= (5) order of Gauss-Legendre integration
            lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the marginalized PDF in these coordinates is returned          
            Vnorm= (220) circular velocity to normalize with when lb=True
            Rnorm= (8) Galactocentric radius to normalize with when lb=True
@@ -1717,7 +1717,7 @@ class streamdf:
         if kwargs.has_key('ngl'):
             ngl= kwargs['ngl']
         else:
-            ngl= 10
+            ngl= 5
         if kwargs.has_key('nsigma'):
             nsigma= kwargs['nsigma']
         else:
