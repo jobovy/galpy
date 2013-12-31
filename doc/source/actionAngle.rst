@@ -224,6 +224,101 @@ or more explicitly comparing the two
 Action-angle coordinates using the adiabatic approximation
 -----------------------------------------------------------
 
+For non-spherical, axisymmetric potentials galpy contains multiple
+methods for calculating approximate action--angle coordinates. The
+simplest of those is the adiabatic approximation, which works well for
+disk orbits that do not go too far from the plane, as it assumes that
+the vertical motion is decoupled from that in the plane.
+
+Setup is similar as for other actionAngle objects
+
+>>> from galpy.potential import MWPotential
+>>> from galpy.actionAngle import actionAngleAdiabatic
+>>> aAA= actionAngleAdiabatic(pot=MWPotential)
+
+and evaluation then proceeds similarly as before
+
+>>> aAA(1.,0.1,1.1,0.,0.05)
+(0.011551694768963469, 1.1, 0.00042376727426256727)
+
+We can again check that the actions are conserved along the orbit
+
+>>> from galpy.orbit import Orbit
+>>> ts=numpy.linspace(0.,100.,1001)
+>>> o= Orbit([1.,0.1,1.1,0.,0.05])
+>>> o.integrate(ts,MWPotential)
+>>> js= aAA(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
+
+This takes a while. The adiabatic approximation is also implemented in
+C, which leads to great speed-ups. Here is how to use it
+
+>>> timeit(aAA(1.,0.1,1.1,0.,0.05))
+10 loops, best of 3: 48.7 ms per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+>>> timeit(aAA(1.,0.1,1.1,0.,0.05))
+1000 loops, best of 3: 1.2 ms per loop
+
+or about a *40 times* speed-up. For arrays the speed-up is even more
+impressive
+
+>>> s= numpy.ones(100)
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1000 loops, best of 3: 1.8 ms per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential) #back to no C
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1 loops, best of 3: 4.94 s per loop
+
+or a speed-up of 2700! Back to the previous example, you can run it
+with ``c=True`` to speed up the computation
+
+>>> aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+>>> js= aAA(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
+
+We can plot the radial- and vertical-action fluctuation as a function
+of time
+
+>>> plot(ts,numpy.log10(numpy.fabs((js[0]-numpy.mean(js[0]))/numpy.mean(js[0]))))
+>>> plot(ts,numpy.log10(numpy.fabs((js[2]-numpy.mean(js[2]))/numpy.mean(js[2]))))
+
+which gives
+
+.. image:: images/MWPotential-adactions.png
+
+The radial action is conserved to about half a percent, the vertical
+action to two percent.
+
+The adiabatic approximation works well for orbits that stay close to
+the plane. The orbit we have been considering so far only reaches a
+height two percent of :math:`R_0`, or about 150 pc for :math:`R_0 = 8`
+kpc.
+
+>>> o.zmax()*8.
+0.1561562486879895
+
+For orbits that reach distances of a kpc and more from the plane, the
+adiabatic approximation does not work as well. For example,
+
+>>> o= Orbit([1.,0.1,1.1,0.,0.25])
+>>> o.integrate(ts,MWPotential)
+>>> o.zmax()*8.
+1.1288142099238863
+
+and we can again calculate the actions along the orbit
+
+>>> js= aAA(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
+>>> plot(ts,numpy.log10(numpy.fabs((js[0]-numpy.mean(js[0]))/numpy.mean(js[0]))))
+>>> plot(ts,numpy.log10(numpy.fabs((js[2]-numpy.mean(js[2]))/numpy.mean(js[2]))))
+
+which gives
+
+.. image:: images/MWPotential-adactions-highz.png
+
+The radial action is now only conserved to about ten percent and the
+vertical action to approximately five percent.
+
+.. WARNING::
+   Frequencies and angles using the adiabatic approximation are not implemented at this time.
+
 Action-angle coordinates using the Staeckel approximation
 -----------------------------------------------------------
 
