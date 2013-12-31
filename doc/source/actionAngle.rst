@@ -116,6 +116,10 @@ which gives
 
 The actions are all conserved. The angles increase linearly with time
 
+>>> plot(ts,jfa[6],'b.')
+>>> plot(ts,jfa[7],'g.')
+>>> plot(ts,jfa[8],'r.')
+
 .. image:: images/ip-tangles.png
 
 Action-angle coordinates for spherical potentials
@@ -173,8 +177,11 @@ which gives
 showing that the actions are all conserved. The angles again increase
 linearly with time
 
-.. image:: images/lp-tangles.png
+>>> plot(ts,jfa[6],'b.')
+>>> plot(ts,jfa[7],'g.')
+>>> plot(ts,jfa[8],'r.')
 
+.. image:: images/lp-tangles.png
 
 We can check the spherical action-angle calculations against the
 analytical calculations for the isochrone potential. Starting again
@@ -410,6 +417,43 @@ The radial action is now conserved to better than a percent and the
 vertical action to only a fraction of a percent. Clearly, this is much
 better than the five to ten percent errors found for the adiabatic
 approximation above.
+
+For the Staeckel approximation we can also calculate frequencies and
+angles through the ``actionsFreqs`` and ``actionsFreqsAngles``
+methods.
+
+.. WARNING:: Frequencies and angles using the Staeckel approximation
+   are *only* implemented in C. So use ``c=True`` in the setup of the
+   actionAngleStaeckel object.
+
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+>>> o= Orbit([1.,0.1,1.1,0.,0.25,0.]) #need to specify phi for angles
+>>> aAS.actionsFreqsAngles(o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
+(array([ 0.01576795]),
+ array([ 1.1]),
+ array([ 0.01346824]),
+ array([ 1.22171491]),
+ array([ 0.85773142]),
+ array([ 1.60476805]),
+ array([ 0.41881231]),
+ array([ 6.18908605]),
+ array([ 4.57359281]))
+
+and we can check that the angles increase linearly along the orbit
+
+>>> o.integrate(ts,MWPotential)
+>>> jfa= aAS.actionsFreqsAngles(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),o.phi(ts))
+>>> plot(ts,jfa[6],'b.')
+>>> plot(ts,jfa[7],'g.')
+>>> plot(ts,jfa[8],'r.')
+
+.. image:: images/MWPotential-tangles.png
+
+or
+
+>>> plot(jfa[6],jfa[8],'b.')
+
+.. image:: images/MWPotential-angles.png
 
 
 Action-angle coordinates using an orbit-integration-based approximation
