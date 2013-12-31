@@ -324,6 +324,94 @@ vertical action to approximately five percent.
 Action-angle coordinates using the Staeckel approximation
 -----------------------------------------------------------
 
+A better approximation than the adiabatic one is to locally
+approximate the potential as a Staeckel potential, for which actions,
+frequencies, and angles can be calculated through numerical
+integration. galpy contains an implementation of the algorithm of
+Binney (2012; `2012MNRAS.426.1324B
+<http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_), which
+accomplishes the Staeckel approximation for disk-like (i.e., oblate)
+potentials without explicitly fitting a Staeckel potential. For all
+intents and purposes the adiabatic approximation is made obsolete by
+this new method, which is as fast and more precise. The only advantage
+of the adiabatic approximation over the Staeckel approximation is that
+the Staeckel approximation requires the user to specify a *focal
+length* :math:`\Delta` to be used in the Staeckel
+approximation. However, this focal length can be easily estimated from
+the second derivatives of the potential (see Sanders 2012;
+`2012MNRAS.426..128S
+<http://adsabs.harvard.edu/abs/2012MNRAS.426..128S>`_).
+
+Starting from the second orbit example in the adiabatic section above,
+we first estimate a good focal length of the ``MWPotential`` to use in
+the Staeckel approximation. We do this by averaging (through the
+median) estimates at positions around the orbit (which we integrated
+in the example above)
+
+>>> from galpy.actionAngle import estimateDeltaStaeckel
+>>> estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=MWPotential)
+0.54421090762027347
+
+We will use :math:`\Delta = 0.55` in what follows. We set up the
+``actionAngleStaeckel`` object
+
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=False) #c=True is the default
+
+and calculate the actions
+
+>>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+(0.015760720988339319, 1.1000000000000001, 0.013466290557851267)
+
+The adiabatic approximation from above gives
+
+>>> aAA(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+(0.0138915441284973, 1.1000000000000001, 0.01383357354294852)
+
+The actionAngleStaeckel calculations are sped up in two ways. First,
+the action integrals can be calculated using Gaussian quadrature by
+specifying ``fixed_quad=True``
+
+>>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=True)
+(0.015767954890517084, 1.1000000000000001, 0.013468235165983522)
+
+which in itself leads to a ten times speed up
+
+>>> timeit(aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=False))
+10 loops, best of 3: 43.9 ms per loop
+>>> timeit(aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=True))
+100 loops, best of 3: 3.87 ms per loop
+
+Second, the actionAngleStaeckel calculations have also been
+implemented in C, which leads to even greater speed-ups, especially
+for arrays
+
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+>>> s= numpy.ones(100)
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+100 loops, best of 3: 2.37 ms per loop
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=False) #back to no C
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s,fixed_quad=True))
+1 loops, best of 3: 410 ms per loop
+
+or a *two hundred times* speed up.
+
+We can now go back to checking that the actions are conserved along
+the orbit
+
+>>> js= aAS(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),fixed_quad=True)
+>>> plot(ts,numpy.log10(numpy.fabs((js[0]-numpy.mean(js[0]))/numpy.mean(js[0]))))
+>>> plot(ts,numpy.log10(numpy.fabs((js[2]-numpy.mean(js[2]))/numpy.mean(js[2]))))
+
+which gives
+
+.. image:: images/MWPotential-stactions-highz.png
+
+The radial action is now conserved to better than a percent and the
+vertical action to only a fraction of a percent. Clearly, this is much
+better than the five to ten percent errors found for the adiabatic
+approximation above.
+
+
 Action-angle coordinates using an orbit-integration-based approximation
 -------------------------------------------------------------------------
 
