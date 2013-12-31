@@ -110,8 +110,8 @@ class actionAngleAdiabatic():
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
-                    ojr[ii]= tjr[0]
-                    ojz[ii]= tjz[0]
+                    ojr[ii]= tjr
+                    ojz[ii]= tjz
                     olz[ii]= tlz
                 return (ojr,olz,ojz)
             else:
