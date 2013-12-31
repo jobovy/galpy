@@ -133,8 +133,8 @@ class actionAngleStaeckel():
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
-                    ojr[ii]= tjr[0]
-                    ojz[ii]= tjz[0]
+                    ojr[ii]= tjr
+                    ojz[ii]= tjz
                     olz[ii]= tlz
                 return (ojr,olz,ojz)
             else:
@@ -443,7 +443,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        return nu.array([self._R*self._vT,0.])
+        return self._R*self._vT
 
     def JR(self,**kwargs):
         """
@@ -468,26 +468,26 @@ class actionAngleStaeckelSingle(actionAngle):
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-                *nu.array([integrate.fixed_quad(_JRStaeckelIntegrand,
-                                                umin,umax,
-                                                args=(self._E,self._Lz,self._I3U,
-                                                      self._delta,
-                                                      self._u0,self._sinhu0**2.,
-                                                      self._vx,self._sinvx**2.,
-                                                      self._potu0v0,self._pot),
-                                                n=10,
-                                                **kwargs)[0],nu.nan])
+                *integrate.fixed_quad(_JRStaeckelIntegrand,
+                                      umin,umax,
+                                      args=(self._E,self._Lz,self._I3U,
+                                            self._delta,
+                                            self._u0,self._sinhu0**2.,
+                                            self._vx,self._sinvx**2.,
+                                            self._potu0v0,self._pot),
+                                      n=10,
+                                      **kwargs)[0]
         else:
             if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-                *nu.array(integrate.quad(_JRStaeckelIntegrand,
-                                         umin,umax,
-                                         args=(self._E,self._Lz,self._I3U,
-                                               self._delta,
-                                               self._u0,self._sinhu0**2.,
-                                               self._vx,self._sinvx**2.,
-                                               self._potu0v0,self._pot),
-                                         **kwargs))
+                *integrate.quad(_JRStaeckelIntegrand,
+                                umin,umax,
+                                args=(self._E,self._Lz,self._I3U,
+                                      self._delta,
+                                      self._u0,self._sinhu0**2.,
+                                      self._vx,self._sinvx**2.,
+                                      self._potu0v0,self._pot),
+                                **kwargs)[0]
         return self._JR
 
     def Jz(self,**kwargs):
@@ -512,27 +512,27 @@ class actionAngleStaeckelSingle(actionAngle):
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
-                *nu.array([integrate.fixed_quad(_JzStaeckelIntegrand,
-                                                vmin,nu.pi/2,
-                                                args=(self._E,self._Lz,self._I3V,
-                                                      self._delta,
-                                                      self._ux,self._coshux**2.,
-                                                      self._sinhux**2.,
-                                                      self._potupi2,self._pot),
-                                                n=10,
-                                                **kwargs)[0],nu.nan])
+                *integrate.fixed_quad(_JzStaeckelIntegrand,
+                                      vmin,nu.pi/2,
+                                      args=(self._E,self._Lz,self._I3V,
+                                            self._delta,
+                                            self._ux,self._coshux**2.,
+                                            self._sinhux**2.,
+                                            self._potupi2,self._pot),
+                                      n=10,
+                                      **kwargs)[0]
         else:
             if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
-                *nu.array(integrate.quad(_JzStaeckelIntegrand,
-                                         vmin,nu.pi/2,
-                                         args=(self._E,self._Lz,self._I3V,
-                                               self._delta,
-                                               self._ux,self._coshux**2.,
-                                               self._sinhux**2.,
-                                               self._potupi2,self._pot),
-                                         **kwargs))
+                *integrate.quad(_JzStaeckelIntegrand,
+                                vmin,nu.pi/2,
+                                args=(self._E,self._Lz,self._I3V,
+                                      self._delta,
+                                      self._ux,self._coshux**2.,
+                                      self._sinhux**2.,
+                                      self._potupi2,self._pot),
+                                **kwargs)[0]
         return self._JZ
 
     def calcEL(self,**kwargs):
