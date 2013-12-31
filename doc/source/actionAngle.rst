@@ -1,9 +1,6 @@
 Action-angle coordinates
 =========================
 
-.. WARNING::
-   The action-angle modules are currently being re-developed, so much of the documentation on this page is severely out-of-date!
-
 galpy can calculate actions and angles for a large variety of
 potentials (any time-independent potential in principle). These are
 implemented in a separate module ``galpy.actionAngle``, and the
