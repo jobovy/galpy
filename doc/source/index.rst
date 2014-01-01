@@ -27,9 +27,9 @@ Quick-start guide
 
    orbit.rst
 
-   diskdf.rst
-
    actionAngle.rst
+
+   diskdf.rst
 
 Library reference
 -----------------
