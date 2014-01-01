@@ -183,8 +183,10 @@ that the output profiles more closely resemble the desired profiles
 (see `1999AJ....118.1201D
 <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_). galpy supports
 the calculation of these corrections, and comes with some
-pre-calculated corrections. For example, the following initializes a
-``dehnendf`` with corrections up to 20th order (the default)
+pre-calculated corrections (these can be found `here
+<http://github.com/jobovy/galpy#disk-df-corrections>`_). For example,
+the following initializes a ``dehnendf`` with corrections up to 20th
+order (the default)
 
 >>> dfc= dehnendf(beta=0.,correct=True)
 
@@ -219,6 +221,43 @@ and (correct) asymmetric drift
 That this still does not agree with the simple ``dfc.asymmetricdrift``
 estimate is because of the latter's using the epicycle approximation
 for the ratio of the velocity dispersions.
+
+
+Oort constants and functions
+------------------------------
+
+galpy also contains methods to calculate the Oort functions for
+two-dimensional disk distribution functions. These are known as the
+*Oort constants* when measured in the solar neighborhood. They are
+combinations of the mean velocities and derivatives thereof. galpy
+calculates these by direct integration over the DF and derivatives of
+the DF. Thus, we can calculate
+
+>>> dfc= dehnendf(beta=0.)
+>>> dfc.oortA(1.)
+0.43190780889218749
+>>> dfc.oortB(1.)
+-0.48524496090228575
+
+The *K* and *C* Oort constants are zero for axisymmetric DFs
+
+>>> dfc.oortC(1.)
+0.0
+>>> dfc.oortK(1.)
+0.0
+
+In the epicycle approximation, for a flat rotation curve *A* =- *B* =
+0.5. The explicit calculates of *A* and *B* for warm DFs quantify how
+good (or bad) this approximation is
+
+>>> dfc.oortA(1.)+dfc.oortB(1.)
+-0.053337152010098254
+
+For the cold DF from above the approximation is much better
+
+>>> dfccold= dehnendf(beta=0.,profileParams=(1./3.,1.,0.02))
+>>> dfccold.oortA(1.), dfccold.oortB(1.)
+(0.49917556666144003, -0.49992824742490816)
 
 
 Sampling data from the DF
@@ -274,3 +313,39 @@ radial range. If we sample 10,000 points in ``rrange=[0.95,1.05]`` the
 agreement is better (this takes a long time):
 
 .. image:: images/basic-df-samplevTmore.png
+
+We can also directly sample velocities at a given radius rather than
+in a range of radii. Doing this for a correct DF gives
+
+>>> dfc= dehnendf(beta=0.,correct=True)
+>>> vrvt= dfc.sampleVRVT(1.)
+>>> hists, bins, edges= hist(vrvt[:,1],range=[.5,1.5],normed=True,bins=101)
+>>> xs= numpy.array([(bins[ii+1]+bins[ii])/2. for ii in range(len(bins)-1)])
+>>> dfro= [dfc(Orbit([1.,0.,x])) for x in xs]
+>>> plot(xs,dfro/numpy.sum(dfro)/(xs[1]-xs[0]),'r-')
+
+.. image:: images/basic-df-samplevTatR.png
+
+galpy further has support for sampling along a given line of sight in
+the disk, which is useful for interpreting surveys consisting of a
+finite number of pointings. For example, we can sampled distances
+along a given line of sight
+
+>>> ds= dfc.sampledSurfacemassLOS(30./180.*numpy.pi,n=10000)
+
+which is very fast. We can histogram these
+
+>>> hists, bins, edges= hist(ds,range=[0.,3.5],normed=True,bins=101)
+
+and compare it to the predicted distribution, which we can calculate as
+
+>>> xs= numpy.array([(bins[ii+1]+bins[ii])/2. for ii in range(len(bins)-1)])
+>>> fd= numpy.array([dfc.surfacemassLOS(d,30.) for d in xs])
+>>> plot(xs,fd/numpy.sum(fd)/(xs[1]-xs[0]),'r-')
+
+which shows very good agreement with the sampled distances
+
+.. image:: images/basic-df-sampled.png
+
+galpy can further sample full 4D phase--space coordinates along a
+given line of sight through ``dfc.sampleLOS``.
