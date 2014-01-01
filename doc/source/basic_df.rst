@@ -166,8 +166,11 @@ velocity
 >>> 1.-dfc.meanvT(1.)
 0.082847230205526756
 
-These are not the same because of the difference between the input and
-output surface-density and velocity-dispersion profiles.
+These are not the same in part because of the difference between the
+input and output surface-density and velocity-dispersion profiles (and
+because the ``asymmetricdrift`` method assumes that the ratio of the
+velocity dispersions squared is two using the epicycle approximation;
+see above).
 
 Using corrected disk distribution functions
 -----------------------------------------------
@@ -197,7 +200,25 @@ and the same for the velocity-dispersion profile
 
 galpy will automatically save any new corrections that you calculate. 
 
+All of the methods for an uncorrected disk DF can be used for the
+corrected DFs as well. For example, the velocity dispersion is now 
 
+>>> numpy.sqrt(dfc.sigmaR2(1.))
+0.19999985069451526
+
+and the mean rotation velocity is
+
+>>> dfc.meanvT(1.)
+0.90355161181498711
+
+and (correct) asymmetric drift
+
+>>> 1.-dfc.meanvT(1.)
+0.09644838818501289
+
+That this still does not agree with the simple ``dfc.asymmetricdrift``
+estimate is because of the latter's using the epicycle approximation
+for the ratio of the velocity dispersions.
 
 
 Sampling data from the DF
