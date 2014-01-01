@@ -349,3 +349,57 @@ which shows very good agreement with the sampled distances
 
 galpy can further sample full 4D phase--space coordinates along a
 given line of sight through ``dfc.sampleLOS``.
+
+Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar 
+---------------------------------------------------------------------------------------
+.. _hercules:
+
+We can combine the orbit integration capabilities of galpy with the
+provided distribution functions and see the effect of the Galactic bar
+on stellar velocities. By backward integrating orbits starting at the
+Solar position in a potential that includes the Galactic bar we can
+evaluate what the velocity distribution is that we should see today if
+the Galactic bar stirred up a steady-state disk. For this we
+initialize a flat rotation curve potential and Dehnen's bar potential
+
+>>> from galpy.potential import LogarithmicHaloPotential, DehnenBarPotential
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> dp= DehnenBarPotential()
+
+The Dehnen bar potential is initialized to start bar formation four bar
+periods before the present day and to have completely formed the bar two
+bar periods ago. We can integrate back to the time before
+bar-formation:
+
+>>> ts= numpy.linspace(0,dp.tform(),1000)
+
+where ``dp.tform()`` is the time of bar-formation (in the usual
+time-coordinates).
+
+We initialize orbits on a grid in velocity space and integrate them
+
+>>> ins=[[Orbit([1.,-0.7+1.4/100*jj,1.-0.6+1.2/100*ii,0.]) for jj in range(101)] for ii in range(101)]
+>>> int=[[o.integrate(ts,[lp,dp]) for o in j] for j in ins]
+
+We can then evaluate the weight of these orbits by assuming that the
+disk was in a steady-state before bar-formation with a Dehnen
+distribution function. We evaluate the Dehnen distribution function at
+``dp.tform()`` for each of the orbits
+
+>>> dfc= dehnendf(beta=0.,correct=True)
+>>> out= [[dfc(o(dp.tform())) for o in j] for j in ins]
+>>> out= numpy.array(out)
+
+This gives
+
+>>> from galpy.util.bovy_plot import bovy_dens2d
+>>> bovy_dens2d(out,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
+
+.. image:: images/diskdf-dehnenhercules.png
+
+For more information see `2000AJ....119..800D
+<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_ and
+`2010ApJ...725.1676B
+<http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_. Note that the
+x-axis in the Figure above is defined as minus the x-axis in these
+papers.
