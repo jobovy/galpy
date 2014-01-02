@@ -40,3 +40,7 @@ these corrections is expensive, and a large set of precalculated
 corrections can be found
 [here](https://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz) \[tar.gz
 archive\].
+
+##DEVELOPMENT
+
+Some development notes can be found on the [wiki](wiki).
