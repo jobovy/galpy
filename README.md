@@ -43,4 +43,4 @@ archive\].
 
 ##DEVELOPMENT
 
-Some development notes can be found on the [wiki](wiki).
+Some development notes can be found on the [wiki](http://github.com/jobovy/galpy/wiki/).
