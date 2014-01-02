@@ -100,8 +100,11 @@ class quasiisothermaldf:
                  if there is a time given as well
 
            log= if True, return the natural log
+
            +scipy.integrate.quadrature kwargs
+
            func= function of (jr,lz,jz) to multiply f with (useful for moments)
+
         OUTPUT:
            value of DF
         HISTORY:
@@ -226,8 +229,11 @@ class quasiisothermaldf:
            estimate the exponential scale length at R
         INPUT:
            R - Galactocentric radius
+
            z= height (default: 0 pc)
+
            dR- range in R to use
+
            density kwargs
         OUTPUT:
            estimated hR
@@ -251,7 +257,9 @@ class quasiisothermaldf:
            estimate the exponential scale height at R
         INPUT:
            R - Galactocentric radius
+
            dz - z range to use
+
            density kwargs
         OUTPUT:
            estimated hz
@@ -275,8 +283,11 @@ class quasiisothermaldf:
            estimate the exponential scale length of the radial dispersion at R
         INPUT:
            R - Galactocentric radius
+
            z= height (default: 0 pc)
+
            dR- range in R to use
+
            density kwargs
         OUTPUT:
            estimated hsR
@@ -296,8 +307,11 @@ class quasiisothermaldf:
            estimate the exponential scale length of the vertical dispersion at R
         INPUT:
            R - Galactocentric radius
+
            z= height (default: 0 pc)
+
            dR- range in R to use
+
            density kwargs
         OUTPUT:
            estimated hsz
@@ -318,10 +332,15 @@ class quasiisothermaldf:
            calculate the vertically-integrated surface density
         INPUT:
            R - Galactocentric radius
+
            fixed_quad= if True (default), use Gauss-Legendre integration
+
            fixed_order= (20), order of GL integration to use
+
            nz= number of zs to use to estimate
+
            zmax=m minimum z to use
+
            density kwargs
         OUTPUT:
            \Sigma(R)
@@ -359,17 +378,28 @@ class quasiisothermaldf:
            at R times the density
         INPUT:
            R - radius at which to calculate the moment(/ro)
+
            n - vR^n
+
            m - vT^m
+
            o - vz^o
+
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= use Gauss-Legendre
+
            _returngl= if True, return the evaluated DF
+
            _return_actions= if True, return the evaluated actions (does not work with _returngl currently)
+
            _return_freqs= if True, return the evaluated frequencies and rg (does not work with _returngl currently)
+
         OUTPUT:
            <vR^n vT^m  x density> at R,z
         HISTORY:
@@ -545,13 +575,20 @@ class quasiisothermaldf:
            at R times the surfacmass
         INPUT:
            R - radius at which to calculate the moment(/ro)
+
            n - jr^n
+
            m - lz^m
+
            o - jz^o
+
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
         OUTPUT:
            <jr^n lz^m jz^o  x density> at R
         HISTORY:
@@ -605,14 +642,22 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the density at R,z by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate the density
+
            z - height at which to calculate the density
+
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
         OUTPUT:
            density at (R,z)
@@ -632,15 +677,24 @@ class quasiisothermaldf:
         PURPOSE:
            calculate sigma_R^2 by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            sigma_R^2
         HISTORY:
@@ -679,15 +733,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate sigma_RZ^2 by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            sigma_Rz^2
         HISTORY:
@@ -726,15 +790,24 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the tilt of the velocity ellipsoid by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            tilt in degree
         HISTORY:
@@ -786,15 +859,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate sigma_z^2 by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            sigma_z^2
         HISTORY:
@@ -833,15 +916,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate sigma_R^2 by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            meanvT
         HISTORY:
@@ -880,15 +973,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the mean radial velocity by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            meanvR
         HISTORY:
@@ -927,15 +1030,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the mean vertical velocity by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            meanvz
         HISTORY:
@@ -974,15 +1087,25 @@ class quasiisothermaldf:
         PURPOSE:
            calculate sigma_T^2 by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
            gl= if True, calculate using Gauss-Legendre integration
+
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
            sigma_T^2
         HISTORY:
@@ -1033,13 +1156,21 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the mean radial action by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
         OUTPUT:
            meanjr
         HISTORY:
@@ -1068,13 +1199,21 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the mean angular momemtum by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
         OUTPUT:
            meanlz
         HISTORY:
@@ -1103,13 +1242,21 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the mean vertical action by marginalizing over velocity
         INPUT:
+
            R - radius at which to calculate this
+
            z - height at which to calculate this
+
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
+
            scipy.integrate.tplquad kwargs epsabs and epsrel
+
            mc= if True, calculate using Monte Carlo integration
+
            nmc= if mc, use nmc samples
+
         OUTPUT:
            meanjz
         HISTORY:
@@ -1138,9 +1285,13 @@ class quasiisothermaldf:
         PURPOSE:
            sample a radial, azimuthal, and vertical velocity at R,z
         INPUT:
+
            R - Galactocentric distance
+
            z - height
+
            n= number of distances to sample
+
         OUTPUT:
            list of samples
         HISTORY:
@@ -1185,11 +1336,17 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the marginalized vR probability at this location (NOT normalized by the density)
         INPUT:
+
            vR - radial velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vR,R,z)
         HISTORY:
@@ -1246,11 +1403,17 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the marginalized vT probability at this location (NOT normalized by the density)
         INPUT:
+
            vT - tangential velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vT,R,z)
         HISTORY:
@@ -1322,10 +1485,15 @@ class quasiisothermaldf:
            calculate the marginalized vz probability at this location (NOT normalized by the density)
         INPUT:
            vz - vertical velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vz,R,z)
         HISTORY:
@@ -1449,12 +1617,19 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the marginalized (vR,vT) probability at this location (NOT normalized by the density)
         INPUT:
+
            vR - radial velocity (/vo)
+
            vT - tangential velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vR,vT,R,z)
         HISTORY:
@@ -1504,12 +1679,19 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the marginalized (vT,vz) probability at this location (NOT normalized by the density)
         INPUT:
+
            vT - tangential velocity (/vo)
+
            vz - vertical velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vT,vz,R,z)
         HISTORY:
@@ -1559,12 +1741,19 @@ class quasiisothermaldf:
         PURPOSE:
            calculate the marginalized (vR,vz) probability at this location (NOT normalized by the density)
         INPUT:
+
            vR - radial velocity (/vo)
+
            vz - vertical velocity (/vo)
+
            R - radius (/ro)
+
            z - height (/ro)
+
            gl - use Gauss-Legendre integration (True, currently the only option)
+
            ngl - order of Gauss-Legendre integration
+
         OUTPUT:
            p(vR,vz,R,z)
         HISTORY:

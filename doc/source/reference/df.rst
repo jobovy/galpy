@@ -1,8 +1,11 @@
 DF
 ===
 
-Disk distribution functions
----------------------------
+Two-dimensional Disk distribution functions
+---------------------------------------------
+
+Distribution function for orbits in the plane of a galactic
+disk. 
 
 General instance routines
 +++++++++++++++++++++++++
@@ -54,6 +57,58 @@ Specific distribution functions
 
    Dehnen DF <dfdehnen.rst>
    Shu DF <dfshu.rst>
+
+
+Three-dimensional Disk distribution functions
+----------------------------------------------
+
+Distribution functions for orbits in galactic disks, including the
+vertical motion for stars reaching large heights above the
+plane. Currently only the *quasi-isothermal DF*.
+
+General instance routines
++++++++++++++++++++++++++
+
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <quasidfcall.rst>
+   density <quasidfdensity.rst>
+   estimate_hr <quasidfestimatehr.rst>
+   estimate_hsr <quasidfestimatehsr.rst>
+   estimate_hsz <quasidfestimatehsz.rst>
+   estimate_hz <quasidfestimatehz.rst>
+   jmomentdensity <quasidfjmomentdensity.rst>
+   meanjr <quasidfmeanjr.rst>
+   meanjz <quasidfmeanjz.rst>
+   meanlz <quasidfmeanlz.rst>
+   meanvR <quasidfmeanvr.rst>
+   meanvT <quasidfmeanvt.rst>
+   meanvz <quasidfmeanvz.rst>
+   pvR <quasidfpvr.rst>
+   pvRvT <quasidfpvrvt.rst>
+   pvRvz <quasidfpvrvz.rst>
+   pvT <quasidfpvt.rst>
+   pvTvz <quasidfpvtvz.rst>
+   pvz <quasidfpvz.rst>
+   sampleV <quasidfsamplev.rst>
+   sigmaR2 <quasidfsigmar2.rst>
+   sigmaRz <quasidfsigmarz.rst>
+   sigmaT2 <quasidfsigmat2.rst>
+   sigmaz2 <quasidfsigmaz2.rst>
+   surfacemass_z <quasidfsurfacemass_z.rst>
+   tilt <quasidftilt.rst>
+   vmomentdensity <quasidfvmomentdensity.rst>
+
+
+Specific distribution functions
++++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   quasiisothermal DF <dfquasiisothermal.rst>
 
 
 ..
