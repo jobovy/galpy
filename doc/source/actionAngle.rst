@@ -640,6 +640,60 @@ illustrate this here with any real triaxial potentials.
 Accessing action-angle coordinates for Orbit instances
 ----------------------------------------------------------
 
+While the recommended way to access the actionAngle routines is
+through the methods in the ``galpy.actionAngle`` modules, action-angle
+coordinates can also be cacluated for ``galpy.orbit.Orbit``
+instances. This is illustrated here briefly. We initialize an Orbit
+instance
+
+>>> from galpy.orbit import Orbit
+>>> from galpy.potential import MWPotential
+>>> o= Orbit([1.,0.1,1.1,0.,0.25,0.])
+
+and we can then calculate the actions (default is to use the adiabatic
+approximation)
+
+>>> o.jr(MWPotential), o.jp(MWPotential), o.jz(MWPotential)
+(0.0138915441284973, 1.1, 0.01383357354294852)
+
+``o.jp`` here gives the azimuthal action (which is the *z* component
+of the angular momentum for axisymmetric potentials). We can also use
+the other methods described above, but note that these require extra
+parameters related to the approximation to be specified (see above):
+
+>>> o.jr(MWPotential,type='staeckel',delta=0.55), o.jp(MWPotential,type='staeckel',delta=0.55), o.jz(MWPotential,type='staeckel',delta=0.55)
+(array([ 0.01576795]), array([ 1.1]), array([ 0.01346824]))
+>>> o.jr(MWPotential,type='isochroneApprox',b=0.8), o.jp(MWPotential,type='isochroneApprox',b=0.8), o.jz(MWPotential,type='isochroneApprox',b=0.8)
+(array([ 0.0155484]), array([ 1.1]), array([ 0.01350128]))
+
+These two methods give very precise actions for this orbit (both are
+converged to about 1%) and they agree very well
+
+>>> (o.jr(MWPotential,type='staeckel',delta=0.55)-o.jr(MWPotential,type='isochroneApprox',b=0.8))/o.jr(MWPotential,type='isochroneApprox',b=0.8)
+array([ 0.01412076])
+>>>  (o.jz(MWPotential,type='staeckel',delta=0.55)-o.jz(MWPotential,type='isochroneApprox',b=0.8))/o.jz(MWPotential,type='isochroneApprox',b=0.8)
+array([-0.00244754])
+
+We can also calculate the frequencies and the angles. This requires
+using the Staeckel or Isochrone approximations, because frequencies
+and angles are currently not supported for the adiabatic
+approximation. For example, the radial frequency
+
+>>> o.Or(MWPotential,type='staeckel',delta=0.55)
+1.2217149111363643
+>>> o.Or(MWPotential,type='isochroneApprox',b=0.8)
+1.222457055706389
+
+and the radial angle
+
+>>> o.wr(MWPotential,type='staeckel',delta=0.55)
+0.4188123062144965
+>>> o.wr(MWPotential,type='isochroneApprox',b=0.8)
+0.42281897179881867
+
+which again agree to 1%. We can also calculate the other frequencies,
+angles, as well as periods using the functions ``o.Op``, ``o.oz``,
+``o.wp``, ``o.wz``, ``o.Tr``, ``o.Tp``, ``o.Tz``.
 
 Example: Evidence for a Lindblad resonance in the Solar neighborhood
 ---------------------------------------------------------------------
