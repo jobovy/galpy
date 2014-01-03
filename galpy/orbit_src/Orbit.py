@@ -614,7 +614,7 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[0][0]
+        return self._orb._aA(self)[0]
 
     def jp(self,pot=None,**kwargs):
         """
@@ -690,7 +690,7 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[2][0]
+        return self._orb._aA(self)[2]
 
     def wr(self,pot=None,**kwargs):
         """
