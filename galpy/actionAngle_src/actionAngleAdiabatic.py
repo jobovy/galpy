@@ -33,7 +33,9 @@ class actionAngleAdiabatic():
         PURPOSE:
            initialize an actionAngleAdiabatic object
         INPUT:
+
            pot= potential or list of potentials (planarPotentials)
+
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
         OUTPUT:
         HISTORY:

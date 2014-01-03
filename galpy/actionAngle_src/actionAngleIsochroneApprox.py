@@ -6,7 +6,7 @@
 #             Calculate actions-angle coordinates for any potential by using 
 #             an isochrone potential as an approximate potential and using 
 #             a Fox & Binney (2013?) + torus machinery-like algorithm 
-#             (angle-fit)
+#             (angle-fit) (Bovy 2014)
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
@@ -24,7 +24,7 @@ from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 class actionAngleIsochroneApprox():
-    """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2013?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies"""
+    """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
@@ -32,16 +32,25 @@ class actionAngleIsochroneApprox():
         PURPOSE:
            initialize an actionAngleIsochroneApprox object
         INPUT:
+
            Either:
+
               b= scale parameter of the isochrone parameter
+
               ip= instance of a IsochronePotential
+
               aAI= instance of an actionAngleIsochrone
+
            pot= potential to calculate action-angle variables for
+
            tintJ= (default: 100) time to integrate orbits for to estimate 
                   actions
+
            ntintJ= (default: 10000) number of time-integration points
                   actions
+
            integrate_method= (default: 'dopr54_c') integration method to use
+
         OUTPUT:
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)

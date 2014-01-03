@@ -36,8 +36,12 @@ class actionAngleStaeckel():
            initialize an actionAngleStaeckel object
         INPUT:
            pot= potential or list of potentials (3D)
+
            delta= focus
+
            useu0 - use u0 to calculate dV (NOT recommended)
+
+           c= if True, always use C for calculations
         OUTPUT:
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)

@@ -43,6 +43,8 @@ Library reference
 
    reference/df.rst
 
+   reference/aa.rst
+
    reference/util.rst
 
 Papers using galpy

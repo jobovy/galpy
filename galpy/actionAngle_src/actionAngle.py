@@ -59,6 +59,92 @@ class actionAngle:
             else: self._theta= m.atan(self._R/self._z)
         return None
 
+    def __call__(self,*args,**kwargs):
+        """
+        NAME:
+           __call__
+        PURPOSE:
+           evaluate the actions (jr,lz,jz)
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz:
+
+                 1) floats: phase-space value for single object
+
+                 2) numpy.ndarray: [N] phase-space values for N objects 
+
+                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
+                    times
+
+              b) Orbit instance or list thereof; can be integrated already
+
+        OUTPUT:
+           (jr,lz,jz)
+        HISTORY:
+           2014-01-03 - Written for top level - Bovy (IAS)
+        """
+        raise NotImplementedError("'__call__' method not implemented for this actionAngle module")
+
+    def actionsFreqs(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqs
+        PURPOSE:
+           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz:
+
+                 1) floats: phase-space value for single object
+
+                 2) numpy.ndarray: [N] phase-space values for N objects 
+
+                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
+                    times
+
+              b) Orbit instance or list thereof; can be integrated already
+
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+        HISTORY:
+           2014-01-03 - Written for top level - Bovy (IAS)
+        """
+        raise NotImplementedError("'actionsFreqs' method not implemented for this actionAngle module")
+
+    def actionsFreqsAngles(self,*args,**kwargs):
+        """
+        NAME:
+           actionsFreqsAngles
+        PURPOSE:
+           evaluate the actions, frequencies, and angles 
+           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz:
+
+                 1) floats: phase-space value for single object
+
+                 2) numpy.ndarray: [N] phase-space values for N objects 
+
+                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
+                    times
+
+              b) Orbit instance or list thereof; can be integrated already
+
+        OUTPUT:
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+        HISTORY:
+           2014-01-03 - Written for top level - Bovy (IAS)
+        """
+        raise NotImplementedError("'actionsFreqsAngles' method not implemented for this actionAngle module")
+
+
 class UnboundError(Exception):
     def __init__(self, value):
         self.value = value

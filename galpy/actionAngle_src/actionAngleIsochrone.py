@@ -25,7 +25,9 @@ class actionAngleIsochrone():
            initialize an actionAngleIsochrone object
         INPUT:
            Either:
+
               b= scale parameter of the isochrone parameter
+
               ip= instance of a IsochronePotential
         OUTPUT:
         HISTORY:

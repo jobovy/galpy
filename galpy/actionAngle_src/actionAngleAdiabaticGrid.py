@@ -30,13 +30,21 @@ class actionAngleAdiabaticGrid():
         PURPOSE:
            initialize an actionAngleAdiabaticGrid object
         INPUT:
+
            pot= potential or list of potentials
+
            zmax= zmax for building Ez grid
+
            Rmax = Rmax for building grids
+
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
+
            nEz=, nEr=, nLz, nR= grid size
+
            numcores= number of cpus to use to parallellize
+
            c= if True, use C to calculate actions
+
            +scipy.integrate.quad keywords
         OUTPUT:
         HISTORY:
