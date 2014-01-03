@@ -456,6 +456,187 @@ or
 Action-angle coordinates using an orbit-integration-based approximation
 -------------------------------------------------------------------------
 
+The adiabatic and Staeckel approximations used above are good for
+stars on close-to-circular orbits, but they break down for more
+eccentric orbits (specifically, orbits for which the radial and/or
+vertical action is of a similar magnitude as the angular
+momentum). This is because the approximations made to the potential in
+these methods (that it is separable in *R* and *z* for the adiabatic
+approximation and that it is close to a Staeckel potential for the
+Staeckel approximation) break down for such orbits. Unfortunately,
+these methods cannot be refined to provide better approximations for
+eccentric orbits.
+
+galpy contains a new method for calculating actions, frequencies, and
+angles that is completely general for any static potential. It can
+calculate the actions to any desired precision for any orbit in such
+potentials. The method works by employing an auxiliary isochrone
+potential and calculates action-angle variables by arithmetic
+operations on the actions and angles calculated in the auxiliary
+potential along an orbit (integrated in the true potential). Full
+details can be found in Appendix A of Bovy (2014).
+
+We setup this method for a logarithmic potential as follows
+
+>>> from galpy.actionAngle import actionAngleIsochroneApprox
+>>> from galpy.potential import LogarithmicHaloPotential
+>>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+>>> aAIA= actionAngleIsochroneApprox(pot=lp,b=0.8)
+
+``b=0.8`` here sets the scale parameter of the auxiliary isochrone
+potential; this potential can also be specified as an
+IsochronePotential instance through ``ip=``). We can now calculate the
+actions for an orbit similar to that of the GD-1 stream
+
+>>> obs= numpy.array([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596]) #orbit similar to GD-1
+>>> aAIA(*obs)
+(array([ 0.16605011]), array([-1.80322155]), array([ 0.50704439]))
+
+An essential requirement of this method is that the angles calculated
+in the auxiliary potential go through the full range
+:math:`[0,2\pi]`. If this is not the case, galpy will raise a warning
+
+>>> aAIA= actionAngleIsochroneApprox(pot=lp,b=10.8)
+>>> aAIA(*obs)
+galpyWarning: Full radial angle range not covered for at least one object; actions are likely not reliable
+(array([ 0.08985167]), array([-1.80322155]), array([ 0.50849276]))
+
+Therefore, some care should be taken to choosing a good auxiliary
+potential. galpy contains a method to estimate a decent scale
+parameter for the auxiliary scale parameter, which works similar to
+``estimateDeltaStaeckel`` above except that it also gives a minimum
+and maximum b if multiple *R* and *z* are given
+
+>>> from galpy.actionAngle import estimateBIsochrone
+>>> from galpy.orbit import Orbit
+>>> o= Orbit(obs)
+>>> ts= numpy.linspace(0.,100.,1001)
+>>> o.integrate(ts,lp)
+>>> estimateBIsochrone(o.R(ts),o.z(ts),pot=lp)
+(0.78065062339131952, 1.2265541473461612, 1.4899326335155412) #bmin,bmedian,bmax over the orbit
+
+Experience shows that a scale parameter somewhere in the range
+returned by this function makes sure that the angles go through the
+full :math:`[0,2\pi]` range. However, even if the angles go through
+the full range, the closer the angles increase to linear, the better
+the converenge of the algorithm is (and especially, the more accurate
+the calculation of the frequencies and angles is, see below). For
+example, for the scale parameter at the upper and of the range
+
+>>> aAIA= actionAngleIsochroneApprox(pot=lp,b=1.5)
+>>> aAIA(*obs)
+(array([ 0.01120145]), array([-1.80322155]), array([ 0.50788893]))
+
+which does not agree with the previous calculation. We can inspect how
+the angles increase and how the actions converge by using the
+``aAIA.plot`` function. For example, we can plot the radial versus the
+vertical angle in the auxiliary potential
+
+>>> aAIA.plot(*obs,type='araz')
+
+which gives
+
+.. image:: images/aAIA-b1.5-araz.png 
+
+and this clearly shows that the angles increase *very* non-linearly,
+because the auxiliary isochrone potential used is too far from the
+real potential. This causes the actions to converge only very
+slowly. For example, for the radial action we can plot the converge as a function of integration time
+
+>>> aAIA.plot(*obs,type='jr')
+
+which gives
+
+.. image:: images/aAIA-b1.5-jr.png
+
+This Figure clearly shows that the radial action has not converged
+yet. We need to integrate *much* longer in this auxiliary potential to
+obtain convergence and because the angles increase so non-linearly, we also need to integrate the orbit much more finely:
+
+>>> aAIA= actionAngleIsochroneApprox(pot=lp,b=1.5,tintJ=1000,ntintJ=800000)
+>>> aAIA(*obs)
+(array([ 0.01711635]), array([-1.80322155]), array([ 0.51008058]))
+>>> aAIA.plot(*obs,type='jr')
+
+which shows slow convergence
+
+.. image:: images/aAIA-b1.5-jrlong.png
+
+Finding a better auxiliary potential makes convergence *much* faster
+and also allows the frequencies and the angles to be calculated by
+removing the small wiggles in the auxiliary angles vs. time (in the
+angle plot above, the wiggles are much larger, such that removing them
+is hard). The auxiliary potential used above had ``b=0.8``, which
+shows very quick converenge and good behavior of the angles
+
+>>> aAIA= actionAngleIsochroneApprox(pot=lp,b=0.8)
+>>> aAIA.plot(*obs,type='jr')
+
+gives
+
+.. image:: images/aAIA-b0.8-jr.png
+
+and 
+
+>>> aAIA.plot(*obs,type='araz')
+
+gives
+
+.. image:: images/aAIA-b0.8-araz.png
+
+We can remove the periodic behavior from the angles, which clearly
+shows that they increase close-to-linear with time
+
+>>> aAIA.plot(*obs,type='araz',deperiod=True)
+
+.. image:: images/aAIA-b0.8-arazdeperiod.png
+
+We can then calculate the frequencies and the angles for this orbit as
+
+>>> aAIA.actionsFreqsAngles(*obs)
+(array([ 0.16392384]),
+ array([-1.80322155]),
+ array([ 0.50999882]),
+ array([ 0.55808933]),
+ array([-0.38475753]),
+ array([ 0.42199713]),
+ array([ 0.18739688]),
+ array([ 0.3131815]),
+ array([ 2.18425661]))
+
+This function takes as an argument ``maxn=`` the maximum *n* for which
+to remove sinusoidal wiggles. So we can raise this, for example to 4
+from 3
+
+>>> aAIA.actionsFreqsAngles(*obs,maxn=4)
+(array([ 0.16392384]),
+ array([-1.80322155]),
+ array([ 0.50999882]),
+ array([ 0.55808776]),
+ array([-0.38475733]),
+ array([ 0.4219968]),
+ array([ 0.18732009]),
+ array([ 0.31318534]),
+ array([ 2.18421296]))
+
+Clearly, there is very little change, as most of the wiggles are of
+low *n*.
+
+.. WARNING:: While the orbit-based actionAngle technique in principle works for triaxial potentials, angles and frequencies for non-axisymmetric potentials are not implemented yet. 
+
+This technique also works for triaxial potentials, but using those
+requires the code to also use the azimuthal angle variable in the
+auxiliary potential (this is unnecessary in axisymmetric potentials as
+the *z* component of the angular momentum is conserved). We can
+calculate actions for triaxial potentials by specifying that
+``nonaxi=True``:
+
+>>> aAIA(*obs,nonaxi=True)
+(array([ 0.16605011]), array([-1.80322155]), array([ 0.50704439]))
+
+galpy currently does not contain any triaxial potentials, so we cannot
+illustrate this here with any real triaxial potentials.
+
 Accessing action-angle coordinates for Orbit instances
 ----------------------------------------------------------
 
