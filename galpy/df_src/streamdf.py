@@ -2,8 +2,12 @@
 import copy
 import numpy
 import multiprocessing
+import scipy
 from scipy import special, interpolate, integrate
-from scipy.misc import logsumexp
+if scipy.__version__.split('.')[1] < 10:
+    from scipy.maxentropy import logsumexp
+else:
+    from scipy.misc import logsumexp
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
