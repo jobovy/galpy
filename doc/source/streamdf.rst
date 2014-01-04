@@ -29,9 +29,16 @@ generation of the stream in action space
 The color-coding gives the angular momentum :math:`J_\phi` and the
 black dot shows the progenitor orbit. These actions were calculated
 using ``galpy.actionAngle.actionAngleIsochroneApprox``. The points
-move slightly because of small errors in the action calculation. The
-angle difference between stars in a stream and the progenitor
-increases linearly with time, which is shown in the following movie:
+move slightly because of small errors in the action calculation (these
+are correlated, so the cloud of points moves coherently because of
+calculation errors). The same movie that also shows the actions of
+stars in the cluster can be found `here
+<http://sns.ias.edu/~bovy/streams/gd1-sim/gd1_evol_aai_jrjzlz.mpg>`_. This
+shows that the actions of stars in the cluster are not conserved
+(because the self-gravity of the cluster is important), but that the
+actions of stream members freeze once they are stripped. The angle
+difference between stars in a stream and the progenitor increases
+linearly with time, which is shown in the following movie:
 
 .. raw:: html
 
