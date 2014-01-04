@@ -928,6 +928,7 @@ class OrbitTop:
               1) 'adiabatic'
               2) 'staeckel'
               3) 'isochroneApprox'
+              4) 'spherical'
         OUTPUT:
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
@@ -953,6 +954,9 @@ class OrbitTop:
             from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
             self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
                                                  **kwargs)
+        elif self._aAType.lower() == 'spherical':
+            self._aA= actionAngle.actionAngleSpherical(pot=self._aAPot,
+                                                       **kwargs)
         return None
 
     def xw(self,*args,**kwargs):

@@ -600,6 +600,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -638,6 +640,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -676,6 +680,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -714,6 +720,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -752,6 +760,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -790,6 +800,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -828,6 +840,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -866,6 +880,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -904,6 +920,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -942,6 +960,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -980,6 +1000,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -1016,6 +1038,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -1051,6 +1075,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
