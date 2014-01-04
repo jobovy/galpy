@@ -5,7 +5,8 @@ virtualenv:
   system_site_packages: true
 before_install:
  - sudo apt-get install libgsl0-dev
- - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
+ - sudo apt-get install -qq python-numpy python-matplotlib
+ - pip install scipy
 # command to install dependencies
 install:
  - python setup.py install
