@@ -47,6 +47,15 @@ Library reference
 
    reference/util.rst
 
+
+Tutorials
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   streamdf.rst
+
 Papers using galpy
 --------------------
 
