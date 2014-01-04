@@ -78,6 +78,39 @@ and instantiate the streamdf model
 for a leading stream. This runs in about half a minute on a 2011
 Macbook Air. 
 
+We can calculate some simple properties of the stream, such as the
+ratio of the largest and second-to-largest eigenvalue of the Hessian
+:math:`\partial \mathbf{\Omega} / \partial \mathbf{J}`
+
+>>> sdf.freqEigvalRatio(isotropic=True)
+34.450028399901434
+
+or the model's ratio of the largest and second-to-largest eigenvalue
+of the model frequency variance matrix
+
+>>> sdf.freqEigvalRatio()
+29.625538344985291
+
+The fact that this ratio is so large means that an approximately one
+dimensional stream will form.
+
+Similarly, we can calculate the angle between the frequency vector of
+the progenitor and of the model mean frequency vector
+
+>>> sdf.misalignment()
+-0.49526013844831596
+
+or we can calculate the angle between the frequency vector of the
+progenitor and the principal eigenvector of :math:`\partial
+\mathbf{\Omega} / \partial \mathbf{J}`
+
+>>> sdf.misalignment(isotropic=True)
+ 1.2825116841963993
+
+(the reason these are obtained by specifying ``isotropic=True`` is
+that these would be the ratio of the eigenvalues or the angle if we
+assumed that the disrupted materials action distribution were
+isotropic).
 
 Calculating the average stream location (track)
 -----------------------------------------------
@@ -138,4 +171,59 @@ which displays
 Coordinate transformations to physical coordinates are done using
 parameters set when initializing the ``sdf`` instance. See the help
 for ``?streamdf`` for a complete list of initialization parameters.
+
+Mock stream data generation
+----------------------------
+
+We can also easily generate mock data from the stream model. This uses
+``streamdf.sample``. For example,
+
+>>> RvR= sdf.sample(n=1000)
+
+which returns the sampled points as a set
+:math:`(R,v_R,v_T,Z,v_Z,\phi)` in natural galpy coordinates. We can
+plot these and compare them to the track location
+
+>>> sdf.plotTrack(d1='r',d2='z',interp=True,color='b',spread=2,overplot=False,lw=2.,scaleToPhysical=True)
+>>> plot(RvR[0]*8.,RvR[3]*8.,'k.',ms=2.) #multiply by the physical distance scale
+>>> xlim(12.,16.5); ylim(2.,7.6)
+
+which gives
+
+.. image:: images/sdf_mock_rz.png
+
+Similarly, we can generate mock data in observable coordinates
+
+>>> lb= sdf.sample(n=1000,lb=True)
+
+and plot it
+
+>>> sdf.plotTrack(d1='ll',d2='dist',interp=True,color='b',spread=2,overplot=False,lw=2.)
+>>> plot(lb[0],lb[2],'k.',ms=2.)
+>>> xlim(155.,235.); ylim(7.5,10.8)
+
+which displays
+
+.. image:: images/sdf_mock_lb.png
+
+We can also just generate mock stream data in frequency-angle coordinates
+
+>>> mockaA= sdf.sample(n=1000,returnaAdt=True)
+
+which returns a tuple with three components: an array with shape [3,N]
+of frequency vectors :math:`(\Omega_R,\Omega_\phi,\Omega_Z)`, an array
+with shape [3,N] of angle vectors
+:math:`(\theta_R,\theta_\phi,\theta_Z)` and :math:`t_s`, the stripping
+time. We can plot the vertical versus the radial angle
+
+>>> plot(mockaA[0][0],mockaA[0][2],'k.',ms=2.)
+
+.. image:: images/sdf_mock_aa_oroz.png
+
+or we can plot the magnitude of the angle offset as a function of
+stripping time
+
+>>> plot(mockaA[2],numpy.sqrt(numpy.sum((mockaA[1]-numpy.tile(sdf._progenitor_angle,(1000,1)).T)**2.,axis=0)),'k.',ms=2.)
+
+.. image:: images/sdf_mock_aa_adt.png
 
