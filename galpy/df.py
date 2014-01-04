@@ -4,6 +4,7 @@ from galpy.df_src import Edf
 from galpy.df_src import isothermdf
 from galpy.df_src import evolveddiskdf
 from galpy.df_src import quasiisothermaldf
+from galpy.df_src import streamdf
 
 #
 # Classes
@@ -18,3 +19,4 @@ surfaceSigmaProfile= surfaceSigmaProfile.surfaceSigmaProfile
 Edf= Edf.Edf
 isothermdf= isothermdf.isothermdf
 quasiisothermaldf= quasiisothermaldf.quasiisothermaldf
+streamdf= streamdf.streamdf
