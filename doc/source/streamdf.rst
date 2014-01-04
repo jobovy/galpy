@@ -46,7 +46,7 @@ linearly with time, which is shown in the following movie:
 
 where the radial and vertical angle difference with respect to the
 progenitor (co-moving at :math:`(\theta_R,\theta_\phi,\theta_Z) =
-(\pi,\pi,\pi)` is shown for each snapshot (the color-coding gives
+(\pi,\pi,\pi)`) is shown for each snapshot (the color-coding gives
 :math:`\theta_\phi`).
 
 
