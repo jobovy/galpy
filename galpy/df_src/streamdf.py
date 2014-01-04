@@ -4,7 +4,7 @@ import numpy
 import multiprocessing
 import scipy
 from scipy import special, interpolate, integrate
-if scipy.__version__.split('.')[1] < 10:
+if int(scipy.__version__.split('.')[1]) < 10:
     from scipy.maxentropy import logsumexp
 else:
     from scipy.misc import logsumexp
