@@ -91,8 +91,9 @@ which gives
 
 .. image:: images/sdf_track_rz.png
 
-which shows the track in Galactocentric *R* and *Z* coordinates. We
-can overplot the points along the track along which the
+which shows the track in Galactocentric *R* and *Z* coordinates as
+well as an estimate of the spread around the track as the dash-dotted
+line. We can overplot the points along the track along which the
 :math:`(\mathbf{x},\mathbf{v}) \rightarrow
 (\mathbf{\Omega},\boldsymbol{\theta})` transformation and the track
 position is explicitly calculated, by turning off the interpolation
@@ -137,3 +138,4 @@ which displays
 Coordinate transformations to physical coordinates are done using
 parameters set when initializing the ``sdf`` instance. See the help
 for ``?streamdf`` for a complete list of initialization parameters.
+
