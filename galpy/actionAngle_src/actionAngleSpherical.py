@@ -229,6 +229,7 @@ class actionAngleSpherical(actionAngle):
             vT= meta._vT
             z= meta._z
             vz= meta._vz
+            phi= meta._phi
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
