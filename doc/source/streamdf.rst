@@ -41,3 +41,18 @@ where the radial and vertical angle difference with respect to the
 progenitor (co-moving at :math:`(\theta_R,\theta_\phi,\theta_Z) =
 (\pi,\pi,\pi)` is shown for each snapshot (the color-coding gives
 :math:`\theta_\phi`).
+
+
+Modeling streams in galpy
+-------------------------
+
+In galpy we can model streams using the tools in
+``galpy.df.streamdf``. We setup a streamdf instance by specifying the
+host gravitational potential ``pot=``, an actionAngle method
+(typically ``galpy.actionAngle.actionAngleIsochroneApprox``), a
+``galpy.orbit.Orbit`` instance with the position of the progenitor, a
+parameter related to the velocity dispersion of the progenitor, and
+the time since disruption began.
+
+>>> from galpy.df import streamdf
+>>> from galpy.potential import LogarithmicHaloPotential
