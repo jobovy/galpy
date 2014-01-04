@@ -100,9 +100,9 @@ the progenitor and of the model mean frequency vector
 >>> sdf.misalignment()
 -0.49526013844831596
 
-or we can calculate the angle between the frequency vector of the
-progenitor and the principal eigenvector of :math:`\partial
-\mathbf{\Omega} / \partial \mathbf{J}`
+which returns this angle in degrees. We can also calculate the angle
+between the frequency vector of the progenitor and the principal
+eigenvector of :math:`\partial \mathbf{\Omega} / \partial \mathbf{J}`
 
 >>> sdf.misalignment(isotropic=True)
  1.2825116841963993
