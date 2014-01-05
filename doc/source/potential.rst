@@ -171,7 +171,7 @@ density and that computed using the Poisson equation is slightly less good, but 
 
 The density is
 
->>> plotDensities(dp,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+>>> dp.plotDensity(rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
 
 .. image:: images/dp-density.png
 

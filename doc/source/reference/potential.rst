@@ -21,6 +21,7 @@ Use as ``Potential-instance.method(...)``
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    plot <potentialplot.rst>
+   plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
@@ -55,6 +56,7 @@ Use as ``method(...)``
    evaluatezforces <potentialzforces.rst>
    lindbladR <potentiallindbladRs.rst>
    omegac <potentialomegacs.rst>
+   plotDensities <potentialplotdensities.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
