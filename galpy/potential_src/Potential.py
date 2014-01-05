@@ -448,6 +448,43 @@ class Potential:
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
+    def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                      ncontours=21,savefilename=None,aspect=None,log=False):
+        """
+        NAME:
+           plotDensity
+        PURPOSE:
+           plot the density of this potential
+        INPUT:
+
+           rmin - minimum R
+
+           rmax - maximum R
+
+           nrs - grid in R
+
+           zmin - minimum z
+
+           zmax - maximum z
+
+           nzs - grid in z
+
+           ncontours - number of contours
+
+           savefilename - save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2014-01-05 - Written - Bovy (IAS)
+        """
+        plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
+                      zmin=zmin,zmax=zmax,nzs=nzs,
+                      ncontours=ncontours,savefilename=savefilename,
+                      aspect=aspect,log=log)
+
     def vcirc(self,R):
         """
         
