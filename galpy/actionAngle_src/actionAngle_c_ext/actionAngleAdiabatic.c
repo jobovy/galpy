@@ -277,7 +277,7 @@ void calcRapRperi(int ndata,
   int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii,iter,status,R_lo,R_hi,meps,peps)				\
+  private(tid,ii,iter,status,R_lo,R_hi,meps,peps)			\
   shared(rperi,rap,JRRoot,params,s,R,ER,Lz,max_iter)
   for (ii=0; ii < ndata; ii++){
 #ifdef _OPENMP
@@ -294,7 +294,7 @@ void calcRapRperi(int ndata,
     if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(R+ii))) < 0.0000001){ //we are at rap or rperi
       peps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)+0.0000001);
       meps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)-0.0000001);
-      if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
+      if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 && peps*meps >= 0.) {//circular
 	*(rperi+ii) = *(R+ii);
 	*(rap+ii) = *(R+ii);
       }
