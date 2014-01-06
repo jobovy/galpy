@@ -61,6 +61,7 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
+   resetaA <orbitresetaa.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
    toLinear <orbittolinear.rst>

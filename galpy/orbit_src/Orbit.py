@@ -578,6 +578,36 @@ class Orbit:
         """
         return self._orb.zmax(analytic=analytic,pot=pot)
 
+    def resetaA(self,pot=None,type=None):
+        """
+        NAME:
+
+           _resetaA
+
+        PURPOSE:
+
+           re-set up an actionAngle module for this Orbit
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           True if reset happened, False otherwise
+
+        HISTORY:
+
+           2014-01-06 - Written - Bovy (IAS)
+
+        """
+        try:
+            delattr(self._orb,'_aA')
+        except AttributeError:
+            return False
+        else:
+            return True
+
     def jr(self,pot=None,**kwargs):
         """
         NAME:

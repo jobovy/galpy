@@ -674,6 +674,8 @@ array([ 0.01412076])
 >>>  (o.jz(MWPotential,type='staeckel',delta=0.55)-o.jz(MWPotential,type='isochroneApprox',b=0.8))/o.jz(MWPotential,type='isochroneApprox',b=0.8)
 array([-0.00244754])
 
+.. WARNING:: Once an action, frequency, or angle is calculated for a given type of calculation (e.g., staeckel), the parameters for that type are fixed in the Orbit instance. Call o.resetaA() to reset the action-angle instance used when using different parameters (i.e., different ``delta=`` for staeckel or different ``b=`` for isochroneApprox.
+
 We can also calculate the frequencies and the angles. This requires
 using the Staeckel or Isochrone approximations, because frequencies
 and angles are currently not supported for the adiabatic
