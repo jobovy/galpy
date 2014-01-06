@@ -19,3 +19,155 @@ evaluate the DF, so ``galpy.df.quasiisothermaldf`` makes heavy use of
 the routines in ``galpy.actionAngle`` (in particular those in
 ``galpy.actionAngleAdiabatic`` and
 ``galpy.actionAngle.actionAngleStaeckel``).
+
+
+Setting up the DF and basic properties
+---------------------------------------
+
+The quasi-isothermal DF is defined by a gravitational potential and a
+set of parameters describing the radial surface-density profile and
+the radial and vertical velocity dispersion as a function of
+radius. In addition, we have to provide an instance of a
+``galpy.actionAngle`` class to calculate the actions for a given
+position and velocity. For example, for a
+``galpy.potential.MWPotential`` potential using the adiabatic
+approximation for the actions, we import and define the following
+
+>>> from galpy.potential import MWPotential
+>>> from galpy.actionAngle import actionAngleAdiabatic
+>>> from galpy.df import quasiisothermaldf
+>>> aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+
+and then setup the ``quasiisothermaldf`` instance
+
+>>> qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,cutcounter=True)
+
+which sets up a DF instance with a radial scale length of
+:math:`R_0/3`, a local radial and vertical velocity dispersion of
+:math:`0.2\,V_c(R_0)` and :math:`0.1\,V_c(R_0)`, respectively, and a
+radial scale lengths of the velocity dispersions squared of
+:math:`R_0`. ``cutcounter=True`` specifies that counter-rotating stars
+are explicitly excluded (normally these are just exponentially
+suppressed). As for the two-dimensional disk DFs, these parameters are
+merely input (or target) parameters; the true density and velocity
+dispersion profiles calculated by evaluating the relevant moments of
+the DF (see below) are not exactly exponential and have scale lengths
+and local normalizations that deviate slightly from these input
+parameters. We can estimate the DF's actual radial scale length near
+:math:`R_0` as
+
+>>> qdf.estimate_hr(1.)
+0.33843243662586048
+
+which is quite close to the input value of 1/3. Similarly, we can
+estimate the scale lengths of the dispersions squared
+
+>>> qdf.estimate_hsr(1.)
+1.1527209864858059
+>>> qdf.estimate_hsz(1.)
+1.0441867587783933
+
+The vertical profile is fully specified by the velocity dispersions
+and radial density / dispersion profiles under the assumption of
+dynamical equilibrium. We can estimate the scale height of this DF at
+a given radius and height as follows
+
+>>> qdf.estimate_hz(1.,0.125)
+0.018715154050080292
+
+Near the mid-plane this vertical scale height becomes very large
+because the vertical profile flattens, e.g., 
+
+>>> qdf.estimate_hz(1.,0.125/100.)
+0.85435378664432149
+
+or even
+
+>>> qdf.estimate_hz(1.,0.)
+128674.27506772846
+
+which is basically infinity.
+
+Evaluating moments
+-------------------
+
+We can evaluate various moments of the DF giving the density, mean
+velocities, and velocity dispersions. For example, the mean radial
+velocity is again everywhere zero because the potential and the DF are
+axisymmetric
+
+>>> qdf.meanvR(1.,0.)
+0.0
+
+Likewise, the mean vertical velocity is everywhere zero
+
+>>> qdf.meanvz(1.,0.)
+0.0
+
+The mean rotational velocity has a more interesting dependence on
+position. Near the plane, this is the same as that calculated for a similar two-dimensional disk DF (see :ref:`dftwod-moments`)
+
+>>> qdf.meanvT(1.,0.)
+0.9150884078276913
+
+However, this value decreases as one moves further from the plane. The
+``quasiisothermaldf`` allows us to calculate the average rotational
+velocity as a function of height above the plane. For example, 
+
+>>> zs= numpy.linspace(0.,0.25,21)
+>>> mvts= numpy.array([qdf.meanvT(1.,z) for z in zs])
+
+which gives
+
+>>> plot(zs,mvts)
+
+.. image:: images/qdf-meanvtz.png
+
+We can also calculate the second moments of the DF. We can check
+whether the radial and velocity dispersions at :math:`R_0` are close
+to their input values
+
+>>> numpy.sqrt(qdf.sigmaR2(1.,0.))
+0.20918647082092351
+>>> numpy.sqrt(qdf.sigmaz2(1.,0.))
+0.092564222527283468
+
+and they are pretty close. We can also calculate the mixed *R* and *z*
+moment, for example,
+
+>>> qdf.sigmaRz(1.,0.125)
+0.0
+
+or expressed as an angle (the *tilt of the velocity ellipsoid*)
+
+>>> qdf.tilt(1.,0.125)
+0.0
+
+This tilt is zero because we are using the adiabatic approximation. As
+this approximation assumes that the motions in the plane are decoupled
+from the vertical motions of stars, the mixed moment is zero. However,
+this approximation is invalid for stars that go far above the
+plane. By using the Staeckel approximation to calculate the actions,
+we can model this coupling better. Setting up a ``quasiisothermaldf``
+instance with the Staeckel approximation
+
+>>> from galpy.actionAngle import actionAngleStaeckel
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+>>> qdfS= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aAS,cutcounter=True)
+
+we can similarly calculate the tilt
+
+>>> qdfS.tilt(1.,0.125)
+5.4669442080366721
+
+or about 5 degrees. As a function of height, we find
+
+>>> tilts= numpy.array([qdfS.tilt(1.,z) for z in zs])
+>>> plot(zs,tilts)
+
+which gives
+
+.. image:: images/qdf_tiltz.png
+
+The full probability distribution function
+-------------------------------------------
