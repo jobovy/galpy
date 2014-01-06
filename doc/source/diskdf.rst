@@ -169,5 +169,47 @@ which gives
 
 .. image:: images/qdf_tiltz.png
 
+We can also calculate the density and surface density (the zero-th
+velocity moments). For example, the vertical density
+
+>>> densz= numpy.array([qdf.density(1.,z) for z in zs])
+
+and
+
+>>> denszS= numpy.array([qdfS.density(1.,z) for z in zs])
+
+We can compare the vertical profiles calculated using the adiabatic
+and Staeckel action-angle approximations
+
+>>> semilogy(zs,densz/densz[0])
+>>> semilogy(zs,denszS/denszS[0])
+
+which gives
+
+.. image:: images/qdf-densz.png
+
+Similarly, we can calculate the radial profile of the surface density
+
+>>> rs= numpy.linspace(0.5,1.5,21)
+>>> surfr= numpy.array([qdf.surfacemass_z(r) for r in rs])
+>>> surfrS= numpy.array([qdfS.surfacemass_z(r) for r in rs])
+
+and compare them with each other and an exponential with scale length
+1/3
+
+>>> semilogy(rs,surfr/surfr[10])
+>>> semilogy(rs,surfrS/surfrS[10])
+>>> semilogy(rs,numpy.exp(-(rs-1.)/(1./3.)))
+
+which gives
+
+.. image:: images/qdf-densr.png
+
+The two radial profiles are almost indistinguishable and are very
+close, if somewhat shallower, than the pure exponential profile.
+
+General velocity moments, including all higher order moments, are
+implemented in ``quasiisothermaldf.vmomentdensity``.
+
 The full probability distribution function
 -------------------------------------------
