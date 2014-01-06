@@ -287,7 +287,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         elif self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
             rperi= self._R
             if self._gamma != 0.:
-                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
+                startsign= _rapRperiAxiEq(self._R+10.**-8.,E,L,self._pot)
                 startsign/= m.fabs(startsign)
             else: startsign= 1.
             rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
@@ -298,7 +298,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
             rap= self._R
             if self._gamma != 0.:
-                startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
+                startsign= _rapRperiAxiEq(self._R-10.**-8.,E,L,self._pot)
                 startsign/= m.fabs(startsign)
             else: startsign= 1.
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
