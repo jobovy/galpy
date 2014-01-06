@@ -54,6 +54,8 @@ class quasiisothermaldf:
         if aA is None:
             raise IOError("aA= must be set")
         self._aA= aA
+        if not self._aA._pot == self._pot:
+            raise IOError("Potential in aA does not appear to be the same as given potential pot")
         self._cutcounter= cutcounter
         if _precomputerg:
             if _precomputergrmax is None:
