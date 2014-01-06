@@ -211,5 +211,58 @@ close, if somewhat shallower, than the pure exponential profile.
 General velocity moments, including all higher order moments, are
 implemented in ``quasiisothermaldf.vmomentdensity``.
 
-The full probability distribution function
--------------------------------------------
+Evaluating and sampling the full probability distribution function
+--------------------------------------------------------------------
+
+We can evaluate the distribution itself by calling the object, e.g.,
+
+>>> qdf(1.,0.1,1.1,0.1,0.) #input: R,vR,vT,z,vz
+array([ 10.16445158])
+
+or as a function of rotational velocity, for example in the mid-plane
+
+>>> vts= numpy.linspace(0.,1.5,101)
+>>> pvt= numpy.array([qdfS(1.,0.,vt,0.,0.) for vt in vts])
+>>> plot(vts,pvt/numpy.sum(pvt)/(vts[1]-vts[0]))
+
+which gives
+
+.. image:: images/qdf-callvt.png
+
+This is, however, not the true distribution of rotational velocities
+at *R* =0 and *z* =0, because it is conditioned on zero radial and
+vertical velocities. We can calculate the distribution of rotational
+velocities marginalized over the radial and vertical velocities as
+
+>>> qdfS.pvT(1.,1.,0.) #input vT,R,z
+15.464330302557528
+
+or as a function of rotational velocity
+
+>>> pvt= numpy.array([qdfS.pvT(vt,1.,0.) for vt in vts])
+
+overplotting this over the previous distribution gives
+
+.. image:: images/qdf-pvt.png
+
+which is slightly different from the conditioned
+distribution. Similarly, we can calculate marginalized velocity
+probabilities ```pvR``, ``pvz``, ``pvRvT``, ``pvRvz``, and
+``pvTvz``. These are all multiplied with the density, such that
+marginalizing these over the remaining velocity component results in
+the density.
+
+We can sample velocities at a given location using
+``quasiisothermaldf.sampleV`` (there is currently no support for
+sampling locations from the density profile, although that is rather
+trivial):
+
+>>> vs= qdfS.sampleV(1.,0.,n=10000)
+>>> hist(vs[:,1],normed=True,histtype='step',bins=101,range=[0.,1.5])
+
+gives
+
+.. image:: images/qdf-pvtwsamples.png
+
+which shows very good agreement with the green (marginalized over *vR*
+and *vz*) curve (as it should).
