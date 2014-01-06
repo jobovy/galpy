@@ -9,6 +9,7 @@ motions of these stars may be approximated as being entirely decoupled
 from the motion in the plane.
 
 .. _usagediskdfs:
+
 Types of disk distribution functions
 ---------------------------------------
 
@@ -60,6 +61,8 @@ Or we can plot the two-dimensional density at R=1.
 
 .. image:: images/basic-df-2d.png
 
+
+.. _dftwod-moments:
 
 Evaluating moments of the DF
 -----------------------------
