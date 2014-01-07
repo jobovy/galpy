@@ -712,13 +712,12 @@ the velocities in this catalog are given as U,V, and W, we use the
 data. For each object ``ii``
 
 >>> o= Orbit(vxvv[ii,:],radec=True,uvw=True,vo=220.,ro=8.)
->>> o= o.toPlanar()
 
 We then calculate the actions and angles for each object in a flat
 rotation curve potential
 
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> myjr[ii]= o.jr(lp)[0]
+>>> myjr[ii]= o.jr(lp)
 
 etc.
 
@@ -733,13 +732,15 @@ shows a feature in the distribution
 If instead we use a power-law rotation curve with power-law index 1
 
 >>> pp= PowerSphericalPotential(normalize=1.,alpha=-2.)
->>> myjr[ii]= o.jr(pp)[0]
+>>> myjr[ii]= o.jr(pp)
 
 We find that the distribution is stretched, but the feature remains
 
 .. image:: images/actionAngle-jrjp-power.png
 
 Code for this example can be found :download:`here
-<examples/sellwood-jrjp.py>`. For more information see
-`2010MNRAS.409..145S
+<examples/sellwood-jrjp.py>` (note that this code uses a particular
+download of the GCS data set; if you use your own version, you will
+need to modify the part of the code that reads the data). For more
+information see `2010MNRAS.409..145S
 <http://adsabs.harvard.edu/abs/2010MNRAS.409..145S>`_.
