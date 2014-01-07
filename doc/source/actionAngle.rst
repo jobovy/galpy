@@ -723,7 +723,7 @@ etc.
 
 Plotting the radial action versus the angular momentum
 
->>> plot.bovy_plot(myjp,myjr/2./nu.pi,'k,',xlabel=r'$J_{\phi}$',ylabel=r'$J_R/2\pi$',xrange=[0.7,1.3],yrange=[0.,0.05])
+>>> plot.bovy_plot(myjp,myjr,'k.',ms=2.,xlabel=r'$J_{\phi}$',ylabel=r'$J_R$',xrange=[0.7,1.3],yrange=[0.,0.05])
 
 shows a feature in the distribution
 
