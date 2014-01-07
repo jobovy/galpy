@@ -33,7 +33,7 @@ _labelDict= {'x': r'$X$',
 class streamdf:
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
-                 tdisrupt=None,sigMeanOffset=6.,deltaAngle=0.3,leading=True,
+                 tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
                  deltaAngleTrack=1.5,nTrackChunks=11,
                  Vnorm=220.,Rnorm=8.,
@@ -58,7 +58,6 @@ class streamdf:
                           eigenvalue of the frequency covariance matrix 
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
-           deltaAngle= (0.3) estimate of 'dispersion' in largest angle
            sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
                      estimate of the angle spread of the debris initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
@@ -92,7 +91,6 @@ class streamdf:
         else:
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
-        self._deltaAngle= deltaAngle
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= pot
