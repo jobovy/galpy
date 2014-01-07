@@ -1024,9 +1024,15 @@ class streamdf:
 
     def _find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False,
                                  usev=False):
+        """For backward compatibility"""
+        return self.find_closest_trackpoint(R,vR,vT,z,vz,phi,
+                                            interp=interp,xy=xy,
+                                            usev=usev)
+    def find_closest_trackpoint(self,R,vR,vT,z,vz,phi,interp=True,xy=False,
+                                 usev=False):
         """
         NAME:
-           _find_closest_trackpoint
+           find_closest_trackpoint
         PURPOSE:
            find the closest point on the stream track to a given point
         INPUT:
@@ -1084,9 +1090,14 @@ class streamdf:
 
     def _find_closest_trackpointLB(self,l,b,D,vlos,pmll,pmbb,interp=True,
                                    usev=False):
+        return self.find_closest_trackpointLB(l,b,D,vlos,pmll,pmbb,
+                                              interp=interp,
+                                              usev=usev)
+    def find_closest_trackpointLB(self,l,b,D,vlos,pmll,pmbb,interp=True,
+                                   usev=False):
         """
         NAME:
-           _find_closest_trackpointLB
+           find_closest_trackpointLB
         PURPOSE:
            find the closest point on the stream track to a given point in 
            (l,b,...) coordinates
