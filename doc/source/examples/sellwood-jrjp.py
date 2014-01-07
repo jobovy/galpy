@@ -1,14 +1,12 @@
 import re
 import sys
 import os, os.path
-import math as m
 import numpy as nu
 import csv
 import cPickle as pickle
 import galpy.util.bovy_plot as plot
-from galpy.potential import MiyamotoNagaiPotential, HernquistPotential, NFWPotential, LogarithmicHaloPotential, PowerSphericalPotential
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
 from galpy.orbit import Orbit
-from galpy.actionAngle import actionAngleFlat, actionAnglePower
 _degtorad= nu.pi/180.
 def hms_to_rad(ra):
     spl= re.split(r' ',ra)
@@ -31,8 +29,6 @@ def calcj(rotcurve):
         savefile= open(savefilename,'rb')
         myjr= pickle.load(savefile)
         myjp= pickle.load(savefile)
-        mywr= pickle.load(savefile)
-        mywp= pickle.load(savefile)
         mye= pickle.load(savefile)
         myzmax= pickle.load(savefile)
         e= pickle.load(savefile)
@@ -70,41 +66,29 @@ def calcj(rotcurve):
         #Define potential
         lp= LogarithmicHaloPotential(normalize=1.)
         pp= PowerSphericalPotential(normalize=1.,alpha=-2.)
-        mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=.6)
-        np= NFWPotential(a=4.5,normalize=.35)
-        hp= HernquistPotential(a=0.6/8,normalize=0.05)
-        ts= nu.linspace(0.,20.,10000)
+        ts= nu.linspace(0.,100.,10000)
 
         myjr= nu.zeros(len(e))
         myjp= nu.zeros(len(e))
-        mywr= nu.zeros(len(e))
-        mywp= nu.zeros(len(e))
         mye= nu.zeros(len(e))
         myzmax= nu.zeros(len(e))
         for ii in range(len(e)):
            #Integrate the orbit
             o= Orbit(vxvv[ii,:],radec=True,uvw=True,vo=220.,ro=8.)
-            #o.integrate(ts,[mp,np,hp])
             if rotcurve == 'flat':
                 o.integrate(ts,lp)
                 mye[ii]= o.e()
                 myzmax[ii]= o.zmax()*8.
                 print e[ii], mye[ii], zmax[ii], myzmax[ii]
-                o= o.toPlanar()
-                myjr[ii]= o.jr(lp)[0]
+                myjr[ii]= o.jr(lp)
             else:
-                o= o.toPlanar()
-                myjr[ii]= o.jr(pp)[0]
-            myjp[ii]= o.jp()[0]
-            mywr[ii]= o.wr()[0]
-            mywp[ii]= o.wp()
+                myjr[ii]= o.jr(pp)
+            myjp[ii]= o.jp()
 
         #Save
         savefile= open(savefilename,'wb')
         pickle.dump(myjr,savefile)
         pickle.dump(myjp,savefile)
-        pickle.dump(mywr,savefile)
-        pickle.dump(mywp,savefile)
         pickle.dump(mye,savefile)
         pickle.dump(myzmax,savefile)
         pickle.dump(e,savefile)
@@ -129,9 +113,9 @@ def calcj(rotcurve):
         plot.bovy_end_print('myzmaxzmax.png')
 
     plot.bovy_print()
-    plot.bovy_plot(myjp,myjr/2./nu.pi,'k,',
+    plot.bovy_plot(myjp,myjr,'k.',ms=2.,
                    xlabel=r'$J_{\phi}$',
-                   ylabel=r'$J_R/2\pi$',
+                   ylabel=r'$J_R$',
                    xrange=[0.7,1.3],
                    yrange=[0.,0.05])
     if rotcurve == 'flat':
