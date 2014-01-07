@@ -49,6 +49,26 @@ progenitor (co-moving at :math:`(\theta_R,\theta_\phi,\theta_Z) =
 (\pi,\pi,\pi)`) is shown for each snapshot (the color-coding gives
 :math:`\theta_\phi`).
 
+One last movie provides further insight in how a stream evolves over
+time. The following movie shows the evolution of the stream in the two
+dimensional plane of frequency and angle along the stream (that is,
+both are projections of the three dimensional frequencies or angles
+onto the angle direction along the stream). The points are color-coded
+by the time at which they were removed from the progenitor cluster.
+
+.. raw:: html
+
+   <embed src="http://sns.ias.edu/~bovy/streams/gd1-sim/gd1_evol_aai_oparapar.mpg" AUTOPLAY="false" LOOP="false" width="600" height="515" Pluginspage="http://www.apple.com/quicktime/" CONTROLLER=True></embed>
+
+It is clear that disruption happens in bursts (at pericenter passages)
+and that the initial frequency distribution at the time of removal
+does not change (much) with time. However, stars removed at larger
+frequency difference move away from the cluster faster, such that the
+end of the stream is primarily made up of stars with large frequency
+differences with respect to the progenitor. This leads to a gradient
+in the typical orbit in the stream, and the stream is on average *not*
+on a single orbit.
+
 
 Modeling streams in galpy
 -------------------------
