@@ -254,3 +254,110 @@ stripping time
 
 .. image:: images/sdf_mock_aa_adt.png
 
+
+Evaluating and marginalizing the full PDF
+-----------------------------------------
+
+We can also evaluate the stream PDF, the probability of a
+:math:`(\mathbf{x},\mathbf{v})` phase-space position in the stream. We
+can evaluate the PDF, for example, at the location of the progenitor
+
+>>> sdf(obs.R(),obs.vR(),obs.vT(),obs.z(),obs.vz(),obs.phi())
+array([-33.16985861])
+
+which returns the natural log of the PDF. If we go to slightly higher in
+*Z* and slightly smaller in *R*, the PDF becomes zero
+
+>>> sdf(obs.R()-0.1,obs.vR(),obs.vT(),obs.z()+0.1,obs.vz(),obs.phi())
+array([-inf])
+
+because this phase-space position cannot be reached by a leading
+stream star. We can also marginalize the PDF over unobserved
+directions. For example, similar to Figure 10 in Bovy (2014), we can
+evaluate the PDF :math:`p(X|Z)` near a point on the track, say near
+*Z* =2 kpc (=0.25 in natural units. We first find the approximate
+Gaussian PDF near this point, calculated from the stream track and
+dispersion (see above)
+
+>>> meanp, varp= meanp, varp= sdf.gaussApprox([None,None,2./8.,None,None,None])
+
+where the input is a array with entries [X,Y,Z,vX,vY,vZ] and we
+substitute None for directions that we want to establish the
+approximate PDF for. So the above expression returns an approximation
+to :math:`p(X,Y,v_X,v_Y,v_Z|Z)`. This approximation allows us to get a
+sense of where the PDF peaks and what its width is
+
+>>> meanp[0]*8.
+14.267559400127833
+>>> numpy.sqrt(varp[0,0])*8.
+0.04152968631186698
+
+We can now evaluate the PDF :math:`p(X|Z)` as a function of *X* near
+the peak
+
+>>> xs= numpy.linspace(-3.*numpy.sqrt(varp[0,0]),3.*numpy.sqrt(varp[0,0]),21)+meanp[0]
+>>> logps= numpy.array([sdf.callMarg([x,None,2./8.,None,None,None]) for x in xs])
+>>> ps= numpy.exp(logps)
+
+and we normalize the PDF
+
+>>> ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
+
+and plot it together with the Gaussian approximation
+
+>>> plot(xs*8.,ps)
+>>> plot(xs*8.,1./numpy.sqrt(2.*numpy.pi)/numpy.sqrt(varp[0,0])/8.*numpy.exp(-0.5*(xs-meanp[0])**2./varp[0,0]))
+
+which gives
+
+.. image:: images/sdf_pxz.png
+
+Sometimes it is hard to automatically determine the closest point on
+the calculated track if only one phase-space coordinate is given. For
+example, this happens when evaluating :math:`p(Z|X)` for *X* > 13 kpc
+here, where there are two branches of the track in *Z* (see the figure
+of the track above). In that case, we can determine the closest track
+point on one of the branches by hand and then provide this closest
+point as the basis of PDF calculations. The following example shows
+how this is done for the upper *Z* branch at *X* = 13.5 kpc, which is
+near *Z* =5 kpc (Figure 10 in Bovy 2014).
+
+>>> cindx= sdf.find_closest_trackpoint(13.5/8.,None,5.32/8.,None,None,None,xy=True)
+
+gives the index of the closest point on the calculated track. This index can then be given as an argument for the PDF functions:
+
+>>> meanp, varp= meanp, varp= sdf.gaussApprox([13.5/8.,None,None,None,None,None],cindx=cindx)
+
+computes the approximate :math:`p(Y,Z,v_X,v_Y,v_Z|X)` near the upper
+*Z* branch. In *Z*, this PDF has mean and dispersion
+
+>>> meanp[1]*8.
+5.4005530328542077
+>>> numpy.sqrt(varp[1,1])*8.
+0.05796023309510244
+
+We can then evaluate :math:`p(Z|X)` for the upper branch as
+
+>>> zs= numpy.linspace(-3.*numpy.sqrt(varp[1,1]),3.*numpy.sqrt(varp[1,1]),21)+meanp[1]
+>>> logps= numpy.array([sdf.callMarg([13.5/8.,None,z,None,None,None],cindx=cindx) for z in zs])
+>>> ps= numpy.exp(logps)
+>>> ps/= numpy.sum(ps)*(zs[1]-zs[0])*8.
+
+and we can again plot this and the approximation
+
+>>> plot(zs*8.,ps)
+>>> plot(zs*8.,1./numpy.sqrt(2.*numpy.pi)/numpy.sqrt(varp[1,1])/8.*numpy.exp(-0.5*(zs-meanp[1])**2./varp[1,1]))
+
+which gives
+
+.. image:: images/sdf-pzx.png
+
+The approximate PDF in this case is very close to the correct
+PDF. When supplying the closest track point, care needs to be taken
+that this really is the closest track point. Otherwise the approximate
+PDF will not be quite correct.
+ 
+
+
+
+
