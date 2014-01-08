@@ -113,7 +113,7 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
 
        yrange - set the y-axis range
 
-       + all pyplot.hist keywords
+       +all pyplot.hist keywords
 
     OUTPUT:
        (from the matplotlib docs:
@@ -204,6 +204,8 @@ def bovy_plot(*args,**kwargs):
        semilogx=, semilogy=, loglog= if True, plot logs
 
     OUTPUT:
+
+       plot to output device, returns what pyplot.plot returns, or 3 Axes instances if onedhists=True
 
     HISTORY:
 
@@ -577,8 +579,7 @@ def bovy_dens2d(X,**kwargs):
 
        levels - contour-levels
 
-       cntrmass - if True, the density is a probability and the levels 
-                  are probability masses contained within the contour
+       cntrmass - if True, the density is a probability and the levels are probability masses contained within the contour
 
        cntrcolors - colors for contours (single color or array)
 
@@ -599,6 +600,8 @@ def bovy_dens2d(X,**kwargs):
        retCont= return the contour instance
 
     OUTPUT:
+
+       plot to output device, Axes instances depending on input
 
     HISTORY:
 
@@ -932,10 +935,15 @@ def bovy_text(*args,**kwargs):
        thin wrapper around matplotlib's text and annotate
 
        use keywords:
+
           'bottom_left=True'
+
           'bottom_right=True'
+
           'top_left=True'
+
           'top_right=True'
+
           'title=True'
 
        to place the text in one of the corners or use it as the title
@@ -1029,14 +1037,13 @@ def scatterplot(x,y,*args,**kwargs):
 
        cmap= cmap for density plot
 
-       hist= and edges= - you can supply the histogram of the data yourself,
-                          this can be useful if you want to censor the data,
-                          both need to be set and calculated using 
-                          scipy.histogramdd with the given range
+       hist= and edges= - you can supply the histogram of the data yourself, this can be useful if you want to censor the data, both need to be set and calculated using scipy.histogramdd with the given range
 
        retAxes= return all Axes instances
 
     OUTPUT:
+
+       plot to output device, Axes instance(s) or not, depending on input
 
     HISTORY:
 
@@ -1290,7 +1297,7 @@ def scatterplot(x,y,*args,**kwargs):
         if retAxes:
             return pyplot.gca()
         else:
-            return
+            return None
     if onedhistx:
         histx, edges, patches= axHistx.hist(x,bins=onedhistsbins,
                                             normed=onedhistxnormed,

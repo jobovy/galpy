@@ -234,8 +234,7 @@ class Orbit:
 
            pot - potential instance or list of instances
 
-           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple
-                   leapfrog implementation
+           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple leapfrog implementation
 
         OUTPUT:
 
@@ -347,7 +346,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the energy
 
            pot= Potential instance or list of such instances
 
@@ -374,7 +373,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the angular momentum
 
         OUTPUT:
 
@@ -399,7 +398,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the radial energy
 
            pot= Potential instance or list of such instances
 
@@ -426,7 +425,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the vertical energy
 
            pot= Potential instance or list of such instances
 
@@ -453,7 +452,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the Jacobi integral
 
            OmegaP= pattern speed
            
@@ -582,7 +581,7 @@ class Orbit:
         """
         NAME:
 
-           _resetaA
+           resetaA
 
         PURPOSE:
 
@@ -1074,7 +1073,7 @@ class Orbit:
 
         OUTPUT:
 
-           Tp
+           Op
 
         HISTORY:
 
@@ -1729,7 +1728,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmra
+           t - (optional) time at which to get vra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1764,7 +1763,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmdec
+           t - (optional) time at which to get vdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1799,7 +1798,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmll
+           t - (optional) time at which to get vll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1834,7 +1833,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmbb
+           t - (optional) time at which to get vbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -2155,10 +2154,9 @@ class Orbit:
 
         INPUT:
 
-           pot= - Potential instance or list of instances in which the orbit 
-                 was integrated
+           pot= Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
 
            +bovy_plot.bovy_plot inputs
 
@@ -2185,10 +2183,9 @@ class Orbit:
 
         INPUT:
 
-           po= - Potential instance or list of instances in which the orbit was
-                 integrated
+           pot=  Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
            +bovy_plot.bovy_plot inputs
 
@@ -2211,14 +2208,13 @@ class Orbit:
 
         PURPOSE:
 
-           plot E_z(t)/sqrt(dens(R)) along the orbit
+           plot E_z(t)/sqrt(dens(R)) along the orbit (an approximation to the vertical action)
 
         INPUT:
 
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
+           pot - Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
            +bovy_plot.bovy_plot inputs
 
@@ -2434,7 +2430,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit position
+           plot x(.) along the orbit
 
         INPUT:
 
@@ -2461,7 +2457,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit velocity
+           plot vx(.) along the orbit
 
         INPUT:
 
@@ -2488,7 +2484,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit position
+           plot y(.) along the orbit
 
         INPUT:
 
@@ -2515,7 +2511,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit velocity
+           plot vy(.) along the orbit
 
         INPUT:
 

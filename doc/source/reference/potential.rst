@@ -112,7 +112,7 @@ Use as ``Potential-instance.method(...)``
 General axisymmetric potential instance routines
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
-Use as ``method(...)``
+Use as ``Potential-instance.method(...)``
 
 .. toctree::
    :maxdepth: 2

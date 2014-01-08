@@ -58,16 +58,27 @@ class verticalPotential(linearPotential):
 def RZToverticalPotential(RZPot,R):
     """
     NAME:
+
        RZToverticalPotential
+
     PURPOSE:
+
        convert a RZPotential to a vertical potential at a given R
+
     INPUT:
+
        RZPot - RZPotential instance or list of such instances
+
        R - Galactocentric radius at which to evaluate the vertical potential
+
     OUTPUT:
+
        (list of) linearPotential instance(s)
+
     HISTORY:
+
        2010-07-21 - Written - Bovy (NYU)
+
     """
     if isinstance(RZPot,list):
         out= []

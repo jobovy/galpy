@@ -108,8 +108,7 @@ class diskdf:
 
            1) Orbit instance or list:
               a) Orbit instance alone: use vxvv member
-              b) Orbit instance + t: call the Orbit instance (for list, each
-                                     instance is called at t)
+              b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
               E - energy (/vo^2)
@@ -119,9 +118,14 @@ class diskdf:
 
         KWARGS:
 
-           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) for single orbits above) + nsigma, +scipy.integrate.quad keywords
+           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) for single orbits above)
 
-           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) for single orbits above) + nsigma, +scipy.integrate.quad keywords
+
+           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) for single orbits above)
+
+           nsigma= number of sigma to integrate over when marginalizing
+
+           +scipy.integrate.quad keywords
 
         OUTPUT:
 
@@ -509,8 +513,7 @@ class diskdf:
 
            maxd= maximum distance to consider (for the rejection sampling)
 
-           target= if True, sample from the 'target' surface mass density,
-                   rather than the actual surface mass density (default=True)
+           target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
 
         OUTPUT:
 
@@ -566,8 +569,7 @@ class diskdf:
 
            nsigma= number of sigma to rejection-sample on
 
-           target= if True, sample using the 'target' sigma_R
-                   rather than the actual sigma_R (default=True)
+           target= if True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True)
 
         OUTPUT:
 
@@ -658,7 +660,7 @@ class diskdf:
 
         PURPOSE:
 
-           calculate the asymmetric drift (vc-mean-vphi)
+           estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation
 
         INPUT:
 
@@ -752,13 +754,11 @@ class diskdf:
 
         PURPOSE:
 
-           calculate the product sigma_R^2 x surface-mass at R by 
-           marginalizing over velocity
+           calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity
 
         INPUT:
 
-           R - radius at which to calculate the sigma_R^2 x surfacemass 
-               density (/ro)
+           R - radius at which to calculate the sigma_R^2 x surfacemass density (/ro)
 
         OPTIONAL INPUT:
 
@@ -837,8 +837,7 @@ class diskdf:
 
            romberg - if True, use a romberg integrator (default: False)
 
-           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
-                                       R or phi
+           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi
 
         OUTPUT:
 
@@ -1438,30 +1437,47 @@ class diskdf:
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
         """
         NAME:
+
            sample
+
         PURPOSE:
+
            sample n*nphi points from this DF
+
         INPUT:
-           n - number of desired sample (specifying this rather than calling 
-               this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword 
-                    (only works when asking for an (RZ)Orbit
+
+           n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
+
+           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit
+
            returnROrbit - if True, return a planarROrbit instance: 
                           [R,vR,vT] (default)
+
            returnOrbit - if True, return a planarOrbit instance (including phi)
+
            nphi - number of azimuths to sample for each E,L
+
            los= line of sight sampling along this line of sight
+
            losdeg= los in degrees? (default=True)
-           target= if True, use target surface mass and sigma2 profiles
-                   (default=True)
+
+           target= if True, use target surface mass and sigma2 profiles (default=True)
+
            nsigma= number of sigma to rejection-sample on
+
            maxd= maximum distance to consider (for the rejection sampling)
+
         OUTPUT:
+
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
+
            CAUTION: lists of EL need to be post-processed to account for the 
                     \kappa/\omega_R discrepancy
+
         HISTORY:
+
            2010-07-10 - Started  - Bovy (NYU)
+
         """
         raise NotImplementedError("'sample' method for this disk df is not implemented")
 
@@ -1575,10 +1591,16 @@ class dehnendf(diskdf):
 
            correct - if True, correct the DF
 
-           + DFcorrection kwargs (except for those already specified)
+           +DFcorrection kwargs (except for those already specified)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
             2010-03-10 - Written - Bovy (NYU)
+
         """
         return diskdf.__init__(self,surfaceSigma=surfaceSigma,
                                profileParams=profileParams,
@@ -1832,10 +1854,17 @@ class shudf(diskdf):
 
            correct - if True, correct the DF
 
-           + DFcorrection kwargs (except for those already specified)
+
+           +DFcorrection kwargs (except for those already specified)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
             2010-05-09 - Written - Bovy (NYU)
+
         """
         return diskdf.__init__(self,surfaceSigma=surfaceSigma,
                                profileParams=profileParams,

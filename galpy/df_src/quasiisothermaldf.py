@@ -16,28 +16,51 @@ class quasiisothermaldf:
                  ro=1.,lo=10./220./8.):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a quasi-isothermal DF
+
         INPUT:
+
            hr - radial scale length
+
            sr - radial velocity dispersion at the solar radius
+
            sz - vertical velocity dispersion at the solar radius
+
            hsr - radial-velocity-dispersion scale length
+
            hsz - vertial-velocity-dispersion scale length
+
            pot= Potential instance or list thereof
+
            aA= actionAngle instance used to convert (x,v) to actions
+
            cutcounter= if True, set counter-rotating stars' DF to zero
+
            ro= reference radius for surface mass and sigmas
+
            lo= reference angular momentum below where there are significant numbers of retrograde stars
+
         OTHER INPUTS:
+
            _precomputerg= if True (default), pre-compute the rL(L)
+
            _precomputergrmax= if set, this is the maximum R for which to pre-compute rg (default: 5*hr)
+
            _precomputergnLz if set, number of Lz to pre-compute rg for (default: 51)
+
         OUTPUT:
+
            object
+
         HISTORY:
+
            2012-07-25 - Started - Bovy (IAS@MPIA)
+
         """
         self._hr= hr
         self._sr= sr
@@ -267,6 +290,7 @@ class quasiisothermaldf:
            estimated hz
         HISTORY:
            2012-08-30 - Written - Bovy (IAS)
+
            2013-01-28 - Re-written - Bovy
         """
         if z == 0.:
@@ -914,9 +938,13 @@ class quasiisothermaldf:
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            meanvT
+
         PURPOSE:
-           calculate sigma_R^2 by marginalizing over velocity
+
+           calculate the mean rotational velocity by marginalizing over velocity 
+
         INPUT:
 
            R - radius at which to calculate this

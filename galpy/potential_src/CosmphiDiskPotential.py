@@ -250,6 +250,7 @@ class CosmphiDiskPotential(planarPotential):
 class LopsidedDiskPotential(CosmphiDiskPotential):
     """Class that implements the disk potential
            phi(R,phi) = phio (R/Ro)^p cos[phi-phib)]
+           See documentation for CosmphiDiskPotential
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=0.,phio=0.01,

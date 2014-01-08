@@ -71,19 +71,31 @@ class Potential:
     def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            Rforce
+
         PURPOSE:
-           evaluate radial force K_R  (R,z)
+
+           evaluate radial force F_R  (R,z)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
+
         OUTPUT:
-           K_R (R,z,phi,t)
+
+           F_R (R,z,phi,t)
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
-        DOCTEST:
+
         """
         try:
             return self._amp*self._Rforce(R,z,phi=phi,t=t)
@@ -93,18 +105,31 @@ class Potential:
     def zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            zforce
+
         PURPOSE:
-           evaluate the vertical force K_R  (R,z,t)
+
+           evaluate the vertical force F_z  (R,z,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
+
         OUTPUT:
-           K_z (R,z,phi,t)
+
+           F_z (R,z,phi,t)
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._zforce(R,z,phi=phi,t=t)
@@ -133,9 +158,7 @@ class Potential:
 
         KEYWORDS:
 
-           forcepoisson= if True, calculate the density through the Poisson 
-                         equation, even if an explicit expression for the 
-                         density exists
+           forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
 
         OUTPUT:
 
@@ -261,35 +284,58 @@ class Potential:
     def normalize(self,norm,t=0.):
         """
         NAME:
+
            normalize
+
         PURPOSE:
+
            normalize a potential in such a way that vc(R=1,z=0)=1., or a 
            fraction of this
+
         INPUT:
-           norm - normalize such that Rforce(R=1,z=0) is such that it is
-                  'norm' of the force necessary to make vc(R=1,z=0)=1
-                  if True, norm=1
+
+           norm - normalize such that Rforce(R=1,z=0) is such that it is 'norm' of the force necessary to make vc(R=1,z=0)=1 (if True, norm=1)
+
         OUTPUT:
+           
+           (none)
+
         HISTORY:
+
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t))
 
     def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            phiforce
+
         PURPOSE:
-           evaluate the azimuthal force K_phi  (R,z,phi,t)
+
+           evaluate the azimuthal force F_phi  (R,z,phi,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (rad)
+
            t - time (optional)
+
         OUTPUT:
-           K_phi (R,z,phi,t)
+
+           F_phi (R,z,phi,t)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
@@ -335,14 +381,14 @@ class Potential:
         NAME:
            _phiforce
         PURPOSE:
-           evaluate the azimuthal force K_R  (R,z,phi,t)
+           evaluate the azimuthal force F_phi  (R,z,phi,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (rad)
            t - time (optional)
         OUTPUT:
-           K_phi (R,z,phi,t)
+           F_phi (R,z,phi,t)
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
@@ -400,23 +446,41 @@ class Potential:
              ncontours=21,savefilename=None):
         """
         NAME:
+
            plot
+
         PURPOSE:
+
            plot the potential
+
         INPUT:
+
            t - time tp plot potential at
+
            rmin - minimum R
+
            rmax - maximum R
+
            nrs - grid in R
+
            zmin - minimum z
+
            zmax - maximum z
+
            nzs - grid in z
+
            ncontours - number of contours
+
            savefilename - save to or restore from this savefile (pickle)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
@@ -631,8 +695,7 @@ class Potential:
         
            OmegaP - pattern speed
 
-           m= order of the resonance (as in m(O-Op)=kappa (negative m for 
-              outer)
+           m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
         
@@ -767,38 +830,64 @@ class Potential:
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
+
            plotRotcurve
+
         PURPOSE:
+
            plot the rotation curve for this potential (in the z=0 plane for
            non-spherical potentials)
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
         NAME:
+
            plotEscapecurve
+
         PURPOSE:
+
            plot the escape velocity  curve for this potential 
            (in the z=0 plane for non-spherical potentials)
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-08-08 - Written - Bovy (NYU)
+
         """
         plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
@@ -842,10 +931,15 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
 def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
     """
     NAME:
+
        evaluateDensities
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of densities
+
     INPUT:
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
@@ -856,15 +950,18 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
 
        t - time
 
-       forcepoisson= if True, calculate the density through the Poisson 
-                     equation, even if an explicit expression for the 
-                     density exists
+       forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
 
     OUTPUT:
+
        rho(R,z)
+
     HISTORY:
+
        2010-08-08 - Written - Bovy (NYU)
+
        2013-12-28 - Added forcepoisson - Bovy (IAS)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -893,7 +990,7 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
 
        t - time (optional)
     OUTPUT:
-       K_R(R,z,phi,t)
+       F_R(R,z,phi,t)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
@@ -910,9 +1007,13 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
 def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
-       evaluateRforce
+
+       evaluatephiforces
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
        R - cylindrical Galactocentric distance
 
@@ -923,10 +1024,15 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
        phi - azimuth (optional)
 
        t - time (optional)
+
     OUTPUT:
-       K_R(R,z,phi,t)
+
+       F_phi(R,z,phi,t)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -941,10 +1047,15 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
 def evaluatezforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
+
        evaluatezforces
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
@@ -954,10 +1065,15 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
        phi - azimuth (optional)
 
        t - time (optional)
+
     OUTPUT:
-       K_z(R,z,phi,t)
+
+       F_z(R,z,phi,t)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.

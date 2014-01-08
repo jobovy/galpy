@@ -4,23 +4,34 @@ import galpy.util.bovy_plot as plot
 def plotRotcurve(Pot,*args,**kwargs):
     """
     NAME:
+
        plotRotcurve
+
     PURPOSE:
+
        plot the rotation curve for this potential (in the z=0 plane for
        non-spherical potentials)
+
     INPUT:
+
        Pot - Potential or list of Potential instances
 
-       Rrange - 
+       Rrange - Range in R to consider
 
        grid - grid in R
 
        savefilename - save to or restore from this savefile (pickle)
+
        +bovy_plot.bovy_plot args and kwargs
+
     OUTPUT:
+
        plot to output device
+
     HISTORY:
+
        2010-07-10 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('Rrange'):
         Rrange= kwargs['Rrange']

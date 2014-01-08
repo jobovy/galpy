@@ -7,15 +7,27 @@ class KGPotential(linearPotential):
         NAME:
            __init__
         PURPOSE:
+
            Initialize a KGPotential
+
         INPUT:
-           K
-           F
-           D
+
+           K= K parameter
+
+           F= F parameter
+
+           D= D parameter
+
            amp - an overall amplitude
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
         """
         linearPotential.__init__(self,amp=amp)
         self._K= K

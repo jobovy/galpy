@@ -39,9 +39,7 @@ class DoubleExponentialDiskPotential(Potential):
 
            maxiter - scipy.integrate keyword
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
 

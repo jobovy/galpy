@@ -17,18 +17,31 @@ class planarPotential:
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the potential
+
         INPUT: 
-           R
-           phi
-           t
+
+           R - Cylindrica radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
            dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative
+
         OUTPUT:
+
            Phi(R(,phi,t)))
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._evaluate(R,phi=phi,t=t,dR=dR,dphi=dphi)
@@ -38,17 +51,29 @@ class planarPotential:
     def Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
+
            Rforce
+
         PURPOSE:
+
            evaluate the radial force
+
         INPUT:
-           R
-           phi
-           t
+
+           R - Cylindrical radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
         OUTPUT:
+
            F_R(R,(\phi,t)))
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._Rforce(R,phi=phi,t=t)
@@ -58,17 +83,29 @@ class planarPotential:
     def phiforce(self,R,phi=0.,t=0.):
         """
         NAME:
+
            phiforce
+
         PURPOSE:
+
            evaluate the phi force
+
         INPUT:
-           R
-           phi
-           t
+
+           R - Cylindrical radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
         OUTPUT:
+
            F_\phi(R,(\phi,t)))
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._phiforce(R,phi=phi,t=t)
@@ -78,17 +115,29 @@ class planarPotential:
     def R2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
+
            R2deriv
+
         PURPOSE:
+
            evaluate the second radial derivative
+
         INPUT:
-           R
-           phi
-           t
+
+           R - Cylindrical radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
         OUTPUT:
+
            d2phi/dR2
+
         HISTORY:
+
            2011-10-09 - Written - Bovy (IAS)
+
         """
         try:
             return self._amp*self._R2deriv(R,phi=phi,t=t)
@@ -256,8 +305,7 @@ class planarAxiPotential(planarPotential):
         
            OmegaP - pattern speed
 
-           m= order of the resonance (as in m(O-Op)=kappa (negative m for 
-              outer)
+           m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
         
@@ -303,36 +351,62 @@ class planarAxiPotential(planarPotential):
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
+
            plotRotcurve
+
         PURPOSE:
+
            plot the rotation curve for this potential
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
         NAME:
+
            plotEscapecurve
+
         PURPOSE:
+
            plot the escape velocity curve for this potential
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         plotEscapecurve(self,*args,**kwargs)
 
@@ -410,16 +484,25 @@ class planarPotentialFromRZPotential(planarAxiPotential):
 def RZToplanarPotential(RZPot):
     """
     NAME:
+
        RZToplanarPotential
+
     PURPOSE:
+
        convert an RZPotential to a planarPotential in the mid-plane (z=0)
+
     INPUT:
-       RZPot - RZPotential instance or list of such instances (existing 
-               planarPotential instances are just copied to the output)
+
+       RZPot - RZPotential instance or list of such instances (existing planarPotential instances are just copied to the output)
+
     OUTPUT:
+
        planarPotential instance(s)
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if isinstance(RZPot,list):
         out= []
@@ -439,18 +522,33 @@ def RZToplanarPotential(RZPot):
 def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
     """
     NAME:
+
        evaluateplanarPotentials
+
     PURPOSE:
+
        evaluate a (list of) planarPotential instance(s)
+
     INPUT:
-       R (+phi optional)
+
+       R - Cylindrical radius
+
        Pot - (list of) planarPotential instance(s)
-       t - time (optional)
+
+       phi= azimuth (optional)
+
+       t= time (optional)
+
        dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative instead
+
     OUTPUT:
+
        Phi(R(,phi,t))
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     isList= isinstance(Pot,list)
     if isList:
@@ -479,17 +577,31 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
 def evaluateplanarRforces(R,Pot,phi=None,t=0.):
     """
     NAME:
+
        evaluateplanarRforces
+
     PURPOSE:
+
        evaluate the Rforce of a (list of) planarPotential instance(s)
+
     INPUT:
-       R (+phi optional)
+
+       R - Cylindrical radius
+
        Pot - (list of) planarPotential instance(s)
-       t - time (optional)
+
+       phi= azimuth (optional)
+
+       t= time (optional)
+
     OUTPUT:
+
        F_R(R(,phi,t))
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     isList= isinstance(Pot,list)
     if isList:
@@ -518,17 +630,31 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
 def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
     """
     NAME:
+
        evaluateplanarphiforces
+
     PURPOSE:
+
        evaluate the phiforce of a (list of) planarPotential instance(s)
+
     INPUT:
-       R (+phi optional)
+
+       R - Cylindrical radius
+
        Pot - (list of) planarPotential instance(s)
-       t - time (optional)
+
+       phi= azimuth (optional)
+
+       t= time (optional)
+
     OUTPUT:
+
        F_phi(R(,phi,t))
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     isList= isinstance(Pot,list)
     if isList:
@@ -557,17 +683,31 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
 def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
     """
     NAME:
+
        evaluateplanarR2derivs
+
     PURPOSE:
+
        evaluate the second radial derivative of a (list of) planarPotential instance(s)
+
     INPUT:
-       R (+phi optional)
+
+       R - Cylindrical radius
+
        Pot - (list of) planarPotential instance(s)
-       t - time (optional)
+
+       phi= azimuth (optional)
+
+       t= time (optional)
+
     OUTPUT:
+
        F_R(R(,phi,t))
+
     HISTORY:
+
        2010-10-09 - Written - Bovy (IAS)
+
     """
     isList= isinstance(Pot,list)
     if isList:
@@ -596,20 +736,35 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
     NAME:
+
        plotplanarPotentials
+
     PURPOSE:
+
        plot a planar potential
+
     INPUT:
+
        Rrange - range
+
        xrange, yrange - if relevant
+
        grid, gridx, gridy - number of points to plot
+
        savefilename - save to or restore from this savefile (pickle)
+
        ncontours - number of contours to plot (if applicable)
+
        +bovy_plot(*args,**kwargs) or bovy_dens2d(**kwargs)
+
     OUTPUT:
+
        plot to output device
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('Rrange'):
         Rrange= kwargs['Rrange']

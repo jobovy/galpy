@@ -1,4 +1,4 @@
-galpy.df.quasiisothermaldf.pvR
+galpy.df.quasiisothermaldf.pvRvz
 ========================================
 
-.. automethod:: galpy.df.quasiisothermaldf.pvR
+.. automethod:: galpy.df.quasiisothermaldf.pvRvz

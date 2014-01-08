@@ -21,21 +21,33 @@ class TwoPowerSphericalPotential(Potential):
     def __init__(self,amp=1.,a=1.,alpha=1.,beta=3.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a two-power-density potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            a - "scale" (in terms of Ro)
+
            alpha - inner power
+
            beta - outer power
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Started - Bovy (NYU)
+
         """
         self.a= a
         self.alpha= alpha
@@ -315,19 +327,29 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a Hernquist potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential
+
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.a= a
@@ -444,19 +466,29 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a Jaffe potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential
+
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.a= a
@@ -575,19 +607,29 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a NFW potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential
+
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.a= a

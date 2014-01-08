@@ -31,9 +31,7 @@ class MiyamotoNagaiPotential(Potential):
 
            b - "disk height" (in terms of Ro)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
 

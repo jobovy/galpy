@@ -1,3 +1,5 @@
+import os, os.path
+import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential
@@ -15,14 +17,23 @@ class linearPotential:
         NAME:
            __call__
         PURPOSE:
+
            evaluate the potential
+
         INPUT:
-           x
-           t
+
+           x - position
+
+           t= time (optional)
+
         OUTPUT:
+
            Phi(x,t)
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._evaluate(x,t=t)
@@ -32,16 +43,27 @@ class linearPotential:
     def force(self,x,t=0.):
         """
         NAME:
+
            force
+
         PURPOSE:
+
            evaluate the force
+
         INPUT:
-           x
-           t
+
+           x - position
+
+           t= time (optional)
+
         OUTPUT:
+
            F(x,t)
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._force(x,t=t)
@@ -51,19 +73,33 @@ class linearPotential:
     def plot(self,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         """
         NAME:
+
            plot
+
         PURPOSE:
+
            plot the potential
+
         INPUT:
+
            t - time to evaluate the potential at
+
            min - minimum x
+
            max - maximum x
+
            ns - grid in x
+
            savefilename - save to or restore from this savefile (pickle)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
@@ -141,16 +177,27 @@ class linearPotentialFromRZPotential(linearPotential):
 def RZTolinearPotential(RZPot,R=1.):
     """
     NAME:
+
        RZTolinearPotential
+
     PURPOSE:
+
        convert an RZPotential to a linearPotential at some radius R
+
     INPUT:
+
        RZPot - RZPotential instance or list
+
        R - Galactocentric radius at which to evaluate the zPotential
+
     OUTPUT:
+
        linearPotential instance or list
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if isinstance(RZPot,list):
         out= []
@@ -165,17 +212,29 @@ def RZTolinearPotential(RZPot,R=1.):
 def evaluatelinearPotentials(x,Pot,t=0.):
     """
     NAME:
+
        evaluatelinearPotentials
+
     PURPOSE:
+
        evaluate the sum of a list of potentials
+
     INPUT:
+
        x - evaluate potentials at this position
+
        Pot - (list of) linearPotential instance(s)
+
        t - time to evaluate at
+
     OUTPUT:
+
        pot(x,t)
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -190,17 +249,29 @@ def evaluatelinearPotentials(x,Pot,t=0.):
 def evaluatelinearForces(x,Pot,t=0.):
     """
     NAME:
+
        evaluatelinearForces
+
     PURPOSE:
+
        evaluate the forces due to a list of potentials
+
     INPUT:
+
        x - evaluate forces at this position
+
        Pot - (list of) linearPotential instance(s)
+
        t - time to evaluate at
+
     OUTPUT:
+
        force(x,t)
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -215,19 +286,33 @@ def evaluatelinearForces(x,Pot,t=0.):
 def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
     """
     NAME:
+
        plotlinearPotentials
+
     PURPOSE:
+
        plot a combination of potentials
+
     INPUT:
+
        t - time to evaluate potential at
+
        min - minimum x
+
        max - maximum x
+
        ns - grid in x
+
        savefilename - save to or restore from this savefile (pickle)
+
     OUTPUT:
+
        plot to output device
+
     HISTORY:
+
        2010-07-13 - Written - Bovy (NYU)
+
     """
     if not savefilename == None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
