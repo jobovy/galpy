@@ -14,7 +14,7 @@ consider citing this package. Thanks!
 
 ##DOCUMENTATION
 
-See [here](http://jobovy.github.com/galpy)
+The latest documentation can be found [here](http://galpy.readthedocs.org/en/latest/). An alternative that is kept up-to-date less frequently is [here](http://jobovy.github.com/galpy).
 
 ##INSTALLATION
 
