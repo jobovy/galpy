@@ -113,6 +113,16 @@ evaluation of the forces for lists of Potential instances, such that
 >>> evaluatezforces(1.,0.125,MWPotential)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
 >>> -82.898379883714099 #2 \pi G Msol / pc^2
 
+We can evaluate the flattening of the potential as
+:math:`\sqrt{|z\,F_R/R\,F_Z|}` for a Potential instance as well as for
+a list of such instances
+
+>>> mp.flattening(1.,0.125)
+0.4549542914935209
+>>> from galpy.potential import flattening
+>>> flattening(MWPotential,1.,0.125)
+0.5593251065691105
+
 Densities
 ---------
 
