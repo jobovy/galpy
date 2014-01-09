@@ -1,7 +1,17 @@
 Installation
 ==============
 
-galpy can be installed using the standard python ``setup.py`` installation::
+galpy can be installed using pip as::
+
+      > pip install galpy
+
+or to upgrade without upgrading the dependencies::
+
+      > pip install -U --no-deps galpy
+
+Some advanced features require the GNU Scientific Library (GSL; see below). If you want to use these, install the GSL first (or install it later and re-install using the upgrade command above).
+
+galpy can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
 
       > python setup.py install
 
