@@ -3,8 +3,9 @@ from distutils.core import Extension
 import sys
 import subprocess
 import glob
+import re
 
-longDescription= ""
+longDescription= "galpy is a python package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials."
 
 #code to check the GSL version
 cmd= ['gsl-config',
@@ -82,19 +83,27 @@ if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(interppotential_c)
 
 setup(name='galpy',
-      version='1.',
+      version='0.1',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@ias.edu',
       license='New BSD',
       long_description=longDescription,
-      url='https://github.com/jobovy/galpy',
+      url='http://github.com/jobovy/galpy',
       package_dir = {'galpy/': ''},
       packages=['galpy','galpy/orbit_src','galpy/potential_src',
                 'galpy/df_src','galpy/util','galpy/snapshot_src',
                 'galpy/actionAngle_src'],
       package_data={'galpy/df_src':['data/*.sav']},
-#      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
       install_requires=['numpy','scipy','matplotlib','nose'],
-      ext_modules=ext_modules
+      ext_modules=ext_modules,
+      classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: OS Independent",
+        "Programming Language :: C",
+        "Programming Language :: Python",
+        "Topic :: Scientific/Engineering :: Astronomy",
+        "Topic :: Scientific/Engineering :: Physics"]
       )
