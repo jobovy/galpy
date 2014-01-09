@@ -1,0 +1,6 @@
+Author:
+
+Jo Bovy <bovy@ias.edu>
+
+Direct contributions to the code base:
+
