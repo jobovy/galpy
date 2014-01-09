@@ -1,10 +1,12 @@
-#galpy
+galpy
+======
 
 **Galactic Dynamics in python**
 
 [![Build Status](https://travis-ci.org/jobovy/galpy.png?branch=master)](https://travis-ci.org/jobovy/galpy)
 
-##AUTHOR
+AUTHOR
+-------
 
 Jo Bovy - bovy at ias dot edu
 
@@ -12,11 +14,13 @@ If you find this code useful in your research, please let me know and
 consider citing this package. Thanks!
 
 
-##DOCUMENTATION
+DOCUMENTATION
+--------------
 
 The latest documentation can be found [here](http://galpy.readthedocs.org/en/latest/). An alternative that is kept up-to-date less frequently is [here](http://jobovy.github.com/galpy).
 
-##INSTALLATION
+INSTALLATION
+-------------
 
 Standard python setup.py build/install
 
@@ -26,11 +30,13 @@ A few simple tests can be run with
 nosetests -v -w nose/
 ```
 
-##DEPENDENCIES
+DEPENDENCIES
+-------------
 
-This package requires [NumPy](http://numpy.scipy.org/), [Scipy] (http://www.scipy.org/), and [Matplotlib] (http://matplotlib.sourceforge.net/).
+This package requires [NumPy](http://numpy.scipy.org/), [Scipy] (http://www.scipy.org/), and [Matplotlib] (http://matplotlib.sourceforge.net/). Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`_)
 
-##DISK DF CORRECTIONS
+DISK DF CORRECTIONS
+--------------------
 
 The dehnendf and shudf disk distribution functions can be corrected to
 follow the desired surface-mass density and radial-velocity-dispersion
@@ -41,6 +47,7 @@ corrections can be found
 [here](https://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz) \[tar.gz
 archive\].
 
-##DEVELOPMENT
+DEVELOPMENT
+-----------
 
 Some development notes can be found on the [wiki](http://github.com/jobovy/galpy/wiki/).
