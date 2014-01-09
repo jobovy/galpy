@@ -3,9 +3,9 @@ from distutils.core import Extension
 import sys
 import subprocess
 import glob
-import re
 
-longDescription= "galpy is a python package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials."
+with open('README.md') as file:
+    long_description = file.read()
 
 #code to check the GSL version
 cmd= ['gsl-config',
