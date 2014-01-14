@@ -18,12 +18,12 @@ consider citing this package. Thanks!
 DOCUMENTATION
 --------------
 
-The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
+The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`_. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`_.
 
 DEPENDENCIES
 -------------
 
-This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy <http://www.scipy.org/>`__, and `Matplotlib <http://matplotlib.sourceforge.net/>`__. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`__)
+This package requires `Numpy <http://numpy.scipy.org/>`_, `Scipy <http://www.scipy.org/>`_, and `Matplotlib <http://matplotlib.sourceforge.net/>`_. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`_)
 
 DISK DF CORRECTIONS
 --------------------
@@ -31,13 +31,13 @@ DISK DF CORRECTIONS
 The dehnendf and shudf disk distribution functions can be corrected to
 follow the desired surface-mass density and radial-velocity-dispersion
 profiles more closely (see
-`1999AJ....118.1201D <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`__). Calculating
+`1999AJ....118.1201D <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_). Calculating
 these corrections is expensive, and a large set of precalculated
 corrections can be found
-`here <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__ \[tar.gz
+`here <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`_ \[tar.gz
 archive\].
 
 DEVELOPMENT
 -----------
 
-Some development notes can be found on the `wiki <http://github.com/jobovy/galpy/wiki/>`__.
+Some development notes can be found on the `wiki <http://github.com/jobovy/galpy/wiki/>`_.

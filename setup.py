@@ -5,7 +5,7 @@ import subprocess
 import glob
 
 with open('README.md') as file:
-    long_description = file.read()
+    long_description = file.read().replace('`_','`__')
 
 #code to check the GSL version
 cmd= ['gsl-config',
