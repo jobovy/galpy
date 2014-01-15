@@ -74,10 +74,13 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 * *Chemodynamics of the Milky Way. I. The first year of APOGEE data*, Friedrich Anders, Christina Chiappini, Basilio X. Santiago, et al. (2013), *Astron. & Astrophys.* submitted (`arXiv/1311.4549 <http://arxiv.org/abs/1311.4549>`_):
   		 Employs galpy to perform orbit integrations in ``galpy.potential.MWPotential`` to characterize the orbits of stars in the APOGEE sample.
 
+* *Dynamical modeling of tidal streams*, Jo Bovy (2014), *Astrophys. J*, submitted (`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_):
+    Introduces ``galpy.df.streamdf`` and ``galpy.actionAngle.actionAngleIsochroneApprox`` for modeling tidal streams using simple models formulated in action-angle space (see the tutorial above).
+
 Acknowledging galpy
 --------------------
 
-Please link back to ``http://github.com/jobovy/galpy`` . When using the ``galpy.actionAngle`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
+Please link back to ``http://github.com/jobovy/galpy`` . When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_, which introduced this technique. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
 
 
 Indices and tables
