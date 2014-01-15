@@ -3,9 +3,9 @@ Dynamical modeling of tidal streams
 
 galpy contains tools to model the dynamics of tidal streams, making
 extensive use of action-angle variables. As an example, we can model
-the dynamics of the following tidal stream (that of Bovy 2014; ). This
-movie shows the disruption of a cluster on a GD-1-like orbit around
-the Milky Way:
+the dynamics of the following tidal stream (that of Bovy 2014;
+`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_). This movie shows
+the disruption of a cluster on a GD-1-like orbit around the Milky Way:
 
 .. raw:: html
 
