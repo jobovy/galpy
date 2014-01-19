@@ -35,7 +35,7 @@ class streamdf:
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
-                 deltaAngleTrack=1.5,nTrackChunks=11,
+                 deltaAngleTrack=1.5,nTrackChunks=None,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -61,7 +61,7 @@ class streamdf:
            sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
                      estimate of the angle spread of the debris initially
            deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
-           nTrackChunks= (11) number of chunks to divide the progenitor track in
+           nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
            interpTrack= (might change), interpolate the stream track while 
                         setting up the instance (can be done by hand by 
                         calling self._interpolate_stream_track() and 
@@ -561,7 +561,11 @@ class streamdf:
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         self._deltaAngleTrack= deltaAngleTrack
-        self._nTrackChunks= nTrackChunks
+        if nTrackChunks is None:
+            #default is floor(self._deltaAngleTrack/0.15)+1
+            self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
+        else:
+            self._nTrackChunks= nTrackChunks
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
