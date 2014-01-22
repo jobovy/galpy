@@ -11,6 +11,7 @@ Conversion between galpy's *natural* units and *physical* units
    dens_in_msolpc3 <conversiondens_in_msolpc3.rst>
    force_in_2piGmsolpc2 <conversionforce_in_2piGmsolpc2.rst>
    force_in_pcMyr2 <conversionforce_in_pcMyr2.rst>
+   force_in_10m13kms2 <conversionforce_in_10m13kms2.rst>
    force_in_kmsMyr <conversionforce_in_kmsMyr.rst>
    freq_in_Gyr <conversionfreq_in_Gyr.rst>
    freq_in_kmskpc <conversionfreq_in_kmskpc.rst>
