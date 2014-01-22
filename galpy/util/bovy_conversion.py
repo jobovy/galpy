@@ -7,6 +7,7 @@
 import math as m
 _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
 _kmsInPcMyr= 1.0227121655399913
+_MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
 _TWOPI= 2.*m.pi
 def dens_in_msolpc3(vo,ro):
     """
@@ -115,6 +116,33 @@ def force_in_kmsMyr(vo,ro):
 
     """
     return vo**2./ro*_kmsInPcMyr*10.**-3.
+
+def force_in_10m13kms2(vo,ro):
+    """
+    NAME:
+
+       force_in_10m13kms2
+
+    PURPOSE:
+
+       convert a force or acceleration to 10^(-13) km/s^2
+
+    INPUT:
+
+       vo - velocity unit in km/s
+
+       ro - length unit in kpc
+
+    OUTPUT:
+
+       conversion from units where vo=1. at ro=1.
+
+    HISTORY:
+
+       2014-01-22 - Written - Bovy (IAS)
+
+    """
+    return vo**2./ro*_kmsInPcMyr*10.**-3./_MyrIn1013Sec
 
 def freq_in_Gyr(vo,ro):
     """
