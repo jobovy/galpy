@@ -1,3 +1,11 @@
+v0.2 (XXXX-XX-XX)
+==================
+
+CURRENT DEVELOPMENT VERSION
+
+- Added galpy.util.bovy_conversion.force_in_10m13kms2
+
+
 v0.1 (2014-01-09)
 ==================
 
