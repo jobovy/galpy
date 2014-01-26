@@ -7,6 +7,17 @@ import glob
 with open('README.rst') as dfile:
     long_description = dfile.read()
 
+pot_libraries= ['m','gsl','gslcblas','gomp']
+#Option to forego OpenMP
+try:
+    openmp_pos = sys.argv.index('--no-openmp')
+except ValueError:
+    extra_compile_args=["-fopenmp"]
+else:
+    del sys.argv[openmp_pos]
+    extra_compile_args= ["-DNO_OMP"]
+    pot_libraries.remove('gomp')
+
 #code to check the GSL version
 cmd= ['gsl-config',
       '--version']
@@ -53,11 +64,11 @@ actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 #brew install gsl --universal
 actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
-                         libraries=['m','gsl','gslcblas','gomp'],
+                         libraries=pot_libraries,
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/util/interp_2d',
                                        'galpy/potential_src/potential_c_ext'],
-                         extra_compile_args=["-fopenmp"])
+                         extra_compile_args=extra_compile_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(actionAngle_c)
     
@@ -71,14 +82,14 @@ interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_c= Extension('galpy_interppotential_c',
                          sources=interppotential_c_src,
-                         libraries=['m','gsl','gslcblas','gomp'],
+                         libraries=pot_libraries,
                          include_dirs=['galpy/potential_src/potential_c_ext',
                                        'galpy/util/interp_2d',
                                        'galpy/util/',
                                        'galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/orbit_src/orbit_c_ext',
                                        'galpy/potential_src/interppotential_c_ext'],
-                         extra_compile_args=["-fopenmp"])
+                             extra_compile_args=extra_compile_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(interppotential_c)
 
