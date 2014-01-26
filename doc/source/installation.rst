@@ -36,7 +36,7 @@ Certain advanced features require the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`_), with action calculations
 requiring version 1.14 or higher. On a Mac you can make sure that the
 correct architecture is installed using `Homebrew
-<http://mxcl.github.com/homebrew/>`_ as::
+<http://brew.sh/>`_ as::
 
 		> brew install gsl --universal
 
