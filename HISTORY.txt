@@ -3,6 +3,8 @@ v0.2 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
+- Started on adding virial radius of NFW potential
+
 - Started adding potential.mass to return the mass enclosed
 
 - Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP)

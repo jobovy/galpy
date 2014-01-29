@@ -9,6 +9,7 @@
 import math as m
 import numpy
 from scipy import special, integrate
+from galpy.util import bovy_conversion
 from Potential import Potential
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
@@ -803,3 +804,47 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         if z is None: r= R
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
+
+    def _rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+        """
+        NAME:
+
+           _rvir
+
+        PURPOSE:
+
+           calculate the virial radius for this density distribution
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+           H= (default: 70) Hubble constant in km/s/Mpc
+           
+           Om= (default: 0.3) Omega matter
+       
+           overdens= (200) overdensity which defines the virial radius
+
+           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        OUTPUT:
+        
+           virial radius in natural units
+        
+        HISTORY:
+
+           2014-01-29 - Written - Bovy (IAS)
+
+        """
+        if wrtcrit:
+            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+        else:
+            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+        dc= 4.*self.dens(self.a,0.)/od
+        #Solve the third order equation...
+        x= (2.**(1./3.)/(2.+27.*dc+3.*numpy.sqrt(3.*(4.*dc+27.*dc**2.)))**(1./3.)\
+                -2.\
+                +(2.+27.*dc+3.*numpy.sqrt(3.*(4.*dc+27.*dc**2.)))**(1./3.)/2.**(1./3.))/3.
+        return x*self.a
