@@ -461,6 +461,24 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3./2.
 
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           calculate the mass out to a given radius
+        INPUT:
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
+        OUTPUT:
+           mass in natural units
+        HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return (r/self.a)**2./2./(1.+r/self.a)**2.
+
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
     def __init__(self,amp=1.,a=1.,normalize=False):
@@ -601,6 +619,24 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
             *(self.a+sqrtRz)**-2.
+
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           calculate the mass out to a given radius
+        INPUT:
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
+        OUTPUT:
+           mass in natural units
+        HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return r/self.a/(1.+r/self.a)
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
@@ -750,7 +786,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(Rz)
         return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.
 
-    def _mass(self,R,z,t=0.):
+    def _mass(self,R,z=0.,t=0.):
         """
         NAME:
            _mass
@@ -764,5 +800,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R**2.+z**2.)
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
