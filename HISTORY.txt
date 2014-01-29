@@ -5,7 +5,7 @@ CURRENT DEVELOPMENT VERSION
 
 - Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP)
 
-- Added galpy.util.bovy_conversion.force_in_10m13kms2
+- Added galpy.util.bovy_conversion.force_in_10m13kms2, galpy.util.bovy_conversion.dens_in_criticaldens, galpy.util.bovy_conversion.dens_in_meanmatterdens
 
 
 v0.1 (2014-01-09)
