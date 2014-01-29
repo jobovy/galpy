@@ -8,7 +8,7 @@
 ###############################################################################
 import math as m
 import numpy
-from scipy import special, integrate
+from scipy import special, integrate, optimize
 from galpy.util import bovy_conversion
 from Potential import Potential
 class TwoPowerSphericalPotential(Potential):
@@ -842,9 +842,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
             od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
         else:
             od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
-        dc= 4.*self.dens(self.a,0.)/od
-        #Solve the third order equation...
-        x= (2.**(1./3.)/(2.+27.*dc+3.*numpy.sqrt(3.*(4.*dc+27.*dc**2.)))**(1./3.)\
-                -2.\
-                +(2.+27.*dc+3.*numpy.sqrt(3.*(4.*dc+27.*dc**2.)))**(1./3.)/2.**(1./3.))/3.
+        dc= 12.*self.dens(self.a,0.)/od
+        x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
+                           0.01,100.)
         return x*self.a
