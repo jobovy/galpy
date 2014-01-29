@@ -9,6 +9,66 @@ _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
 _kmsInPcMyr= 1.0227121655399913
 _MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
 _TWOPI= 2.*m.pi
+def dens_in_criticaldens(vo,ro,H=70.):
+    """
+    NAME:
+
+       dens_in_criticaldens
+
+    PURPOSE:
+
+       convert density to units of the critical density
+
+    INPUT:
+
+       vo - velocity unit in km/s
+
+       ro - length unit in kpc
+
+       H= (default: 70) Hubble constant in km/s/Mpc
+       
+    OUTPUT:
+
+       conversion from units where vo=1. at ro=1. to units of the critical density
+
+    HISTORY:
+
+       2014-01-28 - Written - Bovy (IAS)
+
+    """
+    return vo**2./ro**2.*10.**6./H**2.*8.*m.pi/3.
+
+def dens_in_meanmatterdens(vo,ro,H=70.,Om=0.3):
+    """
+    NAME:
+
+       dens_in_meanmatterdens
+
+    PURPOSE:
+
+       convert density to units of the mean matter density
+
+    INPUT:
+
+       vo - velocity unit in km/s
+
+       ro - length unit in kpc
+
+       H= (default: 70) Hubble constant in km/s/Mpc
+
+       Om= (default: 0.3) Omega matter
+       
+    OUTPUT:
+
+       conversion from units where vo=1. at ro=1. to units of the mean matter density
+
+    HISTORY:
+
+       2014-01-28 - Written - Bovy (IAS)
+
+    """
+    return dens_in_criticaldens(vo,ro,H=H)/Om
+
 def dens_in_msolpc3(vo,ro):
     """
     NAME:
