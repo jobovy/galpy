@@ -8,6 +8,8 @@ Conversion between galpy's *natural* units and *physical* units
 .. toctree::
    :maxdepth: 2
 
+   dens_in_criticaldens <conversiondens_in_criticaldens.rst>
+   dens_in_meanmatterdens <conversiondens_in_meanmatterdens.rst>
    dens_in_msolpc3 <conversiondens_in_msolpc3.rst>
    force_in_2piGmsolpc2 <conversionforce_in_2piGmsolpc2.rst>
    force_in_pcMyr2 <conversionforce_in_pcMyr2.rst>
