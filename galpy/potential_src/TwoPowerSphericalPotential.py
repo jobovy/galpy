@@ -749,3 +749,20 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= numpy.sqrt(Rz)
         return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.
+
+    def _mass(self,R,z,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           calculate the mass out to a given radius
+        INPUT:
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
+        OUTPUT:
+           mass in natural units
+        HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)

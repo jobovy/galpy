@@ -17,7 +17,7 @@ import os, os.path
 import cPickle as pickle
 import math
 import numpy as nu
-from scipy import optimize
+from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from plotRotcurve import plotRotcurve, vcirc
 from plotEscapecurve import plotEscapecurve
@@ -178,6 +178,50 @@ class Potential:
                      +self.R2deriv(R,z,phi=phi,t=t)
                      +self.phi2deriv(R,z,phi=phi,t=t)/R**2.
                      +self.z2deriv(R,z,phi=phi,t=t))/4./nu.pi
+
+    def mass(self,R,z=None,t=0.,forceint=False):
+        """
+        NAME:
+
+           mass
+
+        PURPOSE:
+
+           evaluate the mass enclosed
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius
+
+           z= (None) vertical height
+
+
+           t - time (optional)
+
+        KEYWORDS:
+
+           forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
+
+        OUTPUT:
+
+           1) for spherical potentials: M(<R) [or if z is None]
+
+           2) for axisymmetric potentials: M(<R,<|Z|)
+
+        HISTORY:
+
+           2014-01-29 - Written - Bovy (IAS)
+
+        """
+        try:
+            if forceint: raise AttributeError #Hack!
+            return self._amp*self._mass(R,z,t=t)
+        except AttributeError:
+            #Use numerical integration to get the mass
+            if z is None:
+                return 4.*nu.pi\
+                    *integrate.quad(lambda x: x**2.*self.dens(x,0.,),
+                                    0.,R)[0]
 
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
