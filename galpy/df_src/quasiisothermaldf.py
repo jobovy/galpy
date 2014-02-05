@@ -1897,7 +1897,7 @@ class quasiisothermaldf:
         else:
             if lz > self._precomputergLzmax or lz < self._precomputergLzmin:
                 return potential.rl(self._pot,lz)
-            return self._rgInterp(lz)
+            return numpy.atleast_1d(self._rgInterp(lz))
 
 def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
     """Internal function that is the integrand for the surface mass integration"""
