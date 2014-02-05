@@ -285,10 +285,9 @@ class actionAngleIsochroneApprox():
             phig.sort(key = lambda x: abs(x))
             phig= nu.array(phig,dtype='int')
             grid= nu.meshgrid(nu.arange(maxn),
-                              phig,
-                              indexing='ij')
-            gridR= grid[0].flatten()[1:] #remove 0,0,0
-            gridZ= grid[1].flatten()[1:]
+                              phig)
+            gridR= grid[0].T.flatten()[1:] #remove 0,0,0
+            gridZ= grid[1].T.flatten()[1:]
             mask = nu.ones(len(gridR),dtype=bool)
             mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
