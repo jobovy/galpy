@@ -9,6 +9,7 @@ Direct contributions to the code base:
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
 
+Wilma Trick
 T. E. Pickering
 Željko Ivezić
 Resmi Lekshmi
