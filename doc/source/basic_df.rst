@@ -321,7 +321,7 @@ We can also directly sample velocities at a given radius rather than
 in a range of radii. Doing this for a correct DF gives
 
 >>> dfc= dehnendf(beta=0.,correct=True)
->>> vrvt= dfc.sampleVRVT(1.)
+>>> vrvt= dfc.sampleVRVT(1.,n=10000)
 >>> hists, bins, edges= hist(vrvt[:,1],range=[.5,1.5],normed=True,bins=101)
 >>> xs= numpy.array([(bins[ii+1]+bins[ii])/2. for ii in range(len(bins)-1)])
 >>> dfro= [dfc(Orbit([1.,0.,x])) for x in xs]
