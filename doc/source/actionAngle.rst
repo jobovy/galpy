@@ -359,6 +359,7 @@ in the example above)
 We will use :math:`\Delta = 0.55` in what follows. We set up the
 ``actionAngleStaeckel`` object
 
+>>> from galpy.actionAngle import actionAngleStaeckel
 >>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=False) #c=True is the default
 
 and calculate the actions
