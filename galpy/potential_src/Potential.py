@@ -1641,3 +1641,31 @@ def omegac(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
+def _check_c(Pot):
+    """
+
+    NAME:
+
+       _check_c
+
+    PURPOSE:
+
+       check whether a potential or list thereof has a C implementation
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+    OUTPUT:
+
+       True if a C implementation exists, False otherwise
+
+    HISTORY:
+
+       2014-02-17 - Written - Bovy (IAS)
+
+    """
+    if isinstance(Pot,list):
+        return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
+    elif isinstance(Pot,Potential):
+        return Pot.hasC
