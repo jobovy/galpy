@@ -26,6 +26,7 @@ except IOError:
     ext_loaded= False
 else:
     ext_loaded= True
+from galpy.potential_src.Potential import _check_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -52,13 +53,13 @@ class actionAngleStaeckel():
         if not kwargs.has_key('delta'):
             raise IOError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
-            self._c= True
+                           or not kwargs.has_key('c')):           
+            self._c= _check_c(self._pot)
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
         else:
             self._c= False
         if kwargs.has_key('useu0') and kwargs['useu0']:
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             self._useu0= True
         else:
             self._useu0= False
@@ -83,9 +84,9 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -123,6 +124,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
@@ -166,9 +169,9 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -206,6 +209,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
     def actionsFreqsAngles(self,*args,**kwargs):
@@ -226,9 +231,9 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 raise IOError("Must specify phi")
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -268,6 +273,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
     def JR(self,*args,**kwargs):
