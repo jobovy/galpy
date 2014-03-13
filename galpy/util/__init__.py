@@ -1,14 +1,12 @@
 import os
 import shutil
 import warnings
-import copy
 import tempfile
 import pickle
 import numpy
 import scipy.linalg as linalg
 class galpyWarning(Warning):
     pass
-old_showwarning= copy.copy(warnings.showwarning)
 def _warning(
     message,
     category = galpyWarning,
@@ -17,7 +15,7 @@ def _warning(
     if issubclass(category,galpyWarning):
         print("galpyWarning: "+str(message))
     else:
-        old_showwarning(message,category,filename,lineno)
+        print(warnings.formatwarning(message,category,filename,lineno))
 warnings.showwarning = _warning
 def save_pickles(savefilename,*args):
     """
