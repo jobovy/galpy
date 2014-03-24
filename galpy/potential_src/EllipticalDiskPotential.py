@@ -59,7 +59,7 @@ class EllipticalDiskPotential(planarPotential):
             self._twophio= twophio
         else:
             self._twophio= m.sqrt(cp*cp+sp*sp)
-            self._phib= m.atan(sp/cp)/2.
+            self._phib= m.atan2(sp,cp)/2.
         self._p= p
         if not tform is None:
             self._tform= tform
