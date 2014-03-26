@@ -64,6 +64,7 @@ class interpRZPotential(Potential):
            2013-01-24 - Started with new implementation - Bovy (IAS)
         """
         Potential.__init__(self,amp=1.)
+        self.hasC= True
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
         self._logR= logR
