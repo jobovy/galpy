@@ -108,7 +108,7 @@ current measurements (e.g., `2012ApJ...756...89B
 Orbit integration
 -----------------
 
-We can also integrate orbits in all gaplpy potentials. Going back to a
+We can also integrate orbits in all galpy potentials. Going back to a
 simple Miyamoto-Nagai potential, we initialize an orbit as follows
 
 >>> from galpy.orbit import Orbit
