@@ -1583,6 +1583,7 @@ class quasiisothermaldf:
                 vz= vz+numpy.zeros(ngl*ngl)
                 nR= 1
                 scalarOut= True
+                vRgl= vRgl.flatten()
             vRgl*= numpy.tile(4.*sigmaR1/2.,(ngl,ngl,1)).T.flatten()
             #evaluate
             if _jr is None:
