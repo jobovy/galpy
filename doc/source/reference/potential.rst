@@ -14,6 +14,7 @@ Use as ``Potential-instance.method(...)``
    :maxdepth: 2
 
    __call__ <potentialcall.rst>
+   conc <potentialconc.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
