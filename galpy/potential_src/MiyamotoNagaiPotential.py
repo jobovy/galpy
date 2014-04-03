@@ -44,6 +44,7 @@ class MiyamotoNagaiPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self._a= a
+        self._scale= self.a
         self._b= b
         self._b2= self._b**2.
         if normalize or \
