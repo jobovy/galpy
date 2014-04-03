@@ -644,7 +644,10 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the NFW potential"""
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 conc=None,mvir=None,
+                 vo=220.,ro=8.,
+                 H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
 
@@ -662,6 +665,27 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
+
+           Alternatively, NFW potentials can be initialized using 
+
+              conc= concentration
+
+              mvir= virial mass in 10^12 Msolar
+
+           in which case you also need to supply the following keywords
+           
+              vo= (220.) velocity unit in km/s
+
+              ro= (8.) length unit in kpc
+
+              H= (default: 70) Hubble constant in km/s/Mpc
+           
+              Om= (default: 0.3) Omega matter
+       
+              overdens= (200) overdensity which defines the virial radius
+
+              wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
         OUTPUT:
 
            (none)
@@ -670,16 +694,28 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
            2010-07-09 - Written - Bovy (NYU)
 
+           2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
-        self.a= a
+        if conc is None:
+            self.a= a
+            self.alpha= 1
+            self.beta= 3
+            if normalize or \
+                    (isinstance(normalize,(int,float)) \
+                         and not isinstance(normalize,bool)):
+                self.normalize(normalize)
+        else:
+            if wrtcrit:
+                od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+            else:
+                od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)
+            rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
+            self.a= rvir/conc
+            self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
         self._scale= self.a
-        self.alpha= 1
-        self.beta= 3
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
-            self.normalize(normalize)
         self.hasC= True
         return None
 
