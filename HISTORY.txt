@@ -3,7 +3,7 @@ v0.2 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
-- Started on adding virial radius of NFW potential
+- Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass
 
 - Started adding potential.mass to return the mass enclosed
 
