@@ -969,7 +969,7 @@ class Potential:
 
         """
         try:
-            return self._rvir(vo,ro,H=70.,Om=0.3,overdens=overdens,wrtcrit=wrtcrit)/self._scale
+            return self._rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/self._scale
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on")
 
