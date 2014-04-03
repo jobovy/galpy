@@ -30,6 +30,7 @@ class BurkertPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.a=a
+        self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
