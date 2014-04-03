@@ -317,6 +317,10 @@ following series of steps (some of these are also given in the file
     azimuthal derivative of the potential in cylindrical coordinates
     (d^2 potential / d R d phi; assumed zero if not given).
 
+  If you want to be able to calculate the concentration for a
+  potential, you also have to set self._scale to a scale parameter for
+  your potential.
+
   The code for ``galpy.potential.MiyamotoNagaiPotential`` gives a good
   template to follow for 3D axisymmetric potentials. Similarly, the
   code for ``galpy.potential.CosmphiDiskPotential`` provides a good
