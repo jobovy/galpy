@@ -935,6 +935,44 @@ class Potential:
         """
         plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
+    def conc(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+        """
+        NAME:
+
+           conc
+
+        PURPOSE:
+
+           return the concentration
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+           H= (default: 70) Hubble constant in km/s/Mpc
+           
+           Om= (default: 0.3) Omega matter
+       
+           overdens= (200) overdensity which defines the virial radius
+
+           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        OUTPUT:
+
+           concentration (scale/rvir)
+
+        HISTORY:
+
+           2014-04-03 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._rvir(vo,ro,H=70.,Om=0.3,overdens=overdens,wrtcrit=wrtcrit)/self._scale
+        except AttributeError:
+            raise AttributeError("This potential does not have a '_scale' defined to base the concentration on")
+
 class PotentialError(Exception):
     def __init__(self, value):
         self.value = value
