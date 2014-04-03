@@ -51,6 +51,7 @@ class TwoPowerSphericalPotential(Potential):
 
         """
         self.a= a
+        self._scale= self.a
         self.alpha= alpha
         self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
@@ -354,6 +355,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self._scale= self.a
         self.alpha= 1
         self.beta= 4
         if normalize or \
@@ -511,6 +513,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self._scale= self.a
         self.alpha= 2
         self.beta= 4
         if normalize or \
@@ -670,6 +673,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self._scale= self.a
         self.alpha= 1
         self.beta= 3
         if normalize or \

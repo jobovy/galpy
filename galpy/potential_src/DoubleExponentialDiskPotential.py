@@ -59,6 +59,7 @@ class DoubleExponentialDiskPotential(Potential):
         self._glorder= glorder
         self._ro= ro
         self._hr= hr
+        self._scale= self._hr
         self._hz= hz
         self._alpha= 1./self._hr
         self._beta= 1./self._hz

@@ -50,6 +50,7 @@ class RazorThinExponentialDiskPotential(Potential):
         self._glorder= glorder
         self._ro= ro
         self._hr= hr
+        self._scale= self._hr
         self._alpha= 1./self._hr
         self._maxiter= maxiter
         self._tol= tol

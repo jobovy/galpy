@@ -37,6 +37,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
         self.rc= rc
+        self._scale= self.rc
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):

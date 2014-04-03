@@ -33,6 +33,7 @@ class IsochronePotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.b= b
+        self._scale= self.b
         self.b2= self.b**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
