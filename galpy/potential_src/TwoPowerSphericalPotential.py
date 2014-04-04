@@ -122,6 +122,9 @@ class TwoPowerSphericalPotential(Potential):
                                                    self.beta-self.alpha,
                                                    4.-self.alpha,
                                                    -r/self.a)
+        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
+
+
     def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -183,6 +186,25 @@ class TwoPowerSphericalPotential(Potential):
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
         return self._R2deriv(z,R) #Spherical potential
+
+    def _mass(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2014-04-01 - Written - Erkal (IoA)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 def _potIntegrandTransform(t,alpha,beta):
     """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
