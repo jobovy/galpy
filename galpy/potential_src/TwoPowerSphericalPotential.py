@@ -19,7 +19,7 @@ class TwoPowerSphericalPotential(Potential):
     rho(r)= ------------------------------------
              (r/a)^\alpha (1+r/a)^(\beta-\alpha)
     """
-    def __init__(self,amp=1.,a=1.,alpha=1.,beta=3.,normalize=False):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False):
         """
         NAME:
 
