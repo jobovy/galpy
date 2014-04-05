@@ -88,11 +88,23 @@ class TwoPowerSphericalPotential(Potential):
         if dR == 0 and dphi == 0:
             if not self.integerSelf == None:
                 return self.integerSelf._evaluate(R,z,phi=phi,t=t)
+            elif self.beta == 3.:
+                r= numpy.sqrt(R**2.+z**2.)
+                return (1./self.a)\
+                    *(r-self.a*(r/self.a)**(3.-self.alpha)/(3.-self.alpha)\
+                          *special.hyp2f1(3.-self.alpha,
+                                          2.-self.alpha,
+                                          4.-self.alpha,
+                                          -r/self.a))/(self.alpha-2.)/r
             else:
                 r= numpy.sqrt(R**2.+z**2.)
-                return integrate.quadrature(_potIntegrandTransform,
-                                            0.,self.a/r,
-                                            args=(self.alpha,self.beta))[0]
+                return special.gamma(self.beta-3.)\
+                    *((r/self.a)**(3.-self.beta)/special.gamma(self.beta-1.)\
+                          *special.hyp2f1(self.beta-3.,
+                                          self.beta-self.alpha,
+                                          self.beta-1.,
+                                          -self.a/r)
+                      -special.gamma(3.-self.alpha)/special.gamma(self.beta-self.alpha))/r
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -118,12 +130,11 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return -R/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                   self.beta-self.alpha,
-                                                   4.-self.alpha,
-                                                   -r/self.a)
-        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
-
+            return -R/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
+                *special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -145,10 +156,11 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return -z/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                   self.beta-self.alpha,
-                                                   4.-self.alpha,
-                                                   -r/self.a)
+            return -z/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
+                *special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -205,18 +217,6 @@ class TwoPowerSphericalPotential(Potential):
         """
         r= numpy.sqrt(R**2.+z**2.)
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
-
-def _potIntegrandTransform(t,alpha,beta):
-    """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
-    return 1./t**2.*_potIntegrand(1./t,alpha,beta)
-
-def _potIntegrand(t,alpha,beta):
-    """Internal function that holds the straight integrand to get the potential"""
-    return -t**(1.-alpha)*special.hyp2f1(3.-alpha,
-                                          beta-alpha,
-                                          4.-alpha,
-                                          -t)
-
 
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
