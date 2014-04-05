@@ -10,7 +10,7 @@ class CosmphiDiskPotential(planarPotential):
            phi(R,phi) = phio (R/Ro)^p cos[m(phi-phib)]
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=0.,phio=0.01,m=1.,
+                 p=1.,phio=0.01,m=1.,
                  tform=None,tsteady=None,
                  cp=None,sp=None):
         """
