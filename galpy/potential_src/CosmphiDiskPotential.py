@@ -253,7 +253,7 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
            See documentation for CosmphiDiskPotential
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=0.,phio=0.01,
+                 p=1.,phio=0.01,
                  tform=None,tsteady=None,
                  cp=None,sp=None):
         CosmphiDiskPotential.__init__(self,
