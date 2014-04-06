@@ -101,7 +101,10 @@ def test_forceAsDeriv_potential():
                     else:
                         assert((tphiforce-mpotderivphi)**2./tphiforce**2. < 10.**ttol)
                 except AssertionError:
-                    raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],0.05,phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                    if isinstance(tp,potential.planarPotential):
+                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                    else:
+                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
@@ -173,6 +176,30 @@ def test_2ndDeriv_potential():
                             assert((tR2deriv-mRforcederivR)**2./tR2deriv**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv)))
+        #2nd azimuthal
+        if not isinstance(tp,potential.linearPotential) \
+                and hasattr(tp,'_phi2deriv'):
+            for ii in range(len(Rs)):
+                for jj in range(len(phis)):
+                    dphi= 10.**-8.
+                    newphi= phis[jj]+dphi
+                    dphi= newphi-phis[jj] #Representable number
+                    if isinstance(tp,potential.planarPotential):
+                        mphiforcederivphi= (tp.phiforce(Rs[ii],phi=phis[jj])-tp.phiforce(Rs[ii],phi=phis[jj]+dphi))/dphi
+                        tphi2deriv= tp.phi2deriv(Rs[ii],phi=phis[jj])
+                    else:
+                        mphiforcederivphi= (tp.phiforce(Rs[ii],0.05,phi=phis[jj])-tp.phiforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
+                        tphi2deriv= tp.phi2deriv(Rs[ii],0.05,phi=phis[jj])
+                    try:
+                        if tphi2deriv**2. < 10.**ttol:
+                            assert(mphiforcederivphi**2. < 10.**ttol)
+                        else:
+                            assert((tphi2deriv-mphiforcederivphi)**2./tphi2deriv**2. < 10.**ttol)
+                    except AssertionError:
+                        if isinstance(tp,potential.planarPotential):
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                        else:
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -212,4 +239,3 @@ def test_2ndDeriv_potential():
                             assert((tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv)))
-#    raise AssertionError
