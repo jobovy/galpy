@@ -16,7 +16,7 @@ class PowerSphericalPotentialwCutoff(Potential):
     rho(r)= --------- e^{-(r/rc)^2}
              r^\alpha
     """
-    def __init__(self,amp=1.,alpha=1.,rc=0.1,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False):
         """
         NAME:
            __init__
