@@ -177,7 +177,6 @@ def test_2ndDeriv_potential():
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_z2deriv'):
-            print p, hasattr(tp,'_z2deriv')
             for ii in range(len(Rs)):
                 for jj in range(len(Zs)):
                     if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
@@ -194,4 +193,23 @@ def test_2ndDeriv_potential():
                             assert((tz2deriv-mzforcederivz)**2./tz2deriv**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv)))
+        #mixed radial vertical
+        if not isinstance(tp,potential.planarPotential) \
+                and not isinstance(tp,potential.linearPotential) \
+                and hasattr(tp,'_Rzderiv'):
+            for ii in range(len(Rs)):
+                for jj in range(len(Zs)):
+#                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
+                    dz= 10.**-8.
+                    newz= Zs[jj]+dz
+                    dz= newz-Zs[jj] #Representable number
+                    mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii],Zs[jj]+dz))/dz
+                    tRzderiv= tp.Rzderiv(Rs[ii],Zs[jj])
+                    try:
+                        if tRzderiv**2. < 10.**ttol:
+                            assert(mRforcederivz**2. < 10.**ttol)
+                        else:
+                            assert((tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv)))
 #    raise AssertionError
