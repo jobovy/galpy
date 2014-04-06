@@ -197,7 +197,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        return self._R2deriv(z,R) #Spherical potential
+        return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
     def _mass(self,R,z,phi=0.,t=0.):
         """
