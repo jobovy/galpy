@@ -144,6 +144,38 @@ class planarPotential:
         except AttributeError:
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    def phi2deriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+
+           phi2deriv
+
+        PURPOSE:
+
+           evaluate the second azimuthal derivative
+
+        INPUT:
+
+           R - Cylindrical radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
+        OUTPUT:
+
+           d2phi/daz2
+
+        HISTORY:
+
+           2014-04-06 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._phi2deriv(R,phi=phi,t=t)
+        except AttributeError:
+            raise PotentialError("'_phi2deriv' function not implemented for this potential")      
+
     def plot(self,*args,**kwargs):
         """
         NAME:
