@@ -44,12 +44,15 @@ def test_forceAsDeriv_potential():
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
-    Zs= numpy.array([0.,.125,-.125,0.25,-0.25]) #Zs are phis for planarPots
+    Zs= numpy.array([0.,.125,-.125,0.25,-0.25])
+    phis= numpy.array([0.,0.5,-0.5,1.,-1.,
+                       numpy.pi,0.5+numpy.pi,
+                       1.+numpy.pi])
     #tolerances in log10
     tol= {}
-    tol['default']= -10.
+    tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    tol['RazorThinExponentialDiskPotential']= -8.
+    tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -57,7 +60,6 @@ def test_forceAsDeriv_potential():
         tp= tclass()
         #raise AttributeError("Do something about potentials without normalize")
         if hasattr(tp,'normalize'): tp.normalize(1.)
-        print "Working on %s" % p       
         #Set tolerance
         if p in tol.keys(): ttol= tol[p]
         else: ttol= tol['default']
@@ -74,13 +76,32 @@ def test_forceAsDeriv_potential():
                     mpotderivR= (tp(Rs[ii],Zs[jj])-tp(Rs[ii]+dr,Zs[jj]))/dr
                     tRforce= tp.Rforce(Rs[ii],Zs[jj])
                 try:
-                    if tRforce**2. < 10.**-ttol:
-                        assert(mpotderivR**2. < 10.**-ttol)
+                    if tRforce**2. < 10.**ttol:
+                        assert(mpotderivR**2. < 10.**ttol)
                     else:
                         assert((tRforce-mpotderivR)**2./tRforce**2. < 10.**ttol)
                 except AssertionError:
-                    #print mpotderivR, tRforce
-                    raise AssertionError("Calculation of the Radial force as the Radial derivative of the %s potential fails; diff = %e, rel. diff = %e" % (p,numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce)))
+                    raise AssertionError("Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce)))
+        #Azimuthal force, if it exists
+        if isinstance(tp,potential.linearPotential): continue
+        for ii in range(len(Rs)):
+            for jj in range(len(phis)):
+                dphi= 10.**-8.
+                newphi= phis[jj]+dphi
+                dphi= newphi-phis[jj] #Representable number
+                if isinstance(tp,potential.planarPotential):
+                    mpotderivphi= (tp(Rs[ii],phi=phis[jj])-tp(Rs[ii],phi=phis[jj]+dphi))/dphi
+                    tphiforce= tp.phiforce(Rs[ii],phi=phis[jj])
+                else:
+                    mpotderivphi= (tp(Rs[ii],0.05,phi=phis[jj])-tp(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
+                    tphiforce= tp.phiforce(Rs[ii],0.05,phi=phis[jj])
+                try:
+                    if tphiforce**2. < 10.**ttol:
+                        assert(mpotderivphi**2. < 10.**ttol)
+                    else:
+                        assert((tphiforce-mpotderivphi)**2./tphiforce**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],0.05,phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
@@ -92,9 +113,9 @@ def test_forceAsDeriv_potential():
                 mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz))/dz
                 tzforce= tp.zforce(Rs[ii],Zs[jj])
                 try:
-                    if tzforce**2. < 10.**-ttol:
-                        assert(mpotderivz**2. < 10.**-ttol)
+                    if tzforce**2. < 10.**ttol:
+                        assert(mpotderivz**2. < 10.**ttol)
                     else:
-                        assert((tzforce-mpotderivz)**2./tzforce**2. < 10.**-ttol)
+                        assert((tzforce-mpotderivz)**2./tzforce**2. < 10.**ttol)
                 except AssertionError:
-                    raise AssertionError("Calculation of the vertical force as the vertical derivative of the %s potential fails; diff = %e, rel. diff = %e" % (p,numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce)))
+                    raise AssertionError("Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce)))
