@@ -191,5 +191,5 @@ class IsochronePotential(Potential):
         r2= R**2.+z**2.
         rb= nu.sqrt(r2+self.b2)
         return (3.*(self.b+rb)*rb**2.-r2*(self.b+3.*rb))/\
-            rb**3./(self.b+rb)**3.
+            rb**3./(self.b+rb)**3./4./nu.pi
 
