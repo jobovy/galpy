@@ -614,7 +614,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
             allHasC= nu.prod([p.hasC for p in pot])
         else:
             allHasC= pot.hasC
-        if not allHasC and 'leapfrog' in method:
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
             method= 'leapfrog'
         else:
             method= 'odeint'
