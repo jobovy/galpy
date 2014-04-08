@@ -488,6 +488,7 @@ class Potential:
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,
+             xrange=None,yrange=None,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -502,7 +503,7 @@ class Potential:
 
            t - time tp plot potential at
 
-           rmin - minimum R
+           rmin - minimum R at which to calculate
 
            rmax - maximum R
 
@@ -522,6 +523,8 @@ class Potential:
 
            savefilename - save to or restore from this savefile (pickle)
 
+           xrange, yrange= can be specified independently from rmin,zmin, etc.
+
         OUTPUT:
 
            plot to output device
@@ -533,6 +536,8 @@ class Potential:
            2014-04-08 - Added effective= - Bovy (IAS)
 
         """
+        if xrange is None: xrange= [rmin,rmax]
+        if yrange is None: yrange= [zmin,zmax]
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
             savefile= open(savefilename,'rb')
@@ -543,14 +548,19 @@ class Potential:
         else:
             if effective and Lz is None:
                 raise RuntimeError("When effective=True, you need to specify Lz=")
-            Rs= nu.linspace(rmin,rmax,nrs)
-            zs= nu.linspace(zmin,zmax,nzs)
+            Rs= nu.linspace(xrange[0],xrange[1],nrs)
+            zs= nu.linspace(yrange[0],yrange[1],nzs)
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj],t=t)
                 if effective:
                     potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
+            #Don't plot outside of the desired range
+            potRz[Rs < rmin,:]= nu.nan
+            potRz[Rs > rmax,:]= nu.nan
+            potRz[:,zs < zmin]= nu.nan
+            potRz[:,zs > zmax]= nu.nan
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
@@ -560,8 +570,8 @@ class Potential:
                 savefile.close()
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
+                                xrange=xrange,
+                                yrange=yrange,
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
