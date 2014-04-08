@@ -58,7 +58,6 @@ def test_forceAsDeriv_potential():
         #Setup instance of potential
         tclass= getattr(potential,p)
         tp= tclass()
-        #raise AttributeError("Do something about potentials without normalize")
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
         if p in tol.keys(): ttol= tol[p]
@@ -150,7 +149,6 @@ def test_2ndDeriv_potential():
         #Setup instance of potential
         tclass= getattr(potential,p)
         tp= tclass()
-        #raise AttributeError("Do something about potentials without normalize")
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
         if p in tol.keys(): ttol= tol[p]
@@ -239,3 +237,55 @@ def test_2ndDeriv_potential():
                             assert((tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv)))
+
+#Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
+def test_poisson_potential():
+    from galpy import potential
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'evaluate' in p)]
+    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential']
+    for p in rmpots:
+        pots.remove(p)
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125,0.25,-0.25])
+    phis= numpy.array([0.,0.5,-0.5,1.,-1.,
+                       numpy.pi,0.5+numpy.pi,
+                       1.+numpy.pi])
+    #tolerances in log10
+    tol= {}
+    tol['default']= -8.
+    tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
+    #tol['RazorThinExponentialDiskPotential']= -6.
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #if 'Isochrone' in p: continue #For testing the test
+        #Setup instance of potential
+        tclass= getattr(potential,p)
+        tp= tclass()
+        if hasattr(tp,'normalize'): tp.normalize(1.)
+        #Set tolerance
+        if p in tol.keys(): ttol= tol[p]
+        else: ttol= tol['default']
+        #2nd radial
+        if not hasattr(tp,'_dens') or not hasattr(tp,'_R2deriv') \
+                or not hasattr(tp,'_Rforce') or not hasattr(tp,'phi2deriv') \
+                or not hasattr(tp,'_z2deriv'):
+            continue
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                for kk in range(len(phis)):
+                    tpoissondens= tp.dens(Rs[ii],Zs[jj],phi=phis[kk],
+                                         forcepoisson=True)
+                    tdens= tp.dens(Rs[ii],Zs[jj],phi=phis[kk],
+                                   forcepoisson=False)
+                    try:
+                        if tdens**2. < 10.**ttol:
+                            assert(tpoissondens**2. < 10.**ttol)
+                        else:
+                            assert((tpoissondens-tdens)**2./tdens**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens)))
