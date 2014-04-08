@@ -36,7 +36,7 @@ class FullOrbit(OrbitTop):
         self._BCIntegrateFunction= _integrateFullOrbit
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
            integrate
