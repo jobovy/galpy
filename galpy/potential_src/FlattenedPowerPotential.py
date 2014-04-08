@@ -17,7 +17,7 @@ class FlattenedPowerPotential(Potential):
                           phi(R,z)=-  ---------------- ; m^2 = R^2 + z^2/q^2
                                        alpha m^\alpha
     """
-    def __init__(self,amp=1.,alpha=1.,q=1.,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,alpha=2.,q=0.9,core=_CORE,normalize=False):
         """
         NAME:
 
