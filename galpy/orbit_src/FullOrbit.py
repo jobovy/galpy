@@ -608,6 +608,16 @@ def _integrateFullOrbit(vxvv,pot,t,method):
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and 'leapfrog' in method:
+            method= 'leapfrog'
+        else:
+            method= 'odeint'
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
