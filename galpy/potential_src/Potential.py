@@ -487,6 +487,7 @@ class Potential:
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+             effective=False,Lz=None,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -513,6 +514,10 @@ class Potential:
 
            nzs - grid in z
 
+           effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
+
+           Lz= (None) angular momentum to use for the effective potential when effective=True
+
            ncontours - number of contours
 
            savefilename - save to or restore from this savefile (pickle)
@@ -525,6 +530,8 @@ class Potential:
 
            2010-07-09 - Written - Bovy (NYU)
 
+           2014-04-08 - Added effective= - Bovy (IAS)
+
         """
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
@@ -534,12 +541,16 @@ class Potential:
             zs= pickle.load(savefile)
             savefile.close()
         else:
+            if effective and Lz is None:
+                raise RuntimeError("When effective=True, you need to specify Lz=")
             Rs= nu.linspace(rmin,rmax,nrs)
             zs= nu.linspace(zmin,zmax,nzs)
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj],t=t)
+                if effective:
+                    potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
