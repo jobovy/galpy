@@ -13,7 +13,7 @@ class MiyamotoNagaiPotential(Potential):
     phi(R,z) = -  ---------------------------------
                    \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
     """
-    def __init__(self,amp=1.,a=0.,b=0.,normalize=False):
+    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False):
         """
         NAME:
 
@@ -31,9 +31,7 @@ class MiyamotoNagaiPotential(Potential):
 
            b - "disk height" (in terms of Ro)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
 
@@ -46,9 +44,12 @@ class MiyamotoNagaiPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self._a= a
+        self._scale= self._a
         self._b= b
         self._b2= self._b**2.
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
 
@@ -137,8 +138,12 @@ class MiyamotoNagaiPotential(Potential):
         """
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
-        return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
-            (R**2.+asqrtbz**2.)**2.5/sqrtbz**3./4./nu.pi*self._b2
+        if isinstance(R,float) and sqrtbz == asqrtbz:
+            return 3./\
+                (R**2.+sqrtbz**2.)**2.5/4./nu.pi*self._b2
+        else:
+            return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
+                (R**2.+asqrtbz**2.)**2.5/sqrtbz**3./4./nu.pi*self._b2
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -205,5 +210,8 @@ class MiyamotoNagaiPotential(Potential):
         """
         sqrtbz= nu.sqrt(self._b2+z**2.)
         asqrtbz= self._a+sqrtbz
-        return -(3.*R*z*asqrtbz
-                 /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
+        if isinstance(R,float) and sqrtbz == asqrtbz:
+            return -(3.*R*z/(R**2.+asqrtbz**2.)**2.5)
+        else:
+            return -(3.*R*z*asqrtbz
+                     /sqrtbz/(R**2.+asqrtbz**2.)**2.5)

@@ -4,23 +4,34 @@ _INF= 1000000.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
     NAME:
+
        plotEscapecurve
+
     PURPOSE:
+
        plot the escape velocity curve for this potential (in the z=0 plane for
        non-spherical potentials)
+
     INPUT:
+
        Pot - Potential or list of Potential instances
 
-       Rrange - 
+       Rrange - Range in R to consider
 
        grid - grid in R
 
        savefilename - save to or restore from this savefile (pickle)
+
        +bovy_plot.bovy_plot args and kwargs
+
     OUTPUT:
+
        plot to output device
+
     HISTORY:
+
        2010-08-08 - Written - Bovy (NYU)
+
     """
     if kwargs.has_key('Rrange'):
         Rrange= kwargs['Rrange']

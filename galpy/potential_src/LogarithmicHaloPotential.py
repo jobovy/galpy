@@ -10,26 +10,39 @@ class LogarithmicHaloPotential(Potential):
     def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a Logarithmic Halo potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            core - core radius at which the logarithm is cut
+
            q - potential flattening (z/q)**2.
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-04-02 - Started - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.hasC= True
         self._core2= core**2.
         self._q= q
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         return None
 

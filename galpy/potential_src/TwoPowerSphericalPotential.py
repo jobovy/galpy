@@ -8,7 +8,8 @@
 ###############################################################################
 import math as m
 import numpy
-from scipy import special, integrate
+from scipy import special, integrate, optimize
+from galpy.util import bovy_conversion
 from Potential import Potential
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
@@ -18,26 +19,39 @@ class TwoPowerSphericalPotential(Potential):
     rho(r)= ------------------------------------
              (r/a)^\alpha (1+r/a)^(\beta-\alpha)
     """
-    def __init__(self,amp=1.,a=1.,alpha=1.,beta=3.,normalize=False):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a two-power-density potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            a - "scale" (in terms of Ro)
+
            alpha - inner power
+
            beta - outer power
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Started - Bovy (NYU)
+
         """
         self.a= a
+        self._scale= self.a
         self.alpha= alpha
         self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
@@ -49,7 +63,9 @@ class TwoPowerSphericalPotential(Potential):
         else:
             Potential.__init__(self,amp=amp)
             self.integerSelf= None
-            if normalize or isinstance(normalize,(int,float)):
+            if normalize or \
+                    (isinstance(normalize,(int,float)) \
+                         and not isinstance(normalize,bool)):
                 self.normalize(normalize)
         return None
 
@@ -72,11 +88,23 @@ class TwoPowerSphericalPotential(Potential):
         if dR == 0 and dphi == 0:
             if not self.integerSelf == None:
                 return self.integerSelf._evaluate(R,z,phi=phi,t=t)
+            elif self.beta == 3.:
+                r= numpy.sqrt(R**2.+z**2.)
+                return (1./self.a)\
+                    *(r-self.a*(r/self.a)**(3.-self.alpha)/(3.-self.alpha)\
+                          *special.hyp2f1(3.-self.alpha,
+                                          2.-self.alpha,
+                                          4.-self.alpha,
+                                          -r/self.a))/(self.alpha-2.)/r
             else:
                 r= numpy.sqrt(R**2.+z**2.)
-                return integrate.quadrature(_potIntegrandTransform,
-                                            0.,self.a/r,
-                                            args=(self.alpha,self.beta))[0]
+                return special.gamma(self.beta-3.)\
+                    *((r/self.a)**(3.-self.beta)/special.gamma(self.beta-1.)\
+                          *special.hyp2f1(self.beta-3.,
+                                          self.beta-self.alpha,
+                                          self.beta-1.,
+                                          -self.a/r)
+                      -special.gamma(3.-self.alpha)/special.gamma(self.beta-self.alpha))/r
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -102,10 +130,12 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return -R/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                   self.beta-self.alpha,
-                                                   4.-self.alpha,
-                                                   -r/self.a)
+            return -R/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
+                *special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
+
     def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -126,10 +156,11 @@ class TwoPowerSphericalPotential(Potential):
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
-            return -z/r**self.alpha*special.hyp2f1(3.-self.alpha,
-                                                   self.beta-self.alpha,
-                                                   4.-self.alpha,
-                                                   -r/self.a)
+            return -z/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
+                *special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -166,19 +197,26 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        return self._R2deriv(z,R) #Spherical potential
+        return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
-def _potIntegrandTransform(t,alpha,beta):
-    """Internal function that transforms the integrand such that the integral becomes finite-ranged"""
-    return 1./t**2.*_potIntegrand(1./t,alpha,beta)
-
-def _potIntegrand(t,alpha,beta):
-    """Internal function that holds the straight integrand to get the potential"""
-    return -t**(1.-alpha)*special.hyp2f1(3.-alpha,
-                                          beta-alpha,
-                                          4.-alpha,
-                                          -t)
-
+    def _mass(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2014-04-01 - Written - Erkal (IoA)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
@@ -222,7 +260,9 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
-            if normalize or isinstance(normalize,(int,float)):
+            if normalize or \
+                    (isinstance(normalize,(int,float)) \
+                         and not isinstance(normalize,bool)):
                 self.normalize(normalize)
         return None
 
@@ -311,25 +351,38 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a Hernquist potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential
+
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self._scale= self.a
         self.alpha= 1
         self.beta= 4
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
         return None
@@ -433,30 +486,61 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3./2.
 
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           calculate the mass out to a given radius
+        INPUT:
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
+        OUTPUT:
+           mass in natural units
+        HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return (r/self.a)**2./2./(1.+r/self.a)**2.
+
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential"""
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a Jaffe potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential
+
            a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.a= a
+        self._scale= self.a
         self.alpha= 2
         self.beta= 4
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
         return None
@@ -562,31 +646,98 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         return -R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
             *(self.a+sqrtRz)**-2.
 
-class NFWPotential(TwoPowerIntegerSphericalPotential):
-    """Class that implements the NFW potential"""
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def _mass(self,R,z=0.,t=0.):
         """
         NAME:
-           __init__
+           _mass
         PURPOSE:
-           Initialize a NFW potential
+           calculate the mass out to a given radius
         INPUT:
-           amp - amplitude to be applied to the potential
-           a - "scale" (in terms of Ro)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
         OUTPUT:
-           (none)
+           mass in natural units
         HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return r/self.a/(1.+r/self.a)
+
+class NFWPotential(TwoPowerIntegerSphericalPotential):
+    """Class that implements the NFW potential"""
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 conc=None,mvir=None,
+                 vo=220.,ro=8.,
+                 H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           Initialize a NFW potential
+
+        INPUT:
+
+           amp - amplitude to be applied to the potential
+
+           a - "scale" (in terms of Ro)
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+
+           Alternatively, NFW potentials can be initialized using 
+
+              conc= concentration
+
+              mvir= virial mass in 10^12 Msolar
+
+           in which case you also need to supply the following keywords
+           
+              vo= (220.) velocity unit in km/s
+
+              ro= (8.) length unit in kpc
+
+              H= (default: 70) Hubble constant in km/s/Mpc
+           
+              Om= (default: 0.3) Omega matter
+       
+              overdens= (200) overdensity which defines the virial radius
+
+              wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
+           2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
-        self.a= a
-        self.alpha= 1
-        self.beta= 3
-        if normalize or isinstance(normalize,(int,float)):
-            self.normalize(normalize)
+        if conc is None:
+            self.a= a
+            self.alpha= 1
+            self.beta= 3
+            if normalize or \
+                    (isinstance(normalize,(int,float)) \
+                         and not isinstance(normalize,bool)):
+                self.normalize(normalize)
+        else:
+            if wrtcrit:
+                od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+            else:
+                od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)
+            rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
+            self.a= rvir/conc
+            self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
+        self._scale= self.a
         self.hasC= True
         return None
 
@@ -697,3 +848,63 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= numpy.sqrt(Rz)
         return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.
+
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           calculate the mass out to a given radius
+        INPUT:
+           R - radius at which to return the enclosed mass
+           z - (don't specify this) vertical height
+        OUTPUT:
+           mass in natural units
+        HISTORY:
+           2014-01-29 - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
+
+    def _rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+        """
+        NAME:
+
+           _rvir
+
+        PURPOSE:
+
+           calculate the virial radius for this density distribution
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+           H= (default: 70) Hubble constant in km/s/Mpc
+           
+           Om= (default: 0.3) Omega matter
+       
+           overdens= (200) overdensity which defines the virial radius
+
+           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        OUTPUT:
+        
+           virial radius in natural units
+        
+        HISTORY:
+
+           2014-01-29 - Written - Bovy (IAS)
+
+        """
+        if wrtcrit:
+            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+        else:
+            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+        dc= 12.*self.dens(self.a,0.)/od
+        x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
+                           0.01,100.)
+        return x*self.a

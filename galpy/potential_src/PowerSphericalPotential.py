@@ -20,23 +20,35 @@ class PowerSphericalPotential(Potential):
     def __init__(self,amp=1.,alpha=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a power-law-density potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            alpha - inner power
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
 
@@ -187,19 +199,29 @@ class KeplerPotential(PowerSphericalPotential):
     def __init__(self,amp=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a Kepler potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            alpha - inner power
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
                                          alpha=3.)

@@ -40,10 +40,15 @@ class actionAngleStaeckelGrid():
            initialize an actionAngleStaeckelGrid object
         INPUT:
            pot= potential or list of potentials
+
            delta= focus of prolate confocal coordinate system
+
            Rmax = Rmax for building grids
+
            nE=, npsi=, nLz= grid size
+
            numcores= number of cpus to use to parallellize
+
            +scipy.integrate.quad keywords
         OUTPUT:
         HISTORY:

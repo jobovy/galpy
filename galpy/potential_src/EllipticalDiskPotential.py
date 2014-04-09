@@ -10,7 +10,7 @@ class EllipticalDiskPotential(planarPotential):
            phi(R,phi) = phio (R/Ro)^p cos[2(phi-phib)]
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=0.,twophio=0.01,
+                 p=1.,twophio=0.01,
                  tform=None,tsteady=None,
                  cp=None,sp=None):
         """
@@ -59,7 +59,7 @@ class EllipticalDiskPotential(planarPotential):
             self._twophio= twophio
         else:
             self._twophio= m.sqrt(cp*cp+sp*sp)
-            self._phib= m.atan(sp/cp)/2.
+            self._phib= m.atan2(sp,cp)/2.
         self._p= p
         if not tform is None:
             self._tform= tform

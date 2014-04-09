@@ -17,30 +17,44 @@ class FlattenedPowerPotential(Potential):
                           phi(R,z)=-  ---------------- ; m^2 = R^2 + z^2/q^2
                                        alpha m^\alpha
     """
-    def __init__(self,amp=1.,alpha=1.,q=1.,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,alpha=2.,q=0.9,core=_CORE,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a flattened power-law potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            alpha - power
+
            q - flattening
+
            core - core radius
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-01-09 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= False
 

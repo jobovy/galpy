@@ -22,6 +22,8 @@ Methods
    dist <orbitdist.rst>
    E <orbitE.rst>
    e <orbitecc.rst>
+   ER <orbitER.rst>
+   Ez <orbitEz.rst>
    integrate <orbitint.rst>
    getOrbit <orbitgetorbit.rst>
    helioX <orbitheliox.rst>
@@ -59,6 +61,7 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
+   resetaA <orbitresetaa.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
    toLinear <orbittolinear.rst>

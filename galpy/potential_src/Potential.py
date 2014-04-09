@@ -17,7 +17,7 @@ import os, os.path
 import cPickle as pickle
 import math
 import numpy as nu
-from scipy import optimize
+from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from plotRotcurve import plotRotcurve, vcirc
 from plotEscapecurve import plotEscapecurve
@@ -71,19 +71,31 @@ class Potential:
     def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            Rforce
+
         PURPOSE:
-           evaluate radial force K_R  (R,z)
+
+           evaluate radial force F_R  (R,z)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
+
         OUTPUT:
-           K_R (R,z,phi,t)
+
+           F_R (R,z,phi,t)
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
-        DOCTEST:
+
         """
         try:
             return self._amp*self._Rforce(R,z,phi=phi,t=t)
@@ -93,18 +105,31 @@ class Potential:
     def zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            zforce
+
         PURPOSE:
-           evaluate the vertical force K_R  (R,z,t)
+
+           evaluate the vertical force F_z  (R,z,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (optional)
+
            t - time (optional)
+
         OUTPUT:
-           K_z (R,z,phi,t)
+
+           F_z (R,z,phi,t)
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._zforce(R,z,phi=phi,t=t)
@@ -133,9 +158,7 @@ class Potential:
 
         KEYWORDS:
 
-           forcepoisson= if True, calculate the density through the Poisson 
-                         equation, even if an explicit expression for the 
-                         density exists
+           forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
 
         OUTPUT:
 
@@ -155,6 +178,50 @@ class Potential:
                      +self.R2deriv(R,z,phi=phi,t=t)
                      +self.phi2deriv(R,z,phi=phi,t=t)/R**2.
                      +self.z2deriv(R,z,phi=phi,t=t))/4./nu.pi
+
+    def mass(self,R,z=None,t=0.,forceint=False):
+        """
+        NAME:
+
+           mass
+
+        PURPOSE:
+
+           evaluate the mass enclosed
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius
+
+           z= (None) vertical height
+
+
+           t - time (optional)
+
+        KEYWORDS:
+
+           forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
+
+        OUTPUT:
+
+           1) for spherical potentials: M(<R) [or if z is None]
+
+           2) for axisymmetric potentials: M(<R,<|Z|)
+
+        HISTORY:
+
+           2014-01-29 - Written - Bovy (IAS)
+
+        """
+        try:
+            if forceint: raise AttributeError #Hack!
+            return self._amp*self._mass(R,z,t=t)
+        except AttributeError:
+            #Use numerical integration to get the mass
+            if z is None:
+                return 4.*nu.pi\
+                    *integrate.quad(lambda x: x**2.*self.dens(x,0.,),
+                                    0.,R)[0]
 
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
@@ -261,35 +328,58 @@ class Potential:
     def normalize(self,norm,t=0.):
         """
         NAME:
+
            normalize
+
         PURPOSE:
+
            normalize a potential in such a way that vc(R=1,z=0)=1., or a 
            fraction of this
+
         INPUT:
-           norm - normalize such that Rforce(R=1,z=0) is such that it is
-                  'norm' of the force necessary to make vc(R=1,z=0)=1
-                  if True, norm=1
+
+           norm - normalize such that Rforce(R=1,z=0) is such that it is 'norm' of the force necessary to make vc(R=1,z=0)=1 (if True, norm=1)
+
         OUTPUT:
+           
+           (none)
+
         HISTORY:
+
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t))
 
     def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
+
            phiforce
+
         PURPOSE:
-           evaluate the azimuthal force K_phi  (R,z,phi,t)
+
+           evaluate the azimuthal force F_phi  (R,z,phi,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius
+
            z - vertical height
+
            phi - azimuth (rad)
+
            t - time (optional)
+
         OUTPUT:
-           K_phi (R,z,phi,t)
+
+           F_phi (R,z,phi,t)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
@@ -335,14 +425,14 @@ class Potential:
         NAME:
            _phiforce
         PURPOSE:
-           evaluate the azimuthal force K_R  (R,z,phi,t)
+           evaluate the azimuthal force F_phi  (R,z,phi,t)
         INPUT:
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth (rad)
            t - time (optional)
         OUTPUT:
-           K_phi (R,z,phi,t)
+           F_phi (R,z,phi,t)
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
@@ -397,27 +487,57 @@ class Potential:
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+             effective=False,Lz=None,
+             xrange=None,yrange=None,
              ncontours=21,savefilename=None):
         """
         NAME:
+
            plot
+
         PURPOSE:
+
            plot the potential
+
         INPUT:
+
            t - time tp plot potential at
-           rmin - minimum R
+
+           rmin - minimum R at which to calculate
+
            rmax - maximum R
+
            nrs - grid in R
+
            zmin - minimum z
+
            zmax - maximum z
+
            nzs - grid in z
+
+           effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
+
+           Lz= (None) angular momentum to use for the effective potential when effective=True
+
            ncontours - number of contours
+
            savefilename - save to or restore from this savefile (pickle)
+
+           xrange, yrange= can be specified independently from rmin,zmin, etc.
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
+           2014-04-08 - Added effective= - Bovy (IAS)
+
         """
+        if xrange is None: xrange= [rmin,rmax]
+        if yrange is None: yrange= [zmin,zmax]
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
             savefile= open(savefilename,'rb')
@@ -426,12 +546,21 @@ class Potential:
             zs= pickle.load(savefile)
             savefile.close()
         else:
-            Rs= nu.linspace(rmin,rmax,nrs)
-            zs= nu.linspace(zmin,zmax,nzs)
+            if effective and Lz is None:
+                raise RuntimeError("When effective=True, you need to specify Lz=")
+            Rs= nu.linspace(xrange[0],xrange[1],nrs)
+            zs= nu.linspace(yrange[0],yrange[1],nzs)
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj],t=t)
+                if effective:
+                    potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
+            #Don't plot outside of the desired range
+            potRz[Rs < rmin,:]= nu.nan
+            potRz[Rs > rmax,:]= nu.nan
+            potRz[:,zs < zmin]= nu.nan
+            potRz[:,zs > zmax]= nu.nan
             if not savefilename == None:
                 print "Writing savefile "+savefilename+" ..."
                 savefile= open(savefilename,'wb')
@@ -441,13 +570,50 @@ class Potential:
                 savefile.close()
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
+                                xrange=xrange,
+                                yrange=yrange,
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
+    def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                      ncontours=21,savefilename=None,aspect=None,log=False):
+        """
+        NAME:
+           plotDensity
+        PURPOSE:
+           plot the density of this potential
+        INPUT:
+
+           rmin - minimum R
+
+           rmax - maximum R
+
+           nrs - grid in R
+
+           zmin - minimum z
+
+           zmax - maximum z
+
+           nzs - grid in z
+
+           ncontours - number of contours
+
+           savefilename - save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+           plot to output device
+        HISTORY:
+           2014-01-05 - Written - Bovy (IAS)
+        """
+        plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
+                      zmin=zmin,zmax=zmax,nzs=nzs,
+                      ncontours=ncontours,savefilename=savefilename,
+                      aspect=aspect,log=log)
+
     def vcirc(self,R):
         """
         
@@ -594,8 +760,7 @@ class Potential:
         
            OmegaP - pattern speed
 
-           m= order of the resonance (as in m(O-Op)=kappa (negative m for 
-              outer)
+           m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
         
@@ -730,40 +895,104 @@ class Potential:
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
+
            plotRotcurve
+
         PURPOSE:
+
            plot the rotation curve for this potential (in the z=0 plane for
            non-spherical potentials)
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
         NAME:
+
            plotEscapecurve
+
         PURPOSE:
+
            plot the escape velocity  curve for this potential 
            (in the z=0 plane for non-spherical potentials)
+
         INPUT:
+
            Rrange - range
+
            grid - number of points to plot
+
            savefilename - save to or restore from this savefile (pickle)
+
            +bovy_plot(*args,**kwargs)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-08-08 - Written - Bovy (NYU)
+
         """
         plotEscapecurve(self.toPlanar(),*args,**kwargs)
+
+    def conc(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+        """
+        NAME:
+
+           conc
+
+        PURPOSE:
+
+           return the concentration
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+           H= (default: 70) Hubble constant in km/s/Mpc
+           
+           Om= (default: 0.3) Omega matter
+       
+           overdens= (200) overdensity which defines the virial radius
+
+           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        OUTPUT:
+
+           concentration (scale/rvir)
+
+        HISTORY:
+
+           2014-04-03 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/self._scale
+        except AttributeError:
+            raise AttributeError("This potential does not have a '_scale' defined to base the concentration on")
 
 class PotentialError(Exception):
     def __init__(self, value):
@@ -802,13 +1031,18 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
     else:
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateDensities(R,z,Pot,phi=0.,t=0.):
+def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
     """
     NAME:
+
        evaluateDensities
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of densities
+
     INPUT:
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
@@ -818,18 +1052,27 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.):
        phi - azimuth
 
        t - time
+
+       forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
+
     OUTPUT:
+
        rho(R,z)
+
     HISTORY:
+
        2010-08-08 - Written - Bovy (NYU)
+
+       2013-12-28 - Added forcepoisson - Bovy (IAS)
+
     """
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.dens(R,z,phi=phi,t=t)
+            sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.dens(R,z,phi=phi,t=t)
+        return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
     else:
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
@@ -850,7 +1093,7 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
 
        t - time (optional)
     OUTPUT:
-       K_R(R,z,phi,t)
+       F_R(R,z,phi,t)
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
@@ -867,9 +1110,13 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
 def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
-       evaluateRforce
+
+       evaluatephiforces
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
        R - cylindrical Galactocentric distance
 
@@ -880,10 +1127,15 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
        phi - azimuth (optional)
 
        t - time (optional)
+
     OUTPUT:
-       K_R(R,z,phi,t)
+
+       F_phi(R,z,phi,t)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -898,10 +1150,15 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
 def evaluatezforces(R,z,Pot,phi=0.,t=0.):
     """
     NAME:
+
        evaluatezforces
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
@@ -911,10 +1168,15 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
        phi - azimuth (optional)
 
        t - time (optional)
+
     OUTPUT:
-       K_z(R,z,phi,t)
+
+       F_z(R,z,phi,t)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -1438,3 +1700,31 @@ def omegac(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
+def _check_c(Pot):
+    """
+
+    NAME:
+
+       _check_c
+
+    PURPOSE:
+
+       check whether a potential or list thereof has a C implementation
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+    OUTPUT:
+
+       True if a C implementation exists, False otherwise
+
+    HISTORY:
+
+       2014-02-17 - Written - Bovy (IAS)
+
+    """
+    if isinstance(Pot,list):
+        return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
+    elif isinstance(Pot,Potential):
+        return Pot.hasC

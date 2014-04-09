@@ -1,3 +1,4 @@
+.. _potential-api:
 Potential
 =========
 
@@ -13,16 +14,21 @@ Use as ``Potential-instance.method(...)``
    :maxdepth: 2
 
    __call__ <potentialcall.rst>
+   conc <potentialconc.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
+   flattening <potentialflattening.rst>
    lindbladR <potentiallindbladR.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
+   phi2deriv <potentialphi2deriv.rst>
    plot <potentialplot.rst>
+   plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
+   Rzderiv <potentialr2deriv.rst>
    Rforce <potentialrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
@@ -49,11 +55,14 @@ Use as ``method(...)``
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
    evaluateR2derivs <potentialr2derivs.rst>
+   evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
+   flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
    omegac <potentialomegacs.rst>
+   plotDensities <potentialplotdensities.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
@@ -109,7 +118,7 @@ Use as ``Potential-instance.method(...)``
 General axisymmetric potential instance routines
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
-Use as ``method(...)``
+Use as ``Potential-instance.method(...)``
 
 .. toctree::
    :maxdepth: 2

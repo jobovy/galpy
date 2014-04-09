@@ -1,0 +1,19 @@
+Author:
+
+Jo Bovy <bovy@ias.edu>
+
+Direct contributions to the code base:
+
+(none)
+
+Bug reports:
+(incomplete list, apologies if I forgot anybody!)
+
+Wai-Hin Ngan
+Wilma Trick
+T. E. Pickering
+Željko Ivezić
+Resmi Lekshmi
+Rok Roskar
+Dylan Gregersen
+Eduardo Balbinot

@@ -7,6 +7,8 @@
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
+#             actionsFreqs: returns (jr,lz,jz,Or,Op,Oz)
+#             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
 import copy
@@ -23,7 +25,9 @@ class actionAngleIsochrone():
            initialize an actionAngleIsochrone object
         INPUT:
            Either:
+
               b= scale parameter of the isochrone parameter
+
               ip= instance of a IsochronePotential
         OUTPUT:
         HISTORY:
@@ -49,7 +53,7 @@ class actionAngleIsochrone():
         else:
             self._c= False
         if not self._c:
-            self._ip= IsochronePotential(normalize=1.,b=self.b)
+            self._ip= IsochronePotential(amp=self.amp,b=self.b)
         return None
     
     def __call__(self,*args,**kwargs):
@@ -177,7 +181,7 @@ class actionAngleIsochrone():
            2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5: #R,vR.vT, z, vz
-            R,vR,vT, z, vz= args
+            raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:

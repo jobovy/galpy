@@ -71,19 +71,33 @@ _K=4.74047
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
+
        radec_to_lb
+
     PURPOSE:
+
        transform from equatorial coordinates to Galactic coordinates
+
     INPUT:
+
        ra - right ascension
+
        dec - declination
+
        degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
+
        epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+
     OUTPUT:
+
        l,b
+
        For vector inputs [:,2]
+
     HISTORY:
+
        2009-11-12 - Written - Bovy (NYU)
+
     """
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
@@ -135,21 +149,33 @@ def radec_to_lb_single(ra,dec,T,degree=False):
 def lb_to_radec(l,b,degree=False,epoch=2000.0):
     """
     NAME:
+
        lb_to_radec
+
     PURPOSE:
+
        transform from Galactic coordinates to equatorial coordinates
+
     INPUT:
+
        l - Galactic longitude
+
        b - Galactic lattitude
-       degree - (Bool) if True, l and b are given in degree and ra and dec
-                will be as well
-       epoch - epoch of target ra,dec
-               (right now only 2000.0 and 1950.0 are supported)
+
+       degree - (Bool) if True, l and b are given in degree and ra and dec will be as well
+
+       epoch - epoch of target ra,dec (right now only 2000.0 and 1950.0 are supported)
+
     OUTPUT:
+
        ra,dec
+
        For vector inputs [:,2]
+
     HISTORY:
+
        2010-04-07 - Written - Bovy (NYU)
+
     """
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
@@ -203,20 +229,33 @@ def lb_to_radec_single(l,b,T,degree=False):
 def lbd_to_XYZ(l,b,d,degree=False):
     """
     NAME:
+
        lbd_to_XYZ
+
     PURPOSE:
-       transform from spherical Galactic coordinates to rectangular Galactic coordinates
-       works with vector inputs
+
+       transform from spherical Galactic coordinates to rectangular Galactic coordinates (works with vector inputs)
+
     INPUT:
+
        l - Galactic longitude (rad)
+
        b - Galactic lattitude (rad)
+
        d - distance (arbitrary units)
+
        degree - (bool) if True, l and b are in degrees
+
     OUTPUT:
+
        [X,Y,Z] in whatever units d was in
+
        For vector inputs [:,3]
+
     HISTORY:
+
        2009-10-24- Written - Bovy (NYU)
+
     """
     if sc.array(l).shape == ():
         return lbd_to_XYZ_single(l,b,d,degree)
@@ -249,23 +288,37 @@ def lbd_to_XYZ_single(l,b,d,degree=False):
 def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
     """
     NAME:
+
        rectgal_to_sphergal
+
     PURPOSE:
-       transform phase-space coordinates in rectangular Galactic coordinates to
-       spherical Galactic coordinates
-       Can take vector inputs
+
+       transform phase-space coordinates in rectangular Galactic coordinates to spherical Galactic coordinates (can take vector inputs)
+
     INPUT:
+
        X - component towards the Galactic Center (kpc)
+
        Y - component in the direction of Galactic rotation (kpc)
+
        Z - component towards the North Galactic Pole (kpc)
+
        vx - velocity towards the Galactic Center (km/s)
+
        vy - velocity in the direction of Galactic rotation (km/s)
+
        vz - velocity towards the North Galactic Pole (km/s)
+
        degree - (Bool) if True, return l and b in degrees
+
     OUTPUT:
+
        (l,b,d,vr,pmll,pmbb) in (rad,rad,kpc,km/s,mas/yr,mas/yr)
+
     HISTORY:
+
        2009-10-25 - Written - Bovy (NYU)
+
     """
     lbd= XYZ_to_lbd(X,Y,Z,degree=degree)
     vrpmllpmbb= vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,XYZ=True)
@@ -280,23 +333,37 @@ def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
 def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
     """
     NAME:
+
        sphergal_to_rectgal
+
     PURPOSE:
-       transform phase-space coordinates in spherical Galactic coordinates to
-       rectangular Galactic coordinates
-       Can take vector inputs
+
+       transform phase-space coordinates in spherical Galactic coordinates to rectangular Galactic coordinates (can take vector inputs)
+
     INPUT:
+
        l - Galactic longitude (rad)
+
        b - Galactic lattitude (rad)
+
        d - distance (kpc)
+
        vr - line-of-sight velocity (km/s)
+
        pmll - proper motion in the Galactic longitude direction (mu_l*cos(b) ) (mas/yr)
+
        pmbb - proper motion in the Galactic lattitude (mas/yr)
+
        degree - (bool) if True, l and b are in degrees
+
     OUTPUT:
+
        (X,Y,Z,vx,vy,vz) in (kpc,kpc,kpc,km/s,km/s,km/s)
+
     HISTORY:
+
        2009-10-25 - Written - Bovy (NYU)
+
     """
     XYZ= lbd_to_XYZ(l,b,d,degree=degree)
     vxvyvz= vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=degree)
@@ -311,23 +378,39 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
 def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
     """
     NAME:
+
        vrpmllpmbb_to_vxvyvz
+
     PURPOSE:
-       Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame
-       Can take vector inputs
+
+       Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame (can take vector inputs)
+
     INPUT:
+
        vr - line-of-sight velocity (km/s)
+
        pmll - proper motion in the Galactic longitude (mu_l * cos(b))(mas/yr)
+
        pmbb - proper motion in the Galactic lattitude (mas/yr)
+
        l - Galactic longitude
+
        b - Galactic lattitude
+
        d - distance (kpc)
+
        XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
+
        degree - (bool) if True, l and b are in degrees
+
     OUTPUT:
+
        (vx,vy,vz) in (km/s,km/s,km/s)
+
     HISTORY:
+
        2009-10-24 - Written - Bovy (NYU)
+
     """
     if sc.array(l).shape == ():
         return vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree)
@@ -384,23 +467,39 @@ def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
 def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     """
     NAME:
+
        vxvyvz_to_vrpmllpmbb
+
     PURPOSE:
-       Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame
-       Can take vector inputs
+
+       Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame (can take vector inputs)
+
     INPUT:
+
        vx - velocity towards the Galactic Center (km/s)
+
        vy - velocity in the direction of Galactic rotation (km/s)
+
        vz - velocity towards the North Galactic Pole (km/s)
+
        l - Galactic longitude
+
        b - Galactic lattitude
+
        d - distance (kpc)
+
        XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
+
        degree - (bool) if True, l and b are in degrees
+
     OUTPUT:
+
        (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
+
     HISTORY:
+
        2009-10-24 - Written - Bovy (NYU)
+
     """
     if sc.array(l).shape == ():
         return vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ,degree)
@@ -459,20 +558,33 @@ def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 def XYZ_to_lbd(X,Y,Z,degree=False):
     """
     NAME:
+
        XYZ_to_lbd
+
     PURPOSE:
-       transform from rectangular Galactic coordinates to spherical Galactic coordinates
-       works with vector inputs
+
+       transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
+
     INPUT:
+
        X - component towards the Galactic Center (in kpc; though this obviously does not matter))
+
        Y - component in the direction of Galactic rotation (in kpc)
+
        Z - component towards the North Galactic Pole (kpc)
+
        degree - (Bool) if True, return l and b in degrees
+
     OUTPUT:
+
        [l,b,d] in (rad,rad,kpc)
+
        For vector inputs [:,3]
+
     HISTORY:
+
        2009-10-24 - Written - Bovy (NYU)
+
     """
     if sc.array(X).shape == ():
         return XYZ_to_lbd_single(X,Y,Z,degree)
@@ -513,20 +625,35 @@ def XYZ_to_lbd_single(X,Y,Z,degree):
 def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
+
        pmrapmdec_to_pmllpmbb
+
     PURPOSE:
+
        rotate proper motions in (ra,dec) into proper motions in (l,b)
+
     INPUT:
+
        pmra - proper motion in ra (multplied with cos(dec)) [mas/yr]
+
        pmdec - proper motion in dec [mas/yr]
+
        ra - right ascension
+
        dec - declination
+
        degree - if True, ra and dec are given in degrees (default=False)
+
        epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+
     OUTPUT:
+
        (pmll,pmbb) for vector inputs [:,2]
+
     HISTORY:
+
        2010-04-07 - Written - Bovy (NYU)
+
     """
     if sc.array(pmra).shape == ():
         l,b = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
@@ -581,20 +708,35 @@ def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
 def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
     """
     NAME:
+
        pmllpmbb_to_pmrapmdec
+
     PURPOSE:
+
        rotate proper motions in (l,b) into proper motions in (ra,dec)
+
     INPUT:
+
        pmll - proper motion in l (multplied with cos(b)) [mas/yr]
+
        pmbb - proper motion in b [mas/yr]
+
        l - Galactic longitude
+
        b - Galactic lattitude
+
        degree - if True, l and b are given in degrees (default=False)
+
        epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+
     OUTPUT:
+
        (pmra,pmdec), for vector inputs [:,2]
+
     HISTORY:
+
        2010-04-07 - Written - Bovy (NYU)
+
     """
     if sc.array(pmll).shape == ():
         ra,dec = lb_to_radec(l,b,degree=degree,epoch=epoch)
@@ -651,21 +793,33 @@ def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
+
        cov_pmrapmdec_to_pmllpmbb
+
     PURPOSE:
-       propagate the proper motions errors through the rotation from (ra,dec)
-       to (l,b)
+
+       propagate the proper motions errors through the rotation from (ra,dec) to (l,b)
+
     INPUT:
-       covar_pmradec - uncertainty covariance matrix of the proper motion
-                      in ra (multplied with cos(dec)) and dec [2,2] or [:,2,2]
+
+       covar_pmradec - uncertainty covariance matrix of the proper motion in ra (multplied with cos(dec)) and dec [2,2] or [:,2,2]
+
        ra - right ascension
+
        dec - declination
+
        degree - if True, ra and dec are given in degrees (default=False)
+
        epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+
     OUTPUT:
+
        covar_pmllbb [2,2] or [:,2,2]
+
     HISTORY:
+
        2010-04-12 - Written - Bovy (NYU)
+
     """
     if len(cov_pmradec.shape) == 3:
         out= sc.zeros(cov_pmradec.shape)
@@ -725,26 +879,45 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
                           plx=False,degree=False):
     """
     NAME:
+
        cov_dvrpmllbb_to_vxyz
+
     PURPOSE:
-       propagate distance, radial velocity, and proper motion uncertainties to
-       Galactic coordinates
+
+       propagate distance, radial velocity, and proper motion uncertainties to Galactic coordinates
+
     INPUT:
+
        d - distance [kpc, as/mas for plx]
+
        e_d - distance uncertainty [kpc, [as/mas] for plx]
+
        e_vr  - low velocity uncertainty [km/s]
+
        pmll - proper motion in l (*cos(b)) [ [as/mas]/yr ]
+
        pmbb - proper motion in b [ [as/mas]/yr ]
+
        cov_pmllbb - uncertainty covariance for proper motion
+
        l - Galactic longitude
+
        b - Galactic lattitude
+
     KEYWORDS:
+
        plx - if True, d is a parallax, and e_d is a parallax uncertainty
+
        degree - if True, l and b are given in degree
+
     OUTPUT:
+
        cov(vx,vy,vz) [3,3] or [:,3,3]
+
     HISTORY:
+
        2010-04-12 - Written - Bovy (NYU)
+
     """
     if plx:
         d= 1./d
@@ -803,49 +976,79 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
     NAME:
+
        XYZ_to_galcenrect
+
     PURPOSE:
-       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric 
-       coordinates
+
+       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates
+
     INPUT:
+
        X - X
+
        Y - Y
+
        Z - Z
+
     OUTPUT:
+
        (Xg, Yg, Zg)
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     return (-X+Xsun,Y+Ysun,Z+Zsun)
 
 def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
     NAME:
+
        galcenrect_to_XYZ
+
     PURPOSE:
-       transform rectangular Galactocentric to XYZ coordinates (wrt Sun)
-       coordinates
+
+       transform rectangular Galactocentric to XYZ coordinates (wrt Sun) coordinates
+
     INPUT:
+
        X, Y, Z - Galactocentric rectangular coordinates
+
     OUTPUT:
+
        (X, Y, Z)
+
     HISTORY:
+
        2011-02-23 - Written - Bovy (NYU)
+
     """
     return (-X+Xsun,Y-Ysun,Z-Zsun)
 
 def rect_to_cyl(X,Y,Z):
     """
     NAME:
+
        rect_to_cyl
+
     PURPOSE:
+
        convert from rectangular to cylindrical coordinates
+
     INPUT:
+
        X, Y, Z - rectangular coordinates
+
     OUTPUT:
+
        [:,3] R,phi,z
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     R= sc.sqrt(X**2.+Y**2.)
     phi= sc.arcsin(Y/R)
@@ -858,33 +1061,54 @@ def rect_to_cyl(X,Y,Z):
 def cyl_to_rect(R,phi,Z):
     """
     NAME:
+
        cyl_to_rect
+
     PURPOSE:
+
        convert from cylindrical to rectangular coordinates
+
     INPUT:
+
        R, phi, Z - cylindrical coordinates
+
     OUTPUT:
+
        [:,3] X,Y,Z
+
     HISTORY:
+
        2011-02-23 - Written - Bovy (NYU)
+
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
 
 def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
     NAME:
+
        XYZ_to_galcencyl
+
     PURPOSE:
-       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric 
-       coordinates
+
+       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates
+
     INPUT:
+
        X - X
+
        Y - Y
+
        Z - Z
+
     OUTPUT:
+
        [:,3]= R,phi,z
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     Xg,Yg,Zg= XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
     return rect_to_cyl(Xg,Yg,Zg)
@@ -892,16 +1116,25 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
     """
     NAME:
+
        galcencyl_to_XYZ
+
     PURPOSE:
-       transform cylindrical Galactocentric coordinates to XYZ coordinates 
-       (wrt Sun)
+
+       transform cylindrical Galactocentric coordinates to XYZ coordinates (wrt Sun)
+
     INPUT:
+
        R, phi, Z - Galactocentric cylindrical coordinates
+
     OUTPUT:
+
        [:,3]= X,Y,Z
+
     HISTORY:
+
        2011-02-23 - Written - Bovy (NYU)
+
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
     return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
@@ -909,43 +1142,70 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
     """
     NAME:
+
        vxvyvz_to_galcenrect
+
     PURPOSE:
-       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric 
-       coordinates for velocities
+
+       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates for velocities
+
     INPUT:
+
        vx - U
+
        vy - V
+
        vz - W
+
        vsun - velocity of the sun ndarray[3]
+
     OUTPUT:
+
        [:,3]= vXg, vYg, vZg
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     return sc.array([-vx+vsun[0],vy+vsun[1],vz+vsun[2]])
 
 def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
     """
     NAME:
+
        vxvyvz_to_galcencyl
+
     PURPOSE:
-       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric 
-       coordinates for velocities
+
+       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates for velocities
+
     INPUT:
+
        vx - U
+
        vy - V
+
        vz - W
+
        X - X
+
        Y - Y
+
        Z - Z
+
        vsun - velocity of the sun ndarray[3]
-       galcen - if True, then X,Y,Z are in cylindrical 
-                Galactocentric coordinates
+
+       galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates
+
     OUTPUT:
+
        vRg, vTg, vZg
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun)
     return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=galcen)
@@ -953,19 +1213,31 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
 def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
     """
     NAME:
+
        galcenrect_to_vxvyvz
+
     PURPOSE:
-       transform rectangular Galactocentric coordinates to XYZ coordinates 
-       (wrt Sun) for velocities
+
+       transform rectangular Galactocentric coordinates to XYZ coordinates (wrt Sun) for velocities
+
     INPUT:
+
        vXg - Galactocentric x-velocity
+
        vYg - Galactocentric y-velocity
+
        vZg - Galactocentric z-velocity
+
        vsun - velocity of the sun ndarray[3]
+
     OUTPUT:
+
        [:,3]= vx, vy, vz
+
     HISTORY:
+
        2011-02-24 - Written - Bovy (NYU)
+
     """
     try:
         return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
@@ -977,20 +1249,33 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
     """
     NAME:
+
        galcencyl_to_vxvyvz
+
     PURPOSE:
-       transform cylindrical Galactocentric coordinates to XYZ (wrt Sun)
-       coordinates for velocities
+
+       transform cylindrical Galactocentric coordinates to XYZ (wrt Sun) coordinates for velocities
+
     INPUT:
+
        vR - Galactocentric radial velocity
+
        vT - Galactocentric tangential velocity
+
        vZ - Galactocentric vertical velocity
+
        phi - Galactocentric azimuth
+
        vsun - velocity of the sun ndarray[3]
+
     OUTPUT:
+
        vx,vy,vz
+
     HISTORY:
+
        2011-02-24 - Written - Bovy (NYU)
+
     """
     vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
     return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun)
@@ -998,21 +1283,37 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
     NAME:
+
        rect_to_cyl_vec
+
     PURPOSE:
+
        transform vectors from rectangular to cylindrical coordinates vectors
+
     INPUT:
+
        vx - 
+
        vy - 
+
        vz - 
+
        X - X
+
        Y - Y
+
        Z - Z
+
        cyl - if True, X,Y,Z are already cylindrical
+
     OUTPUT:
+
        vR,vT,vz
+
     HISTORY:
+
        2010-09-24 - Written - Bovy (NYU)
+
     """
     if not cyl:
         R,phi,Z= rect_to_cyl(X,Y,Z)
@@ -1025,41 +1326,238 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
 def cyl_to_rect_vec(vr,vt,vz,phi):
     """
     NAME:
+
        cyl_to_rect_vec
+
     PURPOSE:
+
        transform vectors from cylindrical to rectangular coordinate vectors
+
     INPUT:
+
        vr - radial velocity
+
        vt - tangential velocity
+
        vz - vertical velocity
+
        phi - azimuth
+
     OUTPUT:
+
        vx,vy,vz
+
     HISTORY:
+
        2011-02-24 - Written - Bovy (NYU)
+
     """
     vx= vr*sc.cos(phi)-vt*sc.sin(phi)
     vy= vr*sc.sin(phi)+vt*sc.cos(phi)
     return (vx,vy,vz)
 
+def cyl_to_rect_jac(*args):
+    """
+    NAME:
+
+       cyl_to_rect_jac
+
+    PURPOSE:
+
+       calculate the Jacobian of the cylindrical to rectangular conversion
+
+    INPUT:
+
+       R, phi, Z- cylindrical coordinates
+
+       vR, vT, vZ- cylindrical velocities
+
+       if 6 inputs: R,vR,vT,z,vz,phi
+
+       if 3: R, phi, Z
+
+    OUTPUT:
+
+       jacobian d(rect)/d(cyl)
+
+    HISTORY:
+
+       2013-12-09 - Written - Bovy (IAS)
+
+    """
+    out= sc.zeros((6,6))
+    if len(args) == 3:
+        R, phi, Z= args
+        vR, vT, vZ= 0., 0., 0.
+        outIndx= sc.array([True,False,False,True,False,True],dtype='bool')
+    elif len(args) == 6:
+        R, vR, vT, Z, vZ, phi= args
+        outIndx= sc.ones(6,dtype='bool')
+    cp= sc.cos(phi)
+    sp= sc.sin(phi)
+    out[0,0]= cp
+    out[0,5]= -R*sp
+    out[1,0]= sp
+    out[1,5]= R*cp
+    out[2,3]= 1.
+    out[3,1]= cp
+    out[3,2]= -sp
+    out[3,5]= -vT*cp-vR*sp
+    out[4,1]= sp
+    out[4,2]= cp
+    out[4,5]= -vT*sp+vR*cp
+    out[5,4]= 1.
+    if len(args) == 3:
+        out= out[:3,outIndx]
+        out[:,[1,2]]= out[:,[2,1]]
+    return out
+
+def galcenrect_to_XYZ_jac(*args,**kwargs):
+    """
+    NAME:
+
+       galcenrect_to_XYZ_jac
+    PURPOSE:
+
+       calculate the Jacobian of the Galactocentric rectangular to Galactic coordinates
+
+    INPUT:
+
+       X,Y,Z- Galactocentric rectangular coordinates
+
+       vX, vY, vZ- Galactocentric rectangular velocities
+
+       if 6 inputs: X,Y,Z,vX,vY,vZ
+
+       if 3: X,Y,Z
+
+    OUTPUT:
+
+       jacobian d(galcen.)/d(Galactic)
+
+    HISTORY:
+
+       2013-12-09 - Written - Bovy (IAS)
+
+    """
+    out= sc.zeros((6,6))
+    out[0,0]= -1.
+    out[1,1]= 1.
+    out[2,2]= 1.
+    if len(args) == 3: return out[:3,:3]
+    out[3,3]= -1.
+    out[4,4]= 1.
+    out[5,5]= 1.
+    return out
+
+def lbd_to_XYZ_jac(*args,**kwargs):
+    """
+    NAME:
+
+       lbd_to_XYZ_jac
+
+    PURPOSE:
+
+       calculate the Jacobian of the Galactic spherical coordinates to Galactic rectangular coordinates transformation
+
+    INPUT:
+
+       l,b,D- Galactic spherical coordinates
+
+       vlos,pmll,pmbb- Galactic spherical velocities (some as proper motions)
+
+       if 6 inputs: l,b,D,vlos,pmll,pmbb
+
+       if 3: l,b,D
+
+    OUTPUT:
+
+       jacobian
+
+    HISTORY:
+
+       2013-12-09 - Written - Bovy (IAS)
+
+    """
+    out= sc.zeros((6,6))
+    if len(args) == 3:
+        l,b,D= args
+        vlos, pmll, pmbb= 0., 0., 0.
+    elif len(args) == 6:
+        l,b,D,vlos,pmll,pmbb= args
+    if kwargs.has_key('degree') and kwargs['degree']:
+        l*= _DEGTORAD
+        b*= _DEGTORAD
+    cl= sc.cos(l)
+    sl= sc.sin(l)
+    cb= sc.cos(b)
+    sb= sc.sin(b)
+    out[0,0]= -D*cb*sl
+    out[0,1]= -D*sb*cl
+    out[0,2]= cb*cl
+    out[1,0]= D*cb*cl
+    out[1,1]= -D*sb*sl
+    out[1,2]= cb*sl
+    out[2,1]= D*cb
+    out[2,2]= sb
+    if len(args) == 3:
+        if kwargs.has_key('degree') and kwargs['degree']:
+            out[:,0]*= _DEGTORAD
+            out[:,1]*= _DEGTORAD
+        return out[:3,:3]
+    out[3,0]= -sl*cb*vlos-cl*_K*D*pmll+sb*sl*_K*D*pmbb
+    out[3,1]= -cl*sb*vlos-cb*cl*_K*D*pmbb
+    out[3,2]= -sl*_K*pmll-sb*cl*_K*pmbb
+    out[3,3]= cl*cb
+    out[3,4]= -sl*_K*D
+    out[3,5]= -cl*sb*_K*D
+    out[4,0]= cl*cb*vlos-sl*_K*D*pmll-cl*sb*_K*D*pmbb
+    out[4,1]= -sl*sb*vlos-sl*cb*_K*D*pmbb
+    out[4,2]= cl*_K*pmll-sl*sb*_K*pmbb
+    out[4,3]= sl*cb
+    out[4,4]= cl*_K*D
+    out[4,5]= -sl*sb*_K*D
+    out[5,1]= cb*vlos-sb*_K*D*pmbb
+    out[5,2]= cb*_K*pmbb
+    out[5,3]= sb
+    out[5,5]= cb*_K*D
+    if kwargs.has_key('degree') and kwargs['degree']:
+        out[:,0]*= _DEGTORAD
+        out[:,1]*= _DEGTORAD
+    return out
+
 def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
     """
     NAME:
+
        dl_to_rphi_2d
+
     PURPOSE:
-       convert Galactic longitude and distance to Galactocentric radius and 
-       azimuth
+
+       convert Galactic longitude and distance to Galactocentric radius and azimuth
+
     INPUT:
+
        d - distance
+
        l - Galactic longitude [rad/deg if degree]
+
     KEYWORDS:
+
        degree= (False): l is in degrees rather than rad
+
        ro= (1) Galactocentric radius of the observer
+
        phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
+
     OUTPUT:
+
        (R,phi); phi in degree if degree
+
     HISTORY:
+
        2012-01-04 - Written - Bovy (IAS)
+
     """
     scalarOut, listOut= False, False
     if isinstance(d,(int,float)):
@@ -1091,21 +1589,35 @@ def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
 def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
     """
     NAME:
+
        rphi_to_dl_2d
+
     PURPOSE:
-       convert Galactocentric radius and azimuth to distance and Galactic
-       longitude
+
+       convert Galactocentric radius and azimuth to distance and Galactic longitude
+
     INPUT:
+
        R - Galactocentric radius
+
        phi - Galactocentric azimuth [rad/deg if degree]
+
     KEYWORDS:
+
        degree= (False): phi is in degrees rather than rad
+
        ro= (1) Galactocentric radius of the observer
+
        phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
+
     OUTPUT:
+
        (d,l); phi in degree if degree
+
     HISTORY:
+
        2012-01-04 - Written - Bovy (IAS)
+
     """
     scalarOut, listOut= False, False
     if isinstance(R,(int,float)):
@@ -1137,17 +1649,29 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
 def Rz_to_coshucosv(R,z,delta=1.):
     """
     NAME:
+
        Rz_to_coshucosv
+
     PURPOSE:
+
        calculate prolate confocal cosh(u) and cos(v) coordinates from R,z, and delta
+
     INPUT:
+
        R - radius
+
        z - height
+
        delta= focus
+
     OUTPUT:
+
        (cosh(u),cos(v))
+
     HISTORY:
+
        2012-11-27 - Written - Bovy (IAS)
+
     """
     d12= (z+delta)**2.+R**2.
     d22= (z-delta)**2.+R**2.
@@ -1158,17 +1682,29 @@ def Rz_to_coshucosv(R,z,delta=1.):
 def Rz_to_uv(R,z,delta=1.):
     """
     NAME:
+
        Rz_to_uv
+
     PURPOSE:
+
        calculate prolate confocal u and v coordinates from R,z, and delta
+
     INPUT:
+
        R - radius
+
        z - height
+
        delta= focus
+
     OUTPUT:
+
        (u,v)
+
     HISTORY:
+
        2012-11-27 - Written - Bovy (IAS)
+
     """
     coshu, cosv= Rz_to_coshucosv(R,z,delta)
     u= sc.arccosh(coshu)
@@ -1178,17 +1714,29 @@ def Rz_to_uv(R,z,delta=1.):
 def uv_to_Rz(u,v,delta=1.):
     """
     NAME:
+
        uv_to_Rz
+
     PURPOSE:
+
        calculate R and z from prolate confocal u and v coordinates
+
     INPUT:
+
        u - confocal u
+
        v - confocal v
+
        delta= focus
+
     OUTPUT:
+
        (R,z)
+
     HISTORY:
+
        2012-11-27 - Written - Bovy (IAS)
+
     """
     R= delta*sc.sinh(u)*sc.sin(v)
     z= delta*sc.cosh(u)*sc.cos(v)
@@ -1197,16 +1745,24 @@ def uv_to_Rz(u,v,delta=1.):
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:
+
        get_epoch_angles
+
     PURPOSE:
-       get the angles relevant for the transformation from ra, dec to l,b
-       for the given epoch
+
+       get the angles relevant for the transformation from ra, dec to l,b for the given epoch
     INPUT:
+
        epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported
+
     OUTPUT:
+
        set of angles
+
     HISTORY:
+
        2010-04-07 - Written - Bovy (NYU)
+
     """
     if epoch == 2000.0:
         theta= 122.932/180.*sc.pi

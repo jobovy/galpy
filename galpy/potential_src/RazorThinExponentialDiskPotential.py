@@ -17,32 +17,47 @@ class RazorThinExponentialDiskPotential(Potential):
                  new=True,glorder=100):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a razor-thin-exponential disk potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            hr - disk scale-length in terms of ro
+
            tol - relative accuracy of potential-evaluations
+
            maxiter - scipy.integrate keyword
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            RazorThinExponentialDiskPotential object
+
         HISTORY:
+
            2012-12-27 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self._new= new
         self._glorder= glorder
         self._ro= ro
         self._hr= hr
+        self._scale= self._hr
         self._alpha= 1./self._hr
         self._maxiter= maxiter
         self._tol= tol
         self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         #Load Kepler potential for large R
         #self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)

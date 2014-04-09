@@ -27,9 +27,7 @@ class SteadyLogSpiralPotential(planarPotential):
            amp - amplitude to be applied to the potential (default:
            1., A below)
 
-           gamma - angle between sun-GC line and the line connecting the 
-                  peak of the spiral pattern at the Solar radius 
-                  (in rad; default=45 degree)
+           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree)
         
            A - force amplitude (alpha*potential-amplitude; default=0.035)
 
@@ -45,8 +43,7 @@ class SteadyLogSpiralPotential(planarPotential):
               
            tform - start of spiral growth / spiral period (default: -Infinity)
 
-           tsteady - time from tform at which the spiral is fully grown 
-                     / spiral period (default: tform+2 periods)
+           tsteady - time from tform at which the spiral is fully grown / spiral period (default: tform+2 periods)
 
         OUTPUT:
 

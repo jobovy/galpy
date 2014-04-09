@@ -24,6 +24,7 @@ except IOError:
     ext_loaded= False
 else:
     ext_loaded= True
+from galpy.potential_src.Potential import _check_c
 class actionAngleAdiabatic():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
@@ -33,7 +34,9 @@ class actionAngleAdiabatic():
         PURPOSE:
            initialize an actionAngleAdiabatic object
         INPUT:
+
            pot= potential or list of potentials (planarPotentials)
+
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
         OUTPUT:
         HISTORY:
@@ -43,8 +46,9 @@ class actionAngleAdiabatic():
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
         if ext_loaded and kwargs.has_key('c') and kwargs['c']:
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
-            self._c= True
+            self._c= _check_c(self._pot)
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
         else:
             self._c= False
         if kwargs.has_key('gamma'):
@@ -70,8 +74,9 @@ class actionAngleAdiabatic():
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if self._c or (ext_loaded and kwargs.has_key('c') and kwargs['c']):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -97,6 +102,9 @@ class actionAngleAdiabatic():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+            if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
                 ojr= nu.zeros((len(args[0])))
@@ -110,8 +118,8 @@ class actionAngleAdiabatic():
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
-                    ojr[ii]= tjr[0]
-                    ojz[ii]= tjz[0]
+                    ojr[ii]= tjr
+                    ojz[ii]= tjz
                     olz[ii]= tlz
                 return (ojr,olz,ojz)
             else:

@@ -16,7 +16,7 @@ class PowerSphericalPotentialwCutoff(Potential):
     rho(r)= --------- e^{-(r/rc)^2}
              r^\alpha
     """
-    def __init__(self,amp=1.,alpha=1.,rc=0.1,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False):
         """
         NAME:
            __init__
@@ -37,7 +37,10 @@ class PowerSphericalPotentialwCutoff(Potential):
         Potential.__init__(self,amp=amp)
         self.alpha= alpha
         self.rc= rc
-        if normalize or isinstance(normalize,(int,float)):
+        self._scale= self.rc
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= False
 

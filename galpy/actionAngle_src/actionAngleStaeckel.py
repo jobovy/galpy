@@ -26,6 +26,7 @@ except IOError:
     ext_loaded= False
 else:
     ext_loaded= True
+from galpy.potential_src.Potential import _check_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -36,8 +37,12 @@ class actionAngleStaeckel():
            initialize an actionAngleStaeckel object
         INPUT:
            pot= potential or list of potentials (3D)
+
            delta= focus
+
            useu0 - use u0 to calculate dV (NOT recommended)
+
+           c= if True, always use C for calculations
         OUTPUT:
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
@@ -48,13 +53,13 @@ class actionAngleStaeckel():
         if not kwargs.has_key('delta'):
             raise IOError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
-            self._c= True
+                           or not kwargs.has_key('c')):           
+            self._c= _check_c(self._pot)
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
         else:
             self._c= False
         if kwargs.has_key('useu0') and kwargs['useu0']:
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
             self._useu0= True
         else:
             self._useu0= False
@@ -79,9 +84,9 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -119,6 +124,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
@@ -133,8 +140,8 @@ class actionAngleStaeckel():
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
-                    ojr[ii]= tjr[0]
-                    ojz[ii]= tjz[0]
+                    ojr[ii]= tjr
+                    ojz[ii]= tjz
                     olz[ii]= tlz
                 return (ojr,olz,ojz)
             else:
@@ -162,9 +169,9 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -202,6 +209,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
     def actionsFreqsAngles(self,*args,**kwargs):
@@ -222,9 +231,9 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if (self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c']))):
-            #print "BOVY: CHECK THAT POTENTIALS HAVE C IMPLEMENTATIONS"
+        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
+                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+                and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 raise IOError("Must specify phi")
             elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -264,6 +273,8 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
     def JR(self,*args,**kwargs):
@@ -443,7 +454,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        return nu.array([self._R*self._vT,0.])
+        return self._R*self._vT
 
     def JR(self,**kwargs):
         """
@@ -468,26 +479,26 @@ class actionAngleStaeckelSingle(actionAngle):
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-                *nu.array([integrate.fixed_quad(_JRStaeckelIntegrand,
-                                                umin,umax,
-                                                args=(self._E,self._Lz,self._I3U,
-                                                      self._delta,
-                                                      self._u0,self._sinhu0**2.,
-                                                      self._vx,self._sinvx**2.,
-                                                      self._potu0v0,self._pot),
-                                                n=10,
-                                                **kwargs)[0],nu.nan])
+                *integrate.fixed_quad(_JRStaeckelIntegrand,
+                                      umin,umax,
+                                      args=(self._E,self._Lz,self._I3U,
+                                            self._delta,
+                                            self._u0,self._sinhu0**2.,
+                                            self._vx,self._sinvx**2.,
+                                            self._potu0v0,self._pot),
+                                      n=10,
+                                      **kwargs)[0]
         else:
             if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
-                *nu.array(integrate.quad(_JRStaeckelIntegrand,
-                                         umin,umax,
-                                         args=(self._E,self._Lz,self._I3U,
-                                               self._delta,
-                                               self._u0,self._sinhu0**2.,
-                                               self._vx,self._sinvx**2.,
-                                               self._potu0v0,self._pot),
-                                         **kwargs))
+                *integrate.quad(_JRStaeckelIntegrand,
+                                umin,umax,
+                                args=(self._E,self._Lz,self._I3U,
+                                      self._delta,
+                                      self._u0,self._sinhu0**2.,
+                                      self._vx,self._sinvx**2.,
+                                      self._potu0v0,self._pot),
+                                **kwargs)[0]
         return self._JR
 
     def Jz(self,**kwargs):
@@ -512,27 +523,27 @@ class actionAngleStaeckelSingle(actionAngle):
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
-                *nu.array([integrate.fixed_quad(_JzStaeckelIntegrand,
-                                                vmin,nu.pi/2,
-                                                args=(self._E,self._Lz,self._I3V,
-                                                      self._delta,
-                                                      self._ux,self._coshux**2.,
-                                                      self._sinhux**2.,
-                                                      self._potupi2,self._pot),
-                                                n=10,
-                                                **kwargs)[0],nu.nan])
+                *integrate.fixed_quad(_JzStaeckelIntegrand,
+                                      vmin,nu.pi/2,
+                                      args=(self._E,self._Lz,self._I3V,
+                                            self._delta,
+                                            self._ux,self._coshux**2.,
+                                            self._sinhux**2.,
+                                            self._potupi2,self._pot),
+                                      n=10,
+                                      **kwargs)[0]
         else:
             if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
-                *nu.array(integrate.quad(_JzStaeckelIntegrand,
-                                         vmin,nu.pi/2,
-                                         args=(self._E,self._Lz,self._I3V,
-                                               self._delta,
-                                               self._ux,self._coshux**2.,
-                                               self._sinhux**2.,
-                                               self._potupi2,self._pot),
-                                         **kwargs))
+                *integrate.quad(_JzStaeckelIntegrand,
+                                vmin,nu.pi/2,
+                                args=(self._E,self._Lz,self._I3V,
+                                      self._delta,
+                                      self._ux,self._coshux**2.,
+                                      self._sinhux**2.,
+                                      self._potupi2,self._pot),
+                                **kwargs)[0]
         return self._JZ
 
     def calcEL(self,**kwargs):

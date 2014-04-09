@@ -32,9 +32,7 @@ class TransientLogSpiralPotential(planarPotential):
            amp - amplitude to be applied to the potential (default:
            1., A below)
 
-           gamma - angle between sun-GC line and the line connecting the 
-                  peak of the spiral pattern at the Solar radius 
-                  (in rad; default=45 degree)
+           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree)
         
            A - force amplitude (alpha*potential-amplitude; default=0.035)
 

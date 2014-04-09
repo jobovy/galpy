@@ -4,7 +4,19 @@ import sys
 import subprocess
 import glob
 
-longDescription= ""
+with open('README.rst') as dfile:
+    long_description = dfile.read()
+
+pot_libraries= ['m','gsl','gslcblas','gomp']
+#Option to forego OpenMP
+try:
+    openmp_pos = sys.argv.index('--no-openmp')
+except ValueError:
+    extra_compile_args=["-fopenmp"]
+else:
+    del sys.argv[openmp_pos]
+    extra_compile_args= ["-DNO_OMP"]
+    pot_libraries.remove('gomp')
 
 #code to check the GSL version
 cmd= ['gsl-config',
@@ -52,11 +64,11 @@ actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 #brew install gsl --universal
 actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
-                         libraries=['m','gsl','gslcblas','gomp'],
+                         libraries=pot_libraries,
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/util/interp_2d',
                                        'galpy/potential_src/potential_c_ext'],
-                         extra_compile_args=["-fopenmp"])
+                         extra_compile_args=extra_compile_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(actionAngle_c)
     
@@ -70,31 +82,41 @@ interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_c= Extension('galpy_interppotential_c',
                          sources=interppotential_c_src,
-                         libraries=['m','gsl','gslcblas','gomp'],
+                         libraries=pot_libraries,
                          include_dirs=['galpy/potential_src/potential_c_ext',
                                        'galpy/util/interp_2d',
                                        'galpy/util/',
                                        'galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/orbit_src/orbit_c_ext',
                                        'galpy/potential_src/interppotential_c_ext'],
-                         extra_compile_args=["-fopenmp"])
+                             extra_compile_args=extra_compile_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
     ext_modules.append(interppotential_c)
 
 setup(name='galpy',
-      version='1.',
+      version='0.1',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@ias.edu',
       license='New BSD',
-      long_description=longDescription,
-      url='https://github.com/jobovy/galpy',
+      long_description=long_description,
+      url='http://github.com/jobovy/galpy',
       package_dir = {'galpy/': ''},
       packages=['galpy','galpy/orbit_src','galpy/potential_src',
                 'galpy/df_src','galpy/util','galpy/snapshot_src',
                 'galpy/actionAngle_src'],
-      package_data={'galpy/df_src':['data/*.sav']},
-#      dependency_links = ['https://github.com/dfm/MarkovPy/tarball/master#egg=MarkovPy'],
-      install_requires=['numpy','scipy','matplotlib'],
-      ext_modules=ext_modules
+      package_data={'galpy/df_src':['data/*.sav'],
+                    "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
+      include_package_data=True,
+      install_requires=['numpy','scipy','matplotlib','nose'],
+      ext_modules=ext_modules,
+      classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: OS Independent",
+        "Programming Language :: C",
+        "Programming Language :: Python",
+        "Topic :: Scientific/Engineering :: Astronomy",
+        "Topic :: Scientific/Engineering :: Physics"]
       )

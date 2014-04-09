@@ -619,6 +619,16 @@ def _integrateROrbit(vxvv,pot,t,method):
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
+            method= 'leapfrog'
+        else:
+            method= 'odeint'
     if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
@@ -690,6 +700,16 @@ def _integrateOrbit(vxvv,pot,t,method):
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
+            method= 'leapfrog'
+        else:
+            method= 'odeint'
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),

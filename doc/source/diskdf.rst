@@ -1,133 +1,268 @@
-More on disk distribution functions
-====================================
+Three-dimensional disk distribution functions
+================================================
 
-Calculating the surface-mass density and velocity dispersion profiles
-----------------------------------------------------------------------
-
-For a disk distribution function (i.e., a ``dehnendf`` or a ``shudf``
-object) we can calculate the resulting surface-mass density profile
-using ``surfacemass``, ``sigma2``, and ``sigma2surfacemass``. The
-latter calculates the product of the velocity dispersion squared and
-the surface-mass density. E.g.,
-
->>> from galpy.df import dehnendf
->>> dfc= dehnendf(beta=0.)
->>> dfc.surfacemass(1.)
-    0.050820867101511534
-
-We can plot the surface-mass density as follows
-
->>> Rs= numpy.linspace(0.01,5.,151)
->>> out= [dfc.surfacemass(r) for r in Rs]
->>> plot(Rs, out)
-
-.. image:: images/diskdf-surfacemass.png
-
-or
-
->>> plot(Rs,numpy.log(out))
-
-.. image:: images/diskdf-logsurfacemass.png
-
-which shows the exponential behavior expected for an exponential
-disk. We can compare this to the input surface-mass density
-
->>> input_out= [dfc.targetSurfacemass(r) for r in Rs]
->>> plot(Rs,numpy.log(input_out)-numpy.log(out))
-
-.. image:: images/diskdf-surfacemassdiff.png
-
-which shows that there are significant differences between the desired
-surface-mass density and the actual surface-mass density. We can do
-the same for the velocity-dispersion profile
-
->>> out= [dfc.sigma2(r) for r in Rs]
->>> input_out= [dfc.targetSigma2(r) for r in Rs]
->>> plot(Rs,numpy.log(input_out)-numpy.log(out))
-
-.. image:: images/diskdf-sigma2diff.png
+galpy contains a fully three-dimensional disk distribution:
+``galpy.df.quasiisothermaldf``, which is an approximately isothermal
+distribution function expressed in terms of action--angle variables
+(see `2010MNRAS.401.2318B
+<http://adsabs.harvard.edu/abs/2010MNRAS.401.2318B>`_ and
+`2011MNRAS.413.1889B
+<http://adsabs.harvard.edu/abs/2011MNRAS.413.1889B>`_). Recent
+research shows that this distribution function provides a good model
+for the DF of mono-abundance sub-populations (MAPs) of the Milky Way
+disk (see `2013MNRAS.434..652T
+<http://adsabs.harvard.edu/abs/2013MNRAS.434..652T>`_ and
+`2013ApJ...779..115B
+<http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_). This
+distribution function family requires action-angle coordinates to
+evaluate the DF, so ``galpy.df.quasiisothermaldf`` makes heavy use of
+the routines in ``galpy.actionAngle`` (in particular those in
+``galpy.actionAngleAdiabatic`` and
+``galpy.actionAngle.actionAngleStaeckel``).
 
 
-Using corrected disk distribution functions
-----------------------------------------------
+Setting up the DF and basic properties
+---------------------------------------
 
-As shown above, for a given surface-mass density and velocity
-dispersion profile, the disk distribution functions of :ref:`Basic
-Usage: Disk distribution functions <usagediskdfs>` only do a poor job
-of reproducing the desired profiles. We can correct this by
-calculating a set of *corrections* to the input profiles such that the
-output profiles more closely resemble the desired profiles (see
-`1999AJ....118.1201D
-<http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_). galpy supports
-the calculation of these corrections, and comes with some
-pre-calculated corrections. For example, the following initializes a
-``dehnendf`` with corrections up to 20th order (the default)
+The quasi-isothermal DF is defined by a gravitational potential and a
+set of parameters describing the radial surface-density profile and
+the radial and vertical velocity dispersion as a function of
+radius. In addition, we have to provide an instance of a
+``galpy.actionAngle`` class to calculate the actions for a given
+position and velocity. For example, for a
+``galpy.potential.MWPotential`` potential using the adiabatic
+approximation for the actions, we import and define the following
 
->>> dfc= dehnendf(beta=0.,correct=True)
+>>> from galpy.potential import MWPotential
+>>> from galpy.actionAngle import actionAngleAdiabatic
+>>> from galpy.df import quasiisothermaldf
+>>> aA= actionAngleAdiabatic(pot=MWPotential,c=True)
 
-The following figure shows the difference between the actual
-surface-mass density profile and the desired profile for 1, 2, 3, 4,
-5, 10, 15, and 20 iterations
+and then setup the ``quasiisothermaldf`` instance
 
-.. image:: images/testSurfacemassCorrections_sigma0_0.5.png
+>>> qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,cutcounter=True)
 
-and the same for the velocity-dispersion profile
+which sets up a DF instance with a radial scale length of
+:math:`R_0/3`, a local radial and vertical velocity dispersion of
+:math:`0.2\,V_c(R_0)` and :math:`0.1\,V_c(R_0)`, respectively, and a
+radial scale lengths of the velocity dispersions squared of
+:math:`R_0`. ``cutcounter=True`` specifies that counter-rotating stars
+are explicitly excluded (normally these are just exponentially
+suppressed). As for the two-dimensional disk DFs, these parameters are
+merely input (or target) parameters; the true density and velocity
+dispersion profiles calculated by evaluating the relevant moments of
+the DF (see below) are not exactly exponential and have scale lengths
+and local normalizations that deviate slightly from these input
+parameters. We can estimate the DF's actual radial scale length near
+:math:`R_0` as
 
-.. image:: images/testSigmaCorrections_sigma0_0.5.png
+>>> qdf.estimate_hr(1.)
+0.33843243662586048
 
-galpy will automatically save any new corrections that you calculate. 
+which is quite close to the input value of 1/3. Similarly, we can
+estimate the scale lengths of the dispersions squared
 
+>>> qdf.estimate_hsr(1.)
+1.1527209864858059
+>>> qdf.estimate_hsz(1.)
+1.0441867587783933
 
+The vertical profile is fully specified by the velocity dispersions
+and radial density / dispersion profiles under the assumption of
+dynamical equilibrium. We can estimate the scale height of this DF at
+a given radius and height as follows
 
-Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar
----------------------------------------------------------------------------------------
+>>> qdf.estimate_hz(1.,0.125)
+0.018715154050080292
 
-We can combine the orbit integration capabilities of galpy with the
-provided distribution functions and see the effect of the Galactic bar
-on stellar velocities. By backward integrating orbits starting at the
-Solar position in a potential that includes the Galactic bar we can
-evaluate what the velocity distribution is that we should see today if
-the Galactic bar stirred up a steady-state disk. For this we
-initialize a flat rotation curve potential and Dehnen's bar potential
+Near the mid-plane this vertical scale height becomes very large
+because the vertical profile flattens, e.g., 
 
->>> from galpy.potential import LogarithmicHaloPotential, DehnenBarPotential
->>> lp= LogarithmicHaloPotential(normalize=1.)
->>> dp= DehnenBarPotential()
+>>> qdf.estimate_hz(1.,0.125/100.)
+0.85435378664432149
 
-The Dehnen bar potential is initialized to start bar formation four bar
-periods before the present day and to have completely formed the bar two
-bar periods ago. We can integrate back to the time before
-bar-formation:
+or even
 
->>> ts= numpy.linspace(0,dp._tform,1000)
+>>> qdf.estimate_hz(1.,0.)
+128674.27506772846
 
-where ``dp._tform`` is the time of bar-formation (in the usual
-time-coordinates).
+which is basically infinity.
 
-We initialize orbits on a grid in velocity space and integrate them
+Evaluating moments
+-------------------
 
->>> ins=[[Orbit([1.,-0.7+1.4/100*jj,1.-0.6+1.2/100*ii,0.]) for jj in range(101)] for ii in range(101)]
->>> int=[[o.integrate(ts,[lp,dp]) for o in j] for j in ins]
+We can evaluate various moments of the DF giving the density, mean
+velocities, and velocity dispersions. For example, the mean radial
+velocity is again everywhere zero because the potential and the DF are
+axisymmetric
 
-We can then evaluate the weight of these orbits by assuming that the
-disk was in a steady-state before bar-formation with a Dehnen
-distribution function. We evaluate the Dehnen distribution function at
-``dp._tform`` for each of the orbits
+>>> qdf.meanvR(1.,0.)
+0.0
 
->>> dfc= dehnendf(beta=0.,correct=True)
->>> out= [[dfc(o(dp._tform)) for o in j] for j in ins]
->>> out= numpy.array(out)
+Likewise, the mean vertical velocity is everywhere zero
 
-This gives
+>>> qdf.meanvz(1.,0.)
+0.0
 
->>> from galpy.util.bovy_plot import bovy_dens2d
->>> bovy_dens2d(out,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
+The mean rotational velocity has a more interesting dependence on
+position. Near the plane, this is the same as that calculated for a similar two-dimensional disk DF (see :ref:`dftwod-moments`)
 
-.. image:: images/diskdf-dehnenhercules.png
+>>> qdf.meanvT(1.,0.)
+0.9150884078276913
 
-For more information see `2000AJ....119..800D
-<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_ and
-`2010ApJ...725.1676B
-<http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_. Note that the
-x-axis in the Figure above is defined as minus the x-axis in these
-papers.
+However, this value decreases as one moves further from the plane. The
+``quasiisothermaldf`` allows us to calculate the average rotational
+velocity as a function of height above the plane. For example, 
+
+>>> zs= numpy.linspace(0.,0.25,21)
+>>> mvts= numpy.array([qdf.meanvT(1.,z) for z in zs])
+
+which gives
+
+>>> plot(zs,mvts)
+
+.. image:: images/qdf-meanvtz.png
+
+We can also calculate the second moments of the DF. We can check
+whether the radial and velocity dispersions at :math:`R_0` are close
+to their input values
+
+>>> numpy.sqrt(qdf.sigmaR2(1.,0.))
+0.20918647082092351
+>>> numpy.sqrt(qdf.sigmaz2(1.,0.))
+0.092564222527283468
+
+and they are pretty close. We can also calculate the mixed *R* and *z*
+moment, for example,
+
+>>> qdf.sigmaRz(1.,0.125)
+0.0
+
+or expressed as an angle (the *tilt of the velocity ellipsoid*)
+
+>>> qdf.tilt(1.,0.125)
+0.0
+
+This tilt is zero because we are using the adiabatic approximation. As
+this approximation assumes that the motions in the plane are decoupled
+from the vertical motions of stars, the mixed moment is zero. However,
+this approximation is invalid for stars that go far above the
+plane. By using the Staeckel approximation to calculate the actions,
+we can model this coupling better. Setting up a ``quasiisothermaldf``
+instance with the Staeckel approximation
+
+>>> from galpy.actionAngle import actionAngleStaeckel
+>>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+>>> qdfS= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aAS,cutcounter=True)
+
+we can similarly calculate the tilt
+
+>>> qdfS.tilt(1.,0.125)
+5.4669442080366721
+
+or about 5 degrees. As a function of height, we find
+
+>>> tilts= numpy.array([qdfS.tilt(1.,z) for z in zs])
+>>> plot(zs,tilts)
+
+which gives
+
+.. image:: images/qdf_tiltz.png
+
+We can also calculate the density and surface density (the zero-th
+velocity moments). For example, the vertical density
+
+>>> densz= numpy.array([qdf.density(1.,z) for z in zs])
+
+and
+
+>>> denszS= numpy.array([qdfS.density(1.,z) for z in zs])
+
+We can compare the vertical profiles calculated using the adiabatic
+and Staeckel action-angle approximations
+
+>>> semilogy(zs,densz/densz[0])
+>>> semilogy(zs,denszS/denszS[0])
+
+which gives
+
+.. image:: images/qdf-densz.png
+
+Similarly, we can calculate the radial profile of the surface density
+
+>>> rs= numpy.linspace(0.5,1.5,21)
+>>> surfr= numpy.array([qdf.surfacemass_z(r) for r in rs])
+>>> surfrS= numpy.array([qdfS.surfacemass_z(r) for r in rs])
+
+and compare them with each other and an exponential with scale length
+1/3
+
+>>> semilogy(rs,surfr/surfr[10])
+>>> semilogy(rs,surfrS/surfrS[10])
+>>> semilogy(rs,numpy.exp(-(rs-1.)/(1./3.)))
+
+which gives
+
+.. image:: images/qdf-densr.png
+
+The two radial profiles are almost indistinguishable and are very
+close, if somewhat shallower, than the pure exponential profile.
+
+General velocity moments, including all higher order moments, are
+implemented in ``quasiisothermaldf.vmomentdensity``.
+
+Evaluating and sampling the full probability distribution function
+--------------------------------------------------------------------
+
+We can evaluate the distribution itself by calling the object, e.g.,
+
+>>> qdf(1.,0.1,1.1,0.1,0.) #input: R,vR,vT,z,vz
+array([ 10.16445158])
+
+or as a function of rotational velocity, for example in the mid-plane
+
+>>> vts= numpy.linspace(0.,1.5,101)
+>>> pvt= numpy.array([qdfS(1.,0.,vt,0.,0.) for vt in vts])
+>>> plot(vts,pvt/numpy.sum(pvt)/(vts[1]-vts[0]))
+
+which gives
+
+.. image:: images/qdf-callvt.png
+
+This is, however, not the true distribution of rotational velocities
+at *R* =0 and *z* =0, because it is conditioned on zero radial and
+vertical velocities. We can calculate the distribution of rotational
+velocities marginalized over the radial and vertical velocities as
+
+>>> qdfS.pvT(1.,1.,0.) #input vT,R,z
+15.464330302557528
+
+or as a function of rotational velocity
+
+>>> pvt= numpy.array([qdfS.pvT(vt,1.,0.) for vt in vts])
+
+overplotting this over the previous distribution gives
+
+.. image:: images/qdf-pvt.png
+
+which is slightly different from the conditioned
+distribution. Similarly, we can calculate marginalized velocity
+probabilities ```pvR``, ``pvz``, ``pvRvT``, ``pvRvz``, and
+``pvTvz``. These are all multiplied with the density, such that
+marginalizing these over the remaining velocity component results in
+the density.
+
+We can sample velocities at a given location using
+``quasiisothermaldf.sampleV`` (there is currently no support for
+sampling locations from the density profile, although that is rather
+trivial):
+
+>>> vs= qdfS.sampleV(1.,0.,n=10000)
+>>> hist(vs[:,1],normed=True,histtype='step',bins=101,range=[0.,1.5])
+
+gives
+
+.. image:: images/qdf-pvtwsamples.png
+
+which shows very good agreement with the green (marginalized over *vR*
+and *vz*) curve (as it should).

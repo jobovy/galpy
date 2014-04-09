@@ -6,7 +6,7 @@
 #             Calculate actions-angle coordinates for any potential by using 
 #             an isochrone potential as an approximate potential and using 
 #             a Fox & Binney (2013?) + torus machinery-like algorithm 
-#             (angle-fit)
+#             (angle-fit) (Bovy 2014)
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
@@ -18,14 +18,13 @@ import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
-from galpy.orbit import Orbit
-from galpy.actionAngle import actionAngleIsochrone
+from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 class actionAngleIsochroneApprox():
-    """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2013?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies"""
+    """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
@@ -33,16 +32,23 @@ class actionAngleIsochroneApprox():
         PURPOSE:
            initialize an actionAngleIsochroneApprox object
         INPUT:
+
            Either:
+
               b= scale parameter of the isochrone parameter
+
               ip= instance of a IsochronePotential
+
               aAI= instance of an actionAngleIsochrone
+
            pot= potential to calculate action-angle variables for
-           tintJ= (default: 100) time to integrate orbits for to estimate 
-                  actions
-           ntintJ= (default: 10000) number of time-integration points
-                  actions
+
+           tintJ= (default: 100) time to integrate orbits for to estimate actions
+
+           ntintJ= (default: 10000) number of time-integration points actions
+
            integrate_method= (default: 'dopr54_c') integration method to use
+
         OUTPUT:
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
@@ -110,7 +116,7 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
+        R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
         if self._c:
             pass
         else:
@@ -194,13 +200,20 @@ class actionAngleIsochroneApprox():
            nonaxi= set to True to also calculate Lz using the isochrone 
                    approximation for non-axisymmetric potentials
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
+           _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        R,vR,vT,z,vz,phi= self._parse_args(True,*args)
-        if kwargs.has_key('ts'):
+        if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
+        if kwargs.has_key('_firstFlip'):
+            _firstFlip= kwargs['_firstFlip']
+        else:
+            _firstFlip= False
+        R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
+        if kwargs.has_key('ts') and not kwargs['ts'] is None:
             ts= kwargs['ts']
         else:
             ts= nu.empty(R.shape[1])
@@ -214,12 +227,14 @@ class actionAngleIsochroneApprox():
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                               vR.flatten(),
-                                               vT.flatten(),
-                                               z.flatten(),
-                                               vz.flatten(),
-                                               phi.flatten())
+            if kwargs.has_key('_acfs'): acfs= kwargs['_acfs']
+            else:
+                acfs= self._aAI.actionsFreqsAngles(R.flatten(),
+                                                   vR.flatten(),
+                                                   vT.flatten(),
+                                                   z.flatten(),
+                                                   vz.flatten(),
+                                                   phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -270,10 +285,9 @@ class actionAngleIsochroneApprox():
             phig.sort(key = lambda x: abs(x))
             phig= nu.array(phig,dtype='int')
             grid= nu.meshgrid(nu.arange(maxn),
-                              phig,
-                              indexing='ij')
-            gridR= grid[0].flatten()[1:] #remove 0,0,0
-            gridZ= grid[1].flatten()[1:]
+                              phig)
+            gridR= grid[0].T.flatten()[1:] #remove 0,0,0
+            gridZ= grid[1].T.flatten()[1:]
             mask = nu.ones(len(gridR),dtype=bool)
             mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
@@ -300,10 +314,16 @@ class actionAngleIsochroneApprox():
             OmegaZ= nu.sum(atainv[:,1,:]*ATAZ,axis=1)
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
-            return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
-                    angleR % _TWOPI,
-                    anglephi % _TWOPI,
-                    angleZ % _TWOPI)
+            if kwargs.has_key('_retacfs') and kwargs['_retacfs']:
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                        angleR % _TWOPI,
+                        anglephi % _TWOPI,
+                        angleZ % _TWOPI,acfs)
+            else:
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                        angleR % _TWOPI,
+                        anglephi % _TWOPI,
+                        angleZ % _TWOPI)
 
     def plot(self,*args,**kwargs):
         """
@@ -325,6 +345,7 @@ class actionAngleIsochroneApprox():
               e) 'lz': same as 'jr' but for lz
               f) 'jz': same as 'jr' but for jz
            deperiod= (False), if True, de-period the angles
+           downsample= (False) if True, downsample what's plotted to 400 points
             +plot kwargs
         OUTPUT:
            plot to output
@@ -342,8 +363,13 @@ class actionAngleIsochroneApprox():
         else:
             deperiod= kwargs['deperiod']
             kwargs.pop('deperiod')
+        if not kwargs.has_key('downsample'):
+            downsample= False
+        else:
+            downsample= kwargs['downsample']
+            kwargs.pop('downsample')
         #Parse input
-        R,vR,vT,z,vz,phi= self._parse_args(False,*args)
+        R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
         acfs= self._aAI.actionsFreqsAngles(R.flatten(),
                                            vR.flatten(),
@@ -368,64 +394,106 @@ class actionAngleIsochroneApprox():
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             ts= self._tsJ[:-1]
             if type == 'jr':
-                bovy_plot.bovy_plot(ts,jr[0,:],c=anglerI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= jr[0,::int(round(self._ntintJ/400))]/jr[0,-1]
+                    plotz= anglerI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= jr[0,:]/jr[0,-1]
+                    plotz= anglerI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,
+                                    c=plotz,
+                                    s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_R$',
+                                    ylabel=r'$J_R / \langle J_R \rangle$',
                                     clabel=r'$\theta_R$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'lz':
-                bovy_plot.bovy_plot(ts,lz[0,:],c=anglephiI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= lz[0,::int(round(self._ntintJ/400))]/lz[0,-1]
+                    plotz= anglephiI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= lz[0,:]/lz[0,-1]
+                    plotz= anglephiI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$L_Z$',
+                                    ylabel=r'$L_Z / \langle L_Z \rangle$',
                                     clabel=r'$\theta_\phi$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'jz':
-                bovy_plot.bovy_plot(ts,jz[0,:],c=anglezI[0,:-1],s=20.,
+                if downsample:
+                    plotx= ts[::int(round(self._ntintJ/400))]
+                    ploty= jz[0,::int(round(self._ntintJ/400))]/jz[0,-1]
+                    plotz= anglezI[0,:-1:int(round(self._ntintJ/400))]
+                else:
+                    plotx= ts
+                    ploty= jz[0,:]/jz[0,-1]
+                    plotz= anglezI[0,:-1]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_Z$',
+                                    ylabel=r'$J_Z / \langle J_Z \rangle$',
                                     clabel=r'$\theta_Z$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
                                     **kwargs)
         else:
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+                raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
-                angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
-                acfs7= nu.reshape(acfs[7],R.shape)
-                negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
-                anglephiT= nu.empty(acfs7.shape)
-                anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
-                negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
-                negFreqPhi[negFreqIndx]= True
-                anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
-                angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                if 'ar' in type:
+                    angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
+                else:
+                    angleRT= nu.reshape(acfs[6],R.shape)
+                if 'aphi' in type:
+                    acfs7= nu.reshape(acfs[7],R.shape)
+                    negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+                    anglephiT= nu.empty(acfs7.shape)
+                    anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
+                    negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+                    negFreqPhi[negFreqIndx]= True
+                    anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+                else:
+                    anglephiT= nu.reshape(acfs[7],R.shape)
+                if 'az' in type:
+                    angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                else:
+                    angleZT= nu.reshape(acfs[8],R.shape)
                 xrange= None
                 yrange= None
-                vmin, vmax= None, None
-                crange= None
             else:
                 angleRT= nu.reshape(acfs[6],R.shape)
                 anglephiT= nu.reshape(acfs[7],R.shape)
                 angleZT= nu.reshape(acfs[8],R.shape)
                 xrange= [-0.5,2.*nu.pi+0.5]
                 yrange= [-0.5,2.*nu.pi+0.5]
-                vmin, vmax= 0.,2.*nu.pi
-                crange= [vmin,vmax]
+            vmin, vmax= 0.,2.*nu.pi
+            crange= [vmin,vmax]
             if type == 'araz':
-                bovy_plot.bovy_plot(angleRT[0,:],angleZT[0,:],
-                                    c=anglephiT[0,:],s=20.,
+                if downsample:
+                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
+                    ploty= angleZT[0,::int(round(self._ntintJ/400))]
+                    plotz= anglephiT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleRT[0,:]
+                    ploty= angleZT[0,:]
+                    plotz= anglephiT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$\theta_R$',
@@ -437,8 +505,15 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)           
             elif type == 'araphi':
-                bovy_plot.bovy_plot(angleRT[0,:],anglephiT[0,:],
-                                    c=angleZT[0,:],s=20.,
+                if downsample:
+                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
+                    plotz= angleZT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleRT[0,:]
+                    ploty= anglephiT[0,:]
+                    plotz= angleZT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$\theta_R$',
@@ -450,8 +525,15 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)           
             elif type == 'azaphi':
-                bovy_plot.bovy_plot(angleZT[0,:],anglephiT[0,:],
-                                    c=angleRT[0,:],s=20.,
+                if downsample:
+                    plotx= angleZT[0,::int(round(self._ntintJ/400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
+                    plotz= angleRT[0,::int(round(self._ntintJ/400))]
+                else:
+                    plotx= angleZT[0,:]
+                    ploty= anglephiT[0,:]
+                    plotz= angleRT[0,:]
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     clabel=r'$\theta_R$',
@@ -464,9 +546,11 @@ class actionAngleIsochroneApprox():
                                     **kwargs)           
         return None
 
-    def _parse_args(self,freqsAngles=True,*args):
+    def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
+        from galpy.orbit import Orbit
         RasOrbit= False
+        integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3:
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6 or len(args) == 4:
@@ -485,9 +569,11 @@ class actionAngleIsochroneApprox():
                 z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
                 vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
                 phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+                integrated= False
             if len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 RasOrbit= True
+                integrated= False
         if isinstance(args[0],Orbit) \
                 or (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
                 or RasOrbit:
@@ -502,8 +588,22 @@ class actionAngleIsochroneApprox():
                 if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             if not hasattr(os[0],'orbit'): #not integrated yet
+                if _firstFlip:
+                    for o in os:
+                        o._orb.vxvv[1]= -o._orb.vxvv[1]
+                        o._orb.vxvv[2]= -o._orb.vxvv[2]
+                        o._orb.vxvv[4]= -o._orb.vxvv[4]
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method) for o in os]
+                if _firstFlip:
+                    for o in os:
+                        o._orb.vxvv[1]= -o._orb.vxvv[1]
+                        o._orb.vxvv[2]= -o._orb.vxvv[2]
+                        o._orb.vxvv[4]= -o._orb.vxvv[4]
+                        o._orb.orbit[:,1]= -o._orb.orbit[:,1]
+                        o._orb.orbit[:,2]= -o._orb.orbit[:,2]
+                        o._orb.orbit[:,4]= -o._orb.orbit[:,4]
+                integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)
             R= nu.empty((no,ntJ))
@@ -523,7 +623,7 @@ class actionAngleIsochroneApprox():
                     phi[ii,:]= this_orbit[:,5]
                 else:
                     phi[ii,:]= this_orbit[:,3]
-        if freqsAngles: #also integrate backwards in time, such that the requested point is not at the edge
+        if freqsAngles and not integrated: #also integrate backwards in time, such that the requested point is not at the edge
             no= R.shape[0]
             nt= R.shape[1]
             oR= nu.empty((no,2*nt-1))
@@ -532,27 +632,48 @@ class actionAngleIsochroneApprox():
             oz= nu.zeros((no,2*nt-1))+10.**-7. #To avoid numpy warnings for
             ovz= nu.zeros((no,2*nt-1))+10.**-7. #planarOrbits
             ophi= nu.empty((no,2*nt-1))
-            oR[:,nt-1:]= R
-            ovR[:,nt-1:]= vR
-            ovT[:,nt-1:]= vT
-            oz[:,nt-1:]= z
-            ovz[:,nt-1:]= vz
-            ophi[:,nt-1:]= phi
+            if _firstFlip:
+                oR[:,:nt]= R[:,::-1]
+                ovR[:,:nt]= vR[:,::-1]
+                ovT[:,:nt]= vT[:,::-1]
+                oz[:,:nt]= z[:,::-1]
+                ovz[:,:nt]= vz[:,::-1]
+                ophi[:,:nt]= phi[:,::-1]
+            else:
+                oR[:,nt-1:]= R
+                ovR[:,nt-1:]= vR
+                ovT[:,nt-1:]= vT
+                oz[:,nt-1:]= z
+                ovz[:,nt-1:]= vz
+                ophi[:,nt-1:]= phi
             #load orbits
-            os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
+            if _firstFlip:
+                os= [Orbit([R[ii,0],vR[ii,0],vT[ii,0],z[ii,0],vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
+            else:
+                os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
             #integrate orbits
             [o.integrate(self._tsJ,pot=self._pot,
                          method=self._integrate_method) for o in os]
             #extract phase-space points along the orbit
             ts= self._tsJ
-            for ii in range(no):
-                oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
-                ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
-                ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
-                if os[ii].getOrbit().shape[1] == 6:
-                    oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
-                    ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
-                ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
+            if _firstFlip:
+                for ii in range(no):
+                    oR[ii,nt:]= os[ii].R(ts[1:]) #drop t=0, which we have
+                    ovR[ii,nt:]= os[ii].vR(ts[1:]) #already
+                    ovT[ii,nt:]= os[ii].vT(ts[1:]) # reverse, such that 
+                    if os[ii].getOrbit().shape[1] == 6:
+                        oz[ii,nt:]= os[ii].z(ts[1:]) #everything is in the 
+                        ovz[ii,nt:]= os[ii].vz(ts[1:]) #right order
+                    ophi[ii,nt:]= os[ii].phi(ts[1:]) #!
+            else:
+                for ii in range(no):
+                    oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
+                    ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
+                    ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
+                    if os[ii].getOrbit().shape[1] == 6:
+                        oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
+                        ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
+                    ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
             return (oR,ovR,ovT,oz,ovz,ophi)
         else:
             return (R,vR,vT,z,vz,phi)

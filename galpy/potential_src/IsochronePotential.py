@@ -33,8 +33,11 @@ class IsochronePotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.b= b
+        self._scale= self.b
         self.b2= self.b**2.
-        if normalize or isinstance(normalize,(int,float)):
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
 
@@ -188,5 +191,5 @@ class IsochronePotential(Potential):
         r2= R**2.+z**2.
         rb= nu.sqrt(r2+self.b2)
         return (3.*(self.b+rb)*rb**2.-r2*(self.b+3.*rb))/\
-            rb**3./(self.b+rb)**3.
+            rb**3./(self.b+rb)**3./4./nu.pi
 

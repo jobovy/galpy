@@ -36,7 +36,7 @@ class FullOrbit(OrbitTop):
         self._BCIntegrateFunction= _integrateFullOrbit
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
            integrate
@@ -111,7 +111,7 @@ class FullOrbit(OrbitTop):
         PURPOSE:
            calculate the energy
         INPUT:
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the energy
            pot= potential instance or list of such instances
         OUTPUT:
            energy
@@ -147,6 +147,95 @@ class FullOrbit(OrbitTop):
                                                 t=t[ii])\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2.\
+                                 +thiso[4,ii]**2./2. for ii in range(len(t))])
+
+    def ER(self,*args,**kwargs):
+        """
+        NAME:
+           ER
+        PURPOSE:
+           calculate the radial energy
+        INPUT:
+           t - (optional) time at which to get the energy
+           pot= potential instance or list of such instances
+        OUTPUT:
+           radial energy
+        HISTORY:
+           2013-11-30 - Written - Bovy (IAS)
+        """
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],0.,pot,
+                                      phi=thiso[5],t=t)\
+                                      +thiso[1]**2./2.\
+                                      +thiso[2]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],0.,
+                                                pot,phi=thiso[5,ii],
+                                                t=t[ii])\
+                                 +thiso[1,ii]**2./2.\
+                                 +thiso[2,ii]**2./2. for ii in range(len(t))])
+
+    def Ez(self,*args,**kwargs):
+        """
+        NAME:
+           Ez
+        PURPOSE:
+           calculate the vertical energy
+        INPUT:
+           t - (optional) time at which to get the energy
+           pot= potential instance or list of such instances
+        OUTPUT:
+           vertical energy
+        HISTORY:
+           2013-11-30 - Written - Bovy (IAS)
+        """
+        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+            if kwargs.has_key('pot') and kwargs['pot'] is None:
+                kwargs.pop('pot')          
+        else:
+            pot= kwargs['pot']
+            kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet:
+            return evaluatePotentials(thiso[0],thiso[3],pot,
+                                      phi=thiso[5],t=t)\
+                                      -evaluatePotentials(thiso[0],0.,pot,
+                                                          phi=thiso[5],t=t)\
+                                                          +thiso[4]**2./2.
+        else:
+            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
+                                                pot,phi=thiso[5,ii],
+                                                t=t[ii])\
+                                 -evaluatePotentials(thiso[0,ii],0.,
+                                                     pot,phi=thiso[5,ii],
+                                                t=t[ii])\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
@@ -519,6 +608,16 @@ def _integrateFullOrbit(vxvv,pot,t,method):
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
+            method= 'leapfrog'
+        else:
+            method= 'odeint'
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),

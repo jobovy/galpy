@@ -234,8 +234,7 @@ class Orbit:
 
            pot - potential instance or list of instances
 
-           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple
-                   leapfrog implementation
+           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple leapfrog implementation
 
         OUTPUT:
 
@@ -347,7 +346,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the energy
 
            pot= Potential instance or list of such instances
 
@@ -374,7 +373,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the angular momentum
 
         OUTPUT:
 
@@ -386,6 +385,60 @@ class Orbit:
 
         """
         return self._orb.L(*args,**kwargs)
+
+    def ER(self,*args,**kwargs):
+        """
+        NAME:
+
+           ER
+
+        PURPOSE:
+
+           calculate the radial energy
+
+        INPUT:
+
+           t - (optional) time at which to get the radial energy
+
+           pot= Potential instance or list of such instances
+
+        OUTPUT:
+
+           radial energy
+
+        HISTORY:
+
+           2013-11-30 - Written - Bovy (IAS)
+
+        """
+        return self._orb.ER(*args,**kwargs)
+
+    def Ez(self,*args,**kwargs):
+        """
+        NAME:
+
+           Ez
+
+        PURPOSE:
+
+           calculate the vertical energy
+
+        INPUT:
+
+           t - (optional) time at which to get the vertical energy
+
+           pot= Potential instance or list of such instances
+
+        OUTPUT:
+
+           vertical energy
+
+        HISTORY:
+
+           2013-11-30 - Written - Bovy (IAS)
+
+        """
+        return self._orb.Ez(*args,**kwargs)
 
     def Jacobi(self,*args,**kwargs):
         """
@@ -399,7 +452,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the Jacobi integral
 
            OmegaP= pattern speed
            
@@ -524,6 +577,36 @@ class Orbit:
         """
         return self._orb.zmax(analytic=analytic,pot=pot)
 
+    def resetaA(self,pot=None,type=None):
+        """
+        NAME:
+
+           resetaA
+
+        PURPOSE:
+
+           re-set up an actionAngle module for this Orbit
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           True if reset happened, False otherwise
+
+        HISTORY:
+
+           2014-01-06 - Written - Bovy (IAS)
+
+        """
+        try:
+            delattr(self._orb,'_aA')
+        except AttributeError:
+            return False
+        else:
+            return True
+
     def jr(self,pot=None,**kwargs):
         """
         NAME:
@@ -546,6 +629,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -560,7 +645,7 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[0][0]
+        return self._orb._aA(self)[0]
 
     def jp(self,pot=None,**kwargs):
         """
@@ -584,6 +669,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -622,6 +709,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -636,7 +725,7 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[2][0]
+        return self._orb._aA(self)[2]
 
     def wr(self,pot=None,**kwargs):
         """
@@ -660,6 +749,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -698,6 +789,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -736,6 +829,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -774,6 +869,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -812,6 +909,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -850,6 +949,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -888,6 +989,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -926,6 +1029,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -962,11 +1067,13 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
 
-           Tp
+           Op
 
         HISTORY:
 
@@ -997,6 +1104,8 @@ class Orbit:
 
               3) 'isochroneApprox'
 
+              4) 'spherical'
+              
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -1619,7 +1728,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmra
+           t - (optional) time at which to get vra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1654,7 +1763,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmdec
+           t - (optional) time at which to get vdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1689,7 +1798,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmll
+           t - (optional) time at which to get vll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -1724,7 +1833,7 @@ class Orbit:
 
         INPUT:
 
-           t - (optional) time at which to get pmbb
+           t - (optional) time at which to get vbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
@@ -2045,10 +2154,9 @@ class Orbit:
 
         INPUT:
 
-           pot= - Potential instance or list of instances in which the orbit 
-                 was integrated
+           pot= Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
 
            +bovy_plot.bovy_plot inputs
 
@@ -2075,10 +2183,9 @@ class Orbit:
 
         INPUT:
 
-           po= - Potential instance or list of instances in which the orbit was
-                 integrated
+           pot=  Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
            +bovy_plot.bovy_plot inputs
 
@@ -2101,14 +2208,13 @@ class Orbit:
 
         PURPOSE:
 
-           plot E_z(t)/sqrt(dens(R)) along the orbit
+           plot E_z(t)/sqrt(dens(R)) along the orbit (an approximation to the vertical action)
 
         INPUT:
 
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
+           pot - Potential instance or list of instances in which the orbit was integrated
 
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R'
+           d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
            +bovy_plot.bovy_plot inputs
 
@@ -2324,7 +2430,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit position
+           plot x(.) along the orbit
 
         INPUT:
 
@@ -2351,7 +2457,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit velocity
+           plot vx(.) along the orbit
 
         INPUT:
 
@@ -2378,7 +2484,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit position
+           plot y(.) along the orbit
 
         INPUT:
 
@@ -2405,7 +2511,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot a one-dimensional orbit velocity
+           plot vy(.) along the orbit
 
         INPUT:
 
