@@ -13,7 +13,10 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
+    print _HOST
+    if 'travis' in _HOST:
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     for p in pots:
@@ -44,7 +47,9 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
+    if 'travis' in _HOST:
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -136,7 +141,9 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
+    if 'travis' in _HOST:
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -253,7 +260,9 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
+    if 'travis' in _HOST:
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
