@@ -1,5 +1,7 @@
 ############################TESTS ON POTENTIALS################################
 import numpy
+import socket
+_HOST= socket.gethostname()
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
@@ -11,6 +13,7 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
+    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     for p in pots:
@@ -41,6 +44,7 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
+    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -132,6 +136,7 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
+    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -248,6 +253,7 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
+    if 'travis' in _HOST: rmpots.append('DoubleExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
