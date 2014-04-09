@@ -5,6 +5,7 @@
 #                                      rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z
 ###############################################################################
 import numpy as nu
+import numpy.polynomial.legendre
 import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
@@ -68,7 +69,7 @@ class DoubleExponentialDiskPotential(Potential):
         self._tol= tol
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
         #Setup j0 zeros etc.
-        self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
+        self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
         self._nzeros=100
         #j0 for potential and z
         self._j0zeros= nu.zeros(self._nzeros+1)
