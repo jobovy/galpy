@@ -138,8 +138,9 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         self._numcores = numcores
         self._s = s 
 
-        # the interpRZPotential class sets this flag
+        # the interpRZPotential class sets these flags
         self._enable_c = enable_c
+        self.hasC = True
                 
         # set up the flags for interpolated quantities
         # since the potential and force are always calculated together, 
@@ -218,7 +219,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
 
         
-    def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.1) : 
+    def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.01) : 
         """
         
         Calculates the potential and force grids for the snapshot for
@@ -236,7 +237,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
          calculation
 
         *dr*: (0.1) offset to use for the gradient calculation - the
-         points are positioned at +/- dr from the centrlal point
+         points are positioned at +/- dr from the central point
          
         """
 
