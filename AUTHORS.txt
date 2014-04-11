@@ -4,7 +4,7 @@ Jo Bovy <bovy@ias.edu>
 
 Direct contributions to the code base:
 
-(none)
+Denis Erkal (_mass for TwoPowerSphericalPotential)
 
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
