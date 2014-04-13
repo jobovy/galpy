@@ -236,7 +236,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         *use_pkdgrav*: (False) whether to use pkdgrav for the gravity
          calculation
 
-        *dr*: (0.1) offset to use for the gradient calculation - the
+        *dr*: (0.01) offset to use for the gradient calculation - the
          points are positioned at +/- dr from the central point
          
         """
