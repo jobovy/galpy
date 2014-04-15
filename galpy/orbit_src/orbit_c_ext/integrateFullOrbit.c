@@ -40,7 +40,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int * pot_type,
 			     double * pot_args){
-  int ii,jj,kk,ll;
+  int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   for (ii=0; ii < npot; ii++){
