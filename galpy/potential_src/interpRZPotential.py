@@ -81,8 +81,6 @@ class interpRZPotential(Potential):
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
         self._enable_c= enable_c*ext_loaded
-        if enable_c and rgrid[2] != zgrid[2]:
-            raise NotImplementedError("Unequal R and z grid sizes not implemented with enable_c")
         self._zsym= zsym
         if interpPot:
             if use_c*ext_loaded:
@@ -578,7 +576,7 @@ def eval_potential_c(pot,R,z):
                                        pot_args,
                                        out,
                                        ctypes.byref(err))
-    
+
     #Reset input arrays
     if f_cont[0]: R= numpy.asfortranarray(R)
     if f_cont[1]: z= numpy.asfortranarray(z)
