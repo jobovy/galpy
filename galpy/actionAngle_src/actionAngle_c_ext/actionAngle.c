@@ -20,7 +20,7 @@ void parse_actionAngleArgs(int npot,
 			   double * pot_args){
   int ii,jj,kk,ll;
   int nR, nz;
-  double * Rgrid, * zgrid, * potGrid_splinecoeffs, * row;
+  double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 3 arguments
@@ -78,17 +78,14 @@ void parse_actionAngleArgs(int npot,
       nz= (int) *pot_args++;
       Rgrid= (double *) malloc ( nR * sizeof ( double ) );
       zgrid= (double *) malloc ( nz * sizeof ( double ) );
-      row= (double *) malloc ( nz * sizeof ( double ) );
       potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
       for (kk=0; kk < nR; kk++)
 	*(Rgrid+kk)= *pot_args++;
       for (kk=0; kk < nz; kk++)
 	*(zgrid+kk)= *pot_args++;
-      for (kk=0; kk < nR; kk++){
-	for (ll=0; ll < nz; ll++)
-	  *(row+ll)= *pot_args++;
-	put_row(potGrid_splinecoeffs,kk,row,nz); 
-      }
+      for (kk=0; kk < nR; kk++)
+	put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz);
+      pot_args+= nR*nz;
       potentialArgs->i2d= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2d,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
@@ -98,7 +95,6 @@ void parse_actionAngleArgs(int npot,
       //clean up
       free(Rgrid);
       free(zgrid);
-      free(row);
       free(potGrid_splinecoeffs);
       break;
     case 14: //IsochronePotential, 2 arguments
