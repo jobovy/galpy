@@ -8,7 +8,7 @@
 ###############################################################################
 import math as m
 import numpy
-from scipy import special, integrate, optimize
+from scipy import special, optimize
 from galpy.util import bovy_conversion
 from Potential import Potential
 class TwoPowerSphericalPotential(Potential):
