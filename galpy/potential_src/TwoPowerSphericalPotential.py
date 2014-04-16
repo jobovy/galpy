@@ -55,18 +55,19 @@ class TwoPowerSphericalPotential(Potential):
         self.alpha= alpha
         self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
-            integerSelf= TwoPowerIntegerSphericalPotential(amp=amp,a=a,
+            Potential.__init__(self,amp=amp)
+            integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
                                                            alpha=int(alpha),
                                                            beta=int(beta),
-                                                           normalize=normalize)
+                                                           normalize=False)
             self.integerSelf= integerSelf
         else:
             Potential.__init__(self,amp=amp)
             self.integerSelf= None
-            if normalize or \
-                    (isinstance(normalize,(int,float)) \
-                         and not isinstance(normalize,bool)):
-                self.normalize(normalize)
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
@@ -241,17 +242,20 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if alpha == 1 and beta == 4:
-            HernquistSelf= HernquistPotential(amp=amp,a=a,normalize=normalize)
+            Potential.__init__(self,amp=amp)
+            HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
             self.NFWSelf= None
         elif alpha == 2 and beta == 4:
-            JaffeSelf= JaffePotential(amp=amp,a=a,normalize=normalize)
+            Potential.__init__(self,amp=amp)
+            JaffeSelf= JaffePotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
-            NFWSelf= NFWPotential(amp=amp,a=a,normalize=normalize)
+            Potential.__init__(self,amp=amp)
+            NFWSelf= NFWPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
@@ -260,10 +264,10 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
-            if normalize or \
-                    (isinstance(normalize,(int,float)) \
-                         and not isinstance(normalize,bool)):
-                self.normalize(normalize)
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
+            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
