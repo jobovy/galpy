@@ -70,7 +70,7 @@ class TwoPowerSphericalPotential(Potential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0,_forceFloatEval=False):
         """
         NAME:
            _evaluate
@@ -87,7 +87,7 @@ class TwoPowerSphericalPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if dR == 0 and dphi == 0:
-            if not self.integerSelf == None:
+            if not _forceFloatEval and not self.integerSelf == None:
                 return self.integerSelf._evaluate(R,z,phi=phi,t=t)
             elif self.beta == 3.:
                 r= numpy.sqrt(R**2.+z**2.)
@@ -111,7 +111,7 @@ class TwoPowerSphericalPotential(Potential):
         elif dR == 0 and dphi == 1:
             return -self._phiforce(R,z,phi=phi,t=t)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
            _Rforce
@@ -127,7 +127,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not self.integerSelf == None:
+        if not _forceFloatEval and not self.integerSelf == None:
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
@@ -137,7 +137,7 @@ class TwoPowerSphericalPotential(Potential):
                                 4.-self.alpha,
                                 -r/self.a)
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
            _zforce
@@ -153,7 +153,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not self.integerSelf == None:
+        if not _forceFloatEval and not self.integerSelf == None:
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
@@ -241,6 +241,10 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
+        self.alpha= alpha
+        self.beta= beta
+        self.a= a
+        self._scale= self.a
         if alpha == 1 and beta == 4:
             Potential.__init__(self,amp=amp)
             HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
@@ -294,7 +298,9 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             elif not self.NFWSelf == None:
                 return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
             else:
-                raise AttributeError
+                return TwoPowerSphericalPotential._evaluate(self,R,z,
+                                                            phi=phi,t=t,
+                                                            _forceFloatEval=True)
         elif dR == 1 and dphi == 0:
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
@@ -323,7 +329,9 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         elif not self.NFWSelf == None:
             return self.NFWSelf._Rforce(R,z,phi=phi,t=t)
         else:
-            raise AttributeError
+            return TwoPowerSphericalPotential._Rforce(self,R,z,
+                                                      phi=phi,t=t,
+                                                      _forceFloatEval=True)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -348,7 +356,9 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         elif not self.NFWSelf == None:
             return self.NFWSelf._zforce(R,z,phi=phi,t=t)
         else:
-            raise AttributeError
+            return TwoPowerSphericalPotential._zforce(self,R,z,
+                                                      phi=phi,t=t,
+                                                      _forceFloatEval=True)
 
 class HernquistPotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Hernquist potential"""
