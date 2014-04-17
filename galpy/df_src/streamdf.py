@@ -100,7 +100,10 @@ class streamdf:
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
         self._progenitor= progenitor
-        self._multi= multi
+        if (multi is True):   #if set to boolean, enable cpu_count processes
+            self._multi= multiprocessing.cpu_count()
+        else:
+            self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
