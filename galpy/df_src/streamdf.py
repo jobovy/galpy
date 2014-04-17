@@ -11,6 +11,8 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+import warnings
+from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
@@ -35,7 +37,7 @@ class streamdf:
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
-                 deltaAngleTrack=1.5,nTrackChunks=None,
+                 deltaAngleTrack=None,nTrackChunks=None,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -60,7 +62,7 @@ class streamdf:
                           to model the trailing part, set leading=False
            sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
                      estimate of the angle spread of the debris initially
-           deltaAngleTrack= (1.5) angle to estimate the stream track over (rad)
+           deltaAngleTrack= (None) angle to estimate the stream track over (rad)
            nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
            interpTrack= (might change), interpolate the stream track while 
                         setting up the instance (can be done by hand by 
@@ -166,6 +168,15 @@ class streamdf:
             fast_cholesky_invert(self._sigomatrix/self._sigomatrixNorm,
                                  tiny=10.**-15.,logdet=True)
         self._sigomatrixinv/= self._sigomatrixNorm
+
+        deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
+            self._sortedSigOEig[2]) * self._tdisrupt
+        if (deltaAngleTrack is None):  
+            deltaAngleTrack = deltaAngleTrackLim
+        else:
+            if (deltaAngleTrack > deltaAngleTrackLim):
+                warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
+
         #Determine the stream track
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
