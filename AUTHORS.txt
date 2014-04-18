@@ -5,6 +5,7 @@ Jo Bovy <bovy@ias.edu>
 Direct contributions to the code base:
 
 Denis Erkal (_mass for TwoPowerSphericalPotential)
+Mark Fardal (streamdf improvements)
 
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
