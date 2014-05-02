@@ -627,7 +627,7 @@ def _integrateROrbit(vxvv,pot,t,method):
             allHasC= pot.hasC
         if not allHasC and ('leapfrog' in method or 'symplec' in method):
             method= 'leapfrog'
-        else:
+        elif not allHasC:
             method= 'odeint'
     if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
@@ -708,7 +708,7 @@ def _integrateOrbit(vxvv,pot,t,method):
             allHasC= pot.hasC
         if not allHasC and ('leapfrog' in method or 'symplec' in method):
             method= 'leapfrog'
-        else:
+        elif not allHasC:
             method= 'odeint'
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
