@@ -332,6 +332,17 @@ following series of steps (some of these are also given in the file
   calculations, the potential also has to be implemented in C and the
   potential has to be passed from python to C.
 
+  The ``__init__`` method should be written in such a way that a
+  relevant object can be initialized using ``Classname()`` (i.e.,
+  there have to be reasonable defaults given for all parameters,
+  including the amplitude); doing this allows the nose tests for
+  potentials to automatically check that your Potential's potential
+  function, force functions, second derivatives, and density (through
+  the Poisson equation) are correctly implemented (if they are
+  implemented). The continuous-integration platform that builds the
+  galpy codebase upon code pushes will then automatically test all of
+  this, streamlining push requests of new potentials.
+
 2. To add a C implementation of the potential, implement it in a .c file under ``potential_src/potential_c_ext``. Look at ``potential_src/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential_src/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
 
  For orbit integration, the functions such as:
