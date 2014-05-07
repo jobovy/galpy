@@ -1,7 +1,7 @@
 ############################TESTS ON POTENTIALS################################
 import numpy
-import socket
-_HOST= socket.gethostname()
+import os
+_TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
@@ -13,8 +13,7 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    print _HOST
-    if 'worker' in _HOST: #travis CI
+    if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -47,7 +46,7 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'worker' in _HOST: #travis CI
+    if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -141,7 +140,7 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'worker' in _HOST: #travis CI
+    if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -260,7 +259,7 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential']
-    if 'worker' in _HOST: #travis CI
+    if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
