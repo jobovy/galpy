@@ -69,7 +69,7 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                                        'galpy/util/interp_2d',
                                        'galpy/potential_src/potential_c_ext'],
                          extra_compile_args=extra_compile_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
     ext_modules.append(actionAngle_c)
     
 #interppotential C extension
@@ -90,7 +90,7 @@ interppotential_c= Extension('galpy_interppotential_c',
                                        'galpy/orbit_src/orbit_c_ext',
                                        'galpy/potential_src/interppotential_c_ext'],
                              extra_compile_args=extra_compile_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) > 14.:
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
     ext_modules.append(interppotential_c)
 
 setup(name='galpy',
