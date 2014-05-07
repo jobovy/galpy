@@ -1424,7 +1424,7 @@ class quasiisothermaldf:
                                          vzgl.flatten(),
                                          log=True),
                                     (ngl,ngl))
-            return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw*sigmaz1)
+            return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw*sigmaz1)*1.5
 
     def pvT(self,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
