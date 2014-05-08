@@ -12,7 +12,7 @@ install:
  - pip install coverage
  - python setup.py install
 script:
- - nosetests -v -w nose/ --with-coverage --cover-package=galpy
+ - nosetests -v -w nose/ --with-cov --cov .
 after_sucess:
  coveralls
 notifications:
