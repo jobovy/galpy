@@ -9,7 +9,7 @@ before_install:
 # command to install dependencies
 install:
  - pip install coveralls
- - pip instsall nose-cov
+ - pip install nose-cov
  - python setup.py install
 script:
 # - coverage run --source=/home/travis/virtualenv/python2.7_with_system_site_packages/lib/python2.7/site-packages/galpy-0.1-py2.7-linux-x86_64.egg/galpy /usr/local/bin/nosetests -v nose/
