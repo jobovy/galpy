@@ -5,6 +5,7 @@ galpy
 
 .. image:: https://travis-ci.org/jobovy/galpy.png?branch=master 
    :target: http://travis-ci.org/jobovy/galpy
+.. image:: https://coveralls.io/repos/jobovy/galpy/badge.png?branch=master :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
 AUTHOR
 -------
