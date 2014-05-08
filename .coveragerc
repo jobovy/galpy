@@ -1,3 +1,2 @@
-[report]
-omit =
-    */site-packages/nose/*
+[run]
+source = galpy
