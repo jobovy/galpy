@@ -64,9 +64,11 @@ class Potential:
            2010-04-16 - Written - Bovy (NYU)
         """
         try:
-            return self._amp*self._evaluate(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+            rawOut= self._evaluate(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
         except AttributeError:
             raise PotentialError("'_evaluate' function not implemented for this potential")
+        if rawOut is None: return rawOut
+        else: return self._amp*rawOut
 
     def Rforce(self,R,z,phi=0.,t=0.):
         """
