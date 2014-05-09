@@ -120,7 +120,7 @@ class DoubleExponentialDiskPotential(Potential):
             return -self._phiforce(R,z,phi=phi,t=t)
         elif dR == 2 and dphi == 0:
             return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR != 0 and dphi != 0:
+        elif dR != 0 or dphi != 0:
             warnings.warn("High-order derivatives for DoubleExponentialDiskPotential not implemented",galpyWarning)
             return None
         if self._new:
