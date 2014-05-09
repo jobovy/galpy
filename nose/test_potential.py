@@ -12,7 +12,7 @@ def test_normalize_potential():
                and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential']
+             'planarPotential', 'verticalPotential','PotentialError']
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -45,7 +45,7 @@ def test_forceAsDeriv_potential():
                and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential']
+             'planarPotential', 'verticalPotential','PotentialError']
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -139,7 +139,7 @@ def test_2ndDeriv_potential():
                and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential']
+             'planarPotential', 'verticalPotential','PotentialError']
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -258,7 +258,7 @@ def test_poisson_potential():
                and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential']
+             'planarPotential', 'verticalPotential','PotentialError']
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -303,3 +303,122 @@ def test_poisson_potential():
                             assert((tpoissondens-tdens)**2./tdens**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens)))
+
+#Test whether the _evaluate function is correctly implemented in specifying derivatives
+def test_evaluateAndDerivs_potential():
+    from galpy import potential
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'evaluate' in p)]
+    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError']
+    if _TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    #tolerances in log10
+    tol= {}
+    tol['default']= -12.
+    #tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
+    #tol['RazorThinExponentialDiskPotential']= -6.
+    for p in pots:
+        #if 'Isochrone' in p: continue #For testing the test
+        #Setup instance of potential
+        tclass= getattr(potential,p)
+        tp= tclass()
+        if hasattr(tp,'normalize'): tp.normalize(1.)
+        #Set tolerance
+        if p in tol.keys(): ttol= tol[p]
+        else: ttol= tol['default']
+        #1st radial
+        if isinstance(tp,potential.linearPotential): 
+            continue
+        elif isinstance(tp,potential.planarPotential): 
+            tevaldr= tp(1.2,phi=0.1,dR=1)
+            trforce= tp.Rforce(1.2,phi=0.1)
+        else:
+            tevaldr= tp(1.2,0.1,phi=0.1,dR=1)
+            trforce= tp.Rforce(1.2,0.1,phi=0.1)
+        if not tevaldr is None:
+            try:
+                if tevaldr**2. < 10.**ttol:
+                    assert(trforce**2. < 10.**ttol)
+                else:
+                    assert((tevaldr+trforce)**2./tevaldr**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Calculation of radial derivative through _evaluate and Rforce inconsistent for the %s potential" % p)
+        #2nd radial
+        hasR2= True
+        from galpy.potential import PotentialError
+        try:
+            if isinstance(tp,potential.planarPotential): 
+                tp.R2deriv(1.2)
+            else:
+                tp.R2deriv(1.2,0.1)
+        except PotentialError:
+            hasR2= False
+        if hasR2:
+            if isinstance(tp,potential.planarPotential): 
+                tevaldr2= tp(1.2,phi=0.1,dR=2)
+                tr2deriv= tp.R2deriv(1.2,phi=0.1)
+            else:
+                tevaldr2= tp(1.2,0.1,phi=0.1,dR=2)
+                tr2deriv= tp.R2deriv(1.2,0.1,phi=0.1)
+            if not tevaldr2 is None:
+                try:
+                    if tevaldr2**2. < 10.**ttol:
+                        assert(tr2deriv*2. < 10.**ttol)
+                    else:
+                        assert((tevaldr2-tr2deriv)**2./tevaldr2**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Calculation of 2nd radial derivative through _evaluate and R2deriv inconsistent for the %s potential" % p)
+        #1st phi
+        if isinstance(tp,potential.planarPotential): 
+            tevaldphi= tp(1.2,phi=0.1,dphi=1)
+            tphiforce= tp.phiforce(1.2,phi=0.1)
+        else:
+            tevaldphi= tp(1.2,0.1,phi=0.1,dphi=1)
+            tphiforce= tp.phiforce(1.2,0.1,phi=0.1)
+        if not tevaldphi is None:
+            try:
+                if tevaldphi**2. < 10.**ttol:
+                    assert(tphiforce**2. < 10.**ttol)
+                else:
+                    assert((tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p)
+        #2nd phi
+        if hasattr(tp,'_phi2deriv'):
+            if isinstance(tp,potential.planarPotential): 
+                tevaldphi2= tp(1.2,phi=0.1,dphi=2)
+                tphi2deriv= tp.phi2deriv(1.2,phi=0.1)
+            else:
+                tevaldphi2= tp(1.2,0.1,phi=0.1,dphi=2)
+                tphi2deriv= tp.phi2deriv(1.2,0.1,phi=0.1)
+            if not tevaldphi2 is None:
+                try:
+                    if tevaldphi2**2. < 10.**ttol:
+                        assert(tphi2deriv*2. < 10.**ttol)
+                    else:
+                        assert((tevaldphi2-tphi2deriv)**2./tevaldphi2**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Calculation of 2nd azimuthal derivative through _evaluate and phi2deriv inconsistent for the %s potential" % p)
+        continue
+        #mixed radial,vertical
+        if isinstance(tp,potential.planarPotential): 
+            tevaldrz= tp(1.2,0.1,phi=0.1,dR=1,dz=1)
+            trzderiv= tp.Rzderiv(1.2,0.1,phi=0.1)
+        else:
+            tevaldrz= tp(1.2,0.1,phi=0.1,dR=1,dz=1)
+            trzderiv= tp.Rzderiv(1.2,0.1,phi=0.1)
+        if not tevaldrz is None:
+            try:
+                if tevaldrz**2. < 10.**ttol:
+                    assert(trzderiv*2. < 10.**ttol)
+                else:
+                    assert((tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
