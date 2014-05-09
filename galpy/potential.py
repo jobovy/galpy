@@ -58,6 +58,7 @@ evaluateplanarRforces= planarPotential.evaluateplanarRforces
 evaluateplanarphiforces= planarPotential.evaluateplanarphiforces
 evaluatelinearPotentials= linearPotential.evaluatelinearPotentials
 evaluatelinearForces= linearPotential.evaluatelinearForces
+PotentialError= Potential.PotentialError
 #
 # Classes
 #
