@@ -444,6 +444,7 @@ def test_evaluateAndDerivs_potential():
             except AssertionError:
                 raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
 
+#Class for testing Integer TwoSphericalPotential
 from galpy.potential import TwoPowerSphericalPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
