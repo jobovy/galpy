@@ -1,4 +1,5 @@
 ############################TESTS ON POTENTIALS################################
+import sys
 import numpy
 import os
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -10,6 +11,7 @@ def test_normalize_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -21,7 +23,10 @@ def test_normalize_potential():
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
-        tclass= getattr(potential,p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if not hasattr(tp,'normalize'): continue
         tp.normalize(1.)
@@ -35,7 +40,6 @@ def test_normalize_potential():
         except AssertionError:
             raise AssertionError("Normalization of %s potential fails" % p)
 
-
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
     from galpy import potential
@@ -43,6 +47,7 @@ def test_forceAsDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -64,7 +69,10 @@ def test_forceAsDeriv_potential():
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
-        tclass= getattr(potential,p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
@@ -137,6 +145,7 @@ def test_2ndDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -158,7 +167,10 @@ def test_2ndDeriv_potential():
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
-        tclass= getattr(potential,p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
@@ -217,6 +229,7 @@ def test_2ndDeriv_potential():
                 for jj in range(len(Zs)):
                     if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     if p == 'TwoPowerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'mockTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
@@ -256,6 +269,7 @@ def test_poisson_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -278,7 +292,10 @@ def test_poisson_potential():
         #if not 'NFW' in p: continue #For testing the test
         #if 'Isochrone' in p: continue #For testing the test
         #Setup instance of potential
-        tclass= getattr(potential,p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
@@ -311,6 +328,7 @@ def test_evaluateAndDerivs_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -327,7 +345,10 @@ def test_evaluateAndDerivs_potential():
     for p in pots:
         #if 'Isochrone' in p: continue #For testing the test
         #Setup instance of potential
-        tclass= getattr(potential,p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
@@ -422,3 +443,9 @@ def test_evaluateAndDerivs_potential():
                     assert((tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
+
+from galpy.potential import TwoPowerSphericalPotential
+class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
+        TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.)
+        return None
