@@ -12,9 +12,6 @@ galpy
 .. image:: https://pypip.in/v/galpy/badge.png
    :target: https://pypi.python.org/pypi/galpy/
 
-.. image:: https://pypip.in/d/galpy/badge.png
-   :target: https://pypi.python.org/pypi/galpy/
-
 AUTHOR
 -------
 
