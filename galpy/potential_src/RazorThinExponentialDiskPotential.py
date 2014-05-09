@@ -5,7 +5,9 @@
 #                                      rho(R,z) = rho_0 e^-R/h_R delta(z)
 ###############################################################################
 import numpy as nu
+import warnings
 from scipy import special, integrate
+from galpy.util import galpyWarning
 from Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
@@ -84,8 +86,9 @@ class RazorThinExponentialDiskPotential(Potential):
             return -self._phiforce(R,z,phi=phi,t=t)
         elif dR == 2 and dphi == 0:
             return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR != 0 and dphi != 0:
-            raise NotImplementedWarning("High-order derivatives for RazorThinExponentialDiskPotential not implemented")
+        elif dR != 0 or dphi != 0:
+            warnings.warn("High-order derivatives for RazorThinExponentialDiskPotential not implemented",galpyWarning)
+            return None
         if self._new:
             #if R > 6.: return self._kp(R,z)
             if nu.fabs(z) < 10.**-6.:
@@ -201,7 +204,7 @@ class RazorThinExponentialDiskPotential(Potential):
                 y= 0.5*self._alpha*R
                 return nu.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
                     +nu.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
-            raise NotImplementedError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
+            raise AttributeError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
