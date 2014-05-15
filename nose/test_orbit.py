@@ -6,6 +6,8 @@ from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
+else:
+    _QUICKTEST= False
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
