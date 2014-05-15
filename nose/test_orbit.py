@@ -56,6 +56,30 @@ def test_energy_conservation():
 #    raise AssertionError
     return None
 
+# Test some long-term integrations for the symplectic integrators
+
+# Test that the eccentricity of circular orbits is zero
+
+# Test that the pericenter of orbits launched with vR=0 and vT > vc is the starting radius
+
+# Test that the apocenter of orbits launched with vR=0 and vT < vc is the starting radius
+
+# Test that the zmax of orbits launched with vz=0 is the starting height
+
+# Test that vR of circular orbits is always zero
+
+# Test the vT of circular orbits is always vc
+
+# Test that the eccentricity, apo-, and pericenters of orbits calculated analytically agrees with the numerical calculation
+
+# Check that adding a linear orbit to a planar orbit gives a FullOrbit
+
+# Check that ER + Ez = E for orbits that stay close to the plane for the MWPotential
+
+# Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
+
+# Check that toLiner and toPlanar work
+
 def setup_orbit_energy(tp):
     from galpy.orbit import Orbit
     if isinstance(tp,potential.linearPotential): 
