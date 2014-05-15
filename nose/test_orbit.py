@@ -14,10 +14,11 @@ else:
 def test_energy_conservation():
     #Basic parameters for the test
     times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
-    integrators= ['odeint','leapfrog','leapfrog_c',
+    integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'odeint', #direct python solver
+                  'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
-                  'symplec4_c','symplec6_c',
-                  'dopr54_c']
+                  'symplec4_c','symplec6_c']
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -35,7 +36,6 @@ def test_energy_conservation():
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     for p in pots:
-        if _QUICKTEST and not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
         else: ttol= tol['default']
@@ -46,8 +46,10 @@ def test_energy_conservation():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
+        ptp= tp.toPlanar()
         for integrator in integrators:
-            o= setup_orbit_energy(tp)
+            #First do axi
+            o= setup_orbit_energy(tp,axi=True)
             o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
@@ -55,6 +57,35 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #add tracking azimuth
+            o= setup_orbit_energy(tp,axi=False)
+            o.integrate(times,tp,method=integrator)
+            tEs= o.E(times)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            try:
+                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Same for a planarPotential
+            print integrator
+            o= setup_orbit_energy(ptp,axi=True)
+            o.integrate(times,ptp,method=integrator)
+            tEs= o.E(times)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            try:
+                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Same for a planarPotential, track azimuth
+            o= setup_orbit_energy(ptp,axi=False)
+            o.integrate(times,ptp,method=integrator)
+            tEs= o.E(times)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            try:
+                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            if _QUICKTEST and not 'NFW' in p: break
 #    raise AssertionError
     return None
 
@@ -123,12 +154,18 @@ def test_energy_symplec_longterm():
 
 # Check that toLiner and toPlanar work
 
-def setup_orbit_energy(tp):
+def setup_orbit_energy(tp,axi=False):
     from galpy.orbit import Orbit
     if isinstance(tp,potential.linearPotential): 
         o= Orbit([1.,1.])
     elif isinstance(tp,potential.planarPotential): 
-        o= Orbit([1.,1.1,1.1,0.])
+        if axi:
+            o= Orbit([1.,1.1,1.1])
+        else:
+            o= Orbit([1.,1.1,1.1,0.])
     else:
-        o= Orbit([1.,1.1,1.1,0.1,0.1,0.])
+        if axi:
+            o= Orbit([1.,1.1,1.1,0.1,0.1])
+        else:
+            o= Orbit([1.,1.1,1.1,0.1,0.1,0.])
     return o
