@@ -460,6 +460,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         """
         planarAxiPotential.__init__(self,amp=1.)
         self._RZPot= RZPot
+        self.hasC= RZPot.hasC
         return None
 
     def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
