@@ -633,10 +633,9 @@ def _integrateROrbit(vxvv,pot,t,method):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-        msg= 0
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
