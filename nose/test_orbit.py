@@ -48,7 +48,7 @@ def test_energy_conservation():
             o= setup_orbit_energy(tp)
             o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
-            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             try:
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
@@ -57,7 +57,48 @@ def test_energy_conservation():
     return None
 
 # Test some long-term integrations for the symplectic integrators
-
+def test_energy_symplec_longterm():
+    #Basic parameters for the test
+    times= numpy.linspace(0.,10000.,100001) #~360 Gyr at the Solar circle
+    integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
+                  'symplec4_c','symplec6_c']
+    #Only use KeplerPotential
+    #Grab all of the potentials
+    pots= ['KeplerPotential']
+    #tolerances in log10
+    tol= {}
+    tol['default']= -20.
+    tol['leapfrog_c']= -16.
+    tol['leapfrog']= -16.
+    for p in pots:
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if not hasattr(tp,'normalize'): continue #skip these
+        tp.normalize(1.)
+        for integrator in integrators:
+            if integrator in tol.keys(): ttol= tol[integrator]
+            else: ttol= tol['default']
+            o= setup_orbit_energy(tp)
+            o.integrate(times,tp,method=integrator)
+            tEs= o.E(times)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+#            print p, ((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2.
+            try:
+                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Check whether there is a trend
+            try:
+                assert((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2. < 10.**ttol
+            except AssertionError:
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+#    raise AssertionError
+    return None
+   
 # Test that the eccentricity of circular orbits is zero
 
 # Test that the pericenter of orbits launched with vR=0 and vT > vc is the starting radius
