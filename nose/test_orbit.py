@@ -125,11 +125,13 @@ def test_energy_symplec_longterm():
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             #Check whether there is a trend
+            linfit= numpy.polyfit(times,tEs,1)
+#            print p
             try:
-                assert((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2. < 10.**ttol
+                assert(linfit[0]**2. < 10.**ttol)
             except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
-#    raise AssertionError
+                raise AssertionError("Absence of secular trend in energy conservation fails for potential %s and symplectic integrator %s" %(p,integrator))
+    #raise AssertionError
     return None
    
 # Test that the eccentricity of circular orbits is zero
