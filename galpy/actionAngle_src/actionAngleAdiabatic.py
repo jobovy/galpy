@@ -15,6 +15,7 @@ import warnings
 import math as m
 import numpy as nu
 from galpy.util import galpyWarning
+from galpy.potential import planarPotential
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
 try:
@@ -214,9 +215,12 @@ class actionAngleAdiabatic():
         """
         #Set up the actionAngleAxi object
         if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
+            thispot= [p.toPlanar() for p in self._pot if not isinstance(p,planarPotential)]
+            thispot.extend([p for p in self._pot if isinstance(p,planarPotential)])
+        elif not isinstance(self._pot,planarPotential):
             thispot= self._pot.toPlanar()
+        else:
+            thispot= self._pot
         aAAxi= actionAngleAxi(*args,pot=thispot,
                                gamma=self._gamma)
         return aAAxi.calcRapRperi(**kwargs)
