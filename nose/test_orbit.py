@@ -12,7 +12,7 @@ else:
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_conservation():
-    #return None
+    return None
     #Basic parameters for the test
     times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
@@ -92,7 +92,7 @@ def test_energy_conservation():
 
 # Test some long-term integrations for the symplectic integrators
 def test_energy_symplec_longterm():
-    #return None
+    return None
     #Basic parameters for the test
     times= numpy.linspace(0.,10000.,100001) #~360 Gyr at the Solar circle
     integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
@@ -216,8 +216,91 @@ def test_eccentricity():
     #raise AssertionError
     return None
     
-
 # Test that the pericenter of orbits launched with vR=0 and vT > vc is the starting radius
+def test_pericenter():
+    #Basic parameters for the test
+    times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
+    integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'odeint', #direct python solver
+                  'leapfrog','leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'evaluate' in p)]
+    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError']
+    if _TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    #tolerances in log10
+    tol= {}
+    tol['default']= -16.
+#    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+#    tol['NFWPotential']= -12. #these are more difficult
+    for p in pots:
+        #Setup instance of potential
+        if p in tol.keys(): ttol= tol[p]
+        else: ttol= tol['default']
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if not hasattr(tp,'normalize'): continue #skip these
+        tp.normalize(1.)
+        ptp= tp.toPlanar()
+        for integrator in integrators:
+            #First do axi
+            o= setup_orbit_pericenter(tp,axi=True)
+            o.integrate(times,tp,method=integrator)
+            tperi= o.rperi()
+#            print p, integrator, tperi
+            try:
+                assert((tperi-o.R())**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            #add tracking azimuth
+            o= setup_orbit_pericenter(tp,axi=False)
+            o.integrate(times,tp,method=integrator)
+            tperi= o.rperi()
+#            print p, integrator, tperi
+            try:
+                assert((tperi-o.R())**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            tperi= o.rperi()
+#            print p, integrator, tperi
+            try:
+                assert((tperi-o.R())**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            #Same for a planarPotential
+#            print integrator
+            o= setup_orbit_pericenter(ptp,axi=True)
+            o.integrate(times,ptp,method=integrator)
+            tperi= o.rperi()
+#            print p, integrator, tperi
+            try:
+                assert((tperi-o.R())**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            #Same for a planarPotential, track azimuth
+            o= setup_orbit_pericenter(ptp,axi=False)
+            o.integrate(times,ptp,method=integrator)
+            tperi= o.rperi()
+#            print p, integrator, tperi
+            try:
+                assert((tperi-o.R())**2. < 10.**ttol)
+            except AssertionError:
+                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            if _QUICKTEST and not 'NFW' in p: break
+    #raise AssertionError
+    return None
 
 # Test that the apocenter of orbits launched with vR=0 and vT < vc is the starting radius
 
@@ -267,4 +350,19 @@ def setup_orbit_eccentricity(tp,axi=False):
             o= Orbit([1.,0.,1.,0.,0.])
         else:
             o= Orbit([1.,0.,1.,0.,0.,0.])
+    return o
+
+# Setup the orbit for the pericenter test
+def setup_orbit_pericenter(tp,axi=False):
+    from galpy.orbit import Orbit
+    if isinstance(tp,potential.planarPotential): 
+        if axi:
+            o= Orbit([1.,0.,1.1])
+        else:
+            o= Orbit([1.,0.,1.1,0.])
+    else:
+        if axi:
+            o= Orbit([1.,0.,1.1,0.,0.])
+        else:
+            o= Orbit([1.,0.,1.1,0.,0.,0.])
     return o
