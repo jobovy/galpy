@@ -8,11 +8,12 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
+_NOLONGINTEGRATIONS= False
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_conservation():
-    #return None
+    if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
@@ -92,7 +93,7 @@ def test_energy_conservation():
 
 # Test some long-term integrations for the symplectic integrators
 def test_energy_symplec_longterm():
-    #return None
+    if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,10000.,100001) #~360 Gyr at the Solar circle
     integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
@@ -541,12 +542,35 @@ def test_analytic_ecc_rperi_rap():
     
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
+def test_add_linear_planar_orbit():
+    from galpy.orbit_src import FullOrbit, RZOrbit
+    kg= potential.KGPotential()
+    ol= setup_orbit_energy(kg)
+    #w/ azimuth
+    plp= potential.NFWPotential().toPlanar()
+    op= setup_orbit_energy(plp)
+    of= ol+op
+    try:
+        assert(isinstance(of._orb,FullOrbit.FullOrbit))
+    except AssertionError:
+        raise AssertionError("Sum of linearOrbit and planarOrbit does not give a FullOrbit")
+    #w/o azimuth
+    op= setup_orbit_energy(plp,axi=True)
+    of= ol+op
+    print of._orb
+    try:
+        assert(isinstance(of._orb,RZOrbit.RZOrbit))
+    except AssertionError:
+        raise AssertionError("Sum of linearOrbit and planarROrbit does not give a FullOrbit")
+    return None
 
 # Check that ER + Ez = E for orbits that stay close to the plane for the MWPotential
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
 
-# Check that toLiner and toPlanar work
+# Check that toLinear and toPlanar work
+
+# Check plotting routines
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False):
