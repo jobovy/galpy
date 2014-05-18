@@ -2,7 +2,7 @@ import numpy as nu
 import galpy.util.bovy_coords as coords
 from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
-from planarOrbit import planarOrbit, planarROrbit
+from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
 from linearOrbit import linearOrbit
 _K=4.74047
 def _zEqZeroBC(ar):
@@ -2613,19 +2613,29 @@ class Orbit:
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        if (not (isinstance(self._orb,planarROrbit) and 
+        if (not (isinstance(self._orb,planarOrbitTop) and 
                 isinstance(linOrb._orb,linearOrbit)) and
             not (isinstance(self._orb,linearOrbit) and 
-                 isinstance(linOrb._orb,planarROrbit))):
-            raise AttributeError("Only planarROrbit+linearOrbit is supported")
+                 isinstance(linOrb._orb,planarOrbitTop))):
+            raise AttributeError("Only planarOrbit+linearOrbit is supported")
         if isinstance(self._orb,planarROrbit):
             return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
                                self._orb.vxvv[2],
                                linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])
-        else:
+        elif isinstance(self._orb,planarOrbit):
+            return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
+                               self._orb.vxvv[2],
+                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
+                               self._orb.vxvv[3]])
+        elif isinstance(linOrb._orb,planarROrbit):
             return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
                                linOrb._orb.vxvv[2],
                                self._orb.vxvv[0],self._orb.vxvv[1]])
+        elif isinstance(linOrb._orb,planarOrbit):
+            return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
+                               linOrb._orb.vxvv[2],
+                               self._orb.vxvv[0],self._orb.vxvv[1],
+                               linOrb._orb.vxvv[3]])
 
     #4 pickling
     def __getinitargs__(self):
