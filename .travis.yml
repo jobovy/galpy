@@ -10,9 +10,9 @@ before_install:
 install:
  - pip install coveralls
  - pip install nose-cov
- - python setup.py install
+ - python setup.py develop
 script:
- - nosetests -v -w nose/ --with-cov --cov /home/travis/virtualenv/python2.7_with_system_site_packages/lib/python2.7/site-packages/galpy-0.1-py2.7-linux-x86_64.egg/galpy
+ - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
  coveralls
 notifications:
