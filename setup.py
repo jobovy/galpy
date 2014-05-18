@@ -18,6 +18,18 @@ else:
     extra_compile_args= ["-DNO_OMP"]
     pot_libraries.remove('gomp')
 
+#Option to track coverage
+try:
+    coverage_pos = sys.argv.index('--coverage')
+except ValueError:
+    extra_link_args= []
+else:
+    del sys.argv[coverage_pos]
+    #extra_compile_args.append("--coverage")
+    extra_compile_args.append("-fprofile-arcs -ftest-coverage")
+    #extra_link_args= ["--coverage"]
+    extra_link_args= ["-lgcov"]
+
 #code to check the GSL version
 cmd= ['gsl-config',
       '--version']
@@ -48,7 +60,9 @@ orbit_int_c= Extension('galpy_integrate_c',
                        libraries=orbit_libraries,
                        include_dirs=['galpy/util',
                                      'galpy/util/interp_2d',
-                                     'galpy/potential_src/potential_c_ext'])
+                                     'galpy/potential_src/potential_c_ext'],
+                       extra_compile_args=extra_compile_args,
+                       extra_link_args=extra_link_args)
 ext_modules=[]
 if float(gsl_version[0]) >= 1.:
     ext_modules.append(orbit_int_c)
@@ -68,7 +82,8 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/util/interp_2d',
                                        'galpy/potential_src/potential_c_ext'],
-                         extra_compile_args=extra_compile_args)
+                         extra_compile_args=extra_compile_args,
+                         extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
     ext_modules.append(actionAngle_c)
     
@@ -89,7 +104,8 @@ interppotential_c= Extension('galpy_interppotential_c',
                                        'galpy/actionAngle_src/actionAngle_c_ext',
                                        'galpy/orbit_src/orbit_c_ext',
                                        'galpy/potential_src/interppotential_c_ext'],
-                             extra_compile_args=extra_compile_args)
+                             extra_compile_args=extra_compile_args,
+                             extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
     ext_modules.append(interppotential_c)
 
