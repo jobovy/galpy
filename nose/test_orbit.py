@@ -70,7 +70,7 @@ def test_energy_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                o= setup_orbit_energy(tp)
+                o= setup_orbit_energy(tp,axi=True)
                 try:
                     o.E()
                 except AttributeError:
@@ -96,7 +96,7 @@ def test_energy_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                o= setup_orbit_energy(tp)
+                o= setup_orbit_energy(tp,axi=False)
                 try:
                     o.E()
                 except AttributeError:
@@ -127,7 +127,7 @@ def test_energy_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                o= setup_orbit_energy(tp)
+                o= setup_orbit_energy(ptp,axi=True)
                 try:
                     o.E()
                 except AttributeError:
@@ -157,7 +157,7 @@ def test_energy_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                o= setup_orbit_energy(tp)
+                o= setup_orbit_energy(ptp,axi=False)
                 try:
                     o.E()
                 except AttributeError:
