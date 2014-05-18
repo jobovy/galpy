@@ -444,8 +444,8 @@ def test_evaluateAndDerivs_potential():
             except AssertionError:
                 raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
 
-# Check that toLinear and toPlanar work
-def test_toLinear_toPlanar():
+# Check that toVertical and toPlanar work
+def test_toVertical_toPlanar():
     from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
