@@ -75,6 +75,8 @@ def test_energy_conservation():
                     o.E()
                 except AttributeError:
                     pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
             #add tracking azimuth
             o= setup_orbit_energy(tp,axi=False)
             o.integrate(times,tp,method=integrator)
@@ -99,6 +101,8 @@ def test_energy_conservation():
                     o.E()
                 except AttributeError:
                     pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_energy(ptp,axi=True)
@@ -128,6 +132,8 @@ def test_energy_conservation():
                     o.E()
                 except AttributeError:
                     pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
             o.integrate(times,ptp,method=integrator)
@@ -156,6 +162,8 @@ def test_energy_conservation():
                     o.E()
                 except AttributeError:
                     pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
                 firstTest= False
             if _QUICKTEST and not 'NFW' in p: break
 #    raise AssertionError
@@ -234,6 +242,7 @@ def test_eccentricity():
     tol['default']= -16.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['NFWPotential']= -12. #these are more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -249,6 +258,13 @@ def test_eccentricity():
         for integrator in integrators:
             #First do axi
             o= setup_orbit_eccentricity(tp,axi=True)
+            if firstTest:
+                try:
+                    o.e() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.e() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
@@ -258,6 +274,13 @@ def test_eccentricity():
                 raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
             #add tracking azimuth
             o= setup_orbit_eccentricity(tp,axi=False)
+            if firstTest:
+                try:
+                    o.e() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.e() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
@@ -268,6 +291,13 @@ def test_eccentricity():
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_eccentricity(ptp,axi=True)
+            if firstTest:
+                try:
+                    o.e() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.e() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,ptp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
@@ -277,6 +307,14 @@ def test_eccentricity():
                 raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
             #Same for a planarPotential, track azimuth
             o= setup_orbit_eccentricity(ptp,axi=False)
+            if firstTest:
+                try:
+                    o.e() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.e() before the orbit was integrated did not throw an AttributeError")
+                firstTest= True
             o.integrate(times,ptp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
@@ -315,6 +353,7 @@ def test_pericenter():
     tol['default']= -16.
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
 #    tol['NFWPotential']= -12. #these are more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -330,6 +369,13 @@ def test_pericenter():
         for integrator in integrators:
             #First do axi
             o= setup_orbit_pericenter(tp,axi=True)
+            if firstTest:
+                try:
+                    o.rperi() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rperi() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
@@ -339,6 +385,13 @@ def test_pericenter():
                 raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
             #add tracking azimuth
             o= setup_orbit_pericenter(tp,axi=False)
+            if firstTest:
+                try:
+                    o.rperi() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rperi() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
@@ -349,6 +402,13 @@ def test_pericenter():
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_pericenter(ptp,axi=True)
+            if firstTest:
+                try:
+                    o.rperi() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rperi() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,ptp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
@@ -358,6 +418,14 @@ def test_pericenter():
                 raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
             #Same for a planarPotential, track azimuth
             o= setup_orbit_pericenter(ptp,axi=False)
+            if firstTest:
+                try:
+                    o.rperi() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rperi() before the orbit was integrated did not throw an AttributeError")
+                firstTest= False
             o.integrate(times,ptp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
@@ -397,6 +465,7 @@ def test_apocenter():
     tol['default']= -16.
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
 #    tol['NFWPotential']= -12. #these are more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -412,6 +481,13 @@ def test_apocenter():
         for integrator in integrators:
             #First do axi
             o= setup_orbit_apocenter(tp,axi=True)
+            if firstTest:
+                try:
+                    o.rap() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
@@ -421,6 +497,13 @@ def test_apocenter():
                 raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
             #add tracking azimuth
             o= setup_orbit_apocenter(tp,axi=False)
+            if firstTest:
+                try:
+                    o.rap() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
@@ -431,6 +514,13 @@ def test_apocenter():
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_apocenter(ptp,axi=True)
+            if firstTest:
+                try:
+                    o.rap() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,ptp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
@@ -440,6 +530,14 @@ def test_apocenter():
                 raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
             #Same for a planarPotential, track azimuth
             o= setup_orbit_apocenter(ptp,axi=False)
+            if firstTest:
+                try:
+                    o.rap() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
+                firstTest= False
             o.integrate(times,ptp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
@@ -479,6 +577,7 @@ def test_zmax():
     tol['default']= -16.
     tol['RazorThinExponentialDiskPotential']= -6. #these are more difficult
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -494,6 +593,13 @@ def test_zmax():
         for integrator in integrators:
             #First do axi
             o= setup_orbit_zmax(tp,axi=True)
+            if firstTest:
+                try:
+                    o.zmax() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.zmax() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tzmax= o.zmax()
 #            print p, integrator, tzmax
@@ -503,6 +609,13 @@ def test_zmax():
                 raise AssertionError("Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator))
             #add tracking azimuth
             o= setup_orbit_zmax(tp,axi=False)
+            if firstTest:
+                try:
+                    o.zmax() #This should throw an AttributeError
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.zmax() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tzmax= o.zmax()
 #            print p, integrator, tzmax
@@ -510,6 +623,22 @@ def test_zmax():
                 assert((tzmax-o.z())**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator))
+            if firstTest:
+                ptp= tp.toPlanar()
+                o= setup_orbit_energy(ptp,axi=False)
+                try:
+                    o.zmax() #This should throw an AttributeError, bc there is no zmax
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.zmax() for a planarOrbit did not throw an AttributeError")
+                o= setup_orbit_energy(ptp,axi=True)
+                try:
+                    o.zmax() #This should throw an AttributeError, bc there is no zmax
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.zmax() for a planarROrbit did not throw an AttributeError")
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
