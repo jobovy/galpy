@@ -444,6 +444,44 @@ def test_evaluateAndDerivs_potential():
             except AssertionError:
                 raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
 
+# Check that toLinear and toPlanar work
+def test_toLinear_toPlanar():
+    from galpy import potential
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'evaluate' in p)]
+    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError']
+    if _TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    for p in pots:
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if not hasattr(tp,'normalize'): continue #skip these
+        tp.normalize(1.)
+        if isinstance(tp,potential.linearPotential) or \
+                isinstance(tp,potential.planarPotential):
+            continue
+        tpp= tp.toPlanar()
+        try:
+            assert(isinstance(tpp,potential.planarPotential))
+        except AssertionError:
+            raise AssertionError("Conversion into planar potential of potential %s fails" % p)
+        tlp= tp.toVertical(1.)
+        try:
+            assert(isinstance(tlp,potential.linearPotential))
+        except AssertionError:
+            raise AssertionError("Conversion into linear potential of potential %s fails" % p)
+
 #Class for testing Integer TwoSphericalPotential
 from galpy.potential import TwoPowerSphericalPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
