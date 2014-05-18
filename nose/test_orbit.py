@@ -37,6 +37,7 @@ def test_energy_conservation():
     tol= {}
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -59,6 +60,21 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            if firstTest or p == 'MWPotential':
+                #Some basic checking of the energy function
+                try:
+                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree")
+                try:
+                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                o= setup_orbit_energy(tp)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
             #add tracking azimuth
             o= setup_orbit_energy(tp,axi=False)
             o.integrate(times,tp,method=integrator)
@@ -68,6 +84,21 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            if firstTest or p == 'MWPotential':
+                #Some basic checking of the energy function
+                try:
+                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree")
+                try:
+                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                o= setup_orbit_energy(tp)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_energy(ptp,axi=True)
@@ -78,6 +109,25 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            if firstTest or p == 'MWPotential':
+                #Some basic checking of the energy function
+                try:
+                    assert((o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential")
+                try:
+                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential")
+                try:
+                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                o= setup_orbit_energy(tp)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
             o.integrate(times,ptp,method=integrator)
@@ -87,6 +137,26 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            if firstTest or p == 'MWPotential':
+                #Some basic checking of the energy function
+                try:
+                    assert((o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential")
+                try:
+                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential")
+                try:
+                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                o= setup_orbit_energy(tp)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
+                firstTest= False
             if _QUICKTEST and not 'NFW' in p: break
 #    raise AssertionError
     return None
