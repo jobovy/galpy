@@ -1,9 +1,9 @@
 language: python
 python:
   - "2.7"
-env:
-  - CC=gcc
-  - CC=clang LDSHARED=clang
+#env: #Doesn't seem to work terribly well
+#  - CC=gcc
+#  - CC=clang LDSHARED=clang
 virtualenv:
   system_site_packages: true
 before_install:
@@ -11,15 +11,13 @@ before_install:
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
 # command to install dependencies
 install:
- - ./.install_coveralls.sh
+ - pip install coveralls
  - pip install nose-cov
  - python setup.py develop --coverage
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
- - ./.submit_coveralls.sh
-# - coveralls
-# - cpp-coveralls
+ - coveralls
 notifications:
   email:
     recipients:
