@@ -11,15 +11,15 @@ before_install:
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
 # command to install dependencies
 install:
- - pip install coveralls
+ - pip install cpp-coveralls
  - pip install nose-cov
  - python setup.py develop --coverage
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
  - coveralls
- - pip install cpp-coveralls # Also install for C
- - coveralls
+# - pip install cpp-coveralls # Also install for C
+ - cpp-coveralls
 notifications:
   email:
     recipients:
