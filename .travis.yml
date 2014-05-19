@@ -11,12 +11,14 @@ before_install:
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
 # command to install dependencies
 install:
+ - pip install gcovr
  - pip install coveralls
  - pip install nose-cov
  - python setup.py develop --coverage
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
+ - gcovr -r galpy # Show coverage results
  - coveralls
 notifications:
   email:
