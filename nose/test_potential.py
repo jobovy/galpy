@@ -40,9 +40,17 @@ def test_normalize_potential():
             assert((tp.Rforce(1.,0.)+1.)**2. < 10.**-16.)
         except AssertionError:
             raise AssertionError("Normalization of %s potential fails" % p)
+        try:
+            assert((tp.vcirc(1.)**2.-1.)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Normalization of %s potential fails" % p)
         tp.normalize(.5)
         try:
             assert((tp.Rforce(1.,0.)+.5)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Normalization of %s potential fails" % p)
+        try:
+            assert((tp.vcirc(1.)**2.-0.5)**2. < 10.**-16.)
         except AssertionError:
             raise AssertionError("Normalization of %s potential fails" % p)
 
