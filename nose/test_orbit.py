@@ -204,7 +204,7 @@ def test_energy_symplec_longterm():
             try:
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s by %.f" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2))
+                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s by %f" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2))
             #Check whether there is a trend
             linfit= numpy.polyfit(times,tEs,1)
 #            print p
