@@ -43,3 +43,4 @@ genhtml coverage.info --output-directory ~/public_html/galpy_lcov/
 rm -vf dummy.info
 rm -vf coverage_orbit.info coverage_actionAngle.info coverage_interppotential.info
 rm -vf coverage_orbit_initial.info coverage_actionAngle_initial.info coverage_interppotential_initial.info
+rm -vf coverage.info
