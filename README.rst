@@ -12,6 +12,8 @@ galpy
 .. image:: https://pypip.in/v/galpy/badge.png
    :target: https://pypi.python.org/pypi/galpy/
 
+`lcov <http://sns.ias.edu/~bovy/galpy_lcov/>`__
+
 AUTHOR
 -------
 
