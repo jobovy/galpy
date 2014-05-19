@@ -11,7 +11,8 @@ before_install:
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
 # command to install dependencies
 install:
- - pip install cpp-coveralls
+ - pip install coveralls
+ - pip install -U cpp-coveralls
  - pip install nose-cov
  - python setup.py develop --coverage
 script:
