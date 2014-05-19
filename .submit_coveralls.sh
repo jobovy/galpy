@@ -1,8 +1,6 @@
 #!/bin/bash
-if [[ "$CC" == "clang" ]]; then
-    pip install cpp-coveralls
+if [[ "$CC" == "gcc" ]]; then
     cpp-coveralls
 else
-    pip install coveralls
     coveralls
 fi
