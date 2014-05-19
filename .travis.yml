@@ -11,6 +11,7 @@ before_install:
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
 # command to install dependencies
 install:
+ - ./.install_coveralls.sh
  - pip install nose-cov
  - python setup.py develop --coverage
 script:
