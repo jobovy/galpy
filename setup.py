@@ -25,10 +25,10 @@ except ValueError:
     extra_link_args= []
 else:
     del sys.argv[coverage_pos]
-    #extra_compile_args.append("--coverage")
-    extra_compile_args.append("-fprofile-arcs -ftest-coverage")
-    #extra_link_args= ["--coverage"]
-    extra_link_args= ["-lgcov"]
+    extra_compile_args.append("--coverage")
+    #extra_compile_args.append("-fprofile-arcs -ftest-coverage")
+    extra_link_args= ["--coverage"]
+    #extra_link_args= ["-lgcov"]
 
 #code to check the GSL version
 cmd= ['gsl-config',
