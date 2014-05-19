@@ -10,7 +10,8 @@ galpy
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
 .. image:: https://pypip.in/v/galpy/badge.png
-   :target: https://pypi.python.org/pypi/galpy/ `lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
+   :target: https://pypi.python.org/pypi/galpy/ 
+`lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
 
 AUTHOR
 -------
