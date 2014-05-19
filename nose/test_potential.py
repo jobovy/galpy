@@ -524,6 +524,91 @@ def test_toVertical_toPlanar():
         except AssertionError:
             raise AssertionError("Conversion into linear potential of potential %s fails" % p)
 
+# Sanity check the derivative of the rotation curve and the frequencies in the plane
+def test_dvcircdR_omegac_epifreq_rl():
+    from galpy import potential
+    #Derivative of rotation curve
+    #LogarithmicHaloPotential: rotation everywhere flat
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    try:
+        assert(lp.dvcircdR(1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=1")
+    try:
+        assert(lp.dvcircdR(0.5)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=0.5")
+    try:
+        assert(lp.dvcircdR(2.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=2")
+    #Kepler potential, vc = vc_0(R/R0)^-0.5 -> dvcdR= -0.5 vc_0 (R/R0)**-1.5
+    kp= potential.KeplerPotential(normalize=1.)
+    try:
+        assert((kp.dvcircdR(1.)+0.5)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=1")
+    try:
+        assert((kp.dvcircdR(0.5)+0.5**-0.5)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=0.5")
+    try:
+        assert((kp.dvcircdR(2.)+0.5**2.5)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=2")
+    #Rotational frequency
+    try:
+        assert((lp.omegac(1.)-1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=1")
+    try:
+        assert((lp.omegac(0.5)-2.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=0.5")
+    try:
+        assert((lp.omegac(2.)-0.5)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=2")
+    #Epicycle frequency, flat rotation curve
+    try:
+        assert((lp.epifreq(1.)-numpy.sqrt(2.)*lp.omegac(1.))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=1")
+    try:
+        assert((lp.epifreq(0.5)-numpy.sqrt(2.)*lp.omegac(0.5))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=0.5")
+    try:
+        assert((lp.epifreq(2.0)-numpy.sqrt(2.)*lp.omegac(2.0))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=2")
+    #Epicycle frequency, Kepler
+    try:
+        assert((kp.epifreq(1.)-kp.omegac(1.))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=1")
+    try:
+        assert((kp.epifreq(0.5)-kp.omegac(0.5))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=0.5")
+    try:
+        assert((kp.epifreq(2.)-kp.omegac(2.))**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=2")
+    #Check radius of circular orbit, Kepler
+    try:
+        assert((kp.rl(1.)-1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=1.")
+    try:
+        assert((kp.rl(0.5)-1./4.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=0.5")
+    try:
+        assert((kp.rl(2.)-4.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=2.")
+
 #Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
