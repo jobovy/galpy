@@ -8,7 +8,7 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
-_NOLONGINTEGRATIONS= True
+_NOLONGINTEGRATIONS= False
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
