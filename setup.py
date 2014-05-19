@@ -7,6 +7,13 @@ import glob
 with open('README.rst') as dfile:
     long_description = dfile.read()
 
+# Parse options; current options
+# --no-openmp: compile without OpenMP support
+# --coverage: compile with gcov support
+# --orbit_ext: just compile the orbit extension (for use w/ --coverage)
+# --actionAngle_ext: just compile the actionAngle extension (for use w/ --coverage)
+# --interppotential_ext: just compile the interppotential extension (for use w/ --coverage)
+
 pot_libraries= ['m','gsl','gslcblas','gomp']
 #Option to forego OpenMP
 try:
@@ -29,6 +36,33 @@ else:
     #extra_compile_args.extend(["-fprofile-arcs","-ftest-coverage"])
     extra_link_args= ["--coverage"]
     #extra_link_args= ["-lgcov"]
+
+#Option to just compile the orbit extension
+try:
+    orbit_ext_pos = sys.argv.index('--orbit_ext')
+except ValueError:
+    orbit_ext= False
+else:
+    del sys.argv[orbit_ext_pos]
+    orbit_ext= True
+
+#Option to just compile the actionAngle extension
+try:
+    actionAngle_ext_pos = sys.argv.index('--actionAngle_ext')
+except ValueError:
+    actionANgle_ext= False
+else:
+    del sys.argv[actionAngle_ext_pos]
+    actionAngle_ext= True
+
+#Option to just compile the interppotential extension
+try:
+    interppotential_ext_pos = sys.argv.index('--interppotential_ext')
+except ValueError:
+    interppotential_ext= False
+else:
+    del sys.argv[interppotential_ext_pos]
+    interppotential_ext= True
 
 #code to check the GSL version
 cmd= ['gsl-config',
@@ -64,7 +98,8 @@ orbit_int_c= Extension('galpy_integrate_c',
                        extra_compile_args=extra_compile_args,
                        extra_link_args=extra_link_args)
 ext_modules=[]
-if float(gsl_version[0]) >= 1.:
+if float(gsl_version[0]) >= 1. and \
+        not actionAngle_ext and not interppotential_ext:
     ext_modules.append(orbit_int_c)
 
 #actionAngle C extension
@@ -84,7 +119,8 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                                        'galpy/potential_src/potential_c_ext'],
                          extra_compile_args=extra_compile_args,
                          extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+        not orbit_ext and not interppotential_ext:
     ext_modules.append(actionAngle_c)
     
 #interppotential C extension
@@ -106,7 +142,8 @@ interppotential_c= Extension('galpy_interppotential_c',
                                        'galpy/potential_src/interppotential_c_ext'],
                              extra_compile_args=extra_compile_args,
                              extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14.:
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
+        and not orbit_ext and not actionAngle_ext:
     ext_modules.append(interppotential_c)
 
 setup(name='galpy',
