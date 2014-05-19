@@ -18,7 +18,7 @@ install:
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
- - gcovr -r galpy # Show coverage results
+ - gcovr -r "galpy" -p # Show coverage results
  - coveralls
 notifications:
   email:
