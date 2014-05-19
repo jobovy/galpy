@@ -25,8 +25,8 @@ except ValueError:
     extra_link_args= []
 else:
     del sys.argv[coverage_pos]
-    extra_compile_args.append("-O0 --coverage")
-    #extra_compile_args.append("-fprofile-arcs -ftest-coverage")
+    extra_compile_args.extend(["-O0","--coverage"])
+    #extra_compile_args.extend(["-fprofile-arcs","-ftest-coverage"])
     extra_link_args= ["--coverage"]
     #extra_link_args= ["-lgcov"]
 
