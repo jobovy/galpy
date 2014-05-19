@@ -14,11 +14,10 @@ install:
  - pip install gcovr
  - pip install coveralls
  - pip install nose-cov
- - python setup.py develop --coverage
+ - python setup.py develop
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
- - gcovr -r . -p # Show coverage results
  - coveralls
 notifications:
   email:
