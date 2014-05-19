@@ -13,7 +13,7 @@ before_install:
 install:
  - pip install coveralls
  - pip install nose-cov
- - python setup.py develop -c ${CC}
+ - python setup.py develop -c "$CC"
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy
 after_success:
