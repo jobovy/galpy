@@ -65,7 +65,7 @@ class Potential:
         """
         try:
             rawOut= self._evaluate(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
         if rawOut is None: return rawOut
         else: return self._amp*rawOut
@@ -101,7 +101,7 @@ class Potential:
         """
         try:
             return self._amp*self._Rforce(R,z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
         
     def zforce(self,R,z,phi=0.,t=0.):
@@ -135,7 +135,7 @@ class Potential:
         """
         try:
             return self._amp*self._zforce(R,z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_zforce' function not implemented for this potential")
 
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
@@ -256,7 +256,7 @@ class Potential:
         """
         try:
             return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     def z2deriv(self,R,Z,phi=0.,t=0.):
@@ -290,7 +290,7 @@ class Potential:
         """
         try:
             return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
     def Rzderiv(self,R,Z,phi=0.,t=0.):
@@ -324,7 +324,7 @@ class Potential:
         """
         try:
             return self._amp*self._Rzderiv(R,Z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_Rzderiv' function not implemented for this potential")      
 
     def normalize(self,norm,t=0.):
@@ -385,7 +385,7 @@ class Potential:
         """
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             return 0.
 
     def phi2deriv(self,R,Z,phi=0.,t=0.):
@@ -419,7 +419,7 @@ class Potential:
         """
         try:
             return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             return 0.
 
     def _phiforce(self,R,z,phi=0.,t=0.):
