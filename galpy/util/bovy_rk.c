@@ -565,11 +565,11 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
   static const double b5= -2187./6784.;
   static const double b6= 11./84.;
   //coefficients of the error estimate
-  static const double be1= b1-5179./57600.;
-  static const double be3= b3-7571./16695.;
-  static const double be4= b4-393./640.;
-  static const double be5= b5+92097./339200.;
-  static const double be6= b6-187./2100.;
+  const double be1= b1-5179./57600.;
+  const double be3= b3-7571./16695.;
+  const double be4= b4-393./640.;
+  const double be5= b5+92097./339200.;
+  const double be6= b6-187./2100.;
   static const double be7= -1./40.;
   int ii;
   //setup yn1
