@@ -50,7 +50,7 @@ else:
 try:
     actionAngle_ext_pos = sys.argv.index('--actionAngle_ext')
 except ValueError:
-    actionANgle_ext= False
+    actionAngle_ext= False
 else:
     del sys.argv[actionAngle_ext_pos]
     actionAngle_ext= True
