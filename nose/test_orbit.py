@@ -184,6 +184,7 @@ def test_energy_symplec_longterm():
     tol['default']= -20.
     tol['leapfrog_c']= -14. #clang build on travis gives -14.082775533657834, gcc does better than -16.
     tol['symplec4_c']= -14. #clang build on travis gives -14.082775533657834, gcc does better than -16.
+    tol['symplec6_c']= -14. #clang build on travis gives -14.082775533657834, gcc does better than -16.
     tol['leapfrog']= -16.
     for p in pots:
         #Setup instance of potential
