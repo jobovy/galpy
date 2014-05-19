@@ -608,6 +608,44 @@ def test_dvcircdR_omegac_epifreq_rl():
         assert((kp.rl(2.)-4.)**2. < 10.**-16.)
     except AssertionError:
         raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=2.")
+    return None
+
+def test_plotting():
+    from galpy import potential
+    #Some tests of the plotting routines, to make sure they don't fail
+    kp= potential.KeplerPotential(normalize=1.)
+    #Plot the rotation curve
+    kp.plotRotcurve()
+    kp.plotRotcurve(Rrange=[0.01,10.],
+                    grid=101,
+                    savefilename=None)
+    #Plot the escape-velocity curve
+    kp.plotEscapecurve()
+    kp.plotEscapecurve(Rrange=[0.01,10.],
+                       grid=101,
+                       savefilename=None)
+    #Plot the potential itself
+    kp.plot()
+    kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
+            effective=False,Lz=None, 
+            xrange=[0.01,1.8],yrange=[-0.55,0.55], 
+            ncontours=11,savefilename=None)
+    #Plot the effective potential
+    kp.plot()
+    kp.plot(effective=True,Lz=1.)
+    try:
+        kp.plot(effective=True,Lz=None)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Potential.plot with effective=True, but Lz=None did not return a RuntimeError")
+    #Plot the density of a LogarithmicHaloPotential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    lp.plotDensity()
+    lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
+                   aspect=1.,log=True,
+                   ncontours=11,savefilename=None)
+    return None
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
