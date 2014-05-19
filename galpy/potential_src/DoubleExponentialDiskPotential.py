@@ -87,7 +87,7 @@ class DoubleExponentialDiskPotential(Potential):
         self._dj2zeros[0]= self._j2zeros[0]
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         #Load Kepler potential for large R
         self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)

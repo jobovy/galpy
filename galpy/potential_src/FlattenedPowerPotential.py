@@ -54,7 +54,7 @@ class FlattenedPowerPotential(Potential):
         self.core2= core**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= False
 

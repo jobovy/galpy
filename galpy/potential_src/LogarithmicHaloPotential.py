@@ -42,7 +42,7 @@ class LogarithmicHaloPotential(Potential):
         self._q= q
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         return None
 

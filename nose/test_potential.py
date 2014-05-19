@@ -12,6 +12,12 @@ def test_normalize_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialPowerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -48,6 +54,12 @@ def test_forceAsDeriv_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialPowerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -146,6 +158,12 @@ def test_2ndDeriv_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialPowerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -230,6 +248,10 @@ def test_2ndDeriv_potential():
                     if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     if p == 'TwoPowerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'mockTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'specialTwoPowerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'HernquistTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'JaffeTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'NFWTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
@@ -270,6 +292,12 @@ def test_poisson_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialPowerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -329,6 +357,12 @@ def test_evaluateAndDerivs_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialPowerSphericalPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -482,9 +516,35 @@ def test_toVertical_toPlanar():
         except AssertionError:
             raise AssertionError("Conversion into linear potential of potential %s fails" % p)
 
-#Class for testing Integer TwoSphericalPotential
-from galpy.potential import TwoPowerSphericalPotential
+#Classes for testing Integer TwoSphericalPotential and for testing special
+# cases of some other potentials
+from galpy.potential import TwoPowerSphericalPotential, \
+    MiyamotoNagaiPotential, PowerSphericalPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
+        TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
+        return None
+class specialTwoPowerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
+        TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.5,beta=3.)
+        return None
+class HernquistTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
+        TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.,beta=4.)
+        return None
+class JaffeTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.)
+        return None
+class NFWTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
+        TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.,beta=3.)
+        return None
+class specialPowerSphericalPotential(PowerSphericalPotential):
+    def __init__(self):
+        PowerSphericalPotential.__init__(self,amp=1.,alpha=2.)
+        return None
+class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
+    def __init__(self):
+        MiyamotoNagaiPotential.__init__(self,amp=1.,a=0.,b=0.1)
         return None
