@@ -9,6 +9,8 @@ virtualenv:
 before_install:
  - sudo apt-get install libgsl0-dev
  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
+ - "export DISPLAY=:99.0" #For plotting tests, courtesy Ryan Varley
+ - "sh -e /etc/init.d/xvfb start" $For plotting tests
 # command to install dependencies
 install:
  - pip install gcovr
