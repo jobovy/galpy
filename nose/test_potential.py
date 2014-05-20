@@ -2,6 +2,8 @@
 import sys
 import numpy
 import os
+import matplotlib
+matplotlib.use('Agg')
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
