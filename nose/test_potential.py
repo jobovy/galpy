@@ -105,11 +105,19 @@ def test_forceAsDeriv_potential():
                 newR= Rs[ii]+dr
                 dr= newR-Rs[ii] #Representable number
                 if isinstance(tp,potential.linearPotential): 
-                    mpotderivR= (tp(Rs[ii])-tp(Rs[ii]+dr))/dr
-                    tRforce= tp.force(Rs[ii])
+                    mpotderivR= (potential.evaluatelinearPotentials(Rs[ii],tp)
+                                 -potential.evaluatelinearPotentials(Rs[ii]+dr,
+                                                                     tp))/dr
+                    tRforce= potential.evaluatelinearForces(Rs[ii],tp)
+                elif isinstance(tp,potential.planarPotential):
+                    mpotderivR= (potential.evaluateplanarPotentials(Rs[ii],tp,phi=Zs[jj])-potential.evaluateplanarPotentials(Rs[ii]+dr,tp,phi=Zs[jj]))/dr
+                    tRforce= potential.evaluateplanarRforces(Rs[ii],tp,
+                                                             phi=Zs[jj])
                 else:
-                    mpotderivR= (tp(Rs[ii],Zs[jj])-tp(Rs[ii]+dr,Zs[jj]))/dr
-                    tRforce= tp.Rforce(Rs[ii],Zs[jj])
+                    mpotderivR= (potential.evaluatePotentials(Rs[ii],Zs[jj],tp)
+                                 -potential.evaluatePotentials(Rs[ii]+dr,Zs[jj],
+                                                               tp))/dr
+                    tRforce= potential.evaluateRforces(Rs[ii],Zs[jj],tp)
                 try:
                     if tRforce**2. < 10.**ttol:
                         assert(mpotderivR**2. < 10.**ttol)
@@ -126,10 +134,12 @@ def test_forceAsDeriv_potential():
                 dphi= newphi-phis[jj] #Representable number
                 if isinstance(tp,potential.planarPotential):
                     mpotderivphi= (tp(Rs[ii],phi=phis[jj])-tp(Rs[ii],phi=phis[jj]+dphi))/dphi
-                    tphiforce= tp.phiforce(Rs[ii],phi=phis[jj])
+                    tphiforce= potential.evaluateplanarphiforces(Rs[ii],tp,
+                                                                 phi=phis[jj])
                 else:
                     mpotderivphi= (tp(Rs[ii],0.05,phi=phis[jj])-tp(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                    tphiforce= tp.phiforce(Rs[ii],0.05,phi=phis[jj])
+                    tphiforce= potential.evaluatephiforces(Rs[ii],0.05,tp,
+                                                           phi=phis[jj])
                 try:
                     if tphiforce**2. < 10.**ttol:
                         assert(mpotderivphi**2. < 10.**ttol)
@@ -149,7 +159,7 @@ def test_forceAsDeriv_potential():
                 newZ= Zs[jj]+dz
                 dz= newZ-Zs[jj] #Representable number
                 mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz))/dz
-                tzforce= tp.zforce(Rs[ii],Zs[jj])
+                tzforce= potential.evaluatezforces(Rs[ii],Zs[jj],tp)
                 try:
                     if tzforce**2. < 10.**ttol:
                         assert(mpotderivz**2. < 10.**ttol)
