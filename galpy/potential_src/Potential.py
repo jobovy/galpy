@@ -1029,7 +1029,7 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
@@ -1074,7 +1074,7 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
 def evaluateRforces(R,z,Pot,phi=0.,t=0.):
@@ -1105,7 +1105,7 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.Rforce(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
 
 def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
@@ -1145,7 +1145,7 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.phiforce(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
 
 def evaluatezforces(R,z,Pot,phi=0.,t=0.):
@@ -1186,7 +1186,7 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.zforce(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
 def evaluateR2derivs(R,z,Pot,phi=0.,t=0.):
@@ -1217,7 +1217,7 @@ def evaluateR2derivs(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.R2deriv(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
 
 def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
@@ -1248,7 +1248,7 @@ def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.z2deriv(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
 def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
@@ -1279,7 +1279,7 @@ def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
         return sum
     elif isinstance(Pot,Potential):
         return Pot.Rzderiv(R,z,phi=phi,t=t)
-    else:
+    else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -1649,7 +1649,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
                                  args=(Pot,OmegaP),**kwargs)
         except ValueError:
             return None
-        except RuntimeError:
+        except RuntimeError: #pragma: no cover 
             raise
         return out
     else:
@@ -1658,7 +1658,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
                                  args=(Pot,OmegaP,m),**kwargs)
         except ValueError:
             return None
-        except RuntimeError:
+        except RuntimeError: #pragma: no cover 
             raise
         return out
 
