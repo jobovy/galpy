@@ -339,6 +339,29 @@ def test_2ndDeriv_potential():
                             assert((tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol)
                     except AssertionError:
                         raise AssertionError("Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv)))
+        #mixed radial, azimuthal
+        if not isinstance(tp,potential.linearPotential) \
+                and hasattr(tp,'_Rphideriv'):
+            for ii in range(len(Rs)):
+                for jj in range(len(phis)):
+#                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
+                    dphi= 10.**-8.
+                    newphi= phis[jj]+dphi
+                    dphi= newphi-phis[jj] #Representable number
+                    if isinstance(tp,potential.planarPotential):
+                        mRforcederivphi= (tp.Rforce(Rs[ii],phi=phis[jj])\
+                                              -tp.Rforce(Rs[ii],phi=phis[jj]+dphi))/dphi
+                        tRphideriv= potential.evaluateplanarPotentials(Rs[ii],tp,
+                                                                       phi=phis[jj],dR=1,dphi=1)
+                    else:
+                        raise NotImplementedError("Rphideriv for Potentials is not implemented")
+                    try:
+                        if tRphideriv**2. < 10.**ttol:
+                            assert(mRforcederivphi**2. < 10.**ttol)
+                        else:
+                            assert((tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
 
 #Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
 def test_poisson_potential():

@@ -175,6 +175,38 @@ class planarPotential:
         except AttributeError:
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
+    def Rphideriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+
+           Rphideriv
+
+        PURPOSE:
+
+           evaluate the mixed radial and azimuthal  derivative
+
+        INPUT:
+
+           R - Cylindrical radius
+
+           phi= azimuth (optional)
+
+           t= time (optional)
+
+        OUTPUT:
+
+           d2phi/dR d az
+
+        HISTORY:
+
+           2014-05-21 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._Rphideriv(R,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            raise PotentialError("'_Rphideriv' function not implemented for this potential")      
+
     def plot(self,*args,**kwargs):
         """
         NAME:

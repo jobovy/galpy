@@ -1001,7 +1001,7 @@ class PotentialError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
+def evaluatePotentials(R,z,Pot,phi=0.,t=0.,dR=0,dphi=0):
     """
     NAME:
        evaluatePotentials
@@ -1017,6 +1017,8 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
        phi - azimuth
 
        t - time
+
+       dR= dphi=, if set to non-zero integers, return the dR, dphi't derivative instead
     OUTPUT:
        Phi(R,z)
     HISTORY:
@@ -1025,10 +1027,10 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(R,z,phi=phi,t=t)
+            sum+= pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot(R,z,phi=phi,t=t)
+        return Pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
