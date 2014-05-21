@@ -977,8 +977,10 @@ from galpy.potential import planarPotential, \
     evaluateplanarR2derivs
 class testplanarMWPotential(planarPotential):
     def __init__(self,potlist=MWPotential):
-        self._potlist= [p.toPlanar() for p in potlist]
+        self._potlist= [p.toPlanar() for p in potlist if isinstance(p,Potential)]
+        self._potlist.extend([p for p in potlist if isinstance(p,planarPotential)])
         planarPotential.__init__(self,amp=1.)
+        self.isNonAxi= True-numpy.prod([True-p.isNonAxi for p in self._potlist])
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
         return evaluateplanarPotentials(R,self._potlist,phi=phi,t=t)
