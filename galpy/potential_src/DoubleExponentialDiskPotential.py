@@ -54,7 +54,6 @@ class DoubleExponentialDiskPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.hasC= True
-        self._new= new
         self._kmaxFac= kmaxFac
         self._glorder= glorder
         self._ro= ro
@@ -123,7 +122,7 @@ class DoubleExponentialDiskPotential(Potential):
         elif dR != 0 or dphi != 0:
             warnings.warn("High-order derivatives for DoubleExponentialDiskPotential not implemented",galpyWarning)
             return None
-        if self._new:
+        if True:
             if isinstance(R,float):
                 floatIn= True
                 R= nu.array([R])
@@ -145,55 +144,6 @@ class DoubleExponentialDiskPotential(Potential):
                 out[jj]= -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
             if floatIn: return out[0]
             else: return out
-        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
-        notConvergedSmall= True
-        notConvergedLarge= True
-        smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
-                                             0.,1./self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter=self._maxiter,
-                                             vec_func=False)
-        largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandLargek,
-                                             0.,self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter=self._maxiter,
-                                             vec_func=False)
-        maxiterFactorSmall= 2
-        maxiterFactorLarge= 2
-        if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
-            notConvergedSmall= False
-        if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
-            notConvergedLarge= False
-        while notConvergedSmall or notConvergedLarge:
-            if notConvergedSmall:
-                smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandSmallk,
-                                                     0.,1./self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),tol=_TOL,
-                                                     maxiter= maxiterFactorSmall*self._maxiter,
-                                                     vec_func=False)
-                if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) > self._tol:
-                    maxiterFactorSmall*= 2
-                else:
-                    notConvergedSmall= False
-            if notConvergedLarge:
-                largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialPotentialIntegrandLargek,
-                                                     0.,self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),tol=_TOL,
-                                                     maxiter=maxiterFactorLarge*self._maxiter,
-                                                     vec_func=False)
-                if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) > self._tol:
-                    maxiterFactorLarge*= 2
-                else:
-                    notConvergedLarge= False
-        return -4.*nu.pi/self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -212,7 +162,7 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
         DOCTEST:
         """
-        if self._new:
+        if True:
             if isinstance(R,nu.ndarray):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
@@ -227,57 +177,6 @@ class DoubleExponentialDiskPotential(Potential):
             weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
             evalInt= ks*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
             return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
-        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
-        notConvergedSmall= True
-        notConvergedLarge= True
-        smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandSmallk,
-                                             0.,1./self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter= 2*self._maxiter,
-                                                 vec_func=False)
-        largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandLargek,
-                                             0.,self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter= 2*self._maxiter,
-                                             vec_func=False)
-        maxiterFactorSmall= 4
-        maxiterFactorLarge= 4
-        if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
-            notConvergedSmall= False
-        if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
-            notConvergedLarge= False
-        while notConvergedSmall or notConvergedLarge:
-            if notConvergedSmall:
-                smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandSmallk,
-                                                     0.,1./self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),
-                                                     tol=_TOL,
-                                                     maxiter= maxiterFactorSmall*self._maxiter,
-                                                     vec_func=False)
-                if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) > self._tol:
-                    maxiterFactorSmall*= 2
-                else:
-                    notConvergedSmall= False
-            if notConvergedLarge:
-                largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialRForceIntegrandLargek,
-                                                     0.,self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),
-                                                     tol=_TOL,
-                                                     maxiter=maxiterFactorLarge*self._maxiter,
-                                                     vec_func=False)
-            if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) > self._tol:
-                maxiterFactorLarge*= 2
-            else:
-                notConvergedLarge= False
-        return -4.*nu.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -296,7 +195,7 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
         DOCTEST:
         """
-        if self._new:
+        if True:
             if isinstance(R,nu.ndarray):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
@@ -313,81 +212,6 @@ class DoubleExponentialDiskPotential(Potential):
                 return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
             else:
                 return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
-        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
-        if self._zforceNotSetUp:
-            self._zforceNotSetUp= False
-            self._typicalKz= self._zforce(self._ro,self._hz)
-        notConvergedSmall= True
-        notConvergedLarge= True
-        smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialzForceIntegrandSmallk,
-                                             0.,1./self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter= 2*self._maxiter,
-                                             vec_func=False)
-        largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialzForceIntegrandLargek,
-                                             0.,self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter=2*self._maxiter,
-                                             vec_func=False)
-        maxiterFactorSmall= 4
-        maxiterFactorLarge= 4
-        try:
-            if smallkIntegral[1]/self._typicalKz <= self._tol:
-                notConvergedSmall= False
-        except AttributeError:
-            if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
-                notConvergedSmall= False
-        try:
-            if largekIntegral[1]/self._typicalKz <= self._tol:
-                notConvergedLarge= False
-        except AttributeError:                
-            if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
-                notConvergedLarge= False
-        while notConvergedSmall or notConvergedLarge:
-            if notConvergedSmall:
-                smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialzForceIntegrandSmallk,
-                                                     0.,1./self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),tol=_TOL,
-                                                     maxiter= maxiterFactorSmall*self._maxiter,
-                                                     vec_func=False)
-                try:
-                    if smallkIntegral[1]/self._typicalKz > self._tol:
-                        maxiterFactorSmall*= 2
-                    else:
-                        notConvergedSmall= False
-                except AttributeError:
-                    if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) > self._tol:
-                        maxiterFactorSmall*= 2
-                    else:
-                        notConvergedSmall= False
-            if notConvergedLarge:
-                largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialzForceIntegrandLargek,
-                                                     0.,self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),tol=_TOL,
-                                                     maxiter=maxiterFactorLarge*self._maxiter,
-                                                     vec_func=False)
-                try:
-                    if largekIntegral[1]/self._typicalKz > self._tol:
-                        maxiterFactorLarge*= 2
-                    else:
-                        notConvergedLarge= False
-                except AttributeError:
-                    if largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0]) > self._tol:
-                        maxiterFactorLarge*= 2
-                    else:
-                        notConvergedLarge= False
-        if z < 0.:
-            return 4.*nu.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
-        else:
-            return -4.*nu.pi/self._beta*(smallkIntegral[0]+largekIntegral[0])
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -405,7 +229,7 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2012-12-27 - Written - Bovy (IAS)
         """
-        if self._new:
+        if True:
             if isinstance(R,nu.ndarray):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
@@ -424,57 +248,6 @@ class DoubleExponentialDiskPotential(Potential):
             evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*nu.exp(-ks2*nu.fabs(z))-ks2*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks2**2.)
             return nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
                                       -nu.sum(weights2*evalInt2))
-        #Old code, uses scipy's quadrature to do the relevant integrals, split into two
-        notConvergedSmall= True
-        notConvergedLarge= True
-        smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
-                                             0.,1./self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter= 2*self._maxiter,
-                                                 vec_func=True)
-        largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandLargek,
-                                             0.,self._gamma,
-                                             args=(self._alpha*R,
-                                                   self._beta*nu.fabs(z),
-                                                   self._gamma),tol=_TOL,
-                                             maxiter= 2*self._maxiter,
-                                             vec_func=True)
-        maxiterFactorSmall= 4
-        maxiterFactorLarge= 4
-        if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) <= self._tol:
-            notConvergedSmall= False
-        if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) <= self._tol:
-            notConvergedLarge= False
-        while notConvergedSmall or notConvergedLarge:
-            if notConvergedSmall:
-                smallkIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandSmallk,
-                                                     0.,1./self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),
-                                                     tol=_TOL,
-                                                     maxiter= maxiterFactorSmall*self._maxiter,
-                                                     vec_func=True)
-                if nu.fabs(smallkIntegral[1]/(smallkIntegral[0]+largekIntegral[0])) > self._tol:
-                    maxiterFactorSmall*= 2
-                else:
-                    notConvergedSmall= False
-            if notConvergedLarge:
-                largekIntegral= integrate.quadrature(_doubleExponentialDiskPotentialR2derivIntegrandLargek,
-                                                     0.,self._gamma,
-                                                     args=(self._alpha*R,
-                                                           self._beta*nu.fabs(z),
-                                                           self._gamma),
-                                                     tol=_TOL,
-                                                     maxiter=maxiterFactorLarge*self._maxiter,
-                                                     vec_func=True)
-            if nu.fabs(largekIntegral[1]/(largekIntegral[0]+smallkIntegral[0])) > self._tol:
-                maxiterFactorLarge*= 2
-            else:
-                notConvergedLarge= False
-        return 4.*nu.pi*self._alpha/self._beta*(smallkIntegral[0]+largekIntegral[0])
     
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -492,7 +265,7 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2012-12-26 - Written - Bovy (IAS)
         """
-        if self._new:
+        if True:
             if isinstance(R,nu.ndarray):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
@@ -506,7 +279,6 @@ class DoubleExponentialDiskPotential(Potential):
             weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
             evalInt= ks*special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(ks*nu.exp(-ks*nu.fabs(z))-self._beta*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
             return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
-        raise NotImplementedError("none 'new' z2deriv not implemented for DoubleExponentialDiskPotential")
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -524,7 +296,7 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if self._new:
+        if True:
             if isinstance(R,nu.ndarray):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
@@ -541,7 +313,6 @@ class DoubleExponentialDiskPotential(Potential):
                 return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
             else:
                 return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
-        raise NotImplementedError("none 'new' Rzderiv not implemented for DoubleExponentialDiskPotential")
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -560,56 +331,6 @@ class DoubleExponentialDiskPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         return nu.exp(-self._alpha*R-self._beta*nu.fabs(z))
-
-def _doubleExponentialDiskPotentialPotentialIntegrandSmallk(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk potential for k < 1/gamma"""
-    gammak= gamma*k
-    return special.jn(0,k*R)*(1.+k**2.)**-1.5*(nu.exp(-gammak*z)
-                                               -gammak*nu.exp(-z))/(1.-gammak**2.)
-
-def _doubleExponentialDiskPotentialPotentialIntegrandLargek(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk potential for k > 1/gamma"""
-    return 1./k**2.*_doubleExponentialDiskPotentialPotentialIntegrandSmallk(1./k,R,z,gamma)
-
-def _doubleExponentialDiskPotentialRForceIntegrandSmallk(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk radial force for k < 1/gamma"""
-    gammak= gamma*k
-    return k*special.jn(1,k*R)*(1.+k**2.)**-1.5*(nu.exp(-gammak*z)
-                                               -gammak*nu.exp(-z))/(1.-gammak**2.)
-
-def _doubleExponentialDiskPotentialRForceIntegrandLargek(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk radial force for k > 1/gamma"""
-    return 1./k**2.*_doubleExponentialDiskPotentialRForceIntegrandSmallk(1./k,R,z,gamma)
-
-def _doubleExponentialDiskPotentialzForceIntegrandSmallk(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk vertical force for k < 1/gamma"""
-    gammak= gamma*k
-    return k*special.jn(0,k*R)*(1.+k**2.)**-1.5*(nu.exp(-gammak*z)
-                                                 -nu.exp(-z))/(1.-gammak**2.)
-
-def _doubleExponentialDiskPotentialzForceIntegrandLargek(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk vertical force for k > 1/gamma"""
-    return 1./k**2.*_doubleExponentialDiskPotentialzForceIntegrandSmallk(1./k,R,z,gamma)
-
-def _doubleExponentialDiskPotentialR2derivIntegrandSmallk(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk radial force for k < 1/gamma"""
-    gammak= gamma*k
-    return k*k*0.5*(special.jn(0,k*R)-special.jn(2,k*R))\
-        *(1.+k**2.)**-1.5*(nu.exp(-gammak*z)
-                           -gammak*nu.exp(-z))/(1.-gammak**2.)
-
-def _doubleExponentialDiskPotentialR2derivIntegrandLargek(k,R,z,gamma):
-    """Internal function that gives the integrand for the double
-    exponential disk radial force for k > 1/gamma"""
-    return 1./k**2.*_doubleExponentialDiskPotentialR2derivIntegrandSmallk(1./k,R,z,gamma)
-
 
 if __name__ == '__main__':
     print "doctesting ..."
