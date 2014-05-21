@@ -188,6 +188,7 @@ def test_2ndDeriv_potential():
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('mockInterpRZPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -206,6 +207,7 @@ def test_2ndDeriv_potential():
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
+    tol['mockInterpRZPotential']= -4.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -792,6 +794,7 @@ class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
         interpRZPotential.__init__(self,RZPot=MWPotential,
+                                   rgrid=(0.01,2.1,101),zgrid=(0.,0.26,101),
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
