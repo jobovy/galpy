@@ -223,9 +223,13 @@ def test_2ndDeriv_potential():
                     if isinstance(tp,potential.linearPotential): 
                         mRforcederivR= (tp.Rforce(Rs[ii])-tp.Rforce(Rs[ii]+dr))/dr
                         tR2deriv= tp.R2deriv(Rs[ii])
+                    elif isinstance(tp,potential.planarPotential): 
+                        mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii]+dr,Zs[jj]))/dr
+                        tR2deriv= potential.evaluateplanarR2derivs(Rs[ii],tp,
+                                                                   phi=Zs[jj])
                     else:
                         mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii]+dr,Zs[jj]))/dr
-                        tR2deriv= tp.R2deriv(Rs[ii],Zs[jj])
+                        tR2deriv= potential.evaluateR2derivs(Rs[ii],Zs[jj],tp)
                     try:
                         if tR2deriv**2. < 10.**ttol:
                             assert(mRforcederivR**2. < 10.**ttol)
@@ -274,7 +278,7 @@ def test_2ndDeriv_potential():
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
                     mzforcederivz= (tp.zforce(Rs[ii],Zs[jj])-tp.zforce(Rs[ii],Zs[jj]+dz))/dz
-                    tz2deriv= tp.z2deriv(Rs[ii],Zs[jj])
+                    tz2deriv= potential.evaluatez2derivs(Rs[ii],Zs[jj],tp)
                     try:
                         if tz2deriv**2. < 10.**ttol:
                             assert(mzforcederivz**2. < 10.**ttol)
@@ -293,7 +297,7 @@ def test_2ndDeriv_potential():
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
                     mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii],Zs[jj]+dz))/dz
-                    tRzderiv= tp.Rzderiv(Rs[ii],Zs[jj])
+                    tRzderiv= potential.evaluateRzderivs(Rs[ii],Zs[jj],tp)
                     try:
                         if tRzderiv**2. < 10.**ttol:
                             assert(mRforcederivz**2. < 10.**ttol)
@@ -357,8 +361,9 @@ def test_poisson_potential():
                 for kk in range(len(phis)):
                     tpoissondens= tp.dens(Rs[ii],Zs[jj],phi=phis[kk],
                                          forcepoisson=True)
-                    tdens= tp.dens(Rs[ii],Zs[jj],phi=phis[kk],
-                                   forcepoisson=False)
+                    tdens= potential.evaluateDensities(Rs[ii],Zs[jj],tp,
+                                                       phi=phis[kk],
+                                                       forcepoisson=False)
                     try:
                         if tdens**2. < 10.**ttol:
                             assert(tpoissondens**2. < 10.**ttol)
