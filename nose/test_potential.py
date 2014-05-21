@@ -70,6 +70,7 @@ def test_forceAsDeriv_potential():
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('mockInterpRZPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -88,6 +89,7 @@ def test_forceAsDeriv_potential():
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
+    tol['mockInterpRZPotential']= -4.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -757,7 +759,8 @@ def test_plotting():
 #Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
-    MiyamotoNagaiPotential, PowerSphericalPotential
+    MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
+    MWPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -786,8 +789,14 @@ class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
     def __init__(self):
         MiyamotoNagaiPotential.__init__(self,amp=1.,a=0.,b=0.1)
         return None
+class mockInterpRZPotential(interpRZPotential):
+    def __init__(self):
+        interpRZPotential.__init__(self,RZPot=MWPotential,
+                                   logR=True,
+                                   interpPot=True,interpRforce=True,
+                                   interpzforce=True,interpDens=True)
 #Class to test potentials given as lists, st we can use their methods as class.
-from galpy.potential import Potential, MWPotential, \
+from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities
