@@ -707,17 +707,30 @@ def test_plotting():
     kp.plotRotcurve(Rrange=[0.01,10.],
                     grid=101,
                     savefilename=None)
+    potential.plotRotcurve([kp])
+    potential.plotRotcurve([kp],Rrange=[0.01,10.],
+                           grid=101,
+                           savefilename=None)
     #Plot the escape-velocity curve
     kp.plotEscapecurve()
     kp.plotEscapecurve(Rrange=[0.01,10.],
                        grid=101,
                        savefilename=None)
+    potential.plotEscapecurve([kp])
+    potential.plotEscapecurve([kp],Rrange=[0.01,10.],
+                              grid=101,
+                              savefilename=None)
     #Plot the potential itself
     kp.plot()
     kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
             effective=False,Lz=None, 
             xrange=[0.01,1.8],yrange=[-0.55,0.55], 
             ncontours=11,savefilename=None)
+    potential.plotPotentials([kp])
+    potential.plotPotentials([kp],
+                             rmin=0.01,rmax=1.8,nrs=11,
+                             zmin=-0.55,zmax=0.55,nzs=11, 
+                             ncontours=11,savefilename=None)
     #Plot the effective potential
     kp.plot()
     kp.plot(effective=True,Lz=1.)
@@ -733,6 +746,12 @@ def test_plotting():
     lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
                    aspect=1.,log=True,
                    ncontours=11,savefilename=None)
+    potential.plotDensities([lp])
+    potential.plotDensities([lp],
+                            rmin=0.05,rmax=1.8,nrs=11,
+                            zmin=-0.55,zmax=0.55,nzs=11, 
+                            aspect=1.,log=True,
+                            ncontours=11,savefilename=None)
     return None
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
