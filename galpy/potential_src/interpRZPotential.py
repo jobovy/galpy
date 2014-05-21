@@ -23,8 +23,7 @@ if _lib is None:
             _lib = None
         else:
             break
-if _lib is None:
-    #raise IOError('galpy interppotential_c module not found')
+if _lib is None: #pragma: no cover
     warnings.warn("interppotential_c extension module not loaded",
                   galpyWarning)
     ext_loaded= False
@@ -239,7 +238,13 @@ class interpRZPotential(Potential):
             if isinstance(R,float):
                 return self._evaluate(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if self._zsym:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) > self._zgrid[0])
+            else:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(z < self._zgrid[1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -274,7 +279,13 @@ class interpRZPotential(Potential):
             if isinstance(R,float):
                 return self._Rforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if self._zsym:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) > self._zgrid[0])
+            else:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(z < self._zgrid[1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -309,7 +320,13 @@ class interpRZPotential(Potential):
             if isinstance(R,float):
                 return self._zforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if self._zsym:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) > self._zgrid[0])
+            else:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(z < self._zgrid[1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -363,7 +380,13 @@ class interpRZPotential(Potential):
             if isinstance(R,float):
                 return self._dens(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            if self._zsym:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) > self._zgrid[0])
+            else:
+                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                    *(z < self._zgrid[1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:

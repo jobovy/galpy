@@ -249,7 +249,7 @@ class DehnenBarPotential(planarPotential):
                                               self._barphi))\
                                               *(self._rb/R)**3./R
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 

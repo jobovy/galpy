@@ -42,7 +42,7 @@ class LogarithmicHaloPotential(Potential):
         self._q= q
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         return None
 
@@ -74,7 +74,7 @@ class LogarithmicHaloPotential(Potential):
             return self._R2deriv(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 2:
             return 0.
-        elif dR == 1 and dphi == 1:
+        elif dR == 1 and dphi == 1: #pragma: no cover
             return 0.
 
     def _Rforce(self,R,z,phi=0.,t=0.):

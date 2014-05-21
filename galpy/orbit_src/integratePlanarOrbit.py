@@ -18,7 +18,7 @@ if _lib is None:
             _lib = None
         else:
             break
-if _lib is None:
+if _lib is None: #pragma: no cover
     raise IOError('galpy integration module not found')
 
 def _parse_pot(pot):

@@ -15,7 +15,7 @@ class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
 
-                              A
+                              A / (4 pi a^3)
     rho(r)= ------------------------------------
              (r/a)^\alpha (1+r/a)^(\beta-\alpha)
     """
@@ -66,7 +66,7 @@ class TwoPowerSphericalPotential(Potential):
             self.integerSelf= None
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
 
@@ -107,9 +107,17 @@ class TwoPowerSphericalPotential(Potential):
                                           -self.a/r)
                       -special.gamma(3.-self.alpha)/special.gamma(self.beta-self.alpha))/r
         elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
+            if not self.integerSelf == None:
+                return self.integerSelf._evaluate(R,z,phi=phi,t=t,
+                                                  dR=dR,dphi=dphi)
+            else:
+                return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+            if not self.integerSelf == None:
+                return self.integerSelf._evaluate(R,z,phi=phi,t=t,
+                                                  dR=dR,dphi=dphi)
+            else:
+                return -self._phiforce(R,z,phi=phi,t=t)
 
     def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
@@ -270,7 +278,7 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.NFWSelf= None
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
 
@@ -554,7 +562,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         self.beta= 4
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
         return None

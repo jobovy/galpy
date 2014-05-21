@@ -55,6 +55,7 @@ vesc= plotEscapecurve.vesc
 plotEscapecurve= plotEscapecurve.plotEscapecurve
 evaluateplanarPotentials= planarPotential.evaluateplanarPotentials
 evaluateplanarRforces= planarPotential.evaluateplanarRforces
+evaluateplanarR2derivs= planarPotential.evaluateplanarR2derivs
 evaluateplanarphiforces= planarPotential.evaluateplanarphiforces
 evaluatelinearPotentials= linearPotential.evaluatelinearPotentials
 evaluatelinearForces= linearPotential.evaluatelinearForces

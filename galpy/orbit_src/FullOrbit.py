@@ -9,7 +9,7 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 try:
     from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
-except IOError:
+except IOError: #pragma: no cover
     warnings.warn("integrateFullOrbit_c extension module not loaded",
                   galpyWarning)
     ext_loaded= False

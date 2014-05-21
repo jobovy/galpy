@@ -37,7 +37,7 @@ class IsochronePotential(Potential):
         self.b2= self.b**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
 

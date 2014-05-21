@@ -144,6 +144,7 @@ Use as ``method(...)``
    evaluateplanarphiforces <potential2dphiforces.rst>
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
+   evaluateplanarR2derivs <potential2dr2derivs.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>

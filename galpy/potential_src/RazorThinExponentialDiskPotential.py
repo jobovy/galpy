@@ -59,7 +59,7 @@ class RazorThinExponentialDiskPotential(Potential):
         self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         #Load Kepler potential for large R
         #self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)
