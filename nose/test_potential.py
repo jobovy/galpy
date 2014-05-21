@@ -623,6 +623,60 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         raise AssertionError("KeplerPotential's escape velocity is wrong at R=2")
     return None
 
+def test_flattening():
+    #Simple tests: LogarithmicHalo
+    from galpy import potential
+    qs= [0.75,1.,1.25]
+    for q in qs:
+        lp= potential.LogarithmicHaloPotential(normalize=1.,q=q)
+        try:
+            assert((lp.flattening(1.,0.001)-q)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.001)" % q)
+        try:
+            assert((lp.flattening(1.,0.1)-q)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.1)" % q)
+        try:
+            assert((lp.flattening(0.5,0.001)-q)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.001)" % q)
+        try:
+            assert((lp.flattening(0.5,0.1)-q)**2. < 10.**-16.)
+        except AssertionError:
+            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.1)" % q)
+    #Check some spherical potentials
+    kp= potential.KeplerPotential(normalize=1.)
+    try:
+        assert((kp.flattening(1.,0.02)-1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("Flattening of KeplerPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    np= potential.NFWPotential(normalize=1.,a=5.)
+    try:
+        assert((np.flattening(1.,0.02)-1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("Flattening of NFWPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    hp= potential.HernquistPotential(normalize=1.,a=5.)
+    try:
+        assert((hp.flattening(1.,0.02)-1.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("Flattening of HernquistPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    #Disk potentials should be oblate everywhere
+    mp= potential.MiyamotoNagaiPotential(normalize=1.,a=0.5,b=0.05)
+    try:
+        assert(mp.flattening(1.,0.1) <= 1.)
+    except AssertionError:
+        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,0.1)")
+    try:
+        assert(mp.flattening(1.,2.) <= 1.)
+    except AssertionError:
+        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,2.)")
+    try:
+        assert(mp.flattening(3.,3.) <= 1.)
+    except AssertionError:
+        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (3.,3.)")
+    return None
+
 def test_plotting():
     from galpy import potential
     #Some tests of the plotting routines, to make sure they don't fail
