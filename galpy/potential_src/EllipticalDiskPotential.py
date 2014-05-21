@@ -217,7 +217,7 @@ class EllipticalDiskPotential(planarPotential):
             smooth= 1.
         return -smooth*self._p*self._twophio*R**(self._p-1.)*m.sin(2.*(phi-self._phib))
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 
