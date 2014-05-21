@@ -609,11 +609,18 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
     except AssertionError:
         raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=2.")
     #Escape velocity of Kepler potential
-    print kp.vesc(1.)**2.-2.
     try:
         assert((kp.vesc(1.)**2.-2.)**2. < 10.**-16.)
     except AssertionError:
         raise AssertionError("KeplerPotential's escape velocity is wrong at R=1")
+    try:
+        assert((kp.vesc(0.5)**2.-2.*kp.vcirc(0.5)**2.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's escape velocity is wrong at R=0.5")
+    try:
+        assert((kp.vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's escape velocity is wrong at R=2")
     return None
 
 def test_plotting():
