@@ -6,7 +6,7 @@ rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 python setup.py build_ext --coverage --orbit_ext --inplace
 python setup.py develop --coverage --orbit_ext
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_orbit_initial.info --initial
-/usr/local/python-2.7.3/bin/nosetests -v -w nose/
+/usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e test_plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_orbit.info
 rm -rf build/
 rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
@@ -14,7 +14,7 @@ rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 python setup.py build_ext --coverage --actionAngle_ext --inplace
 python setup.py develop --coverage --actionAngle_ext
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_actionAngle_initial.info --initial
-/usr/local/python-2.7.3/bin/nosetests -v -w nose/
+/usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e test_plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_actionAngle.info
 rm -rf build/
 rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
@@ -22,7 +22,7 @@ rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 python setup.py build_ext --coverage --interppotential_ext --inplace
 python setup.py develop --coverage --interppotential_ext
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_interppotential_initial.info --initial
-/usr/local/python-2.7.3/bin/nosetests -v -w nose/
+/usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e test_plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_interppotential.info
 # Combine
 lcov --add-tracefile coverage_orbit.info --output-file dummy.info
