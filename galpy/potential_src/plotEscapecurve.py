@@ -1,6 +1,6 @@
 import numpy as nu
 import galpy.util.bovy_plot as plot
-_INF= 1000000.
+_INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
     NAME:

@@ -525,7 +525,7 @@ def test_toVertical_toPlanar():
             raise AssertionError("Conversion into linear potential of potential %s fails" % p)
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
-def test_dvcircdR_omegac_epifreq_rl():
+def test_dvcircdR_omegac_epifreq_rl_vesc():
     from galpy import potential
     #Derivative of rotation curve
     #LogarithmicHaloPotential: rotation everywhere flat
@@ -608,6 +608,12 @@ def test_dvcircdR_omegac_epifreq_rl():
         assert((kp.rl(2.)-4.)**2. < 10.**-16.)
     except AssertionError:
         raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=2.")
+    #Escape velocity of Kepler potential
+    print kp.vesc(1.)**2.-2.
+    try:
+        assert((kp.vesc(1.)**2.-2.)**2. < 10.**-16.)
+    except AssertionError:
+        raise AssertionError("KeplerPotential's escape velocity is wrong at R=1")
     return None
 
 def test_plotting():

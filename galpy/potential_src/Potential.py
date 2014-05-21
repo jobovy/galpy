@@ -20,8 +20,7 @@ import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from plotRotcurve import plotRotcurve, vcirc
-from plotEscapecurve import plotEscapecurve
-_INF= 1000000.
+from plotEscapecurve import plotEscapecurve, _INF
 class Potential:
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
