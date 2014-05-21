@@ -2,8 +2,7 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential, lindbladR
 from plotRotcurve import plotRotcurve
-from plotEscapecurve import plotEscapecurve
-_INF= 1000000.
+from plotEscapecurve import plotEscapecurve, _INF
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
