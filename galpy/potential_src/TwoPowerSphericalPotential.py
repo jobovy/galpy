@@ -15,7 +15,7 @@ class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
 
-                              A
+                              A / (4 pi a^3)
     rho(r)= ------------------------------------
              (r/a)^\alpha (1+r/a)^(\beta-\alpha)
     """
