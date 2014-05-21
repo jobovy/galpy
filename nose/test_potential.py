@@ -71,6 +71,19 @@ def test_forceAsDeriv_potential():
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('mockInterpRZPotential')
+    pots.append('mockCosmphiDiskPotentialT1')
+    pots.append('mockCosmphiDiskPotentialTm1')
+    pots.append('mockCosmphiDiskPotentialTm5')
+    pots.append('mockDehnenBarPotentialT1')
+    pots.append('mockDehnenBarPotentialTm1')
+    pots.append('mockDehnenBarPotentialTm5')
+    pots.append('mockEllipticalDiskPotentialT1')
+    pots.append('mockEllipticalDiskPotentialTm1')
+    pots.append('mockEllipticalDiskPotentialTm5')
+    pots.append('mockSteadyLogSpiralPotentialT1')
+    pots.append('mockSteadyLogSpiralPotentialTm1')
+    pots.append('mockSteadyLogSpiralPotentialTm5')
+    pots.append('mockTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -189,6 +202,19 @@ def test_2ndDeriv_potential():
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('mockInterpRZPotential')
+    pots.append('mockCosmphiDiskPotentialT1')
+    pots.append('mockCosmphiDiskPotentialTm1')
+    pots.append('mockCosmphiDiskPotentialTm5')
+    pots.append('mockDehnenBarPotentialT1')
+    pots.append('mockDehnenBarPotentialTm1')
+    pots.append('mockDehnenBarPotentialTm5')
+    pots.append('mockEllipticalDiskPotentialT1')
+    pots.append('mockEllipticalDiskPotentialTm1')
+    pots.append('mockEllipticalDiskPotentialTm5')
+    pots.append('mockSteadyLogSpiralPotentialT1')
+    pots.append('mockSteadyLogSpiralPotentialTm1')
+    pots.append('mockSteadyLogSpiralPotentialTm5')
+    pots.append('mockTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -396,6 +422,19 @@ def test_evaluateAndDerivs_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('mockCosmphiDiskPotentialT1')
+    pots.append('mockCosmphiDiskPotentialTm1')
+    pots.append('mockCosmphiDiskPotentialTm5')
+    pots.append('mockDehnenBarPotentialT1')
+    pots.append('mockDehnenBarPotentialTm1')
+    pots.append('mockDehnenBarPotentialTm5')
+    pots.append('mockEllipticalDiskPotentialT1')
+    pots.append('mockEllipticalDiskPotentialTm1')
+    pots.append('mockEllipticalDiskPotentialTm5')
+    pots.append('mockSteadyLogSpiralPotentialT1')
+    pots.append('mockSteadyLogSpiralPotentialTm1')
+    pots.append('mockSteadyLogSpiralPotentialTm5')
+    pots.append('mockTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -798,6 +837,88 @@ class mockInterpRZPotential(interpRZPotential):
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
+# Some special cases of 2D, non-axisymmetric potentials, to make sure they
+# are covered; need 3 to capture all of the transient behavior
+from galpy.potential import CosmphiDiskPotential, DehnenBarPotential, \
+    EllipticalDiskPotential, SteadyLogSpiralPotential, \
+    TransientLogSpiralPotential
+class mockCosmphiDiskPotentialT1(CosmphiDiskPotential):
+    def __init__(self):
+        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                      p=1.,phio=0.01,m=1., 
+                                      tform=1.,tsteady=2.,
+                                      cp=0.05,sp=0.05)
+class mockCosmphiDiskPotentialTm1(CosmphiDiskPotential):
+    def __init__(self):
+        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                      p=1.,phio=0.01,m=1., 
+                                      tform=-1.,tsteady=None,
+                                      cp=-0.05,sp=0.05)
+class mockCosmphiDiskPotentialTm5(CosmphiDiskPotential):
+    def __init__(self):
+        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                      p=1.,phio=0.01,m=1., 
+                                      tform=-5.,tsteady=-1.,
+                                      cp=-0.05,sp=0.05)
+class mockDehnenBarPotentialT1(DehnenBarPotential):
+    def __init__(self):
+        DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
+                                    barphi=25.*numpy.pi/180.,beta=0.,
+                                    tform=1.,tsteady=2.,
+                                    alpha=0.01,Af=0.04)
+class mockDehnenBarPotentialTm1(DehnenBarPotential):
+    def __init__(self):
+        DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
+                                    barphi=25.*numpy.pi/180.,beta=0.,
+                                    tform=-1.,tsteady=1.,
+                                    alpha=0.01,Af=0.04)
+class mockDehnenBarPotentialTm5(DehnenBarPotential):
+    def __init__(self):
+        DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
+                                    barphi=25.*numpy.pi/180.,beta=0.,
+                                    tform=-5.,tsteady=-1.,
+                                    alpha=0.01,Af=0.04)
+class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
+    def __init__(self):
+        EllipticalDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                         p=1.,twophio=0.02, 
+                                         tform=1.,tsteady=2.,
+                                         cp=0.05,sp=0.05)
+class mockEllipticalDiskPotentialTm1(EllipticalDiskPotential):
+    def __init__(self):
+        EllipticalDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                         p=1.,twophio=0.02,
+                                         tform=-1.,tsteady=None,
+                                         cp=-0.05,sp=0.05)
+class mockEllipticalDiskPotentialTm5(EllipticalDiskPotential):
+    def __init__(self):
+        EllipticalDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                         p=1.,twophio=0.02,
+                                         tform=-5.,tsteady=-1.,
+                                         cp=-0.05,sp=0.05)
+class mockSteadyLogSpiralPotentialT1(SteadyLogSpiralPotential):
+    def __init__(self):
+        SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
+                                          m=2,gamma=numpy.pi/4.,
+                                          p=-0.3, 
+                                          tform=1.,tsteady=2.)
+class mockSteadyLogSpiralPotentialTm1(SteadyLogSpiralPotential):
+    def __init__(self):
+        SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
+                                          m=2,gamma=numpy.pi/4.,
+                                          p=-0.3, 
+                                          tform=-1.,tsteady=None)
+class mockSteadyLogSpiralPotentialTm5(SteadyLogSpiralPotential):
+    def __init__(self):
+        SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
+                                          m=2,gamma=numpy.pi/4.,
+                                          p=-0.3, 
+                                          tform=-1.,tsteady=-5.)
+class mockTransientLogSpiralPotential(TransientLogSpiralPotential):
+    def __init__(self):
+        TransientLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
+                                             m=2,gamma=numpy.pi/4.,
+                                             p=-0.3)
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \

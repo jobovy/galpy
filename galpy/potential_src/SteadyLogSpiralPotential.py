@@ -197,7 +197,7 @@ class SteadyLogSpiralPotential(planarPotential):
         """
         return self._omegas
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 

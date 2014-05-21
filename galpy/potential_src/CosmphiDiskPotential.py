@@ -222,7 +222,7 @@ class CosmphiDiskPotential(planarPotential):
             smooth= 1.
         return -smooth*self._p*self._mphio*R**(self._p-1.)*math.sin(self._m*(phi-self._phib))
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 
