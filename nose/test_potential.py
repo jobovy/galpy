@@ -68,6 +68,7 @@ def test_forceAsDeriv_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -182,6 +183,7 @@ def test_2ndDeriv_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -320,6 +322,7 @@ def test_poisson_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -761,3 +764,27 @@ class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
     def __init__(self):
         MiyamotoNagaiPotential.__init__(self,amp=1.,a=0.,b=0.1)
         return None
+#Class to test potentials given as lists, st we can use their methods as class.
+from galpy.potential import Potential, MWPotential, \
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateR2derivs, \
+    evaluatez2derivs, evaluateRzderivs, evaluateDensities
+class testMWPotential(Potential):
+    def __init__(self,potlist=MWPotential):
+        self._potlist= potlist
+        Potential.__init__(self,amp=1.)
+        return None
+    def _evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0):
+        return evaluatePotentials(R,z,self._potlist,phi=phi,t=t)
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        return evaluateRforces(R,z,self._potlist,phi=phi,t=t)
+    def _zforce(self,R,z,phi=0.,t=0.):
+        return evaluatezforces(R,z,self._potlist,phi=phi,t=t)
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        return evaluateR2derivs(R,z,self._potlist,phi=phi,t=t)
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        return evaluatez2derivs(R,z,self._potlist,phi=phi,t=t)
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        return evaluateRzderivs(R,z,self._potlist,phi=phi,t=t)
+    def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
+        return evaluateDensities(R,z,self._potlist,phi=phi,t=t,
+                                 forcepoisson=forcepoisson)
