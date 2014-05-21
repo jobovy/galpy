@@ -69,6 +69,7 @@ def test_forceAsDeriv_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -184,6 +185,7 @@ def test_2ndDeriv_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -323,6 +325,7 @@ def test_poisson_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -766,8 +769,9 @@ class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
         return None
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, MWPotential, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateR2derivs, \
-    evaluatez2derivs, evaluateRzderivs, evaluateDensities
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
+    evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
+    evaluateDensities
 class testMWPotential(Potential):
     def __init__(self,potlist=MWPotential):
         self._potlist= potlist
@@ -777,6 +781,8 @@ class testMWPotential(Potential):
         return evaluatePotentials(R,z,self._potlist,phi=phi,t=t)
     def _Rforce(self,R,z,phi=0.,t=0.):
         return evaluateRforces(R,z,self._potlist,phi=phi,t=t)
+    def _phiforce(self,R,z,phi=0.,t=0.):
+        return evaluatephiforces(R,z,self._potlist,phi=phi,t=t)
     def _zforce(self,R,z,phi=0.,t=0.):
         return evaluatezforces(R,z,self._potlist,phi=phi,t=t)
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -788,3 +794,24 @@ class testMWPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(R,z,self._potlist,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
+    def normalize(self,norm,t=0.):
+        self._amp= norm
+#Class to test lists of planarPotentials
+from galpy.potential import planarPotential, \
+    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
+    evaluateplanarR2derivs
+class testplanarMWPotential(planarPotential):
+    def __init__(self,potlist=MWPotential):
+        self._potlist= [p.toPlanar() for p in potlist]
+        planarPotential.__init__(self,amp=1.)
+        return None
+    def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
+        return evaluateplanarPotentials(R,self._potlist,phi=phi,t=t)
+    def _Rforce(self,R,phi=0.,t=0.):
+        return evaluateplanarRforces(R,self._potlist,phi=phi,t=t)
+    def _phiforce(self,R,phi=0.,t=0.):
+        return evaluateplanarphiforces(R,self._potlist,phi=phi,t=t)
+    def _R2deriv(self,R,phi=0.,t=0.):
+        return evaluateplanarR2derivs(R,self._potlist,phi=phi,t=t)
+    def normalize(self,norm,t=0.):
+        self._amp= norm
