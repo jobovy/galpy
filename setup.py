@@ -33,9 +33,7 @@ except ValueError:
 else:
     del sys.argv[coverage_pos]
     extra_compile_args.extend(["-O0","--coverage"])
-    #extra_compile_args.extend(["-fprofile-arcs","-ftest-coverage"])
     extra_link_args= ["--coverage"]
-    #extra_link_args= ["-lgcov"]
 
 #Option to just compile the orbit extension
 try:
@@ -100,7 +98,10 @@ orbit_int_c= Extension('galpy_integrate_c',
 ext_modules=[]
 if float(gsl_version[0]) >= 1. and \
         not actionAngle_ext and not interppotential_ext:
+    orbit_int_c_incl= True
     ext_modules.append(orbit_int_c)
+else:
+    orbit_int_c_incl= False
 
 #actionAngle C extension
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
@@ -121,7 +122,10 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
         not orbit_ext and not interppotential_ext:
+    actionAngle_c_incl= True
     ext_modules.append(actionAngle_c)
+else:
+    actionAngle_c_incl= False
     
 #interppotential C extension
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
@@ -144,7 +148,10 @@ interppotential_c= Extension('galpy_interppotential_c',
                              extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
         and not orbit_ext and not actionAngle_ext:
+    interppotential_c_incl= True
     ext_modules.append(interppotential_c)
+else:
+    interppotential_c_incl= False
 
 setup(name='galpy',
       version='0.1',
@@ -173,3 +180,28 @@ setup(name='galpy',
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
+
+def print_gsl_message(num_messages=1):
+    if num_messages > 1:
+        this_str= 'these installations'
+    else:
+        this_str= 'this installation'
+    print 'If you believe that %s should have worked, make sure\n(1) that the GSL include/ directory can be found by the compiler (you might have to edit CFLAGS for this: export CFLAGS="$CFLAGS -I/path/to/gsl/include/", or equivalent for C-type shells),\n(2) that the GSL library can be found by the linker (you might have to edit LDFLAGS for this: export LDFLAGS="$LDFLAGS -L/path/to/gsl/lib/", or equivalent for C-type shells),\n(3) and that `gsl-config --version` returns the correct version' % this_str
+
+num_gsl_warn= 0
+if not orbit_int_c_incl:
+    num_gsl_warn+= 1
+    print '\033[91;1m'+'WARNING: orbit-integration C library not installed because your GSL version < 1'+'\033[0m'
+
+if not actionAngle_c_incl:
+    num_gsl_warn+= 1
+    print '\033[91;1m'+'WARNING: action-angle C library not installed because your GSL version < 1.14'+'\033[0m'
+if not interppotential_c_incl:
+    num_gsl_warn+= 1
+    print '\033[91;1m'+'WARNING: Potential-interpolation C library not installed because your GSL version < 1.14'+'\033[0m'
+
+if num_gsl_warn > 0:
+    print_gsl_message(num_messages=num_gsl_warn)
+    print '\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m'
+print '\033[1m'+'Finished installing galpy'+'\033[0m'
+print 'You can run the test suite using `nosetests -v -w nose/` to check the installation'
