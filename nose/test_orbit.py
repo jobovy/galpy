@@ -27,7 +27,10 @@ def test_energy_jacobi_conservation():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
+    pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
+    pots.append('mockFlatSteadyLogSpiralPotential')
+    pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -69,7 +72,7 @@ def test_energy_jacobi_conservation():
             o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'DehnenBar' in p:
+            if not 'DehnenBar' in p and not 'LogSpiral' in p:
                 try:
                     assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
                 except AssertionError:
@@ -1068,10 +1071,31 @@ class mockFlatEllipticalDiskPotential(testplanarMWPotential):
                                                 potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,twophio=14./220.)])
     def OmegaP(self):
         return 0.
+class mockFlatLopsidedDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
+    def OmegaP(self):
+        return 0.
 class mockFlatDehnenBarPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.DehnenBarPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.SteadyLogSpiralPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
     def OmegaP(self):
         return self._potlist[1].OmegaP()
