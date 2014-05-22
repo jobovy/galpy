@@ -13,7 +13,7 @@ from galpy.util import galpyWarning
 try:
     from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
         integratePlanarOrbit_dxdv_c
-except IOError:
+except IOError: #pragma: no cover
     warnings.warn("integratePlanarOrbit_c extension module not loaded",
                   galpyWarning)
     ext_loaded= False
