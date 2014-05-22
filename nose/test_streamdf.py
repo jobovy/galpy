@@ -69,7 +69,7 @@ def test_bovy14():
     #Test that the spreads are small
     check_track_spread(sdfl,'R','Z',0.01,0.005)
     check_track_spread(sdfl,'R','Z',0.08,0.04,phys=True) #do 1 with phys
-    check_track_spread(sdfl,'R','Z',0.01,0.005,interp=True) #do 1 with interp
+    check_track_spread(sdfl,'R','Z',0.01,0.005,interp=False) #do 1 with interp
     check_track_spread(sdfl,'X','Y',0.01,0.005)
     check_track_spread(sdfl,'X','Y',0.08,0.04,phys=True) #do 1 with phys
     check_track_spread(sdfl,'R','phi',0.01,0.005)
