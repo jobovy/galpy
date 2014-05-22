@@ -53,6 +53,7 @@ def test_bovy14():
     #Test that the stream and the progenitor are close together, for both leading and trailing
     check_track_prog_diff(sdfl,'R','Z',0.1)
     check_track_prog_diff(sdfl,'R','Z',0.8,phys=True) #do 1 with phys
+    check_track_prog_diff(sdfl,'R','X',0.1)
     check_track_prog_diff(sdfl,'R','Y',0.1)
     check_track_prog_diff(sdfl,'R','vZ',0.03)
     check_track_prog_diff(sdfl,'R','vZ',6.6,phys=True) #do 1 with phys
@@ -68,7 +69,9 @@ def test_bovy14():
     #Test that the spreads are small
     check_track_spread(sdfl,'R','Z',0.01,0.005)
     check_track_spread(sdfl,'R','Z',0.08,0.04,phys=True) #do 1 with phys
+    check_track_spread(sdfl,'R','Z',0.01,0.005,interp=True) #do 1 with interp
     check_track_spread(sdfl,'X','Y',0.01,0.005)
+    check_track_spread(sdfl,'X','Y',0.08,0.04,phys=True) #do 1 with phys
     check_track_spread(sdfl,'R','phi',0.01,0.005)
     check_track_spread(sdfl,'vR','vT',0.005,0.005)
     check_track_spread(sdfl,'vR','vT',1.1,1.1,phys=True) #do 1 with phys
@@ -103,9 +106,9 @@ def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
         raise AssertionError("Stream track deviates more from progenitor track in %s vs. %s than expected; max. deviation = %f" % (d2,d1,maxdevZ))
     return None
 
-def check_track_spread(sdf,d1,d2,tol1,tol2,phys=False):
+def check_track_spread(sdf,d1,d2,tol1,tol2,phys=False,interp=True):
     #Check that the spread around the track is small
-    addx, addy= sdf._parse_track_spread(d1,d2,interp=True,phys=phys) 
+    addx, addy= sdf._parse_track_spread(d1,d2,interp=interp,phys=phys) 
     try:
         assert(numpy.amax(addx) < tol1)
     except AssertionError:
