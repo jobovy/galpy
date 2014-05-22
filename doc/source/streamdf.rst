@@ -279,7 +279,7 @@ evaluate the PDF :math:`p(X|Z)` near a point on the track, say near
 Gaussian PDF near this point, calculated from the stream track and
 dispersion (see above)
 
->>> meanp, varp= meanp, varp= sdf.gaussApprox([None,None,2./8.,None,None,None])
+>>> meanp, varp= sdf.gaussApprox([None,None,2./8.,None,None,None])
 
 where the input is a array with entries [X,Y,Z,vX,vY,vZ] and we
 substitute None for directions that we want to establish the
