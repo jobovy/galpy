@@ -93,7 +93,7 @@ class streamdf:
         else:
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
-        if pot is None:
+        if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
         self._pot= pot
         self._aA= aA
