@@ -69,7 +69,10 @@ def test_energy_jacobi_conservation():
         for integrator in integrators:
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
-            o.integrate(times,tp,method=integrator)
+            if isinstance(tp,testplanarMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
+            else:
+                o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'DehnenBar' in p and not 'LogSpiral' in p:
@@ -78,7 +81,10 @@ def test_energy_jacobi_conservation():
                 except AssertionError:
                     raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             #Jacobi
-            tJacobis= o.Jacobi(times)
+            if 'Elliptical' in p or 'Lopsided' in p:
+                tJacobis= o.Jacobi(times,OmegaP=0.)
+            else:
+                tJacobis= o.Jacobi(times)
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             try:
                 assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
