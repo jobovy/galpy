@@ -100,7 +100,7 @@ class FullOrbit(OrbitTop):
             if isinstance(OmegaP,list): thisOmegaP= nu.array(OmegaP)
             else: thisOmegaP= OmegaP
             return self.E(*args,**kwargs)-nu.dot(thisOmegaP,
-                                                 self.L(*args,**kwargs))
+                                                 self.L(*args,**kwargs).T).T
         else:
             return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)[:,2]
 
