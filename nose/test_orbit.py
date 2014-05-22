@@ -76,7 +76,7 @@ def test_energy_jacobi_conservation():
                     raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             #Jacobi
             tJacobis= o.Jacobi(times)
-            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             try:
                 assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
             except AssertionError:
@@ -95,6 +95,10 @@ def test_energy_jacobi_conservation():
                     assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
+                try:
+                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
                 if not tp.isNonAxi:
                     try:
                         assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
@@ -149,13 +153,32 @@ def test_energy_jacobi_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                o= setup_orbit_energy(tp,axi=False)
+                try:
+                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
+                try:
+                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                if not tp.isNonAxi:
+                    try:
+                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
+                o= setup_orbit_energy(tp,axi=True)
                 try:
                     o.E()
                 except AttributeError:
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None:
                 if _QUICKTEST and not 'NFW' in p: break
                 else: continue
@@ -189,6 +212,19 @@ def test_energy_jacobi_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                try:
+                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
+                try:
+                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                if not tp.isNonAxi:
+                    try:
+                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
                 o= setup_orbit_energy(ptp,axi=True)
                 try:
                     o.E()
@@ -196,6 +232,12 @@ def test_energy_jacobi_conservation():
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
             o.integrate(times,ptp,method=integrator)
@@ -225,6 +267,19 @@ def test_energy_jacobi_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                try:
+                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
+                try:
+                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                if not tp.isNonAxi:
+                    try:
+                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
                 o= setup_orbit_energy(ptp,axi=False)
                 try:
                     o.E()
@@ -232,6 +287,12 @@ def test_energy_jacobi_conservation():
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
                 firstTest= False
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
