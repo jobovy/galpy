@@ -13,7 +13,7 @@ _NOLONGINTEGRATIONS= False
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
-def test_energy_conservation():
+def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
@@ -27,6 +27,7 @@ def test_energy_conservation():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
+    pots.append('mockFlatDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -39,11 +40,18 @@ def test_energy_conservation():
     tol= {}
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    jactol= {}
+    jactol['default']= -10.
+    jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    jactol['FlattenedPowerPotential']= -8. #these are more difficult
+    jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
         else: ttol= tol['default']
+        if p in jactol.keys(): tjactol= jactol[p]
+        else: tjactol= jactol['default']
         try:
             tclass= getattr(potential,p)
         except AttributeError:
@@ -61,12 +69,20 @@ def test_energy_conservation():
             o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            if not 'DehnenBar' in p:
+                try:
+                    assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Jacobi
+            tJacobis= o.Jacobi(times)
+            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             try:
-                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
+                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
             except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             if firstTest or p == 'MWPotential':
-                #Some basic checking of the energy function
+                #Some basic checking of the energy and Jacobi functions
                 try:
                     assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
                 except AssertionError:
@@ -75,6 +91,23 @@ def test_energy_conservation():
                     assert((o.E()-o.E(0.))**2. < 10.**ttol)
                 except AssertionError:
                     raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
+                try:
+                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
+                except AssertionError:
+                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
+                if not tp.isNonAxi:
+                    try:
+                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
+                    try:
+                        assert((o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1")
+                    try:
+                        assert((o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol)
+                    except AssertionError:
+                        raise AssertionError("o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1")
                 o= setup_orbit_energy(tp,axi=False)
                 try:
                     o.E()
@@ -82,6 +115,12 @@ def test_energy_conservation():
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None and tp.isNonAxi:
                 if _QUICKTEST and not 'NFW' in p: break
                 else: continue
@@ -94,6 +133,12 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Jacobi
+            tJacobis= o.Jacobi(times)
+            try:
+                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
+            except AssertionError:
+                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
                 try:
@@ -124,6 +169,12 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Jacobi
+            tJacobis= o.Jacobi(times)
+            try:
+                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
+            except AssertionError:
+                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
                 try:
@@ -154,6 +205,12 @@ def test_energy_conservation():
                 assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
             except AssertionError:
                 raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            #Jacobi
+            tJacobis= o.Jacobi(times)
+            try:
+                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
+            except AssertionError:
+                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
                 try:
@@ -177,7 +234,7 @@ def test_energy_conservation():
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
                 firstTest= False
             if _QUICKTEST and not 'NFW' in p: break
-#    raise AssertionError
+    #raise AssertionError
     return None
 
 # Test some long-term integrations for the symplectic integrators
@@ -948,3 +1005,12 @@ class mockFlatEllipticalDiskPotential(testplanarMWPotential):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,twophio=14./220.)])
+    def OmegaP(self):
+        return 0.
+class mockFlatDehnenBarPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.DehnenBarPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
