@@ -39,6 +39,25 @@ def test_actionAngleIsochroneApprox_otherIsochrone_freqs():
     assert dOz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Oz at %f%%' % (dOz*100.)
     return None
 
+#Test the actionAngleIsochroneApprox against an isochrone potential: angles
+def test_actionAngleIsochroneApprox_otherIsochrone_angles():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
+    jiO= aAI.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    jiaO= aAIA.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
+    dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
+    daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
+    assert dar < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ar at %f%%' % (dar*100.)
+    assert dap < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ap at %f%%' % (dap*100.)
+    assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
+    return None
+
 #Check that actionAngleIsochroneApprox gives the same answer for different setups
 def test_actionAngleIsochroneApprox_diffsetups(): 
     from galpy.potential import LogarithmicHaloPotential, \
