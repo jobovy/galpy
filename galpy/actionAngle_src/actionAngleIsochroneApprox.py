@@ -53,11 +53,11 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
-            raise IOError("Must specify pot= for actionAngleStaeckel")
+        if not kwargs.has_key('pot'): #pragma: no cover
+            raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
         if not kwargs.has_key('b') and not kwargs.has_key('ip') \
-                and not kwargs.has_key('aAI'):
+                and not kwargs.has_key('aAI'): #pragma: no cover
             raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
         if kwargs.has_key('aAI'):
             if not isinstance(kwargs['aAI'],actionAngleIsochrone):
@@ -65,7 +65,7 @@ class actionAngleIsochroneApprox():
             self._aAI= kwargs['aAI']
         elif kwargs.has_key('ip'):
             ip= kwargs['ip']
-            if not isinstance(ip,IsochronePotential):
+            if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
@@ -87,7 +87,7 @@ class actionAngleIsochroneApprox():
         self._c= False
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
+                           or not kwargs.has_key('c')): #pragma: no cover
             self._c= True
         else:
             self._c= False
@@ -117,7 +117,7 @@ class actionAngleIsochroneApprox():
            2013-09-10 - Written - Bovy (IAS)
         """
         R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
@@ -132,10 +132,10 @@ class actionAngleIsochroneApprox():
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
             if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
@@ -150,7 +150,7 @@ class actionAngleIsochroneApprox():
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
@@ -223,7 +223,7 @@ class actionAngleIsochroneApprox():
             maxn= kwargs['maxn']
         else:
             maxn= 3
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
@@ -240,10 +240,10 @@ class actionAngleIsochroneApprox():
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
             if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
@@ -257,7 +257,7 @@ class actionAngleIsochroneApprox():
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
@@ -551,7 +551,7 @@ class actionAngleIsochroneApprox():
         from galpy.orbit import Orbit
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
-        if len(args) == 5 or len(args) == 3:
+        if len(args) == 5 or len(args) == 3: #pragma: no cover
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6 or len(args) == 4:
             if len(args) == 6:
