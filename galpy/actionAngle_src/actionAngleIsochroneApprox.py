@@ -513,7 +513,7 @@ class actionAngleIsochroneApprox():
                     plotx= angleRT[0,:]
                     ploty= anglephiT[0,:]
                     plotz= angleZT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$\theta_R$',
@@ -693,7 +693,7 @@ def estimateBIsochrone(R,z,pot=None):
     HISTORY:
        2013-09-12 - Written - Bovy (IAS)
     """
-    if pot is None:
+    if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
