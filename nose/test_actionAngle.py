@@ -136,8 +136,12 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='lz',downsample=True)
     aAI.plot(obs,type='jz',downsample=True)
     aAI.plot(obs,type='araz')
+    aAI.plot(obs,type='araz',downsample=True)
+    aAI.plot(obs,type='araz',deperiod=True)
     aAI.plot(obs,type='araphi',deperiod=True)
     aAI.plot(obs,type='azaphi',deperiod=True)
+    aAI.plot(obs,type='araphi',deperiod=True,downsample=True)
+    aAI.plot(obs,type='azaphi',deperiod=True,downsample=True)
     return None
 
 #Test the b estimation

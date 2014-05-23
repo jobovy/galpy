@@ -60,7 +60,7 @@ class actionAngleIsochroneApprox():
                 and not kwargs.has_key('aAI'): #pragma: no cover
             raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
         if kwargs.has_key('aAI'):
-            if not isinstance(kwargs['aAI'],actionAngleIsochrone):
+            if not isinstance(kwargs['aAI'],actionAngleIsochrone): #pragma: no cover
                 raise IOError("'Provided aAI= does not appear to be an instance of an actionAngleIsochrone")
             self._aAI= kwargs['aAI']
         elif kwargs.has_key('ip'):
@@ -315,7 +315,7 @@ class actionAngleIsochroneApprox():
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
             if kwargs.has_key('_retacfs') and kwargs['_retacfs']:
-                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ, #pragma: no cover
                         angleR % _TWOPI,
                         anglephi % _TWOPI,
                         angleZ % _TWOPI,acfs)
