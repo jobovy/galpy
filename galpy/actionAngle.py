@@ -20,6 +20,7 @@ UnboundError= actionAngle.UnboundError
 #
 estimateDeltaStaeckel= actionAngleStaeckel.estimateDeltaStaeckel
 estimateBIsochrone= actionAngleIsochroneApprox.estimateBIsochrone
+dePeriod= actionAngleIsochroneApprox.dePeriod
 #
 # Classes
 #
