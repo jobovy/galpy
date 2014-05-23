@@ -117,5 +117,20 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='lz',downsample=True)
     aAI.plot(obs,type='jz',downsample=True)
     aAI.plot(obs,type='araz')
-    aAI.plot(obs,type='araphi',dePeriod=True)
-    aAI.plot(obs,type='azaphi',dePeriod=True)
+    aAI.plot(obs,type='araphi',deperiod=True)
+    aAI.plot(obs,type='azaphi',deperiod=True)
+    return None
+
+#Test the b estimation
+def test_estimateBIsochrone():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import estimateBIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    o= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+    times= numpy.linspace(0.,100.,1001)
+    o.integrate(times,ip)
+    bmin, bmed, bmax= estimateBIsochrone(o.R(times),o.z(times),pot=ip)
+    assert numpy.fabs(bmed-1.2) < 10.**-15., \
+        'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
+    return None
