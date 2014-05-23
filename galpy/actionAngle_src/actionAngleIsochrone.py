@@ -37,7 +37,7 @@ class actionAngleIsochrone():
             raise IOError("Must specify b= for actionAngleIsochrone")
         if kwargs.has_key('ip'):
             ip= kwargs['ip']
-            if not isinstance(ip,IsochronePotential):
+            if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self.b= ip.b
             self.amp= ip._amp
