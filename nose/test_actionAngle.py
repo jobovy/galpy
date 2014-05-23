@@ -1,5 +1,23 @@
 import numpy
 
+#Test the actions of an actionAngleIsochrone
+def test_actionAngleIsochrone_conserved_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    times= numpy.linspace(0.,100.,1001)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
+    obs.integrate(times,ip,method='dopr54_c')
+    js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+            obs.vz(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    assert maxdj[0] < 10.**-8., 'Jr conservation for the isochrone potential fails at %g%%' % (100.*maxdj[0])
+    assert maxdj[1] < 10.**-8., 'Lz conservation for the isochrone potential fails at %g%%' % (100.*maxdj[1])
+    assert maxdj[2] < 10.**-8., 'Jz conservation for the isochrone potential fails at %g%%' % (100.*maxdj[2])
+    return None
+   
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential

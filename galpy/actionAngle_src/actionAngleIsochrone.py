@@ -33,7 +33,7 @@ class actionAngleIsochrone():
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('b') and not kwargs.has_key('ip'):
+        if not kwargs.has_key('b') and not kwargs.has_key('ip'): #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
         if kwargs.has_key('ip'):
             ip= kwargs['ip']
@@ -48,7 +48,7 @@ class actionAngleIsochrone():
         self._c= False
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
+                           or not kwargs.has_key('c')): #pragma: no cover
             self._c= True
         else:
             self._c= False
@@ -90,7 +90,7 @@ class actionAngleIsochrone():
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -140,7 +140,7 @@ class actionAngleIsochrone():
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -199,7 +199,7 @@ class actionAngleIsochrone():
             z= nu.array([z])
             vz= nu.array([vz])
             phi= nu.array([phi])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
