@@ -76,51 +76,33 @@ def test_energy_jacobi_conservation():
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'DehnenBar' in p and not 'LogSpiral' in p:
-                try:
-                    assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p:
                 tJacobis= o.Jacobi(times,OmegaP=0.)
             else:
                 tJacobis= o.Jacobi(times)
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
-            try:
-                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
-            except AssertionError:
-                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy and Jacobi functions
-                try:
-                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree")
-                try:
-                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                try:
-                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
-                try:
-                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
-                    try:
-                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
-                    try:
-                        assert((o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1")
-                    try:
-                        assert((o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1")
+                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                    assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
+                    assert (o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 o= setup_orbit_energy(tp,axi=False)
                 try:
                     o.E()
@@ -142,39 +124,25 @@ def test_energy_jacobi_conservation():
             o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            try:
-                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             tJacobis= o.Jacobi(times)
-            try:
-                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
-            except AssertionError:
-                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
-                try:
-                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree")
-                try:
-                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                try:
-                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
-                try:
-                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
-                    try:
-                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
+                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 o= setup_orbit_energy(tp,axi=True)
                 try:
                     o.E()
@@ -197,43 +165,27 @@ def test_energy_jacobi_conservation():
             o.integrate(times,ptp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            try:
-                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             tJacobis= o.Jacobi(times)
-            try:
-                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
-            except AssertionError:
-                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
-                try:
-                    assert((o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential")
-                try:
-                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential")
-                try:
-                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                try:
-                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
-                try:
-                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
-                    try:
-                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
+                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 o= setup_orbit_energy(ptp,axi=True)
                 try:
                     o.E()
@@ -252,43 +204,27 @@ def test_energy_jacobi_conservation():
             o.integrate(times,ptp,method=integrator)
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            try:
-                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             tJacobis= o.Jacobi(times)
-            try:
-                assert((numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol)
-            except AssertionError:
-                raise AssertionError("Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator))
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or p == 'MWPotential':
                 #Some basic checking of the energy function
-                try:
-                    assert((o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential")
-                try:
-                    assert((o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential")
-                try:
-                    assert((o.E()-o.E(0.))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Energy calculated with o.E() and o.E(0.) do not agree")
-                try:
-                    assert((o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi")
-                try:
-                    assert((o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree")
+                assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
-                    try:
-                        assert((o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed")
+                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 o= setup_orbit_energy(ptp,axi=False)
                 try:
                     o.E()
@@ -339,17 +275,13 @@ def test_energy_symplec_longterm():
             tEs= o.E(times)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
 #            print p, ((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2.
-            try:
-                assert((numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Energy conservation during the orbit integration fails for potential %s and integrator %s by %.20f" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2))
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %.20f" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2)
             #Check whether there is a trend
             linfit= numpy.polyfit(times,tEs,1)
 #            print p
-            try:
-                assert(linfit[0]**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Absence of secular trend in energy conservation fails for potential %s and symplectic integrator %s" %(p,integrator))
+            assert linfit[0]**2. < 10.**ttol, \
+                "Absence of secular trend in energy conservation fails for potential %s and symplectic integrator %s" %(p,integrator)
     #raise AssertionError
     return None
    
@@ -406,10 +338,8 @@ def test_eccentricity():
             o.integrate(times,tp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
-            try:
-                assert(tecc**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
+            assert tecc**2. < 10.**ttol, \
+                "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
             #add tracking azimuth
             o= setup_orbit_eccentricity(tp,axi=False)
             if firstTest:
@@ -422,10 +352,8 @@ def test_eccentricity():
             o.integrate(times,tp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
-            try:
-                assert(tecc**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
+            assert tecc**2. < 10.**ttol, \
+                "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_eccentricity(ptp,axi=True)
@@ -439,10 +367,8 @@ def test_eccentricity():
             o.integrate(times,ptp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
-            try:
-                assert(tecc**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
+            assert tecc**2. < 10.**ttol, \
+                "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_eccentricity(ptp,axi=False)
             if firstTest:
@@ -456,10 +382,8 @@ def test_eccentricity():
             o.integrate(times,ptp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
-            try:
-                assert(tecc**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator))
+            assert tecc**2. < 10.**ttol, \
+                "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -517,10 +441,8 @@ def test_pericenter():
             o.integrate(times,tp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
-            try:
-                assert((tperi-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tperi-o.R())**2. < 10.**ttol, \
+                "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #add tracking azimuth
             o= setup_orbit_pericenter(tp,axi=False)
             if firstTest:
@@ -533,10 +455,8 @@ def test_pericenter():
             o.integrate(times,tp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
-            try:
-                assert((tperi-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tperi-o.R())**2. < 10.**ttol, \
+                "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_pericenter(ptp,axi=True)
@@ -550,10 +470,8 @@ def test_pericenter():
             o.integrate(times,ptp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
-            try:
-                assert((tperi-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tperi-o.R())**2. < 10.**ttol, \
+                "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_pericenter(ptp,axi=False)
             if firstTest:
@@ -567,10 +485,8 @@ def test_pericenter():
             o.integrate(times,ptp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
-            try:
-                assert((tperi-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tperi-o.R())**2. < 10.**ttol, \
+                "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -629,10 +545,8 @@ def test_apocenter():
             o.integrate(times,tp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
-            try:
-                assert((tapo-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tapo-o.R())**2. < 10.**ttol, \
+                "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #add tracking azimuth
             o= setup_orbit_apocenter(tp,axi=False)
             if firstTest:
@@ -645,10 +559,8 @@ def test_apocenter():
             o.integrate(times,tp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
-            try:
-                assert((tapo-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tapo-o.R())**2. < 10.**ttol, \
+                "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_apocenter(ptp,axi=True)
@@ -662,10 +574,8 @@ def test_apocenter():
             o.integrate(times,ptp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
-            try:
-                assert((tapo-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tapo-o.R())**2. < 10.**ttol, \
+                "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_apocenter(ptp,axi=False)
             if firstTest:
@@ -679,10 +589,8 @@ def test_apocenter():
             o.integrate(times,ptp,method=integrator)
             tapo= o.rap()
 #            print p, integrator, tapo
-            try:
-                assert((tapo-o.R())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator))
+            assert (tapo-o.R())**2. < 10.**ttol, \
+                "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -741,10 +649,8 @@ def test_zmax():
             o.integrate(times,tp,method=integrator)
             tzmax= o.zmax()
 #            print p, integrator, tzmax
-            try:
-                assert((tzmax-o.z())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator))
+            assert (tzmax-o.z())**2. < 10.**ttol, \
+                "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator)
             #add tracking azimuth
             o= setup_orbit_zmax(tp,axi=False)
             if firstTest:
@@ -757,10 +663,8 @@ def test_zmax():
             o.integrate(times,tp,method=integrator)
             tzmax= o.zmax()
 #            print p, integrator, tzmax
-            try:
-                assert((tzmax-o.z())**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator))
+            assert (tzmax-o.z())**2. < 10.**ttol, \
+                "Zmax for an orbit launched with vR=0 and vT > Vc is not equal to the initial height for potential %s and integrator %s" %(p,integrator)
             if firstTest:
                 ptp= tp.toPlanar()
                 o= setup_orbit_energy(ptp,axi=False)
@@ -853,26 +757,20 @@ def test_analytic_ecc_rperi_rap():
                 tecc= o.e()
                 tecc_analytic= o.e(analytic=True)
 #                print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
-                try:
-                    assert((tecc-tecc_analytic)**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator))
+                assert (tecc-tecc_analytic)**2. < 10.**ttol, \
+                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
                 trperi_analytic= o.rperi(analytic=True)
 #                print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
-                try:
-                    assert((trperi-trperi_analytic)**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator))
+                assert (trperi-trperi_analytic)**2. < 10.**ttol, \
+                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
                 trap_analytic= o.rap(analytic=True)
 #                print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
-                try:
-                    assert((trap-trap_analytic)**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator))
+                assert (trap-trap_analytic)**2. < 10.**ttol, \
+                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -936,10 +834,8 @@ def test_analytic_zmax():
                 tzmax= o.zmax()
                 tzmax_analytic= o.zmax(analytic=True)
 #                print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
-                try:
-                    assert((tzmax-tzmax_analytic)**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Analytically computed zmax does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator))
+                assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
+                    "Analytically computed zmax does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -953,18 +849,13 @@ def test_add_linear_planar_orbit():
     plp= potential.NFWPotential().toPlanar()
     op= setup_orbit_energy(plp)
     of= ol+op
-    try:
-        assert(isinstance(of._orb,FullOrbit.FullOrbit))
-    except AssertionError:
-        raise AssertionError("Sum of linearOrbit and planarOrbit does not give a FullOrbit")
+    assert isinstance(of._orb,FullOrbit.FullOrbit), \
+        "Sum of linearOrbit and planarOrbit does not give a FullOrbit"
     #w/o azimuth
     op= setup_orbit_energy(plp,axi=True)
     of= ol+op
-    print of._orb
-    try:
-        assert(isinstance(of._orb,RZOrbit.RZOrbit))
-    except AssertionError:
-        raise AssertionError("Sum of linearOrbit and planarROrbit does not give a FullOrbit")
+    assert isinstance(of._orb,RZOrbit.RZOrbit), \
+        "Sum of linearOrbit and planarROrbit does not give a FullOrbit"
     return None
 
 # Check that ER + Ez = E for orbits that stay close to the plane for the MWPotential

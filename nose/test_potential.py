@@ -36,23 +36,15 @@ def test_normalize_potential():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue
         tp.normalize(1.)
-        try:
-            assert((tp.Rforce(1.,0.)+1.)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Normalization of %s potential fails" % p)
-        try:
-            assert((tp.vcirc(1.)**2.-1.)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Normalization of %s potential fails" % p)
+        assert (tp.Rforce(1.,0.)+1.)**2. < 10.**-16., \
+            "Normalization of %s potential fails" % p
+        assert (tp.vcirc(1.)**2.-1.)**2. < 10.**-16., \
+            "Normalization of %s potential fails" % p
         tp.normalize(.5)
-        try:
-            assert((tp.Rforce(1.,0.)+.5)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Normalization of %s potential fails" % p)
-        try:
-            assert((tp.vcirc(1.)**2.-0.5)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Normalization of %s potential fails" % p)
+        assert (tp.Rforce(1.,0.)+.5)**2. < 10.**-16., \
+            "Normalization of %s potential fails" % p
+        assert (tp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
+            "Normalization of %s potential fails" % p
 
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
@@ -135,13 +127,12 @@ def test_forceAsDeriv_potential():
                                  -potential.evaluatePotentials(Rs[ii]+dr,Zs[jj],
                                                                tp))/dr
                     tRforce= potential.evaluateRforces(Rs[ii],Zs[jj],tp)
-                try:
-                    if tRforce**2. < 10.**ttol:
-                        assert(mpotderivR**2. < 10.**ttol)
-                    else:
-                        assert((tRforce-mpotderivR)**2./tRforce**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce)))
+                if tRforce**2. < 10.**ttol:
+                    assert mpotderivR**2. < 10.**ttol, \
+                        "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
+                else:
+                    assert (tRforce-mpotderivR)**2./tRforce**2. < 10.**ttol, \
+                        "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
         #Azimuthal force, if it exists
         if isinstance(tp,potential.linearPotential): continue
         for ii in range(len(Rs)):
@@ -177,13 +168,12 @@ def test_forceAsDeriv_potential():
                 dz= newZ-Zs[jj] #Representable number
                 mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz))/dz
                 tzforce= potential.evaluatezforces(Rs[ii],Zs[jj],tp)
-                try:
-                    if tzforce**2. < 10.**ttol:
-                        assert(mpotderivz**2. < 10.**ttol)
-                    else:
-                        assert((tzforce-mpotderivz)**2./tzforce**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce)))
+                if tzforce**2. < 10.**ttol:
+                    assert mpotderivz**2. < 10.**ttol, \
+                        "Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
+                else:
+                    assert (tzforce-mpotderivz)**2./tzforce**2. < 10.**ttol, \
+"Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
 
 #Test whether the second derivative of the potential is minus the derivative of the force
 def test_2ndDeriv_potential():
@@ -264,13 +254,12 @@ def test_2ndDeriv_potential():
                     else:
                         mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii]+dr,Zs[jj]))/dr
                         tR2deriv= potential.evaluateR2derivs(Rs[ii],Zs[jj],tp)
-                    try:
-                        if tR2deriv**2. < 10.**ttol:
-                            assert(mRforcederivR**2. < 10.**ttol)
-                        else:
-                            assert((tR2deriv-mRforcederivR)**2./tR2deriv**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv)))
+                    if tR2deriv**2. < 10.**ttol:
+                        assert mRforcederivR**2. < 10.**ttol, \
+                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
+                    else:
+                        assert (tR2deriv-mRforcederivR)**2./tR2deriv**2. < 10.**ttol, \
+                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
         #2nd azimuthal
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_phi2deriv'):
@@ -313,13 +302,12 @@ def test_2ndDeriv_potential():
                     dz= newz-Zs[jj] #Representable number
                     mzforcederivz= (tp.zforce(Rs[ii],Zs[jj])-tp.zforce(Rs[ii],Zs[jj]+dz))/dz
                     tz2deriv= potential.evaluatez2derivs(Rs[ii],Zs[jj],tp)
-                    try:
-                        if tz2deriv**2. < 10.**ttol:
-                            assert(mzforcederivz**2. < 10.**ttol)
-                        else:
-                            assert((tz2deriv-mzforcederivz)**2./tz2deriv**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv)))
+                    if tz2deriv**2. < 10.**ttol:
+                        assert mzforcederivz**2. < 10.**ttol, \
+                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
+                    else:
+                        assert (tz2deriv-mzforcederivz)**2./tz2deriv**2. < 10.**ttol, \
+                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
         #mixed radial vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -332,13 +320,12 @@ def test_2ndDeriv_potential():
                     dz= newz-Zs[jj] #Representable number
                     mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii],Zs[jj]+dz))/dz
                     tRzderiv= potential.evaluateRzderivs(Rs[ii],Zs[jj],tp)
-                    try:
-                        if tRzderiv**2. < 10.**ttol:
-                            assert(mRforcederivz**2. < 10.**ttol)
-                        else:
-                            assert((tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv)))
+                    if tRzderiv**2. < 10.**ttol:
+                        assert mRforcederivz**2. < 10.**ttol, \
+                            "Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
+                    else:
+                        assert (tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol, \
+"Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))                        
         #mixed radial, azimuthal
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_Rphideriv'):
@@ -355,13 +342,12 @@ def test_2ndDeriv_potential():
                                                                        phi=phis[jj],dR=1,dphi=1)
                     else:
                         raise NotImplementedError("Rphideriv for Potentials is not implemented")
-                    try:
-                        if tRphideriv**2. < 10.**ttol:
-                            assert(mRforcederivphi**2. < 10.**ttol)
-                        else:
-                            assert((tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
+                    if tRphideriv**2. < 10.**ttol:
+                        assert mRforcederivphi**2. < 10.**ttol, \
+                            "Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
+                    else:
+                        assert (tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol, \
+"Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
 
 #Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
 def test_poisson_potential():
@@ -423,14 +409,13 @@ def test_poisson_potential():
                     tdens= potential.evaluateDensities(Rs[ii],Zs[jj],tp,
                                                        phi=phis[kk],
                                                        forcepoisson=False)
-                    try:
-                        if tdens**2. < 10.**ttol:
-                            assert(tpoissondens**2. < 10.**ttol)
-                        else:
-                            assert((tpoissondens-tdens)**2./tdens**2. < 10.**ttol)
-                    except AssertionError:
-                        raise AssertionError("Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens)))
-
+                    if tdens**2. < 10.**ttol:
+                        assert tpoissondens**2. < 10.**ttol, \
+                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                    else:
+                        assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
+                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                        
 #Test whether the _evaluate function is correctly implemented in specifying derivatives
 def test_evaluateAndDerivs_potential():
     from galpy import potential
@@ -493,13 +478,12 @@ def test_evaluateAndDerivs_potential():
             tevaldr= tp(1.2,0.1,phi=0.1,dR=1)
             trforce= tp.Rforce(1.2,0.1,phi=0.1)
         if not tevaldr is None:
-            try:
-                if tevaldr**2. < 10.**ttol:
-                    assert(trforce**2. < 10.**ttol)
-                else:
-                    assert((tevaldr+trforce)**2./tevaldr**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Calculation of radial derivative through _evaluate and Rforce inconsistent for the %s potential" % p)
+            if tevaldr**2. < 10.**ttol:
+                assert trforce**2. < 10.**ttol, \
+"Calculation of radial derivative through _evaluate and Rforce inconsistent for the %s potential" % p
+            else:
+                assert (tevaldr+trforce)**2./tevaldr**2. < 10.**ttol, \
+                    "Calculation of radial derivative through _evaluate and Rforce inconsistent for the %s potential" % p                
         #2nd radial
         hasR2= True
         from galpy.potential import PotentialError
@@ -518,13 +502,12 @@ def test_evaluateAndDerivs_potential():
                 tevaldr2= tp(1.2,0.1,phi=0.1,dR=2)
                 tr2deriv= tp.R2deriv(1.2,0.1,phi=0.1)
             if not tevaldr2 is None:
-                try:
-                    if tevaldr2**2. < 10.**ttol:
-                        assert(tr2deriv*2. < 10.**ttol)
-                    else:
-                        assert((tevaldr2-tr2deriv)**2./tevaldr2**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Calculation of 2nd radial derivative through _evaluate and R2deriv inconsistent for the %s potential" % p)
+                if tevaldr2**2. < 10.**ttol:
+                    assert tr2deriv*2. < 10.**ttol, \
+                        "Calculation of 2nd radial derivative through _evaluate and R2deriv inconsistent for the %s potential" % p
+                else:
+                    assert (tevaldr2-tr2deriv)**2./tevaldr2**2. < 10.**ttol, \
+                        "Calculation of 2nd radial derivative through _evaluate and R2deriv inconsistent for the %s potential" % p                    
         #1st phi
         if isinstance(tp,potential.planarPotential): 
             tevaldphi= tp(1.2,phi=0.1,dphi=1)
@@ -533,13 +516,12 @@ def test_evaluateAndDerivs_potential():
             tevaldphi= tp(1.2,0.1,phi=0.1,dphi=1)
             tphiforce= tp.phiforce(1.2,0.1,phi=0.1)
         if not tevaldphi is None:
-            try:
-                if tevaldphi**2. < 10.**ttol:
-                    assert(tphiforce**2. < 10.**ttol)
-                else:
-                    assert((tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p)
+            if tevaldphi**2. < 10.**ttol:
+                assert tphiforce**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
+            else:
+                assert (tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
         #2nd phi
         if hasattr(tp,'_phi2deriv'):
             if isinstance(tp,potential.planarPotential): 
@@ -549,13 +531,12 @@ def test_evaluateAndDerivs_potential():
                 tevaldphi2= tp(1.2,0.1,phi=0.1,dphi=2)
                 tphi2deriv= tp.phi2deriv(1.2,0.1,phi=0.1)
             if not tevaldphi2 is None:
-                try:
-                    if tevaldphi2**2. < 10.**ttol:
-                        assert(tphi2deriv*2. < 10.**ttol)
-                    else:
-                        assert((tevaldphi2-tphi2deriv)**2./tevaldphi2**2. < 10.**ttol)
-                except AssertionError:
-                    raise AssertionError("Calculation of 2nd azimuthal derivative through _evaluate and phi2deriv inconsistent for the %s potential" % p)
+                if tevaldphi2**2. < 10.**ttol:
+                    assert tphi2deriv*2. < 10.**ttol, \
+                        "Calculation of 2nd azimuthal derivative through _evaluate and phi2deriv inconsistent for the %s potential" % p
+                else:
+                    assert (tevaldphi2-tphi2deriv)**2./tevaldphi2**2. < 10.**ttol, \
+                        "Calculation of 2nd azimuthal derivative through _evaluate and phi2deriv inconsistent for the %s potential" % p
         continue
         #mixed radial,vertical
         if isinstance(tp,potential.planarPotential): 
@@ -565,13 +546,12 @@ def test_evaluateAndDerivs_potential():
             tevaldrz= tp(1.2,0.1,phi=0.1,dR=1,dz=1)
             trzderiv= tp.Rzderiv(1.2,0.1,phi=0.1)
         if not tevaldrz is None:
-            try:
-                if tevaldrz**2. < 10.**ttol:
-                    assert(trzderiv*2. < 10.**ttol)
-                else:
-                    assert((tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol)
-            except AssertionError:
-                raise AssertionError("Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p)
+            if tevaldrz**2. < 10.**ttol:
+                assert trzderiv*2. < 10.**ttol, \
+                    "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
+            else:
+                assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
+"Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
 
 # Check that toVertical and toPlanar work
 def test_toVertical_toPlanar():
@@ -601,15 +581,11 @@ def test_toVertical_toPlanar():
                 isinstance(tp,potential.planarPotential):
             continue
         tpp= tp.toPlanar()
-        try:
-            assert(isinstance(tpp,potential.planarPotential))
-        except AssertionError:
-            raise AssertionError("Conversion into planar potential of potential %s fails" % p)
+        assert isinstance(tpp,potential.planarPotential), \
+            "Conversion into planar potential of potential %s fails" % p
         tlp= tp.toVertical(1.)
-        try:
-            assert(isinstance(tlp,potential.linearPotential))
-        except AssertionError:
-            raise AssertionError("Conversion into linear potential of potential %s fails" % p)
+        assert isinstance(tlp,potential.linearPotential), \
+            "Conversion into linear potential of potential %s fails" % p
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
 def test_dvcircdR_omegac_epifreq_rl_vesc():
@@ -617,97 +593,55 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
     #Derivative of rotation curve
     #LogarithmicHaloPotential: rotation everywhere flat
     lp= potential.LogarithmicHaloPotential(normalize=1.)
-    try:
-        assert(lp.dvcircdR(1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=1")
-    try:
-        assert(lp.dvcircdR(0.5)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=0.5")
-    try:
-        assert(lp.dvcircdR(2.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHaloPotential's rotation curve is not flat at R=2")
+    assert lp.dvcircdR(1.)**2. < 10.**-16., \
+        "LogarithmicHaloPotential's rotation curve is not flat at R=1"
+    assert lp.dvcircdR(0.5)**2. < 10.**-16., \
+        "LogarithmicHaloPotential's rotation curve is not flat at R=0.5"
+    assert lp.dvcircdR(2.)**2. < 10.**-16., \
+        "LogarithmicHaloPotential's rotation curve is not flat at R=2"
     #Kepler potential, vc = vc_0(R/R0)^-0.5 -> dvcdR= -0.5 vc_0 (R/R0)**-1.5
     kp= potential.KeplerPotential(normalize=1.)
-    try:
-        assert((kp.dvcircdR(1.)+0.5)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=1")
-    try:
-        assert((kp.dvcircdR(0.5)+0.5**-0.5)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=0.5")
-    try:
-        assert((kp.dvcircdR(2.)+0.5**2.5)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's rotation curve is not what it should be at R=2")
+    assert (kp.dvcircdR(1.)+0.5)**2. < 10.**-16., \
+        "KeplerPotential's rotation curve is not what it should be at R=1"
+    assert (kp.dvcircdR(0.5)+0.5**-0.5)**2. < 10.**-16., \
+        "KeplerPotential's rotation curve is not what it should be at R=0.5"
+    assert (kp.dvcircdR(2.)+0.5**2.5)**2. < 10.**-16., \
+        "KeplerPotential's rotation curve is not what it should be at R=2"
     #Rotational frequency
-    try:
-        assert((lp.omegac(1.)-1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=1")
-    try:
-        assert((lp.omegac(0.5)-2.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=0.5")
-    try:
-        assert((lp.omegac(2.)-0.5)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's rotational frequency is off at R=2")
+    assert (lp.omegac(1.)-1.)**2. < 10.**-16., \
+        "LogarithmicHalo's rotational frequency is off at R=1"
+    assert (lp.omegac(0.5)-2.)**2. < 10.**-16., \
+        "LogarithmicHalo's rotational frequency is off at R=0.5"
+    assert (lp.omegac(2.)-0.5)**2. < 10.**-16., \
+        "LogarithmicHalo's rotational frequency is off at R=2"
     #Epicycle frequency, flat rotation curve
-    try:
-        assert((lp.epifreq(1.)-numpy.sqrt(2.)*lp.omegac(1.))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=1")
-    try:
-        assert((lp.epifreq(0.5)-numpy.sqrt(2.)*lp.omegac(0.5))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=0.5")
-    try:
-        assert((lp.epifreq(2.0)-numpy.sqrt(2.)*lp.omegac(2.0))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=2")
+    assert (lp.epifreq(1.)-numpy.sqrt(2.)*lp.omegac(1.))**2. < 10.**-16., \
+        "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=1"
+    assert (lp.epifreq(0.5)-numpy.sqrt(2.)*lp.omegac(0.5))**2. < 10.**-16., \
+        "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=0.5"
+    assert (lp.epifreq(2.0)-numpy.sqrt(2.)*lp.omegac(2.0))**2. < 10.**-16., \
+        "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=2"
     #Epicycle frequency, Kepler
-    try:
-        assert((kp.epifreq(1.)-kp.omegac(1.))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=1")
-    try:
-        assert((kp.epifreq(0.5)-kp.omegac(0.5))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=0.5")
-    try:
-        assert((kp.epifreq(2.)-kp.omegac(2.))**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=2")
+    assert (kp.epifreq(1.)-kp.omegac(1.))**2. < 10.**-16., \
+        "KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=1"
+    assert (kp.epifreq(0.5)-kp.omegac(0.5))**2. < 10.**-16., \
+        "KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=0.5"
+    assert (kp.epifreq(2.)-kp.omegac(2.))**2. < 10.**-16., \
+        "KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=2"
     #Check radius of circular orbit, Kepler
-    try:
-        assert((kp.rl(1.)-1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=1.")
-    try:
-        assert((kp.rl(0.5)-1./4.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=0.5")
-    try:
-        assert((kp.rl(2.)-4.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's radius of a circular orbit is wrong at Lz=2.")
+    assert (kp.rl(1.)-1.)**2. < 10.**-16., \
+        "KeplerPotential's radius of a circular orbit is wrong at Lz=1."
+    assert (kp.rl(0.5)-1./4.)**2. < 10.**-16., \
+        "KeplerPotential's radius of a circular orbit is wrong at Lz=0.5"
+    assert (kp.rl(2.)-4.)**2. < 10.**-16., \
+        "KeplerPotential's radius of a circular orbit is wrong at Lz=2."
     #Escape velocity of Kepler potential
-    try:
-        assert((kp.vesc(1.)**2.-2.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's escape velocity is wrong at R=1")
-    try:
-        assert((kp.vesc(0.5)**2.-2.*kp.vcirc(0.5)**2.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's escape velocity is wrong at R=0.5")
-    try:
-        assert((kp.vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("KeplerPotential's escape velocity is wrong at R=2")
+    assert (kp.vesc(1.)**2.-2.)**2. < 10.**-16., \
+        "KeplerPotential's escape velocity is wrong at R=1"
+    assert (kp.vesc(0.5)**2.-2.*kp.vcirc(0.5)**2.)**2. < 10.**-16., \
+        "KeplerPotential's escape velocity is wrong at R=0.5"
+    assert (kp.vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16., \
+        "KeplerPotential's escape velocity is wrong at R=2"
     return None
 
 def test_flattening():
@@ -716,52 +650,32 @@ def test_flattening():
     qs= [0.75,1.,1.25]
     for q in qs:
         lp= potential.LogarithmicHaloPotential(normalize=1.,q=q)
-        try:
-            assert((lp.flattening(1.,0.001)-q)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.001)" % q)
-        try:
-            assert((lp.flattening(1.,0.1)-q)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.1)" % q)
-        try:
-            assert((lp.flattening(0.5,0.001)-q)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.001)" % q)
-        try:
-            assert((lp.flattening(0.5,0.1)-q)**2. < 10.**-16.)
-        except AssertionError:
-            raise AssertionError("Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.1)" % q)
+        assert (lp.flattening(1.,0.001)-q)**2. < 10.**-16., \
+            "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.001)" % q
+        assert (lp.flattening(1.,0.1)-q)**2. < 10.**-16., \
+            "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (1.,0.1)" % q
+        assert (lp.flattening(0.5,0.001)-q)**2. < 10.**-16., \
+            "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.001)" % q
+        assert (lp.flattening(0.5,0.1)-q)**2. < 10.**-16., \
+            "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.1)" % q
     #Check some spherical potentials
     kp= potential.KeplerPotential(normalize=1.)
-    try:
-        assert((kp.flattening(1.,0.02)-1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("Flattening of KeplerPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    assert (kp.flattening(1.,0.02)-1.)**2. < 10.**-16., \
+        "Flattening of KeplerPotential is not equal to 1 at (R,z) = (1.,0.02)"
     np= potential.NFWPotential(normalize=1.,a=5.)
-    try:
-        assert((np.flattening(1.,0.02)-1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("Flattening of NFWPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    assert (np.flattening(1.,0.02)-1.)**2. < 10.**-16., \
+        "Flattening of NFWPotential is not equal to 1 at (R,z) = (1.,0.02)"
     hp= potential.HernquistPotential(normalize=1.,a=5.)
-    try:
-        assert((hp.flattening(1.,0.02)-1.)**2. < 10.**-16.)
-    except AssertionError:
-        raise AssertionError("Flattening of HernquistPotential is not equal to 1 at (R,z) = (1.,0.02)")
+    assert (hp.flattening(1.,0.02)-1.)**2. < 10.**-16., \
+        "Flattening of HernquistPotential is not equal to 1 at (R,z) = (1.,0.02)"
     #Disk potentials should be oblate everywhere
     mp= potential.MiyamotoNagaiPotential(normalize=1.,a=0.5,b=0.05)
-    try:
-        assert(mp.flattening(1.,0.1) <= 1.)
-    except AssertionError:
-        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,0.1)")
-    try:
-        assert(mp.flattening(1.,2.) <= 1.)
-    except AssertionError:
-        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,2.)")
-    try:
-        assert(mp.flattening(3.,3.) <= 1.)
-    except AssertionError:
-        raise AssertionError("Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (3.,3.)")
+    assert mp.flattening(1.,0.1) <= 1., \
+        "Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,0.1)"
+    assert mp.flattening(1.,2.) <= 1., \
+        "Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (1.,2.)"
+    assert mp.flattening(3.,3.) <= 1., \
+        "Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (3.,3.)"
     return None
 
 def test_plotting():
