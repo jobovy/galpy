@@ -218,7 +218,7 @@ class actionAngleSpherical(actionAngle):
             kwargs.pop('fixed_quad')
         else:
             fixed_quad= False
-        if len(args) == 5: #R,vR.vT, z, vz
+        if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
             raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args

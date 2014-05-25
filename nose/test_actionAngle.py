@@ -79,6 +79,18 @@ def test_actionAngleSpherical_conserved_actions():
     check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101)
     return None
 
+#Test the actions of an actionAngleSpherical
+def test_actionAngleSpherical_conserved_actions_fixed_quad():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
+    check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101,
+                                        fixed_quad=True)
+    return None
+
 #Test that the angles of an actionAngleIsochrone increase linearly
 def test_actionAngleSpherical_linear_angles():
     from galpy.potential import LogarithmicHaloPotential
@@ -254,11 +266,15 @@ def test_estimateBIsochrone():
 
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
-                                        ntimes=1001):
+                                        ntimes=1001,fixed_quad=False):
     times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
-    js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-           obs.vz(times))
+    if fixed_quad:
+        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+               obs.vz(times),fixed_quad=True)
+    else:
+        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+               obs.vz(times))
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
@@ -270,13 +286,20 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolinitar,tolinitap,tolinitaz,
                                     tolor,tolop,toloz,
                                     toldar,toldap,toldaz,
-                                    ntimes=1001):
+                                    ntimes=1001,
+                                    fixed_quad=False):
     from galpy.actionAngle import dePeriod
     times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
-    acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
-    acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
-                                obs.z(times),obs.vz(times),obs.phi(times))
+    if fixed_quad:
+        acfs_init= aA.actionsFreqsAngles(obs,fixed_quad=True) #to check the init. angles
+        acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
+                                    obs.z(times),obs.vz(times),obs.phi(times),
+                                    fixed_quad=True)
+    else:
+        acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
+        acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
+                                    obs.z(times),obs.vz(times),obs.phi(times))
     ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
     ap= dePeriod(numpy.reshape(acfs[7],(1,len(times)))).flatten()
     az= dePeriod(numpy.reshape(acfs[8],(1,len(times)))).flatten()
