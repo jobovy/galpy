@@ -43,7 +43,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
            2010-12-01 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
         if kwargs.has_key('verticalPot'):
@@ -58,7 +58,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             self._gamma= 0.
         return None
     
-    def angleR(self,**kwargs):
+    def angleR(self,**kwargs): #pragma: no cover
         """
         NAME:
            AngleR
@@ -105,7 +105,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         self._angleR= nu.array([wR[0] % (2.*m.pi),wR[1]])
         return self._angleR
 
-    def TR(self,**kwargs):
+    def TR(self,**kwargs): #pragma: no cover
         """
         NAME:
            TR
@@ -145,7 +145,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         self._TR= 2.*TR
         return self._TR
 
-    def Tphi(self,**kwargs):
+    def Tphi(self,**kwargs): #pragma: no cover
         """
         NAME:
            Tphi
@@ -169,7 +169,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         self._Tphi= Tphi
         return self._Tphi
 
-    def I(self,**kwargs):
+    def I(self,**kwargs): #pragma: no cover
         """
         NAME:
            I
@@ -207,7 +207,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         self._I= I*self._R*self._vT
         return self._I
 
-    def Jphi(self):
+    def Jphi(self): #pragma: no cover
         """
         NAME:
            Jphi
@@ -234,7 +234,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
         """
-        if hasattr(self,'_JR'):
+        if hasattr(self,'_JR'): #pragma: no cover
             return self._JR
         (rperi,rap)= self.calcRapRperi(**kwargs)
         EL= self.calcEL(**kwargs)
@@ -277,7 +277,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
         """
-        if hasattr(self,'_rperirap'):
+        if hasattr(self,'_rperirap'): #pragma: no cover
             return self._rperirap
         EL= self.calcEL(**kwargs)
         E, L= EL
@@ -331,29 +331,6 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         self._rperirap= (rperi,rap)
         return self._rperirap
 
-def calcRapRperiFromELAxi(E,L,pot,vc=1.,ro=1.):
-    """
-    NAME:
-       calcRapRperiFromELAxi
-    PURPOSE:
-       calculate the apocenter and pericenter radii
-    INPUT:
-       E - energy
-       L - angular momemtum
-       pot - potential
-       vc - circular velocity
-       ro - reference radius
-    OUTPUT:
-       (rperi,rap)
-    HISTORY:
-       2010-12-01 - Written - Bovy (NYU)
-    """
-    rstart= _rapRperiAxiFindStart(L,E,L)
-    rperi= optimize.brentq(_rapRperiAxiEq,rstart,L,(E,L,pot))
-    rend= _rapRperiAxiFindStart(L,E,L,rap=True)
-    rap= optimize.brentq(_rapRperiAxiEq,L,rend,(E,L,pot))
-    return (rperi,rap)
-
 def calcELAxi(R,vR,vT,pot,vc=1.,ro=1.):
     """
     NAME:
@@ -395,30 +372,25 @@ def _JRAxiIntegrand(r,E,L,pot):
     """The J_R integrand"""
     return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
 
-def _TRAxiIntegrandSmall(t,E,L,pot,rperi):
+def _TRAxiIntegrandSmall(t,E,L,pot,rperi): #pragma: no cover
     r= rperi+t**2.#part of the transformation
     return 2.*t/_JRAxiIntegrand(r,E,L,pot)
 
-def _TRAxiIntegrandLarge(t,E,L,pot,rap):
+def _TRAxiIntegrandLarge(t,E,L,pot,rap): #pragma: no cover
     r= rap-t**2.#part of the transformation
     return 2.*t/_JRAxiIntegrand(r,E,L,pot)
 
-def _IAxiIntegrandSmall(t,E,L,pot,rperi):
+def _IAxiIntegrandSmall(t,E,L,pot,rperi): #pragma: no cover
     r= rperi+t**2.#part of the transformation
     return 2.*t/_JRAxiIntegrand(r,E,L,pot)/r**2.
 
-def _IAxiIntegrandLarge(t,E,L,pot,rap):
+def _IAxiIntegrandLarge(t,E,L,pot,rap): #pragma: no cover
     r= rap-t**2.#part of the transformation
     return 2.*t/_JRAxiIntegrand(r,E,L,pot)/r**2.
 
 def _rapRperiAxiEq(R,E,L,pot):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
     return E-potentialAxi(R,pot)-L**2./2./R**2.
-
-def _rapRperiAxiDeriv(R,E,L,pot):
-    """The derivative of the vr=0 equation that needs to be solved to find 
-    apo- and pericenter"""
-    return evaluateplanarRforces(R,pot)+L**2./R**3.
 
 def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
     """
@@ -445,7 +417,7 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
     while startsign*_rapRperiAxiEq(rtry,E,L,pot) > 0. \
             and rtry > 0.000000001:
         if rap:
-            if rtry > 100.:
+            if rtry > 100.: #pragma: no cover
                 raise UnboundError("Orbit seems to be unbound")
             rtry*= 2.
         else:
