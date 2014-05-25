@@ -9,7 +9,7 @@ from galpy.orbit_src.integrateFullOrbit import _parse_pot
 _lib = None
 _libname = ctypes.util.find_library('galpy_actionAngle_c')
 if _libname:
-    _lib = ctypes.CDLL(_libname)
+    _lib = ctypes.CDLL(_libname) #pragma: no cover
 if _lib is None:
     import sys
 for path in sys.path:
@@ -19,7 +19,7 @@ for path in sys.path:
         _lib = None
     else:
         break
-if _lib is None:
+if _lib is None: #pragma: no cover
     raise IOError('galpy actionAngle_c module not found')
 
 def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
