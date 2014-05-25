@@ -1,4 +1,5 @@
 import numpy
+from test_streamdf import expected_failure
 
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
@@ -98,7 +99,7 @@ def test_actionAngleSpherical_basic_freqs():
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
-    aAS= actionAngleSpherical(pot=lp)
+    aAS= actionAngleSpherical(pot=[lp])
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     jos= aAS.actionsFreqs(R,vR,vT,z,vz)
@@ -108,6 +109,21 @@ def test_actionAngleSpherical_basic_freqs():
     #close-to-circular orbit
     R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
     jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
+    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
+    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+
+#Basic sanity checking of the actionAngleSpherical actions
+@expected_failure
+def test_actionAngleSpherical_basic_freqsAngles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    #v. close-to-circular orbit using actionsFreqsAngles
+    R,vR,vT,z,vz= 1.,10.**-8.,1.,10.**-8.,0.
+    jos= aAS.actionsFreqsAngles(R,vR,vT,z,vz,0.)
     assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
     assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
     assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
