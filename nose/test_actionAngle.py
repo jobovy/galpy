@@ -50,64 +50,24 @@ def test_actionAngleIsochrone_conserved_actions():
     from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
-    times= numpy.linspace(0.,100.,1001)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    obs.integrate(times,ip,method='dopr54_c')
-    js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-            obs.vz(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
-    assert maxdj[0] < 10.**-8., 'Jr conservation for the isochrone potential fails at %g%%' % (100.*maxdj[0])
-    assert maxdj[1] < 10.**-8., 'Lz conservation for the isochrone potential fails at %g%%' % (100.*maxdj[1])
-    assert maxdj[2] < 10.**-8., 'Jz conservation for the isochrone potential fails at %g%%' % (100.*maxdj[2])
+    check_actionAngle_conserved_actions(aAI,obs,ip,-8.,-8.,-8.)
     return None
 
 #Test that the angles of an actionAngleIsochrone increase linearly
 def test_actionAngleIsochrone_linear_angles():
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochrone, dePeriod
+    from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
-    times= numpy.linspace(0.,100.,1001)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    obs.integrate(times,ip,method='dopr54_c')
-    acfs_init= aAI.actionsFreqsAngles(obs) #to check the init. angles
-    acfs= aAI.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
-                                 obs.z(times),obs.vz(times),obs.phi(times))
-    ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
-    ap= dePeriod(numpy.reshape(acfs[7],(1,len(times)))).flatten()
-    az= dePeriod(numpy.reshape(acfs[8],(1,len(times)))).flatten()
-    # Do linear fit to radial angle, check that deviations are small, check 
-    # that the slope is the frequency
-    linfit= numpy.polyfit(times,ar,1)
-    assert numpy.fabs((linfit[1]-acfs_init[6])/acfs_init[6]) < 10.**-6., \
-        'Radial angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[6])/acfs_init[6]))
-    assert numpy.fabs(linfit[0]-acfs_init[3]) < 10.**-8., \
-        'Radial frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[3])/acfs_init[3]))
-    devs= (ar-linfit[0]*times-linfit[1])
-    maxdev= numpy.amax(numpy.fabs(devs))
-    assert maxdev < 10.**-8., 'Maximum deviation from linear trend in the radial angles is %g' % maxdev
-    # Do linear fit to azimuthal angle, check that deviations are small, check 
-    # that the slope is the frequency
-    linfit= numpy.polyfit(times,ap,1)
-    assert numpy.fabs((linfit[1]-acfs_init[7])/acfs_init[7]) < 10.**-6., \
-        'Azimuthal angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[7])/acfs_init[7]))
-    assert numpy.fabs(linfit[0]-acfs_init[4]) < 10.**-8., \
-        'Azimuthal frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[4])/acfs_init[4]))
-    devs= (ap-linfit[0]*times-linfit[1])
-    maxdev= numpy.amax(numpy.fabs(devs))
-    assert maxdev < 10.**-8., 'Maximum deviation from linear trend in the azimuthal angles is %g' % maxdev
-    # Do linear fit to vertical angle, check that deviations are small, check 
-    # that the slope is the frequency
-    linfit= numpy.polyfit(times,az,1)
-    assert numpy.fabs((linfit[1]-acfs_init[8])/acfs_init[8]) < 10.**-6., \
-        'Vertical angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[8])/acfs_init[8]))
-    assert numpy.fabs(linfit[0]-acfs_init[5]) < 10.**-8., \
-        'Vertical frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[5])/acfs_init[5]))
-    devs= (az-linfit[0]*times-linfit[1])
-    maxdev= numpy.amax(numpy.fabs(devs))
-    assert maxdev < 10.**-8., 'Maximum deviation from linear trend in the vertical angles is %g' % maxdev
+    check_actionAngle_linear_angles(aAI,obs,ip,
+                                    -6.,-6.,-6.,
+                                    -8.,-8.,-8.,
+                                    -8.,-8.,-8.)
     return None
+
    
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
@@ -265,4 +225,62 @@ def test_estimateBIsochrone():
     bmin, bmed, bmax= estimateBIsochrone(o.R(times),o.z(times),pot=ip)
     assert numpy.fabs(bmed-1.2) < 10.**-15., \
         'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
+    return None
+
+#Test that the actions are conserved along an orbit
+def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz):
+    times= numpy.linspace(0.,100.,1001)
+    obs.integrate(times,pot,method='dopr54_c')
+    js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+           obs.vz(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
+    assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
+    assert maxdj[2] < 10.**-toljp, 'Jz conservation fails at %g%%' % (100.*maxdj[2])
+    return None
+
+#Test that the angles increase linearly
+def check_actionAngle_linear_angles(aA,obs,pot,
+                                    tolinitar,tolinitap,tolinitaz,
+                                    tolor,tolop,toloz,
+                                    toldar,toldap,toldaz):
+    from galpy.actionAngle import dePeriod
+    times= numpy.linspace(0.,100.,1001)
+    obs.integrate(times,pot,method='dopr54_c')
+    acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
+    acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
+                                obs.z(times),obs.vz(times),obs.phi(times))
+    ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
+    ap= dePeriod(numpy.reshape(acfs[7],(1,len(times)))).flatten()
+    az= dePeriod(numpy.reshape(acfs[8],(1,len(times)))).flatten()
+    # Do linear fit to radial angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,ar,1)
+    assert numpy.fabs((linfit[1]-acfs_init[6])/acfs_init[6]) < 10.**tolinitar, \
+        'Radial angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[6])/acfs_init[6]))
+    assert numpy.fabs(linfit[0]-acfs_init[3]) < 10.**tolor, \
+        'Radial frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[3])/acfs_init[3]))
+    devs= (ar-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**toldar, 'Maximum deviation from linear trend in the radial angles is %g' % maxdev
+    # Do linear fit to azimuthal angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,ap,1)
+    assert numpy.fabs((linfit[1]-acfs_init[7])/acfs_init[7]) < 10.**tolinitap, \
+        'Azimuthal angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[7])/acfs_init[7]))
+    assert numpy.fabs(linfit[0]-acfs_init[4]) < 10.**tolop, \
+        'Azimuthal frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[4])/acfs_init[4]))
+    devs= (ap-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**toldap, 'Maximum deviation from linear trend in the azimuthal angles is %g' % maxdev
+    # Do linear fit to vertical angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,az,1)
+    assert numpy.fabs((linfit[1]-acfs_init[8])/acfs_init[8]) < 10.**tolinitaz, \
+        'Vertical angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[8])/acfs_init[8]))
+    assert numpy.fabs(linfit[0]-acfs_init[5]) < 10.**toloz, \
+        'Vertical frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[5])/acfs_init[5]))
+    devs= (az-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**toldaz, 'Maximum deviation from linear trend in the vertical angles is %g' % maxdev
     return None
