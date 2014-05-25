@@ -298,16 +298,61 @@ def test_actionAngleAdiabatic_conserved_actions():
     return None
 
 #Test the actions of an actionAngleAdiabatic
-#def test_actionAngleAdiabatic_conserved_actions_fixed_quad():
-#    from galpy.potential import MiyamotoNagaiPotential
-#    from galpy.actionAngle import actionAngleAdiabatic
-#    from galpy.orbit import Orbit
-#    mp= MiyamotoNagaiPotential(normalize=1.)
-#    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
-#    aAA= actionAngleAdiabatic(pot=mp)
-#    check_actionAngle_conserved_actions(aAA,obs,mp,-8.,-8.,-8.,ntimes=101,
-#                                        fixed_quad=True)
-#    return None
+def test_actionAngleAdiabatic_conserved_actions_c():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    check_actionAngle_conserved_actions(aAA,obs,MWPotential,
+                                        -1.4,-8.,-1.7,ntimes=101)
+    return None
+
+#Test the actions of an actionAngleAdiabatic, single pot
+def test_actionAngleAdiabatic_conserved_actions_singlepot():
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    mp= MiyamotoNagaiPotential(normalize=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=mp,c=False)
+    check_actionAngle_conserved_actions(aAA,obs,mp,
+                                        -1.5,-8.,-2.,ntimes=101,
+                                        inclphi=True)
+    return None
+
+#Test the actions of an actionAngleAdiabatic, single pot
+def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    mp= MiyamotoNagaiPotential(normalize=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=mp,c=True)
+    check_actionAngle_conserved_actions(aAA,obs,mp,
+                                        -1.5,-8.,-2.,ntimes=101,
+                                        inclphi=True)
+    return None
+
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions
+def test_actionAngleAdiabatic_otherIsochrone_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleAdiabatic, \
+        actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAA= actionAngleAdiabatic(pot=ip,c=True)
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.05,0.,2.
+    ji= aAI(R,vR,vT,z,vz,phi)
+    jia= aAA(R,vR,vT,z,vz,phi)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-1.2, 'actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
+    assert djz < 10.**-1.2, 'actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
@@ -469,12 +514,19 @@ def test_estimateBIsochrone():
 
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
-                                        ntimes=1001,fixed_quad=False):
+                                        ntimes=1001,fixed_quad=False,
+                                        inclphi=False):
     times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
-    if fixed_quad:
+    if fixed_quad and inclphi:
+        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+               obs.vz(times),obs.phi(times),fixed_quad=True)
+    elif fixed_quad and not inclphi:
         js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
                obs.vz(times),fixed_quad=True)
+    elif inclphi:
+        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+               obs.vz(times),obs.phi(times))
     else:
         js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
                obs.vz(times))

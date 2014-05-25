@@ -49,7 +49,7 @@ class actionAngleAdiabatic():
         if ext_loaded and kwargs.has_key('c') and kwargs['c']:
             self._c= _check_c(self._pot)
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
         if kwargs.has_key('gamma'):
@@ -100,11 +100,11 @@ class actionAngleAdiabatic():
                 self._pot,self._gamma,R,vR,vT,z,vz)
             if err == 0:
                 return (jr,Lz,jz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
