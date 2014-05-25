@@ -16,11 +16,6 @@ def test_actionAngleIsochrone_basic_actions():
     js= aAI(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jz'
-    #Very eccentric orbit
-    R,vR,vT,z,vz= 1.,2.,1.,2.,1.
-    js= aAI(R,vR,vT,z,vz)
-    assert numpy.fabs(js[0]) > 10.**1., 'Very eccentric orbit in the isochrone potential does not have large Jr'
-    assert numpy.fabs(js[2]) < 10.**1., 'Very eccentric orbit in the isochrone potential does not have large Jz'
     return None
 
 #Basic sanity checking of the actionAngleIsochrone actions
@@ -86,11 +81,6 @@ def test_actionAngleSpherical_basic_actions():
     js= aAS(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jz'
-    #Very eccentric orbit
-    R,vR,vT,z,vz= 1.,2.,1.,2.,1.
-    js= aAS(R,vR,vT,z,vz,0.)
-    assert numpy.fabs(js[0]) > 10.**1., 'Very eccentric orbit in the spherical LogarithmicHaloPotential does not have large Jr'
-    assert numpy.fabs(js[2]) < 10.**1., 'Very eccentric orbit in the spherical LogarithmicHaloPotential does not have large Jz'
     return None
 
 #Basic sanity checking of the actionAngleSpherical actions
@@ -262,6 +252,41 @@ def test_actionAngleSpherical_otherIsochrone_angles():
     assert daz < 10.**-6., 'actionAngleSpherical applied to isochrone potential fails for az at %g%%' % (daz*100.)
     return None
 
+#Basic sanity checking of the actionAngleAdiabatic actions
+def test_actionAngleAdiabatic_basic_actions():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAA(R,vR,vT,z,vz,0.)
+    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAA(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
+
+#Basic sanity checking of the actionAngleAdiabatic actions
+def test_actionAngleAdiabatic_basic_actions_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAA(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAA(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
+
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \

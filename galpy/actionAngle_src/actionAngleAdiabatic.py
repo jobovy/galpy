@@ -20,7 +20,7 @@ from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
 try:
     import actionAngleAdiabatic_c
-except IOError:
+except IOError: #pragma: no cover
     warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
@@ -43,7 +43,7 @@ class actionAngleAdiabatic():
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
         if ext_loaded and kwargs.has_key('c') and kwargs['c']:
