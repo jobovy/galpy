@@ -286,6 +286,29 @@ def test_actionAngleAdiabatic_basic_actions_c():
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
 
+#Test the actions of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_actions():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=False)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    check_actionAngle_conserved_actions(aAA,obs,MWPotential,
+                                        -1.2,-8.,-1.7,ntimes=101)
+    return None
+
+#Test the actions of an actionAngleAdiabatic
+#def test_actionAngleAdiabatic_conserved_actions_fixed_quad():
+#    from galpy.potential import MiyamotoNagaiPotential
+#    from galpy.actionAngle import actionAngleAdiabatic
+#    from galpy.orbit import Orbit
+#    mp= MiyamotoNagaiPotential(normalize=1.)
+#    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+#    aAA= actionAngleAdiabatic(pot=mp)
+#    check_actionAngle_conserved_actions(aAA,obs,mp,-8.,-8.,-8.,ntimes=101,
+#                                        fixed_quad=True)
+#    return None
+
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -458,7 +481,7 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
-    assert maxdj[2] < 10.**-toljp, 'Jz conservation fails at %g%%' % (100.*maxdj[2])
+    assert maxdj[2] < 10.**toljz, 'Jz conservation fails at %g%%' % (100.*maxdj[2])
     return None
 
 #Test that the angles increase linearly
