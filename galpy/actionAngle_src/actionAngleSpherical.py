@@ -13,6 +13,7 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
+from galpy.potential import evaluatePotentials, epifreq, omegac
 from actionAngle import *
 from actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
@@ -94,7 +95,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -161,7 +162,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -183,8 +184,8 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(self._pot.epifreq(axiR))
-                    Op.append(self._pot.omegac(axiR))
+                    Or.append(epifreq(self._pot,axiR))
+                    Op.append(omegac(self._pot,axiR))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
@@ -244,7 +245,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -271,8 +272,8 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(self._pot.epifreq(axiR))
-                    Op.append(self._pot.omegac(axiR))
+                    Or.append(epifreq(self._pot,axiR))
+                    Op.append(omegac(self._pot,axiR))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
