@@ -29,7 +29,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= kwargs['pot']
         #Also store a 'planar' (2D) version of the potential
@@ -42,7 +42,7 @@ class actionAngleSpherical(actionAngle):
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
                            or not kwargs.has_key('c')):
-            self._c= True
+            self._c= True #pragma: no cover
         else:
             self._c= False
         return None
@@ -87,7 +87,7 @@ class actionAngleSpherical(actionAngle):
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -154,7 +154,7 @@ class actionAngleSpherical(actionAngle):
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -237,7 +237,7 @@ class actionAngleSpherical(actionAngle):
             z= nu.array([z])
             vz= nu.array([vz])
             phi= nu.array([phi])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT

@@ -68,7 +68,32 @@ def test_actionAngleIsochrone_linear_angles():
                                     -8.,-8.,-8.)
     return None
 
-   
+#Test the actions of an actionAngleSpherical
+def test_actionAngleSpherical_conserved_actions():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
+    check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101)
+    return None
+
+#Test that the angles of an actionAngleIsochrone increase linearly
+def test_actionAngleSpherical_linear_angles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+    check_actionAngle_linear_angles(aAS,obs,lp,
+                                    -6.,-6.,-6.,
+                                    -8.,-8.,-8.,
+                                    -8.,-8.,-8.,
+                                    ntimes=501) #need fine sampling for de-period
+    return None
+  
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -228,8 +253,9 @@ def test_estimateBIsochrone():
     return None
 
 #Test that the actions are conserved along an orbit
-def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz):
-    times= numpy.linspace(0.,100.,1001)
+def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
+                                        ntimes=1001):
+    times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
     js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
            obs.vz(times))
@@ -243,9 +269,10 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz):
 def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolinitar,tolinitap,tolinitaz,
                                     tolor,tolop,toloz,
-                                    toldar,toldap,toldaz):
+                                    toldar,toldap,toldaz,
+                                    ntimes=1001):
     from galpy.actionAngle import dePeriod
-    times= numpy.linspace(0.,100.,1001)
+    times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
     acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
     acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
