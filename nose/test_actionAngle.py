@@ -354,6 +354,66 @@ def test_actionAngleAdiabatic_otherIsochrone_actions():
     assert djz < 10.**-1.2, 'actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
     return None
 
+
+#Basic sanity checking of the actionAngleStaeckel actions
+@expected_failure
+def test_actionAngleStaeckel_basic_actions():
+    raise AssertionError
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.45)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    return None
+
+#Basic sanity checking of the actionAngleSpherical actions
+@expected_failure
+def test_actionAngleSpherical_basic_freqs():
+    raise AssertionError
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=[lp])
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    jos= aAS.actionsFreqs(R,vR,vT,z,vz)
+    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
+    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
+    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+    #close-to-circular orbit
+    R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
+    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
+    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+
+#Basic sanity checking of the actionAngleSpherical actions
+@expected_failure
+def test_actionAngleSpherical_basic_freqsAngles():
+    raise AssertionError
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    #v. close-to-circular orbit using actionsFreqsAngles
+    R,vR,vT,z,vz= 1.,10.**-8.,1.,10.**-8.,0.
+    jos= aAS.actionsFreqsAngles(R,vR,vT,z,vz,0.)
+    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
+    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
+    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+    return None
+
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -510,6 +570,19 @@ def test_estimateBIsochrone():
     bmin, bmed, bmax= estimateBIsochrone(o.R(times),o.z(times),pot=ip)
     assert numpy.fabs(bmed-1.2) < 10.**-15., \
         'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
+    return None
+
+#Test the b estimation
+def test_estimateBIsochrone():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.orbit import Orbit
+    o= Orbit([1.1, 0.05, 1.1, 0.05,0.,2.])
+    times= numpy.linspace(0.,100.,1001)
+    o.integrate(times,MWPotential)
+    delta= estimateDeltaStaeckel(o.R(times),o.z(times),pot=MWPotential)
+    assert numpy.fabs(delta-0.71) < 10.**-3., \
+        'Estimated focal parameter delta when estimateDeltaStaeckel is applied to the MWPotentialn is wrong'
     return None
 
 #Test that the actions are conserved along an orbit
