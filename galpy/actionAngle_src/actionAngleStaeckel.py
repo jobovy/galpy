@@ -121,10 +121,10 @@ class actionAngleStaeckel():
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (jr,Lz,jz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
@@ -206,10 +206,10 @@ class actionAngleStaeckel():
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
@@ -234,7 +234,7 @@ class actionAngleStaeckel():
         if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
                 or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
+            if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
                 raise IOError("Must specify phi")
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
@@ -271,55 +271,11 @@ class actionAngleStaeckel():
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
-                raise RuntimeError("C-code for calculation actions failed; try with c=False")
-        else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                raise RuntimeError("C-code for calculation actions failed; try with c=False") #pragma: no cover
+        else: #pragma: no cover
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
-
-    def JR(self,*args,**kwargs):
-        """
-        NAME:
-           JR
-        PURPOSE:
-           evaluate the action jr
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           Jr
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
-        #Set up the actionAngleStaeckelSingle object
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                             delta=self._delta)
-        return aASingle.JR(**kwargs)
-
-    def Jz(self,*args,**kwargs):
-        """
-        NAME:
-           Jz
-        PURPOSE:
-           evaluate the action jz
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jz,jzerr
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
-        #Set up the actionAngleStaeckelSingle object
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                             delta=self._delta)
-        return aASingle.Jz(**kwargs)
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -340,10 +296,10 @@ class actionAngleStaeckelSingle(actionAngle):
            2012-11-27 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'):
+        if not kwargs.has_key('delta'): #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         self._delta= kwargs['delta']
         #Pre-calculate everything
@@ -442,7 +398,7 @@ class actionAngleStaeckelSingle(actionAngle):
         """
         raise NotImplementedError("'I' not implemented yet for Staeckel approxximation")
 
-    def Jphi(self):
+    def Jphi(self): #pragma: no cover
         """
         NAME:
            Jphi
@@ -470,7 +426,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_JR'):
+        if hasattr(self,'_JR'): #pragma: no cover
             return self._JR
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
@@ -515,7 +471,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_JZ'):
+        if hasattr(self,'_JZ'): #pragma: no cover
             return self._JZ
         vmin= self.calcVmin()
         if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
@@ -575,7 +531,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_uminumax'):
+        if hasattr(self,'_uminumax'): #pragma: no cover
             return self._uminumax
         E, L= self._E, self._Lz
         if nu.fabs(self._pux) < 10.**-7.: #We are at umin or umax
@@ -673,7 +629,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-28 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_vmin'):
+        if hasattr(self,'_vmin'): #pragma: no cover
             return self._vmin
         E, L= self._E, self._Lz
         if nu.fabs(self._pvx) < 10.**-7.: #We are at vmin or vmax
@@ -906,7 +862,7 @@ def estimateDeltaStaeckel(R,z,pot=None):
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
     """
-    if pot is None:
+    if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error

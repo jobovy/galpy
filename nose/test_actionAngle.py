@@ -374,6 +374,24 @@ def test_actionAngleStaeckel_basic_actions():
     return None
 
 #Basic sanity checking of the actionAngleStaeckel actions
+def test_actionAngleStaeckel_basic_actions_u0():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
@@ -415,8 +433,99 @@ def test_actionAngleStaeckel_basic_freqs_c():
 #Basic sanity checking of the actionAngleStaeckel actions
 @expected_failure
 def test_actionAngleStaeckel_basic_freqsAngles():
-    raise AssertionError
-#Do a v. close-to-circular orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #v. close-to-circular orbit
+    R,vR,vT,z,vz= 1.,10.**-4.,1.,10.**-4.,0.
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz,2.]))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    return None
+#Basic sanity checking of the actionAngleStaeckel frequencies
+@expected_failure
+def test_actionAngleStaeckel_basic_freqs_c_u0():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    jos= aAS.actionsFreqs(R,vR,vT,z,vz)
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    #close-to-circular orbit
+    R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
+@expected_failure
+def test_actionAngleStaeckel_basic_freqsAngles_u0():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    #v. close-to-circular orbit
+    R,vR,vT,z,vz= 1.,10.**-4.,1.,10.**-4.,0.
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz,2.]))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    return None
+
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_actions():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                        -2.,-8.,-2.,ntimes=101)
+    return None
+
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_actions_c():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.71)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                        -2.,-8.,-2.,ntimes=101)
+    return None
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_actions_fixed_quad():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                        -2.,-8.,-2.,ntimes=101,
+                                        fixed_quad=True,inclphi=True)
+    return None
+
+#Test that the angles of an actionAngleStaeckel increase linearly
+def test_actionAngleStaeckel_linear_angles():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    check_actionAngle_linear_angles(aAS,obs,MWPotential,
+                                    -2.,-4.,-3.,
+                                    -3.,-3.,-2.,
+                                    -2.,-3.5,-2.,
+                                    ntimes=1001) #need fine sampling for de-period
+    return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
@@ -577,7 +686,7 @@ def test_estimateBIsochrone():
     return None
 
 #Test the focal delta estimation
-def test_estimateBIsochrone():
+def test_estimateDeltaStaeckel():
     from galpy.potential import MWPotential
     from galpy.actionAngle import estimateDeltaStaeckel
     from galpy.orbit import Orbit
@@ -654,7 +763,7 @@ def check_actionAngle_linear_angles(aA,obs,pot,
         'Azimuthal frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[4])/acfs_init[4]))
     devs= (ap-linfit[0]*times-linfit[1])
     maxdev= numpy.amax(numpy.fabs(devs))
-    assert maxdev < 10.**toldap, 'Maximum deviation from linear trend in the azimuthal angles is %g' % maxdev
+    assert maxdev < 10.**toldap, 'Maximum deviation from linear trend in the azimuthal angle is %g' % maxdev
     # Do linear fit to vertical angle, check that deviations are small, check 
     # that the slope is the frequency
     linfit= numpy.polyfit(times,az,1)
