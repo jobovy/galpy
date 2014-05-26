@@ -356,13 +356,11 @@ def test_actionAngleAdiabatic_otherIsochrone_actions():
 
 
 #Basic sanity checking of the actionAngleStaeckel actions
-@expected_failure
 def test_actionAngleStaeckel_basic_actions():
-    raise AssertionError
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.45)
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
@@ -372,7 +370,25 @@ def test_actionAngleStaeckel_basic_actions():
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAS(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
-    assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
+def test_actionAngleStaeckel_basic_actions_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     return None
 
 #Basic sanity checking of the actionAngleSpherical actions
@@ -572,7 +588,7 @@ def test_estimateBIsochrone():
         'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
     return None
 
-#Test the b estimation
+#Test the focal delta estimation
 def test_estimateBIsochrone():
     from galpy.potential import MWPotential
     from galpy.actionAngle import estimateDeltaStaeckel
