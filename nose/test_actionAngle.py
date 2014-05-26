@@ -360,12 +360,12 @@ def test_actionAngleStaeckel_basic_actions():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71)
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
-    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
-    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAS(Orbit([R,vR,vT,z,vz]))
@@ -391,44 +391,32 @@ def test_actionAngleStaeckel_basic_actions_c():
     assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     return None
 
-#Basic sanity checking of the actionAngleSpherical actions
+#Basic sanity checking of the actionAngleStaeckel frequencies
 @expected_failure
-def test_actionAngleSpherical_basic_freqs():
-    raise AssertionError
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleSpherical
+def test_actionAngleStaeckel_basic_freqs_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
     from galpy.orbit import Orbit
-    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
-    aAS= actionAngleSpherical(pot=[lp])
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     jos= aAS.actionsFreqs(R,vR,vT,z,vz)
-    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
-    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
-    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-12., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
     #close-to-circular orbit
     R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
     jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
-    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
-    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
-    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
-
-#Basic sanity checking of the actionAngleSpherical actions
-@expected_failure
-def test_actionAngleSpherical_basic_freqsAngles():
-    raise AssertionError
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleSpherical
-    from galpy.orbit import Orbit
-    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
-    aAS= actionAngleSpherical(pot=lp)
-    #v. close-to-circular orbit using actionsFreqsAngles
-    R,vR,vT,z,vz= 1.,10.**-8.,1.,10.**-8.,0.
-    jos= aAS.actionsFreqsAngles(R,vR,vT,z,vz,0.)
-    assert numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-lp.epifreq(1.))/lp.epifreq(1.)))
-    assert numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-lp.omegac(1.))/lp.omegac(1.)))
-    assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
     return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
+@expected_failure
+def test_actionAngleStaeckel_basic_freqsAngles():
+    raise AssertionError
+#Do a v. close-to-circular orbit
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():

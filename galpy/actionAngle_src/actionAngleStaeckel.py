@@ -21,7 +21,7 @@ from galpy.util import galpyWarning
 from actionAngle import actionAngle, UnboundError
 try:
     import actionAngleStaeckel_c
-except IOError:
+except IOError: #pragma: no cover
     warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
     ext_loaded= False
 else:
@@ -47,16 +47,16 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'):
+        if not kwargs.has_key('delta'): #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
                            or not kwargs.has_key('c')):           
             self._c= _check_c(self._pot)
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
         if kwargs.has_key('useu0') and kwargs['useu0']:
