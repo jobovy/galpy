@@ -9,7 +9,7 @@ from galpy.util import bovy_coords
 _lib = None
 _libname = ctypes.util.find_library('galpy_actionAngle_c')
 if _libname:
-    _lib = ctypes.CDLL(_libname)
+    _lib = ctypes.CDLL(_libname) #pragma: no cover
 if _lib is None:
     import sys
     for path in sys.path:
@@ -19,7 +19,7 @@ if _lib is None:
             _lib = None
         else:
             break
-if _lib is None:
+if _lib is None: #pragma: no cover
     raise IOError('galpy actionAngle_c module not found')
 
 def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
