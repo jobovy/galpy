@@ -392,6 +392,24 @@ def test_actionAngleStaeckel_basic_actions_u0():
     return None
 
 #Basic sanity checking of the actionAngleStaeckel actions
+def test_actionAngleStaeckel_basic_actions_u0_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
@@ -425,6 +443,12 @@ def test_actionAngleStaeckel_basic_freqs_c():
     #close-to-circular orbit
     R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
     jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
+    assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
+    assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    #another close-to-circular orbit
+    R,vR,vT,z,vz= 1.,0.03,1.02,0.03,0.01 
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz,2.]))
     assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
     assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
     assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
@@ -497,9 +521,10 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.71)
-    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     check_actionAngle_conserved_actions(aAS,obs,MWPotential,
-                                        -2.,-8.,-2.,ntimes=101)
+                                        -2.,-8.,-2.,ntimes=101,
+                                        inclphi=True)
     return None
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_fixed_quad():
@@ -526,6 +551,121 @@ def test_actionAngleStaeckel_linear_angles():
                                     -2.,-3.5,-2.,
                                     ntimes=1001) #need fine sampling for de-period
     return None
+
+#Test that the angles of an actionAngleStaeckel increase linearly
+def test_actionAngleStaeckel_linear_angles_u0():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    check_actionAngle_linear_angles(aAS,obs,MWPotential,
+                                    -2.,-4.,-3.,
+                                    -3.,-3.,-2.,
+                                    -2.,-3.5,-2.,
+                                    ntimes=1001) #need fine sampling for de-period
+    return None
+
+#Test the actionAngleStaeckel against an isochrone potential: actions
+def test_actionAngleStaeckel_otherIsochrone_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleIsochrone, estimateDeltaStaeckel
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAA= actionAngleStaeckel(pot=ip,c=False,delta=0.1) #not ideal
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.05,0.,2.
+    ji= aAI(R,vR,vT,z,vz,phi)
+    jia= aAA(R,vR,vT,z,vz,phi)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
+    assert djz < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleStaeckel against an isochrone potential: actions
+def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleIsochrone, estimateDeltaStaeckel
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAA= actionAngleStaeckel(pot=ip,c=False,delta=0.1) #not ideal
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.05,0.,2.
+    ji= aAI(R,vR,vT,z,vz,phi)
+    jia= aAA(R,vR,vT,z,vz,phi,fixed_quad=True)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
+    assert djz < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleStaeckel against an isochrone potential: actions
+def test_actionAngleStaeckel_otherIsochrone_actions_c():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleIsochrone, estimateDeltaStaeckel
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAA= actionAngleStaeckel(pot=ip,c=True,delta=0.1) #not ideal
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.05,0.,2.
+    ji= aAI(R,vR,vT,z,vz,phi)
+    jia= aAA(R,vR,vT,z,vz,phi)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
+    assert djz < 10.**-3., 'actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleStaeckel against an isochrone potential: frequencies
+def test_actionAngleStaeckel_otherIsochrone_freqs():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAS= actionAngleStaeckel(pot=ip,delta=0.1,c=True)
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.05,0.,2.
+    jiO= aAI.actionsFreqs(R,vR,vT,z,vz,phi)
+    jiaO= aAS.actionsFreqs(R,vR,vT,z,vz,phi)
+    dOr= numpy.fabs((jiO[3]-jiaO[3])/jiO[3])
+    dOp= numpy.fabs((jiO[4]-jiaO[4])/jiO[4])
+    dOz= numpy.fabs((jiO[5]-jiaO[5])/jiO[5])
+    assert dOr < 10.**-5., 'actionAngleStaeckel applied to isochrone potential fails for Or at %g%%' % (dOr*100.)
+    assert dOp < 10.**-5., 'actionAngleStaeckel applied to isochrone potential fails for Op at %g%%' % (dOp*100.)
+    assert dOz < 1.5*10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%' % (dOz*100.)
+    return None
+
+#Test the actionAngleStaeckel against an isochrone potential: frequencies
+@expected_failure
+def test_actionAngleStaeckel_otherIsochrone_angles():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAS= actionAngleStaeckel(pot=ip,delta=0.1,c=True)
+    R,vR,vT,z,vz,phi= 1.01, 0.05, 1.05, 0.03,-0.01,2.
+    jiO= aAI.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    jiaO= aAS.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
+    dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
+    daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
+    print jiO[8], jiaO[8]
+    assert dar < 10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for ar at %g%%' % (dar*100.)
+    assert dap < 10.**-6., 'actionAngleStaeckel applied to isochrone potential fails for ap at %g%%' % (dap*100.)
+    assert daz < 10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for az at %g%%' % (daz*100.)
+    return None
+
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
