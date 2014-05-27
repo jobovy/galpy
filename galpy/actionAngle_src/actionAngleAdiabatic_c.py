@@ -1,10 +1,15 @@
 import os
+import warnings
 import ctypes
 import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
-from galpy import potential, potential_src
-from galpy.orbit_src.integrateFullOrbit import _parse_pot
+from galpy.util import galpyWarning
+try:
+    from galpy.orbit_src.integrateFullOrbit import _parse_pot
+except IOError: #pragma: no cover
+    warnings.warn("integrateFullOrbit_c extension module not loaded",
+                  galpyWarning)
 #Find and load the library
 _lib = None
 _libname = ctypes.util.find_library('galpy_actionAngle_c')
