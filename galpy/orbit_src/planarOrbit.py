@@ -10,15 +10,10 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
 from galpy.util import galpyWarning
-try:
-    from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
-        integratePlanarOrbit_dxdv_c
-except IOError: #pragma: no cover
-    warnings.warn("integratePlanarOrbit_c extension module not loaded",
-                  galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True   
+#try:
+from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
+    integratePlanarOrbit_dxdv_c, _ext_loaded
+ext_loaded= _ext_loaded
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""

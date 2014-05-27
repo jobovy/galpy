@@ -1,9 +1,11 @@
+import warnings
 import numpy as nu
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential, potential_src
+from galpy.util import galpyWarning
 #Find and load the library
 _lib = None
 _libname = ctypes.util.find_library('galpy_integrate_c')
@@ -19,7 +21,11 @@ if _lib is None:
         else:
             break
 if _lib is None: #pragma: no cover
-    raise IOError('galpy integration module not found')
+    warnings.warn("integratePlanarOrbit_c extension module not loaded",
+                  galpyWarning)
+    _ext_loaded= False
+else:
+    _ext_loaded= True
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""

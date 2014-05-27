@@ -7,14 +7,9 @@ from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-try:
-    from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c
-except IOError: #pragma: no cover
-    warnings.warn("integrateFullOrbit_c extension module not loaded",
-                  galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+#try:
+from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
+ext_loaded= _ext_loaded
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
