@@ -880,13 +880,24 @@ def test_ER_EZ():
             'o.ER() not equal to o.ER(pot=)'
         assert numpy.fabs(o.Ez()-o.Ez(pot=MWPotential)) < 10.**-16., \
             'o.ER() not equal to o.Ez(pot=)'
-        o= setup_orbit_analytic_EREz(MWPotential,axi=False)
-        try:
-            o.ER()
-        except AttributeError:
-            pass
-        else:
-            raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
+        assert numpy.fabs(o.ER(pot=None)-o.ER(pot=MWPotential)) < 10.**-16., \
+            'o.ER() not equal to o.ER(pot=)'
+        assert numpy.fabs(o.Ez(pot=None)-o.Ez(pot=MWPotential)) < 10.**-16., \
+            'o.ER() not equal to o.Ez(pot=)'
+    o= setup_orbit_analytic_EREz(MWPotential,axi=False)
+    try:
+        o.ER()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
+    o= setup_orbit_analytic_EREz(MWPotential,axi=True)
+    try:
+        o.ER()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
     return None
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
