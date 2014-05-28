@@ -830,7 +830,7 @@ class OrbitTop:
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
-                                obs.vx(*args,**kwargs)]))
+                                obs.vz(*args,**kwargs)]))
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
     def Jacobi(self,Omega,t=0.,pot=None):

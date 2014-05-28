@@ -966,6 +966,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'Orbit vR setup does not agree with o.vR()'
     assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'Orbit vT setup does not agree with o.vT()'
+    assert numpy.fabs(o.vphi()-1.1) < 10.**-16., 'Orbit vT setup does not agree with o.vphi()'
     assert numpy.fabs(o.z()-0.2) < 10.**-16., 'Orbit z setup does not agree with o.z()'
     assert numpy.fabs(o.vz()-0.3) < 10.**-16., 'Orbit vz setup does not agree with o.vz()'
     o.setphi(3.)
@@ -1053,6 +1054,16 @@ def test_orbit_setup():
     assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
     assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
     assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
+    #Radec w/ default and obs=Orbit
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
+    obs= Orbit([1.,-10.1/235.,239./235,0.025/8.5,6.7/235.,0.])
+    assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    print numpy.fabs(o.pmra(obs=obs)-0.5)
+    assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
