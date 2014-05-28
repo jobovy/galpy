@@ -121,10 +121,10 @@ def test_actionAngleSpherical_basic_freqsAngles():
 
 #Test the actions of an actionAngleSpherical
 def test_actionAngleSpherical_conserved_actions():
-    from galpy.potential import LogarithmicHaloPotential
+    from galpy import potential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
-    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
     check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101)
@@ -517,14 +517,36 @@ def test_actionAngleStaeckel_conserved_actions():
 
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
-    from galpy.potential import MWPotential
+    from galpy.potential import MWPotential, DoubleExponentialDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.71)
-    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
-    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
-                                        -2.,-8.,-2.,ntimes=101,
-                                        inclphi=True)
+    pots= [MWPotential,
+           DoubleExponentialDiskPotential(normalize=1.)]
+    for pot in pots:
+        aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
+        obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+        check_actionAngle_conserved_actions(aAS,obs,pot,
+                                            -1.9,-8.,-1.9,ntimes=101,
+                                            inclphi=True)
+    return None
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
+    from galpy import potential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    hp= potential.HernquistPotential(normalize=1.)
+    jp= potential.JaffePotential(normalize=1.)
+    np= potential.NFWPotential(normalize=1.)
+    ip= potential.IsochronePotential(normalize=1.,b=1.)
+    pp= potential.PowerSphericalPotential(normalize=1.)
+    pots= [lp,hp,jp,np,ip,pp]
+    for pot in pots:
+        aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
+        obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+        check_actionAngle_conserved_actions(aAS,obs,pot,
+                                            -2.,-8.,-2.,ntimes=101,
+                                            inclphi=True)
     return None
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_fixed_quad():
