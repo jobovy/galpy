@@ -231,7 +231,7 @@ class OrbitTop:
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) == 2:
-            return thiso[:,0]
+            return thiso[0,:]
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use x()")
         elif len(thiso[:,0]) == 4:
@@ -277,7 +277,7 @@ class OrbitTop:
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) == 2:
-            return thiso[:,1]
+            return thiso[1,:]
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
             raise AttributeError("orbit must track azimuth to use vx()")
         elif len(thiso[:,0]) == 4:

@@ -921,6 +921,28 @@ def test_ER_EZ():
         raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
     return None
 
+# Check that the different setups work
+def test_orbit_setup_linear():
+    from galpy.orbit import Orbit
+    # linearOrbit
+    o= Orbit([1.,0.1])
+    assert numpy.fabs(o.x()-1.) < 10.**-16., 'linearOrbit x setup does not agree with o.x()'
+    assert numpy.fabs(o.vx()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.x()'
+    return None
+
+def test_orbit_setup_planar():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1])
+    assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.x()'
+    assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'planarOrbit vR setup does not agree with o.x()'
+    assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'planarOrbit vT setup does not agree with o.x()'
+    o= Orbit([1.,0.1,1.1,2.])
+    assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.x()'
+    assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'planarOrbit vR setup does not agree with o.x()'
+    assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'planarOrbit vT setup does not agree with o.x()'
+    assert numpy.fabs(o.phi()-2.) < 10.**-16., 'planarOrbit phi setup does not agree with o.x()'
+    return None
+
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
 
 # Check that toLinear and toPlanar work
