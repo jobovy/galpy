@@ -959,8 +959,12 @@ def test_orbit_setup():
     assert numpy.fabs(o.vz()-0.3) < 10.**-16., 'Orbit vz setup does not agree with o.vz()'
     assert numpy.fabs(o.phi()-2.) < 10.**-16., 'Orbit phi setup does not agree with o.phi()'
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='hogg')
-    assert numpy.fabs(o.ra()-120.) < 10.**-16., 'Orbit ra setup does not agree with o.ra()'
-    assert numpy.fabs(o.dec()-60.) < 10.**-16., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.ra()-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)

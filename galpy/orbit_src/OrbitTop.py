@@ -1739,7 +1739,7 @@ def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
                 obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
     else:
         if vel:
-            obs= [8.5,0.,0.025,0.,235.,0.]
+            obs= [8.5,0.,0.025,-10.1,239.,6.7]
         else:
             obs= [8.5,0.,0.025]
     if kwargs.has_key('ro'):
