@@ -567,6 +567,16 @@ def _integrateRZOrbit(vxvv,pot,t,method):
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
+            method= 'leapfrog'
+        elif not allHasC:
+            method= 'odeint'
     if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
