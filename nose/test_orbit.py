@@ -926,6 +926,7 @@ def test_orbit_setup_linear():
     from galpy.orbit import Orbit
     # linearOrbit
     o= Orbit([1.,0.1])
+    assert o.dim() == 1, 'linearOrbit does not have dim == 1'
     assert numpy.fabs(o.x()-1.) < 10.**-16., 'linearOrbit x setup does not agree with o.x()'
     assert numpy.fabs(o.vx()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.vx()'
     try:
@@ -940,6 +941,7 @@ def test_orbit_setup_planar():
     from galpy.orbit import Orbit
     from galpy.orbit_src.planarOrbit import planarROrbit
     o= Orbit([1.,0.1,1.1])
+    assert o.dim() == 2, 'planarROrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'planarOrbit vR setup does not agree with o.vR()'
     assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'planarOrbit vT setup does not agree with o.vT()'
@@ -947,6 +949,7 @@ def test_orbit_setup_planar():
     assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
     assert not isinstance(o._orb,planarROrbit), 'After applying setphi, planarROrbit did not become planarOrbit'
     o= Orbit([1.,0.1,1.1,2.])
+    assert o.dim() == 2, 'planarOrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'planarOrbit vR setup does not agree with o.vR()'
     assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'planarOrbit vT setup does not agree with o.vT()'
@@ -959,6 +962,7 @@ def test_orbit_setup():
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import FullOrbit
     o= Orbit([1.,0.1,1.1,0.2,0.3])
+    assert o.dim() == 3, 'RZOrbitOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'Orbit vR setup does not agree with o.vR()'
     assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'Orbit vT setup does not agree with o.vT()'
@@ -968,6 +972,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
     assert isinstance(o._orb,FullOrbit), 'After applying setphi, RZOrbit did not become FullOrbit'
     o= Orbit([1.,0.1,1.1,0.2,0.3,2.])
+    assert o.dim() == 3, 'FullOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'Orbit vR setup does not agree with o.vR()'
     assert numpy.fabs(o.vT()-1.1) < 10.**-16., 'Orbit vT setup does not agree with o.vT()'
