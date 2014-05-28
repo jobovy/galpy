@@ -697,7 +697,7 @@ class OrbitTop:
         obs, ro, vo= _parse_radec_kwargs(kwargs)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
             raise AttributeError("orbit must track azimuth to use radeclbd functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
@@ -752,7 +752,7 @@ class OrbitTop:
         obs, ro, vo= _parse_radec_kwargs(kwargs,vel=True)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6:
+        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
             raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
