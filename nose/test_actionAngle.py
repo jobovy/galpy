@@ -1,5 +1,7 @@
 import numpy
 from test_streamdf import expected_failure
+import os
+_TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
@@ -520,8 +522,11 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    pots= [MWPotential,
-           DoubleExponentialDiskPotential(normalize=1.)]
+    if not _TRAVIS:
+        pots= [MWPotential,
+               DoubleExponentialDiskPotential(normalize=1.)]
+    else:
+        pots= [MWPotential]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
