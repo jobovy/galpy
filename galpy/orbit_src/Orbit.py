@@ -174,7 +174,7 @@ class Orbit:
             #Upgrade
             vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],phi]
             self.vxvv= vxvv
-            self._orb= planarROrbit(vxvv=vxvv)
+            self._orb= planarOrbit(vxvv=vxvv)
         elif len(self.vxvv) == 4:
             self.vxvv[-1]= phi
             self._orb.vxvv[-1]= phi
