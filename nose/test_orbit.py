@@ -858,7 +858,36 @@ def test_add_linear_planar_orbit():
         "Sum of linearOrbit and planarROrbit does not give a FullOrbit"
     return None
 
-# Check that ER + Ez = E for orbits that stay close to the plane for the MWPotential
+# Check that ER + Ez = E and that ER and EZ are separately conserved for orbits that stay close to the plane for the MWPotential
+def test_ER_EZ():
+    from galpy.potential import MWPotential
+    ona= setup_orbit_analytic_EREz(MWPotential,axi=False)
+    oa= setup_orbit_analytic_EREz(MWPotential,axi=True)
+    os= [ona,oa]
+    for o in os:
+        times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
+        o.integrate(times,MWPotential)
+        ERs= o.ER(times)
+        Ezs= o.Ez(times)
+        ERdiff= numpy.fabs(numpy.std(ERs-numpy.mean(ERs))/numpy.mean(ERs))
+        assert ERdiff < 10.**-4., \
+            'ER conservation for orbits close to the plane in MWPotential fails at %g%%' % (100.*ERdiff)
+        Ezdiff= numpy.fabs(numpy.std(Ezs-numpy.mean(Ezs))/numpy.mean(Ezs))
+        assert Ezdiff < 10.**-1.7, \
+            'Ez conservation for orbits close to the plane in MWPotential fails at %g%%' % (100.*Ezdiff)
+        #Some basic checking
+        assert numpy.fabs(o.ER()-o.ER(pot=MWPotential)) < 10.**-16., \
+            'o.ER() not equal to o.ER(pot=)'
+        assert numpy.fabs(o.Ez()-o.Ez(pot=MWPotential)) < 10.**-16., \
+            'o.ER() not equal to o.Ez(pot=)'
+        o= setup_orbit_analytic_EREz(MWPotential,axi=False)
+        try:
+            o.ER()
+        except AttributeError:
+            pass
+        else:
+            raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
+    return None
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
 
@@ -959,6 +988,15 @@ def setup_orbit_analytic_zmax(tp,axi=False):
         o= Orbit([1.,0.,1.,0.05,0.03])
     else:
         o= Orbit([1.,0.,1.,0.05,0.03,0.0])
+    return o
+
+# Setup the orbit for the ER, EZ test
+def setup_orbit_analytic_EREz(tp,axi=False):
+    from galpy.orbit import Orbit
+    if axi:
+        o= Orbit([1.,0.03,1.,0.05,0.03])
+    else:
+        o= Orbit([1.,0.03,1.,0.05,0.03,0.0])
     return o
 
 class mockFlatEllipticalDiskPotential(testplanarMWPotential):
