@@ -885,6 +885,8 @@ class testMWPotential(Potential):
                                  forcepoisson=forcepoisson)
     def normalize(self,norm,t=0.):
         self._amp= norm
+    def OmegaP(self):
+        return 1.
 #Class to test lists of planarPotentials
 from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
@@ -906,3 +908,5 @@ class testplanarMWPotential(planarPotential):
         return evaluateplanarR2derivs(R,self._potlist,phi=phi,t=t)
     def normalize(self,norm,t=0.):
         self._amp= norm
+    def OmegaP(self):
+        return 1.

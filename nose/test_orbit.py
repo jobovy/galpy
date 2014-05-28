@@ -3,7 +3,7 @@ import sys
 import numpy
 import os
 from galpy import potential
-from test_potential import testplanarMWPotential
+from test_potential import testplanarMWPotential, testMWPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -31,6 +31,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatSteadyLogSpiralPotential')
     pots.append('mockFlatTransientLogSpiralPotential')
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -80,13 +81,13 @@ def test_energy_jacobi_conservation():
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p:
-                tJacobis= o.Jacobi(times,OmegaP=0.)
+                tJacobis= o.Jacobi(times,pot=tp)
             else:
                 tJacobis= o.Jacobi(times)
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or p == 'MWPotential':
+            if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy and Jacobi functions
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
@@ -94,8 +95,12 @@ def test_energy_jacobi_conservation():
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                print p, (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2.
+                print (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2./10.**ttol
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
                 if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
@@ -130,7 +135,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(times)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or p == 'MWPotential':
+            if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
@@ -139,6 +144,8 @@ def test_energy_jacobi_conservation():
                 assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
@@ -171,7 +178,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(times)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or p == 'MWPotential':
+            if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
@@ -182,6 +189,8 @@ def test_energy_jacobi_conservation():
                 assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
@@ -210,7 +219,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(times)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or p == 'MWPotential':
+            if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
@@ -221,6 +230,8 @@ def test_energy_jacobi_conservation():
                 assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
