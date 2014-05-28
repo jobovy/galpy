@@ -95,8 +95,6 @@ def test_energy_jacobi_conservation():
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                print p, (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2.
-                print (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2./10.**ttol
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
