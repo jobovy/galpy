@@ -886,12 +886,24 @@ def test_ER_EZ():
             'o.ER() not equal to o.Ez(pot=)'
     o= setup_orbit_analytic_EREz(MWPotential,axi=False)
     try:
+        o.Ez()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError('o.Ez() w/o potential before the orbit was integrated did not raise AttributeError')
+    try:
         o.ER()
     except AttributeError:
         pass
     else:
         raise AssertionError('o.ER() w/o potential before the orbit was integrated did not raise AttributeError')
     o= setup_orbit_analytic_EREz(MWPotential,axi=True)
+    try:
+        o.Ez()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError('o.Ez() w/o potential before the orbit was integrated did not raise AttributeError')
     try:
         o.ER()
     except AttributeError:
