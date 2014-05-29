@@ -1216,18 +1216,47 @@ def test_reverse():
     vzs= o.vz(times)
     phis= o.phi(times)
     o.reverse()
-    assert numpy.all(Rs-o.R(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(Rs-o.R(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.R'
-    assert numpy.all(vRs-o.vR(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(vRs-o.vR(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.vR'
-    assert numpy.all(vTs-o.vT(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(vTs-o.vT(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.vT'
-    assert numpy.all(zs-o.z(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(zs-o.z(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.z'
-    assert numpy.all(vzs-o.vz(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(vzs-o.vz(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.vz'
-    assert numpy.all(phis-o.phi(times)[::-1]) < 10.**-16., \
+    assert numpy.all(numpy.fabs(phis-o.phi(times)[::-1])) < 10.**-16., \
         'Orbit.reverse does not work as expected for o.phi'
+    return None
+
+# test getOrbit
+def test_getOrbit():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([1.,0.1,1.2,0.3,0.2,2.])
+    times= numpy.linspace(0.,7.,251)
+    o.integrate(times,lp)
+    Rs= o.R(times)
+    vRs= o.vR(times)
+    vTs= o.vT(times)
+    zs= o.z(times)
+    vzs= o.vz(times)
+    phis= o.phi(times)
+    orbarray= o.getOrbit()
+    assert numpy.all(numpy.fabs(Rs-orbarray[:,0])) < 10.**-16., \
+        'getOrbit does not work as expected for R'
+    assert numpy.all(numpy.fabs(vRs-orbarray[:,1])) < 10.**-16., \
+        'getOrbit does not work as expected for vR'
+    assert numpy.all(numpy.fabs(vTs-orbarray[:,2])) < 10.**-16., \
+        'getOrbit does not work as expected for vT'
+    assert numpy.all(numpy.fabs(zs-orbarray[:,3])) < 10.**-16., \
+        'getOrbit does not work as expected for z'
+    assert numpy.all(numpy.fabs(vzs-orbarray[:,4])) < 10.**-16., \
+        'getOrbit does not work as expected for vz'
+    assert numpy.all(numpy.fabs(phis-orbarray[:,5])) < 10.**-16., \
+        'getOrbit does not work as expected for phi'
     return None
 
 # Check plotting routines
