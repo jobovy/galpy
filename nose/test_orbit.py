@@ -1062,9 +1062,9 @@ def test_orbit_setup():
     assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vll(obs=obs)-4.74047) < 10.**-13., 'Orbit pmll setup does not agree with o.vll()'
+    assert numpy.fabs(o.vll()-4.74047) < 10.**-13., 'Orbit pmll setup does not agree with o.vll()'
     assert numpy.fabs(o.pmbb()-0.4) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vbb(obs=obs)-0.8*4.74047) < 10.**-13., 'Orbit pmbb setup does not agree with o.vbb()'
+    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-13., 'Orbit pmbb setup does not agree with o.vbb()'
     assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default at the Sun
     o= Orbit([120.,60.,0.,10.,20.,30.],uvw=True,lb=True)
