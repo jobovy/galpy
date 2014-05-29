@@ -1111,6 +1111,88 @@ def test_orbit_setup():
 
 # Check that toLinear and toPlanar work
 
+# Check that some relevant errors are being raised
+def test_attributeerrors():
+    from galpy.orbit import Orbit
+    #Vertical functions for planarOrbits
+    o= Orbit([1.,0.1,1.,0.1])
+    try:
+        o.z()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.z() for planarOrbit should have raised AttributeError, but did not")
+    try:
+        o.vz()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vz() for planarOrbit should have raised AttributeError, but did not")
+    #phi, x, y, vx, vy for Orbits that don't track phi
+    o= Orbit([1.,0.1,1.1,0.1,0.2])
+    try:
+        o.phi()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.phi() for RZOrbit should have raised AttributeError, but did not")
+    try:
+        o.x()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.x() for RZOrbit should have raised AttributeError, but did not")
+    try:
+        o.y()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.y() for RZOrbit should have raised AttributeError, but did not")
+    try:
+        o.vx()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vx() for RZOrbit should have raised AttributeError, but did not")
+    try:
+        o.vy()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vy() for RZOrbit should have raised AttributeError, but did not")
+    o= Orbit([1.,0.1,1.1])
+    try:
+        o.phi()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.phi() for planarROrbit should have raised AttributeError, but did not")
+    try:
+        o.x()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.x() for planarROrbit should have raised AttributeError, but did not")
+    try:
+        o.y()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.y() for planarROrbit should have raised AttributeError, but did not")
+    try:
+        o.vx()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vx() for planarROrbit should have raised AttributeError, but did not")
+    try:
+        o.vy()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vy() for planarROrbit should have raised AttributeError, but did not")
+    return None
+
 # Check plotting routines
 
 # Setup the orbit for the energy test
