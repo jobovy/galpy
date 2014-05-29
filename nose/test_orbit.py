@@ -1201,6 +1201,35 @@ def test_attributeerrors():
         raise AssertionError("o.vy() for planarROrbit should have raised AttributeError, but did not")
     return None
 
+# Test reversing an orbit
+def test_reverse():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([1.,0.1,1.2,0.3,0.2,2.])
+    times= numpy.linspace(0.,7.,251)
+    o.integrate(times,lp)
+    Rs= o.R(times)
+    vRs= o.vR(times)
+    vTs= o.vT(times)
+    zs= o.z(times)
+    vzs= o.vz(times)
+    phis= o.phi(times)
+    o.reverse()
+    assert numpy.all(Rs-o.R(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.R'
+    assert numpy.all(vRs-o.vR(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.vR'
+    assert numpy.all(vTs-o.vT(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.vT'
+    assert numpy.all(zs-o.z(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.z'
+    assert numpy.all(vzs-o.vz(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.vz'
+    assert numpy.all(phis-o.phi(times)[::-1]) < 10.**-16., \
+        'Orbit.reverse does not work as expected for o.phi'
+    return None
+
 # Check plotting routines
 
 # Setup the orbit for the energy test
