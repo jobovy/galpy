@@ -1077,6 +1077,14 @@ def test_orbit_setup():
     assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
     assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
     assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
+    #lb w/ default and UVW, test wrt helioXYZ
+    o= Orbit([180.,0.,2.,-10.,20.,-25.],lb=True,uvw=True)
+    assert numpy.fabs(o.helioX()+2./8.5) < 10.**-13., 'Orbit ll setup does not agree with o.helioX()'
+    assert numpy.fabs(o.helioY()-0.) < 10.**-13., 'Orbit bb setup does not agree with o.helioY()'
+    assert numpy.fabs(o.helioZ()-0.) < 10.**-13., 'Orbit dist setup does not agree with o.helioZ()'
+    assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
+    assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
+    assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
     #Radec w/ default and obs=Orbit
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
     obs= Orbit([1.,-10.1/235.,239./235,0.025/8.5,6.7/235.,0.])
