@@ -1062,7 +1062,9 @@ def test_orbit_setup():
     assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vll(obs=obs)-4.74047) < 10.**-13., 'Orbit pmll setup does not agree with o.vll()'
     assert numpy.fabs(o.pmbb()-0.4) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vbb(obs=obs)-0.8*4.74047) < 10.**-13., 'Orbit pmbb setup does not agree with o.vbb()'
     assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default at the Sun
     o= Orbit([120.,60.,0.,10.,20.,30.],uvw=True,lb=True)
@@ -1092,7 +1094,9 @@ def test_orbit_setup():
     assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-13., 'Orbit pmra setup does not agree with o.vra()'
     assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-13., 'Orbit pmdec setup does not agree with o.vdec()'
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb, plane w/ default
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
@@ -1101,7 +1105,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.5,0.,-10.,245.]
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
     assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
