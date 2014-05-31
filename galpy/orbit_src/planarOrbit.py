@@ -326,22 +326,24 @@ class planarROrbit(planarOrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        elif isinstance(pot,list):
+            thispot= []
+            for p in pot:
+                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                else: thispot.append(p)
+        else:
+            thispot= pot
         if kwargs.has_key('d1'):
             d1= kwargs['d1']
             kwargs.pop('d1')
         else:
             d1= 't'
-        if len(self.vxvv) == 4:
-            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                               phi=self.orbit[ii,3],
-                                               t=self.t[ii])+
-                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                      for ii in range(len(self.t))]
-        else:
-            self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
-                                               t=self.t[ii])+
-                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                      for ii in range(len(self.t))]
+        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
+                                           t=self.t[ii])+
+                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
+                  for ii in range(len(self.t))]
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
         if not kwargs.has_key('ylabel'):
@@ -557,12 +559,21 @@ class planarOrbit(planarOrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if isinstance(pot,Potential):
+            thispot= RZToplanarPotential(pot)
+        elif isinstance(pot,list):
+            thispot= []
+            for p in pot:
+                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                else: thispot.append(p)
+        else:
+            thispot= pot
         if kwargs.has_key('d1'):
             d1= kwargs['d1']
             kwargs.pop('d1')
         else:
             d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],pot,
+        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
                                            phi=self.orbit[ii,3])+
                   self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
                   for ii in range(len(self.t))]

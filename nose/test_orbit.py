@@ -1183,8 +1183,6 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
-# Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
-
 # Check that toPlanar works
 def test_toPlanar():
     from galpy.orbit import Orbit
@@ -1373,6 +1371,42 @@ def test_getOrbit():
     return None
 
 # Check plotting routines
+def test_planar_plotting():
+    from galpy.orbit import Orbit
+    from galpy.potential_src.planarPotential import RZToplanarPotential
+    o= Orbit([1.,0.1,1.1,2.])
+    oa= Orbit([1.,0.1,1.1])
+    times= numpy.linspace(0.,7.,251)
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
+    try: o.plotE()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotE() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: o.plotJacobi()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: oa.plotE()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotE() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    try: oa.plotJacobi()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    # Integrate
+    o.integrate(times,lp)
+    oa.integrate(times,lp)
+    # Default plot
+    o.plot()
+    
+    # Energy
+    o.plotE()
+    o.plotE(pot=lp,d1='R')
+    o.plotE(pot=lp,d1='vR')
+    o.plotE(pot=lp,d1='phi')
+    o.plotE(pot=[lp,RZToplanarPotential(lp)],d1='vT')
+    oa.plotE()
+    oa.plotE(pot=lp,d1='R')
+    oa.plotE(pot=lp,d1='vR')
+    oa.plotE(pot=[lp,RZToplanarPotential(lp)],d1='vT')
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False):
