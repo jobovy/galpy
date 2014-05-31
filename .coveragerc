@@ -15,6 +15,9 @@ exclude_lines =
 omit = 
     galpy/snapshot_src*
     galpy/snapshot.py
+    galpy/util/bovy_plot.py
+    galpy/util/bovy_ars.py
+    galpy/util/multi.py
 
 ignore_errors = True
 
