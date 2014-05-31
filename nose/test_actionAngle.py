@@ -896,6 +896,67 @@ def test_orbit_interface_spherical():
     assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
     return None
 
+# Test the Orbit interface for actionAngleStaeckel
+def test_orbit_interface_staeckel():
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71)
+    acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
+    type= 'staeckel'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type,delta=0.71),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type),
+                        obs.Or(pot=MWPotential,type=type),
+                        obs.Op(pot=MWPotential,type=type),
+                        obs.Oz(pot=MWPotential,type=type),
+                        obs.wr(pot=MWPotential,type=type),
+                        obs.wp(pot=MWPotential,type=type),
+                        obs.wz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
+    return None
+
+# Test the Orbit interface for actionAngleAdiabatic
+def test_orbit_interface_adiabatic():
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleAdiabatic(pot=MWPotential)
+    acfs= numpy.array(list(aAS(obs))).reshape(3)
+    type= 'adiabatic'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_actionAngleIsochroneApprox():
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
+    acfs= list(aAS(obs))
+    acfs.extend(list(aAS.actionsFreqsAngles(obs))[3:])
+    acfs= numpy.array(acfs).reshape(9)
+    type= 'isochroneApprox'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type,b=0.8),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type),
+                        obs.Or(pot=MWPotential,type=type),
+                        obs.Op(pot=MWPotential,type=type),
+                        obs.Oz(pot=MWPotential,type=type),
+                        obs.wr(pot=MWPotential,type=type),
+                        obs.wp(pot=MWPotential,type=type),
+                        obs.wz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApproxStaeckel does not return the same as actionAngle interface'
+    return None
+
 #Test the b estimation
 def test_estimateBIsochrone():
     from galpy.potential import IsochronePotential
