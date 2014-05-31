@@ -860,11 +860,39 @@ def test_add_linear_planar_orbit():
     of= ol+op
     assert isinstance(of._orb,FullOrbit.FullOrbit), \
         "Sum of linearOrbit and planarOrbit does not give a FullOrbit"
+    of= op+ol
+    assert isinstance(of._orb,FullOrbit.FullOrbit), \
+        "Sum of linearOrbit and planarOrbit does not give a FullOrbit"
     #w/o azimuth
     op= setup_orbit_energy(plp,axi=True)
     of= ol+op
     assert isinstance(of._orb,RZOrbit.RZOrbit), \
         "Sum of linearOrbit and planarROrbit does not give a FullOrbit"
+    of= op+ol
+    assert isinstance(of._orb,RZOrbit.RZOrbit), \
+        "Sum of linearOrbit and planarROrbit does not give a FullOrbit"
+    # op + op shouldn't work
+    try:
+        of= op+op
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError('Adding a planarOrbit to a planarOrbit did not raise AttributeError')
+    return None
+
+# Check that pickling orbits works
+def test_pickle():
+    import pickle
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.2,2.])
+    po= pickle.dumps(o)
+    upo= pickle.loads(po)
+    assert o.R() == upo.R(), "Pickled/unpickled orbit does not agree with original orbut for R"
+    assert o.vR() == upo.vR(), "Pickled/unpickled orbit does not agree with original orbut for vR"
+    assert o.vT() == upo.vT(), "Pickled/unpickled orbit does not agree with original orbut for vT"
+    assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
+    assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
+    assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
     return None
 
 # Basic checks of the angular momentum function
