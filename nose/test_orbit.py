@@ -1394,9 +1394,6 @@ def test_planar_plotting():
     # Integrate
     o.integrate(times,lp)
     oa.integrate(times,lp)
-    # Default plot
-    o.plot()
-    
     # Energy
     o.plotE()
     o.plotE(pot=lp,d1='R')
@@ -1407,6 +1404,257 @@ def test_planar_plotting():
     oa.plotE(pot=lp,d1='R')
     oa.plotE(pot=lp,d1='vR')
     oa.plotE(pot=[lp,RZToplanarPotential(lp)],d1='vT')
+    # Jacobi
+    o.plotJacobi()
+    o.plotJacobi(pot=lp,d1='R',OmegaP=1.)
+    o.plotJacobi(pot=lp,d1='vR')
+    o.plotJacobi(pot=lp,d1='phi')
+    o.plotJacobi(pot=[lp,RZToplanarPotential(lp)],d1='vT')
+    oa.plotJacobi()
+    oa.plotJacobi(pot=lp,d1='R',OmegaP=1.)
+    oa.plotJacobi(pot=lp,d1='vR')
+    oa.plotJacobi(pot=[lp,RZToplanarPotential(lp)],d1='vT')
+    # Plot the orbit itself, defaults
+    o.plot()
+    oa.plot()
+    o.plotx(d1='vx')
+    o.plotvx(d1='y')
+    o.ploty(d1='vy')
+    o.plotvy(d1='x')
+    # Plot the orbit itself in 3D, defaults
+    o.plot3d()
+    oa.plot3d()
+    o.plot3d(d1='x',d2='vx',d3='y')
+    o.plot3d(d1='vx',d2='y',d3='vy')
+    o.plot3d(d1='y',d2='vy',d3='x')
+    o.plot3d(d1='vy',d2='x',d3='vx')
+    return None
+
+# Check plotting routines
+def test_full_plotting():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.2,2.])
+    oa= Orbit([1.,0.1,1.1,0.1,0.2])
+    times= numpy.linspace(0.,7.,251)
+    from galpy.potential import LogarithmicHaloPotential
+    if not _TRAVIS:
+        from galpy.potential import DoubleExponentialDiskPotential
+        dp= DoubleExponentialDiskPotential(normalize=1.)
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
+    try: o.plotE()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotE() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: o.plotEz()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotEz() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: o.plotEzJz()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotJzEz() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: o.plotJacobi()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    try: oa.plotE()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotE() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    try: oa.plotEz()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotEz() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    try: oa.plotEzJz()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotEzJz() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    try: oa.plotJacobi()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarROrbit')
+    # Integrate
+    o.integrate(times,lp)
+    oa.integrate(times,lp)
+    # Energy
+    o.plotE()
+    o.plotE(pot=lp,d1='R')
+    o.plotE(pot=lp,d1='vR')
+    o.plotE(pot=lp,d1='vT')
+    o.plotE(pot=lp,d1='z')
+    o.plotE(pot=lp,d1='vz')
+    o.plotE(pot=lp,d1='phi')
+    if not _TRAVIS:
+        o.plotE(pot=dp,d1='phi')
+    oa.plotE()
+    oa.plotE(pot=lp,d1='R')
+    oa.plotE(pot=lp,d1='vR')
+    oa.plotE(pot=lp,d1='vT')
+    oa.plotE(pot=lp,d1='z')
+    oa.plotE(pot=lp,d1='vz')
+    # Vertical energy
+    o.plotEz()
+    o.plotEz(pot=lp,d1='R')
+    o.plotEz(pot=lp,d1='vR')
+    o.plotEz(pot=lp,d1='vT')
+    o.plotEz(pot=lp,d1='z')
+    o.plotEz(pot=lp,d1='vz')
+    o.plotEz(pot=lp,d1='phi')
+    if not _TRAVIS:
+        o.plotEz(pot=dp,d1='phi')
+    oa.plotEz()
+    oa.plotEz(pot=lp,d1='R')
+    oa.plotEz(pot=lp,d1='vR')
+    oa.plotEz(pot=lp,d1='vT')
+    oa.plotEz(pot=lp,d1='z')
+    oa.plotEz(pot=lp,d1='vz')
+    # EzJz
+    o.plotEzJz()
+    o.plotEzJz(pot=lp,d1='R')
+    o.plotEzJz(pot=lp,d1='vR')
+    o.plotEzJz(pot=lp,d1='vT')
+    o.plotEzJz(pot=lp,d1='z')
+    o.plotEzJz(pot=lp,d1='vz')
+    o.plotEzJz(pot=lp,d1='phi')
+    if not _TRAVIS:
+        o.plotEzJz(pot=dp,d1='phi')
+    oa.plotEzJz()
+    oa.plotEzJz(pot=lp,d1='R')
+    oa.plotEzJz(pot=lp,d1='vR')
+    oa.plotEzJz(pot=lp,d1='vT')
+    oa.plotEzJz(pot=lp,d1='z')
+    oa.plotEzJz(pot=lp,d1='vz')
+    # Jacobi
+    o.plotJacobi()
+    o.plotJacobi(pot=lp,d1='R',OmegaP=1.)
+    o.plotJacobi(pot=lp,d1='vR')
+    o.plotJacobi(pot=lp,d1='vT')
+    o.plotJacobi(pot=lp,d1='z')
+    o.plotJacobi(pot=lp,d1='vz')
+    o.plotJacobi(pot=lp,d1='phi')
+    oa.plotJacobi()
+    oa.plotJacobi(pot=lp,d1='R',OmegaP=1.)
+    oa.plotJacobi(pot=lp,d1='vR')
+    oa.plotJacobi(pot=lp,d1='vT')
+    oa.plotJacobi(pot=lp,d1='z')
+    oa.plotJacobi(pot=lp,d1='vz')
+    # Plot the orbit itself
+    o.plot() #defaults
+    oa.plot()
+    o.plot(d1='vR')
+    o.plotR()
+    o.plotvR(d1='vT')
+    o.plotvT(d1='z')
+    o.plotz(d1='vz')
+    o.plotvz(d1='phi')
+    o.plotphi(d1='vR')
+    o.plotx(d1='vx')
+    o.plotvx(d1='y')
+    o.ploty(d1='vy')
+    o.plotvy(d1='x')
+    # Remaining attributes
+    o.plot(d1='ra',d2='dec')
+    o.plot(d2='ra',d1='dec')
+    o.plot(d1='pmra',d2='pmdec')
+    o.plot(d2='pmra',d1='pmdec')
+    o.plot(d1='ll',d2='bb')
+    o.plot(d2='ll',d1='bb')
+    o.plot(d1='pmll',d2='pmbb')
+    o.plot(d2='pmll',d1='pmbb')
+    o.plot(d1='vlos',d2='dist')
+    o.plot(d2='vlos',d1='dist')
+    o.plot(d1='helioX',d2='U')
+    o.plot(d2='helioX',d1='U')
+    o.plot(d1='helioY',d2='V')
+    o.plot(d2='helioY',d1='V')
+    o.plot(d1='helioZ',d2='W')
+    o.plot(d2='helioZ',d1='W')
+    # Test AttributeErrors
+    try: oa.plotx()
+    except AttributeError: pass
+    else: raise AssertionError('plotx() applied to RZOrbit did not raise AttributeError')
+    try: oa.plotvx()
+    except AttributeError: pass
+    else: raise AssertionError('plotvx() applied to RZOrbit did not raise AttributeError')
+    try: oa.ploty()
+    except AttributeError: pass
+    else: raise AssertionError('ploty() applied to RZOrbit did not raise AttributeError')
+    try: oa.plotvy()
+    except AttributeError: pass
+    else: raise AssertionError('plotvy() applied to RZOrbit did not raise AttributeError')
+    try: oa.plot(d1='x')
+    except AttributeError: pass
+    else: raise AssertionError("plot(d1='x') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot(d1='vx')
+    except AttributeError: pass
+    else: raise AssertionError("plot(d1='vx') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot(d1='y')
+    except AttributeError: pass
+    else: raise AssertionError("plot(d1='y') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot(d1='vy')
+    except AttributeError: pass
+    else: raise AssertionError("plot(d1='vy') applied to RZOrbit did not raise AttributeError")
+    # Plot the orbit itself in 3D
+    o.plot3d() #defaults
+    oa.plot3d()
+    o.plot3d(d1='t',d2='z',d3='R')
+    o.plot3d(d1='R',d2='t',d3='phi')
+    o.plot3d(d1='vT',d2='vR',d3='t')
+    o.plot3d(d1='z',d2='vT',d3='vz')
+    o.plot3d(d1='vz',d2='z',d3='phi')
+    o.plot3d(d1='phi',d2='vz',d3='R')
+    o.plot3d(d1='vR',d2='phi',d3='vR')
+    o.plot3d(d1='vx',d2='x',d3='y')
+    o.plot3d(d1='y',d2='vx',d3='vy')
+    o.plot3d(d1='vy',d2='y',d3='x')
+    o.plot3d(d1='x',d2='vy',d3='vx')
+    # Remaining attributes
+    o.plot3d(d1='ra',d2='dec',d3='pmra')
+    o.plot3d(d2='ra',d1='dec',d3='pmdec')
+    o.plot3d(d1='pmra',d2='pmdec',d3='ra')
+    o.plot3d(d2='pmra',d1='pmdec',d3='dec')
+    o.plot3d(d1='ll',d2='bb',d3='pmll')
+    o.plot3d(d2='ll',d1='bb',d3='pmbb')
+    o.plot3d(d1='pmll',d2='pmbb',d3='ll')
+    o.plot3d(d2='pmll',d1='pmbb',d3='bb')
+    o.plot3d(d1='vlos',d2='dist',d3='vlos')
+    o.plot3d(d2='vlos',d1='dist',d3='dist')
+    o.plot3d(d1='helioX',d2='U',d3='V')
+    o.plot3d(d2='helioX',d1='U',d3='helioY')
+    o.plot3d(d1='helioY',d2='V',d3='W')
+    o.plot3d(d2='helioY',d1='V',d3='helioZ')
+    o.plot3d(d1='helioZ',d2='W',d3='U')
+    o.plot3d(d2='helioZ',d1='W',d3='helioX')
+    # Test AttributeErrors
+    try: oa.plot3d(d2='x',d1='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d2='x') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d2='vx',d1='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d2='vx') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d2='y',d1='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d2='y') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot(d2='vy',d1='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d2='vy') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d1='x',d2='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d1='x') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d1='vx',d2='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d1='vx') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d1='y',d2='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d1='y') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d1='vy',d2='R',d3='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d1='vy') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d3='x',d2='R',d1='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d3='x') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d3='vx',d2='R',d1='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d3='vx') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d3='y',d2='R',d1='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d3='y') applied to RZOrbit did not raise AttributeError")
+    try: oa.plot3d(d3='vy',d2='R',d1='t')
+    except AttributeError: pass
+    else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
+    return None
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False):
