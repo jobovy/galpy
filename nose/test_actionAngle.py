@@ -838,6 +838,64 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='azaphi',deperiod=True,downsample=True)
     return None
 
+#Test the Orbit interface
+def test_orbit_interface_spherical():
+    from galpy.potential import LogarithmicHaloPotential, NFWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleSpherical
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    obs= Orbit([1., 0.2, 1.5, 0.3,0.1,2.])
+    assert not obs.resetaA(), 'obs.resetaA() does not return False when called before having set up an actionAngle instance'
+    aAS= actionAngleSpherical(pot=lp)
+    acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
+    type= 'spherical'
+    acfso= numpy.array([obs.jr(pot=lp,type=type),
+                        obs.jp(pot=lp,type=type),
+                        obs.jz(pot=lp,type=type),
+                        obs.Or(pot=lp,type=type),
+                        obs.Op(pot=lp,type=type),
+                        obs.Oz(pot=lp,type=type),
+                        obs.wr(pot=lp,type=type),
+                        obs.wp(pot=lp,type=type),
+                        obs.wz(pot=lp,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=lp,type=type)-2.*numpy.pi/acfs[3]) < 10.**-16., \
+        'Orbit.Tr does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.Tp(pot=lp,type=type)-2.*numpy.pi/acfs[4]) < 10.**-16., \
+        'Orbit.Tp does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.Tz(pot=lp,type=type)-2.*numpy.pi/acfs[5]) < 10.**-16., \
+        'Orbit.Tz does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.TrTp(pot=lp,type=type)-acfs[4]/acfs[3]*numpy.pi) < 10.**-16., \
+        'Orbit.TrTp does not agree with actionAngleSpherical frequency'
+    #Different spherical potential
+    np= NFWPotential(normalize=1.)
+    aAS= actionAngleSpherical(pot=np)
+    acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
+    type= 'spherical'
+    assert obs.resetaA(pot=np), 'obs.resetaA() does not return True after having set up an actionAngle instance'
+    try:
+        obs.jr(type=type)
+    except AttributeError:
+        pass #should raise this, as we have not specified a potential
+    else:
+        raise AssertionError('obs.jr w/o pot= does not raise AttributeError before the orbit was integrated')
+    obs.integrate(numpy.linspace(0.,1.,11),np) #to test that not specifying the potential works
+    acfso= numpy.array([obs.jr(type=type),
+                        obs.jp(type=type),
+                        obs.jz(type=type),
+                        obs.Or(type=type),
+                        obs.Op(type=type),
+                        obs.Oz(type=type),
+                        obs.wr(type=type),
+                        obs.wp(type=type),
+                        obs.wz(type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface'   
+    #Directly test _resetaA
+    assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
+    return None
+
 #Test the b estimation
 def test_estimateBIsochrone():
     from galpy.potential import IsochronePotential
