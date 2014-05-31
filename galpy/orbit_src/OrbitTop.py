@@ -20,6 +20,7 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
+        self.vxvv= vxvv
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):
