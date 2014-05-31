@@ -19,7 +19,7 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        self.vxvv= vxvv
+        OrbitTop.__init__(self,vxvv=vxvv)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateLinearOrbit
         return None

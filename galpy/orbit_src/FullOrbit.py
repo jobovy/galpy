@@ -26,7 +26,7 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-08-01 - Written - Bovy (NYU)
         """
-        self.vxvv= vxvv
+        OrbitTop.__init__(self,vxvv=vxvv)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateFullOrbit
         return None

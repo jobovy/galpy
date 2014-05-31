@@ -17,7 +17,7 @@ ext_loaded= _ext_loaded
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
-    def __init__(self,vxvv=None):
+    def __init__(self,vxvv=None): #pragma: no cover (never used)
         """
         NAME:
            __init__
@@ -29,6 +29,7 @@ class planarOrbitTop(OrbitTop):
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
+        OrbitTop.__init__(self,vxvv=vxvv)
         return None
 
     def e(self,analytic=False,pot=None):
@@ -206,7 +207,7 @@ class planarROrbit(planarOrbitTop):
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
-        self.vxvv= vxvv
+        OrbitTop.__init__(self,vxvv=vxvv)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateROrbit
         return None
@@ -375,9 +376,9 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-07-12 - Written - Bovy (NYU)
         """
-        if len(vxvv) == 3:
+        if len(vxvv) == 3: #pragma: no cover
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
-        self.vxvv= vxvv
+        OrbitTop.__init__(self,vxvv=vxvv)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateOrbit
         return None

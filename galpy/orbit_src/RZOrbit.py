@@ -23,7 +23,7 @@ class RZOrbit(OrbitTop):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        self.vxvv= vxvv
+        OrbitTop.__init__(self,vxvv=vxvv)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateRZOrbit
         return None
