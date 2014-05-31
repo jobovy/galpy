@@ -1121,7 +1121,52 @@ def test_orbit_setup():
 
 # Check that getOrbit returns the orbit properly (agrees with the input and with vR, ...)
 
-# Check that toLinear and toPlanar work
+# Check that toPlanar works
+def test_toPlanar():
+    from galpy.orbit import Orbit
+    obs= Orbit([1.,0.1,1.1,0.3,0.,2.])
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for FullOrbit'
+    assert obsp.R() == obs.R(), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert obsp.vR() == obs.vR(), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert obsp.vT() == obs.vT(), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    assert obsp.phi() == obs.phi(), 'Planar orbit generated w/ toPlanar does not have the correct phi'
+    obs= Orbit([1.,0.1,1.1,0.3,0.])
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for RZOrbit'
+    assert obsp.R() == obs.R(), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert obsp.vR() == obs.vR(), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert obsp.vT() == obs.vT(), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    obs= Orbit([1.,0.1,1.1,2.])
+    try:
+        obs.toPlanar()
+    except AttributeError:
+        pass
+    else:
+        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')        
+    return None
+
+# Check that toLinear works
+def test_toLinear():
+    from galpy.orbit import Orbit
+    obs= Orbit([1.,0.1,1.1,0.3,0.,2.])
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    obs= Orbit([1.,0.1,1.1,0.3,0.])
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    obs= Orbit([1.,0.1,1.1,2.])
+    try:
+        obs.toLinear()
+    except AttributeError:
+        pass
+    else:
+        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')        
+    return None
 
 # Check that some relevant errors are being raised
 def test_attributeerrors():
