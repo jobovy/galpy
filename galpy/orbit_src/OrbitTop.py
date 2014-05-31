@@ -959,7 +959,7 @@ class OrbitTop:
                                                        **kwargs)
         return None
 
-    def xw(self,*args,**kwargs):
+    def _xw(self,*args,**kwargs): #pragma: no cover
         """
         NAME:
            xw
@@ -978,7 +978,7 @@ class OrbitTop:
         xw= nu.abs(xw[0:len(xw)/2])*(self.t[1]-self.t[0])/(self.t[-1]-self.t[0])
         return xw
 
-    def plotxw(self,*args,**kwargs):
+    def _plotxw(self,*args,**kwargs): #pragma: no cover
         """
         NAME:
            plotxw
