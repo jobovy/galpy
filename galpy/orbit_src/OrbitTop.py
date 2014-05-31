@@ -1704,7 +1704,7 @@ class OrbitTop:
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        kwargs['d2']= 'phi'
+        kwargs['d2']= 'vz'
         self.plot(*args,**kwargs)
         
     def _setupOrbitInterp(self):
