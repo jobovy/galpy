@@ -361,9 +361,6 @@ class planarROrbit(planarOrbitTop):
             plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
 
-    def _callRect(self,*args):
-        raise AttributeError("Cannot transform R-only planar orbit to rectangular coordinates")
-
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
     def __init__(self,vxvv=[1.,0.,1.,0.]):
@@ -596,17 +593,6 @@ class planarOrbit(planarOrbitTop):
         elif d1 == 'phi':
             plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
                            *args,**kwargs)
-
-
-    def _callRect(self,*args):
-        kwargs= {}
-        kwargs['rect']= False
-        vxvv= self.__call__(*args,**kwargs)
-        x= vxvv[0]*m.cos(vxvv[3])
-        y= vxvv[0]*m.sin(vxvv[3])
-        vx= vxvv[1]*m.cos(vxvv[5])-vxvv[2]*m.sin(vxvv[5])
-        vy= -vxvv[1]*m.sin(vxvv[5])-vxvv[2]*m.cos(vxvv[5])
-        return nu.array([x,y,vx,vy])
 
 def _integrateROrbit(vxvv,pot,t,method):
     """

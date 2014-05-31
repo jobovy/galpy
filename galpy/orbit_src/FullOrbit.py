@@ -576,16 +576,6 @@ class FullOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
                            *args,**kwargs)
 
-    def _callRect(self,*args):
-        kwargs= {}
-        kwargs['rect']= False
-        vxvv= self.__call__(*args,**kwargs)
-        x= vxvv[0]*nu.cos(vxvv[5])
-        y= vxvv[0]*nu.sin(vxvv[5])
-        vx= vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5])
-        vy= -vxvv[1]*nu.sin(vxvv[5])-vxvv[2]*nu.cos(vxvv[5])
-        return nu.array([x,y,vxvv[3],vx,vy,vxvv[4]])
-
 def _integrateFullOrbit(vxvv,pot,t,method):
     """
     NAME:
