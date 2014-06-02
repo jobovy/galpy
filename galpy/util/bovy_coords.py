@@ -440,13 +440,9 @@ def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
        2009-10-24 - Written - Bovy (NYU)
     """
     if XYZ:
-        lbd= XYZ_to_lbd(l,b,d,degree=degree)
-        if degree:
-            l= lbd[0]*_DEGTORAD
-            b= lbd[1]*_DEGTORAD
-        else:
-            l= lbd[0]
-            b= lbd[1]
+        lbd= XYZ_to_lbd(l,b,d,degree=False)
+        l= lbd[0]
+        b= lbd[1]
         d= lbd[2]
     else:
         if degree:
@@ -529,13 +525,9 @@ def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
        2009-10-24 - Written - Bovy (NYU)
     """ 
     if XYZ:
-        lbd= XYZ_to_lbd(l,b,d,degree)
-        if degree:
-            l= lbd[0]*_DEGTORAD
-            b= lbd[1]*_DEGTORAD
-        else:
-            l= lbd[0]
-            b= lbd[1]
+        lbd= XYZ_to_lbd(l,b,d,degree=False)
+        l= lbd[0]
+        b= lbd[1]
         d= lbd[2]
     else:
         if degree:
