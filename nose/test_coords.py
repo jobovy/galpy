@@ -234,5 +234,47 @@ def test_sphergal_to_rectgal():
     assert numpy.all(numpy.fabs(vz-30.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
     return None
 
-#def test_rectgal_to_sphergal():
-    
+def test_rectgal_to_sphergal():
+    #Test that this is the inverse of sphergal_to_rectgal
+    l,b,d= 90.,30.,1.
+    vr,pmll,pmbb= 10.,-20.,30.
+    X,Y,Z,vx,vy,vz= bovy_coords.sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,
+                                                    degree=True)
+    lt,bt,dt,vrt,pmllt,pmbbt= bovy_coords.rectgal_to_sphergal(X,Y,Z,
+                                                              vx,vy,vz,
+                                                              degree=True)
+    assert numpy.fabs(lt-l) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(bt-b) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(dt-d) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(vrt-vr) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(pmllt-pmll) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(pmbbt-pmbb) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    #Also test for degree=False
+    lt,bt,dt,vrt,pmllt,pmbbt= bovy_coords.rectgal_to_sphergal(X,Y,Z,
+                                                              vx,vy,vz,
+                                                              degree=False)
+    assert numpy.fabs(lt-l/180.*numpy.pi) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(bt-b/180.*numpy.pi) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(dt-d) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(vrt-vr) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(pmllt-pmll) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.fabs(pmbbt-pmbb) < 10.**-10., 'rectgal_to_sphergal conversion did not work as expected'
+    #Also test for arrays
+    os= numpy.ones(2)
+    lbdvrpmllpmbbt= bovy_coords.rectgal_to_sphergal(os*X,os*Y,os*Z,
+                                                              os*vx,os*vy,
+                                                              os*vz,
+                                                              degree=True)
+    lt= lbdvrpmllpmbbt[:,0]
+    bt= lbdvrpmllpmbbt[:,1]
+    dt= lbdvrpmllpmbbt[:,2]
+    vrt= lbdvrpmllpmbbt[:,3]
+    pmllt= lbdvrpmllpmbbt[:,4]
+    pmbbt= lbdvrpmllpmbbt[:,5]
+    assert numpy.all(numpy.fabs(lt-l) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(bt-b) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(dt-d) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vrt-vr) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(pmllt-pmll) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'    
+    return None
