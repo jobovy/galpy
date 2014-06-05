@@ -690,7 +690,7 @@ def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
         sindec= m.sin(dec)
         sinb= m.sin(b)
         cosdec= m.cos(dec)
-        cosb= m.sin(b)
+        cosb= m.cos(b)
         sinrarangp= m.sin(ra-ra_ngp)
     cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     sinphi= sinrarangp*cosdec_ngp/cosb
@@ -860,7 +860,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
         sindec= m.sin(dec)
         sinb= m.sin(b)
         cosdec= m.cos(dec)
-        cosb= m.sin(b)
+        cosb= m.cos(b)
         sinrarangp= m.sin(ra-ra_ngp)
     cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     sinphi= sinrarangp*cosdec_ngp/cosb
