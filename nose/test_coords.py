@@ -1,5 +1,6 @@
 import numpy
 from galpy.util import bovy_coords
+from test_streamdf import expected_failure
 
 def test_radec_to_lb_ngp():
     # Test that the NGP is at b=90
@@ -277,4 +278,26 @@ def test_rectgal_to_sphergal():
     assert numpy.all(numpy.fabs(vrt-vr) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(pmllt-pmll) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'    
+    return None
+
+@expected_failure
+def test_pmrapmdec_to_pmllpmbb():
+    #This is a random ra,dec
+    ra, dec= 132., -20.4
+    pmra, pmdec= 10., 20.
+    pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,
+                                              ra,dec,degree=True,epoch=1950.)
+    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmrapmdec_to_pmllpmbb conversion did not work as expected'
+    # This is the NGP at 1950.
+    ra, dec= 192.25, 27.4
+    pmra, pmdec= 10., 20.
+    pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,
+                                              ra,dec,degree=True,epoch=1950.)
+    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmrapmdec_to_pmllpmbb conversion did not work as expected for the NGP'
+    # This is the NCP
+    ra, dec= 180., 90.
+    pmra, pmdec= 10., 20.
+    pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,
+                                              ra,dec,degree=True,epoch=1950.)
+    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmrapmdec_to_pmllpmbb conversion did not work as expected for the NCP'
     return None
