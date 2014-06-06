@@ -194,6 +194,22 @@ def test_galcenrect_to_XYZ():
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     return None
 
+def test_XYZ_to_galcencyl():
+    X,Y,Z= 5.,4.,-2.
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Ysun=0.,Zsun=0.)
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    return None
+
+def test_galcencyl_to_XYZ():
+    gcR, gcp, gcZ= 5.,numpy.arctan(4./3.),2.
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR,gcp,gcZ,Xsun=8.,Ysun=0.,Zsun=0.)
+    assert numpy.fabs(XYZ[0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    return None
+
 def test_sphergal_to_rectgal():
     l,b,d= 90.,0.,1.
     vr,pmll,pmbb= 10.,-20./4.74047,30./4.74047
