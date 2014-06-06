@@ -245,6 +245,13 @@ def test_galcenrect_to_vxvyvz():
     assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    #Also for arrays
+    os= numpy.ones(2)
+    vxyz= bovy_coords.galcenrect_to_vxvyvz(os*vxg,os*vyg,os*vzg,
+                                           vsun=[-5.,10.,5.])
+    assert numpy.all(numpy.fabs(vxyz[0]-10.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[1]+20.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[2]-30.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
     return None
 
 def test_galcencyl_to_vxvyvz():
