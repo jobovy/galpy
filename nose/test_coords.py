@@ -280,7 +280,6 @@ def test_rectgal_to_sphergal():
     assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'    
     return None
 
-@expected_failure
 def test_pmrapmdec_to_pmllpmbb():
     #This is a random ra,dec
     ra, dec= 132., -20.4
@@ -288,10 +287,21 @@ def test_pmrapmdec_to_pmllpmbb():
     pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,
                                               ra,dec,degree=True,epoch=1950.)
     assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmrapmdec_to_pmllpmbb conversion did not work as expected'
+    # This is close to the NGP at 1950.
+    ra, dec= 192.24, 27.39
+    pmra, pmdec= 10., 20.
+    os= numpy.ones(2)
+    pmllpmbb= bovy_coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
+                                                  os*ra,os*dec,
+                                                  degree=True,epoch=1950.)
+    
+    pmll= pmllpmbb[:,0]
+    pmbb= pmllpmbb[:,1]
+    assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmrapmdec_to_pmllpmbb conversion did not work as expected close to the NGP'
     # This is the NGP at 1950.
     ra, dec= 192.25, 27.4
     pmra, pmdec= 10., 20.
-    os= numpy.zeros(2)
+    os= numpy.ones(2)
     pmllpmbb= bovy_coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
                                                   os*ra,os*dec,
                                                   degree=True,epoch=1950.)
@@ -308,7 +318,6 @@ def test_pmrapmdec_to_pmllpmbb():
     assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmrapmdec_to_pmllpmbb conversion did not work as expected for the NCP'
     return None
 
-@expected_failure
 def test_pmllpmbb_to_pmrapmdec():
     #This is a random l,b
     ll, bb= 132., -20.4
@@ -316,7 +325,17 @@ def test_pmllpmbb_to_pmrapmdec():
     pmra, pmdec= bovy_coords.pmllpmbb_to_pmrapmdec(pmll,pmbb,
                                                    ll,bb,
                                                    degree=True,epoch=1950.)
-    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmllpmbb_to_pmrapmdec conversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmllpmbb_to_pmrapmdec conversion did not work as expected for a random l,b'
+    # This is close to the NGP
+    ll,bb= numpy.pi-0.001, numpy.pi/2.-0.001
+    pmll, pmbb= 10., 20.
+    os= numpy.ones(2)
+    pmrapmdec= bovy_coords.pmllpmbb_to_pmrapmdec(os*pmll,os*pmbb,
+                                                 os*ll,os*bb,
+                                                 degree=False,epoch=1950.)
+    pmra= pmrapmdec[:,0]
+    pmdec= pmrapmdec[:,1]
+    assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmllpmbb_to_pmrapmdec conversion did not work as expected close to the NGP'
     # This is the NGP
     ll,bb= numpy.pi, numpy.pi/2.
     pmll, pmbb= 10., 20.
@@ -326,7 +345,7 @@ def test_pmllpmbb_to_pmrapmdec():
                                                  degree=False,epoch=1950.)
     pmra= pmrapmdec[:,0]
     pmdec= pmrapmdec[:,1]
-    assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmllpmbb_to_pmrapmdec conversion did not work as expected'
+    assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmllpmbb_to_pmrapmdec conversion did not work as expected at the NGP'
     # This is the NCP
     ra, dec= numpy.pi, numpy.pi/2.
     ll, bb= bovy_coords.radec_to_lb(ra,dec,degree=False,epoch=1950.)
@@ -334,5 +353,5 @@ def test_pmllpmbb_to_pmrapmdec():
     pmra, pmdec= bovy_coords.pmllpmbb_to_pmrapmdec(pmll,pmbb,
                                                    ll,bb,
                                                    degree=False,epoch=1950.)
-    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmllpmbb_to_pmrapmdec conversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmllpmbb_to_pmrapmdec conversion did not work as expected at the NCP'
     return None

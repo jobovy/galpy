@@ -680,20 +680,24 @@ def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
         sindec_ngp= m.sin(dec_ngp)
         cosdec_ngp= m.cos(dec_ngp)
         sindec= m.sin(dec*_DEGTORAD)
-        sinb= m.sin(b*_DEGTORAD)
         cosdec= m.cos(dec*_DEGTORAD)
-        cosb= m.cos(b*_DEGTORAD)
         sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
     else:
         sindec_ngp= m.sin(dec_ngp)
         cosdec_ngp= m.cos(dec_ngp)
         sindec= m.sin(dec)
-        sinb= m.sin(b)
         cosdec= m.cos(dec)
-        cosb= m.cos(b)
         sinrarangp= m.sin(ra-ra_ngp)
-    cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    sinphi= sinrarangp*cosdec_ngp/cosb
+        cosrarangp= m.cos(ra*-ra_ngp)
+    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    #sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
+    sinphi= sinrarangp*cosdec_ngp
+    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    cosphi/= norm
+    sinphi/= norm
     out= sc.dot(sc.array([[cosphi,sinphi],[-sinphi,cosphi]]),sc.array([pmra,pmdec]))
     return (out[0], out[1])
 
@@ -764,20 +768,24 @@ def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
         sindec_ngp= m.sin(dec_ngp)
         cosdec_ngp= m.cos(dec_ngp)
         sindec= m.sin(dec*_DEGTORAD)
-        sinb= m.sin(b*_DEGTORAD)
         cosdec= m.cos(dec*_DEGTORAD)
-        cosb= m.cos(b*_DEGTORAD)
         sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
     else:
         sindec_ngp= m.sin(dec_ngp)
         cosdec_ngp= m.cos(dec_ngp)
         sindec= m.sin(dec)
-        sinb= m.sin(b)
         cosdec= m.cos(dec)
-        cosb= m.cos(b)
         sinrarangp= m.sin(ra-ra_ngp)
-    cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    sinphi= sinrarangp*cosdec_ngp/cosb
+        cosrarangp= m.cos(ra-ra_ngp)
+    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    #sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
+    sinphi= sinrarangp*cosdec_ngp
+    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    cosphi/= norm
+    sinphi/= norm
     out= sc.dot(sc.array([[cosphi,-sinphi],[sinphi,cosphi]]),sc.array([pmll,pmbb]))
     return (out[0], out[1])
 
