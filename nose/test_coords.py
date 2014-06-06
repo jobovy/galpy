@@ -184,6 +184,12 @@ def test_XYZ_to_galcenrect():
     assert numpy.fabs(gcXYZ[0]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    #Another test
+    X,Y,Z= -1.,3.,-2.
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.)
+    assert numpy.fabs(gcXYZ[0]-2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     return None
 
 def test_galcenrect_to_XYZ():
