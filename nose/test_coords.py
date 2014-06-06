@@ -231,8 +231,31 @@ def test_vxvyvz_to_galcencyl():
     assert numpy.fabs(vgc[0]+17.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(vgc[1]-6.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    #with galcen=True
+    vgc= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,5.,numpy.arctan(4./3.),Z,
+                                         vsun=[-5.,10.,5.],galcen=True)
+    assert numpy.fabs(vgc[0]+17.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[1]-6.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
     return None
     
+def test_galcenrect_to_vxvyvz():
+    vxg,vyg,vzg= -15.,-10.,35.
+    vxyz= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    return None
+
+def test_galcencyl_to_vxvyvz():
+    vr,vp,vz= -17.,6.,35.
+    phi= numpy.arctan(4./3.)
+    vxyz= bovy_coords.galcencyl_to_vxvyvz(vr,vp,vz,phi,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    return None   
+
 def test_sphergal_to_rectgal():
     l,b,d= 90.,0.,1.
     vr,pmll,pmbb= 10.,-20./4.74047,30./4.74047
