@@ -456,3 +456,36 @@ def test_dl_to_rphi_2d():
     assert numpy.all(numpy.fabs(r-2.) < 10.**-10.), 'dl_to_rphi_2d conversion did not work as expected'
     assert numpy.all(numpy.fabs(phi-45.) < 10.**-10.), 'dl_to_rphi_2d conversion did not work as expected'
     return None
+
+def test_rphi_to_dl_2d():
+    #This is a tangent point
+    r,phi= 6., numpy.arccos(0.75)
+    d,l= bovy_coords.rphi_to_dl_2d(r,phi,degree=False,ro=8.,phio=0.)
+    l= numpy.arcsin(0.75)
+    d= 6./numpy.tan(l)
+    assert numpy.fabs(d-6./numpy.tan(numpy.arcsin(0.75))) < 10.**-10., 'dl_to_rphi_2d conversion did not work as expected'
+    assert numpy.fabs(l-numpy.arcsin(0.75)) < 10.**-10., 'rphi_to_dl_2d conversion did not work as expected'
+    #This is another point
+    r,phi= 2., 55.
+    d,l= bovy_coords.rphi_to_dl_2d(r,phi,degree=True,ro=2.*numpy.sqrt(2.),
+                                   phio=10.)
+    assert numpy.fabs(d-2.) < 10.**-10., 'rphi_to_dl_2d conversion did not work as expected'
+    assert numpy.fabs(l-45.) < 10.**-10., 'rphi_to_dl_2d conversion did not work as expected'
+    #This is another point, for arrays
+    r,phi= 2., 45.
+    os= numpy.ones(2)
+    d,l= bovy_coords.rphi_to_dl_2d(os*r,os*phi,
+                                   degree=True,ro=2.*numpy.sqrt(2.),
+                                   phio=0.)
+    assert numpy.all(numpy.fabs(d-2.) < 10.**-10.), 'rphi_to_dl_2d conversion did not work as expected'
+    assert numpy.all(numpy.fabs(l-45.) < 10.**-10.), 'rphi_to_dl_2d conversion did not work as expected'
+    #This is another point, for lists, which for some reason I support
+    r,phi= 2., 45.
+    d,l= bovy_coords.rphi_to_dl_2d([r,r],[phi,phi],
+                                   degree=True,ro=2.*numpy.sqrt(2.),
+                                   phio=0.)
+    d= numpy.array(d)
+    l= numpy.array(l)
+    assert numpy.all(numpy.fabs(d-2.) < 10.**-10.), 'rphi_to_dl_2d conversion did not work as expected'
+    assert numpy.all(numpy.fabs(l-45.) < 10.**-10.), 'rphi_to_dl_2d conversion did not work as expected'
+    return None
