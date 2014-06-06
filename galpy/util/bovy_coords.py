@@ -1161,7 +1161,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
 
        vz - W
 
-       vsun - velocity of the sun ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]
 
     OUTPUT:
 
@@ -1198,7 +1198,7 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
 
        Z - Z
 
-       vsun - velocity of the sun ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]
 
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates
 
@@ -1232,7 +1232,7 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
 
        vZg - Galactocentric z-velocity
 
-       vsun - velocity of the sun ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]
 
     OUTPUT:
 
@@ -1270,7 +1270,7 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
 
        phi - Galactocentric azimuth
 
-       vsun - velocity of the sun ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]
 
     OUTPUT:
 
