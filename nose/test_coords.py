@@ -206,6 +206,12 @@ def test_XYZ_to_galcencyl():
     assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    #Another X
+    X,Y,Z= 11.,4.,-2.
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Ysun=0.,Zsun=0.)
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     return None
 
 def test_galcencyl_to_XYZ():
