@@ -437,6 +437,45 @@ def test_pmllpmbb_to_pmrapmdec():
     assert numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10., 'pmllpmbb_to_pmrapmdec conversion did not work as expected at the NCP'
     return None
 
+def test_cov_pmradec_to_pmllbb():
+    # This is the NGP at 1950., for this the parallactic angle is 180
+    ra, dec= 192.25, 27.4
+    cov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
+    cov_pmllpmbb= bovy_coords.cov_pmrapmdec_to_pmllpmbb(cov_pmrapmdec,
+                                                       ra,dec,
+                                                       degree=True,
+                                                       epoch=1950.)
+    
+    assert numpy.fabs(cov_pmllpmbb[0,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    assert numpy.fabs(cov_pmllpmbb[0,1]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    assert numpy.fabs(cov_pmllpmbb[1,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    assert numpy.fabs(cov_pmllpmbb[1,1]-400.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    # This is a random position, check that the conversion makes sense
+    ra, dec= 132.25, -23.4
+    cov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
+    cov_pmllpmbb= bovy_coords.cov_pmrapmdec_to_pmllpmbb(cov_pmrapmdec,
+                                                        ra/180.*numpy.pi,
+                                                        dec/180.*numpy.pi,
+                                                        degree=False,
+                                                        epoch=1950.)
+    assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb)-numpy.linalg.det(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    assert numpy.fabs(numpy.trace(cov_pmllpmbb)-numpy.trace(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    # This is a random position, check that the conversion makes sense, arrays
+    ra, dec= 132.25, -23.4
+    icov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
+    cov_pmrapmdec= numpy.empty((3,2,2))
+    for ii in range(3): cov_pmrapmdec[ii,:,:]= icov_pmrapmdec
+    os= numpy.ones(3)
+    cov_pmllpmbb= bovy_coords.cov_pmrapmdec_to_pmllpmbb(cov_pmrapmdec,
+                                                        os*ra,
+                                                        os*dec,
+                                                        degree=True,
+                                                        epoch=1950.)
+    for ii in range(3):
+        assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb[ii,:,:])-numpy.linalg.det(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+        assert numpy.fabs(numpy.trace(cov_pmllpmbb[ii,:,:])-numpy.trace(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    return None
+
 def test_dl_to_rphi_2d():
     #This is a tangent point
     l= numpy.arcsin(0.75)
