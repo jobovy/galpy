@@ -632,3 +632,52 @@ def test_Rz_to_coshucosv():
     assert numpy.all(numpy.fabs(coshu-5./3.) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
     assert numpy.all(numpy.fabs(cosv-0.5) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
     return None
+
+def test_cyl_to_rect_jac():
+    #Just position
+    R,phi,Z= 2., numpy.pi, 1.
+    jac= bovy_coords.cyl_to_rect_jac(R,phi,Z)
+    assert numpy.fabs(numpy.linalg.det(jac)-R) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,0]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,1]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,2]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,1]+2.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,2]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,1]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,2]-1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    #6D
+    R,phi,Z= 2., numpy.pi, 1.
+    vR,vT,vZ= 1.,2.,3.
+    jac= bovy_coords.cyl_to_rect_jac(R,vR,vT,Z,vZ,phi)
+    vindx= numpy.array([False,True,True,False,True,False],dtype='bool')
+    assert numpy.fabs(numpy.linalg.det(jac)-R) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,0]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,5]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,3]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[0,vindx]) < 10.**-10.), 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,5]+2.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,3]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[1,vindx]) < 10.**-10.), 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,5]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,3]-1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[2,vindx]) < 10.**-10.), 'cyl_to_rect_jac calculation did not work as expected'
+    #Velocities
+    assert numpy.fabs(jac[3,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,1]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,2]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,3]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,4]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,5]-2.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,0]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,1]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,2]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,3]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,4]-0.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,5]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[5,numpy.array([True,True,True,True,False,True],dtype='bool')]-0.) < 10.**-10.), 'cyl_to_rect_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,4]-1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    return None
