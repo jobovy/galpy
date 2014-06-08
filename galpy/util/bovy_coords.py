@@ -136,9 +136,7 @@ def radec_to_lb_single(ra,dec,T,degree=False):
     XYZ=sc.array([sc.cos(thisdec)*sc.cos(thisra),sc.cos(thisdec)*sc.sin(thisra),sc.sin(thisdec)])
     galXYZ= sc.dot(T,XYZ)
     b= m.asin(galXYZ[2])
-    l= m.atan(galXYZ[1]/galXYZ[0])
-    if galXYZ[0]/sc.cos(b) < 0.:
-        l+= sc.pi
+    l= m.atan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
     if l < 0.:
         l+= 2.*sc.pi
     if degree:
@@ -1243,12 +1241,16 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
        2011-02-24 - Written - Bovy (NYU)
 
     """
+    return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
+#Old form, does not seem to be necessary anymore? Bovy 06/08/14
+"""
     try:
         return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
     except ValueError: #annoying bug for one-d, make sure they are arrays
         return sc.array([-sc.array([vXg]).flatten()[0]+vsun[0],
                           sc.array([vYg]).flatten()[0]-vsun[1],
                           sc.array([vZg]).flatten()[0]-vsun[2]])      
+"""
 
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
     """

@@ -73,6 +73,12 @@ def test_lb_to_radec():
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    #Also test for a negative l
+    l,b= 240., 60.
+    ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
+    lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
     return None
 
 # Test lb_to_XYZ
