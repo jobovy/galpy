@@ -27,3 +27,21 @@ def test_logsumexp():
     assert numpy.fabs(logsumexp(sumthis,axis=1)-sum) < 10.**-10., 'galpy.util.logsumexp did not work as expected'
     assert numpy.fabs(logsumexp(sumthis,axis=None)-sum) < 10.**-10., 'galpy.util.logsumexp did not work as expected'
     return None
+
+def test_fast_cholesky_invert():
+    from galpy.util import fast_cholesky_invert
+    matrix= numpy.array([[2.,1.],[1.,4.]])
+    invmatrix= fast_cholesky_invert(matrix)
+    unit= numpy.dot(invmatrix,matrix)
+    assert numpy.all(numpy.fabs(numpy.diag(unit)-1.) < 10.**-8.), 'fast_cholesky_invert did not work as expected'
+    assert numpy.fabs(unit[0,1]-0.) < 10.**-8., 'fast_cholesky_invert did not work as expected'
+    assert numpy.fabs(unit[1,0]-0.) < 10.**-8., 'fast_cholesky_invert did not work as expected'
+    #Check the other way around
+    unit= numpy.dot(matrix,invmatrix)
+    assert numpy.all(numpy.fabs(numpy.diag(unit)-1.) < 10.**-8.), 'fast_cholesky_invert did not work as expected'
+    assert numpy.fabs(unit[0,1]-0.) < 10.**-8., 'fast_cholesky_invert did not work as expected'
+    assert numpy.fabs(unit[1,0]-0.) < 10.**-8., 'fast_cholesky_invert did not work as expected'
+    #Also check determinant
+    invmatrix, logdet= fast_cholesky_invert(matrix,logdet=True)
+    assert numpy.fabs(logdet-numpy.log(7.)) < 10.**-8., "fast_cholesky_invert's determinant did not work as expected"
+    return None
