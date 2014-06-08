@@ -1476,6 +1476,8 @@ def lbd_to_XYZ_jac(*args,**kwargs):
 
        if 3: l,b,D
 
+       degree= (False) if True, l and b are in degrees
+
     OUTPUT:
 
        jacobian

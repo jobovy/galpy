@@ -633,6 +633,53 @@ def test_Rz_to_coshucosv():
     assert numpy.all(numpy.fabs(cosv-0.5) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
     return None
 
+def test_lbd_to_XYZ_jac():
+    #Just position
+    l,b,d= 180.,30.,2.
+    jac= bovy_coords.lbd_to_XYZ_jac(l,b,d,degree=True)
+    assert numpy.fabs(jac[0,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,1]-numpy.pi/180.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,2]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,0]+numpy.sqrt(3.)*numpy.pi/180.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,2]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)*numpy.pi/180.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,2]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    #6D
+    l,b,d= 3.*numpy.pi/2.,numpy.pi/6.,2.
+    vr,pmll,pmbb= 10.,20.,-30.
+    jac= bovy_coords.lbd_to_XYZ_jac(l,b,d,vr,pmll,pmbb,degree=False)
+    assert numpy.fabs(jac[0,0]-numpy.sqrt(3.)) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,2]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,1]-1.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,2]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,2]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[:3,3:]) < 10.**-10.), 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,2]-pmll*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,3]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,4]-d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,5]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,0]-pmll*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,2]-0.5*4.74047*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,3]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,5]-4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,1]+0.5*d*4.74047*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.74047*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,3]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    return None
+
 def test_cyl_to_rect_jac():
     #Just position
     R,phi,Z= 2., numpy.pi, 1.
