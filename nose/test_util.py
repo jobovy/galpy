@@ -45,3 +45,9 @@ def test_fast_cholesky_invert():
     invmatrix, logdet= fast_cholesky_invert(matrix,logdet=True)
     assert numpy.fabs(logdet-numpy.log(7.)) < 10.**-8., "fast_cholesky_invert's determinant did not work as expected"
     return None
+
+def test_quadpack():
+    from galpy.util.bovy_quadpack import dblquad
+    int= dblquad(lambda y,x: 4.*x*y,0.,1.,lambda z: 0.,lambda z: 1.)
+    assert numpy.fabs(int[0]-1.) < int[1], 'bovy_quadpack.dblquad did not work as expected'
+    return None
