@@ -476,6 +476,61 @@ def test_cov_pmradec_to_pmllbb():
         assert numpy.fabs(numpy.trace(cov_pmllpmbb[ii,:,:])-numpy.trace(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     return None
 
+def test_cov_dvrpmllbb_to_vxyz():
+    l,b,d= 90., 0., 2.
+    e_d, e_vr= 0.2, 2.
+    cov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
+    pmll,pmbb= 20.,30.
+    cov_vxvyvz= bovy_coords.cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,
+                                                  pmll,pmbb,
+                                                  cov_pmllpmbb,
+                                                  l,b,
+                                                  degree=True,
+                                                  plx=False)
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
+                      -d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
+                      -d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    #Another one
+    l,b,d= 180., 0., 1./2.
+    e_d, e_vr= 0.05, 2.
+    cov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
+    pmll,pmbb= 20.,30.
+    cov_vxvyvz= bovy_coords.cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,
+                                                  pmll,pmbb,
+                                                  cov_pmllpmbb,
+                                                  l/180.*numpy.pi,
+                                                  b/180.*numpy.pi,
+                                                  degree=False,
+                                                  plx=True)
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
+                      -1./d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
+                      -1./d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    #Another one, w/ arrays
+    l,b,d= 90., 90., 2.
+    e_d, e_vr= 0.2, 2.
+    tcov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
+    cov_pmllpmbb= numpy.empty((3,2,2))
+    for ii in range(3): cov_pmllpmbb[ii,:,:]= tcov_pmllpmbb
+    pmll,pmbb= 20.,30.
+    os= numpy.ones(3)
+    cov_vxvyvz= bovy_coords.cov_dvrpmllbb_to_vxyz(os*d,os*e_d,os*e_vr,
+                                                  os*pmll,os*pmbb,
+                                                  cov_pmllpmbb,
+                                                  os*l,os*b,
+                                                  degree=True,
+                                                  plx=False)
+    for ii in range(3):
+        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
+                          -d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
+                          -d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    return None
+
 def test_dl_to_rphi_2d():
     #This is a tangent point
     l= numpy.arcsin(0.75)
