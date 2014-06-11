@@ -9,12 +9,10 @@ def physical_position(method):
     def position_wrapper(*args,**kwargs):
         if kwargs.has_key('use_physical'):
             use_physical= kwargs['use_physical']
-            kwargs.pop('use_physical')
         else:
             use_physical= True
         if kwargs.has_key('ro'):
             ro= kwargs['ro']
-            kwargs.pop('ro')
         else:
             ro= args[0]._ro
         if use_physical and not ro is None:
@@ -1165,25 +1163,36 @@ class OrbitTop:
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+        if (kwargs.get('use_physical',False) \
+                and not kwargs.get('ro',self._ro) is None) or \
+                (not kwargs.has_key('use_physical') \
+                     and not kwargs.get('ro',self._ro) is None):
+            labeldict= {'t':r'$t$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R$','vT':r'$v_T$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z$','phi':r'$\phi$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x$','vy':r'$v_y$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                    'ra':r'$\alpha\ (\mathrm{deg})$',
-                    'dec':r'$\delta\ (\mathrm{deg})$',
-                    'll':r'$l\ (\mathrm{deg})$',
-                    'bb':r'$b\ (\mathrm{deg})$',
-                    'dist':r'$d\ [\mathrm{kpc}]$',
-                    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-                    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-                    'helioX':r'$X\ (\mathrm{kpc})$',
-                    'helioY':r'$Y\ (\mathrm{kpc})$',
-                    'helioZ':r'$Z\ (\mathrm{kpc})$',
-                    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-                    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-                    'W':r'$W\ (\mathrm{km\,s}^{-1})$'}
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ [\mathrm{kpc}]$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
             if len(self.vxvv) == 3:
@@ -1215,37 +1224,25 @@ class OrbitTop:
         if d1 == 't':
             x= nu.array(self.t)
         elif d1 == 'R':
-            x= self.R(self.t)
+            x= self.R(self.t,**kwargs)
         elif d1 == 'z':
-            x= self.orbit[:,3]
+            x= self.z(self.t,**kwargs)
         elif d1 == 'vz':
-            x= self.orbit[:,4]
+            x= self.vz(self.t,**kwargs)
         elif d1 == 'vR':
-            x= self.vR(self.t)
+            x= self.vR(self.t,**kwargs)
         elif d1 == 'vT':
-            x= self.orbit[:,2]
+            x= self.vT(self.t,**kwargs)
         elif d1 == 'x':
-            if len(self.vxvv) == 2:
-                x= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            x= self.x(self.t,**kwargs)
         elif d1 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            x= self.y(self.t,**kwargs)
         elif d1 == 'vx':
-            x= self.vx(self.t)
+            x= self.vx(self.t,**kwargs)
         elif d1 == 'vy':
-            x= self.vy(self.t)
+            x= self.vy(self.t,**kwargs)
         elif d1 == 'phi':
-            x= self.phi(self.t)
+            x= self.phi(self.t,**kwargs)
         elif d1.lower() == 'ra':
             x= self.ra(self.t,**kwargs)
         elif d1.lower() == 'dec':
@@ -1281,37 +1278,25 @@ class OrbitTop:
         if d2 == 't':
             y= nu.array(self.t)
         elif d2 == 'R':
-            y= self.R(self.t)
+            y= self.R(self.t,**kwargs)
         elif d2 == 'z':
-            y= self.orbit[:,3]
+            y= self.z(self.t,**kwargs)
         elif d2 == 'vz':
-            y= self.orbit[:,4]
+            y= self.vz(self.t,**kwargs)
         elif d2 == 'vR':
-            y= self.vR(self.t)
+            y= self.vR(self.t,**kwargs)
         elif d2 == 'vT':
-            y= self.orbit[:,2]
+            y= self.vT(self.t,**kwargs)
         elif d2 == 'x':
-            if len(self.vxvv) == 2:
-                y= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            y= self.x(self.t,**kwargs)
         elif d2 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            y= self.y(self.t,**kwargs)
         elif d2 == 'vx':
-            y= self.vx(self.t)
+            y= self.vx(self.t,**kwargs)
         elif d2 == 'vy':
-            y= self.vy(self.t)
+            y= self.vy(self.t,**kwargs)
         elif d2 == 'phi':
-            y= self.phi(self.t)
+            y= self.phi(self.t,**kwargs)
         elif d2.lower() == 'ra':
             y= self.ra(self.t,**kwargs)
         elif d2.lower() == 'dec':
@@ -1347,6 +1332,7 @@ class OrbitTop:
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
+        if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
