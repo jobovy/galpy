@@ -49,9 +49,9 @@ assuming a Solar motion that can be specified as either
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
 ``solarmotion=shoenrich`` (`2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
-velocity can be specified as ``vo=235`` in km/s and a value for the
+velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
-``ro=8.5`` in kpc. While the inputs are given in physical units, the
+``ro=8.0`` in kpc. While the inputs are given in physical units, the
 orbit is initialized assuming a circular velocity of one at the
 distance of the Sun.
 

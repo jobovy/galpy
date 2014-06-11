@@ -7,7 +7,7 @@ import galpy.util.bovy_coords as coords
 from galpy.potential_src.planarPotential import RZToplanarPotential
 class OrbitTop:
     """General class that holds orbits and integrates them"""
-    def __init__(self,vxvv=None,vo=235.,ro=8.5,zo=0.025,
+    def __init__(self,vxvv=None,vo=220.,ro=8.0,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
@@ -362,7 +362,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
         OUTPUT:
            ra(t)
         HISTORY:
@@ -383,7 +383,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
         OUTPUT:
            dec(t)
         HISTORY:
@@ -404,7 +404,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            l(t)
         HISTORY:
@@ -425,7 +425,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            b(t)
         HISTORY:
@@ -446,7 +446,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            dist(t) in kpc
         HISTORY:
@@ -467,8 +467,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_ra(t) in mas / yr
         HISTORY:
@@ -489,8 +489,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_dec(t) in mas/yr
         HISTORY:
@@ -511,8 +511,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_l(t) in mas/yr
         HISTORY:
@@ -533,8 +533,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_b(t) in mas/yr
         HISTORY:
@@ -555,8 +555,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            vlos(t) in km/s
         HISTORY:
@@ -577,7 +577,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioX(t) in kpc
         HISTORY:
@@ -598,7 +598,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioY(t) in kpc
         HISTORY:
@@ -619,7 +619,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioZ(t) in kpc
         HISTORY:
@@ -640,8 +640,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            U(t) in km/s
         HISTORY:
@@ -662,8 +662,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            V(t) in km/s
         HISTORY:
@@ -684,8 +684,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            W(t) in km/s
         HISTORY:

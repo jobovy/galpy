@@ -17,7 +17,7 @@ ext_loaded= _ext_loaded
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
-    def __init__(self,vxvv=None,vo=235.,ro=8.5,zo=0.025,
+    def __init__(self,vxvv=None,vo=220.,ro=8.0,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])): #pragma: no cover (never used)
         """
         NAME:
@@ -216,7 +216,7 @@ class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
     orbit-integration in axisymmetric potentials when you don't care about the
     azimuth"""
-    def __init__(self,vxvv=[1.,0.,1.],vo=235.,ro=8.5,zo=0.025,
+    def __init__(self,vxvv=[1.,0.,1.],vo=220.,ro=8.0,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
@@ -406,7 +406,7 @@ class planarROrbit(planarOrbitTop):
 
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
-    def __init__(self,vxvv=[1.,0.,1.,0.],vo=235.,ro=8.5,zo=0.025,
+    def __init__(self,vxvv=[1.,0.,1.,0.],vo=220.,ro=8.0,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:

@@ -13,7 +13,7 @@ ext_loaded= _ext_loaded
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
-    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=235.,ro=8.5,zo=0.025,
+    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=220.,ro=8.0,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:

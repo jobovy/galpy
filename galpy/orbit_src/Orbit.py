@@ -25,7 +25,7 @@ def _phiEqZeroBC(ar):
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
-                 radec=False,vo=235.,ro=8.5,zo=0.025,
+                 radec=False,vo=220.,ro=8.0,zo=0.025,
                  solarmotion='hogg'):
         """
         NAME:
@@ -1416,9 +1416,9 @@ class Orbit:
            t - (optional) time at which to get ra
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
 
         OUTPUT:
 
@@ -1446,9 +1446,9 @@ class Orbit:
            t - (optional) time at which to get dec
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
 
         OUTPUT:
 
@@ -1476,9 +1476,9 @@ class Orbit:
            t - (optional) time at which to get ll
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1506,9 +1506,9 @@ class Orbit:
            t - (optional) time at which to get bb
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1536,9 +1536,9 @@ class Orbit:
            t - (optional) time at which to get dist
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1566,13 +1566,13 @@ class Orbit:
            t - (optional) time at which to get pmra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1600,13 +1600,13 @@ class Orbit:
            t - (optional) time at which to get pmdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1634,13 +1634,13 @@ class Orbit:
            t - (optional) time at which to get pmll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1668,13 +1668,13 @@ class Orbit:
            t - (optional) time at which to get pmbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1702,13 +1702,13 @@ class Orbit:
            t - (optional) time at which to get vlos
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1736,13 +1736,13 @@ class Orbit:
            t - (optional) time at which to get vra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1771,13 +1771,13 @@ class Orbit:
            t - (optional) time at which to get vdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1806,13 +1806,13 @@ class Orbit:
            t - (optional) time at which to get vll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1841,13 +1841,13 @@ class Orbit:
            t - (optional) time at which to get vbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1876,11 +1876,11 @@ class Orbit:
            t - (optional) time at which to get X
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1908,11 +1908,11 @@ class Orbit:
            t - (optional) time at which to get Y
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1940,11 +1940,11 @@ class Orbit:
            t - (optional) time at which to get Z
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1972,13 +1972,13 @@ class Orbit:
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -2006,13 +2006,13 @@ class Orbit:
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -2040,13 +2040,13 @@ class Orbit:
            t - (optional) time at which to get W
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
