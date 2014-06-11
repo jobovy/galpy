@@ -1180,6 +1180,10 @@ class Orbit:
 
            return radial velocity at time t
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         INPUT:
 
            t - (optional) time at which to get the radial velocity
@@ -1209,6 +1213,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the tangential velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1268,6 +1276,10 @@ class Orbit:
 
            vz(t)
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         HISTORY:
 
            2010-09-21 - Written - Bovy (NYU)
@@ -1313,6 +1325,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the angular velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1397,6 +1413,10 @@ class Orbit:
 
            t - (optional) time at which to get the velocity
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            vx(t)
@@ -1422,6 +1442,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 

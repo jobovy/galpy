@@ -6,6 +6,7 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.potential_src.planarPotential import RZToplanarPotential
 def physical_position(method):
+    """Decorator to convert to physical coordinates: positions"""
     def position_wrapper(*args,**kwargs):
         if kwargs.has_key('use_physical'):
             use_physical= kwargs['use_physical']
@@ -22,6 +23,24 @@ def physical_position(method):
         else:
             return method(*args,**kwargs)
     return position_wrapper
+def physical_velocity(method):
+    """Decorator to convert to physical coordinates: velocity"""
+    def velocity_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+        else:
+            use_physical= True
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+        elif args[0]._voSet:
+            vo= args[0]._vo
+        else:
+            vo= None
+        if use_physical and not vo is None:
+            return method(*args,**kwargs)*vo
+        else:
+            return method(*args,**kwargs)
+    return velocity_wrapper
 class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -173,6 +192,7 @@ class OrbitTop:
         if onet: return thiso[0]
         else: return thiso[0,:]
 
+    @physical_velocity
     def vR(self,*args,**kwargs):
         """
         NAME:
@@ -181,6 +201,8 @@ class OrbitTop:
            return radial velocity at time t
         INPUT:
            t - (optional) time at which to get the radial velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vR(t)
         HISTORY:
@@ -191,6 +213,7 @@ class OrbitTop:
         if onet: return thiso[1]
         else: return thiso[1,:]
 
+    @physical_velocity
     def vT(self,*args,**kwargs):
         """
         NAME:
@@ -199,6 +222,8 @@ class OrbitTop:
            return tangential velocity at time t
         INPUT:
            t - (optional) time at which to get the tangential velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vT(t)
         HISTORY:
@@ -232,6 +257,7 @@ class OrbitTop:
         if onet: return thiso[3]
         else: return thiso[3,:]
 
+    @physical_velocity
     def vz(self,*args,**kwargs):
         """
         NAME:
@@ -240,6 +266,8 @@ class OrbitTop:
            return vertical velocity
         INPUT:
            t - (optional) time at which to get the vertical velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vz(t)
         HISTORY:
@@ -324,6 +352,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.sin(thiso[5,:])
 
+    @physical_velocity
     def vx(self,*args,**kwargs):
         """
         NAME:
@@ -332,6 +361,8 @@ class OrbitTop:
            return x velocity at time t
         INPUT:
            t - (optional) time at which to get the velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vx(t)
         HISTORY:
@@ -349,6 +380,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[1,:]*nu.cos(theta)-thiso[2,:]*nu.sin(theta)
 
+    @physical_velocity
     def vy(self,*args,**kwargs):
         """
         NAME:
@@ -357,6 +389,8 @@ class OrbitTop:
            return y velocity at time t
         INPUT:
            t - (optional) time at which to get the velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vy(t)
         HISTORY:
@@ -372,6 +406,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[2,:]*nu.cos(theta)+thiso[1,:]*nu.sin(theta)
 
+    @physical_velocity
     def vphi(self,*args,**kwargs):
         """
         NAME:
@@ -380,6 +415,8 @@ class OrbitTop:
            return angular velocity
         INPUT:
            t - (optional) time at which to get the angular velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vphi(t)
         HISTORY:
