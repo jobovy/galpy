@@ -774,12 +774,16 @@ def test_analytic_ecc_rperi_rap():
 #                print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rperi(ro=8.)/8.-trperi_analytic)**2. < 10.**ttol, \
+                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
                 trap_analytic= o.rap(analytic=True)
 #                print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
+                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -845,6 +849,8 @@ def test_analytic_zmax():
 #                print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \
+                    "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
@@ -1387,6 +1393,30 @@ def test_getOrbit():
         'getOrbit does not work as expected for phi'
     return None
 
+# Check the routines that should return physical coordinates
+def test_physical_output():
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    plp= lp.toPlanar()
+    for ii in range(4):
+        ro, vo= 7., 200.
+        if ii == 0: #axi, full
+            o= setup_orbit_physical(lp,axi=True,ro=ro,vo=vo)
+        elif ii == 1: #track azimuth, full
+            o= setup_orbit_physical(lp,axi=False,ro=ro,vo=vo)
+        elif ii == 2: #axi, planar
+            o= setup_orbit_physical(plp,axi=True,ro=ro,vo=vo)
+        elif ii == 3: #track azimuth, full
+            o= setup_orbit_physical(plp,axi=False,ro=ro,vo=vo)
+        #Test positions
+        assert numpy.fabs(o.R()/ro-o.R(use_physical=False)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected'
+        if ii % 2 == 1:
+            assert numpy.fabs(o.x()/ro-o.x(use_physical=False)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected'
+            assert numpy.fabs(o.y()/ro-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected'
+        if ii < 2:
+            assert numpy.fabs(o.z()/ro-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected'
+    return None
+
 # Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit
@@ -1775,6 +1805,21 @@ def setup_orbit_analytic_EREz(tp,axi=False):
         o= Orbit([1.,0.03,1.,0.05,0.03])
     else:
         o= Orbit([1.,0.03,1.,0.05,0.03,0.0])
+    return o
+
+# Setup the orbit for the physical-coordinates test
+def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
+    from galpy.orbit import Orbit
+    if isinstance(tp,potential.planarPotential): 
+        if axi:
+            o= Orbit([1.,1.1,1.1],ro=ro,vo=vo)
+        else:
+            o= Orbit([1.,1.1,1.1,0.],ro=ro,vo=vo)
+    else:
+        if axi:
+            o= Orbit([1.,1.1,1.1,0.1,0.1],ro=ro,vo=vo)
+        else:
+            o= Orbit([1.,1.1,1.1,0.1,0.1,0.],ro=ro,vo=vo)
     return o
 
 class mockFlatEllipticalDiskPotential(testplanarMWPotential):
