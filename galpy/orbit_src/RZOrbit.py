@@ -6,6 +6,7 @@ from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
+from OrbitTop import physical_position
 from OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
@@ -270,7 +271,8 @@ class RZOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def rap(self,analytic=False,pot=None):
+    @physical_position
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rap
@@ -294,7 +296,8 @@ class RZOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
 
-    def rperi(self,analytic=False,pot=None):
+    @physical_position
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rperi
@@ -318,7 +321,8 @@ class RZOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amin(self.rs)
 
-    def zmax(self,analytic=False,pot=None):
+    @physical_position
+    def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            zmax

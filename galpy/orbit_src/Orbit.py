@@ -506,7 +506,7 @@ class Orbit:
         """
         return self._orb.e(analytic=analytic,pot=pot)
 
-    def rap(self,analytic=False,pot=None):
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -522,6 +522,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            R_ap
@@ -531,9 +535,9 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.rap(analytic=analytic,pot=pot)
+        return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
 
-    def rperi(self,analytic=False,pot=None):
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -549,6 +553,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            R_peri
@@ -558,9 +566,9 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.rperi(analytic=analytic,pot=pot)
+        return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
 
-    def zmax(self,analytic=False,pot=None):
+    def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -576,6 +584,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Z_max
@@ -585,7 +597,7 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.zmax(analytic=analytic,pot=pot)
+        return self._orb.zmax(analytic=analytic,pot=pot,**kwargs)
 
     def resetaA(self,pot=None,type=None):
         """
