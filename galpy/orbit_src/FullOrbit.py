@@ -13,20 +13,42 @@ ext_loaded= _ext_loaded
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
-    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1]):
+    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=235.,ro=8.5,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            intialize a full orbit
+
         INPUT:
+
            vxvv - initial condition [R,vR,vT,z,vz,phi]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-08-01 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateFullOrbit
         return None

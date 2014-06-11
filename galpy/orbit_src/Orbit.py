@@ -61,7 +61,7 @@ class Orbit:
 
            lb - if True, input is 4) or 5) above
 
-           vo - circular velocity at ro
+           vo - circular velocity at ro (km/s)
 
            ro - distance from vantage point to GC (kpc)
 
@@ -132,13 +132,18 @@ class Orbit:
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv)
         elif len(vxvv) == 3:
-            self._orb= planarROrbit(vxvv=vxvv)
+            self._orb= planarROrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
         elif len(vxvv) == 4:
-            self._orb= planarOrbit(vxvv=vxvv)
+            self._orb= planarOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
         elif len(vxvv) == 5:
-            self._orb= RZOrbit(vxvv=vxvv)
+            self._orb= RZOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
         elif len(vxvv) == 6:
-            self._orb= FullOrbit(vxvv=vxvv)
+            self._orb= FullOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
+        return None
 
     def setphi(self,phi):
         """

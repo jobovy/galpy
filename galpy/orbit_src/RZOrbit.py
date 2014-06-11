@@ -10,20 +10,42 @@ from OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
     in the (R,z) plane"""
-    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1]):
+    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=235.,ro=8.5,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            intialize an RZ-orbit
+
         INPUT:
+
            vxvv - initial condition [R,vR,vT,z,vz]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateRZOrbit
         return None

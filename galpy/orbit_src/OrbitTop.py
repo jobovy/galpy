@@ -7,20 +7,43 @@ import galpy.util.bovy_coords as coords
 from galpy.potential_src.planarPotential import RZToplanarPotential
 class OrbitTop:
     """General class that holds orbits and integrates them"""
-    def __init__(self,vxvv=None):
+    def __init__(self,vxvv=None,vo=235.,ro=8.5,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize an orbit instance
+
         INPUT:
+
            vxvv - initial condition
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         self.vxvv= vxvv
+        self._vo= vo
+        self._ro= ro
+        self._zo= zo
+        self._solarmotion= solarmotion
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):
@@ -336,7 +359,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get ra
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)
@@ -357,7 +380,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get dec
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)
@@ -378,7 +401,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get ll
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -399,7 +422,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get bb
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -420,7 +443,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get dist
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -441,7 +464,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmra
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -463,7 +486,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmdec
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -485,7 +508,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmll
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -507,7 +530,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmbb
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -529,7 +552,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get vlos
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -551,7 +574,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get X
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -572,7 +595,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get Y
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -593,7 +616,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get Z
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -614,7 +637,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get U
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -636,7 +659,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get U
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -658,7 +681,7 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get W
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
            ro= distance in kpc corresponding to R=1. (default: 8.5)         
@@ -686,7 +709,7 @@ class OrbitTop:
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z= self._helioXYZ(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -695,7 +718,7 @@ class OrbitTop:
 
     def _helioXYZ(self,*args,**kwargs):
         """Calculate heliocentric rectangular coordinates"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
@@ -741,7 +764,7 @@ class OrbitTop:
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -750,7 +773,7 @@ class OrbitTop:
 
     def _XYZvxvyvz(self,*args,**kwargs):
         """Calculate X,Y,Z,U,V,W"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,vel=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
@@ -833,6 +856,37 @@ class OrbitTop:
                                 obs.vy(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]))
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
+    def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
+        if kwargs.has_key('obs'):
+            obs= kwargs['obs']
+            if not dontpop:
+                kwargs.pop('obs')
+            if isinstance(obs,(list,nu.ndarray)):
+                if len(obs) == 2:
+                    obs= [obs[0],obs[1],0.]
+                elif len(obs) == 4:
+                    obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+        else:
+            if vel:
+                obs= [self._ro,0.,self._zo,
+                      self._solarmotion[0],self._solarmotion[1]+self._vo,
+                      self._solarmotion[2]]
+            else:
+                obs= [self._ro,0.,self._zo]
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+            if not dontpop:
+                kwargs.pop('ro')
+        else:
+            ro= self._ro
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+            if not dontpop:
+                kwargs.pop('vo')
+        else:
+            vo= self._vo
+        return (obs,ro,vo)
 
     def Jacobi(self,Omega,t=0.,pot=None):
         """
@@ -1727,35 +1781,6 @@ class _fakeInterp:
         self.x= x
     def __call__(self,t):
         return self.x
-
-def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
-    if kwargs.has_key('obs'):
-        obs= kwargs['obs']
-        if not dontpop:
-            kwargs.pop('obs')
-        if isinstance(obs,(list,nu.ndarray)):
-            if len(obs) == 2:
-                obs= [obs[0],obs[1],0.]
-            elif len(obs) == 4:
-                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
-    else:
-        if vel:
-            obs= [8.5,0.,0.025,-10.1,239.,6.7]
-        else:
-            obs= [8.5,0.,0.025]
-    if kwargs.has_key('ro'):
-        ro= kwargs['ro']
-        if not dontpop:
-            kwargs.pop('ro')
-    else:
-        ro= 8.5
-    if kwargs.has_key('vo'):
-        vo= kwargs['vo']
-        if not dontpop:
-            kwargs.pop('vo')
-    else:
-        vo= 235.
-    return (obs,ro,vo)
 
 def _BCZeroFunction(t,vxvv,pot,method,bc,to,BCIntegrateFunc):
     if t == to: return bc(vxvv)
