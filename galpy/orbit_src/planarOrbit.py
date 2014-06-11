@@ -4,6 +4,7 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
+from OrbitTop import physical_position
 from OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
@@ -116,7 +117,8 @@ class planarOrbitTop(OrbitTop):
             kwargs.pop('OmegaP')
         return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
 
-    def rap(self,analytic=False,pot=None):
+    @physical_position
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rap
@@ -140,7 +142,8 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amax(self.rs)
 
-    def rperi(self,analytic=False,pot=None):
+    @physical_position
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rperi
@@ -164,7 +167,8 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
-    def zmax(self,pot=None,analytic=False):
+    @physical_position
+    def zmax(self,pot=None,analytic=False,**kwargs):
         raise AttributeError("planarOrbit does not have a zmax")
     
     def plotJacobi(self,*args,**kwargs):
