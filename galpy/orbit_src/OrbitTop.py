@@ -1263,9 +1263,9 @@ class OrbitTop:
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
         """
         if (kwargs.get('use_physical',False) \
-        and kwargs.get('ro',self._roSet)) or \
+                and kwargs.get('ro',self._roSet)) or \
                 (not kwargs.has_key('use_physical') \
-                     and not kwargs.get('ro',self._ro) is None):
+                     and kwargs.get('ro',self._roSet)):
             labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
@@ -1463,9 +1463,9 @@ class OrbitTop:
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
         """
         if (kwargs.get('use_physical',False) \
-        and kwargs.get('ro',self._roSet)) or \
+                and kwargs.get('ro',self._roSet)) or \
                 (not kwargs.has_key('use_physical') \
-                     and not kwargs.get('ro',self._ro) is None):
+                     and kwargs.get('ro',self._roSet)):
             labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',

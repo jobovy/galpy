@@ -1426,6 +1426,8 @@ def test_physical_output():
             assert numpy.fabs(o.vz()/vo-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with ro= does not work as expected'
     #Also test the times
     assert numpy.fabs((o.time(1.)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
+    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
+    assert numpy.fabs((o.time(1.,use_physical=False)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     return None
 
 # Check plotting routines
@@ -1474,6 +1476,7 @@ def test_planar_plotting():
     oa.plotJacobi(pot=[lp,RZToplanarPotential(lp)],d1='vT')
     # Plot the orbit itself, defaults
     o.plot()
+    o.plot(ro=8.)
     oa.plot()
     o.plotx(d1='vx')
     o.plotvx(d1='y')
@@ -1481,6 +1484,7 @@ def test_planar_plotting():
     o.plotvy(d1='x')
     # Plot the orbit itself in 3D, defaults
     o.plot3d()
+    o.plot3d(ro=8.)
     oa.plot3d()
     o.plot3d(d1='x',d2='vx',d3='y')
     o.plot3d(d1='vx',d2='y',d3='vy')
