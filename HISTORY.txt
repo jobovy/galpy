@@ -3,6 +3,8 @@ v0.2 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
+- Allow Orbit initialization to specify a distance and velocity scale that is then used to output distances and velocities in physical coordinates.
+
 - Changed default vo and ro to 220 km/s and 8 kpc, respectively;
 
 - Better handling of vo,ro, and solarmotion in Orbit instances (Orbit initialization value is now used to generate RA, Dec, etc. outputs);

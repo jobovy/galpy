@@ -70,6 +70,8 @@ class Orbit:
            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
            [-U,V,W]
 
+        If ro and/or vo are specified, outputs involving distances or velocities (whether as instance methods or in plots) will by default be displayed in the physical coordinates implied by these scales. This can be overwritten for each individual method by using use_physical=False as a keyword for the method.
+
         OUTPUT:
 
            instance
