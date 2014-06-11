@@ -1424,6 +1424,8 @@ def test_physical_output():
             assert numpy.fabs(o.vy()/vo-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with ro= does not work as expected'
         if ii < 2:
             assert numpy.fabs(o.vz()/vo-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with ro= does not work as expected'
+    #Also test the times
+    assert numpy.fabs((o.time(1.)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     return None
 
 # Check plotting routines

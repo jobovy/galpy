@@ -4,6 +4,7 @@ from scipy import interpolate, optimize
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
+from galpy.util import bovy_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
 def physical_position(method):
     """Decorator to convert to physical coordinates: positions"""
@@ -41,6 +42,30 @@ def physical_velocity(method):
         else:
             return method(*args,**kwargs)
     return velocity_wrapper
+def physical_time(method):
+    """Decorator to convert to physical coordinates: time"""
+    def time_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+        else:
+            use_physical= True
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+        elif args[0]._roSet:
+            ro= args[0]._ro
+        else:
+            ro= None
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+        elif args[0]._voSet:
+            vo= args[0]._vo
+        else:
+            vo= None
+        if use_physical and not vo is None and not ro is None:
+            return method(*args,**kwargs)*bovy_conversion.time_in_Gyr(vo,ro)
+        else:
+            return method(*args,**kwargs)
+    return time_wrapper
 class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -170,6 +195,26 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
         """
         return self.orbit
+
+    @physical_time
+    def time(self,*args,**kwargs):
+        """
+        NAME:
+           time
+        PURPOSE:
+           return the times at which the orbit is sampled
+        INPUT:
+           t - (optional) time at which to get the time (for consistency reasons)
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+        OUTPUT:
+           t(t)
+        HISTORY:
+           2014-06-11 - Written - Bovy (IAS)
+        """
+        if len(args) == 0: return 0.
+        else: return args[0]
 
     @physical_position
     def R(self,*args,**kwargs):
@@ -1221,7 +1266,7 @@ class OrbitTop:
         and kwargs.get('ro',self._roSet)) or \
                 (not kwargs.has_key('use_physical') \
                      and not kwargs.get('ro',self._ro) is None):
-            labeldict= {'t':r'$t$','R':r'$R\ (\mathrm{kpc})$',
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
                         'z':r'$z\ (\mathrm{kpc})$',
@@ -1278,7 +1323,7 @@ class OrbitTop:
             kwargs.pop('d2')
         #Get x and y
         if d1 == 't':
-            x= nu.array(self.t)
+            x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
         elif d1 == 'z':
@@ -1332,7 +1377,7 @@ class OrbitTop:
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
         if d2 == 't':
-            y= nu.array(self.t)
+            y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
         elif d2 == 'z':
@@ -1421,7 +1466,7 @@ class OrbitTop:
         and kwargs.get('ro',self._roSet)) or \
                 (not kwargs.has_key('use_physical') \
                      and not kwargs.get('ro',self._ro) is None):
-            labeldict= {'t':r'$t$','R':r'$R\ (\mathrm{kpc})$',
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
                         'z':r'$z\ (\mathrm{kpc})$',
@@ -1482,7 +1527,7 @@ class OrbitTop:
             kwargs.pop('d3')
         #Get x, y, and z
         if d1 == 't':
-            x= nu.array(self.t)
+            x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
         elif d1 == 'z':
@@ -1536,7 +1581,7 @@ class OrbitTop:
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
         if d2 == 't':
-            y= nu.array(self.t)
+            y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
         elif d2 == 'z':
@@ -1590,7 +1635,7 @@ class OrbitTop:
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
         if d3 == 't':
-            z= nu.array(self.t)
+            z= self.time(self.t,**kwargs)
         elif d3 == 'R':
             z= self.R(self.t,**kwargs)
         elif d3 == 'z':

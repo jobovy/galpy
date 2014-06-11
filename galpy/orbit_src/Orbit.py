@@ -1141,6 +1141,37 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA.actionsFreqs(self)[5][0]
 
+    def time(self,*args,**kwargs):
+        """
+        NAME:
+
+           t
+
+        PURPOSE:
+
+           return the times at which the orbit is sampled
+
+        INPUT:
+
+           t - (optional) time at which to get the time (for consistency reasons)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           t(t)
+
+        HISTORY:
+
+           2014-06-11 - Written - Bovy (IAS)
+
+        """
+        return self._orb.time(*args,**kwargs)
+
     def R(self,*args,**kwargs):
         """
         NAME:
