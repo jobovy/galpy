@@ -1222,11 +1222,13 @@ class OrbitTop:
                 (not kwargs.has_key('use_physical') \
                      and not kwargs.get('ro',self._ro) is None):
             labeldict= {'t':r'$t$','R':r'$R\ (\mathrm{kpc})$',
-                        'vR':r'$v_R$','vT':r'$v_T$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
                         'z':r'$z\ (\mathrm{kpc})$',
-                        'vz':r'$v_z$','phi':r'$\phi$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
                         'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
-                        'vx':r'$v_x$','vy':r'$v_y$'}
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
@@ -1235,7 +1237,7 @@ class OrbitTop:
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
                           'bb':r'$b\ (\mathrm{deg})$',
-                          'dist':r'$d\ [\mathrm{kpc}]$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
                           'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
                           'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
                           'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
