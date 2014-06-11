@@ -1030,6 +1030,16 @@ def test_orbit_setup_planar():
     assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
     assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    #also check that the ro,vo,solarmotion values are stored and used properly (issue #158 solution)
+    o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.],
+             ro=7.5)
+    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    obs= [8.5,0.,-10.,245.]
+    assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmbb()-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
     obs= Orbit([1.,-10.1/235.,239./235,0.])
@@ -1091,15 +1101,22 @@ def test_orbit_setup():
     assert numpy.fabs(o.pmdec()-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
     assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #Radec w/ dehnen and diff ro,vo
-    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='dehnen',vo=220.,
-             ro=8.,zo=0.01)
-    obs= [8.,0.,0.01,-10.,225.25,7.17]
-    assert numpy.fabs(o.ra(obs=obs,ro=8.)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
-    assert numpy.fabs(o.dec(obs=obs,ro=8.)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
-    assert numpy.fabs(o.dist(obs=obs,ro=8.)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmra(obs=obs,ro=8.,vo=220.)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
-    assert numpy.fabs(o.pmdec(obs=obs,ro=8.,vo=220.)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
-    assert numpy.fabs(o.vlos(obs=obs,ro=8.,vo=220.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='dehnen',vo=240.,
+             ro=7.5,zo=0.01)
+    obs= [7.5,0.,0.01,-10.,245.25,7.17]
+    assert numpy.fabs(o.ra(obs=obs,ro=7.5)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs,ro=7.5)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs,ro=7.5)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=240.)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=240.)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    #also check that the ro,vo,solarmotion values are stored and used properly (issue #158 solution)
+    assert numpy.fabs(o.ra()-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #Radec w/ schoenrich and diff ro,vo
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='schoenrich',
              vo=240.,ro=7.5,zo=0.035)
@@ -1112,14 +1129,14 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #Radec w/ custom solarmotion and diff ro,vo
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion=[10.,20.,15.],
-             vo=220.,ro=7.5,zo=0.035)
-    obs= [7.5,0.,0.035,10.,240.,15.]
+             vo=240.,ro=7.5,zo=0.035)
+    obs= [7.5,0.,0.035,10.,260.,15.]
     assert numpy.fabs(o.ra(obs=obs,ro=7.5)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
     assert numpy.fabs(o.dec(obs=obs,ro=7.5)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist(obs=obs,ro=7.5)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=220.)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
-    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=220.)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
-    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=220.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=240.)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=240.)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default
     o= Orbit([120.,60.,2.,0.5,0.4,30.],lb=True)
     assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
