@@ -1648,6 +1648,8 @@ class OrbitTop:
             z= self.vT(self.t,**kwargs)
         elif d3 == 'x':
             z= self.x(self.t,**kwargs)
+        elif d3 == 'y':
+            z= self.y(self.t,**kwargs)
         elif d3 == 'vx':
             z= self.vx(self.t,**kwargs)
         elif d3 == 'vy':
