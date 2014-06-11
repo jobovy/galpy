@@ -13,8 +13,10 @@ def physical_position(method):
             use_physical= True
         if kwargs.has_key('ro'):
             ro= kwargs['ro']
-        else:
+        elif args[0]._roSet:
             ro= args[0]._ro
+        else:
+            ro= None
         if use_physical and not ro is None:
             return method(*args,**kwargs)*ro
         else:
@@ -55,8 +57,18 @@ class OrbitTop:
 
         """
         self.vxvv= vxvv
-        self._vo= vo
-        self._ro= ro
+        if vo is None:
+            self._vo= 220.
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
+        if ro is None:
+            self._ro= 8.
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
         self._zo= zo
         self._solarmotion= solarmotion
         return None
@@ -1155,6 +1167,10 @@ class OrbitTop:
            plot aspects of an Orbit
         INPUT:
            bovy_plot args and kwargs
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +kwargs for ra,dec,ll,bb, etc. functions
         OUTPUT:
            plot
@@ -1162,9 +1178,10 @@ class OrbitTop:
            2010-07-26 - Written - Bovy (NYU)
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
         """
         if (kwargs.get('use_physical',False) \
-                and not kwargs.get('ro',self._ro) is None) or \
+        and kwargs.get('ro',self._roSet)) or \
                 (not kwargs.has_key('use_physical') \
                      and not kwargs.get('ro',self._ro) is None):
             labeldict= {'t':r'$t$','R':r'$R\ (\mathrm{kpc})$',
