@@ -5,9 +5,26 @@ from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.potential_src.planarPotential import RZToplanarPotential
+def physical_position(method):
+    def position_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+            kwargs.pop('use_physical')
+        else:
+            use_physical= True
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+            kwargs.pop('ro')
+        else:
+            ro= args[0]._ro
+        if use_physical and not ro is None:
+            return method(*args,**kwargs)*ro
+        else:
+            return method(*args,**kwargs)
+    return position_wrapper
 class OrbitTop:
     """General class that holds orbits and integrates them"""
-    def __init__(self,vxvv=None,vo=220.,ro=8.0,zo=0.025,
+    def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
@@ -125,6 +142,7 @@ class OrbitTop:
         """
         return self.orbit
 
+    @physical_position
     def R(self,*args,**kwargs):
         """
         NAME:
@@ -133,6 +151,8 @@ class OrbitTop:
            return cylindrical radius at time t
         INPUT:
            t - (optional) time at which to get the radius
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            R(t)
         HISTORY:
@@ -179,6 +199,7 @@ class OrbitTop:
         if onet: return thiso[2]
         else: return thiso[2,:]
 
+    @physical_position
     def z(self,*args,**kwargs):
         """
         NAME:
@@ -187,6 +208,8 @@ class OrbitTop:
            return vertical height
         INPUT:
            t - (optional) time at which to get the vertical height
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            z(t)
         HISTORY:
@@ -239,6 +262,7 @@ class OrbitTop:
         if onet: return thiso[-1]
         else: return thiso[-1,:]
 
+    @physical_position
     def x(self,*args,**kwargs):
         """
         NAME:
@@ -247,6 +271,8 @@ class OrbitTop:
            return x
         INPUT:
            t - (optional) time at which to get x
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            x(t)
         HISTORY:
@@ -263,6 +289,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.cos(thiso[5,:])
 
+    @physical_position
     def y(self,*args,**kwargs):
         """
         NAME:
@@ -271,6 +298,8 @@ class OrbitTop:
            return y
         INPUT:
            t - (optional) time at which to get y
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            y(t)
         HISTORY:

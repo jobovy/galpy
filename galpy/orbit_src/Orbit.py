@@ -25,7 +25,7 @@ def _phiEqZeroBC(ar):
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
-                 radec=False,vo=220.,ro=8.0,zo=0.025,
+                 radec=False,vo=None,ro=None,zo=0.025,
                  solarmotion='hogg'):
         """
         NAME:
@@ -79,15 +79,20 @@ class Orbit:
            2010-07-20 - Written - Bovy (NYU)
 
         """
+        if radec or lb:
+            if ro is None:
+                ro= 8.
+            if vo is None:
+                vo= 220.
         if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
-            vsolar= nu.array([-10.1,4.0,6.7])/vo
+            vsolar= nu.array([-10.1,4.0,6.7])
         elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
-            vsolar= nu.array([-10.,5.25,7.17])/vo
+            vsolar= nu.array([-10.,5.25,7.17])
         elif isinstance(solarmotion,str) \
                 and solarmotion.lower() == 'schoenrich':
-            vsolar= nu.array([-11.1,12.24,7.25])/vo
+            vsolar= nu.array([-11.1,12.24,7.25])
         else:
-            vsolar= nu.array(solarmotion)/vo           
+            vsolar= nu.array(solarmotion)
         if radec or lb:
             if radec:
                 l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
@@ -121,7 +126,7 @@ class Orbit:
             vx/= vo
             vy/= vo
             vz/= vo
-            vsun= nu.array([0.,1.,0.,])+vsolar
+            vsun= nu.array([0.,1.,0.,])+vsolar/vo
             R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
@@ -133,16 +138,16 @@ class Orbit:
             self._orb= linearOrbit(vxvv=vxvv)
         elif len(vxvv) == 3:
             self._orb= planarROrbit(vxvv=vxvv,
-                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 4:
             self._orb= planarOrbit(vxvv=vxvv,
-                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 5:
             self._orb= RZOrbit(vxvv=vxvv,
-                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 6:
             self._orb= FullOrbit(vxvv=vxvv,
-                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar*vo)
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         return None
 
     def setphi(self,phi):
@@ -1138,6 +1143,10 @@ class Orbit:
 
            t - (optional) time at which to get the radius
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            R(t)
@@ -1213,6 +1222,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the vertical height
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1314,6 +1327,10 @@ class Orbit:
 
            t - (optional) time at which to get x
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            x(t)
@@ -1338,6 +1355,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get y
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1633,7 +1654,7 @@ class Orbit:
 
            t - (optional) time at which to get pmll
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2106,6 +2127,12 @@ class Orbit:
 
            d2= second dimension to plot
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            matplotlib.plot inputs+bovy_plot.plot inputs
 
         OUTPUT:
@@ -2130,6 +2157,18 @@ class Orbit:
            plot 3D aspects of an Orbit
 
         INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
+           d3= third dimension to plot
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot3d args and kwargs
 
@@ -2280,6 +2319,10 @@ class Orbit:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2306,6 +2349,10 @@ class Orbit:
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot.bovy_plot inputs
 
@@ -2441,6 +2488,10 @@ class Orbit:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2494,6 +2545,10 @@ class Orbit:
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot.bovy_plot inputs
 
