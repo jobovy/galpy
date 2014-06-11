@@ -41,6 +41,7 @@ class streamdf:
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
+                 burst=False, 
                  useInterp=_USEINTERP,nosetup=False):
         """
         NAME:
@@ -87,6 +88,7 @@ class streamdf:
            2013-09-16 - Started - Bovy (IAS)
            2013-11-25 - Started over - Bovy (IAS)
         """
+        self._burst = burst
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./bovy_conversion.time_in_Gyr(Vnorm,Rnorm)
@@ -127,6 +129,8 @@ class streamdf:
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
         self._siglz= self._progenitor.rperi()*self._sigv
         self._sigjz= 2.*self._progenitor.zmax()/numpy.pi*self._sigv
+        if (burst):
+            print 'WARNING: SHOULD DO SETUP MORE CAREFULLY.'
         #Estimate the frequency covariance matrix from a diagonal J matrix x dOdJ
         self._sigjmatrix= numpy.diag([self._sigjr**2.,
                                       self._siglz**2.,
@@ -164,6 +168,11 @@ class streamdf:
         self._dsigomeanProg= self._sigomean-self._progenitor_Omega
         self._meandO= self._sigMeanOffset\
             *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))
+        if (burst):
+            #assume unimodal
+            self._sigomean = self._progenitor_Omega
+            self._dsigomeanProg = 0.
+            self._meandO = 0.
         #Store cholesky of sigomatrix for fast evaluation
         self._sigomatrixNorm=\
             numpy.sqrt(numpy.sum(self._sigomatrix**2.))
@@ -255,6 +264,9 @@ class streamdf:
         HISTORY:
            2013-11-27 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            raise Exception("this is burst mode, so if you're asking to estimate"\
+                +"tdisrupt you're probably confused.")
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
@@ -1242,6 +1254,15 @@ class streamdf:
         HISTORY:
            2013-12-01 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            #dO1D = dangle / self._tdisrupt   #simple approx
+            dO1D = (self._sortedSigOEig[2] * self._tdisrupt) / (
+                self._sigangle2 + self._sortedSigOEig[2] * self._tdisrupt**2) * dangle
+            if (oned):
+                return dO1D
+            else:
+                return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                    *self._sigMeanSign
         dOmin= dangle/self._tdisrupt
         meandO= self._meandO
         dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
@@ -1269,6 +1290,10 @@ class streamdf:
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            #return self._sigangle / self_tdisrupt  #simple approx
+            return numpy.sqrt((self._sortedSigOEig[2] * self._sigangle2) / 
+                (self._sigangle2 + self._sortedSigOEig[2] * self._tdisrupt**2))
         dOmin= dangle/self._tdisrupt
         meandO= self._meandO
         sO1D2= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
@@ -1296,6 +1321,8 @@ class streamdf:
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            raise Exception("Shouldn't be calling this.")
         if isinstance(t,(int,float,numpy.float32,numpy.float64)):
             t= numpy.array([t])
         out= numpy.zeros(len(t))
@@ -1323,6 +1350,8 @@ class streamdf:
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            raise Exception("Shouldn't be calling this.")
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
         num= integrate.quad(lambda x: x*self.ptdAngle(x,dangle),
@@ -1345,6 +1374,8 @@ class streamdf:
         HISTORY:
            2013-12-05 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            raise Exception("Shouldn't be calling this.")
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
         numsig2= integrate.quad(lambda x: x**2.*self.ptdAngle(x,dangle),
@@ -1371,6 +1402,9 @@ class streamdf:
         HISTORY:
            2013-12-06 - Written - Bovy (IAS)
         """
+        if (self._burst):
+            #should provide for external use
+            raise Exception("Not implemented, shouldn't be calling this internally.")
         if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
             angleperp= numpy.array([angleperp])
         out= numpy.zeros(len(angleperp))
@@ -1395,6 +1429,8 @@ class streamdf:
         """
         if smallest: eigIndx= 0
         else: eigIndx= 1
+        if (self._burst):
+            return 0.
         aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])\
                                *self._tdisrupt*5.,
                            self._sigangle])
@@ -1424,6 +1460,9 @@ class streamdf:
         """
         if smallest: eigIndx= 0
         else: eigIndx= 1
+        if (self._burst):
+            return numpy.sqrt(self._sigangle2 
+                           + self._sortedSigOEig[eigIndx] * self._tdisrupt**2)
         if simple:
             dt= self.meantdAngle(dangle)
             return numpy.sqrt(self._sigangle2
@@ -1626,6 +1665,23 @@ class streamdf:
         else:
             log= True
         dOmega, dangle= self.prepData4Call(*args,**kwargs)
+        if (self._burst):
+            #use: self.tdisrupt, dOmega (3xn), dangle (3xn)
+            #omega part
+            dOmega4dfOmega= dOmega\
+                -numpy.tile(self._dsigomeanProg.T,(dOmega.shape[1],1)).T
+            logdfOmega = -0.5*numpy.dot(dOmega4dfOmega.T,
+                            numpy.dot(self._sigomatrixinv, dOmega4dfOmega)) \
+                            -0.5*self._sigomatrixLogdet
+            #angle part
+            dangle2 = numpy.sum((dangle-dOmega*self._tdisrupt)**2,axis=0)
+            logdfA = -0.5/self._sigangle2 * dangle2 - 3.*self._lnsigangle
+            #include dOmega/dJ to return to canonical volume element
+            out = logdfA + logdfOmega + self._logmeandetdOdJp
+            if log:
+                return out
+            else:
+                return numpy.exp(out)
         #Omega part
         dOmega4dfOmega= dOmega\
             -numpy.tile(self._dsigomeanProg.T,(dOmega.shape[1],1)).T
