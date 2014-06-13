@@ -668,7 +668,8 @@ class streamdf:
         self._allinvjacsTrack= allinvjacsTrack
         self._detdOdJps= detdOdJps
         self._meandetdOdJp= numpy.mean(self._detdOdJps)
-        self._logmeandetdOdJp= numpy.log(self._meandetdOdJp)
+        #self._logmeandetdOdJp= numpy.log(self._meandetdOdJp)
+        self._logmeandetdOdJp= numpy.log(numpy.fabs(self._meandetdOdJp)) #maf
         #Also calculate _ObsTrackXY in XYZ,vXYZ coordinates
         self._ObsTrackXY= numpy.empty_like(self._ObsTrack)
         TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
