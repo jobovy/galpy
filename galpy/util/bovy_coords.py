@@ -69,6 +69,40 @@ import numpy as nu
 import scipy as sc
 _DEGTORAD= m.pi/180.
 _K=4.74047
+def scalarDecorator(func):
+    """Decorator to return scalar outputs as a set"""
+    def scalar_wrapper(*args,**kwargs):
+        if nu.array(args[0]).shape == ():
+            scalarOut= True
+            newargs= ()
+            for ii in range(len(args)):
+                newargs= newargs+(nu.array([args[ii]]),)
+            args= newargs
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            out= ()
+            for ii in range(result.shape[1]):
+                out= out+(result[0,ii],)
+            return out
+        else:
+            return result
+    return scalar_wrapper
+def degreeDecorator(inDegrees,outDegrees):
+    """Decorator to transform angles from and to degrees if necessary"""
+    def wrapper(func):
+        def wrapped(*args,**kwargs):
+            if kwargs.get('degree',False):
+                for indx in inDegrees:
+                    args[indx]*= nu.pi/180.
+            out= func(*args,**kwargs)
+            if kwargs.get('degree',False):
+                for indx in outDegrees:
+                    out[:,indx]/= nu.pi/180.
+            return out
+        return wrapped
+    return wrapper            
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
@@ -613,6 +647,8 @@ def XYZ_to_lbd_single(X,Y,Z,degree):
     else:
         return (l,b,d)
 
+@scalarDecorator
+@degreeDecorator([],[0,1])
 def XYZ_to_lbd(X,Y,Z,degree=False):
     """
     NAME:
@@ -646,13 +682,7 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed - Bovy (IAS)
 
     """
-    if sc.array(X).shape == ():
-        scalarOut= True
-        X= nu.array([X])
-        Y= nu.array([Y])
-        Z= nu.array([Z])
-    else:
-        scalarOut= False
+    #Whether to use degrees and scalar input is handled by decorators
     d= nu.sqrt(X**2.+Y**2.+Z**2.)
     b=nu.arcsin(Z/d)
     cosl= X/d/nu.cos(b)
@@ -660,20 +690,11 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
     l= nu.arcsin(sinl)
     l[cosl < 0.]= nu.pi-l[cosl < 0.]
     l[(cosl >= 0.)*(sinl < 0.)]+= 2.*nu.pi
-    if scalarOut:
-        if degree:
-            return (l[0]/m.pi*180.,b[0]/m.pi*180.,d[0])
-        else:
-            return (l[0],b[0],d[0])
-    else:
-        out= nu.empty((len(l),3))
-        out[:,0]= l
-        out[:,1]= b
-        out[:,2]= d
-        if degree:
-            out[:,:2]*= 180./m.pi
-        return out
-
+    out= nu.empty((len(l),3))
+    out[:,0]= l
+    out[:,1]= b
+    out[:,2]= d
+    return out
 
 def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     """
