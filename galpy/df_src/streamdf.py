@@ -42,6 +42,7 @@ class streamdf:
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
                  burst=False, 
+                 verbose=False,
                  useInterp=_USEINTERP,nosetup=False):
         """
         NAME:
@@ -88,6 +89,7 @@ class streamdf:
            2013-09-16 - Started - Bovy (IAS)
            2013-11-25 - Started over - Bovy (IAS)
         """
+        self._verbose = verbose
         self._burst = burst
         self._sigv= sigv
         if tdisrupt is None:
@@ -107,8 +109,10 @@ class streamdf:
         else:
             self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
+        if (self._verbose): print 'doing actionsFreqsAngles...'
         acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
+        if (self._verbose): print '...done.'
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
         self._progenitor_jz= acfs[2][0]
@@ -121,9 +125,11 @@ class streamdf:
         self._progenitor_anglez= acfs[8]
         self._progenitor_angle= numpy.array([acfs[6],acfs[7],acfs[8]]).reshape(3)
         #Calculate dO/dJ Jacobian at the progenitor
+        if (self._verbose): print 'doing calcaAJac...'
         self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
                                self._aA,dxv=None,dOdJ=True,
                                _initacfs=acfs)
+        if (self._verbose): print '...done'
         self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
         #From the progenitor orbit, determine the sigmas in J and angle
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
@@ -188,7 +194,7 @@ class streamdf:
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
                 warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
-        if (deltaAngleTrack > 100.):  
+        if (abs(deltaAngleTrack) > 100.):  
             raise Exception('Suspiciously large stream angle required, abort.')
 
         #Determine the stream track
@@ -198,6 +204,7 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         if not nosetup:
+            if (self._verbose): print 'doing stream track...'
             self._determine_stream_track(deltaAngleTrack,nTrackChunks)
             self._useInterp= useInterp
             if interpTrack or self._useInterp:
@@ -205,6 +212,7 @@ class streamdf:
                 self._interpolate_stream_track_aA()
             self.calc_stream_lb()
             self._determine_stream_spread()
+            if (self._verbose): print '...done'
         return None
 
     def misalignment(self,isotropic=False):
@@ -597,6 +605,10 @@ class streamdf:
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
+        if (self._verbose):
+            print 'dt: ', dt
+            print 'da: ', self._deltaAngleTrack
+            print 'omegaprog: ', self._progenitor_Omega_along_dOmega
         #Instantiate another Orbit for the progenitor orbit where there is data
         #This can be somewhat sped up by re-using the previously integrated
         #progenitor orbit, but because the computational cost is dominated
@@ -612,7 +624,12 @@ class streamdf:
                                           self._progenitor.phi(0.)])
         else:
             self._progenitorTrack= self._progenitor(0.)
+        if (self._verbose): 
+            print 'integrating progenitor track... orbit, times:'
+            print self._progenitorTrack.vxvv
+            print self._trackts
         self._progenitorTrack.integrate(self._trackts,self._pot)
+        if (self._verbose): print '...done'
         if dt < 0.:
             #Flip velocities again
             self._progenitorTrack._orb.orbit[:,1]= -self._progenitorTrack._orb.orbit[:,1]
@@ -627,6 +644,7 @@ class streamdf:
         ObsTrack= numpy.empty((self._nTrackChunks,6))
         ObsTrackAA= numpy.empty((self._nTrackChunks,6))
         detdOdJps= numpy.empty((self._nTrackChunks))
+        if (self._verbose): print 'starting loop/multi...'
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
@@ -650,7 +668,8 @@ class streamdf:
                                                           self._sigMeanSign,
                                                           self._dsigomeanProgDirection,
                                                           self.meanOmega,
-                                                          thetasTrack[x])),
+                                                          thetasTrack[x], 
+                                                          verbose=self._verbose)),
                 range(self._nTrackChunks),
                 numcores=numpy.amin([self._nTrackChunks,
                                      multiprocessing.cpu_count(),
@@ -662,6 +681,7 @@ class streamdf:
                 ObsTrack[ii,:]= multiOut[ii][3]
                 ObsTrackAA[ii,:]= multiOut[ii][4]
                 detdOdJps[ii]= multiOut[ii][5]
+        if (self._verbose): print '...done loop/multi'
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._ObsTrackAA= ObsTrackAA
@@ -688,6 +708,7 @@ class streamdf:
         self._ObsTrackXY[:,3]= TrackvX
         self._ObsTrackXY[:,4]= TrackvY
         self._ObsTrackXY[:,5]= TrackvZ
+        if (self._verbose): print 'done stream track.'
         return None
 
     def _determine_stream_spread(self,simple=_USESIMPLE):
@@ -2157,8 +2178,9 @@ def _hp_ars(x,params):
 def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    progenitor_angle,sigMeanSign,
                                    dsigomeanProgDirection,meanOmega,
-                                   thetasTrack):
+                                   thetasTrack, verbose=False):
     #Setup output
+    if (verbose): print 'track_single: ', trackt, sigMeanSign
     allAcfsTrack= numpy.empty((9))
     alljacsTrack= numpy.empty((6,6))
     allinvjacsTrack= numpy.empty((6,6))
