@@ -205,6 +205,8 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
     ra[ra<0.]+= 2.*nu.pi
     return nu.array([ra,dec]).T
 
+@scalarDecorator
+@degreeDecorator([0,1],[])
 def lbd_to_XYZ(l,b,d,degree=False):
     """
     NAME:
@@ -235,34 +237,12 @@ def lbd_to_XYZ(l,b,d,degree=False):
 
        2009-10-24- Written - Bovy (NYU)
 
-    """
-    if sc.array(l).shape == ():
-        return lbd_to_XYZ_single(l,b,d,degree)
-    else:
-        function= sc.frompyfunc(lbd_to_XYZ_single,4,3)
-        return sc.array(function(l,b,d,degree),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def lbd_to_XYZ_single(l,b,d,degree=False):
     """
-    NAME:
-       lbd_to_XYZ_single
-    PURPOSE:
-       transform from spherical Galactic coordinates to rectangular Galactic coordinates
-       works with vector inputs
-    INPUT:
-       l - Galactic longitude (rad)
-       b - Galactic lattitude (rad)
-       d - distance (arbitrary units)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       [X,Y,Z] in whatever units d was in
-    HISTORY:
-       2009-10-24- Written - Bovy (NYU)
-    """
-    if degree:
-        l= l*m.pi/180.
-        b= b*m.pi/180.
-    return (d*m.cos(b)*m.cos(l),d*m.cos(b)*m.sin(l),d*m.sin(b))
+    return nu.array([d*nu.cos(b)*nu.cos(l),
+                     d*nu.cos(b)*nu.sin(l),
+                     d*nu.sin(b)]).T
 
 def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
     """
