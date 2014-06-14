@@ -148,10 +148,9 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(ra_ngp),sc.sin(ra_ngp),0.],[-sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]])))
     #Whether to use degrees and scalar input is handled by decorators
-    XYZ= nu.empty((3,len(ra)))
-    XYZ[0,:]= nu.cos(dec)*nu.cos(ra)
-    XYZ[1,:]= nu.cos(dec)*nu.sin(ra)
-    XYZ[2,:]= nu.sin(dec)
+    XYZ= nu.array([nu.cos(dec)*nu.cos(ra),
+                   nu.cos(dec)*nu.sin(ra),
+                   nu.sin(dec)])
     galXYZ= nu.dot(T,XYZ)
     b= nu.arcsin(galXYZ[2])
     l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
@@ -159,6 +158,8 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     out= nu.array([l,b])
     return out.T
 
+@scalarDecorator
+@degreeDecorator([0,1],[0,1])
 def lb_to_radec(l,b,degree=False,epoch=2000.0):
     """
     NAME:
@@ -189,55 +190,20 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        2010-04-07 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(ra_ngp),-sc.sin(ra_ngp),0.],[sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]])))
-    transform={}
-    transform['T']= T
-    if sc.array(l).shape == ():
-        return lb_to_radec_single(l,b,transform,degree)
-    else:
-        function= sc.frompyfunc(lb_to_radec_single,4,2)
-        return sc.array(function(l,b,transform,degree),dtype=sc.float64).T
-
-def lb_to_radec_single(l,b,T,degree=False):
-    """
-    NAME:
-       lb_to_radec_single
-    PURPOSE:
-       transform from Galactic coordinates to equatorial coordinates
-       for a single pair of l,b
-    INPUT:
-       l - Galactic longitude
-       b - Galactic lattitude
-       T - epoch dependent transformation matrix (dictionary)
-       degree - (Bool) if True, l and b are given in degree and ra and dec
-                 will be as well
-    OUTPUT:
-       ra,dec
-    HISTORY:
-       2010-04-08 - Written - Bovy (NYU)
-    """
-    T=T['T']
-    if degree:
-        thisl= l*_DEGTORAD
-        thisb= b*_DEGTORAD
-    else:
-        thisl= l
-        thisb= b
-    XYZ=sc.array([m.cos(thisb)*m.cos(thisl),m.cos(thisb)*m.sin(thisl),m.sin(thisb)])
-    eqXYZ= sc.dot(T,XYZ)
-    dec= m.asin(eqXYZ[2])
-    ra= m.atan(eqXYZ[1]/eqXYZ[0])
-    if eqXYZ[0] < 0.:
-        ra+= m.pi
-    elif ra < 0.:
-        ra+= 2.*m.pi
-    if degree:
-        return (ra/m.pi*180.,dec/m.pi*180.)
-    else:
-        return (ra,dec)
+    XYZ= nu.array([nu.cos(b)*nu.cos(l),
+                   nu.cos(b)*nu.sin(l),
+                   nu.sin(b)])
+    eqXYZ= nu.dot(T,XYZ)
+    dec= nu.arcsin(eqXYZ[2])
+    ra= nu.arctan2(eqXYZ[1],eqXYZ[0])
+    ra[ra<0.]+= 2.*nu.pi
+    return nu.array([ra,dec]).T
 
 def lbd_to_XYZ(l,b,d,degree=False):
     """
