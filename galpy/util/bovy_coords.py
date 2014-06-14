@@ -94,8 +94,13 @@ def degreeDecorator(inDegrees,outDegrees):
     def wrapper(func):
         def wrapped(*args,**kwargs):
             if kwargs.get('degree',False):
-                for indx in inDegrees:
-                    args[indx]*= nu.pi/180.
+                newargs= ()
+                for ii in range(len(args)):
+                    if ii in inDegrees:
+                        newargs= newargs+(args[ii]*nu.pi/180.,)
+                    else:
+                        newargs= newargs+(args[ii],)
+                args= newargs
             out= func(*args,**kwargs)
             if kwargs.get('degree',False):
                 for indx in outDegrees:
@@ -103,6 +108,9 @@ def degreeDecorator(inDegrees,outDegrees):
             return out
         return wrapped
     return wrapper            
+
+@scalarDecorator
+@degreeDecorator([0,1],[0,1])
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
@@ -133,51 +141,23 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        2009-11-12 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(ra_ngp),sc.sin(ra_ngp),0.],[-sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]])))
-    transform={}
-    transform['T']= T
-    if sc.array(ra).shape == ():
-        return radec_to_lb_single(ra,dec,transform,degree)
-    else:
-        function= sc.frompyfunc(radec_to_lb_single,4,2)
-        return sc.array(function(ra,dec,transform,degree),dtype=sc.float64).T
-
-def radec_to_lb_single(ra,dec,T,degree=False):
-    """
-    NAME:
-       radec_to_lb_single
-    PURPOSE:
-       transform from equatorial coordinates to Galactic coordinates for a single pair of ra,dec
-    INPUT:
-       ra - right ascension
-       dec - declination
-       T - epoch dependent transformation matrix (dictionary)
-       degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
-    OUTPUT:
-       l,b
-    HISTORY:
-       2009-11-12 - Written - Bovy (NYU)
-    """
-    T=T['T']
-    if degree:
-        thisra= ra/180.*sc.pi
-        thisdec= dec/180.*sc.pi
-    else:
-        thisra= ra
-        thisdec= dec
-    XYZ=sc.array([sc.cos(thisdec)*sc.cos(thisra),sc.cos(thisdec)*sc.sin(thisra),sc.sin(thisdec)])
-    galXYZ= sc.dot(T,XYZ)
-    b= m.asin(galXYZ[2])
-    l= m.atan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
-    if l < 0.:
-        l+= 2.*sc.pi
-    if degree:
-        return (l/sc.pi*180.,b/sc.pi*180.)
-    else:
-        return (l,b)
+    #Whether to use degrees and scalar input is handled by decorators
+    XYZ= nu.empty((3,len(ra)))
+    XYZ[0,:]= nu.cos(dec)*nu.cos(ra)
+    XYZ[1,:]= nu.cos(dec)*nu.sin(ra)
+    XYZ[2,:]= nu.sin(dec)
+    galXYZ= nu.dot(T,XYZ)
+    b= nu.arcsin(galXYZ[2])
+    l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
+    l[l<0.]+= 2.*nu.pi
+    out= nu.array([l,b])
+    return out.T
 
 def lb_to_radec(l,b,degree=False,epoch=2000.0):
     """
