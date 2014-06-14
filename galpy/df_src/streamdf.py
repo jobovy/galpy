@@ -193,7 +193,7 @@ class streamdf:
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
                 warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
-        if (deltaAngleTrack > 100.):  
+        if (abs(deltaAngleTrack) > 100.):  
             raise Exception('Suspiciously large stream angle required, abort.')
 
         #Determine the stream track
