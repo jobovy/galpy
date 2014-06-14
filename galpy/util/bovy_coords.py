@@ -65,6 +65,7 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import math as m
+import numpy as nu
 import scipy as sc
 _DEGTORAD= m.pi/180.
 _K=4.74047
@@ -545,7 +546,7 @@ def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     pmbb= vrvlvb[2]/d/_K
     return (vrvlvb[0],pmll,pmbb)
 
-def XYZ_to_lbd(X,Y,Z,degree=False):
+def XYZ_to_lbd_old(X,Y,Z,degree=False):
     """
     NAME:
 
@@ -611,6 +612,68 @@ def XYZ_to_lbd_single(X,Y,Z,degree):
         return (l/m.pi*180.,b/m.pi*180.,d)
     else:
         return (l,b,d)
+
+def XYZ_to_lbd(X,Y,Z,degree=False):
+    """
+    NAME:
+
+       XYZ_to_lbd
+
+    PURPOSE:
+
+       transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
+
+    INPUT:
+
+       X - component towards the Galactic Center (in kpc; though this obviously does not matter))
+
+       Y - component in the direction of Galactic rotation (in kpc)
+
+       Z - component towards the North Galactic Pole (kpc)
+
+       degree - (Bool) if True, return l and b in degrees
+
+    OUTPUT:
+
+       [l,b,d] in (rad,rad,kpc)
+
+       For vector inputs [:,3]
+
+    HISTORY:
+
+       2009-10-24 - Written - Bovy (NYU)
+
+       2014-06-14 - Re-written w/ numpy functions for speed - Bovy (IAS)
+
+    """
+    if sc.array(X).shape == ():
+        scalarOut= True
+        X= nu.array([X])
+        Y= nu.array([Y])
+        Z= nu.array([Z])
+    else:
+        scalarOut= False
+    d= nu.sqrt(X**2.+Y**2.+Z**2.)
+    b=nu.arcsin(Z/d)
+    cosl= X/d/nu.cos(b)
+    sinl= Y/d/nu.cos(b)
+    l= nu.arcsin(sinl)
+    l[cosl < 0.]= nu.pi-l[cosl < 0.]
+    l[(cosl >= 0.)*(sinl < 0.)]+= 2.*nu.pi
+    if scalarOut:
+        if degree:
+            return (l[0]/m.pi*180.,b[0]/m.pi*180.,d[0])
+        else:
+            return (l[0],b[0],d[0])
+    else:
+        out= nu.empty((len(l),3))
+        out[:,0]= l
+        out[:,1]= b
+        out[:,2]= d
+        if degree:
+            out[:,:2]*= 180./m.pi
+        return out
+
 
 def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     """
