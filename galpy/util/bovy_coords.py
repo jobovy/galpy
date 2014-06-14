@@ -604,7 +604,7 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
 
     OUTPUT:
 
-       [l,b,d] in (rad,rad,kpc)
+       [l,b,d] in (rad or degree,rad or degree,kpc)
 
        For vector inputs [:,3]
 
@@ -612,7 +612,7 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
 
        2009-10-24 - Written - Bovy (NYU)
 
-       2014-06-14 - Re-written w/ numpy functions for speed - Bovy (IAS)
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
     #Whether to use degrees and scalar input is handled by decorators
