@@ -571,6 +571,8 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     return (nu.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
                 *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
+@scalarDecorator
+@degreeDecorator([2,3],[])
 def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
     """
     NAME:
@@ -603,62 +605,31 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
        2010-04-07 - Written - Bovy (NYU)
 
-    """
-    if sc.array(pmll).shape == ():
-        ra,dec = lb_to_radec(l,b,degree=degree,epoch=epoch)
-        return pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree,epoch)
-    else:
-        radec = lb_to_radec(l,b,degree=degree,epoch=epoch)
-        function= sc.frompyfunc(pmllpmbb_to_pmrapmdec_single,7,2)
-        return sc.array(function(pmll,pmbb,radec[:,0],radec[:,1],b,degree,
-                                 epoch),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
-    """
-    NAME:
-       pmllpmbb_to_pmrapmdec_single
-    PURPOSE:
-       rotate proper motions in (l,b) into proper motions in (ra,dec) for
-       scalar inputs
-    INPUT:
-       pmll - proper motion in l (multplied with cos(b)) [mas/yr]
-       pmll - proper motion in b [mas/yr]
-       ra - right ascension
-       dec - declination
-       b - Galactic lattitude
-       degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
-    OUTPUT:
-       (pmra,pmdec)
-    HISTORY:
-       2010-04-07 - Written - Bovy (NYU)
     """
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    if degree:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec*_DEGTORAD)
-        cosdec= m.cos(dec*_DEGTORAD)
-        sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
-    else:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec)
-        cosdec= m.cos(dec)
-        sinrarangp= m.sin(ra-ra_ngp)
-        cosrarangp= m.cos(ra-ra_ngp)
+    #Whether to use degrees and scalar input is handled by decorators
+    radec = lb_to_radec(l,b,degree=False,epoch=epoch)
+    ra= radec[:,0]
+    dec= radec[:,1]
+    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
+    sindec_ngp= nu.sin(dec_ngp)
+    cosdec_ngp= nu.cos(dec_ngp)
+    sindec= nu.sin(dec)
+    cosdec= nu.cos(dec)
+    sinrarangp= nu.sin(ra-ra_ngp)
+    cosrarangp= nu.cos(ra-ra_ngp)
     #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     #sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
     sinphi= sinrarangp*cosdec_ngp
-    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    out= sc.dot(sc.array([[cosphi,-sinphi],[sinphi,cosphi]]),sc.array([pmll,pmbb]))
-    return (out[0], out[1])
-
+    return (nu.array([[cosphi,sinphi],[-sinphi,cosphi]]).T\
+                *nu.array([[pmll,pmll],[pmbb,pmbb]]).T).sum(-1)
 
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     """
