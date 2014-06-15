@@ -1,11 +1,16 @@
+import warnings
 import math as m
 import numpy as nu
 from scipy import interpolate, optimize
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
+from galpy.util import galpyWarning
 from galpy.util import bovy_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
+def print_physical_warning():
+    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, and times in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
+                  galpyWarning)   
 def physical_position(method):
     """Decorator to convert to physical coordinates: positions"""
     def position_wrapper(*args,**kwargs):
@@ -20,6 +25,7 @@ def physical_position(method):
         else:
             ro= None
         if use_physical and not ro is None:
+            print_physical_warning()
             return method(*args,**kwargs)*ro
         else:
             return method(*args,**kwargs)
@@ -38,6 +44,7 @@ def physical_velocity(method):
         else:
             vo= None
         if use_physical and not vo is None:
+            print_physical_warning()
             return method(*args,**kwargs)*vo
         else:
             return method(*args,**kwargs)
@@ -62,6 +69,7 @@ def physical_time(method):
         else:
             vo= None
         if use_physical and not vo is None and not ro is None:
+            print_physical_warning()
             return method(*args,**kwargs)*bovy_conversion.time_in_Gyr(vo,ro)
         else:
             return method(*args,**kwargs)
