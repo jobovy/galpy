@@ -396,6 +396,8 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
                     [d*pmbb*_K,d*pmbb*_K,d*pmbb*_K]])
     return (R.T*invr.T).sum(-1)
 
+@scalarDecorator
+@degreeDecorator([3,4],[])
 def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     """
     NAME:
@@ -428,60 +430,36 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
        (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
 
+       For vector inputs [:,3]
+
     HISTORY:
 
        2009-10-24 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
-    if sc.array(l).shape == ():
-        return vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ,degree)
-    else:
-        function= sc.frompyfunc(vxvyvz_to_vrpmllpmbb_single,8,3)
-        return sc.array(function(vx,vy,vz,l,b,d,XYZ,degree),dtype=sc.float64).T
-    
-def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
-    """
-    NAME:
-       vxvyvz_to_vrpmllpmbb_single
-    PURPOSE:
-       Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame
-    INPUT:
-       vx - velocity towards the Galactic Center (km/s)
-       vy - velocity in the direction of Galactic rotation (km/s)
-       vz - velocity towards the North Galactic Pole (km/s)
-       l - Galactic longitude
-       b - Galactic lattitude
-       d - distance (kpc)
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z
-             (rectangular Galactic coordinates)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
-    HISTORY:
-       2009-10-24 - Written - Bovy (NYU)
-    """ 
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[0]
-        b= lbd[1]
-        d= lbd[2]
-    else:
-        if degree:
-            l*= _DEGTORAD
-            b*= _DEGTORAD
-    R=sc.zeros((3,3))
-    R[0,0]= m.cos(l)*m.cos(b)
-    R[1,0]= -m.sin(l)
-    R[2,0]= -m.cos(l)*m.sin(b)
-    R[0,1]= m.sin(l)*m.cos(b)
-    R[1,1]= m.cos(l)
-    R[2,1]= -m.sin(l)*m.sin(b)
-    R[0,2]= m.sin(b)
-    R[2,2]= m.cos(b)
-    vrvlvb= sc.dot(R,sc.array([vx,vy,vz]))
-    pmll= vrvlvb[1]/d/_K
-    pmbb= vrvlvb[2]/d/_K
-    return (vrvlvb[0],pmll,pmbb)
+        l= lbd[:,0]
+        b= lbd[:,1]
+        d= lbd[:,2]
+    R=nu.zeros((3,3,len(l)))
+    R[0,0]= nu.cos(l)*nu.cos(b)
+    R[0,1]= -nu.sin(l)
+    R[0,2]= -nu.cos(l)*nu.sin(b)
+    R[1,0]= nu.sin(l)*nu.cos(b)
+    R[1,1]= nu.cos(l)
+    R[1,2]= -nu.sin(l)*nu.sin(b)
+    R[2,0]= nu.sin(b)
+    R[2,2]= nu.cos(b)
+    invxyz= nu.array([[vx,vx,vx],
+                    [vy,vy,vy],
+                    [vz,vz,vz]])
+    vrvlvb= (R.T*invxyz.T).sum(-1)
+    vrvlvb[:,1]/= d*_K
+    vrvlvb[:,2]/= d*_K
+    return vrvlvb
 
 @scalarDecorator
 @degreeDecorator([],[0,1])
