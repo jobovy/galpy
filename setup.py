@@ -186,7 +186,7 @@ def print_gsl_message(num_messages=1):
         this_str= 'these installations'
     else:
         this_str= 'this installation'
-    print 'If you believe that %s should have worked, make sure\n(1) that the GSL include/ directory can be found by the compiler (you might have to edit CFLAGS for this: export CFLAGS="$CFLAGS -I/path/to/gsl/include/", or equivalent for C-type shells),\n(2) that the GSL library can be found by the linker (you might have to edit LDFLAGS for this: export LDFLAGS="$LDFLAGS -L/path/to/gsl/lib/", or equivalent for C-type shells),\n(3) and that `gsl-config --version` returns the correct version' % this_str
+    print 'If you believe that %s should have worked, make sure\n(1) that the GSL include/ directory can be found by the compiler (you might have to edit CFLAGS for this: export CFLAGS="$CFLAGS -I/path/to/gsl/include/", or equivalent for C-type shells; replace /path/to/gsl/include/ with the actual path to the include directory),\n(2) that the GSL library can be found by the linker (you might have to edit LDFLAGS for this: export LDFLAGS="$LDFLAGS -L/path/to/gsl/lib/", or equivalent for C-type shells; replace /path/to/gsl/lib/ with the actual path to the lib directory),\n(3) and that `gsl-config --version` returns the correct version' % this_str
 
 num_gsl_warn= 0
 if not orbit_int_c_incl:
@@ -204,4 +204,4 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print '\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m'
 print '\033[1m'+'Finished installing galpy'+'\033[0m'
-print 'You can run the test suite using `nosetests -v -w nose/` to check the installation'
+print 'You can run the test suite using `nosetests -v -w nose/` to check the installation (note that the test suite currently takes about 6 minutes to run)'
