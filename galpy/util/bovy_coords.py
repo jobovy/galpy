@@ -334,6 +334,8 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
         out[:,3:6]= vxvyvz
         return out
 
+@scalarDecorator
+@degreeDecorator([3,4],[])
 def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
     """
     NAME:
@@ -366,58 +368,33 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
 
        (vx,vy,vz) in (km/s,km/s,km/s)
 
+       For vector inputs [:,3]
+
     HISTORY:
 
        2009-10-24 - Written - Bovy (NYU)
 
-    """
-    if sc.array(l).shape == ():
-        return vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree)
-    else:
-        function= sc.frompyfunc(vrpmllpmbb_to_vxvyvz_single,8,3)
-        return sc.array(function(vr,pmll,pmbb,l,b,d,XYZ,degree),dtype=sc.float64).T
-    
-def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
-    """
-    NAME:
-       vrpmllpmbb_to_vxvyvz
-    PURPOSE:
-       Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame
-       Can take vector inputs
-    INPUT:
-       vr - line-of-sight velocity (km/s)
-       pmll - proper motion in the Galactic longitude (mu_l * cos(b))(mas/yr)
-       pmbb - proper motion in the Galactic lattitude (mas/yr)
-       l - Galactic longitude
-       b - Galactic lattitude
-       d - distance (kpc)
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       (vx,vy,vz) in (km/s,km/s,km/s)
-    HISTORY:
-       2009-10-24 - Written - Bovy (NYU)
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[0]
-        b= lbd[1]
-        d= lbd[2]
-    else:
-        if degree:
-            l*= _DEGTORAD
-            b*= _DEGTORAD
-    R=sc.zeros((3,3))
-    R[0,0]= m.cos(l)*m.cos(b)
-    R[1,0]= -m.sin(l)
-    R[2,0]= -m.cos(l)*m.sin(b)
-    R[0,1]= m.sin(l)*m.cos(b)
-    R[1,1]= m.cos(l)
-    R[2,1]= -m.sin(l)*m.sin(b)
-    R[0,2]= m.sin(b)
-    R[2,2]= m.cos(b)
-    vxvyvz= sc.dot(R.T,sc.array([vr,d*pmll*_K,d*pmbb*_K]))
-    return (vxvyvz[0],vxvyvz[1],vxvyvz[2])
+        l= lbd[:,0]
+        b= lbd[:,1]
+        d= lbd[:,2]
+    R=nu.zeros((3,3,len(l)))
+    R[0,0]= nu.cos(l)*nu.cos(b)
+    R[1,0]= -nu.sin(l)
+    R[2,0]= -nu.cos(l)*nu.sin(b)
+    R[0,1]= nu.sin(l)*nu.cos(b)
+    R[1,1]= nu.cos(l)
+    R[2,1]= -nu.sin(l)*nu.sin(b)
+    R[0,2]= nu.sin(b)
+    R[2,2]= nu.cos(b)
+    invr= nu.array([[vr,vr,vr],
+                    [d*pmll*_K,d*pmll*_K,d*pmll*_K],
+                    [d*pmbb*_K,d*pmbb*_K,d*pmbb*_K]])
+    return (R.T*invr.T).sum(-1)
 
 def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     """
