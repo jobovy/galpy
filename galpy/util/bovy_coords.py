@@ -196,6 +196,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(ra_ngp),-sc.sin(ra_ngp),0.],[sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]])))
+    #Whether to use degrees and scalar input is handled by decorators
     XYZ= nu.array([nu.cos(b)*nu.cos(l),
                    nu.cos(b)*nu.sin(l),
                    nu.sin(b)])
@@ -240,6 +241,7 @@ def lbd_to_XYZ(l,b,d,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
+    #Whether to use degrees and scalar input is handled by decorators
     return nu.array([d*nu.cos(b)*nu.cos(l),
                      d*nu.cos(b)*nu.sin(l),
                      d*nu.sin(b)]).T
@@ -377,6 +379,7 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
+    #Whether to use degrees and scalar input is handled by decorators
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
@@ -439,6 +442,7 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
+    #Whether to use degrees and scalar input is handled by decorators
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
