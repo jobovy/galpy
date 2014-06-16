@@ -966,6 +966,7 @@ class OrbitTop:
         """
         raise NotImplementedError("'Jacobi' for this Orbit type is not implemented yet")
 
+    @physical_conversion('action')
     def L(self,*args,**kwargs):
         """
         NAME:
@@ -1310,15 +1311,15 @@ class OrbitTop:
         elif d1 == 'E':
             x= self.E(self.t,**kwargs)
         elif d1 == 'Enorm':
-            x= self.E(self.t,**kwargs)/self.E(0.)
+            x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
         elif d1 == 'Ez':
             x= self.Ez(self.t,**kwargs)
         elif d1 == 'Eznorm':
-            x= self.Ez(self.t,**kwargs)/self.Ez(0.)
+            x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
         elif d1 == 'ER':
             x= self.ER(self.t,**kwargs)
         elif d1 == 'ERnorm':
-            x= self.ER(self.t,**kwargs)/self.ER(0.)
+            x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
         if d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
@@ -1376,19 +1377,20 @@ class OrbitTop:
         elif d2 == 'E':
             y= self.E(self.t,**kwargs)
         elif d2 == 'Enorm':
-            y= self.E(self.t,**kwargs)/self.E(0.)
+            y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
         elif d2 == 'Ez':
             y= self.Ez(self.t,**kwargs)
         elif d2 == 'Eznorm':
-            y= self.Ez(self.t,**kwargs)/self.Ez(0.)
+            y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
         elif d2 == 'ER':
             y= self.ER(self.t,**kwargs)
         elif d2 == 'ERnorm':
-            y= self.ER(self.t,**kwargs)/self.ER(0.)
+            y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
         if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
+        if kwargs.has_key('pot'): kwargs.pop('pot')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]

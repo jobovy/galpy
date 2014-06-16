@@ -391,6 +391,12 @@ class Orbit:
 
            t - (optional) time at which to get the angular momentum
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            angular momentum
@@ -481,6 +487,10 @@ class Orbit:
            OmegaP= pattern speed
            
            pot= potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
