@@ -8,6 +8,10 @@ import math as m
 _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
 _kmsInPcMyr= 1.0227121655399913
 _MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
+_PCIN10p18CM= 3.08567758 #10^18 cm
+_CIN10p5KMS= 2.99792458 #10^5 km/s
+_MSOLAR10p30KG= 1.9891 #10^30 kg
+_EVIN10m19J= 1.60217657 #10^-19 J
 _TWOPI= 2.*m.pi
 def dens_in_criticaldens(vo,ro,H=70.):
     """
@@ -68,6 +72,33 @@ def dens_in_meanmatterdens(vo,ro,H=70.,Om=0.3):
 
     """
     return dens_in_criticaldens(vo,ro,H=H)/Om
+
+def dens_in_gevcc(vo,ro):
+    """
+    NAME:
+
+       dens_in_gevcc
+
+    PURPOSE:
+
+       convert density to GeV / cm^3
+
+    INPUT:
+
+       vo - velocity unit in km/s
+
+       ro - length unit in kpc
+
+    OUTPUT:
+
+       conversion from units where vo=1. at ro=1. to GeV/cm^3
+
+    HISTORY:
+
+       2014-06-16 - Written - Bovy (IAS)
+
+    """
+    return vo**2./ro**2./_G*_MSOLAR10p30KG*_CIN10p5KMS**2./_EVIN10m19J/ _PCIN10p18CM**3.*10.**-4.
 
 def dens_in_msolpc3(vo,ro):
     """
