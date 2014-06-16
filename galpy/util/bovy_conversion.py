@@ -408,6 +408,7 @@ def print_physical_warning():
 _roNecessary= {'time': True,
                'position': True,
                'velocity': False,
+               'energy': False,
                'density': True,
                'force': True,
                'surfacedensity': True,
@@ -417,6 +418,7 @@ _roNecessary= {'time': True,
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
 _voNecessary['velocity']= True
+_voNecessary['energy']= True
 def physical_conversion(quantity,pop=False):
     """Decorator to convert to physical coordinates: 
     quantity = [position,velocity,time]"""
@@ -452,6 +454,15 @@ def physical_conversion(quantity,pop=False):
                     fac= ro
                 elif quantity.lower() == 'velocity':
                     fac= vo
+                elif quantity.lower() == 'frequency':
+                    if kwargs.get('kmskpc',False):
+                        fac= freq_in_Gyr(vo,ro)
+                    else:
+                        fac= freq_in_kmskpc(vo,ro)
+                elif quantity.lower() == 'action':
+                    fac= ro*vo
+                elif quantity.lower() == 'energy':
+                    fac= vo**2.
                 return method(*args,**kwargs)*fac
             else:
                 return method(*args,**kwargs)

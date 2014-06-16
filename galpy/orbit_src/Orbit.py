@@ -362,6 +362,10 @@ class Orbit:
 
            pot= Potential instance or list of such instances
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            energy
@@ -414,6 +418,10 @@ class Orbit:
 
            pot= Potential instance or list of such instances
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            radial energy
@@ -440,6 +448,10 @@ class Orbit:
            t - (optional) time at which to get the vertical energy
 
            pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -2271,6 +2283,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
 
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2280,6 +2294,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         HISTORY:
 
            2010-07-10 - Written - Bovy (NYU)
+
+           2014-06-16 - Changed to actually plot E rather than E/E0 - Bovy (IAS)
 
         """
         self._orb.plotE(*args,**kwargs)

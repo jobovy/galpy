@@ -176,7 +176,7 @@ Rotation curves <rotcurves>`.
 We can also show the energy as a function of time (to check energy
 conservation)
 
->>> o.plotE()
+>>> o.plotE(normed=True)
 
 gives
 
@@ -186,7 +186,7 @@ We can specify another quantity to plot the energy against by
 specifying ``d1=``. We can also show the vertical energy, for example,
 as a function of R
 
->>> o.plotEz(d1='R')
+>>> o.plotEz(d1='R',normed=True)
 
 .. image:: images/lp-orbit-integration-Ez.png
 
@@ -194,7 +194,7 @@ Often, a better approximation to an integral of the motion is given by
 Ez/sqrt(density[R]). We refer to this quantity as ``EzJz`` and we can plot its
 behavior
 
->>> o.plotEzJz(d1='R')
+>>> o.plotEzJz(d1='R',normed=True)
 
 .. image:: images/lp-orbit-integration-EzJz.png
 

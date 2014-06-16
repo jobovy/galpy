@@ -5,6 +5,7 @@ from galpy.potential_src.linearPotential import evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
+from galpy.util.bovy_conversion import physical_conversion
 class linearOrbit(OrbitTop):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""
     def __init__(self,vxvv=[1.,0.]):
@@ -45,6 +46,7 @@ class linearOrbit(OrbitTop):
         self._pot= pot
         self.orbit= _integrateLinearOrbit(self.vxvv,pot,t,method)
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:

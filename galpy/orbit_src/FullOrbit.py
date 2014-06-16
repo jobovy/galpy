@@ -122,6 +122,7 @@ class FullOrbit(OrbitTop):
         else:
             return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)[:,2]
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -167,6 +168,7 @@ class FullOrbit(OrbitTop):
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
+    @physical_conversion('energy')
     def ER(self,*args,**kwargs):
         """
         NAME:
@@ -210,6 +212,7 @@ class FullOrbit(OrbitTop):
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
+    @physical_conversion('energy')
     def Ez(self,*args,**kwargs):
         """
         NAME:
@@ -353,77 +356,6 @@ class FullOrbit(OrbitTop):
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
-
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot= - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        try:
-            self.Es= evaluatePotentials(self.orbit[:,0],self.orbit[:,3],
-                                        pot,phi=self.orbit[:,5],
-                                        t=self.t)\
-                                        +self.orbit[:,1]**2./2.\
-                                        +self.orbit[:,2]**2./2.\
-                                        +self.orbit[:,4]**2./2.
-        except TypeError:
-            self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                         pot,phi=self.orbit[ii,5],
-                                         t=self.t[ii])+
-                      self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
-                      self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'phi':
-            plot.bovy_plot(self.orbit[:,5],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
 
     def plotJacobi(self,*args,**kwargs):
         """

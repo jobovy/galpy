@@ -1163,24 +1163,6 @@ class OrbitTop:
             else:
                 return nu.array(out).reshape((dim,nt))
 
-    def plotE(self,pot,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot E vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        raise NotImplementedError
-
     def plot(self,*args,**kwargs):
         """
         NAME:
@@ -1213,11 +1195,15 @@ class OrbitTop:
                         'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
                         'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
                         'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
-                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
+                        'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Enorm':r'$E(t)/E(0.)$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$'}
+
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
@@ -1316,6 +1302,10 @@ class OrbitTop:
             x= self.V(self.t,**kwargs)
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
+        elif d1 == 'E':
+            x= self.E(self.t,**kwargs)
+        elif d1 == 'Enorm':
+            x= self.E(self.t,**kwargs)/self.E(0.)
         if d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
@@ -1370,6 +1360,10 @@ class OrbitTop:
             y= self.V(self.t,**kwargs)
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
+        elif d2 == 'E':
+            y= self.E(self.t,**kwargs)
+        elif d2 == 'Enorm':
+            y= self.E(self.t,**kwargs)/self.E(0.)
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
@@ -1799,6 +1793,26 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vz'
+        self.plot(*args,**kwargs)
+        
+    def plotE(self,*args,**kwargs):
+        """
+        NAME:
+           plotE
+        PURPOSE:
+           plot E(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2014-06-16 - Written - Bovy (IAS)
+        """
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Enorm'
+        else:
+            kwargs['d2']= 'E'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def _setupOrbitInterp(self):

@@ -294,6 +294,7 @@ class planarROrbit(planarOrbitTop):
         self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
         return msg
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -346,68 +347,6 @@ class planarROrbit(planarOrbitTop):
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
         
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
-        elif isinstance(pot,list):
-            thispot= []
-            for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
-                else: thispot.append(p)
-        else:
-            thispot= pot
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
-                                           t=self.t[ii])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                  for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
     def __init__(self,vxvv=[1.,0.,1.,0.],vo=220.,ro=8.0,zo=0.025,
@@ -521,6 +460,7 @@ class planarOrbit(planarOrbitTop):
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
         return msg
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -596,71 +536,6 @@ class planarOrbit(planarOrbitTop):
         if not hasattr(self,'rs'):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
-
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT', 'phi'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
-        elif isinstance(pot,list):
-            thispot= []
-            for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
-                else: thispot.append(p)
-        else:
-            thispot= pot
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
-                                           phi=self.orbit[ii,3])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                  for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'phi':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
 
 def _integrateROrbit(vxvv,pot,t,method):
     """
