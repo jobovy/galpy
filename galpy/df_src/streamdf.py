@@ -108,6 +108,7 @@ class streamdf:
             self._multi= multiprocessing.cpu_count()
         else:
             self._multi= multi
+        if (verbose): print 'Multi cores: ', self._multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         if (self._verbose): print 'doing actionsFreqsAngles...'
         acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
@@ -2082,8 +2083,12 @@ class streamdf:
             interp= self._useInterp
         #First sample frequencies
         #Sample frequency along largest eigenvalue using ARS
-        dO1s=\
-            bovy_ars.bovy_ars([0.,0.],[True,False],
+        if (self._burst):
+            dO1s = numpy.abs(numpy.random.normal(size=n)
+                       * numpy.sqrt(self._sortedSigOEig[2]))
+        else:
+            dO1s=\
+                bovy_ars.bovy_ars([0.,0.],[True,False],
                               [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
                                self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
                               _h_ars,_hp_ars,nsamples=n,
@@ -2100,7 +2105,10 @@ class streamdf:
         #Also generate angles
         da= numpy.random.normal(size=(3,n))*self._sigangle
         #And a random time
-        dt= numpy.random.uniform(size=n)*self._tdisrupt
+        if (self._burst):
+            dt= numpy.ones(n)*self._tdisrupt
+        else:
+            dt= numpy.random.uniform(size=n)*self._tdisrupt
         #Integrate the orbits relative to the progenitor
         da+= dO*numpy.tile(dt,(3,1))
         angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
