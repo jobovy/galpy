@@ -4,7 +4,7 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-from OrbitTop import physical_position
+from galpy.util.bovy_conversion import physical_conversion
 from OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
@@ -117,7 +117,7 @@ class planarOrbitTop(OrbitTop):
             kwargs.pop('OmegaP')
         return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
 
-    @physical_position
+    @physical_conversion('position')
     def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -142,7 +142,7 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amax(self.rs)
 
-    @physical_position
+    @physical_conversion('position')
     def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -167,7 +167,7 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
-    @physical_position
+    @physical_conversion('position')
     def zmax(self,pot=None,analytic=False,**kwargs):
         raise AttributeError("planarOrbit does not have a zmax")
     

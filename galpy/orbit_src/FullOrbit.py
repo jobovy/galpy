@@ -10,7 +10,7 @@ import galpy.util.bovy_symplecticode as symplecticode
 #try:
 from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
-from OrbitTop import physical_position
+from galpy.util.bovy_conversion import physical_conversion
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
@@ -280,7 +280,7 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    @physical_position
+    @physical_conversion('position')
     def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -305,7 +305,7 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
 
-    @physical_position
+    @physical_conversion('position')
     def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -330,7 +330,7 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amin(self.rs)
 
-    @physical_position
+    @physical_conversion('position')
     def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:

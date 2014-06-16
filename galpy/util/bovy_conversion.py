@@ -4,7 +4,10 @@
 #                  units
 #
 ###############################################################################
+import warnings
+import copy
 import math as m
+from galpy.util import galpyWarning
 _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
 _kmsInPcMyr= 1.0227121655399913
 _MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
@@ -397,3 +400,55 @@ def time_in_Gyr(vo,ro):
     """
     return ro/vo/_kmsInPcMyr
 
+#Decorator to apply these transformations
+def print_physical_warning():
+    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, and times in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
+                  galpyWarning)   
+_roNecessary= {'time': True,
+               'position': True,
+               'velocity': False,
+               'density': True,
+               'force': True,
+               'surfacedensity': True,
+               'mass': True,
+               'action': True,
+               'frequency':True}
+_voNecessary= copy.copy(_roNecessary)
+_voNecessary['position']= False
+_voNecessary['velocity']= True
+def physical_conversion(quantity):
+    """Decorator to convert to physical coordinates: 
+    quantity = [position,velocity,time]"""
+    def wrapper(method):
+        def wrapped(*args,**kwargs):
+            if kwargs.has_key('use_physical'):
+                use_physical= kwargs['use_physical']
+            else:
+                use_physical= True
+            if kwargs.has_key('ro'):
+                ro= kwargs['ro']
+            elif hasattr(args[0],'_roSet') and args[0]._roSet:
+                ro= args[0]._ro
+            else:
+                ro= None
+            if kwargs.has_key('vo'):
+                vo= kwargs['vo']
+            elif hasattr(args[0],'_voSet') and args[0]._voSet:
+                vo= args[0]._vo
+            else:
+                vo= None
+            if use_physical and \
+                    not (_voNecessary[quantity.lower()] and vo is None) and \
+                    not (_roNecessary[quantity.lower()] and ro is None):
+                print_physical_warning()
+                if quantity.lower() == 'time':
+                    fac= time_in_Gyr(vo,ro)
+                elif quantity.lower() == 'position':
+                    fac= ro
+                elif quantity.lower() == 'velocity':
+                    fac= vo
+                return method(*args,**kwargs)*fac
+            else:
+                return method(*args,**kwargs)
+        return wrapped
+    return wrapper
