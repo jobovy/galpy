@@ -383,7 +383,10 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
 
     """
     #Whether to use degrees and scalar input is handled by decorators
-    if XYZ:
+    if XYZ: #undo the incorrect conversion that the decorator did
+        if degree:
+            l*= 180./nu.pi 
+            b*= 180./nu.pi 
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -446,7 +449,10 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
     """
     #Whether to use degrees and scalar input is handled by decorators
-    if XYZ:
+    if XYZ: #undo the incorrect conversion that the decorator did
+        if degree:
+            l*= 180./nu.pi 
+            b*= 180./nu.pi 
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
