@@ -1,5 +1,6 @@
 import numpy as nu
 import galpy.util.bovy_coords as coords
+from galpy.util.bovy_conversion import physical_conversion
 from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
@@ -150,6 +151,19 @@ class Orbit:
         elif len(vxvv) == 6:
             self._orb= FullOrbit(vxvv=vxvv,
                                     ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
+        #Store for actionAngle conversions
+        if vo is None:
+            self._vo= None
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
+        if ro is None:
+            self._ro= None
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
         return None
 
     def setphi(self,phi):
@@ -653,6 +667,7 @@ class Orbit:
         else:
             return True
 
+    @physical_conversion('action')
     def jr(self,pot=None,**kwargs):
         """
         NAME:
@@ -679,6 +694,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            jr
@@ -693,6 +714,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA(self)[0]
 
+    @physical_conversion('action')
     def jp(self,pot=None,**kwargs):
         """
         NAME:
@@ -719,6 +741,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            jp
@@ -733,6 +761,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA(self)[1]
 
+    @physical_conversion('action')
     def jz(self,pot=None,**kwargs):
         """
         NAME:
@@ -758,6 +787,12 @@ class Orbit:
               4) 'spherical'
               
            +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -893,6 +928,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA.actionsFreqsAngles(self)[8][0]
 
+    @physical_conversion('time')
     def Tr(self,pot=None,**kwargs):
         """
         NAME:
@@ -919,6 +955,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Tr
@@ -933,6 +975,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[3][0]
 
+    @physical_conversion('time')
     def Tp(self,pot=None,**kwargs):
         """
         NAME:
@@ -958,6 +1001,12 @@ class Orbit:
               4) 'spherical'
               
            +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1013,6 +1062,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi
  
+    @physical_conversion('time')
     def Tz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1039,6 +1089,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Tz
@@ -1053,6 +1109,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
 
+    @physical_conversion('frequency')
     def Or(self,pot=None,**kwargs):
         """
         NAME:
@@ -1079,6 +1136,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Or
@@ -1091,6 +1154,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA.actionsFreqs(self)[3][0]
 
+    @physical_conversion('frequency')
     def Op(self,pot=None,**kwargs):
         """
         NAME:
@@ -1117,6 +1181,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Op
@@ -1128,6 +1198,7 @@ class Orbit:
         self._orb._setupaA(pot=pot,**kwargs)
         return self._orb._aA.actionsFreqs(self)[4][0]
 
+    @physical_conversion('frequency')
     def Oz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1153,6 +1224,12 @@ class Orbit:
               4) 'spherical'
               
            +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
