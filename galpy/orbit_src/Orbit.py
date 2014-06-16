@@ -2398,7 +2398,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         PURPOSE:
 
-           plot E_z(t)/sqrt(dens(R)) along the orbit (an approximation to the vertical action)
+           plot E_z(t)/sqrt(dens(R)) / (E_z(0)/sqrt(dens(R(0)))) along the orbit (an approximation to the vertical action)
 
         INPUT:
 
