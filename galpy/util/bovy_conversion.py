@@ -416,7 +416,7 @@ _roNecessary= {'time': True,
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
 _voNecessary['velocity']= True
-def physical_conversion(quantity):
+def physical_conversion(quantity,pop=False):
     """Decorator to convert to physical coordinates: 
     quantity = [position,velocity,time]"""
     def wrapper(method):
@@ -437,6 +437,9 @@ def physical_conversion(quantity):
                 vo= args[0]._vo
             else:
                 vo= None
+            #Remove ro and vo kwargs if necessary
+            if pop and kwargs.has_key('ro'): kwargs.pop('ro')
+            if pop and kwargs.has_key('vo'): kwargs.pop('vo')
             if use_physical and \
                     not (_voNecessary[quantity.lower()] and vo is None) and \
                     not (_roNecessary[quantity.lower()] and ro is None):
