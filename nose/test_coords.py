@@ -162,6 +162,13 @@ def test_vxvyvz_to_vrpmllpmbb():
     assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    # also try with degree=True (that shouldn't fail!)
+    vrpmllpmbb= bovy_coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,
+                                                 XYZ=True,
+                                                 degree=True)
+    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     # also for lbd
     vrpmllpmbb= bovy_coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,90.,0.,1.,
                                                  XYZ=False,degree=True)
