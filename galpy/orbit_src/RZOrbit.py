@@ -350,60 +350,41 @@ class RZOrbit(OrbitTop):
         NAME:
            plotEz
         PURPOSE:
-           plot E_z(.) along the orbit
+           plot Ez(.) along the orbit
         INPUT:
-           pot= Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
+           bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
+           2014-06-16 - Written - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Eznorm'
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
+            kwargs['d2']= 'Ez'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
+    def plotER(self,*args,**kwargs):
+        """
+        NAME:
+           plotER
+        PURPOSE:
+           plot ER(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2014-06-16 - Written - Bovy (IAS)
+        """
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'ERnorm'
         else:
-            d1= 't'
-        self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot,
-                                      t=self.t[ii])-
-                   evaluatePotentials(self.orbit[ii,0],0.,pot,t=self.t[ii])+
-                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E_z$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-         
+            kwargs['d2']= 'ER'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
     def plotJacobi(self,*args,**kwargs):
         """
         NAME:

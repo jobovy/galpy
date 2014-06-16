@@ -42,6 +42,7 @@ Methods
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
    plotE <orbitplote.rst>
+   plotER <orbitplotER.rst>
    plotEz <orbitplotEz.rst>
    plotEzJz <orbitplotEzJz.rst>
    plotphi <orbitplotphi.rst>

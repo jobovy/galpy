@@ -1197,13 +1197,18 @@ class OrbitTop:
                         'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
                         'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
                         'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-                        'Enorm':r'$E(t)/E(0.)$'}
+                        'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Enorm':r'$E(t)/E(0.)$',
+                        'Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ERnorm':r'$E_R(t)/E_R(0.)$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                         'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                         'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$'}
-
+                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
+                        'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$'}
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
@@ -1306,6 +1311,14 @@ class OrbitTop:
             x= self.E(self.t,**kwargs)
         elif d1 == 'Enorm':
             x= self.E(self.t,**kwargs)/self.E(0.)
+        elif d1 == 'Ez':
+            x= self.Ez(self.t,**kwargs)
+        elif d1 == 'Eznorm':
+            x= self.Ez(self.t,**kwargs)/self.Ez(0.)
+        elif d1 == 'ER':
+            x= self.ER(self.t,**kwargs)
+        elif d1 == 'ERnorm':
+            x= self.ER(self.t,**kwargs)/self.ER(0.)
         if d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
@@ -1364,6 +1377,14 @@ class OrbitTop:
             y= self.E(self.t,**kwargs)
         elif d2 == 'Enorm':
             y= self.E(self.t,**kwargs)/self.E(0.)
+        elif d2 == 'Ez':
+            y= self.Ez(self.t,**kwargs)
+        elif d2 == 'Eznorm':
+            y= self.Ez(self.t,**kwargs)/self.Ez(0.)
+        elif d2 == 'ER':
+            y= self.ER(self.t,**kwargs)
+        elif d2 == 'ERnorm':
+            y= self.ER(self.t,**kwargs)/self.ER(0.)
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')

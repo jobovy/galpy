@@ -2316,6 +2316,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2328,6 +2330,37 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         self._orb.plotEz(*args,**kwargs)
+
+    def plotER(self,*args,**kwargs):
+        """
+        NAME:
+
+           plotER
+
+        PURPOSE:
+
+           plot E_R(.) along the orbit
+
+        INPUT:
+
+           pot=  Potential instance or list of instances in which the orbit was integrated
+
+           d1= plot ER vs d1: e.g., 't', 'z', 'R'
+
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           +bovy_plot.bovy_plot inputs
+
+        OUTPUT:
+
+           figure to output device
+
+        HISTORY:
+
+           2010-07-10 - Written - Bovy (NYU)
+
+        """
+        self._orb.plotER(*args,**kwargs)
 
     def plotEzJz(self,*args,**kwargs):
         """
