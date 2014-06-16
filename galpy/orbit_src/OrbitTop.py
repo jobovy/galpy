@@ -1,26 +1,128 @@
+import warnings
 import math as m
 import numpy as nu
 from scipy import interpolate, optimize
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
+from galpy.util import galpyWarning
+from galpy.util import bovy_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
+def print_physical_warning():
+    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, and times in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
+                  galpyWarning)   
+def physical_position(method):
+    """Decorator to convert to physical coordinates: positions"""
+    def position_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+        else:
+            use_physical= True
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+        elif args[0]._roSet:
+            ro= args[0]._ro
+        else:
+            ro= None
+        if use_physical and not ro is None:
+            print_physical_warning()
+            return method(*args,**kwargs)*ro
+        else:
+            return method(*args,**kwargs)
+    return position_wrapper
+def physical_velocity(method):
+    """Decorator to convert to physical coordinates: velocity"""
+    def velocity_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+        else:
+            use_physical= True
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+        elif args[0]._voSet:
+            vo= args[0]._vo
+        else:
+            vo= None
+        if use_physical and not vo is None:
+            print_physical_warning()
+            return method(*args,**kwargs)*vo
+        else:
+            return method(*args,**kwargs)
+    return velocity_wrapper
+def physical_time(method):
+    """Decorator to convert to physical coordinates: time"""
+    def time_wrapper(*args,**kwargs):
+        if kwargs.has_key('use_physical'):
+            use_physical= kwargs['use_physical']
+        else:
+            use_physical= True
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+        elif args[0]._roSet:
+            ro= args[0]._ro
+        else:
+            ro= None
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+        elif args[0]._voSet:
+            vo= args[0]._vo
+        else:
+            vo= None
+        if use_physical and not vo is None and not ro is None:
+            print_physical_warning()
+            return method(*args,**kwargs)*bovy_conversion.time_in_Gyr(vo,ro)
+        else:
+            return method(*args,**kwargs)
+    return time_wrapper
 class OrbitTop:
     """General class that holds orbits and integrates them"""
-    def __init__(self,vxvv=None):
+    def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize an orbit instance
+
         INPUT:
+
            vxvv - initial condition
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-10 - Written - Bovy (NYU)
+
         """
         self.vxvv= vxvv
+        if vo is None:
+            self._vo= 220.
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
+        if ro is None:
+            self._ro= 8.
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        self._zo= zo
+        self._solarmotion= solarmotion
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):
@@ -102,6 +204,27 @@ class OrbitTop:
         """
         return self.orbit
 
+    @physical_time
+    def time(self,*args,**kwargs):
+        """
+        NAME:
+           time
+        PURPOSE:
+           return the times at which the orbit is sampled
+        INPUT:
+           t - (optional) time at which to get the time (for consistency reasons)
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+        OUTPUT:
+           t(t)
+        HISTORY:
+           2014-06-11 - Written - Bovy (IAS)
+        """
+        if len(args) == 0: return 0.
+        else: return args[0]
+
+    @physical_position
     def R(self,*args,**kwargs):
         """
         NAME:
@@ -110,6 +233,8 @@ class OrbitTop:
            return cylindrical radius at time t
         INPUT:
            t - (optional) time at which to get the radius
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            R(t)
         HISTORY:
@@ -120,6 +245,7 @@ class OrbitTop:
         if onet: return thiso[0]
         else: return thiso[0,:]
 
+    @physical_velocity
     def vR(self,*args,**kwargs):
         """
         NAME:
@@ -128,6 +254,8 @@ class OrbitTop:
            return radial velocity at time t
         INPUT:
            t - (optional) time at which to get the radial velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vR(t)
         HISTORY:
@@ -138,6 +266,7 @@ class OrbitTop:
         if onet: return thiso[1]
         else: return thiso[1,:]
 
+    @physical_velocity
     def vT(self,*args,**kwargs):
         """
         NAME:
@@ -146,6 +275,8 @@ class OrbitTop:
            return tangential velocity at time t
         INPUT:
            t - (optional) time at which to get the tangential velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vT(t)
         HISTORY:
@@ -156,6 +287,7 @@ class OrbitTop:
         if onet: return thiso[2]
         else: return thiso[2,:]
 
+    @physical_position
     def z(self,*args,**kwargs):
         """
         NAME:
@@ -164,6 +296,8 @@ class OrbitTop:
            return vertical height
         INPUT:
            t - (optional) time at which to get the vertical height
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            z(t)
         HISTORY:
@@ -176,6 +310,7 @@ class OrbitTop:
         if onet: return thiso[3]
         else: return thiso[3,:]
 
+    @physical_velocity
     def vz(self,*args,**kwargs):
         """
         NAME:
@@ -184,6 +319,8 @@ class OrbitTop:
            return vertical velocity
         INPUT:
            t - (optional) time at which to get the vertical velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vz(t)
         HISTORY:
@@ -216,6 +353,7 @@ class OrbitTop:
         if onet: return thiso[-1]
         else: return thiso[-1,:]
 
+    @physical_position
     def x(self,*args,**kwargs):
         """
         NAME:
@@ -224,6 +362,8 @@ class OrbitTop:
            return x
         INPUT:
            t - (optional) time at which to get x
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            x(t)
         HISTORY:
@@ -240,6 +380,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.cos(thiso[5,:])
 
+    @physical_position
     def y(self,*args,**kwargs):
         """
         NAME:
@@ -248,6 +389,8 @@ class OrbitTop:
            return y
         INPUT:
            t - (optional) time at which to get y
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            y(t)
         HISTORY:
@@ -262,6 +405,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.sin(thiso[5,:])
 
+    @physical_velocity
     def vx(self,*args,**kwargs):
         """
         NAME:
@@ -270,6 +414,8 @@ class OrbitTop:
            return x velocity at time t
         INPUT:
            t - (optional) time at which to get the velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vx(t)
         HISTORY:
@@ -287,6 +433,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[1,:]*nu.cos(theta)-thiso[2,:]*nu.sin(theta)
 
+    @physical_velocity
     def vy(self,*args,**kwargs):
         """
         NAME:
@@ -295,6 +442,8 @@ class OrbitTop:
            return y velocity at time t
         INPUT:
            t - (optional) time at which to get the velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vy(t)
         HISTORY:
@@ -310,6 +459,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[2,:]*nu.cos(theta)+thiso[1,:]*nu.sin(theta)
 
+    @physical_velocity
     def vphi(self,*args,**kwargs):
         """
         NAME:
@@ -318,6 +468,8 @@ class OrbitTop:
            return angular velocity
         INPUT:
            t - (optional) time at which to get the angular velocity
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
         OUTPUT:
            vphi(t)
         HISTORY:
@@ -336,10 +488,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get ra
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
         OUTPUT:
            ra(t)
         HISTORY:
@@ -357,10 +509,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get dec
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
         OUTPUT:
            dec(t)
         HISTORY:
@@ -378,10 +530,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get ll
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            l(t)
         HISTORY:
@@ -399,10 +551,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get bb
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            b(t)
         HISTORY:
@@ -420,10 +572,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get dist
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-                         (default=[8.5,0.,0.])
+                         (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            dist(t) in kpc
         HISTORY:
@@ -441,11 +593,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmra
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_ra(t) in mas / yr
         HISTORY:
@@ -463,11 +615,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmdec
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_dec(t) in mas/yr
         HISTORY:
@@ -485,11 +637,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmll
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_l(t) in mas/yr
         HISTORY:
@@ -507,11 +659,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get pmbb
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            pm_b(t) in mas/yr
         HISTORY:
@@ -529,11 +681,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get vlos
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            vlos(t) in km/s
         HISTORY:
@@ -551,10 +703,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get X
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioX(t) in kpc
         HISTORY:
@@ -572,10 +724,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get Y
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioY(t) in kpc
         HISTORY:
@@ -593,10 +745,10 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get Z
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
         OUTPUT:
            helioZ(t) in kpc
         HISTORY:
@@ -614,11 +766,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get U
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            U(t) in km/s
         HISTORY:
@@ -636,11 +788,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get U
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            V(t) in km/s
         HISTORY:
@@ -658,11 +810,11 @@ class OrbitTop:
         INPUT:
            t - (optional) time at which to get W
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
         OUTPUT:
            W(t) in km/s
         HISTORY:
@@ -686,7 +838,7 @@ class OrbitTop:
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z= self._helioXYZ(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -695,7 +847,7 @@ class OrbitTop:
 
     def _helioXYZ(self,*args,**kwargs):
         """Calculate heliocentric rectangular coordinates"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
@@ -741,7 +893,7 @@ class OrbitTop:
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
         X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -750,7 +902,7 @@ class OrbitTop:
 
     def _XYZvxvyvz(self,*args,**kwargs):
         """Calculate X,Y,Z,U,V,W"""
-        obs, ro, vo= _parse_radec_kwargs(kwargs,vel=True)
+        obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
@@ -833,6 +985,37 @@ class OrbitTop:
                                 obs.vy(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]))
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
+    def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
+        if kwargs.has_key('obs'):
+            obs= kwargs['obs']
+            if not dontpop:
+                kwargs.pop('obs')
+            if isinstance(obs,(list,nu.ndarray)):
+                if len(obs) == 2:
+                    obs= [obs[0],obs[1],0.]
+                elif len(obs) == 4:
+                    obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+        else:
+            if vel:
+                obs= [self._ro,0.,self._zo,
+                      self._solarmotion[0],self._solarmotion[1]+self._vo,
+                      self._solarmotion[2]]
+            else:
+                obs= [self._ro,0.,self._zo]
+        if kwargs.has_key('ro'):
+            ro= kwargs['ro']
+            if not dontpop:
+                kwargs.pop('ro')
+        else:
+            ro= self._ro
+        if kwargs.has_key('vo'):
+            vo= kwargs['vo']
+            if not dontpop:
+                kwargs.pop('vo')
+        else:
+            vo= self._vo
+        return (obs,ro,vo)
 
     def Jacobi(self,Omega,t=0.,pot=None):
         """
@@ -1074,6 +1257,10 @@ class OrbitTop:
            plot aspects of an Orbit
         INPUT:
            bovy_plot args and kwargs
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +kwargs for ra,dec,ll,bb, etc. functions
         OUTPUT:
            plot
@@ -1081,26 +1268,40 @@ class OrbitTop:
            2010-07-26 - Written - Bovy (NYU)
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not kwargs.has_key('use_physical') \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                    'ra':r'$\alpha\ (\mathrm{deg})$',
-                    'dec':r'$\delta\ (\mathrm{deg})$',
-                    'll':r'$l\ (\mathrm{deg})$',
-                    'bb':r'$b\ (\mathrm{deg})$',
-                    'dist':r'$d\ [\mathrm{kpc}]$',
-                    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-                    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-                    'helioX':r'$X\ (\mathrm{kpc})$',
-                    'helioY':r'$Y\ (\mathrm{kpc})$',
-                    'helioZ':r'$Z\ (\mathrm{kpc})$',
-                    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-                    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-                    'W':r'$W\ (\mathrm{km\,s}^{-1})$'}
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
             if len(self.vxvv) == 3:
@@ -1130,39 +1331,27 @@ class OrbitTop:
             kwargs.pop('d2')
         #Get x and y
         if d1 == 't':
-            x= nu.array(self.t)
+            x= self.time(self.t,**kwargs)
         elif d1 == 'R':
-            x= self.R(self.t)
+            x= self.R(self.t,**kwargs)
         elif d1 == 'z':
-            x= self.orbit[:,3]
+            x= self.z(self.t,**kwargs)
         elif d1 == 'vz':
-            x= self.orbit[:,4]
+            x= self.vz(self.t,**kwargs)
         elif d1 == 'vR':
-            x= self.vR(self.t)
+            x= self.vR(self.t,**kwargs)
         elif d1 == 'vT':
-            x= self.orbit[:,2]
+            x= self.vT(self.t,**kwargs)
         elif d1 == 'x':
-            if len(self.vxvv) == 2:
-                x= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            x= self.x(self.t,**kwargs)
         elif d1 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            x= self.y(self.t,**kwargs)
         elif d1 == 'vx':
-            x= self.vx(self.t)
+            x= self.vx(self.t,**kwargs)
         elif d1 == 'vy':
-            x= self.vy(self.t)
+            x= self.vy(self.t,**kwargs)
         elif d1 == 'phi':
-            x= self.phi(self.t)
+            x= self.phi(self.t,**kwargs)
         elif d1.lower() == 'ra':
             x= self.ra(self.t,**kwargs)
         elif d1.lower() == 'dec':
@@ -1196,39 +1385,27 @@ class OrbitTop:
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
         if d2 == 't':
-            y= nu.array(self.t)
+            y= self.time(self.t,**kwargs)
         elif d2 == 'R':
-            y= self.R(self.t)
+            y= self.R(self.t,**kwargs)
         elif d2 == 'z':
-            y= self.orbit[:,3]
+            y= self.z(self.t,**kwargs)
         elif d2 == 'vz':
-            y= self.orbit[:,4]
+            y= self.vz(self.t,**kwargs)
         elif d2 == 'vR':
-            y= self.vR(self.t)
+            y= self.vR(self.t,**kwargs)
         elif d2 == 'vT':
-            y= self.orbit[:,2]
+            y= self.vT(self.t,**kwargs)
         elif d2 == 'x':
-            if len(self.vxvv) == 2:
-                y= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            y= self.x(self.t,**kwargs)
         elif d2 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            y= self.y(self.t,**kwargs)
         elif d2 == 'vx':
-            y= self.vx(self.t)
+            y= self.vx(self.t,**kwargs)
         elif d2 == 'vy':
-            y= self.vy(self.t)
+            y= self.vy(self.t,**kwargs)
         elif d2 == 'phi':
-            y= self.phi(self.t)
+            y= self.phi(self.t,**kwargs)
         elif d2.lower() == 'ra':
             y= self.ra(self.t,**kwargs)
         elif d2.lower() == 'dec':
@@ -1264,6 +1441,7 @@ class OrbitTop:
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
+        if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -1278,6 +1456,10 @@ class OrbitTop:
         PURPOSE:
            plot 3D aspects of an Orbit
         INPUT:
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            bovy_plot args and kwargs
         OUTPUT:
            plot
@@ -1286,26 +1468,40 @@ class OrbitTop:
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2010-01-08 - Adapted to 3D - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not kwargs.has_key('use_physical') \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                    'ra':r'$\alpha\ (\mathrm{deg})$',
-                    'dec':r'$\delta\ (\mathrm{deg})$',
-                    'll':r'$l\ (\mathrm{deg})$',
-                    'bb':r'$b\ (\mathrm{deg})$',
-                    'dist':r'$d\ [\mathrm{kpc}]$',
-                    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-                    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-                    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-                    'helioX':r'$X\ (\mathrm{kpc})$',
-                    'helioY':r'$Y\ (\mathrm{kpc})$',
-                    'helioZ':r'$Z\ (\mathrm{kpc})$',
-                    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-                    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-                    'W':r'$W\ (\mathrm{km\,s}^{-1})$'}
+                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
         #Defaults
         if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
                 and not kwargs.has_key('d3'):
@@ -1339,39 +1535,27 @@ class OrbitTop:
             kwargs.pop('d3')
         #Get x, y, and z
         if d1 == 't':
-            x= nu.array(self.t)
+            x= self.time(self.t,**kwargs)
         elif d1 == 'R':
-            x= self.orbit[:,0]
+            x= self.R(self.t,**kwargs)
         elif d1 == 'z':
-            x= self.orbit[:,3]
+            x= self.z(self.t,**kwargs)
         elif d1 == 'vz':
-            x= self.orbit[:,4]
+            x= self.vz(self.t,**kwargs)
         elif d1 == 'vR':
-            x= self.orbit[:,1]
+            x= self.vR(self.t,**kwargs)
         elif d1 == 'vT':
-            x= self.orbit[:,2]
+            x= self.vT(self.t,**kwargs)
         elif d1 == 'x':
-            if len(self.vxvv) == 2:
-                x= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            x= self.x(self.t,**kwargs)
         elif d1 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                x= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            x= self.y(self.t,**kwargs)
         elif d1 == 'vx':
-            x= self.vx(self.t)
+            x= self.vx(self.t,**kwargs)
         elif d1 == 'vy':
-            x= self.vy(self.t)
+            x= self.vy(self.t,**kwargs)
         elif d1 == 'phi':
-            x= self.phi(self.t)
+            x= self.phi(self.t,**kwargs)
         elif d1.lower() == 'ra':
             x= self.ra(self.t,**kwargs)
         elif d1.lower() == 'dec':
@@ -1405,39 +1589,27 @@ class OrbitTop:
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
         if d2 == 't':
-            y= nu.array(self.t)
+            y= self.time(self.t,**kwargs)
         elif d2 == 'R':
-            y= self.orbit[:,0]
+            y= self.R(self.t,**kwargs)
         elif d2 == 'z':
-            y= self.orbit[:,3]
+            y= self.z(self.t,**kwargs)
         elif d2 == 'vz':
-            y= self.orbit[:,4]
+            y= self.vz(self.t,**kwargs)
         elif d2 == 'vR':
-            y= self.orbit[:,1]
+            y= self.vR(self.t,**kwargs)
         elif d2 == 'vT':
-            y= self.orbit[:,2]
+            y= self.vT(self.t,**kwargs)
         elif d2 == 'x':
-            if len(self.vxvv) == 2:
-                y= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            y= self.x(self.t,**kwargs)
         elif d2 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                y= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            y= self.y(self.t,**kwargs)
         elif d2 == 'vx':
-            y= self.vx(self.t)
+            y= self.vx(self.t,**kwargs)
         elif d2 == 'vy':
-            y= self.vy(self.t)
+            y= self.vy(self.t,**kwargs)
         elif d2 == 'phi':
-            y= self.phi(self.t)
+            y= self.phi(self.t,**kwargs)
         elif d2.lower() == 'ra':
             y= self.ra(self.t,**kwargs)
         elif d2.lower() == 'dec':
@@ -1471,39 +1643,27 @@ class OrbitTop:
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
         if d3 == 't':
-            z= nu.array(self.t)
+            z= self.time(self.t,**kwargs)
         elif d3 == 'R':
-            z= self.orbit[:,0]
+            z= self.R(self.t,**kwargs)
         elif d3 == 'z':
-            z= self.orbit[:,3]
+            z= self.z(self.t,**kwargs)
         elif d3 == 'vz':
-            z= self.orbit[:,4]
+            z= self.vz(self.t,**kwargs)
         elif d3 == 'vR':
-            z= self.orbit[:,1]
+            z= self.vR(self.t,**kwargs)
         elif d3 == 'vT':
-            z= self.orbit[:,2]
+            z= self.vT(self.t,**kwargs)
         elif d3 == 'x':
-            if len(self.vxvv) == 2:
-                z= self.orbit[:,0]
-            elif len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want x you need to track phi")
-            elif len(self.vxvv) == 4:
-                z= self.orbit[:,0]*nu.cos(self.orbit[:,3])
-            else:
-                z= self.orbit[:,0]*nu.cos(self.orbit[:,5])                
+            z= self.x(self.t,**kwargs)
         elif d3 == 'y':
-            if len(self.vxvv) != 4 and len(self.vxvv) != 6:
-                raise AttributeError("If you want y you need to track phi")
-            elif len(self.vxvv) == 4:
-                z= self.orbit[:,0]*nu.sin(self.orbit[:,3])
-            else:
-                z= self.orbit[:,0]*nu.sin(self.orbit[:,5])                
+            z= self.y(self.t,**kwargs)
         elif d3 == 'vx':
-            z= self.vx(self.t)
+            z= self.vx(self.t,**kwargs)
         elif d3 == 'vy':
-            z= self.vy(self.t)
+            z= self.vy(self.t,**kwargs)
         elif d3 == 'phi':
-            z= self.phi(self.t)
+            z= self.phi(self.t,**kwargs)
         elif d3.lower() == 'ra':
             z= self.ra(self.t,**kwargs)
         elif d3.lower() == 'dec':
@@ -1539,6 +1699,7 @@ class OrbitTop:
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
+        if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -1727,35 +1888,6 @@ class _fakeInterp:
         self.x= x
     def __call__(self,t):
         return self.x
-
-def _parse_radec_kwargs(kwargs,vel=False,dontpop=False):
-    if kwargs.has_key('obs'):
-        obs= kwargs['obs']
-        if not dontpop:
-            kwargs.pop('obs')
-        if isinstance(obs,(list,nu.ndarray)):
-            if len(obs) == 2:
-                obs= [obs[0],obs[1],0.]
-            elif len(obs) == 4:
-                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
-    else:
-        if vel:
-            obs= [8.5,0.,0.025,-10.1,239.,6.7]
-        else:
-            obs= [8.5,0.,0.025]
-    if kwargs.has_key('ro'):
-        ro= kwargs['ro']
-        if not dontpop:
-            kwargs.pop('ro')
-    else:
-        ro= 8.5
-    if kwargs.has_key('vo'):
-        vo= kwargs['vo']
-        if not dontpop:
-            kwargs.pop('vo')
-    else:
-        vo= 235.
-    return (obs,ro,vo)
 
 def _BCZeroFunction(t,vxvv,pot,method,bc,to,BCIntegrateFunc):
     if t == to: return bc(vxvv)

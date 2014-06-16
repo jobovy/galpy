@@ -3,13 +3,21 @@ v0.2 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
-- Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass
+- Sped up many of the functions in galpy.util.bovy_coords by removing scipy.frompyfunc dependency.
 
-- Started adding potential.mass to return the mass enclosed
+- Allow Orbit initialization to specify a distance and velocity scale that is then used to output distances and velocities in physical coordinates.
 
-- Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP)
+- Changed default vo and ro to 220 km/s and 8 kpc, respectively;
 
-- Added galpy.util.bovy_conversion.force_in_10m13kms2, galpy.util.bovy_conversion.dens_in_criticaldens, galpy.util.bovy_conversion.dens_in_meanmatterdens
+- Better handling of vo,ro, and solarmotion in Orbit instances (Orbit initialization value is now used to generate RA, Dec, etc. outputs);
+
+- Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass;
+
+- Started adding potential.mass to return the mass enclosed;
+
+- Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP);
+
+- Added galpy.util.bovy_conversion.force_in_10m13kms2, galpy.util.bovy_conversion.dens_in_criticaldens, galpy.util.bovy_conversion.dens_in_meanmatterdens.
 
 
 v0.1 (2014-01-09)

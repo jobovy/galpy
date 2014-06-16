@@ -65,12 +65,55 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import math as m
+#<<<<<<< HEAD
 import numpy as np
+#=======
+import numpy as nu
 import scipy as sc
 _DEGTORAD= m.pi/180.
 _K=4.74047
+def scalarDecorator(func):
+    """Decorator to return scalar outputs as a set"""
+    def scalar_wrapper(*args,**kwargs):
+        if nu.array(args[0]).shape == ():
+            scalarOut= True
+            newargs= ()
+            for ii in range(len(args)):
+                newargs= newargs+(nu.array([args[ii]]),)
+            args= newargs
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            out= ()
+            for ii in range(result.shape[1]):
+                out= out+(result[0,ii],)
+            return out
+        else:
+            return result
+    return scalar_wrapper
+def degreeDecorator(inDegrees,outDegrees):
+    """Decorator to transform angles from and to degrees if necessary"""
+    def wrapper(func):
+        def wrapped(*args,**kwargs):
+            if kwargs.get('degree',False):
+                newargs= ()
+                for ii in range(len(args)):
+                    if ii in inDegrees:
+                        newargs= newargs+(args[ii]*nu.pi/180.,)
+                    else:
+                        newargs= newargs+(args[ii],)
+                args= newargs
+            out= func(*args,**kwargs)
+            if kwargs.get('degree',False):
+                for indx in outDegrees:
+                    out[:,indx]/= nu.pi/180.
+            return out
+        return wrapped
+    return wrapper            
 
-
+@scalarDecorator
+@degreeDecorator([0,1],[0,1])
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
@@ -101,52 +144,25 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        2009-11-12 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(ra_ngp),sc.sin(ra_ngp),0.],[-sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]])))
-    transform={}
-    transform['T']= T
-    if sc.array(ra).shape == ():
-        return radec_to_lb_single(ra,dec,transform,degree)
-    else:
-        function= sc.frompyfunc(radec_to_lb_single,4,2)
-        return sc.array(function(ra,dec,transform,degree),dtype=sc.float64).T
+    #Whether to use degrees and scalar input is handled by decorators
+    XYZ= nu.array([nu.cos(dec)*nu.cos(ra),
+                   nu.cos(dec)*nu.sin(ra),
+                   nu.sin(dec)])
+    galXYZ= nu.dot(T,XYZ)
+    b= nu.arcsin(galXYZ[2])
+    l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
+    l[l<0.]+= 2.*nu.pi
+    out= nu.array([l,b])
+    return out.T
 
-def radec_to_lb_single(ra,dec,T,degree=False):
-    """
-    NAME:
-       radec_to_lb_single
-    PURPOSE:
-       transform from equatorial coordinates to Galactic coordinates for a single pair of ra,dec
-    INPUT:
-       ra - right ascension
-       dec - declination
-       T - epoch dependent transformation matrix (dictionary)
-       degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
-    OUTPUT:
-       l,b
-    HISTORY:
-       2009-11-12 - Written - Bovy (NYU)
-    """
-    T=T['T']
-    if degree:
-        thisra= ra/180.*sc.pi
-        thisdec= dec/180.*sc.pi
-    else:
-        thisra= ra
-        thisdec= dec
-    XYZ=sc.array([sc.cos(thisdec)*sc.cos(thisra),sc.cos(thisdec)*sc.sin(thisra),sc.sin(thisdec)])
-    galXYZ= sc.dot(T,XYZ)
-    b= m.asin(galXYZ[2])
-    l= m.atan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
-    if l < 0.:
-        l+= 2.*sc.pi
-    if degree:
-        return (l/sc.pi*180.,b/sc.pi*180.)
-    else:
-        return (l,b)
-
+@scalarDecorator
+@degreeDecorator([0,1],[0,1])
 def lb_to_radec(l,b,degree=False,epoch=2000.0):
     """
     NAME:
@@ -177,56 +193,24 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        2010-04-07 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(ra_ngp),-sc.sin(ra_ngp),0.],[sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]])))
-    transform={}
-    transform['T']= T
-    if sc.array(l).shape == ():
-        return lb_to_radec_single(l,b,transform,degree)
-    else:
-        function= sc.frompyfunc(lb_to_radec_single,4,2)
-        return sc.array(function(l,b,transform,degree),dtype=sc.float64).T
+    #Whether to use degrees and scalar input is handled by decorators
+    XYZ= nu.array([nu.cos(b)*nu.cos(l),
+                   nu.cos(b)*nu.sin(l),
+                   nu.sin(b)])
+    eqXYZ= nu.dot(T,XYZ)
+    dec= nu.arcsin(eqXYZ[2])
+    ra= nu.arctan2(eqXYZ[1],eqXYZ[0])
+    ra[ra<0.]+= 2.*nu.pi
+    return nu.array([ra,dec]).T
 
-def lb_to_radec_single(l,b,T,degree=False):
-    """
-    NAME:
-       lb_to_radec_single
-    PURPOSE:
-       transform from Galactic coordinates to equatorial coordinates
-       for a single pair of l,b
-    INPUT:
-       l - Galactic longitude
-       b - Galactic lattitude
-       T - epoch dependent transformation matrix (dictionary)
-       degree - (Bool) if True, l and b are given in degree and ra and dec
-                 will be as well
-    OUTPUT:
-       ra,dec
-    HISTORY:
-       2010-04-08 - Written - Bovy (NYU)
-    """
-    T=T['T']
-    if degree:
-        thisl= l*_DEGTORAD
-        thisb= b*_DEGTORAD
-    else:
-        thisl= l
-        thisb= b
-    XYZ=sc.array([m.cos(thisb)*m.cos(thisl),m.cos(thisb)*m.sin(thisl),m.sin(thisb)])
-    eqXYZ= sc.dot(T,XYZ)
-    dec= m.asin(eqXYZ[2])
-    ra= m.atan(eqXYZ[1]/eqXYZ[0])
-    if eqXYZ[0] < 0.:
-        ra+= m.pi
-    elif ra < 0.:
-        ra+= 2.*m.pi
-    if degree:
-        return (ra/m.pi*180.,dec/m.pi*180.)
-    else:
-        return (ra,dec)
-
+@scalarDecorator
+@degreeDecorator([0,1],[])
 def lbd_to_XYZ(l,b,d,degree=False):
     """
     NAME:
@@ -257,34 +241,13 @@ def lbd_to_XYZ(l,b,d,degree=False):
 
        2009-10-24- Written - Bovy (NYU)
 
-    """
-    if sc.array(l).shape == ():
-        return lbd_to_XYZ_single(l,b,d,degree)
-    else:
-        function= sc.frompyfunc(lbd_to_XYZ_single,4,3)
-        return sc.array(function(l,b,d,degree),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def lbd_to_XYZ_single(l,b,d,degree=False):
     """
-    NAME:
-       lbd_to_XYZ_single
-    PURPOSE:
-       transform from spherical Galactic coordinates to rectangular Galactic coordinates
-       works with vector inputs
-    INPUT:
-       l - Galactic longitude (rad)
-       b - Galactic lattitude (rad)
-       d - distance (arbitrary units)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       [X,Y,Z] in whatever units d was in
-    HISTORY:
-       2009-10-24- Written - Bovy (NYU)
-    """
-    if degree:
-        l= l*m.pi/180.
-        b= b*m.pi/180.
-    return (d*m.cos(b)*m.cos(l),d*m.cos(b)*m.sin(l),d*m.sin(b))
+    #Whether to use degrees and scalar input is handled by decorators
+    return nu.array([d*nu.cos(b)*nu.cos(l),
+                     d*nu.cos(b)*nu.sin(l),
+                     d*nu.sin(b)]).T
 
 def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
     """
@@ -376,6 +339,8 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
         out[:,3:6]= vxvyvz
         return out
 
+@scalarDecorator
+@degreeDecorator([3,4],[])
 def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
     """
     NAME:
@@ -408,59 +373,37 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
 
        (vx,vy,vz) in (km/s,km/s,km/s)
 
+       For vector inputs [:,3]
+
     HISTORY:
 
        2009-10-24 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
-    if sc.array(l).shape == ():
-        return vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree)
-    else:
-        function= sc.frompyfunc(vrpmllpmbb_to_vxvyvz_single,8,3)
-        return sc.array(function(vr,pmll,pmbb,l,b,d,XYZ,degree),dtype=sc.float64).T
-    
-def vrpmllpmbb_to_vxvyvz_single(vr,pmll,pmbb,l,b,d,XYZ,degree):
-    """
-    NAME:
-       vrpmllpmbb_to_vxvyvz
-    PURPOSE:
-       Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame
-       Can take vector inputs
-    INPUT:
-       vr - line-of-sight velocity (km/s)
-       pmll - proper motion in the Galactic longitude (mu_l * cos(b))(mas/yr)
-       pmbb - proper motion in the Galactic lattitude (mas/yr)
-       l - Galactic longitude
-       b - Galactic lattitude
-       d - distance (kpc)
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       (vx,vy,vz) in (km/s,km/s,km/s)
-    HISTORY:
-       2009-10-24 - Written - Bovy (NYU)
-    """
+    #Whether to use degrees and scalar input is handled by decorators
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[0]
-        b= lbd[1]
-        d= lbd[2]
-    else:
-        if degree:
-            l*= _DEGTORAD
-            b*= _DEGTORAD
-    R=sc.zeros((3,3))
-    R[0,0]= m.cos(l)*m.cos(b)
-    R[1,0]= -m.sin(l)
-    R[2,0]= -m.cos(l)*m.sin(b)
-    R[0,1]= m.sin(l)*m.cos(b)
-    R[1,1]= m.cos(l)
-    R[2,1]= -m.sin(l)*m.sin(b)
-    R[0,2]= m.sin(b)
-    R[2,2]= m.cos(b)
-    vxvyvz= sc.dot(R.T,sc.array([vr,d*pmll*_K,d*pmbb*_K]))
-    return (vxvyvz[0],vxvyvz[1],vxvyvz[2])
+        l= lbd[:,0]
+        b= lbd[:,1]
+        d= lbd[:,2]
+    R=nu.zeros((3,3,len(l)))
+    R[0,0]= nu.cos(l)*nu.cos(b)
+    R[1,0]= -nu.sin(l)
+    R[2,0]= -nu.cos(l)*nu.sin(b)
+    R[0,1]= nu.sin(l)*nu.cos(b)
+    R[1,1]= nu.cos(l)
+    R[2,1]= -nu.sin(l)*nu.sin(b)
+    R[0,2]= nu.sin(b)
+    R[2,2]= nu.cos(b)
+    invr= nu.array([[vr,vr,vr],
+                    [d*pmll*_K,d*pmll*_K,d*pmll*_K],
+                    [d*pmbb*_K,d*pmbb*_K,d*pmbb*_K]])
+    return (R.T*invr.T).sum(-1)
 
+@scalarDecorator
+@degreeDecorator([3,4],[])
 def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     """
     NAME:
@@ -493,61 +436,40 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
        (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
 
+       For vector inputs [:,3]
+
     HISTORY:
 
        2009-10-24 - Written - Bovy (NYU)
 
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
     """
-    if sc.array(l).shape == ():
-        return vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ,degree)
-    else:
-        function= sc.frompyfunc(vxvyvz_to_vrpmllpmbb_single,8,3)
-        return sc.array(function(vx,vy,vz,l,b,d,XYZ,degree),dtype=sc.float64).T
-    
-def vxvyvz_to_vrpmllpmbb_single(vx,vy,vz,l,b,d,XYZ=False,degree=False):
-    """
-    NAME:
-       vxvyvz_to_vrpmllpmbb_single
-    PURPOSE:
-       Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame
-    INPUT:
-       vx - velocity towards the Galactic Center (km/s)
-       vy - velocity in the direction of Galactic rotation (km/s)
-       vz - velocity towards the North Galactic Pole (km/s)
-       l - Galactic longitude
-       b - Galactic lattitude
-       d - distance (kpc)
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z
-             (rectangular Galactic coordinates)
-       degree - (bool) if True, l and b are in degrees
-    OUTPUT:
-       (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
-    HISTORY:
-       2009-10-24 - Written - Bovy (NYU)
-    """ 
+    #Whether to use degrees and scalar input is handled by decorators
     if XYZ:
         lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[0]
-        b= lbd[1]
-        d= lbd[2]
-    else:
-        if degree:
-            l*= _DEGTORAD
-            b*= _DEGTORAD
-    R=sc.zeros((3,3))
-    R[0,0]= m.cos(l)*m.cos(b)
-    R[1,0]= -m.sin(l)
-    R[2,0]= -m.cos(l)*m.sin(b)
-    R[0,1]= m.sin(l)*m.cos(b)
-    R[1,1]= m.cos(l)
-    R[2,1]= -m.sin(l)*m.sin(b)
-    R[0,2]= m.sin(b)
-    R[2,2]= m.cos(b)
-    vrvlvb= sc.dot(R,sc.array([vx,vy,vz]))
-    pmll= vrvlvb[1]/d/_K
-    pmbb= vrvlvb[2]/d/_K
-    return (vrvlvb[0],pmll,pmbb)
+        l= lbd[:,0]
+        b= lbd[:,1]
+        d= lbd[:,2]
+    R=nu.zeros((3,3,len(l)))
+    R[0,0]= nu.cos(l)*nu.cos(b)
+    R[0,1]= -nu.sin(l)
+    R[0,2]= -nu.cos(l)*nu.sin(b)
+    R[1,0]= nu.sin(l)*nu.cos(b)
+    R[1,1]= nu.cos(l)
+    R[1,2]= -nu.sin(l)*nu.sin(b)
+    R[2,0]= nu.sin(b)
+    R[2,2]= nu.cos(b)
+    invxyz= nu.array([[vx,vx,vx],
+                    [vy,vy,vy],
+                    [vz,vz,vz]])
+    vrvlvb= (R.T*invxyz.T).sum(-1)
+    vrvlvb[:,1]/= d*_K
+    vrvlvb[:,2]/= d*_K
+    return vrvlvb
 
+@scalarDecorator
+@degreeDecorator([],[0,1])
 def XYZ_to_lbd(X,Y,Z,degree=False):
     """
     NAME:
@@ -570,7 +492,7 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
 
     OUTPUT:
 
-       [l,b,d] in (rad,rad,kpc)
+       [l,b,d] in (rad or degree,rad or degree,kpc)
 
        For vector inputs [:,3]
 
@@ -578,43 +500,24 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
 
        2009-10-24 - Written - Bovy (NYU)
 
-    """
-    if sc.array(X).shape == ():
-        return XYZ_to_lbd_single(X,Y,Z,degree)
-    else:
-        function= sc.frompyfunc(XYZ_to_lbd_single,4,3)
-        return sc.array(function(X,Y,Z,degree),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def XYZ_to_lbd_single(X,Y,Z,degree):
     """
-    NAME:
-       XYZ_to_lbd_single
-    PURPOSE:
-       transform a single coordinate in rectangular Galactic coordinates to spherical Galactic coordinates
-    INPUT:
-       X - component towards the Galactic Center
-       Y - component in the direction of Galactic rotation
-       Z - component towards the North Galactic Pole
-       degree - (Bool) if True, return l and b in degrees
-    OUTPUT:
-       [l,b,d] in (rad,rad,kpc)
-    HISTORY:
-       2009-10-24 - Written - Bovy (NYU)
-    """
-    d= sc.sqrt(X**2.+Y**2.+Z**2.)
-    b=m.asin(Z/d)
-    cosl= X/d/m.cos(b)
-    sinl= Y/d/m.cos(b)
-    l= m.asin(sinl)
-    if cosl < 0:
-        l= m.pi-l
-    elif sinl < 0.:
-        l=2.*m.pi+l
-    if degree:
-        return (l/m.pi*180.,b/m.pi*180.,d)
-    else:
-        return (l,b,d)
+    #Whether to use degrees and scalar input is handled by decorators
+    d= nu.sqrt(X**2.+Y**2.+Z**2.)
+    b=nu.arcsin(Z/d)
+    cosl= X/d/nu.cos(b)
+    sinl= Y/d/nu.cos(b)
+    l= nu.arcsin(sinl)
+    l[cosl < 0.]= nu.pi-l[cosl < 0.]
+    l[(cosl >= 0.)*(sinl < 0.)]+= 2.*nu.pi
+    out= nu.empty((len(l),3))
+    out[:,0]= l
+    out[:,1]= b
+    out[:,2]= d
+    return out
 
+#<<<<<<< HEAD
 def XYZ_to_lbd_alt(X,Y,Z,degree=False, nostack=False):
     """
     NAME:
@@ -677,6 +580,9 @@ def XYZ_to_lbd_alt(X,Y,Z,degree=False, nostack=False):
         else:
             return result
 
+#=======
+@scalarDecorator
+@degreeDecorator([2,3],[])
 def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
@@ -709,61 +615,31 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
 
        2010-04-07 - Written - Bovy (NYU)
 
-    """
-    if sc.array(pmra).shape == ():
-        l,b = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        return pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree,epoch)
-    else:
-        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        function= sc.frompyfunc(pmrapmdec_to_pmllpmbb_single,7,2)
-        return sc.array(function(pmra,pmdec,ra,dec,lb[:,1],degree,epoch),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def pmrapmdec_to_pmllpmbb_single(pmra,pmdec,ra,dec,b,degree=False,epoch=2000.0):
-    """
-    NAME:
-       pmrapmdec_to_pmllpmbb_single
-    PURPOSE:
-       rotate proper motions in (ra,dec) into proper motions in (l,b) for
-       scalar inputs
-    INPUT:
-       pmra - proper motion in ra (multplied with cos(dec)) [mas/yr]
-       pmdec - proper motion in dec [mas/yr]
-       ra - right ascension
-       dec - declination
-       b - Galactic lattitude
-       degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
-    OUTPUT:
-       (pmll,pmbb)
-    HISTORY:
-       2010-04-07 - Written - Bovy (NYU)
     """
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    if degree:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec*_DEGTORAD)
-        cosdec= m.cos(dec*_DEGTORAD)
-        sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
-    else:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec)
-        cosdec= m.cos(dec)
-        sinrarangp= m.sin(ra-ra_ngp)
-        cosrarangp= m.cos(ra*-ra_ngp)
+    #Whether to use degrees and scalar input is handled by decorators
+    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
+    sindec_ngp= nu.sin(dec_ngp)
+    cosdec_ngp= nu.cos(dec_ngp)
+    sindec= nu.sin(dec)
+    cosdec= nu.cos(dec)
+    sinrarangp= nu.sin(ra-ra_ngp)
+    cosrarangp= nu.cos(ra-ra_ngp)
     #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     #sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
     sinphi= sinrarangp*cosdec_ngp
-    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    out= sc.dot(sc.array([[cosphi,sinphi],[-sinphi,cosphi]]),sc.array([pmra,pmdec]))
-    return (out[0], out[1])
+    return (nu.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
+                *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
+@scalarDecorator
+@degreeDecorator([2,3],[])
 def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
     """
     NAME:
@@ -796,62 +672,31 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
        2010-04-07 - Written - Bovy (NYU)
 
-    """
-    if sc.array(pmll).shape == ():
-        ra,dec = lb_to_radec(l,b,degree=degree,epoch=epoch)
-        return pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree,epoch)
-    else:
-        radec = lb_to_radec(l,b,degree=degree,epoch=epoch)
-        function= sc.frompyfunc(pmllpmbb_to_pmrapmdec_single,7,2)
-        return sc.array(function(pmll,pmbb,radec[:,0],radec[:,1],b,degree,
-                                 epoch),dtype=sc.float64).T
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-def pmllpmbb_to_pmrapmdec_single(pmll,pmbb,ra,dec,b,degree=False,epoch=2000.0):
-    """
-    NAME:
-       pmllpmbb_to_pmrapmdec_single
-    PURPOSE:
-       rotate proper motions in (l,b) into proper motions in (ra,dec) for
-       scalar inputs
-    INPUT:
-       pmll - proper motion in l (multplied with cos(b)) [mas/yr]
-       pmll - proper motion in b [mas/yr]
-       ra - right ascension
-       dec - declination
-       b - Galactic lattitude
-       degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
-    OUTPUT:
-       (pmra,pmdec)
-    HISTORY:
-       2010-04-07 - Written - Bovy (NYU)
     """
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    if degree:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec*_DEGTORAD)
-        cosdec= m.cos(dec*_DEGTORAD)
-        sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
-    else:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec)
-        cosdec= m.cos(dec)
-        sinrarangp= m.sin(ra-ra_ngp)
-        cosrarangp= m.cos(ra-ra_ngp)
+    #Whether to use degrees and scalar input is handled by decorators
+    radec = lb_to_radec(l,b,degree=False,epoch=epoch)
+    ra= radec[:,0]
+    dec= radec[:,1]
+    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
+    sindec_ngp= nu.sin(dec_ngp)
+    cosdec_ngp= nu.cos(dec_ngp)
+    sindec= nu.sin(dec)
+    cosdec= nu.cos(dec)
+    sinrarangp= nu.sin(ra-ra_ngp)
+    cosrarangp= nu.cos(ra-ra_ngp)
     #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     #sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
     sinphi= sinrarangp*cosdec_ngp
-    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    out= sc.dot(sc.array([[cosphi,-sinphi],[sinphi,cosphi]]),sc.array([pmll,pmbb]))
-    return (out[0], out[1])
-
+    return (nu.array([[cosphi,sinphi],[-sinphi,cosphi]]).T\
+                *nu.array([[pmll,pmll],[pmbb,pmbb]]).T).sum(-1)
 
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     """

@@ -105,6 +105,12 @@ or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3}`, in line with
 current measurements (e.g., `2012ApJ...756...89B
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
 
+When ``galpy`` Orbits are initialized using a distance scale ``ro=``
+and a velocity scale ``vo=`` distances and velocities are returned and
+plotted in physical coordinates. Support for doing the same for
+energies, angular momentum, actions, and frequencies is under
+construction.
+
 Orbit integration
 -----------------
 
