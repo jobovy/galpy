@@ -65,9 +65,6 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import math as m
-#<<<<<<< HEAD
-import numpy as np
-#=======
 import numpy as nu
 import scipy as sc
 _DEGTORAD= m.pi/180.
@@ -517,70 +514,6 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
     out[:,2]= d
     return out
 
-#<<<<<<< HEAD
-def XYZ_to_lbd_alt(X,Y,Z,degree=False, nostack=False):
-    """
-    NAME:
-
-       XYZ_to_lbd
-
-    PURPOSE:
-
-       transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
-
-    INPUT:
-
-       X - component towards the Galactic Center (in kpc; though this obviously does not matter))
-
-       Y - component in the direction of Galactic rotation (in kpc)
-
-       Z - component towards the North Galactic Pole (kpc)
-
-       degree - (Bool) if True, return l and b in degrees
-
-    OUTPUT:
-
-       [l,b,d] in (rad,rad,kpc)
-
-       For vector inputs [:,3], unless nostack set
-
-    HISTORY:
-
-       2009-10-24 - Written - Bovy (NYU)
-       2014-06-12 - Modified to abolish frompyfunc call - Fardal (UMass)
-
-    """
-    if np.isscalar(X):
-#        return bovy_coords.XYZ_to_lbd_single(X,Y,Z,degree)
-        d = math.sqrt(X**2.+Y**2.+Z**2.)
-        R = np.sqrt(X**2.+Y**2.)
-        b = math.atan2(Z,R)
-        cosl = X/R
-        sinl = Y/R
-        l = np.mod(m.atan2(sinl, cosl), 2.*m.pi)
-        if degree:
-            return (l/m.pi*180.,b/m.pi*180.,d)
-        else:
-            return (l,b,d)
-    else:
-        if (len(X.shape) > 1):
-            raise Exception('only vector input supported.')
-        d = np.sqrt(X**2.+Y**2.+Z**2.)
-        R = np.sqrt(X**2.+Y**2.)
-        b = np.arctan2(Z,R)
-        cosl = X/R
-        sinl = Y/R
-        l = np.mod(np.arctan2(sinl, cosl),2.*np.pi)
-        if degree:
-            result = (l/np.pi*180.,b/np.pi*180.,d)
-        else:
-            result = (l,b,d)
-        if (not nostack):
-            return np.column_stack(result)
-        else:
-            return result
-
-#=======
 @scalarDecorator
 @degreeDecorator([2,3],[])
 def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
