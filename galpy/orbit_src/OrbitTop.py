@@ -1202,14 +1202,18 @@ class OrbitTop:
                         'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
                         'Enorm':r'$E(t)/E(0.)$',
                         'Eznorm':r'$E_z(t)/E_z(0.)$',
-                        'ERnorm':r'$E_R(t)/E_R(0.)$'}
+                        'ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                         'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                         'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
                         'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
                         'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
-                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$'}
+                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
@@ -1320,6 +1324,10 @@ class OrbitTop:
             x= self.ER(self.t,**kwargs)
         elif d1 == 'ERnorm':
             x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d1 == 'Jacobi':
+            x= self.Jacobi(self.t,**kwargs)
+        elif d1 == 'Jacobinorm':
+            x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
         if d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
@@ -1386,11 +1394,16 @@ class OrbitTop:
             y= self.ER(self.t,**kwargs)
         elif d2 == 'ERnorm':
             y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d2 == 'Jacobi':
+            y= self.Jacobi(self.t,**kwargs)
+        elif d2 == 'Jacobinorm':
+            y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
         if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
         if kwargs.has_key('pot'): kwargs.pop('pot')
+        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -1835,6 +1848,26 @@ class OrbitTop:
             kwargs['d2']= 'Enorm'
         else:
             kwargs['d2']= 'E'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
+    def plotJacobi(self,*args,**kwargs):
+        """
+        NAME:
+           plotE
+        PURPOSE:
+           plot Jacobi(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2014-06-16 - Written - Bovy (IAS)
+        """
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Jacobinorm'
+        else:
+            kwargs['d2']= 'Jacobi'
         if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         

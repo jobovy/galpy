@@ -2295,6 +2295,12 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2328,6 +2334,12 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2358,6 +2370,12 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            d1= plot ER vs d1: e.g., 't', 'z', 'R'
 
            normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            +bovy_plot.bovy_plot inputs
 
@@ -2419,6 +2437,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                  was integrated
 
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
+
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            +bovy_plot.bovy_plot inputs
 

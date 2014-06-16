@@ -78,6 +78,7 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
+    @physical_conversion('energy')
     def Jacobi(self,*args,**kwargs):
         """
         NAME:
@@ -115,7 +116,12 @@ class planarOrbitTop(OrbitTop):
         else:
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
-        return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',False)
+        kwargs['use_physical']= False
+        out= self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
+        kwargs['use_physical']= old_physical
+        return out
 
     @physical_conversion('position')
     def rap(self,analytic=False,pot=None,**kwargs):
@@ -169,52 +175,7 @@ class planarOrbitTop(OrbitTop):
 
     @physical_conversion('position')
     def zmax(self,pot=None,analytic=False,**kwargs):
-        raise AttributeError("planarOrbit does not have a zmax")
-    
-    def plotJacobi(self,*args,**kwargs):
-        """
-        NAME:
-           plotJacobi
-        PURPOSE:
-           plot Jacobi integratl(.) along the orbit
-        INPUT:
-           OmegaP= pattern speed
-           pot= Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Jacobi vs d1: e.g., 't', 'R', 'vR', 'vT'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2011-10-09 - Written - Bovy (IAS)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        Js= self.Jacobi(self.t,**kwargs)
-        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
-        if kwargs.has_key('pot'): kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E-\Omega_p\,L$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
-                           *args,**kwargs)
+        raise AttributeError("planarOrbit does not have a zmax")    
 
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
