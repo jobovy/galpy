@@ -64,6 +64,7 @@
 #WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
+from functools import wraps
 import math as m
 import numpy as nu
 import scipy as sc
@@ -71,6 +72,7 @@ _DEGTORAD= m.pi/180.
 _K=4.74047
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""
+    @wraps(func)
     def scalar_wrapper(*args,**kwargs):
         if nu.array(args[0]).shape == ():
             scalarOut= True
@@ -92,6 +94,7 @@ def scalarDecorator(func):
 def degreeDecorator(inDegrees,outDegrees):
     """Decorator to transform angles from and to degrees if necessary"""
     def wrapper(func):
+        @wraps(func)
         def wrapped(*args,**kwargs):
             if kwargs.get('degree',False):
                 newargs= ()

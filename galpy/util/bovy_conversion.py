@@ -4,6 +4,7 @@
 #                  units
 #
 ###############################################################################
+from functools import wraps
 import warnings
 import copy
 import math as m
@@ -420,6 +421,7 @@ def physical_conversion(quantity,pop=False):
     """Decorator to convert to physical coordinates: 
     quantity = [position,velocity,time]"""
     def wrapper(method):
+        @wraps(method)
         def wrapped(*args,**kwargs):
             if kwargs.has_key('use_physical'):
                 use_physical= kwargs['use_physical']
