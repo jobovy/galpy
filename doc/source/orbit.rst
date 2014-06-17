@@ -89,7 +89,10 @@ inputs are given in physical units, the orbit is initialized assuming
 a circular velocity of one at the distance of the Sun (that is, the
 orbit's position and velocity is scaled to galpy's *natural* units
 after converting to the Galactocentric coordinate frame, using the
-specified ``ro=`` and ``vo=``). An example of all of this is:
+specified ``ro=`` and ``vo=``). The parameters of the coordinate
+transformations are stored internally, such that they are
+automatically used for relevant outputs (for example, when the RA of
+an orbit is requested). An example of all of this is:
 
 >>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],radec=True,ro=8.,vo=220.)
 
