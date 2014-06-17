@@ -1415,14 +1415,25 @@ def test_physical_output():
         if ii < 2:
             assert numpy.fabs(o.z()/ro-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected'
         #Test velocities
-        assert numpy.fabs(o.vR()/vo-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with ro= does not work as expected'
-        assert numpy.fabs(o.vT()/vo-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with ro= does not work as expected'
-        assert numpy.fabs(o.vphi()/vo-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with ro= does not work as expected'
+        assert numpy.fabs(o.vR()/vo-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.vT()/vo-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.vphi()/vo-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected'
         if ii % 2 == 1:
-            assert numpy.fabs(o.vx()/vo-o.vx(use_physical=False)) < 10.**-10., 'o.vx() output for Orbit setup with ro= does not work as expected'
-            assert numpy.fabs(o.vy()/vo-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with ro= does not work as expected'
+            assert numpy.fabs(o.vx()/vo-o.vx(use_physical=False)) < 10.**-10., 'o.vx() output for Orbit setup with vo= does not work as expected'
+            assert numpy.fabs(o.vy()/vo-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with vo= does not work as expected'
         if ii < 2:
-            assert numpy.fabs(o.vz()/vo-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with ro= does not work as expected'
+            assert numpy.fabs(o.vz()/vo-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with vo= does not work as expected'
+        #Test energies
+        assert numpy.fabs(o.E(pot=lp)/vo**2.-o.E(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.Jacobi(pot=lp)/vo**2.-o.Jacobi(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected'
+        if ii < 2:
+            assert numpy.fabs(o.ER(pot=lp)/vo**2.-o.ER(pot=lp,use_physical=False)) < 10.**-10., 'o.ER() output for Orbit setup with vo= does not work as expected'
+            assert numpy.fabs(o.Ez(pot=lp)/vo**2.-o.Ez(pot=lp,use_physical=False)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected'
+        #Test angular momentun
+        if ii > 0:
+            print o.L()/vo/ro,o.L(use_physical=False)
+            assert numpy.all(numpy.fabs(o.L()/vo/ro-o.L(use_physical=False)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected'
+
     #Also test the times
     assert numpy.fabs((o.time(1.)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'

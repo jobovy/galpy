@@ -980,6 +980,9 @@ class OrbitTop:
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',False)
+        kwargs['use_physical']= False
         if kwargs.has_key('Omega'):
             Omega= kwargs['Omega']
             kwargs.pop('Omega')
@@ -994,9 +997,9 @@ class OrbitTop:
             raise AttributeError("'linearOrbit has no angular momentum")
         elif len(thiso[:,0]) == 3 or len(thiso[:,0]) == 4:
             if Omega is None:
-                return thiso[0,:]*thiso[2,:]
+                out= thiso[0,:]*thiso[2,:]
             else:
-                return thiso[0,:]*(thiso[2,:]-Omega*t*thiso[0,:])
+                out= thiso[0,:]*(thiso[2,:]-Omega*t*thiso[0,:])
         elif len(thiso[:,0]) == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
         else: #len(thiso[:,0]) == 6
@@ -1010,7 +1013,8 @@ class OrbitTop:
             out[:,0]= y*vz-z*vy
             out[:,1]= z*vx-x*vz
             out[:,2]= x*vy-y*vx
-            return out
+        kwargs['use_physical']= old_physical
+        return out
 
     def _resetaA(self,pot=None,type=None):
         """
