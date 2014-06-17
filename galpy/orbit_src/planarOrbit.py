@@ -4,6 +4,7 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
+from galpy.util.bovy_conversion import physical_conversion
 from OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
@@ -17,19 +18,40 @@ ext_loaded= _ext_loaded
 class planarOrbitTop(OrbitTop):
     """Top-level class representing a planar orbit (i.e., one in the plane 
     of a galaxy)"""
-    def __init__(self,vxvv=None): #pragma: no cover (never used)
+    def __init__(self,vxvv=None,vo=220.,ro=8.0,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])): #pragma: no cover (never used)
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a planar orbit
+
         INPUT:
+
            vxvv - [R,vR,vT(,phi)]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
     def e(self,analytic=False,pot=None):
@@ -95,7 +117,8 @@ class planarOrbitTop(OrbitTop):
             kwargs.pop('OmegaP')
         return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
 
-    def rap(self,analytic=False,pot=None):
+    @physical_conversion('position')
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rap
@@ -119,7 +142,8 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amax(self.rs)
 
-    def rperi(self,analytic=False,pot=None):
+    @physical_conversion('position')
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rperi
@@ -143,7 +167,8 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return nu.amin(self.rs)
 
-    def zmax(self,pot=None,analytic=False):
+    @physical_conversion('position')
+    def zmax(self,pot=None,analytic=False,**kwargs):
         raise AttributeError("planarOrbit does not have a zmax")
     
     def plotJacobi(self,*args,**kwargs):
@@ -195,19 +220,40 @@ class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
     orbit-integration in axisymmetric potentials when you don't care about the
     azimuth"""
-    def __init__(self,vxvv=[1.,0.,1.]):
+    def __init__(self,vxvv=[1.,0.,1.],vo=220.,ro=8.0,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a planarROrbit
+
         INPUT:
+
            vxvv - [R,vR,vT]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateROrbit
         return None
@@ -364,21 +410,42 @@ class planarROrbit(planarOrbitTop):
 
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
-    def __init__(self,vxvv=[1.,0.,1.,0.]):
+    def __init__(self,vxvv=[1.,0.,1.,0.],vo=220.,ro=8.0,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a planarOrbit
+
         INPUT:
+
            vxvv - [R,vR,vT,phi]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
         HISTORY:
+
            2010-07-12 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
         if len(vxvv) == 3: #pragma: no cover
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateOrbit
         return None

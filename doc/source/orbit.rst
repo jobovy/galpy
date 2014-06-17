@@ -49,9 +49,9 @@ assuming a Solar motion that can be specified as either
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
 ``solarmotion=shoenrich`` (`2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
-velocity can be specified as ``vo=235`` in km/s and a value for the
+velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
-``ro=8.5`` in kpc. While the inputs are given in physical units, the
+``ro=8.0`` in kpc. While the inputs are given in physical units, the
 orbit is initialized assuming a circular velocity of one at the
 distance of the Sun.
 
@@ -59,6 +59,13 @@ When ``radec=True`` is set, velocities can also be specified in
 Galactic coordinates if ``UVW=True`` is set. The input is then
 ``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
 in km/s. U is, as usual, defined as -vR (minus vR).
+
+Orbits are normally used in galpy's *natural coordinates*. When Orbits
+are initialized using a distance scale ``ro=`` and a velocity scale
+``vo=``, then many Orbit methods return quantities in physical
+coordinates. Currently this is limited to times, positions, and
+velocities. Plots made using these quantities will be made in physical
+coordinates (Gyr,kpc,km/s). See below for examples of this.
 
 Orbit integration
 ---------------------
@@ -77,6 +84,14 @@ potential we can do the following
 to integrate the orbit from ``t=0`` to ``t=100``, saving the orbit at
 10000 instances.
 
+If we initialize the Orbit using a distance scale ``ro=`` and a
+velocity scale ``vo=``, then Orbit plots and outputs will use physical
+coordinates (currently, times, positions, and velocities)
+
+>>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
+>>> o.integrate(ts,lp) #times are still specified in natural coordinates
+
+
 Displaying the orbit
 ---------------------
 
@@ -92,6 +107,16 @@ shown. E.g., for the example given above,
 gives
 
 .. image:: images/lp-orbit-integration.png
+
+If we do the same for the Orbit that has physical distance and
+velocity scales associated with it, we get the following
+
+>>> op.plot()
+
+.. image:: images/lp-orbit-integration-physical.png
+
+If we call ``op.plot(use_physical=False)``, the quantities will be
+displayed in natural galpy coordinates. 
 
 Other projections of the orbit can be displayed by specifying the
 quantities to plot. E.g., 
@@ -197,6 +222,23 @@ array([ 285.76403985])
 array([ 1.24888927])
 >>> o.pmll(10.,obs=[8.,0.,0.,0.,245.,0.],ro=8.,vo=230.)
 array([-6.45263888])
+
+For the Orbit ``op`` that was initialized above with a distance scale
+``ro=`` and a velocity scale ``vo=``, the first of these would be
+
+>>> op.R(1.)
+9.2360614837829225 #kpc
+
+which we can also access in natural coordinates as
+
+>>> op.R(1.,use_physical=False)
+1.1545076854728653
+
+We can also specify a different distance or velocity scale on the fly,
+e.g.,
+
+>>> op.R(1.,ro=4.) #different velocity scale would be vo=
+4.6180307418914612
 
 We can also initialize an ``Orbit`` instance using the phase-space
 position of another ``Orbit`` instance evaulated at time t. For

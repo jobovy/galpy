@@ -71,9 +71,9 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
        Utilizes the Dehnen distribution function to inform a simple model of the velocity distribution of APOGEE stars in the Milky Way disk and to create mock data.
 * *A direct dynamical measurement of the Milky Way's disk surface density profile, disk scale length, and dark matter profile at 4 kpc < R < 9 kpc*, Jo Bovy & Hans-Walter Rix (2013), *Astrophys. J.* **779**, 115 (`2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_):
      Makes use of potential models, the adiabatic and Staeckel actionAngle modules, and the quasiisothermal DF to model the dynamics of the SEGUE G dwarf sample in mono-abundance bins.
-* *The peculiar pulsar population of the central parsec*, Jason Dexter & Ryan M. O'Leary (2013), *Astrophys. J. Lett.*, submitted (`arXiv/1310.7022 <http://arxiv.org/abs/1310.7022>`_):
+* *The peculiar pulsar population of the central parsec*, Jason Dexter & Ryan M. O'Leary (2013), *Astrophys. J. Lett.*, **783**, L7 (`2014ApJ...783L...7D <http://adsabs.harvard.edu/abs/2014ApJ...783L...7D>`_):
      Uses galpy for orbit integration of pulsars kicked out of the Galactic center.
-* *Chemodynamics of the Milky Way. I. The first year of APOGEE data*, Friedrich Anders, Christina Chiappini, Basilio X. Santiago, et al. (2013), *Astron. & Astrophys.* submitted (`arXiv/1311.4549 <http://arxiv.org/abs/1311.4549>`_):
+* *Chemodynamics of the Milky Way. I. The first year of APOGEE data*, Friedrich Anders, Christina Chiappini, Basilio X. Santiago, et al. (2013), *Astron. & Astrophys.*, **564**, A115 (`2014A&A...564A.115A <http://adsabs.harvard.edu/abs/2014A%26A...564A.115A>`_):
   		 Employs galpy to perform orbit integrations in ``galpy.potential.MWPotential`` to characterize the orbits of stars in the APOGEE sample.
 
 * *Dynamical modeling of tidal streams*, Jo Bovy (2014), *Astrophys. J*, submitted (`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_):
@@ -82,7 +82,13 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 Acknowledging galpy
 --------------------
 
-Please link back to ``http://github.com/jobovy/galpy`` . When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_, which introduced this technique. When orbit integrations are used, you could cite `2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_ (first galpy paper).
+If you use galpy in a publication, please cite Bovy (2014, in
+preparation) and link ``to http://github.com/jobovy/galpy``. Please
+also send me a reference to the paper or send a pull request including
+your paper in the list of galpy papers on this page (this page is at
+doc/source/index.rst). Thanks!
+
+When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_, which introduced this technique.
 
 
 Indices and tables

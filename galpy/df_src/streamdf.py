@@ -440,25 +440,25 @@ class streamdf:
                               phys=False):
         """Parse the dimension to plot the progenitor orbit for"""
         if d1.lower() == 'x':
-            tx= self._progenitor.x(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.x(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'y':
-            tx= self._progenitor.y(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.y(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'z':
-            tx= self._progenitor.z(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.z(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'r':
-            tx= self._progenitor.R(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.R(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'phi':
             tx= self._progenitor.phi(ts,ro=ro,vo=vo,obs=obs)
         elif d1.lower() == 'vx': 
-            tx= self._progenitor.vx(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.vx(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'vy':
-            tx= self._progenitor.vy(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.vy(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'vz':
-            tx= self._progenitor.vz(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.vz(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'vr':
-            tx= self._progenitor.vR(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.vR(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'vt':
-            tx= self._progenitor.vT(ts,ro=ro,vo=vo,obs=obs)
+            tx= self._progenitor.vT(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'll':
             tx= self._progenitor.ll(ts,ro=ro,vo=vo,obs=obs)
         elif d1.lower() == 'bb':

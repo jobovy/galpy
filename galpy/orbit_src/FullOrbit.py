@@ -10,23 +10,46 @@ import galpy.util.bovy_symplecticode as symplecticode
 #try:
 from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
+from galpy.util.bovy_conversion import physical_conversion
 from OrbitTop import OrbitTop
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
-    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1]):
+    def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=220.,ro=8.0,zo=0.025,
+                 solarmotion=nu.array([-10.1,4.0,6.7])):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            intialize a full orbit
+
         INPUT:
+
            vxvv - initial condition [R,vR,vT,z,vz,phi]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
+           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+
+           solarmotion - value in [-U,V,W] (km/s)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-08-01 - Written - Bovy (NYU)
+
+           2014-06-11 - Added conversion kwargs to physical coordinates - Bovy (IAS)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateFullOrbit
         return None
@@ -257,7 +280,8 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-    def rap(self,analytic=False,pot=None):
+    @physical_conversion('position')
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rap
@@ -281,7 +305,8 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
 
-    def rperi(self,analytic=False,pot=None):
+    @physical_conversion('position')
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            rperi
@@ -305,7 +330,8 @@ class FullOrbit(OrbitTop):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amin(self.rs)
 
-    def zmax(self,analytic=False,pot=None):
+    @physical_conversion('position')
+    def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            zmax

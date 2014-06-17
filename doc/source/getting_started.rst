@@ -101,9 +101,21 @@ matter density in the Milky-Way-like potential is given by
 >>> MWPotential[1].dens(1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
 0.0085853601686596628
 
-or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3}`, in line with
-current measurements (e.g., `2012ApJ...756...89B
+or
+
+>>> MWPotential[1].dens(1.,0.)*bovy_conversion.dens_in_gevcc(220.,8.)
+0.32605775276339916
+
+or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3} \approx
+0.3\,\mathrm{GeV\,cm}^{-3}`, in line with current measurements (e.g.,
+`2012ApJ...756...89B
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
+
+When ``galpy`` Orbits are initialized using a distance scale ``ro=``
+and a velocity scale ``vo=`` distances and velocities are returned and
+plotted in physical coordinates. Support for doing the same for
+energies, angular momentum, actions, and frequencies is under
+construction.
 
 Orbit integration
 -----------------

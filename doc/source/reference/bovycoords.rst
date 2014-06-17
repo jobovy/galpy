@@ -14,6 +14,7 @@ self-explanatory names:
    dl_to_rphi_2d <coordsdltorphi2d.rst>
    galcencyl_to_XYZ <coordsgalcencyltoxyz.rst>
    galcencyl_to_vxvyvz <coordsgalcencyltovxvyvz.rst>
+   galcenrect_to_XYZ <coordsgalcenrecttoxyz.rst>
    galcenrect_to_vxvyvz <coordsgalcenrecttovxvyvz.rst>
    lb_to_radec <coordslbtoradec.rst>
    lbd_to_XYZ <coordslbdtoxyz.rst>
