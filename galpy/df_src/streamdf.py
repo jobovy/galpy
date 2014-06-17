@@ -4,6 +4,7 @@ import numpy
 import multiprocessing
 import scipy
 from scipy import special, interpolate, integrate
+from scipy.stats import norm as normalfn
 if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
@@ -91,6 +92,8 @@ class streamdf:
         """
         self._verbose = verbose
         self._burst = burst
+        self._uniformburst = True; self._burstconst = 3.**0.5  #uniform
+        #self._uniformburst = False  #fully Gaussian
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./bovy_conversion.time_in_Gyr(Vnorm,Rnorm)
@@ -187,6 +190,19 @@ class streamdf:
             fast_cholesky_invert(self._sigomatrix/self._sigomatrixNorm,
                                  tiny=10.**-15.,logdet=True)
         self._sigomatrixinv/= self._sigomatrixNorm
+
+        #begin test
+        # print 'test diag:'
+        # U = self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx]
+        # print '1', numpy.dot(U.T,
+        #                 numpy.dot(self._sigomatrixinv, U))
+        # print '2', numpy.dot(U,
+        #                 numpy.dot(self._sigomatrixinv, U.T))
+        # print '3', numpy.dot(U.T, numpy.dot(self._sigomatrix, U))
+        # print '4', numpy.dot(self._sigomatrixinv, self._sigomatrix)
+        # print '5', numpy.dot(U.T, U)
+        # raise Exception('done')
+        #end test
 
         deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
             self._sortedSigOEig[2]) * self._tdisrupt
@@ -1280,9 +1296,28 @@ class streamdf:
            2013-12-01 - Written - Bovy (IAS)
         """
         if (self._burst):
-            #dO1D = dangle / self._tdisrupt   #simple approx
-            dO1D = (self._sortedSigOEig[2] * self._tdisrupt) / (
-                self._sigangle2 + self._sortedSigOEig[2] * self._tdisrupt**2) * dangle
+            if (self._uniformburst):
+                assert numpy.isscalar(dangle)
+                t = dangle
+                w = numpy.sqrt(self._sortedSigOEig[2])
+                td = self._tdisrupt
+                sigt = self._sigangle
+                tlo = -w*td - 4.*sigt
+                thi =  w*td + 4.*sigt
+                if (t < tlo):
+                    dO1D = -w - sigt**2 / td / (t + w*td)
+                elif (t > thi):
+                    dO1D =  w - sigt**2 / td / (t - w*td)
+                else:
+                    dO1D = t / td + sigt / numpy.sqrt(2.*numpy.pi) / td \
+                           * (numpy.exp(-(t + w*td)**2 / (2.*sigt**2)) 
+                           - numpy.exp(-(t - w*td)**2 / (2.*sigt**2))) \
+                           / (normalfn.cdf((t + td*w)/sigt) 
+                            - normalfn.cdf((t - td*w)/sigt)) 
+            else:
+                dO1D = (self._sortedSigOEig[2] * self._tdisrupt) / (
+                    self._sigangle2 
+                    + self._sortedSigOEig[2] * self._tdisrupt**2) * dangle
             if (oned):
                 return dO1D
             else:
@@ -1316,6 +1351,7 @@ class streamdf:
            2013-12-05 - Written - Bovy (IAS)
         """
         if (self._burst):
+            #NOTE: FOR UNIFORMBURST, THIS IS NOT CORRECT.  HOPING CLOSE ENOUGH!
             #return self._sigangle / self_tdisrupt  #simple approx
             return numpy.sqrt((self._sortedSigOEig[2] * self._sigangle2) / 
                 (self._sigangle2 + self._sortedSigOEig[2] * self._tdisrupt**2))
@@ -1692,12 +1728,26 @@ class streamdf:
         dOmega, dangle= self.prepData4Call(*args,**kwargs)
         if (self._burst):
             #use: self.tdisrupt, dOmega (3xn), dangle (3xn)
+            if (self._uniformburst):
+                #to implement, diagonalize and use parallel freq uniform distn
+                raise Exception('unimplemented.')
             #omega part
             dOmega4dfOmega= dOmega\
                 -numpy.tile(self._dsigomeanProg.T,(dOmega.shape[1],1)).T
             logdfOmega = -0.5*numpy.dot(dOmega4dfOmega.T,
                             numpy.dot(self._sigomatrixinv, dOmega4dfOmega)) \
                             -0.5*self._sigomatrixLogdet
+            #begin test                
+            # U = self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx]
+            # dvec = numpy.dot(U.T, dOmega4dfOmega)
+            # print 'test equal:'
+            # print numpy.dot(dOmega4dfOmega.T,
+            #                 numpy.dot(self._sigomatrixinv, dOmega4dfOmega))
+            # print numpy.dot(dvec.T, numpy.dot(
+            #                 numpy.dot(U.T,numpy.dot(self._sigomatrixinv, U)),
+            #                 dvec))
+            # raise Exception('done')
+            #end test
             #angle part
             dangle2 = numpy.sum((dangle-dOmega*self._tdisrupt)**2,axis=0)
             logdfA = -0.5/self._sigangle2 * dangle2 - 3.*self._lnsigangle
@@ -2084,7 +2134,11 @@ class streamdf:
         #First sample frequencies
         #Sample frequency along largest eigenvalue using ARS
         if (self._burst):
-            dO1s = numpy.abs(numpy.random.normal(size=n)
+            if (self._uniformburst):
+                dO1s = numpy.abs(numpy.random.uniform(size=n, low=-1., high=1.)
+                       * self._burstconst * numpy.sqrt(self._sortedSigOEig[2]))
+            else:
+                dO1s = numpy.abs(numpy.random.normal(size=n)
                        * numpy.sqrt(self._sortedSigOEig[2]))
         else:
             dO1s=\
@@ -2440,3 +2494,5 @@ def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
     vT/= Vnorm
     vZ/= Vnorm
     return (R,vR,vT,Z,vZ,phi)
+
+
