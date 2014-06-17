@@ -1,6 +1,8 @@
 A closer look at orbit integration
 ======================================
 
+.. _orbinit:
+
 Orbit initialization
 ---------------------
 
@@ -104,7 +106,7 @@ However, the internally stored position/velocity vector is
 and is therefore in *natural* units.
 
 Similarly, one can also initialize orbits from Galactic coordinates
-using ``o= Orbit(vxvv=[glon,glat,distance,pmll,pmll,Vlos],lb=True)``,
+using ``o= Orbit(vxvv=[glon,glat,distance,pmll,pmbb,Vlos],lb=True)``,
 where glon and glat are Galactic longitude and latitude expressed in
 degrees, and the proper motions are again given in mas/yr ((pmll =
 pmll' * cos[glat] ):

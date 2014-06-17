@@ -1,6 +1,9 @@
 Orbit
 =====
 
+See :ref:`Orbit initialization <orbinit>` for a detailed explanation
+on how to set up Orbit instances.
+
 Class
 -----
 
