@@ -1,79 +1,11 @@
-import warnings
 import math as m
 import numpy as nu
 from scipy import interpolate, optimize
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
-from galpy.util import galpyWarning
-from galpy.util import bovy_conversion
+from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
-def print_physical_warning():
-    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, and times in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
-                  galpyWarning)   
-def physical_position(method):
-    """Decorator to convert to physical coordinates: positions"""
-    def position_wrapper(*args,**kwargs):
-        if kwargs.has_key('use_physical'):
-            use_physical= kwargs['use_physical']
-        else:
-            use_physical= True
-        if kwargs.has_key('ro'):
-            ro= kwargs['ro']
-        elif args[0]._roSet:
-            ro= args[0]._ro
-        else:
-            ro= None
-        if use_physical and not ro is None:
-            print_physical_warning()
-            return method(*args,**kwargs)*ro
-        else:
-            return method(*args,**kwargs)
-    return position_wrapper
-def physical_velocity(method):
-    """Decorator to convert to physical coordinates: velocity"""
-    def velocity_wrapper(*args,**kwargs):
-        if kwargs.has_key('use_physical'):
-            use_physical= kwargs['use_physical']
-        else:
-            use_physical= True
-        if kwargs.has_key('vo'):
-            vo= kwargs['vo']
-        elif args[0]._voSet:
-            vo= args[0]._vo
-        else:
-            vo= None
-        if use_physical and not vo is None:
-            print_physical_warning()
-            return method(*args,**kwargs)*vo
-        else:
-            return method(*args,**kwargs)
-    return velocity_wrapper
-def physical_time(method):
-    """Decorator to convert to physical coordinates: time"""
-    def time_wrapper(*args,**kwargs):
-        if kwargs.has_key('use_physical'):
-            use_physical= kwargs['use_physical']
-        else:
-            use_physical= True
-        if kwargs.has_key('ro'):
-            ro= kwargs['ro']
-        elif args[0]._roSet:
-            ro= args[0]._ro
-        else:
-            ro= None
-        if kwargs.has_key('vo'):
-            vo= kwargs['vo']
-        elif args[0]._voSet:
-            vo= args[0]._vo
-        else:
-            vo= None
-        if use_physical and not vo is None and not ro is None:
-            print_physical_warning()
-            return method(*args,**kwargs)*bovy_conversion.time_in_Gyr(vo,ro)
-        else:
-            return method(*args,**kwargs)
-    return time_wrapper
 class OrbitTop:
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -204,7 +136,7 @@ class OrbitTop:
         """
         return self.orbit
 
-    @physical_time
+    @physical_conversion('time')
     def time(self,*args,**kwargs):
         """
         NAME:
@@ -224,7 +156,7 @@ class OrbitTop:
         if len(args) == 0: return 0.
         else: return args[0]
 
-    @physical_position
+    @physical_conversion('position')
     def R(self,*args,**kwargs):
         """
         NAME:
@@ -245,7 +177,7 @@ class OrbitTop:
         if onet: return thiso[0]
         else: return thiso[0,:]
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vR(self,*args,**kwargs):
         """
         NAME:
@@ -266,7 +198,7 @@ class OrbitTop:
         if onet: return thiso[1]
         else: return thiso[1,:]
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vT(self,*args,**kwargs):
         """
         NAME:
@@ -287,7 +219,7 @@ class OrbitTop:
         if onet: return thiso[2]
         else: return thiso[2,:]
 
-    @physical_position
+    @physical_conversion('position')
     def z(self,*args,**kwargs):
         """
         NAME:
@@ -310,7 +242,7 @@ class OrbitTop:
         if onet: return thiso[3]
         else: return thiso[3,:]
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vz(self,*args,**kwargs):
         """
         NAME:
@@ -353,7 +285,7 @@ class OrbitTop:
         if onet: return thiso[-1]
         else: return thiso[-1,:]
 
-    @physical_position
+    @physical_conversion('position')
     def x(self,*args,**kwargs):
         """
         NAME:
@@ -380,7 +312,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.cos(thiso[5,:])
 
-    @physical_position
+    @physical_conversion('position')
     def y(self,*args,**kwargs):
         """
         NAME:
@@ -405,7 +337,7 @@ class OrbitTop:
         else:
             return thiso[0,:]*nu.sin(thiso[5,:])
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vx(self,*args,**kwargs):
         """
         NAME:
@@ -433,7 +365,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[1,:]*nu.cos(theta)-thiso[2,:]*nu.sin(theta)
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vy(self,*args,**kwargs):
         """
         NAME:
@@ -459,7 +391,7 @@ class OrbitTop:
             theta= thiso[5,:]
         return thiso[2,:]*nu.cos(theta)+thiso[1,:]*nu.sin(theta)
 
-    @physical_velocity
+    @physical_conversion('velocity')
     def vphi(self,*args,**kwargs):
         """
         NAME:

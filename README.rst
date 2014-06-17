@@ -18,8 +18,13 @@ AUTHOR
 
 Jo Bovy - bovy at ias dot edu
 
-If you find this code useful in your research, please let me know and
-consider citing this package. Thanks!
+If you find this code useful in your research, please let me know. If
+you use galpy in a publication, please cite Bovy (2014, in
+preparation) and link to http://github.com/jobovy/galpy. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on `this page
+<http://galpy.readthedocs.org/en/latest/>`__ (this page is at
+doc/source/index.rst). Thanks!
 
 
 DOCUMENTATION

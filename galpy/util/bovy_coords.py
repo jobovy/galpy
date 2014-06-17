@@ -64,6 +64,7 @@
 #WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
+from functools import wraps
 import math as m
 import numpy as nu
 import scipy as sc
@@ -71,6 +72,7 @@ _DEGTORAD= m.pi/180.
 _K=4.74047
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""
+    @wraps(func)
     def scalar_wrapper(*args,**kwargs):
         if nu.array(args[0]).shape == ():
             scalarOut= True
@@ -92,6 +94,7 @@ def scalarDecorator(func):
 def degreeDecorator(inDegrees,outDegrees):
     """Decorator to transform angles from and to degrees if necessary"""
     def wrapper(func):
+        @wraps(func)
         def wrapped(*args,**kwargs):
             if kwargs.get('degree',False):
                 newargs= ()
@@ -380,7 +383,10 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
 
     """
     #Whether to use degrees and scalar input is handled by decorators
-    if XYZ:
+    if XYZ: #undo the incorrect conversion that the decorator did
+        if degree:
+            l*= 180./nu.pi 
+            b*= 180./nu.pi 
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -443,7 +449,10 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
     """
     #Whether to use degrees and scalar input is handled by decorators
-    if XYZ:
+    if XYZ: #undo the incorrect conversion that the decorator did
+        if degree:
+            l*= 180./nu.pi 
+            b*= 180./nu.pi 
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]

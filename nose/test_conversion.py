@@ -15,6 +15,13 @@ def test_dens_in_meanmatterdens():
     assert numpy.fabs(.25*bovy_conversion.dens_in_meanmatterdens(vofid,rofid)/bovy_conversion.dens_in_meanmatterdens(vofid,2*rofid)-1.) < 10.**-10., 'dens_in_meanmatter did not work as expected'
     return None
     
+def test_dens_in_gevcc():
+    #Test the scaling, as a 2nd derivative of the potential / G, should scale as velocity^2/position^2
+    vofid, rofid= 200., 8.
+    assert numpy.fabs(4.*bovy_conversion.dens_in_gevcc(vofid,rofid)/bovy_conversion.dens_in_gevcc(2.*vofid,rofid)-1.) < 10.**-10., 'dens_in_gevcc did not work as expected'
+    assert numpy.fabs(.25*bovy_conversion.dens_in_gevcc(vofid,rofid)/bovy_conversion.dens_in_gevcc(vofid,2*rofid)-1.) < 10.**-10., 'dens_in_gevcc did not work as expected'
+    return None
+
 def test_dens_in_msolpc3():
     #Test the scaling, as a 2nd derivative of the potential / G, should scale as velocity^2/position^2
     vofid, rofid= 200., 8.
