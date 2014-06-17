@@ -112,10 +112,11 @@ or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3} \approx
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
 
 When ``galpy`` Orbits are initialized using a distance scale ``ro=``
-and a velocity scale ``vo=`` distances and velocities are returned and
-plotted in physical coordinates. Support for doing the same for
-energies, angular momentum, actions, and frequencies is under
-construction.
+and a velocity scale ``vo=`` output quantities returned and plotted in
+physical coordinates. Specifically, positions are are returned in
+units of kpc, velocities in km/s, energies and the Jacobi integral in
+(km/s)^2, the angular momentum o.L() and actions in km/s kpc,
+frequencies in 1/Gyr, and times and periods in Gyr.
 
 Orbit integration
 -----------------

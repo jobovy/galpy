@@ -4,6 +4,9 @@ A closer look at orbit integration
 Orbit initialization
 ---------------------
 
+Standard initialization
+***********************
+
 Orbits can be initialized in various coordinate frames. The simplest
 initialization gives the initial conditions directly in the
 Galactocentric cylindrical coordinate frame (or in the rectangular
@@ -28,20 +31,49 @@ initializes an orbit in which the azimuth is not tracked, as might be
 useful for axisymmetric potentials.
 
 In two dimensions, we can similarly specify fully two-dimensional
-orbits ``vxvv=[R,vR,vT,phi]`` or choose not to track the azimuth and
-initialize as ``vxvv=[R,vR,vT]``. 
+orbits ``o=Orbit(vxvv=[R,vR,vT,phi])`` or choose not to track the
+azimuth and initialize with ``o= Orbit(vxvv=[R,vR,vT])``.
 
-In one dimension we simply initialize as ``vxvv=[x,vx]``.
+In one dimension we simply initialize with ``o= Orbit(vxvv=[x,vx])``.
+
+Initialization with physical scales
+************************************
+
+Orbits are normally used in galpy's *natural coordinates*. When Orbits
+are initialized using a distance scale ``ro=`` and a velocity scale
+``vo=``, then many Orbit methods return quantities in physical
+coordinates. Specifically, physical distance and velocity scales are
+specified as
+
+>>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.)
+
+All output quantities will then be automatically be specified in
+physical units: kpc for positions, km/s for velocities, (km/s)^2 for
+energies and the Jacobi integral, km/s kpc for the angular momentum
+o.L() and actions, 1/Gyr for frequencies, and Gyr for times and
+periods. See below for examples of this.
+
+Physical units are only used for outputs: internally natural units are
+still used and inputs have to also be specified in natural units (for
+example, integration times or the time at which an output is requested
+must be specified in natural units). If for any output you do *not*
+want the output in physical units, you can specify this by supplying
+the keyword argument ``use_physical=False``.
+
+
+Initialization from observed coordinates
+****************************************
 
 For orbit integration and characterization of observed stars or
 clusters, initial conditions can also be specified directly as
 observed quantities when ``radec=True`` is set. In this case a full
-three-dimensional orbit is initialized as
-``vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos]`` where RA and Dec are
-expressed in degrees, the distance is expressed in kpc, proper motions
-are expressed in mas/yr (pmra = pmra' * cos[Dec] ), and the
-line-of-sight velocity is given in km/s. These observed coordinates
-are translated to the Galactocentric cylindrical coordinate frame by
+three-dimensional orbit is initialized as ``o=
+Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)`` where RA
+and Dec are expressed in degrees, the distance is expressed in kpc,
+proper motions are expressed in mas/yr (pmra = pmra' * cos[Dec] ), and
+the line-of-sight velocity is given in km/s. The observed epoch is
+currently assumed to be J2000.00. These observed coordinates are
+translated to the Galactocentric cylindrical coordinate frame by
 assuming a Solar motion that can be specified as either
 ``solarmotion=hogg`` (default; `2005ApJ...629..268H
 <http://adsabs.harvard.edu/abs/2005ApJ...629..268H>`_),
@@ -51,21 +83,50 @@ assuming a Solar motion that can be specified as either
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
 velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
-``ro=8.0`` in kpc. While the inputs are given in physical units, the
-orbit is initialized assuming a circular velocity of one at the
-distance of the Sun.
+``ro=8.0`` in kpc (e.g., `2012ApJ...759..131B
+<http://adsabs.harvard.edu/abs/2012ApJ...759..131B>`_). While the
+inputs are given in physical units, the orbit is initialized assuming
+a circular velocity of one at the distance of the Sun (that is, the
+orbit's position and velocity is scaled to galpy's *natural* units
+after converting to the Galactocentric coordinate frame, using the
+specified ``ro=`` and ``vo=``). An example of all of this is:
 
-When ``radec=True`` is set, velocities can also be specified in
+>>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],radec=True,ro=8.,vo=220.)
+
+However, the internally stored position/velocity vector is
+
+>>> print o.vxvv
+[1.1476649101960512, 0.20128601278731811, 1.8303776114906387, -0.13107066602923434, 0.58171049004255293, 0.14071341020496472]
+
+and is therefore in *natural* units.
+
+Similarly, one can also initialize orbits from Galactic coordinates
+using ``o= Orbit(vxvv=[glon,glat,distance,pmll,pmll,Vlos],lb=True)``,
+where glon and glat are Galactic longitude and latitude expressed in
+degrees, and the proper motions are again given in mas/yr ((pmll =
+pmll' * cos[glat] ):
+
+>>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],lb=True,ro=8.,vo=220.)
+>>> print o.vxvv
+[0.79998509943955398, 0.075939950035477488, 0.52838231795389867, 0.12812499999999999, 0.89052135379600328, 0.092696334097541536]
+
+
+When ``radec=True`` or ``lb=True`` is set, velocities can also be specified in
 Galactic coordinates if ``UVW=True`` is set. The input is then
 ``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
 in km/s. U is, as usual, defined as -vR (minus vR).
 
-Orbits are normally used in galpy's *natural coordinates*. When Orbits
-are initialized using a distance scale ``ro=`` and a velocity scale
-``vo=``, then many Orbit methods return quantities in physical
-coordinates. Currently this is limited to times, positions, and
-velocities. Plots made using these quantities will be made in physical
-coordinates (Gyr,kpc,km/s). See below for examples of this.
+
+When orbits are initialized using ``radec=True`` or ``lb=True``,
+physical scales ``ro=`` and ``vo=`` are automatically specified
+(because they have defaults of ``ro=8`` and ``vo=220``). Therefore,
+all output quantities will be specified in physical units (see
+above). If you do want to get outputs in galpy's natural coordinates,
+you can turn this behavior off by doing
+
+>>> o.turn_physical_off()
+
+All outputs will then be specified in galpy's natural coordinates.
 
 Orbit integration
 ---------------------
