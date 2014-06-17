@@ -456,9 +456,9 @@ def physical_conversion(quantity,pop=False):
                     fac= vo
                 elif quantity.lower() == 'frequency':
                     if kwargs.get('kmskpc',False):
-                        fac= freq_in_Gyr(vo,ro)
-                    else:
                         fac= freq_in_kmskpc(vo,ro)
+                    else:
+                        fac= freq_in_Gyr(vo,ro)
                 elif quantity.lower() == 'action':
                     fac= ro*vo
                 elif quantity.lower() == 'energy':
