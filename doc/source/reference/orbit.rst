@@ -70,6 +70,7 @@ Methods
    Tp <orbittp.rst>
    Tr <orbittr.rst>
    TrTp <orbittrtp.rst>
+   turn_physical_off <orbitturnphysicaloff.rst>
    Tz <orbittz.rst>
    U <orbitu.rst>
    V <orbitv.rst>
