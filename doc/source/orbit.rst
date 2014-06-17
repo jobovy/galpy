@@ -153,7 +153,7 @@ velocity scale ``vo=``, then Orbit plots and outputs will use physical
 coordinates (currently, times, positions, and velocities)
 
 >>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
->>> o.integrate(ts,lp) #times are still specified in natural coordinates
+>>> op.integrate(ts,lp) #times are still specified in natural coordinates
 
 
 Displaying the orbit
@@ -236,6 +236,15 @@ that the orbit was integrated in, or in another potential:
 
 where ``mp`` is the Miyamoto-Nagai potential of :ref:`Introduction:
 Rotation curves <rotcurves>`.
+
+For the Orbit ``op`` that was initialized above with a distance scale
+``ro=`` and a velocity scale ``vo=``, these outputs are all in
+physical units
+
+>>> op.rap(), op.rperi(), op.e(), op.zmax()
+(10.065158988860341,7.8385312810643057,0.12436696983841462,0.91105035688072711) #kpc
+>>> op.E(), op.E(pot=mp)
+(29766.000000000004, -32617.062500000007) #(km/s)^2
 
 We can also show the energy as a function of time (to check energy
 conservation)
