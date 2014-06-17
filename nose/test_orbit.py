@@ -260,7 +260,6 @@ def test_energy_symplec_longterm():
     integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
                   'symplec4_c','symplec6_c']
     #Only use KeplerPotential
-    #Grab all of the potentials
     pots= ['KeplerPotential']
     #tolerances in log10
     tol= {}
