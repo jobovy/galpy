@@ -1440,6 +1440,54 @@ def test_physical_output():
     assert numpy.fabs((o.time(1.,use_physical=False)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     return None
 
+# Check that the routines that should return physical coordinates are turned off by turn_physical_off
+def test_physical_output_off():
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    plp= lp.toPlanar()
+    for ii in range(4):
+        ro, vo= 7., 200.
+        if ii == 0: #axi, full
+            o= setup_orbit_physical(lp,axi=True,ro=ro,vo=vo)
+        elif ii == 1: #track azimuth, full
+            o= setup_orbit_physical(lp,axi=False,ro=ro,vo=vo)
+        elif ii == 2: #axi, planar
+            o= setup_orbit_physical(plp,axi=True,ro=ro,vo=vo)
+        elif ii == 3: #track azimuth, full
+            o= setup_orbit_physical(plp,axi=False,ro=ro,vo=vo)
+        #turn off
+        o.turn_physical_off()
+        #Test positions
+        assert numpy.fabs(o.R()-o.R(use_physical=False)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected when turned off'
+        if ii % 2 == 1:
+            assert numpy.fabs(o.x()-o.x(use_physical=False)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected when turned off'
+            assert numpy.fabs(o.y()-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected when turned off'
+        if ii < 2:
+            assert numpy.fabs(o.z()-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected when turned off'
+        #Test velocities
+        assert numpy.fabs(o.vR()-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected when turned off'
+        assert numpy.fabs(o.vT()-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.vphi()-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected when turned off'
+        if ii % 2 == 1:
+            assert numpy.fabs(o.vx()-o.vx(use_physical=False)) < 10.**-10., 'o.vx() output for Orbit setup with vo= does not work as expected when turned off'
+            assert numpy.fabs(o.vy()-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with vo= does not work as expected when turned off'
+        if ii < 2:
+            assert numpy.fabs(o.vz()-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with vo= does not work as expected when turned off'
+        #Test energies
+        assert numpy.fabs(o.E(pot=lp)-o.E(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned off'
+        assert numpy.fabs(o.Jacobi(pot=lp)-o.Jacobi(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned off'
+        if ii < 2:
+            assert numpy.fabs(o.ER(pot=lp)-o.ER(pot=lp,use_physical=False)) < 10.**-10., 'o.ER() output for Orbit setup with vo= does not work as expected when turned off'
+            assert numpy.fabs(o.Ez(pot=lp)-o.Ez(pot=lp,use_physical=False)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected when turned off'
+        #Test angular momentun
+        if ii > 0:
+            print o.L()/vo/ro,o.L(use_physical=False)
+            assert numpy.all(numpy.fabs(o.L()-o.L(use_physical=False)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off'
+    #Also test the times
+    assert numpy.fabs((o.time(1.)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    return None
+
 # Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit

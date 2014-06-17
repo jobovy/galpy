@@ -57,6 +57,23 @@ class OrbitTop:
         self._solarmotion= solarmotion
         return None
 
+    def turn_physical_off(self):
+        """
+        NAME:
+           turn_physical_off
+        PURPOSE:
+           turn off automatic returning of outputs in physical units
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2014-06-17 - Written - Bovy (IAS)
+        """
+        self._roSet= False
+        self._voSet= False
+        return None
+
     def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:

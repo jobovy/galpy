@@ -244,6 +244,31 @@ class Orbit:
         elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
             return 3
 
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        self._orb.turn_physical_off()
+
     def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
