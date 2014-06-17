@@ -1532,6 +1532,7 @@ def test_full_plotting():
     oa.integrate(times,lp)
     # Energy
     o.plotE()
+    o.plotE(normed=True)
     o.plotE(pot=lp,d1='R')
     o.plotE(pot=lp,d1='vR')
     o.plotE(pot=lp,d1='vT')
@@ -1548,6 +1549,7 @@ def test_full_plotting():
     oa.plotE(pot=lp,d1='vz')
     # Vertical energy
     o.plotEz()
+    o.plotEz(normed=True)
     o.plotEz(pot=lp,d1='R')
     o.plotEz(pot=lp,d1='vR')
     o.plotEz(pot=lp,d1='vT')
@@ -1562,6 +1564,9 @@ def test_full_plotting():
     oa.plotEz(pot=lp,d1='vT')
     oa.plotEz(pot=lp,d1='z')
     oa.plotEz(pot=lp,d1='vz')
+    # Radial energy
+    o.plotER()
+    o.plotER(normed=True)
     # EzJz
     o.plotEzJz()
     o.plotEzJz(pot=lp,d1='R')
@@ -1580,6 +1585,7 @@ def test_full_plotting():
     oa.plotEzJz(pot=lp,d1='vz')
     # Jacobi
     o.plotJacobi()
+    o.plotJacobi(normed=True)
     o.plotJacobi(pot=lp,d1='R',OmegaP=1.)
     o.plotJacobi(pot=lp,d1='vR')
     o.plotJacobi(pot=lp,d1='vT')
@@ -1623,6 +1629,15 @@ def test_full_plotting():
     o.plot(d2='helioY',d1='V')
     o.plot(d1='helioZ',d2='W')
     o.plot(d2='helioZ',d1='W')
+    # Some more energies etc.
+    o.plot(d1='E',d2='R')
+    o.plot(d1='Enorm',d2='R')
+    o.plot(d1='Ez',d2='R')
+    o.plot(d1='Eznorm',d2='R')
+    o.plot(d1='ER',d2='R')
+    o.plot(d1='ERnorm',d2='R')
+    o.plot(d1='Jacobi',d2='R')
+    o.plot(d1='Jacobinorm',d2='R')
     # Test AttributeErrors
     try: oa.plotx()
     except AttributeError: pass
