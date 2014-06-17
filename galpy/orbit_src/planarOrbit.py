@@ -117,10 +117,13 @@ class planarOrbitTop(OrbitTop):
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',False)
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         out= self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
-        kwargs['use_physical']= old_physical
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
         return out
 
     @physical_conversion('position')

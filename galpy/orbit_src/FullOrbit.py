@@ -116,7 +116,7 @@ class FullOrbit(OrbitTop):
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',False)
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
             if isinstance(OmegaP,list): thisOmegaP= nu.array(OmegaP)
@@ -125,7 +125,10 @@ class FullOrbit(OrbitTop):
                                                  self.L(*args,**kwargs).T).T
         else:
             out= self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)[:,2]
-        kwargs['use_physical']= old_physical
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
         return out
 
     @physical_conversion('energy')

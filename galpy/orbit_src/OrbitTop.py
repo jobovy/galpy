@@ -981,7 +981,7 @@ class OrbitTop:
            2010-09-15 - Written - Bovy (NYU)
         """
         #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',False)
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         if kwargs.has_key('Omega'):
             Omega= kwargs['Omega']
@@ -1013,7 +1013,10 @@ class OrbitTop:
             out[:,0]= y*vz-z*vy
             out[:,1]= z*vx-x*vz
             out[:,2]= x*vy-y*vx
-        kwargs['use_physical']= old_physical
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
         return out
 
     def _resetaA(self,pot=None,type=None):

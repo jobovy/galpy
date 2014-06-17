@@ -249,11 +249,14 @@ class RZOrbit(OrbitTop):
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',False)
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         thiso= self(*args,**kwargs)
         out= self.E(*args,**kwargs)-OmegaP*thiso[0]*thiso[2]
-        kwargs['use_physical']= old_physical
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
         return out
 
     def e(self,analytic=False,pot=None):
