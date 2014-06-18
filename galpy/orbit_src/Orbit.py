@@ -382,19 +382,29 @@ class Orbit:
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         if len(self.vxvv) == 2:
-            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1]])
+            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1]],**orbSetupKwargs)
         elif len(self.vxvv) == 3:
-            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2]])
+            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2]],
+                         **orbSetupKwargs)
         elif len(self.vxvv) == 4:
             return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                               self.vxvv[3]])
+                               self.vxvv[3]],**orbSetupKwargs)
         elif len(self.vxvv) == 5:
             return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                               self.vxvv[3],-self.vxvv[4]])
+                               self.vxvv[3],-self.vxvv[4]],**orbSetupKwargs)
         elif len(self.vxvv) == 6:
             return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                                self.vxvv[3],-self.vxvv[4],self.vxvv[5]])
+                                self.vxvv[3],-self.vxvv[4],self.vxvv[5]],
+                         **orbSetupKwargs)
         
     def getOrbit(self):
         """

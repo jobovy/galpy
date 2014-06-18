@@ -1370,17 +1370,26 @@ def test_flip():
     plp= lp.toPlanar()
     llp= lp.toVertical(1.)
     for ii in range(5):
+        #Scales to test that these are properly propagated to the new Orbit
+        ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
         if ii == 0: #axi, full
-            o= setup_orbit_energy(lp,axi=True)
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=True)
         elif ii == 1: #track azimuth, full
-            o= setup_orbit_energy(lp,axi=False)
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=False)
         elif ii == 2: #axi, planar
-            o= setup_orbit_energy(plp,axi=True)
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=True)
         elif ii == 3: #track azimuth, full
-            o= setup_orbit_energy(plp,axi=False)
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=False)
         elif ii == 4: #linear orbit
-            o= setup_orbit_energy(llp,axi=False)
+            o= setup_orbit_flip(llp,ro,vo,zo,solarmotion,axi=False)
         of= o.flip()
+    #First check that the scales have been propagated properly
+    assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
     if ii == 4:
         assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
         assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
@@ -1940,6 +1949,25 @@ def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
             o= Orbit([1.,1.1,1.1,0.1,0.1],ro=ro,vo=vo)
         else:
             o= Orbit([1.,1.1,1.1,0.1,0.1,0.],ro=ro,vo=vo)
+    return o
+
+# Setup the orbit for the energy test
+def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
+    from galpy.orbit import Orbit
+    if isinstance(tp,potential.linearPotential): 
+        o= Orbit([1.,1.],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+    elif isinstance(tp,potential.planarPotential): 
+        if axi:
+            o= Orbit([1.,1.1,1.1],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        else:
+            o= Orbit([1.,1.1,1.1,0.],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+    else:
+        if axi:
+            o= Orbit([1.,1.1,1.1,0.1,0.1],ro=ro,vo=vo,zo=zo,
+                     solarmotion=solarmotion)
+        else:
+            o= Orbit([1.,1.1,1.1,0.1,0.1,0.],ro=ro,vo=vo,zo=zo,
+                     solarmotion=solarmotion)
     return o
 
 class mockFlatEllipticalDiskPotential(testplanarMWPotential):
