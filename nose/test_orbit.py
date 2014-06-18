@@ -1363,6 +1363,39 @@ def test_reverse():
         'Orbit.reverse does not work as expected for o.phi'
     return None
 
+# Test reversing an orbit
+def test_flip():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    plp= lp.toPlanar()
+    llp= lp.toVertical(1.)
+    for ii in range(4):
+        if ii == 0: #axi, full
+            o= setup_orbit_energy(lp,axi=True)
+        elif ii == 1: #track azimuth, full
+            o= setup_orbit_energy(lp,axi=False)
+        elif ii == 2: #axi, planar
+            o= setup_orbit_energy(plp,axi=True)
+        elif ii == 3: #track azimuth, full
+            o= setup_orbit_energy(plp,axi=False)
+        elif ii == 4: #linear orbit
+            o= setup_orbit_energy(llp,axi=False)
+        of= o.flip()
+    if ii == 4:
+        assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
+        assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
+    else:
+        assert numpy.abs(o.R()-of.R()) < 10.**-10., 'o.flip() did not work as expected'
+        assert numpy.abs(o.vR()+of.vR()) < 10.**-10., 'o.flip() did not work as expected'
+        assert numpy.abs(o.vT()+of.vT()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii % 2 == 1:
+            assert numpy.abs(o.phi()-of.phi()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii < 2:
+            assert numpy.abs(o.z()-of.z()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vz()+of.vz()) < 10.**-10., 'o.flip() did not work as expected'
+    return None
+
 # test getOrbit
 def test_getOrbit():
     from galpy.orbit import Orbit
