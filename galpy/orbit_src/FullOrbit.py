@@ -13,6 +13,7 @@ from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
+import galpy.util.bovy_coords as coords
 #try:
 from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
@@ -59,6 +60,22 @@ class FullOrbit(OrbitTop):
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateFullOrbit
         return None
+
+    def flip(self):
+        """
+        NAME:
+           flip
+        PURPOSE:
+           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2014-06-17 - Written - Bovy (IAS)
+        """
+        self.vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
+                    self.vxvv[3],-self.vxvv[4],self.vxvv[5]]
 
     def integrate(self,t,pot,method='leapfrog_c'):
         """
@@ -372,8 +389,9 @@ class FullOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
-    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,
-            tintJ=10,ntintJ=1000,integrate_method='dopr54_c'):
+    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+            **kwargs):
         """
         NAME:
            fit
@@ -384,10 +402,21 @@ class FullOrbit(OrbitTop):
            vxvv - [:,6] array of positions and velocities along the orbit
            vxvv_err= [:,6] array of errors on positions and velocities along the orbit
            pot= Potential to fit the orbit in
-           radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-           tintJ= (default: 10) time to integrate orbits for fitting the orbit
-           ntintJ= (default: 1000) number of time-integration points
-           integrate_method= (default: 'dopr54_c') integration method to use
+
+           Keywords related to the input data:
+               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                                      (in kpc and km/s) (default=Object-wide default)
+                                      OR Orbit object that corresponds to the orbit
+                                      of the observer
+                ro= distance in kpc corresponding to R=1. (default: taken from object)
+                vo= velocity in km/s corresponding to v=1. (default: taken from object)
+
+           Keywords related to the orbit integrations:
+               tintJ= (default: 10) time to integrate orbits for fitting the orbit
+               ntintJ= (default: 1000) number of time-integration points
+               integrate_method= (default: 'dopr54_c') integration method to use
 
         OUTPUT:
            max of log likelihood
@@ -403,9 +432,14 @@ class FullOrbit(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
-        new_vxvv, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec=radec,
-                                    tintJ=tintJ,ntintJ=ntintJ,
-                                    integrate_method=integrate_method)
+        if radec or lb:
+            obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True,dontpop=True)
+        else:
+            obs, ro, vo= None, None, None
+        new_vxvv, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec=radec,lb=lb,
+                                      tintJ=tintJ,ntintJ=ntintJ,
+                                      integrate_method=integrate_method,
+                                      ro=ro,vo=vo,obs=obs)
         #Setup with these new initial conditions
         self.vxvv= new_vxvv
         return maxLogL
@@ -662,8 +696,9 @@ def _rectForce(x,pot,t=0.):
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
 
-def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,
-               tintJ=100,ntintJ=1000,integrate_method='dopr54_c'):
+def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
+               tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
+               ro=None,vo=None,obs=None):
     """Fit an orbit to data in a given potential"""
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -679,11 +714,14 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,
     tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
                                             integrate_method=integrate_method)
     opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
-                                   args=(vxvv,vxvv_err,pot,radec,tmockAA))
-    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,tmockAA)
+                                   args=(vxvv,vxvv_err,pot,radec,lb,tmockAA,
+                                         ro,vo,obs))
+    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+                               ro,vo,obs)
     return (opt_vxvv,maxLogL)
 
-def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,tmockAA):
+def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+                     ro,vo,obs):
     """The log likelihood for fitting an orbit"""
     #Use this _parse_args routine, which does forward and backward integration
     iR,ivR,ivT,iz,ivz,iphi= tmockAA._parse_args(True,False,
@@ -693,14 +731,64 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,tmockAA):
                                                 new_vxvv[3],
                                                 new_vxvv[4],
                                                 new_vxvv[5])
-    orb_vxvv= nu.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
-                        iz.flatten(),ivz.flatten(),iphi.flatten()]).T #2tintJ-1,6
-    if radec:
+    if radec or lb:
         #Need to transform to ra,dec
-        pass
+        #First transform to X,Y,Z,vX,vY,vZ (Galactic)
+        if isinstance(obs,(nu.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
+                                            iz.flatten(),
+                                            Xsun=obs[0]/ro,
+                                            Ysun=obs[1]/ro,
+                                            Zsun=obs[2]/ro)
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
+                                                  ivz.flatten(),iphi.flatten(),
+                                                  vsun=nu.array(\
+                    obs[3:6])/vo)
+        else: #Orbit instance
+            X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),iz.flatten(),
+                                            Xsun=obs.x(*args,**kwargs),
+                                            Ysun=obs.y(*args,**kwargs),
+                                            Zsun=obs.z(*args,**kwargs))
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
+                                                  ivz.flatten(),iphi.flatten(),
+                                                  vsun=nu.array([\
+                        obs.vx(*args,**kwargs),
+                        obs.vy(*args,**kwargs),
+                        obs.vz(*args,**kwargs)]))
+        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+        if True in bad_indx:
+            X[bad_indx]+= ro/10000.
+        lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,
+                                                  vX*vo,vY*vo,vZ*vo,
+                                                  degree=True)
+        if lb:
+            orb_vxvv= nu.array([lbdvrpmllpmbb[:,0],
+                                lbdvrpmllpmbb[:,1],
+                                lbdvrpmllpmbb[:,2],
+                                lbdvrpmllpmbb[:,4],
+                                lbdvrpmllpmbb[:,5],
+                                lbdvrpmllpmbb[:,3]]).T
+        else:
+            #Further transform to ra,dec,pmra,pmdec
+            radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
+                                      lbdvrpmllpmbb[:,1],degree=True)
+            pmrapmdec= coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                                    lbdvrpmllpmbb[:,5],
+                                                    lbdvrpmllpmbb[:,0],
+                                                    lbdvrpmllpmbb[:,1],
+                                                    degree=True)
+            orb_vxvv= nu.array([radec[:,0],radec[:,1],
+                                lbdvrpmllpmbb[:,2],
+                                pmrapmdec[:,0],pmrapmdec[:,1],
+                                lbdvrpmllpmbb[:,3]]).T
+    else:
+        #shape=(2tintJ-1,6)
+        orb_vxvv= nu.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
+                            iz.flatten(),ivz.flatten(),iphi.flatten()]).T 
     out= 0.
     for ii in range(vxvv.shape[0]):
         sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
+        #print sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))]
         if not vxvv_err is None:
             sub_vxvv/= vxvv_err[ii,:]**2.
         out+= logsumexp(-0.5*nu.log(nu.sum(sub_vxvv,axis=1)))
