@@ -883,6 +883,18 @@ def test_add_linear_planar_orbit():
         pass
     else:
         raise AssertionError('Adding a planarOrbit to a planarOrbit did not raise AttributeError')
+    #w/ physical scale and coordinate-transformation parameters
+    ro,vo,zo,solarmotion= 10.,300.,0.01,'dehnen'
+    op= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=True)
+    of= op+ol
+    assert isinstance(of._orb,RZOrbit.RZOrbit), \
+        "Sum of linearOrbit and planarROrbit does not give a FullOrbit"
+    assert numpy.fabs(op._orb._ro-of._orb._ro) < 10.**-15., 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
+    assert numpy.fabs(op._orb._vo-of._orb._vo) < 10.**-15., 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
+    assert numpy.fabs(op._orb._zo-of._orb._zo) < 10.**-15., 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
+    assert numpy.all(numpy.fabs(op._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
+    assert op._orb._roSet == of._orb._roSet, 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
+    assert op._orb._voSet == of._orb._voSet, 'Sum of orbits does not properly propagate physical scales and coordinate-transformation parameters'
     return None
 
 # Check that pickling orbits works
