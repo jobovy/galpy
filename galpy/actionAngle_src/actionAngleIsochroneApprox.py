@@ -45,7 +45,7 @@ class actionAngleIsochroneApprox():
 
            tintJ= (default: 100) time to integrate orbits for to estimate actions
 
-           ntintJ= (default: 10000) number of time-integration points actions
+           ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
