@@ -393,6 +393,10 @@ class FullOrbit(OrbitTop):
            max of log likelihood
         HISTORY:
            2014-06-17 - Written - Bovy (IAS)
+
+        TEST:
+        from galpy.potential import LogarithmicHaloPotential; lp= LogarithmicHaloPotential(normalize=1.); from galpy.orbit import Orbit; o= Orbit(vxvv=[1.,0.1,1.1,0.1,0.02,0.]); ts= numpy.linspace(0,10,1000); o.integrate(ts,lp); outts= [0.,0.1,0.2,0.3,0.4]; vxvv= numpy.array([o.R(outts),o.vR(outts),o.vT(outts),o.z(outts),o.vz(outts),o.phi(outts)]).T; of= Orbit(vxvv=[1.02,0.101,1.101,0.101,0.0201,0.001]); of._orb.fit(vxvv,pot=lp,radec=False,tintJ=10,ntintJ=1000)
+
         """
         if pot is None:
             try:
@@ -698,7 +702,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,tmockAA):
     for ii in range(vxvv.shape[0]):
         sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
         if not vxvv_err is None:
-            sub_vxvv/= vxvv_err**2.
+            sub_vxvv/= vxvv_err[ii,:]**2.
         out+= logsumexp(-0.5*nu.log(nu.sum(sub_vxvv,axis=1)))
     return -out
 
