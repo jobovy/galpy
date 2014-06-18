@@ -40,6 +40,8 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        # If you change the way an Orbit object is setup, also change each of
+        # the methods that return Orbits
         self.vxvv= vxvv
         if vo is None:
             self._vo= 220.

@@ -82,6 +82,8 @@ class Orbit:
            2010-07-20 - Written - Bovy (NYU)
 
         """
+        # If you change the way an Orbit object is setup, also change each of
+        # the methods that return Orbits
         if radec or lb:
             if ro is None:
                 ro= 8.
@@ -2347,9 +2349,18 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         thiso= self._orb(*args,**kwargs)
-        if len(thiso.shape) == 1: return Orbit(vxvv=thiso)
-        else: return [Orbit(vxvv=thiso[:,ii]) for ii in range(thiso.shape[1])]
+        if len(thiso.shape) == 1: return Orbit(vxvv=thiso,**orbSetupKwargs)
+        else: return [Orbit(vxvv=thiso[:,ii],
+                            **orbSetupKwargs) for ii in range(thiso.shape[1])]
 
     def plot(self,*args,**kwargs):
         """
@@ -2916,13 +2927,21 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-11-30 - Written - Bovy (NYU)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         if len(self.vxvv) == 6:
             vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[5]]
         elif len(self.vxvv) == 5:
             vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        return Orbit(vxvv=vxvv)
+        return Orbit(vxvv=vxvv,**orbSetupKwargs)
 
     def toLinear(self):
         """
@@ -2947,11 +2966,19 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-11-30 - Written - Bovy (NYU)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         if len(self.vxvv) == 6 or len(self.vxvv) == 5:
             vxvv= [self.vxvv[3],self.vxvv[4]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        return Orbit(vxvv=vxvv)
+        return Orbit(vxvv=vxvv,**orbSetupKwargs)
 
     def __add__(self,linOrb):
         """
@@ -2976,6 +3003,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-21 - Written - Bovy (NYU)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         if (not (isinstance(self._orb,planarOrbitTop) and 
                 isinstance(linOrb._orb,linearOrbit)) and
             not (isinstance(self._orb,linearOrbit) and 
@@ -2984,21 +3019,25 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if isinstance(self._orb,planarROrbit):
             return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
                                self._orb.vxvv[2],
-                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])
+                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]],
+                         **orbSetupKwargs)
         elif isinstance(self._orb,planarOrbit):
             return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
                                self._orb.vxvv[2],
                                linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
-                               self._orb.vxvv[3]])
+                               self._orb.vxvv[3]],
+                         **orbSetupKwargs)
         elif isinstance(linOrb._orb,planarROrbit):
             return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
                                linOrb._orb.vxvv[2],
-                               self._orb.vxvv[0],self._orb.vxvv[1]])
+                               self._orb.vxvv[0],self._orb.vxvv[1]],
+                         **orbSetupKwargs)
         elif isinstance(linOrb._orb,planarOrbit):
             return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
                                linOrb._orb.vxvv[2],
                                self._orb.vxvv[0],self._orb.vxvv[1],
-                               linOrb._orb.vxvv[3]])
+                               linOrb._orb.vxvv[3]],
+                         **orbSetupKwargs)
 
     #4 pickling
     def __getinitargs__(self):
