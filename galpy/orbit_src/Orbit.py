@@ -138,7 +138,6 @@ class Orbit:
                                                   vsun=vsun,galcen=True)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
-        self.vxvv= vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv,
                                    ro=ro,vo=vo)
@@ -197,24 +196,20 @@ class Orbit:
            Should perform check that this orbit has phi
 
         """
-        if len(self.vxvv) == 2:
+        if len(self._orb.vxvv) == 2:
             raise AttributeError("One-dimensional orbit has no azimuth")
-        elif len(self.vxvv) == 3:
+        elif len(self._orb.vxvv) == 3:
             #Upgrade
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],phi]
-            self.vxvv= vxvv
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2],phi]
             self._orb= planarOrbit(vxvv=vxvv)
-        elif len(self.vxvv) == 4:
-            self.vxvv[-1]= phi
+        elif len(self._orb.vxvv) == 4:
             self._orb.vxvv[-1]= phi
-        elif len(self.vxvv) == 5:
+        elif len(self._orb.vxvv) == 5:
             #Upgrade
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[3],
-                   self.vxvv[4],phi]
-            self.vxvv= vxvv
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2],
+                   self._orb.vxvv[3],self._orb.vxvv[4],phi]
             self._orb= FullOrbit(vxvv=vxvv)
-        elif len(self.vxvv) == 6:
-            self.vxvv[-1]= phi
+        elif len(self._orb.vxvv) == 6:
             self._orb.vxvv[-1]= phi
 
     def dim(self):
@@ -240,11 +235,11 @@ class Orbit:
            2011-02-03 - Written - Bovy (NYU)
 
         """
-        if len(self.vxvv) == 2:
+        if len(self._orb.vxvv) == 2:
             return 1
-        elif len(self.vxvv) == 3 or len(self.vxvv) == 4:
+        elif len(self._orb.vxvv) == 3 or len(self._orb.vxvv) == 4:
             return 2
-        elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
+        elif len(self._orb.vxvv) == 5 or len(self._orb.vxvv) == 6:
             return 3
 
     def turn_physical_off(self):
@@ -393,20 +388,24 @@ class Orbit:
             orbSetupKwargs['ro']= self._orb._ro
         if self._orb._voSet:
             orbSetupKwargs['vo']= self._orb._vo
-        if len(self.vxvv) == 2:
-            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1]],**orbSetupKwargs)
-        elif len(self.vxvv) == 3:
-            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2]],
+        if len(self._orb.vxvv) == 2:
+            return Orbit(vxvv= [self._orb.vxvv[0],-self._orb.vxvv[1]],
                          **orbSetupKwargs)
-        elif len(self.vxvv) == 4:
-            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                               self.vxvv[3]],**orbSetupKwargs)
-        elif len(self.vxvv) == 5:
-            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                               self.vxvv[3],-self.vxvv[4]],**orbSetupKwargs)
-        elif len(self.vxvv) == 6:
-            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                                self.vxvv[3],-self.vxvv[4],self.vxvv[5]],
+        elif len(self._orb.vxvv) == 3:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2]],**orbSetupKwargs)
+        elif len(self._orb.vxvv) == 4:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2],self._orb.vxvv[3]],
+                         **orbSetupKwargs)
+        elif len(self._orb.vxvv) == 5:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2],self._orb.vxvv[3],
+                               -self._orb.vxvv[4]],**orbSetupKwargs)
+        elif len(self._orb.vxvv) == 6:
+            return Orbit(vxvv= [self._orb.vxvv[0],-self._orb.vxvv[1],
+                                -self._orb.vxvv[2],self._orb.vxvv[3],
+                                -self._orb.vxvv[4],self._orb.vxvv[5]],
                          **orbSetupKwargs)
         
     def getOrbit(self):
@@ -2936,10 +2935,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             orbSetupKwargs['ro']= self._orb._ro
         if self._orb._voSet:
             orbSetupKwargs['vo']= self._orb._vo
-        if len(self.vxvv) == 6:
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[5]]
-        elif len(self.vxvv) == 5:
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2]]
+        if len(self._orb.vxvv) == 6:
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],
+                   self._orb.vxvv[2],self._orb.vxvv[5]]
+        elif len(self._orb.vxvv) == 5:
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
         return Orbit(vxvv=vxvv,**orbSetupKwargs)
@@ -2975,8 +2975,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             orbSetupKwargs['ro']= self._orb._ro
         if self._orb._voSet:
             orbSetupKwargs['vo']= self._orb._vo
-        if len(self.vxvv) == 6 or len(self.vxvv) == 5:
-            vxvv= [self.vxvv[3],self.vxvv[4]]
+        if len(self._orb.vxvv) == 6 or len(self._orb.vxvv) == 5:
+            vxvv= [self._orb.vxvv[3],self._orb.vxvv[4]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
         return Orbit(vxvv=vxvv,**orbSetupKwargs)
@@ -3042,10 +3042,13 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
     #4 pickling
     def __getinitargs__(self):
-        return (self.vxvv,)
-
-    def __getstate__(self):
-        return self.vxvv
-    
-    def __setstate__(self,state):
-        self.vxvv= state
+        if self._orb._roSet:
+            iro= self._orb._ro
+        else:
+            iro= None
+        if self._orb._voSet:
+            ivo= self._orb._vo
+        else:
+            ivo= None
+        return (self._orb.vxvv,False,False,False,ivo,iro,
+                self._orb._zo,self._orb._solarmotion)

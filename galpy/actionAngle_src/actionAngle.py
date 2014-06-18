@@ -36,9 +36,15 @@ class actionAngle:
             self._phi= phi
         else:
             if len(args) == 2:
-                vxvv= args[0](args[1]).vxvv
+                try:
+                    vxvv= args[0](args[1])._orb.vxvv
+                except AttributeError: #if we're given an OrbitTop instance
+                    vxvv= args[0](args[1]).vxvv
             else:
-                vxvv= args[0].vxvv
+                try:
+                    vxvv= args[0]._orb.vxvv
+                except AttributeError: #if we're given an OrbitTop instance
+                    vxvv= args[0].vxvv
             self._R= vxvv[0]
             self._vR= vxvv[1]
             self._vT= vxvv[2]

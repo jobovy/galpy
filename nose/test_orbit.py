@@ -910,6 +910,24 @@ def test_pickle():
     assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
     assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
     assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
+    assert (True-o._orb._roSet)*(True-upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (True-o._orb._voSet)*(True-upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
+    # w/ physical scales etc.
+    o= Orbit([1.,0.1,1.1,0.1,0.2,2.],ro=10.,vo=300.)
+    po= pickle.dumps(o)
+    upo= pickle.loads(po)
+    assert o.R() == upo.R(), "Pickled/unpickled orbit does not agree with original orbut for R"
+    assert o.vR() == upo.vR(), "Pickled/unpickled orbit does not agree with original orbut for vR"
+    assert o.vT() == upo.vT(), "Pickled/unpickled orbit does not agree with original orbut for vT"
+    assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
+    assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
+    assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
+    assert o._orb._ro == upo._orb._ro, "Pickled/unpickled orbit does not agree with original orbut for ro"
+    assert o._orb._vo == upo._orb._vo, "Pickled/unpickled orbit does not agree with original orbut for vo"
+    assert o._orb._zo == upo._orb._zo, "Pickled/unpickled orbit does not agree with original orbut for zo"
+    assert numpy.all(o._orb._solarmotion == upo._orb._solarmotion), "Pickled/unpickled orbit does not agree with original orbut for solarmotion"
+    assert (o._orb._roSet)*(upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (o._orb._voSet)*(upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
     return None
 
 # Basic checks of the angular momentum function
