@@ -359,6 +359,31 @@ class Orbit:
             self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
         return None
 
+    def flip(self):
+        """
+        NAME:
+
+           flip
+
+        PURPOSE:
+
+           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        return self._orb.flip()
+
     def getOrbit(self):
         """
 
