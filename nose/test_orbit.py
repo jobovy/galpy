@@ -1365,12 +1365,11 @@ def test_reverse():
 
 # Test reversing an orbit
 def test_flip():
-    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     plp= lp.toPlanar()
     llp= lp.toVertical(1.)
-    for ii in range(4):
+    for ii in range(5):
         if ii == 0: #axi, full
             o= setup_orbit_energy(lp,axi=True)
         elif ii == 1: #track azimuth, full
