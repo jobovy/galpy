@@ -189,7 +189,9 @@ def bovy_plot(*args,**kwargs):
 
        clabel= label for colorbar
 
-       overplot=True does not start a new figure
+       overplot=True does not start a new figure and does not change the ranges and labels
+
+       gcf=True does not start a new figure (does change the ranges and labels)
 
        onedhists - if True, make one-d histograms on the sides
 
@@ -220,6 +222,14 @@ def bovy_plot(*args,**kwargs):
         overplot=False
     else:
         overplot=False
+    if kwargs.has_key('gcf') and kwargs['gcf']:
+        kwargs.pop('gcf')
+        gcf=True
+    elif kwargs.has_key('gcf'):
+        kwargs.pop('gcf')
+        gcf=False
+    else:
+        gcf=False
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
         kwargs.pop('onedhists')
@@ -301,7 +311,7 @@ def bovy_plot(*args,**kwargs):
         else:
             bins= 30
     if onedhists:
-        if overplot: fig= pyplot.gcf()
+        if overplot or gcf: fig= pyplot.gcf()
         else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
         # definitions for the axes
@@ -320,7 +330,7 @@ def bovy_plot(*args,**kwargs):
         axHisty.xaxis.set_major_formatter(nullfmt)
         axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
-    elif not overplot: pyplot.figure()
+    elif not overplot and not gcf: pyplot.figure()
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
     if kwargs.has_key('xlabel'):
