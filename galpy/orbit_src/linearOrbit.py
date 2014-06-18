@@ -25,21 +25,6 @@ class linearOrbit(OrbitTop):
         self._BCIntegrateFunction= _integrateLinearOrbit
         return None
 
-    def flip(self):
-        """
-        NAME:
-           flip
-        PURPOSE:
-           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
-        INPUT:
-           (none)
-        OUTPUT:
-           (none)
-        HISTORY:
-           2014-06-17 - Written - Bovy (IAS)
-        """
-        self.vxvv= [self.vxvv[0],-self.vxvv[1]]
-
     def integrate(self,t,pot,method='odeint'):
         """
         NAME:

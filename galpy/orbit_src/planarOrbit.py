@@ -222,21 +222,6 @@ class planarROrbit(planarOrbitTop):
         self._BCIntegrateFunction= _integrateROrbit
         return None
 
-    def flip(self):
-        """
-        NAME:
-           flip
-        PURPOSE:
-           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
-        INPUT:
-           (none)
-        OUTPUT:
-           (none)
-        HISTORY:
-           2014-06-17 - Written - Bovy (IAS)
-        """
-        self.vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2]]
-
     def integrate(self,t,pot,method='leapfrog_c'):
         """
         NAME:
@@ -367,21 +352,6 @@ class planarOrbit(planarOrbitTop):
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateOrbit
         return None
-
-    def flip(self):
-        """
-        NAME:
-           flip
-        PURPOSE:
-           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
-        INPUT:
-           (none)
-        OUTPUT:
-           (none)
-        HISTORY:
-           2014-06-17 - Written - Bovy (IAS)
-        """
-        self.vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],self.vxvv[3]]
 
     def integrate(self,t,pot,method='leapfrog_c'):
         """

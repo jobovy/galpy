@@ -367,7 +367,7 @@ class Orbit:
 
         PURPOSE:
 
-           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration
+           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration; returns a new Orbit instance
 
         INPUT:
 
@@ -375,15 +375,27 @@ class Orbit:
 
         OUTPUT:
 
-           (none)
+           Orbit instance that has the velocities of the current orbit flipped
 
         HISTORY:
 
            2014-06-17 - Written - Bovy (IAS)
 
         """
-        return self._orb.flip()
-
+        if len(self.vxvv) == 2:
+            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1]])
+        elif len(self.vxvv) == 3:
+            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2]])
+        elif len(self.vxvv) == 4:
+            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
+                               self.vxvv[3]])
+        elif len(self.vxvv) == 5:
+            return Orbit(vxvv=[self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
+                               self.vxvv[3],-self.vxvv[4]])
+        elif len(self.vxvv) == 6:
+            return Orbit(vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
+                                self.vxvv[3],-self.vxvv[4],self.vxvv[5]])
+        
     def getOrbit(self):
         """
 

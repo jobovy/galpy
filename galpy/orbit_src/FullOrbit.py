@@ -74,8 +74,7 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2014-06-17 - Written - Bovy (IAS)
         """
-        self.vxvv= [self.vxvv[0],-self.vxvv[1],-self.vxvv[2],
-                    self.vxvv[3],-self.vxvv[4],self.vxvv[5]]
+        self.
 
     def integrate(self,t,pot,method='leapfrog_c'):
         """
