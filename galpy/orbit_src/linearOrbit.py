@@ -8,19 +8,35 @@ import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 class linearOrbit(OrbitTop):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""
-    def __init__(self,vxvv=[1.,0.]):
+    def __init__(self,vxvv=[1.,0.],vo=220.,ro=8.0):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a linear orbit
+
         INPUT:
+
            vxvv - [x,vx]
+
+           vo - circular velocity at ro (km/s)
+
+           ro - distance from vantage point to GC (kpc)
+
         OUTPUT:
+
+           (none)
+
         HISTORY:
+
            2010-07-13 - Written - Bovy (NYU)
+
         """
-        OrbitTop.__init__(self,vxvv=vxvv)
+        OrbitTop.__init__(self,vxvv=vxvv,
+                          ro=ro,zo=None,vo=vo,solarmotion=None)
         #For boundary-condition integration
         self._BCIntegrateFunction= _integrateLinearOrbit
         return None

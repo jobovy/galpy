@@ -1233,6 +1233,19 @@ def test_toPlanar():
     assert obsp.R() == obs.R(), 'Planar orbit generated w/ toPlanar does not have the correct R'
     assert obsp.vR() == obs.vR(), 'Planar orbit generated w/ toPlanar does not have the correct vR'
     assert obsp.vT() == obs.vT(), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
+    obs= Orbit([1.,0.1,1.1,0.3,0.],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for RZOrbit'
+    assert obsp.R() == obs.R(), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert obsp.vR() == obs.vR(), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert obsp.vT() == obs.vT(), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    assert numpy.fabs(obs._orb._ro-obsp._orb._ro) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._orb._vo-obsp._orb._vo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._orb._zo-obsp._orb._zo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.all(numpy.fabs(obs._orb._solarmotion-obsp._orb._solarmotion) < 10.**-15.), 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._orb._roSet == obsp._orb._roSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._orb._voSet == obsp._orb._voSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
     obs= Orbit([1.,0.1,1.1,2.])
     try:
         obs.toPlanar()
@@ -1262,6 +1275,20 @@ def test_toLinear():
         pass
     else:
         raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')        
+    # w/ scales
+    ro,vo= 10.,300.
+    obs= Orbit([1.,0.1,1.1,0.3,0.,2.],ro=ro,vo=vo)
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    assert numpy.fabs(obs._orb._ro-obsl._orb._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._orb._vo-obsl._orb._vo) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    print obs._orb._zo, obsl._orb._zo
+    assert (obsl._orb._zo is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert (obsl._orb._solarmotion is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._orb._roSet == obsl._orb._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._orb._voSet == obsl._orb._voSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     return None
 
 # Check that some relevant errors are being raised
@@ -1398,8 +1425,12 @@ def test_flip():
     #First check that the scales have been propagated properly
     assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
     assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-    assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-    assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    if ii == 4:
+        assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+    else:
+        assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
     assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
     assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
     if ii == 4:

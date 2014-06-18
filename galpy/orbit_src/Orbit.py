@@ -140,7 +140,8 @@ class Orbit:
             else: vxvv= [R,vR,vT,z,vz,phi]
         self.vxvv= vxvv
         if len(vxvv) == 2:
-            self._orb= linearOrbit(vxvv=vxvv)
+            self._orb= linearOrbit(vxvv=vxvv,
+                                   ro=ro,vo=vo)
         elif len(vxvv) == 3:
             self._orb= planarROrbit(vxvv=vxvv,
                                     ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
