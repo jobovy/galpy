@@ -372,7 +372,8 @@ class FullOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
-    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False):
+    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,
+            tintJ=100,ntintJ=1000,integrate_method='dopr54_c'):
         """
         NAME:
            fit
@@ -384,6 +385,10 @@ class FullOrbit(OrbitTop):
            vxvv_err= [:,6] array of errors on positions and velocities along the orbit
            pot= Potential to fit the orbit in
            radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+           tintJ= (default: 100) time to integrate orbits for fitting the orbit
+           ntintJ= (default: 1000) number of time-integration points
+           integrate_method= (default: 'dopr54_c') integration method to use
+
         OUTPUT:
            max of log likelihood
         HISTORY:
@@ -394,7 +399,9 @@ class FullOrbit(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
-        newOrb, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec)
+        newOrb, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec=radec,
+                                    tintJ=tintJ,ntintJ=ntintJ,
+                                    integrate_method=integrate_method)
         return newOrb
 
     def plotEz(self,*args,**kwargs):
@@ -649,7 +656,8 @@ def _rectForce(x,pot,t=0.):
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
 
-def _fit_orbit(orb,vxvv,vxvv_err,pot,radec):
+def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,
+               tintJ=100,ntintJ=1000,integrate_method='dopr54_c'):
     """Fit an orbit to data in a given potential"""
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -662,7 +670,8 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec):
             self._pot= pot
             self._integrate_method= integrate_method
             return None
-    tmockAA= mockActionAngleIsochroneApprox(10.,1000,pot)
+    tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
+                                            integrate_method=integrate_method)
     opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
                                    args=(vxvv,vxvv_err,pot,radec,tmockAA))
     maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,tmockAA)
