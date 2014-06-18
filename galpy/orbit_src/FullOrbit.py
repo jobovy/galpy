@@ -1,7 +1,13 @@
 import warnings
+import copy
 import math as m
 import numpy as nu
-from scipy import integrate
+from scipy import integrate, optimize
+import scipy
+if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
+    from scipy.maxentropy import logsumexp
+else:
+    from scipy.misc import logsumexp
 from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
     evaluatePotentials, evaluatephiforces, evaluateDensities
 from galpy.util import galpyWarning
@@ -366,6 +372,31 @@ class FullOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
+    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False):
+        """
+        NAME:
+           fit
+        PURPOSE:
+           fit an Orbit to data using the current orbit as the initial 
+           condition
+        INPUT:
+           vxvv - [:,6] array of positions and velocities along the orbit
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit
+           pot= Potential to fit the orbit in
+           radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+        OUTPUT:
+           max of log likelihood
+        HISTORY:
+           2014-06-17 - Written - Bovy (IAS)
+        """
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        newOrb, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec)
+        return newOrb
+
     def plotEz(self,*args,**kwargs):
         """
         NAME:
@@ -618,4 +649,45 @@ def _rectForce(x,pot,t=0.):
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
 
+def _fit_orbit(orb,vxvv,vxvv_err,pot,radec):
+    """Fit an orbit to data in a given potential"""
+    #Import here, because otherwise there is an infinite loop of imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    #Mock this up, bc we want to use its orbit-integration routines
+    class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
+        def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
+            self._tintJ= tintJ
+            self._ntintJ=ntintJ
+            self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
+            self._pot= pot
+            self._integrate_method= integrate_method
+            return None
+    tmockAA= mockActionAngleIsochroneApprox(10.,1000,pot)
+    opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
+                                   args=(vxvv,vxvv_err,pot,radec,tmockAA))
+    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,tmockAA)
+    return (opt_vxvv,maxLogL)
+
+def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,tmockAA):
+    """The log likelihood for fitting an orbit"""
+    #Use this _parse_args routine, which does forward and backward integration
+    iR,ivR,ivT,iz,ivz,iphi= tmockAA._parse_args(True,False,
+                                                new_vxvv[0],
+                                                new_vxvv[1],
+                                                new_vxvv[2],
+                                                new_vxvv[3],
+                                                new_vxvv[4],
+                                                new_vxvv[5])
+    orb_vxvv= nu.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
+                        iz.flatten(),ivz.flatten(),iphi.flatten()]).T #2tintJ-1,6
+    if radec:
+        #Need to transform to ra,dec
+        pass
+    out= 0.
+    for ii in range(vxvv.shape[0]):
+        sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
+        if not vxvv_err is None:
+            sub_vxvv/= vxvv_err**2.
+        out+= logsumexp(-0.5*nu.log(nu.sum(sub_vxvv,axis=1)))
+    return -out
 
