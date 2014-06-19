@@ -610,10 +610,10 @@ class Potential:
         HISTORY:
            2014-01-05 - Written - Bovy (IAS)
         """
-        plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                      zmin=zmin,zmax=zmax,nzs=nzs,
-                      ncontours=ncontours,savefilename=savefilename,
-                      aspect=aspect,log=log)
+        return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
+                             zmin=zmin,zmax=zmax,nzs=nzs,
+                             ncontours=ncontours,savefilename=savefilename,
+                             aspect=aspect,log=log)
 
     def vcirc(self,R):
         """
@@ -923,7 +923,7 @@ class Potential:
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        plotRotcurve(self,*args,**kwargs)
+        return plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
@@ -955,7 +955,7 @@ class Potential:
            2010-08-08 - Written - Bovy (NYU)
 
         """
-        plotEscapecurve(self.toPlanar(),*args,**kwargs)
+        return plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
     def conc(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
