@@ -16,11 +16,11 @@ def plotEscapecurve(Pot,*args,**kwargs):
 
        Pot - Potential or list of Potential instances
 
-       Rrange - Range in R to consider
+       Rrange= Range in R to consider
 
-       grid - grid in R
+       grid= grid in R
 
-       savefilename - save to or restore from this savefile (pickle)
+       savefilename= save to or restore from this savefile (pickle)
 
        +bovy_plot.bovy_plot args and kwargs
 

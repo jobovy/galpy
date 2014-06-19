@@ -502,19 +502,19 @@ class Potential:
 
         INPUT:
 
-           t - time tp plot potential at
+           t= time tp plot potential at
 
-           rmin - minimum R at which to calculate
+           rmin= minimum R at which to calculate
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
            effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
 
@@ -587,21 +587,21 @@ class Potential:
            plot the density of this potential
         INPUT:
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
 
@@ -908,9 +908,9 @@ class Potential:
 
            Rrange - range
 
-           grid - number of points to plot
+           grid= number of points to plot
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename=- save to or restore from this savefile (pickle)
 
            +bovy_plot(*args,**kwargs)
 
@@ -940,9 +940,9 @@ class Potential:
 
            Rrange - range
 
-           grid - number of points to plot
+           grid= number of points to plot
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename= save to or restore from this savefile (pickle)
 
            +bovy_plot(*args,**kwargs)
 
@@ -1288,31 +1288,41 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                    ncontours=21,savefilename=None,aspect=None):
         """
         NAME:
+
            plotPotentials
+
         PURPOSE:
+
            plot a set of potentials
+
         INPUT:
+
            Pot - Potential or list of Potential instances
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename= save to or restore from this savefile (pickle)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
@@ -1351,27 +1361,32 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   ncontours=21,savefilename=None,aspect=None,log=False):
         """
         NAME:
+
            plotDensities
+
         PURPOSE:
+
            plot the density a set of potentials
+
         INPUT:
+
            Pot - Potential or list of Potential instances
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
         OUTPUT:
