@@ -44,7 +44,7 @@ class BurkertPotential(Potential):
         self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         self.hasC= False
 
