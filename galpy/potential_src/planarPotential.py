@@ -44,7 +44,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._evaluate(R,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
     def Rforce(self,R,phi=0.,t=0.):
@@ -76,7 +76,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._Rforce(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
     def phiforce(self,R,phi=0.,t=0.):
@@ -108,7 +108,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._phiforce(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
     def R2deriv(self,R,phi=0.,t=0.):
@@ -140,7 +140,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._R2deriv(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     def phi2deriv(self,R,phi=0.,t=0.):
@@ -172,7 +172,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._phi2deriv(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
     def Rphideriv(self,R,phi=0.,t=0.):
@@ -223,7 +223,7 @@ class planarPotential:
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        plotplanarPotentials(self,*args,**kwargs)
+        return plotplanarPotentials(self,*args,**kwargs)
 
 class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
@@ -440,7 +440,7 @@ class planarAxiPotential(planarPotential):
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        plotRotcurve(self,*args,**kwargs)
+        return plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
@@ -471,7 +471,7 @@ class planarAxiPotential(planarPotential):
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        plotEscapecurve(self,*args,**kwargs)
+        return plotEscapecurve(self,*args,**kwargs)
 
 class planarPotentialFromRZPotential(planarAxiPotential):
     """Class that represents an axisymmetic planar potential derived from a 
