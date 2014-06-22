@@ -78,6 +78,7 @@ Specific potentials
 .. toctree::
    :maxdepth: 2
 
+   potentialburkert.rst
    potentialdoubleexp.rst
    potentialdoublepowerspher.rst
    potentialjaffe.rst
