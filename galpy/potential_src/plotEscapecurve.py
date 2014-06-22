@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 _INF= 10**12.

@@ -1,5 +1,6 @@
+import os
+import pickle
 import numpy as nu
-from scipy import optimize
 import galpy.util.bovy_plot as plot
 def plotRotcurve(Pot,*args,**kwargs):
     """
@@ -48,7 +49,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    if not savefilename == None and os.path.exists(savefilename):
+    if not savefilename is None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
         rotcurve= pickle.load(savefile)
