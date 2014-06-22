@@ -415,6 +415,7 @@ def test_poisson_potential():
                     else:
                         assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
                             "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+    return None
                         
 #Test whether the _evaluate function is correctly implemented in specifying derivatives
 def test_evaluateAndDerivs_potential():
