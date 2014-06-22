@@ -659,13 +659,13 @@ def test_vcirc_vesc_special():
     from galpy import potential
     dp= potential.DehnenBarPotential()
     try:
-        dp.plotRotcurve()
+        potential.plotRotcurve([dp])
     except AttributeError: #should be raised
         pass
     else:
         raise AssertionError("plotRotcurve for non-axisymmetric potential should have raised AttributeError, but didn't")
     try:
-        dp.plotEscapecurve()
+        potential.plotEscapecurve([dp])
     except AttributeError: #should be raised
         pass
     else:
