@@ -37,7 +37,7 @@ class linearPotential:
         """
         try:
             return self._amp*self._evaluate(x,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
     def force(self,x,t=0.):
@@ -67,7 +67,7 @@ class linearPotential:
         """
         try:
             return self._amp*self._force(x,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 
     def plot(self,t=0.,min=-15.,max=15,ns=21,savefilename=None):
