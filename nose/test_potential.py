@@ -643,7 +643,37 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "KeplerPotential's escape velocity is wrong at R=0.5"
     assert (kp.vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=2"
+    # W/ different interface
+    assert (kp.vcirc(1.)-potential.vcirc(kp,1.))**2. < 10.**-16., \
+        "KeplerPotential's circular velocity does not agree between kp.vcirc and vcirc(kp)"
+    assert (kp.vcirc(1.)-potential.vcirc(kp.toPlanar(),1.))**2. < 10.**-16., \
+        "KeplerPotential's circular velocity does not agree between kp.vcirc and vcirc(kp.toPlanar)"
+    assert (kp.vesc(1.)-potential.vesc(kp,1.))**2. < 10.**-16., \
+        "KeplerPotential's escape velocity does not agree between kp.vesc and vesc(kp)"
+    assert (kp.vesc(1.)-potential.vesc(kp.toPlanar(),1.))**2. < 10.**-16., \
+        "KeplerPotential's escape velocity does not agree between kp.vesc and vesc(kp.toPlanar)"
     return None
+
+def test_vcirc_vesc_special():
+    #Test some special cases of vcirc and vesc
+    from galpy import potential
+    dp= potential.DehnenBarPotential()
+    try:
+        dp.plotRotcurve()
+    except AttributeError: #should be raised
+        pass
+    else:
+        raise AssertionError("plotRotcurve for non-axisymmetric potential should have raised AttributeError, but didn't")
+    try:
+        dp.plotEscapecurve()
+    except AttributeError: #should be raised
+        pass
+    else:
+        raise AssertionError("plotEscapecurve for non-axisymmetric potential should have raised AttributeError, but didn't")
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    assert numpy.fabs(potential.calcRotcurve(lp,0.8)-lp.vcirc(0.8)) < 10.**-16., 'Circular velocity calculated with calcRotcurve not the same as that calculated with vcirc'
+    assert numpy.fabs(potential.calcEscapecurve(lp,0.8)-lp.vesc(0.8)) < 10.**-16., 'Escape velocity calculated with calcRotcurve not the same as that calculated with vcirc'
+    return None        
 
 def test_flattening():
     #Simple tests: LogarithmicHalo
@@ -680,6 +710,7 @@ def test_flattening():
     return None
 
 def test_plotting():
+    import tempfile
     from galpy import potential
     #Some tests of the plotting routines, to make sure they don't fail
     kp= potential.KeplerPotential(normalize=1.)
@@ -692,6 +723,21 @@ def test_plotting():
     potential.plotRotcurve([kp],Rrange=[0.01,10.],
                            grid=101,
                            savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        kp.plotRotcurve(Rrange=[0.01,10.],
+                        grid=101,
+                        savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        kp.plotRotcurve(Rrange=[0.01,10.],
+                        grid=101,
+                        savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     #Plot the escape-velocity curve
     kp.plotEscapecurve()
     kp.plotEscapecurve(Rrange=[0.01,10.],
@@ -701,6 +747,21 @@ def test_plotting():
     potential.plotEscapecurve([kp],Rrange=[0.01,10.],
                               grid=101,
                               savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        kp.plotEscapecurve(Rrange=[0.01,10.],
+                           grid=101,
+                           savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        kp.plotEscapecurve(Rrange=[0.01,10.],
+                           grid=101,
+                           savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     #Plot the potential itself
     kp.plot()
     kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
