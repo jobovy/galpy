@@ -728,7 +728,7 @@ def test_vcirc_vesc_special():
         raise AssertionError("plotEscapecurve for non-axisymmetric potential should have raised AttributeError, but didn't")
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     assert numpy.fabs(potential.calcRotcurve(lp,0.8)-lp.vcirc(0.8)) < 10.**-16., 'Circular velocity calculated with calcRotcurve not the same as that calculated with vcirc'
-    assert numpy.fabs(potential.calcEscapecurve(lp,0.8)-lp.vesc(0.8)) < 10.**-16., 'Escape velocity calculated with calcRotcurve not the same as that calculated with vcirc'
+    assert numpy.fabs(potential.calcEscapecurve(lp,0.8)-lp.vesc(0.8)) < 10.**-16., 'Escape velocity calculated with calcEscapecurve not the same as that calculated with vcirc'
     return None        
 
 def test_lindbladR():
@@ -803,6 +803,7 @@ def test_verticalfreq():
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     kp= potential.KeplerPotential(normalize=1.)
     np= potential.NFWPotential(normalize=1.)
+    bp= potential.BurkertPotential(normalize=1.)
     rs= numpy.linspace(0.2,2.,21)
     for r in rs:
         assert numpy.fabs(lp.verticalfreq(r)-lp.omegac(r)) < 10.**-10., \
@@ -811,6 +812,8 @@ def test_verticalfreq():
             'Verticalfreq for spherical potential does not equal rotational freq'
         #Through general interface
         assert numpy.fabs(potential.verticalfreq(np,r)-np.omegac(r)) < 10.**-10., \
+            'Verticalfreq for spherical potential does not equal rotational freq'
+        assert numpy.fabs(potential.verticalfreq([bp],r)-bp.omegac(r)) < 10.**-10., \
             'Verticalfreq for spherical potential does not equal rotational freq'
     #For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 (explicitly, because we use a Kepler potential)
     dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
@@ -845,13 +848,6 @@ def test_planar_nonaxi():
         pass
     else:
         raise AssertionError('evaluateplanarR2derivs for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
-    #Test TypeErrors
-    try:
-        potential.evaluateplanarPotentials(1.,'something wrong')
-    except TypeError:
-        pass
-    else:
-        raise AssertionError('evaluateplanarPotentials with wrong Pot does not raise TypeError')
     return None
 
 def test_plotting():

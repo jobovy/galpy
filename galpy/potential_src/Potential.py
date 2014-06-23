@@ -1714,7 +1714,7 @@ def omegac(Pot,R):
     from planarPotential import evaluateplanarRforces
     try:
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
-    except TypeError:
+    except PotentialError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)

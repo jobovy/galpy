@@ -103,10 +103,11 @@ def calcEscapecurve(Pot,Rs):
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
     from planarPotential import evaluateplanarPotentials
+    from Potential import PotentialError
     for ii in range(grid):
         try:
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
-        except TypeError:
+        except PotentialError:
             from planarPotential import RZToplanarPotential
             Pot= RZToplanarPotential(Pot)
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
@@ -139,9 +140,10 @@ def vesc(Pot,R):
 
     """
     from planarPotential import evaluateplanarPotentials
+    from Potential import PotentialError
     try:
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
-    except TypeError:
+    except PotentialError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))

@@ -624,7 +624,8 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -677,7 +678,8 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -730,7 +732,8 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -783,7 +786,8 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
