@@ -680,6 +680,22 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "KeplerPotential's radius of a circular orbit is wrong at Lz=0.5"
     assert (kp.rl(2.)-4.)**2. < 10.**-16., \
         "KeplerPotential's radius of a circular orbit is wrong at Lz=2."
+    #Check radius of circular orbit, PowerSphericalPotential with close-to-flat rotation curve
+    pp= potential.PowerSphericalPotential(alpha=1.8,normalize=1.)
+    assert (pp.rl(1.)-1.)**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=1."
+    assert (pp.rl(0.5)-0.5**(10./11.))**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=0.5"
+    assert (pp.rl(2.)-2.**(10./11.))**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=2."
+    #Check radius of circular orbit, PowerSphericalPotential with steeper rotation curve
+    pp= potential.PowerSphericalPotential(alpha=0.5,normalize=1.)
+    assert (pp.rl(1.)-1.)**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=1."
+    assert (pp.rl(0.25)-0.25**(4./7.))**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=0.5"
+    assert (pp.rl(4.)-4.**(4./7.))**2. < 10.**-16., \
+        "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=2."
     #Escape velocity of Kepler potential
     assert (kp.vesc(1.)**2.-2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=1"
