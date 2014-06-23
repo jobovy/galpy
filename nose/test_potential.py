@@ -757,6 +757,9 @@ def test_flattening():
             "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.001)" % q
         assert (lp.flattening(0.5,0.1)-q)**2. < 10.**-16., \
             "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.1)" % q
+        #One test with the general interface
+        assert (potential.flattening(lp,0.5,0.1)-q)**2. < 10.**-16., \
+            "Flattening of LogarithmicHaloPotential w/ q= %f is not equal to q  at (R,z) = (0.5,0.1), through potential.flattening" % q
     #Check some spherical potentials
     kp= potential.KeplerPotential(normalize=1.)
     assert (kp.flattening(1.,0.02)-1.)**2. < 10.**-16., \
