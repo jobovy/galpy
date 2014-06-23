@@ -807,6 +807,28 @@ def test_flattening():
         "Flattening of MiyamotoNagaiPotential w/ a=0.5, b=0.05 is > 1 at (R,z) = (3.,3.)"
     return None
 
+def test_verticalfreq():
+    from galpy import potential
+    #For spherical potentials, vertical freq should be equal to rotational freq
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    kp= potential.KeplerPotential(normalize=1.)
+    np= potential.NFWPotential(normalize=1.)
+    rs= numpy.linspace(0.2,2.,21)
+    for r in rs:
+        assert numpy.fabs(lp.verticalfreq(r)-lp.omegac(r)) < 10.**-10., \
+            'Verticalfreq for spherical potential does not equal rotational freq'
+        assert numpy.fabs(kp.verticalfreq(r)-kp.omegac(r)) < 10.**-10., \
+            'Verticalfreq for spherical potential does not equal rotational freq'
+        #Through general interface
+        assert numpy.fabs(potential.verticalfreq(np,r)-np.omegac(r)) < 10.**-10., \
+            'Verticalfreq for spherical potential does not equal rotational freq'
+    #For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 (explicitly, because we use a Kepler potential)
+    dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
+    assert numpy.fabs(dp.epifreq(1.)**2.+dp.verticalfreq(1.)**2.-2.*dp.omegac(1.)**2.) < 10.**-6., 'epi^2+vert^2-2*rot^2 !=~ 0 for dblexp potential, very far from center'
+    #Closer to the center, this becomes the Poisson eqn.
+    assert numpy.fabs(dp.epifreq(.125)**2.+dp.verticalfreq(.125)**2.-2.*dp.omegac(.125)**2.-4.*numpy.pi*dp.dens(0.125,0.))/4./numpy.pi/dp.dens(0.125,0.) < 10.**-3., 'epi^2+vert^2-2*rot^2 !=~ dens for dblexp potential'
+    return None
+
 def test_plotting():
     import tempfile
     from galpy import potential
