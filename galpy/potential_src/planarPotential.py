@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential, lindbladR
@@ -849,12 +851,12 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         grid= kwargs['grid']
         kwargs.pop('grid')
     else:
-        grid= 1000 #avoid zero
+        grid= 100 #avoid zero
     if kwargs.has_key('gridx'):
         gridx= kwargs['gridx']
         kwargs.pop('gridx')
     else:
-        gridx= 1000 #avoid zero
+        gridx= 100 #avoid zero
     if kwargs.has_key('gridy'):
         gridy= kwargs['gridy']
         kwargs.pop('gridy')
@@ -867,17 +869,16 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         savefilename= None
     isList= isinstance(Pot,list)
     nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if not savefilename == None and os.path.exists(savefilename):
+    if not savefilename is None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
         potR= pickle.load(savefile)
-        Rs= pickle.load(savefile)
         if nonAxi:
             xs= pickle.load(savefile)
             ys= pickle.load(savefile)
         else:
             Rs= pickle.load(savefile)
-            savefile.close()
+        savefile.close()
     else:
         if nonAxi:
             xs= nu.linspace(xrange[0],xrange[1],gridx)
@@ -897,8 +898,8 @@ def plotplanarPotentials(Pot,*args,**kwargs):
             potR= nu.zeros(grid)
             for ii in range(grid):
                 potR[ii]= evaluateplanarPotentials(Rs[ii],Pot)
-        if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
+        if not savefilename is None:
+            print "Writing planar savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
             pickle.dump(potR,savefile)
             if nonAxi:
@@ -906,7 +907,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                 pickle.dump(ys,savefile)
             else:
                 pickle.dump(Rs,savefile)
-                savefile.close()
+            savefile.close()
     if nonAxi:
         if not kwargs.has_key('origin'):
             kwargs['origin']= 'lower'
@@ -934,7 +935,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                                 yrange=yrange,**kwargs)
     else:
         kwargs['xlabel']=r"$R/R_0$"
-        kwargs['ylabel']=r"$\Phi(R)$",
+        kwargs['ylabel']=r"$\Phi(R)$"
         kwargs['xrange']=Rrange
         return plot.bovy_plot(Rs,potR,*args,**kwargs)
                               

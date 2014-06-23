@@ -818,6 +818,34 @@ def test_plotting():
                             zmin=-0.55,zmax=0.55,nzs=11, 
                             aspect=1.,log=True,
                             ncontours=11,savefilename=None)
+    #Plot the potential itself for a 2D potential
+    kp.toPlanar().plot()
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        kp.toPlanar().plot(Rrange=[0.01,1.8],grid=11,
+                           savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        kp.toPlanar().plot(Rrange=[0.01,1.8],grid=11,
+                           savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
+    dp= potential.DehnenBarPotential()
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        dp.plot(xrange=[0.01,1.8],yrange=[0.01,1.8],gridx=11,gridy=11,
+                ncontours=11,savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        dp.plot(xrange=[0.01,1.8],yrange=[0.01,1.8],gridx=11,gridy=11,
+                ncontours=11,savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
+    potential.plotplanarPotentials([dp],gridx=11,gridy=11)
     return None
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
