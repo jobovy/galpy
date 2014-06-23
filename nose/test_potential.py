@@ -829,6 +829,34 @@ def test_verticalfreq():
     assert numpy.fabs(dp.epifreq(.125)**2.+dp.verticalfreq(.125)**2.-2.*dp.omegac(.125)**2.-4.*numpy.pi*dp.dens(0.125,0.))/4./numpy.pi/dp.dens(0.125,0.) < 10.**-3., 'epi^2+vert^2-2*rot^2 !=~ dens for dblexp potential'
     return None
 
+def test_planar_nonaxi():
+    from galpy import potential
+    dp= potential.DehnenBarPotential()
+    try:
+        potential.evaluateplanarPotentials(1.,dp)
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('evaluateplanarPotentials for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+    try:
+        potential.evaluateplanarRforces(1.,dp)
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('evaluateplanarRforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+    try:
+        potential.evaluateplanarphiforces(1.,dp)
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('evaluateplanarphiforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+    try:
+        potential.evaluateplanarR2derivs(1.,dp)
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('evaluateplanarR2derivs for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+
 def test_plotting():
     import tempfile
     from galpy import potential

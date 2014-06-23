@@ -237,7 +237,7 @@ class planarAxiPotential(planarPotential):
     def _phiforce(self,R,phi=0.,t=0.):
         return 0.
 
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
+    def _phi2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _phi2deriv
@@ -255,7 +255,7 @@ class planarAxiPotential(planarPotential):
         """
         return 0.
 
-    def _Rphideriv(self,R,z,phi=0.,t=0.):
+    def _Rphideriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _Rphideriv
