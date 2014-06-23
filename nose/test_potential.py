@@ -2,11 +2,11 @@
 import sys
 import numpy
 import os
+from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -48,7 +48,6 @@ def test_normalize_potential():
 
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -76,6 +75,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm1')
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
+    pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -177,7 +177,6 @@ def test_forceAsDeriv_potential():
 
 #Test whether the second derivative of the potential is minus the derivative of the force
 def test_2ndDeriv_potential():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -205,6 +204,7 @@ def test_2ndDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm1')
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
+    pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -375,7 +375,6 @@ def test_2ndDeriv_potential():
 
 #Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
 def test_poisson_potential():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -443,7 +442,6 @@ def test_poisson_potential():
                         
 #Test whether the _evaluate function is correctly implemented in specifying derivatives
 def test_evaluateAndDerivs_potential():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -580,7 +578,6 @@ def test_evaluateAndDerivs_potential():
 
 # Check that toVertical and toPlanar work
 def test_toVertical_toPlanar():
-    from galpy import potential
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -613,7 +610,6 @@ def test_toVertical_toPlanar():
             "Conversion into linear potential of potential %s fails" % p
 
 def test_RZToplanarPotential():
-    from galpy import potential
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     plp= potential.RZToplanarPotential(lp)
     assert isinstance(plp,potential.planarPotential), 'Running an RZPotential through RZToplanarPotential does not produce a planarPotential'
@@ -630,7 +626,6 @@ def test_RZToplanarPotential():
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
 def test_dvcircdR_omegac_epifreq_rl_vesc():
-    from galpy import potential
     #Derivative of rotation curve
     #LogarithmicHaloPotential: rotation everywhere flat
     lp= potential.LogarithmicHaloPotential(normalize=1.)
@@ -718,7 +713,6 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
 
 def test_vcirc_vesc_special():
     #Test some special cases of vcirc and vesc
-    from galpy import potential
     dp= potential.DehnenBarPotential()
     try:
         potential.plotRotcurve([dp])
@@ -738,7 +732,6 @@ def test_vcirc_vesc_special():
     return None        
 
 def test_lindbladR():
-    from galpy import potential
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     assert numpy.fabs(lp.lindbladR(0.5,'corotation')-2.) < 10.**-10., 'Location of co-rotation resonance is wrong for LogarithmicHaloPotential'
     assert numpy.fabs(lp.omegac(lp.lindbladR(0.5,2))-2./(2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=2 resonance is wrong for LogarithmicHaloPotential'
@@ -761,7 +754,6 @@ def test_lindbladR():
     return None
 
 def test_vterm():
-    from galpy import potential
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     assert numpy.fabs(lp.vterm(30.,deg=True)-0.5*(lp.omegac(0.5)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=30 is incorrect'
     assert numpy.fabs(lp.vterm(numpy.pi/3.,deg=False)-numpy.sqrt(3.)/2.*(lp.omegac(numpy.sqrt(3.)/2.)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=60 in rad is incorrect'
@@ -772,7 +764,6 @@ def test_vterm():
 
 def test_flattening():
     #Simple tests: LogarithmicHalo
-    from galpy import potential
     qs= [0.75,1.,1.25]
     for q in qs:
         lp= potential.LogarithmicHaloPotential(normalize=1.,q=q)
@@ -808,7 +799,6 @@ def test_flattening():
     return None
 
 def test_verticalfreq():
-    from galpy import potential
     #For spherical potentials, vertical freq should be equal to rotational freq
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     kp= potential.KeplerPotential(normalize=1.)
@@ -830,7 +820,6 @@ def test_verticalfreq():
     return None
 
 def test_planar_nonaxi():
-    from galpy import potential
     dp= potential.DehnenBarPotential()
     try:
         potential.evaluateplanarPotentials(1.,dp)
@@ -859,7 +848,6 @@ def test_planar_nonaxi():
 
 def test_plotting():
     import tempfile
-    from galpy import potential
     #Some tests of the plotting routines, to make sure they don't fail
     kp= potential.KeplerPotential(normalize=1.)
     #Plot the rotation curve
@@ -1191,3 +1179,39 @@ class testplanarMWPotential(planarPotential):
         self._amp= norm
     def OmegaP(self):
         return 1.
+
+class mockFlatEllipticalDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,twophio=14./220.)])
+    def OmegaP(self):
+        return 0.
+class mockFlatLopsidedDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
+    def OmegaP(self):
+        return 0.
+class mockFlatDehnenBarPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.DehnenBarPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.SteadyLogSpiralPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()

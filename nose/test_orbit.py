@@ -3,7 +3,12 @@ import sys
 import numpy
 import os
 from galpy import potential
-from test_potential import testplanarMWPotential, testMWPotential
+from test_potential import testplanarMWPotential, testMWPotential, \
+    mockFlatEllipticalDiskPotential, \
+    mockFlatLopsidedDiskPotential, \
+    mockFlatDehnenBarPotential, \
+    mockFlatSteadyLogSpiralPotential, \
+    mockFlatTransientLogSpiralPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -2030,39 +2035,3 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
             o= Orbit([1.,1.1,1.1,0.1,0.1,0.],ro=ro,vo=vo,zo=zo,
                      solarmotion=solarmotion)
     return o
-
-class mockFlatEllipticalDiskPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,twophio=14./220.)])
-    def OmegaP(self):
-        return 0.
-class mockFlatLopsidedDiskPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
-    def OmegaP(self):
-        return 0.
-class mockFlatDehnenBarPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential()])
-    def OmegaP(self):
-        return self._potlist[1].OmegaP()
-class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.SteadyLogSpiralPotential()])
-    def OmegaP(self):
-        return self._potlist[1].OmegaP()
-class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
-    def OmegaP(self):
-        return self._potlist[1].OmegaP()
