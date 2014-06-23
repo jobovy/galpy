@@ -746,15 +746,14 @@ def test_lindbladR():
     #Also through general interface
     assert numpy.fabs(lp.omegac(potential.lindbladR(lp,0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
     #Also for planar
-    print lp.toPlanar().lindbladR(0.5,-2)
     assert numpy.fabs(lp.omegac(lp.toPlanar().lindbladR(0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
     #Test non-existent ones
     dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.3)
     assert dp.lindbladR(3.,2) is None, 'DoubleExponentialDisk w/ OmegaP=3 should not have a inner m=2 LindbladR'
-    assert dp.lindbladR(6.,'corotation'), 'DoubleExponentialDisk w/ OmegaP=6 should not have a inner m=2 LindbladR'
+    assert dp.lindbladR(6.,'corotation') is None, 'DoubleExponentialDisk w/ OmegaP=6 should not have a inner m=2 LindbladR'
     #Test error
     try:
-        lp.lindblarR(0.5,'wrong resonance')
+        lp.lindbladR(0.5,'wrong resonance')
     except IOError:
         pass
     else:
