@@ -637,8 +637,8 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
             return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
         else:
             return Pot(R,t=t,dR=dR,dphi=dphi)
-    else:
-        raise TypeError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarRforces(R,Pot,phi=None,t=0.):
     """
@@ -690,8 +690,8 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
             return Pot.Rforce(R,phi=phi,t=t)
         else:
             return Pot.Rforce(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
     """
@@ -743,8 +743,8 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
             return Pot.phiforce(R,phi=phi,t=t)
         else:
             return Pot.phiforce(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
     """
@@ -796,8 +796,8 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
             return Pot.R2deriv(R,phi=phi,t=t)
         else:
             return Pot.R2deriv(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarR2derivs' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """

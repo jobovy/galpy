@@ -845,6 +845,14 @@ def test_planar_nonaxi():
         pass
     else:
         raise AssertionError('evaluateplanarR2derivs for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+    #Test TypeErrors
+    try:
+        potential.evaluateplanarPotentials(1.,'something wrong')
+    except TypeError:
+        pass
+    else:
+        raise AssertionError('evaluateplanarPotentials with wrong Pot does not raise TypeError')
+    return None
 
 def test_plotting():
     import tempfile
