@@ -734,6 +734,15 @@ def test_lindbladR():
     assert numpy.fabs(lp.omegac(lp.toPlanar().lindbladR(0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
     return None
 
+def test_vterm():
+    from galpy import potential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    assert numpy.fabs(lp.vterm(30.,deg=True)-0.5*(lp.omegac(0.5)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=30 is incorrect'
+    assert numpy.fabs(lp.vterm(numpy.pi/3.,deg=False)-numpy.sqrt(3.)/2.*(lp.omegac(numpy.sqrt(3.)/2.)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=60 in rad is incorrect'
+    #Also using general interface
+    assert numpy.fabs(potential.vterm(lp,30.,deg=True)-0.5*(lp.omegac(0.5)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=30 is incorrect'
+    return None
+
 def test_flattening():
     #Simple tests: LogarithmicHalo
     from galpy import potential
