@@ -539,7 +539,7 @@ class Potential:
         """
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
-        if not savefilename == None and os.path.exists(savefilename):
+        if not savefilename is None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)

@@ -816,6 +816,23 @@ def test_plotting():
             effective=False,Lz=None, 
             xrange=[0.01,1.8],yrange=[-0.55,0.55], 
             ncontours=11,savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
+                effective=False,Lz=None, 
+                xrange=[0.01,1.8],yrange=[-0.55,0.55], 
+                ncontours=11,savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
+                effective=False,Lz=None, 
+                xrange=[0.01,1.8],yrange=[-0.55,0.55], 
+                ncontours=11,savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     potential.plotPotentials([kp])
     potential.plotPotentials([kp],
                              rmin=0.01,rmax=1.8,nrs=11,
