@@ -721,6 +721,19 @@ def test_vcirc_vesc_special():
     assert numpy.fabs(potential.calcEscapecurve(lp,0.8)-lp.vesc(0.8)) < 10.**-16., 'Escape velocity calculated with calcRotcurve not the same as that calculated with vcirc'
     return None        
 
+def test_lindbladR():
+    from galpy import potential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    assert numpy.fabs(lp.lindbladR(0.5,'corotation')-2.) < 10.**-10., 'Location of co-rotation resonance is wrong for LogarithmicHaloPotential'
+    assert numpy.fabs(lp.omegac(lp.lindbladR(0.5,2))-2./(2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=2 resonance is wrong for LogarithmicHaloPotential'
+    assert numpy.fabs(lp.omegac(lp.lindbladR(0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
+    #Also through general interface
+    assert numpy.fabs(lp.omegac(potential.lindbladR(lp,0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
+    #Also for planar
+    print lp.toPlanar().lindbladR(0.5,-2)
+    assert numpy.fabs(lp.omegac(lp.toPlanar().lindbladR(0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
+    return None
+
 def test_flattening():
     #Simple tests: LogarithmicHalo
     from galpy import potential

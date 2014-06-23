@@ -1455,12 +1455,13 @@ def epifreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS)
     
     """
+    from galpy.potential import planarPotential
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
             sum+= pot.epifreq(R)**2.
         return nu.sqrt(sum)
-    elif isinstance(Pot,Potential):
+    elif isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R)
 
 def verticalfreq(Pot,R):
