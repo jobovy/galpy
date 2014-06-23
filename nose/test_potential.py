@@ -856,10 +856,23 @@ def test_plotting():
     finally:
         os.remove(tmp_savefilename)
     potential.plotPotentials([kp])
-    potential.plotPotentials([kp],
-                             rmin=0.01,rmax=1.8,nrs=11,
-                             zmin=-0.55,zmax=0.55,nzs=11, 
-                             ncontours=11,savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        potential.plotPotentials([kp],
+                                 rmin=0.01,rmax=1.8,nrs=11,
+                                 zmin=-0.55,zmax=0.55,nzs=11, 
+                                 ncontours=11,savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        potential.plotPotentials([kp],
+                                 rmin=0.01,rmax=1.8,nrs=11,
+                                 zmin=-0.55,zmax=0.55,nzs=11, 
+                                 ncontours=11,savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     #Plot the effective potential
     kp.plot()
     kp.plot(effective=True,Lz=1.)
@@ -875,6 +888,17 @@ def test_plotting():
     lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
                    aspect=1.,log=True,
                    ncontours=11,savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        lp.plotDensity(savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        lp.plotDensity(savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     potential.plotDensities([lp])
     potential.plotDensities([lp],
                             rmin=0.05,rmax=1.8,nrs=11,
