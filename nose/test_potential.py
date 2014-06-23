@@ -612,6 +612,22 @@ def test_toVertical_toPlanar():
         assert isinstance(tlp,potential.linearPotential), \
             "Conversion into linear potential of potential %s fails" % p
 
+def test_RZToplanarPotential():
+    from galpy import potential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    plp= potential.RZToplanarPotential(lp)
+    assert isinstance(plp,potential.planarPotential), 'Running an RZPotential through RZToplanarPotential does not produce a planarPotential'
+    #Check that a planarPotential through RZToplanarPotential is still planar
+    pplp= potential.RZToplanarPotential(lp)
+    assert isinstance(pplp,potential.planarPotential), 'Running a planarPotential through RZToplanarPotential does not produce a planarPotential'
+    try:
+        plp= potential.RZToplanarPotential('something else')
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('Using RZToplanarPotential with a string rather than an RZPotential or a planarPotential did not raise PotentialError')
+    return None
+
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
 def test_dvcircdR_omegac_epifreq_rl_vesc():
     from galpy import potential
@@ -639,6 +655,8 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "LogarithmicHalo's rotational frequency is off at R=0.5"
     assert (lp.omegac(2.)-0.5)**2. < 10.**-16., \
         "LogarithmicHalo's rotational frequency is off at R=2"
+    assert (lp.toPlanar().omegac(2.)-0.5)**2. < 10.**-16., \
+        "LogarithmicHalo's rotational frequency is off at R=2 through planarPotential"
     #Epicycle frequency, flat rotation curve
     assert (lp.epifreq(1.)-numpy.sqrt(2.)*lp.omegac(1.))**2. < 10.**-16., \
         "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=1"
@@ -646,6 +664,8 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=0.5"
     assert (lp.epifreq(2.0)-numpy.sqrt(2.)*lp.omegac(2.0))**2. < 10.**-16., \
         "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=2"
+    assert (lp.toPlanar().epifreq(2.0)-numpy.sqrt(2.)*lp.omegac(2.0))**2. < 10.**-16., \
+        "LogarithmicHalo's epicycle and rotational frequency are inconsistent with kappa = sqrt(2) Omega at R=, through planar2"
     #Epicycle frequency, Kepler
     assert (kp.epifreq(1.)-kp.omegac(1.))**2. < 10.**-16., \
         "KeplerPotential's epicycle and rotational frequency are inconsistent with kappa = Omega at R=1"
@@ -667,6 +687,8 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "KeplerPotential's escape velocity is wrong at R=0.5"
     assert (kp.vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=2"
+    assert (kp.toPlanar().vesc(2.)**2.-2.*kp.vcirc(2.)**2.)**2. < 10.**-16., \
+        "KeplerPotential's escape velocity is wrong at R=2, through planar"
     # W/ different interface
     assert (kp.vcirc(1.)-potential.vcirc(kp,1.))**2. < 10.**-16., \
         "KeplerPotential's circular velocity does not agree between kp.vcirc and vcirc(kp)"
@@ -740,6 +762,7 @@ def test_plotting():
     kp= potential.KeplerPotential(normalize=1.)
     #Plot the rotation curve
     kp.plotRotcurve()
+    kp.toPlanar().plotRotcurve() #through planar interface
     kp.plotRotcurve(Rrange=[0.01,10.],
                     grid=101,
                     savefilename=None)
@@ -764,6 +787,7 @@ def test_plotting():
         os.remove(tmp_savefilename)
     #Plot the escape-velocity curve
     kp.plotEscapecurve()
+    kp.toPlanar().plotEscapecurve() #Through planar interface
     kp.plotEscapecurve(Rrange=[0.01,10.],
                        grid=101,
                        savefilename=None)
