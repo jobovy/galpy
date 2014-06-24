@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "interp_2d.h"
 
 interp_2d * interp_2d_alloc(int size1, int size2)
@@ -109,9 +108,6 @@ double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y,
     double x_norm = ix + (x-xa[ix])/(xa[ix+1]-xa[ix]);
     double y_norm = iy + (y-ya[iy])/(ya[iy+1]-ya[iy]);
     
-    printf("%f,%f,%i,%i,%f,%f,%f\n",x,y,ix,iy,x_norm,y_norm,cubic_bspline_2d_interpol(za,size1,size2,x_norm,y_norm));
-    fflush(stdout);
-
     return cubic_bspline_2d_interpol(za,size1,size2,x_norm,y_norm);
 }
 
