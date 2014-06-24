@@ -741,9 +741,9 @@ def test_lindbladR():
     #Also for planar
     assert numpy.fabs(lp.omegac(lp.toPlanar().lindbladR(0.5,-2))+2./(-2.-numpy.sqrt(2.))*0.5) < 10.**-14., 'Location of m=-2 resonance is wrong for LogarithmicHaloPotential'
     #Test non-existent ones
-    dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.3)
-    assert dp.lindbladR(3.,2) is None, 'DoubleExponentialDisk w/ OmegaP=3 should not have a inner m=2 LindbladR'
-    assert dp.lindbladR(6.,'corotation') is None, 'DoubleExponentialDisk w/ OmegaP=6 should not have a inner m=2 LindbladR'
+    mp= potential.MiyamotoNagaiPotential(normalize=1.,a=0.3)
+    assert mp.lindbladR(3.,2) is None, 'MiyamotoNagai w/ OmegaP=3 should not have a inner m=2 LindbladR'
+    assert mp.lindbladR(6.,'corotation') is None, 'MiyamotoNagai w/ OmegaP=6 should not have a inner m=2 LindbladR'
     #Test error
     try:
         lp.lindbladR(0.5,'wrong resonance')
@@ -816,10 +816,11 @@ def test_verticalfreq():
         assert numpy.fabs(potential.verticalfreq([bp],r)-bp.omegac(r)) < 10.**-10., \
             'Verticalfreq for spherical potential does not equal rotational freq'
     #For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 (explicitly, because we use a Kepler potential)
-    dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
-    assert numpy.fabs(dp.epifreq(1.)**2.+dp.verticalfreq(1.)**2.-2.*dp.omegac(1.)**2.) < 10.**-6., 'epi^2+vert^2-2*rot^2 !=~ 0 for dblexp potential, very far from center'
-    #Closer to the center, this becomes the Poisson eqn.
-    assert numpy.fabs(dp.epifreq(.125)**2.+dp.verticalfreq(.125)**2.-2.*dp.omegac(.125)**2.-4.*numpy.pi*dp.dens(0.125,0.))/4./numpy.pi/dp.dens(0.125,0.) < 10.**-3., 'epi^2+vert^2-2*rot^2 !=~ dens for dblexp potential'
+    if not _TRAVIS:
+        dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
+        assert numpy.fabs(dp.epifreq(1.)**2.+dp.verticalfreq(1.)**2.-2.*dp.omegac(1.)**2.) < 10.**-6., 'epi^2+vert^2-2*rot^2 !=~ 0 for dblexp potential, very far from center'
+        #Closer to the center, this becomes the Poisson eqn.
+        assert numpy.fabs(dp.epifreq(.125)**2.+dp.verticalfreq(.125)**2.-2.*dp.omegac(.125)**2.-4.*numpy.pi*dp.dens(0.125,0.))/4./numpy.pi/dp.dens(0.125,0.) < 10.**-3., 'epi^2+vert^2-2*rot^2 !=~ dens for dblexp potential'
     return None
 
 def test_planar_nonaxi():
