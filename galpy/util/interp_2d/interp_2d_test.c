@@ -77,7 +77,8 @@ int main()
     expspace(xlo_test,xhi_test,nx_test,expx_test,xx);
     expspace(ylo_test,yhi_test,ny_test,expy_test,yy);
     
-    gsl_interp_accel * acc = gsl_interp_accel_alloc();
+    gsl_interp_accel * accx = gsl_interp_accel_alloc();
+    gsl_interp_accel * accy = gsl_interp_accel_alloc();
     
     double sum=0., sum_dx=0., sum_dy=0.;
     double min=+HUGE_VAL, min_dx=+HUGE_VAL, min_dy=+HUGE_VAL;
@@ -89,13 +90,13 @@ int main()
         for(j=0; j<ny_test; j++)
         {
             double actual = f(gsl_vector_get(xx,i), gsl_vector_get(yy,j));
-            double est = interp_2d_eval( i2d, gsl_vector_get(xx,i), gsl_vector_get(yy,j), acc);
+            double est = interp_2d_eval( i2d, gsl_vector_get(xx,i), gsl_vector_get(yy,j), accx, accy);
             double err = est/actual-1.;
             sum += fabs(err);
             min = (fabs(err)<min ? fabs(err) : min);
             max = (fabs(err)>max ? fabs(err) : max);
             
-            interp_2d_eval_grad( i2d, gsl_vector_get(xx,i), gsl_vector_get(yy,j), tmp_grad, acc);
+            interp_2d_eval_grad( i2d, gsl_vector_get(xx,i), gsl_vector_get(yy,j), tmp_grad, accx, accy);
             double actual_dx = dfdx(gsl_vector_get(xx,i), gsl_vector_get(yy,j));
             double actual_dy = dfdy(gsl_vector_get(xx,i), gsl_vector_get(yy,j));
             double est_dx = tmp_grad[0];
@@ -121,7 +122,8 @@ int main()
     gsl_vector_free(xx);
     gsl_vector_free(yy);
     
-    gsl_interp_accel_free(acc);
+    gsl_interp_accel_free(accx);
+    gsl_interp_accel_free(accy);
 
     interp_2d_free(i2d);
     

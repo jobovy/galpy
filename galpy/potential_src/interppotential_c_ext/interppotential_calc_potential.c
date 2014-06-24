@@ -55,9 +55,11 @@ void calc_potential(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2d )
       interp_2d_free((potentialArgs+ii)->i2d) ;
-    if ((potentialArgs+ii)->acc )
-      gsl_interp_accel_free ((potentialArgs+ii)->acc);
-    free((potentialArgs+ii)->args);
+    if ((potentialArgs+ii)->accx )
+      gsl_interp_accel_free ((potentialArgs+ii)->accx); 
+    if ((potentialArgs+ii)->accy )
+      gsl_interp_accel_free ((potentialArgs+ii)->accy);
+   free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
   free(row);
@@ -177,8 +179,10 @@ void eval_potential(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2d )
       interp_2d_free((potentialArgs+ii)->i2d) ;
-    if ((potentialArgs+ii)->acc )
-      gsl_interp_accel_free ((potentialArgs+ii)->acc);
+    if ((potentialArgs+ii)->accx )
+      gsl_interp_accel_free ((potentialArgs+ii)->accx);
+    if ((potentialArgs+ii)->accy )
+      gsl_interp_accel_free ((potentialArgs+ii)->accy);
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);

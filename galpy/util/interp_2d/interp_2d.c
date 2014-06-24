@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "interp_2d.h"
 
 interp_2d * interp_2d_alloc(int size1, int size2)
@@ -34,7 +35,8 @@ void interp_2d_init(interp_2d * i2d, const double * xa, const double * ya, const
     }
 }
 
-double interp_2d_eval_linear(interp_2d * i2d, double x, double y, gsl_interp_accel * acc)
+double interp_2d_eval_linear(interp_2d * i2d, double x, double y, 
+			     gsl_interp_accel * accx, gsl_interp_accel * accy)
 {
     int size1 = i2d->size1;
     int size2 = i2d->size2;
@@ -45,8 +47,8 @@ double interp_2d_eval_linear(interp_2d * i2d, double x, double y, gsl_interp_acc
     //x = (x > xa[size1-1]) ? xa[size1-1] : x;
     //y = (y > ya[size2-1]) ? ya[size2-1] : y;
     
-    int ix = gsl_interp_accel_find(acc, xa, size1, x);
-    int iy = gsl_interp_accel_find(acc, ya, size2, y);
+    int ix = gsl_interp_accel_find(accx, xa, size1, x);
+    int iy = gsl_interp_accel_find(accy, ya, size2, y);
     
     double z00 = za[ix*size2+iy];
     double z01 = za[ix*size2+iy+1];
@@ -58,7 +60,8 @@ double interp_2d_eval_linear(interp_2d * i2d, double x, double y, gsl_interp_acc
     return z00*(xa[ix+1]-x)*(ya[iy+1]-y)/denom + z10*(x-xa[ix])*(ya[iy+1]-y)/denom + z01*(xa[ix+1]-x)*(y-ya[iy])/denom + z11*(x-xa[ix])*(y-ya[iy])/denom;
 }
 
-void interp_2d_eval_grad_linear(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * acc)
+void interp_2d_eval_grad_linear(interp_2d * i2d, double x, double y, double * grad, 
+				gsl_interp_accel * accx, gsl_interp_accel * accy)
 {
     int size1 = i2d->size1;
     int size2 = i2d->size2;
@@ -69,8 +72,8 @@ void interp_2d_eval_grad_linear(interp_2d * i2d, double x, double y, double * gr
     //x = (x > xa[size1-1]) ? xa[size1-1] : x;
     //y = (y > ya[size2-1]) ? ya[size2-1] : y;
     
-    int ix = gsl_interp_accel_find(acc, xa, size1, x);
-    int iy = gsl_interp_accel_find(acc, ya, size2, y);
+    int ix = gsl_interp_accel_find(accx, xa, size1, x);
+    int iy = gsl_interp_accel_find(accy, ya, size2, y);
     
     double z00 = za[ix*size2+iy];
     double z01 = za[ix*size2+iy+1];
@@ -85,7 +88,9 @@ void interp_2d_eval_grad_linear(interp_2d * i2d, double x, double y, double * gr
     return;
 }
 
-double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_interp_accel * acc)
+double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, 
+				    gsl_interp_accel * accx, 
+				    gsl_interp_accel * accy)
 {
     int size1 = i2d->size1;
     int size2 = i2d->size2;
@@ -98,16 +103,22 @@ double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_int
     y = (y > ya[size2-1]) ? ya[size2-1] : y;
     y = (y < ya[0]) ? ya[0] : y;
 
-    int ix = gsl_interp_accel_find(acc, xa, size1, x);
-    int iy = gsl_interp_accel_find(acc, ya, size2, y);
+    int ix = gsl_interp_accel_find(accx, xa, size1, x);
+    int iy = gsl_interp_accel_find(accy, ya, size2, y);
     
     double x_norm = ix + (x-xa[ix])/(xa[ix+1]-xa[ix]);
     double y_norm = iy + (y-ya[iy])/(ya[iy+1]-ya[iy]);
     
+    printf("%f,%f,%i,%i,%f,%f,%f\n",x,y,ix,iy,x_norm,y_norm,cubic_bspline_2d_interpol(za,size1,size2,x_norm,y_norm));
+    fflush(stdout);
+
     return cubic_bspline_2d_interpol(za,size1,size2,x_norm,y_norm);
 }
 
-void interp_2d_eval_grad_cubic_bspline(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * acc)
+void interp_2d_eval_grad_cubic_bspline(interp_2d * i2d, double x, double y, 
+				       double * grad, 
+				       gsl_interp_accel * accx, 
+				       gsl_interp_accel * accy)
 {
     int size1 = i2d->size1;
     int size2 = i2d->size2;
@@ -115,8 +126,8 @@ void interp_2d_eval_grad_cubic_bspline(interp_2d * i2d, double x, double y, doub
     double * ya = i2d->ya;
     double * za = i2d->za;
     
-    int ix = gsl_interp_accel_find(acc, xa, size1, x);
-    int iy = gsl_interp_accel_find(acc, ya, size2, y);
+    int ix = gsl_interp_accel_find(accx, xa, size1, x);
+    int iy = gsl_interp_accel_find(accy, ya, size2, y);
     
     double x_norm = ix + (x-xa[ix])/(xa[ix+1]-xa[ix]);
     double y_norm = iy + (y-ya[iy])/(ya[iy+1]-ya[iy]);    
@@ -127,20 +138,24 @@ void interp_2d_eval_grad_cubic_bspline(interp_2d * i2d, double x, double y, doub
     return;
 }
 
-double interp_2d_eval(interp_2d * i2d, double x, double y, gsl_interp_accel * acc)
+double interp_2d_eval(interp_2d * i2d, double x, double y, 
+		      gsl_interp_accel * accx, 
+		      gsl_interp_accel * accy)
 {
-    return (i2d->type == INTERP_2D_CUBIC_BSPLINE ? interp_2d_eval_cubic_bspline(i2d,x,y,acc) :  interp_2d_eval_linear(i2d,x,y,acc) );
+  return (i2d->type == INTERP_2D_CUBIC_BSPLINE ? interp_2d_eval_cubic_bspline(i2d,x,y,accx,accy) :  interp_2d_eval_linear(i2d,x,y,accx,accy) );
 }
 
-void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * acc)
+void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad, 
+			 gsl_interp_accel * accx, 
+			 gsl_interp_accel * accy)
 {
     if(i2d->type == INTERP_2D_CUBIC_BSPLINE)
     {
-        interp_2d_eval_grad_cubic_bspline(i2d,x,y,grad,acc);
+      interp_2d_eval_grad_cubic_bspline(i2d,x,y,grad,accx,accy);
     }
     else
     {
-         interp_2d_eval_grad_linear(i2d,x,y,grad,acc);
+      interp_2d_eval_grad_linear(i2d,x,y,grad,accx,accy);
     }
     return;
 }

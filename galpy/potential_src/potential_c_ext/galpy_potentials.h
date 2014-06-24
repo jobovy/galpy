@@ -33,7 +33,8 @@ struct potentialArg{
   int nargs;
   double * args;
   interp_2d * i2d;
-  gsl_interp_accel * acc;
+  gsl_interp_accel * accx;
+  gsl_interp_accel * accy;
   interp_2d * i2drforce;
   gsl_interp_accel * accrforce;
   interp_2d * i2dzforce;
