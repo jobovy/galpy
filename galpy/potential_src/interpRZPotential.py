@@ -3,6 +3,7 @@ import copy
 import ctypes
 import ctypes.util
 import warnings
+from functools import wraps
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
@@ -29,6 +30,25 @@ if _lib is None: #pragma: no cover
     ext_loaded= False
 else:
     ext_loaded= True
+
+def scalarDecorator(func):
+    """Decorator to return scalar outputs as a set"""
+    @wraps(func)
+    def scalar_wrapper(*args,**kwargs):
+        if numpy.array(args[1]).shape == ():
+            scalarOut= True
+            newargs= (args[0],)
+            for ii in range(len(args)-1):
+                newargs= newargs+(numpy.array([args[ii+1]]),)
+            args= newargs
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            return result[0]
+        else:
+            return result
+    return scalar_wrapper
 
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
@@ -223,28 +243,23 @@ class interpRZPotential(Potential):
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
+    @scalarDecorator
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         if self._interpPot and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
             if self._zsym:
                 return eval_potential_c(self,R,numpy.fabs(z))[0]
             else:
                 return eval_potential_c(self,R,z)[0]
         from galpy.potential import evaluatePotentials
         if self._interpPot:
-            if isinstance(R,float):
-                return self._evaluate(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) < self._zgrid[-1])\
                     *(numpy.fabs(z) > self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -281,11 +296,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) < self._zgrid[-1])\
                     *(numpy.fabs(z) > self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -322,11 +337,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) < self._zgrid[-1])\
                     *(numpy.fabs(z) > self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -382,11 +397,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
+                    *(numpy.fabs(z) < self._zgrid[-1])\
                     *(numpy.fabs(z) > self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
