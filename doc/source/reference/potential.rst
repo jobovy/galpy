@@ -84,6 +84,7 @@ Specific potentials
    potentialjaffe.rst
    potentialflattenedpower.rst
    potentialhernquist.rst
+   potentialisochrone.rst
    potentialkepler.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
