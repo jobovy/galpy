@@ -36,7 +36,8 @@ struct potentialArg{
   gsl_interp_accel * accx;
   gsl_interp_accel * accy;
   interp_2d * i2drforce;
-  gsl_interp_accel * accrforce;
+  gsl_interp_accel * accxrforce;
+  gsl_interp_accel * accyrforce;
   interp_2d * i2dzforce;
   gsl_interp_accel * acczforce;
 };

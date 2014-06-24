@@ -45,7 +45,8 @@ void parse_leapFuncArgs_Full(int npot,
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   for (ii=0; ii < npot; ii++){
     potentialArgs->i2drforce= NULL;
-    potentialArgs->accrforce= NULL;
+    potentialArgs->accxrforce= NULL;
+    potentialArgs->accyrforce= NULL;
     potentialArgs->i2dzforce= NULL;
     potentialArgs->acczforce= NULL;
     switch ( *pot_type++ ) {
@@ -133,7 +134,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2drforce,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
-      potentialArgs->accrforce= gsl_interp_accel_alloc ();
+      potentialArgs->accxrforce= gsl_interp_accel_alloc ();
+      potentialArgs->accyrforce= gsl_interp_accel_alloc ();
       for (kk=0; kk < nR; kk++)
 	put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz); 
       pot_args+= nR*nz;    
