@@ -12,27 +12,39 @@ class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
 
-                amp
-    rho(r)= --------- e^{-(r/rc)^2}
-             r^\alpha
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{r^\\alpha}\\,\\exp\\left(-(r/rc)^2\\right)
+
     """
     def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a power-law-density potential
+
         INPUT:
-           amp - amplitude to be applied to the potential (default: 1)
-           alpha - inner power
-           rc - cut-off radius
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           amp= amplitude to be applied to the potential (default: 1)
+
+           alpha= inner power
+
+           rc= cut-off radius
+
+           normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-06-28 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.alpha= alpha

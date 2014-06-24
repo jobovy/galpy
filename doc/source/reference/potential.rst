@@ -90,6 +90,7 @@ Specific potentials
    potentialmiyamoto.rst
    potentialnfw.rst
    potentialpowerspher.rst
+   potentialpowerspherwcut.rst
    potentialrazorexp.rst
 
 In addition to these classes, a Milky-Way-like potential is defined as ``galpy.potential.MWPotential``. This potential is defined as
