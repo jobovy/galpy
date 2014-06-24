@@ -1,6 +1,5 @@
 import numpy
 from galpy import potential
-from test_streamdf import expected_failure
 
 def test_interpolation_potential():
     #Test the interpolation of the potential
@@ -67,23 +66,36 @@ def test_interpolation_potential():
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
-@expected_failure
 def test_interpolation_potential_c():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
-                                       rgrid=(0.01,2.,171),
-                                       zgrid=(0.,0.2,102),
+                                       rgrid=(0.01,2.,151),
+                                       zgrid=(0.,0.2,151),
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=True)
     #Test within the grid, using vector evaluation
-    rs= numpy.linspace(0.011,1.99,20)
-    zs= numpy.linspace(0.01,0.19,20)
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(0.0,0.2,20)
     mr,mz= numpy.meshgrid(rs,zs)
-    mr= mr.flatten()[0:20]
-    mz= mz.flatten()[0:20]
-    print mr, mz
-    print rzpot(mr,mz),potential.evaluatePotentials(mr,mz,potential.MWPotential)
-    print numpy.amax(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)))
+    mr= mr.flatten()
+    mz= mz.flatten()
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
+    return None
+
+def test_interpolation_potential_c_vdiffgridsizes():
+    #Test the interpolation of the potential
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,271),
+                                       zgrid=(0.,0.2,162),
+                                       interpPot=True,
+                                       enable_c=True,
+                                       zsym=True)
+    #Test within the grid, using vector evaluation
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(0.0,0.2,20)
+    mr,mz= numpy.meshgrid(rs,zs)
+    mr= mr.flatten()
+    mz= mz.flatten()
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
     return None
