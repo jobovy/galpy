@@ -139,3 +139,26 @@ def test_interpolation_potential_c_vdiffgridsizes():
     mz= mz.flatten()
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
     return None
+
+# Test evaluation outside the grid
+
+# Test Rforce
+
+# Test Rforce in C
+
+# Test zforce
+
+# Test zforce in C
+
+# Test density
+
+# Test density in C
+
+# Test the circular velocity
+
+# Test dvcircdR
+
+# Test epifreq
+
+# Test verticalfreq
+
