@@ -9,7 +9,7 @@
 /*
   Structure declarations
 */
-struct actionAngleArg{
+struct actionAngleArg{ //I think this isn't used JB 06/24/14
   double (*potentialEval)(double R, double Z, double phi, double t,
 			  int nargs, double * args);
   int nargs;
