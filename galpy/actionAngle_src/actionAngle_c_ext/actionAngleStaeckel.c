@@ -270,8 +270,10 @@ void calcu0(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -368,8 +370,10 @@ void actionAngleStaeckel_actions(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -639,8 +643,10 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -801,8 +807,10 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
