@@ -101,12 +101,16 @@ void calc_rforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce ) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce );
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce ) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce );
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -149,12 +153,16 @@ void calc_zforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce ) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce );
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce ) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce );
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -206,12 +214,16 @@ void eval_rforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -235,12 +247,16 @@ void eval_zforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
