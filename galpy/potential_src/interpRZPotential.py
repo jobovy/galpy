@@ -185,16 +185,12 @@ class interpRZPotential(Potential):
             if enable_c*ext_loaded:
                 self._zforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._zforceGrid)
         if interpDens:
-            if False:
-                raise NotImplementedError("Using C to calculate an interpolation grid for the density is not supported currently")
-                self._densGrid, err= calc_dens_c(self._origPot,self._rgrid,self._zgrid)
-            else:
-                from galpy.potential import evaluateDensities
-                densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
-                for ii in range(len(self._rgrid)):
-                    for jj in range(len(self._zgrid)):
-                        densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
-                self._densGrid= densGrid
+            from galpy.potential import evaluateDensities
+            densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+            for ii in range(len(self._rgrid)):
+                for jj in range(len(self._zgrid)):
+                    densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
+            self._densGrid= densGrid
             if self._logR:
                 self._densInterp= interpolate.RectBivariateSpline(self._logrgrid,
                                                                   self._zgrid,
@@ -205,8 +201,6 @@ class interpRZPotential(Potential):
                                                                   self._zgrid,
                                                                   numpy.log(self._densGrid+10.**-10.),
                                                                   kx=3,ky=3,s=0.)
-            if False:
-                self._densGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._densGrid)
         if interpvcirc:
             from galpy.potential import vcirc
             if not numcores is None:
@@ -338,54 +332,19 @@ class interpRZPotential(Potential):
         from galpy.potential import evaluateRzderivs
         return evaluateRzderivs(R,z,self._origPot)
     
+    @scalarVectorDecorator
+    @zsymDecorator(False)
     def _dens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2013-01-29 - Written - Bovy (IAS)
-        """
-        if self._interpDens and False:#self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
-            if self._zsym:
-                return eval_dens_c(self,R,numpy.fabs(z))[0]
-            else:
-                return eval_dens_c(self,R,z)[0]
         from galpy.potential import evaluateDensities
         if self._interpDens:
-            if isinstance(R,float):
-                return self._dens(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) <= self._zgrid[-1])\
-                    *(numpy.fabs(z) >= self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx])))-10.**-10.
-                    else:
-                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],numpy.fabs(z[indx])))-10.**-10.
+                if self._logR:
+                    out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
                 else:
-                    if self._logR:
-                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
-                    else:
-                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
+                    out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
             if numpy.sum(True-indx) > 0:
                 out[True-indx]= evaluateDensities(R[True-indx],
                                                   z[True-indx],
