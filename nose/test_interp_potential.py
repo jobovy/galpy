@@ -566,7 +566,7 @@ def check_interpolation_potential_dens():
     assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
-def test_interpolation_potential_dens_diffinputs():
+def check_interpolation_potential_dens_diffinputs():
     #Test the interpolation of the potential for different inputs: combination of vector and scalar (we've already done both scalars and both vectors above)
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
@@ -580,6 +580,35 @@ def test_interpolation_potential_dens_diffinputs():
     assert numpy.all(numpy.fabs((rzpot.dens(rs,zs[10])-potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
     #R scalar, z vector
     assert numpy.all(numpy.fabs((rzpot.dens(rs[10],zs)-potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
+    return None
+
+# Test evaluation outside the grid
+def test_interpolation_potential_dens_outsidegrid():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpDens=True,
+                                       zsym=False)
+    rs= [0.005,2.5]
+    zs= [-0.1,0.3]
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((rzpot.dens(r,z)
+                               -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+    return None
+
+def test_interpolation_potential_density_notinterpolated():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpDens=False,
+                                       zsym=True)
+    rs= [0.5,1.5]
+    zs= [0.075,0.15]
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((rzpot.dens(r,z)
+                               -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test the circular velocity
