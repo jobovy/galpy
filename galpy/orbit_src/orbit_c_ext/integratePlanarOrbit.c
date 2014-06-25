@@ -34,9 +34,9 @@ double calcPlanarRphideriv(double, double, double,
 /*
   Actual functions
 */
-inline void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
-			       int * pot_type,
-			       double * pot_args){
+void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
+			int * pot_type,
+			double * pot_args){
   int ii,jj;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
