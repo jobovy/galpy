@@ -67,6 +67,22 @@ def zsymDecorator(odd):
         return zsym_wrapper
     return wrapper
 
+def scalarDecorator(func):
+    """Decorator to return scalar output for 1D functions (vcirc,etc.)"""
+    @wraps(func)
+    def scalar_wrapper(*args,**kwargs):
+        if numpy.array(args[1]).shape == ():
+            scalarOut= True
+            args= (args[0],numpy.array([args[1]]))
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            return result[0]
+        else:
+            return result
+    return scalar_wrapper
+
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
     def __init__(self,
@@ -353,14 +369,21 @@ class interpRZPotential(Potential):
         else:
             return evaluateDensities(R,z,self._origPot)
 
+    @scalarDecorator
     def vcirc(self,R):
+        from galpy.potential import vcirc
         if self._interpvcirc:
-            if self._logR:
-                return self._vcircInterp(numpy.log(R))
-            else:
-                return self._vcircInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._vcircInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._vcircInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= vcirc(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import vcirc
             return vcirc(self._origPot,R)
 
     def dvcircdR(self,R):

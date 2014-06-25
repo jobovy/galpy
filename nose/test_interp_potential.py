@@ -640,6 +640,39 @@ def test_interpolation_potential_vcirc():
                                        zsym=True)
     rs= numpy.linspace(0.01,20.,20)
     assert numpy.all(numpy.fabs((rzpot.vcirc(rs)-potential.vcirc(potential.MWPotential,rs))/potential.vcirc(potential.MWPotential,rs)) < 10.**-6.), 'RZPot interpolation of vcirc w/ interpRZPotential fails for vector input, w/ logR'
+    #Test the interpolation of the potential, with numcores
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpvcirc=True,
+                                       numcores=1,
+                                       zsym=True)
+    rs= numpy.linspace(0.01,2.,20)
+    assert numpy.all(numpy.fabs((rzpot.vcirc(rs)-potential.vcirc(potential.MWPotential,rs))/potential.vcirc(potential.MWPotential,rs)) < 10.**-6.), 'RZPot interpolation of vcirc w/ interpRZPotential fails for vector input'
+    return None
+
+# Test evaluation outside the grid
+def test_interpolation_potential_vcirc_outsidegrid():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpvcirc=True,
+                                       zsym=False)
+    rs= [0.005,2.5]
+    for r in rs:
+        vcdiff= numpy.fabs((rzpot.vcirc(r)
+                            -potential.vcirc(potential.MWPotential,r))/potential.vcirc(potential.MWPotential,r)) 
+        assert vcdiff < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at R = %g by %g' % (r,vcdiff)
+    return None
+
+def test_interpolation_potential_vcirc_notinterpolated():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpvcirc=False,
+                                       zsym=True)
+    rs= [0.5,1.5]
+    for r in rs:
+        vcdiff= numpy.fabs((rzpot.vcirc(r)
+                               -potential.vcirc(potential.MWPotential,r))/potential.vcirc(potential.MWPotential,r)) 
+        assert vcdiff < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = %g by %g' % (r,vcdiff)
     return None
 
 # Test dvcircdR
