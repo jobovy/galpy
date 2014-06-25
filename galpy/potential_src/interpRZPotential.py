@@ -51,6 +51,16 @@ def scalarVectorDecorator(func):
             return result
     return scalar_wrapper
 
+def zsymDecorator(func):
+    """Decorator to deal with zsym=True input"""
+    @wraps(func)
+    def zsym_wrapper(*args,**kwargs):
+        if args[0]._zsym:
+            return func(args[0],args[1],numpy.fabs(args[2]),**kwargs)
+        else:
+            return func(*args,**kwargs)
+    return zsym_wrapper
+
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
     def __init__(self,
@@ -244,35 +254,22 @@ class interpRZPotential(Potential):
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
+    @zsymDecorator
     @scalarVectorDecorator
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         from galpy.potential import evaluatePotentials
         if self._interpPot:
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) <= self._zgrid[-1])\
-                    *(numpy.fabs(z) >= self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._enable_c:
-                    if self._zsym:
-                        out[indx]= eval_potential_c(self,R[indx],numpy.fabs(z[indx]))[0]
-                    else:
-                        out[indx]= eval_potential_c(self,R[indx],z[indx])[0]
+                    out[indx]= eval_potential_c(self,R[indx],z[indx])[0]
                 else:
-                    if self._zsym:
-                        if self._logR:
-                            out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
-                        else:
-                            out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
+                    if self._logR:
+                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
                     else:
-                        if self._logR:
-                            out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
-                        else:
-                            out[indx]= self._potInterp.ev(R[indx],z[indx])
+                        out[indx]= self._potInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
                 out[True-indx]= evaluatePotentials(R[True-indx],
                                                    z[True-indx],
