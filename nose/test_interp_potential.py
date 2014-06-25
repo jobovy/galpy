@@ -68,6 +68,22 @@ def test_interpolation_potential():
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
+def test_interpolation_potential_diffinputs():
+    #Test the interpolation of the potential for different inputs: combination of vector and scalar (we've already done both scalars and both vectors above)
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpPot=True,
+                                       zsym=True)
+    #Test all at the same time to use vector evaluation
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(0.0,0.2,20)
+    #R vector, z scalar
+    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    #R scalar, z vector
+    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    return None
+
 def test_interpolation_potential_c():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
@@ -121,6 +137,22 @@ def test_interpolation_potential_c():
     mr= mr.flatten()
     mz= mz.flatten()
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
+    return None
+
+def test_interpolation_potential_diffinputs_c():
+    #Test the interpolation of the potential for different inputs: combination of vector and scalar (we've already done both scalars and both vectors above)
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,151),
+                                       zgrid=(0.,0.2,151),
+                                       interpPot=True,
+                                       zsym=True,enable_c=True)
+    #Test all at the same time to use vector evaluation
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(0.0,0.2,20)
+    #R vector, z scalar
+    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    #R scalar, z vector
+    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 def test_interpolation_potential_c_vdiffgridsizes():

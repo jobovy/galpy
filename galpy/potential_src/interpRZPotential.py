@@ -26,16 +26,22 @@ if _lib is None: #pragma: no cover
 else:
     ext_loaded= True
 
-def scalarDecorator(func):
+def scalarVectorDecorator(func):
     """Decorator to return scalar outputs as a set"""
     @wraps(func)
     def scalar_wrapper(*args,**kwargs):
-        if numpy.array(args[1]).shape == ():
+        if numpy.array(args[1]).shape == () \
+                and numpy.array(args[2]).shape == (): #only if both R and z are scalars
             scalarOut= True
-            newargs= (args[0],)
-            for ii in range(len(args)-1):
-                newargs= newargs+(numpy.array([args[ii+1]]),)
-            args= newargs
+            args= (args[0],numpy.array([args[1]]),numpy.array([args[2]]))
+        elif numpy.array(args[1]).shape == () \
+                and not numpy.array(args[2]).shape == (): #R scalar, z vector
+            scalarOut= False
+            args= (args[0],args[1]*numpy.ones_like(args[2]),args[2])
+        elif not numpy.array(args[1]).shape == () \
+                and numpy.array(args[2]).shape == (): #R vector, z scalar
+            scalarOut= False
+            args= (args[0],args[1],args[2]*numpy.ones_like(args[1]))
         else:
             scalarOut= False
         result= func(*args,**kwargs)
@@ -238,7 +244,7 @@ class interpRZPotential(Potential):
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
-    @scalarDecorator
+    @scalarVectorDecorator
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         if self._interpPot and self._enable_c:
             if self._zsym:
@@ -570,12 +576,6 @@ def eval_potential_c(pot,R,z):
     from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
-
-    #check input
-    if isinstance(z,float):
-        z= numpy.ones(len(R))*z
-    if isinstance(R,float):
-        R= numpy.ones(len(z))*R
 
     #Set up result arrays
     out= numpy.empty((len(R)))
