@@ -191,6 +191,35 @@ def test_interpolation_potential_use_c():
     return None
 
 # Test evaluation outside the grid
+def test_interpolation_potential_outsidegrid():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpPot=True,
+                                       zsym=False)
+    rs= [0.005,2.5]
+    zs= [-0.1,0.3]
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((rzpot(r,z)
+                               -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+    return None
+
+# Test evaluation outside the grid in C
+def test_interpolation_potential_outsidegrid_c():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpPot=True,
+                                       zsym=False,
+                                       enable_c=True)
+    rs= [0.005,2.5]
+    zs= [-0.1,0.3]
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((rzpot(r,z)
+                               -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+    return None
 
 # Test Rforce
 

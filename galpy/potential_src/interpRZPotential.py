@@ -246,32 +246,33 @@ class interpRZPotential(Potential):
                                                  
     @scalarVectorDecorator
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
-        if self._interpPot and self._enable_c:
-            if self._zsym:
-                return eval_potential_c(self,R,numpy.fabs(z))[0]
-            else:
-                return eval_potential_c(self,R,z)[0]
         from galpy.potential import evaluatePotentials
         if self._interpPot:
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[-1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
+                    *(numpy.fabs(z) <= self._zgrid[-1])\
+                    *(numpy.fabs(z) >= self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
+                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                if self._enable_c:
+                    if self._zsym:
+                        out[indx]= eval_potential_c(self,R[indx],numpy.fabs(z[indx]))[0]
                     else:
-                        out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
+                        out[indx]= eval_potential_c(self,R[indx],z[indx])[0]
                 else:
-                    if self._logR:
-                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
+                    if self._zsym:
+                        if self._logR:
+                            out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                        else:
+                            out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
                     else:
-                        out[indx]= self._potInterp.ev(R[indx],z[indx])
+                        if self._logR:
+                            out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
+                        else:
+                            out[indx]= self._potInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
                 out[True-indx]= evaluatePotentials(R[True-indx],
                                                    z[True-indx],
@@ -297,11 +298,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[-1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
+                    *(numpy.fabs(z) <= self._zgrid[-1])\
+                    *(numpy.fabs(z) >= self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
+                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -338,11 +339,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[-1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
+                    *(numpy.fabs(z) <= self._zgrid[-1])\
+                    *(numpy.fabs(z) >= self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
+                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
@@ -398,11 +399,11 @@ class interpRZPotential(Potential):
             out= numpy.empty_like(R)
             if self._zsym:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[-1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
+                    *(numpy.fabs(z) <= self._zgrid[-1])\
+                    *(numpy.fabs(z) >= self._zgrid[0])
             else:
                 indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[-1])*(z > self._zgrid[0])
+                    *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
