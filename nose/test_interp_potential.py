@@ -140,6 +140,24 @@ def test_interpolation_potential_c_vdiffgridsizes():
     assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
     return None
 
+def test_interpolation_potential_use_c():
+    #Test the interpolation of the potential, using C to calculate the grid
+    rzpot_c= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                         rgrid=(0.01,2.,101),
+                                         zgrid=(0.,0.2,101),
+                                         interpPot=True,
+                                         zsym=True,
+                                         use_c=False)
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,101),
+                                       zgrid=(0.,0.2,101),
+                                       interpPot=True,
+                                       zsym=True,
+                                       use_c=True)
+    assert numpy.all(numpy.fabs(rzpot._potGrid-rzpot_c._potGrid) < 10.**-14.), \
+        'Potential interpolation grid calculated with use_c does not agree with that calculated in python'
+    return None
+
 # Test evaluation outside the grid
 
 # Test Rforce
