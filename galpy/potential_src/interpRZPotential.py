@@ -344,9 +344,9 @@ class interpRZPotential(Potential):
             if numpy.sum(indx) > 0:
                 if self._zsym:
                     if self._logR:
-                        out[indx]= sign(z) * self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
+                        out[indx]= sign(z[indx]) * self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
                     else:
-                        out[indx]= sign(z) * self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                        out[indx]= sign(z[indx]) * self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
                 else:
                     if self._logR:
                         out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),z[indx])
