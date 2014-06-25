@@ -497,7 +497,7 @@ def check_interpolation_potential_rzderiv():
     return None
 
 # Test density
-def test_interpolation_potential_dens():
+def check_interpolation_potential_dens():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
@@ -564,6 +564,22 @@ def test_interpolation_potential_dens():
     mr= mr.flatten()
     mz= mz.flatten()
     assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
+    return None
+
+def test_interpolation_potential_dens_diffinputs():
+    #Test the interpolation of the potential for different inputs: combination of vector and scalar (we've already done both scalars and both vectors above)
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       zgrid=(0.,0.2,201),
+                                       interpDens=True,
+                                       zsym=True)
+    #Test all at the same time to use vector evaluation
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(-0.2,0.2,40)
+    #R vector, z scalar
+    assert numpy.all(numpy.fabs((rzpot.dens(rs,zs[10])-potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
+    #R scalar, z vector
+    assert numpy.all(numpy.fabs((rzpot.dens(rs[10],zs)-potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 # Test the circular velocity
