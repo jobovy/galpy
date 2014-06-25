@@ -38,7 +38,7 @@ void calc_potential(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){
@@ -84,7 +84,7 @@ void calc_rforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){
@@ -136,7 +136,7 @@ void calc_zforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){

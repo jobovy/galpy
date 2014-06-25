@@ -319,7 +319,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -430,7 +430,7 @@ void calcJRStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jr,umin,umax,JRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
@@ -496,7 +496,7 @@ void calcJzStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jz,vmin,JzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
@@ -575,7 +575,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -725,7 +725,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -857,7 +857,7 @@ void calcFreqsFromDerivsStaeckel(int ndata,
 				 double * djzdLz,
 				 double * djzdI3){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
   private(ii)							\
   shared(Omegar,Omegaphi,Omegaz,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3,detA)
@@ -880,7 +880,7 @@ void calcdI3dJFromDerivsStaeckel(int ndata,
 				 double * djrdLz,
 				 double * djzdLz){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
   private(ii)							\
   shared(djrdE,djzdE,djrdLz,djzdLz,dI3dJR,dI3dJz,dI3dLz,detA)
@@ -924,7 +924,7 @@ void calcdJRStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid)							\
   shared(djrdE,djrdLz,djrdI3,umin,umax,dJRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
@@ -1014,7 +1014,7 @@ void calcdJzStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid)							\
   shared(djzdE,djzdLz,djzdI3,vmin,dJzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
@@ -1134,7 +1134,7 @@ void calcAnglesStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid,midpoint,Or1,Or2,I3r1,I3r2,phitmp)			\
   shared(Angler,Anglephi,Anglez,Omegar,Omegaz,dI3dJR,dI3dJz,umin,umax,AngleuInt,AnglevInt,paramsu,paramsv,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0,vmin,I3V,cosh2u0,potupi2)
@@ -1383,7 +1383,7 @@ void calcUminUmax(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,u_lo,u_hi,meps,peps)				\
@@ -1592,7 +1592,7 @@ void calcVmin(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,v_lo,v_hi)				\

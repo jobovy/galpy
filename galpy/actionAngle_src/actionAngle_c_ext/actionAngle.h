@@ -7,6 +7,18 @@
 #include <gsl/gsl_spline.h>
 #include "interp_2d.h"
 /*
+  Macro for dealing with potentially unused variables due to OpenMP
+ */
+/* If we're not using GNU C, elide __attribute__ if it doesn't exist*/
+#ifndef __has_attribute      // Compatibility with non-clang compilers. 
+#define __has_attribute(x) 0  
+#endif
+#if defined(__GNUC__) || __has_attribute(unused)
+#  define UNUSED __attribute__((unused))
+#else
+#  define UNUSED /*NOTHING*/
+#endif
+/*
   Structure declarations
 */
 struct actionAngleArg{ //I think this isn't used JB 06/24/14
