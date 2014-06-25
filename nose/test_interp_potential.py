@@ -583,7 +583,7 @@ def check_interpolation_potential_dens_diffinputs():
     return None
 
 # Test evaluation outside the grid
-def test_interpolation_potential_dens_outsidegrid():
+def check_interpolation_potential_dens_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
@@ -597,7 +597,7 @@ def test_interpolation_potential_dens_outsidegrid():
                                -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
-def test_interpolation_potential_density_notinterpolated():
+def check_interpolation_potential_density_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
@@ -612,6 +612,35 @@ def test_interpolation_potential_density_notinterpolated():
     return None
 
 # Test the circular velocity
+def test_interpolation_potential_vcirc():
+    #Test the interpolation of the potential
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpvcirc=True,
+                                       zsym=True)
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)
+    for r in rs:
+        assert numpy.fabs((rzpot.vcirc(r)
+                           -potential.vcirc(potential.MWPotential,r))/potential.vcirc(potential.MWPotential,r)) < 10.**-10., 'RZPot interpolation of vcirc w/ interpRZPotential fails at R = %g' % (r)
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,20)
+    for r in rs:
+        vcdiff= numpy.fabs((rzpot.vcirc(r)
+                            -potential.vcirc(potential.MWPotential,r))/potential.vcirc(potential.MWPotential,r)) 
+        assert vcdiff < 10.**-6., 'RZPot interpolation of vcirc w/ interpRZPotential fails at R = %g by %g' % (r,vcdiff)
+    #Test all at the same time to use vector evaluation
+    assert numpy.all(numpy.fabs((rzpot.vcirc(rs)-potential.vcirc(potential.MWPotential,rs))/potential.vcirc(potential.MWPotential,rs)) < 10.**-6.), 'RZPot interpolation of vcirc w/ interpRZPotential fails for vector input'
+    #Test the interpolation of the potential, now with logR
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(numpy.log(0.01),numpy.log(20.),
+                                              201),
+                                       logR=True,
+                                       interpvcirc=True,
+                                       zsym=True)
+    rs= numpy.linspace(0.01,20.,20)
+    assert numpy.all(numpy.fabs((rzpot.vcirc(rs)-potential.vcirc(potential.MWPotential,rs))/potential.vcirc(potential.MWPotential,rs)) < 10.**-6.), 'RZPot interpolation of vcirc w/ interpRZPotential fails for vector input, w/ logR'
+    return None
 
 # Test dvcircdR
 
