@@ -676,7 +676,7 @@ def check_interpolation_potential_vcirc_notinterpolated():
     return None
 
 # Test dvcircdR
-def test_interpolation_potential_dvcircdR():
+def check_interpolation_potential_dvcircdR():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
@@ -715,7 +715,7 @@ def test_interpolation_potential_dvcircdR():
     return None
 
 # Test evaluation outside the grid
-def test_interpolation_potential_dvcircdR_outsidegrid():
+def check_interpolation_potential_dvcircdR_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        interpdvcircdr=True,
@@ -727,7 +727,7 @@ def test_interpolation_potential_dvcircdR_outsidegrid():
         assert dvcdrdiff < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at R = %g by %g' % (r,dvcdrdiff)
     return None
 
-def test_interpolation_potential_dvcircdR_notinterpolated():
+def check_interpolation_potential_dvcircdR_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        interpdvcircdr=False,
@@ -740,6 +740,68 @@ def test_interpolation_potential_dvcircdR_notinterpolated():
     return None
 
 # Test epifreq
+def test_interpolation_potential_epifreq():
+    #Test the interpolation of the potential
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpepifreq=True,
+                                       zsym=True)
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)
+    for r in rs:
+        assert numpy.fabs((rzpot.epifreq(r)
+                           -potential.epifreq(potential.MWPotential,r))/potential.epifreq(potential.MWPotential,r)) < 10.**-10., 'RZPot interpolation of epifreq w/ interpRZPotential fails at R = %g' % (r)
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,20)
+    for r in rs:
+        epidiff= numpy.fabs((rzpot.epifreq(r)
+                            -potential.epifreq(potential.MWPotential,r))/potential.epifreq(potential.MWPotential,r)) 
+        assert epidiff < 10.**-5., 'RZPot interpolation of epifreq w/ interpRZPotential fails at R = %g by %g' % (r,epidiff)
+    #Test all at the same time to use vector evaluation
+    assert numpy.all(numpy.fabs((rzpot.epifreq(rs)-potential.epifreq(potential.MWPotential,rs))/potential.epifreq(potential.MWPotential,rs)) < 10.**-5.), 'RZPot interpolation of epifreq w/ interpRZPotential fails for vector input'
+    #Test the interpolation of the potential, now with logR
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(numpy.log(0.01),numpy.log(20.),
+                                              201),
+                                       logR=True,
+                                       interpepifreq=True,
+                                       zsym=True)
+    rs= numpy.linspace(0.01,20.,20)
+    assert numpy.all(numpy.fabs((rzpot.epifreq(rs)-potential.epifreq(potential.MWPotential,rs))/potential.epifreq(potential.MWPotential,rs)) < 10.**-5.), 'RZPot interpolation of epifreq w/ interpRZPotential fails for vector input, w/ logR'
+    #Test the interpolation of the potential, with numcores
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpepifreq=True,
+                                       numcores=1,
+                                       zsym=True)
+    rs= numpy.linspace(0.01,2.,20)
+    assert numpy.all(numpy.fabs((rzpot.epifreq(rs)-potential.epifreq(potential.MWPotential,rs))/potential.epifreq(potential.MWPotential,rs)) < 10.**-5.), 'RZPot interpolation of epifreq w/ interpRZPotential fails for vector input'
+    return None
+
+# Test evaluation outside the grid
+def test_interpolation_potential_epifreq_outsidegrid():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpepifreq=True,
+                                       zsym=False)
+    rs= [0.005,2.5]
+    for r in rs:
+        epidiff= numpy.fabs((rzpot.epifreq(r)
+                               -potential.epifreq(potential.MWPotential,r))/potential.epifreq(potential.MWPotential,r)) 
+        assert epidiff < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at R = %g by %g' % (r,epirdiff)
+    return None
+
+def test_interpolation_potential_epifreq_notinterpolated():
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       interpepifreq=False,
+                                       zsym=True)
+    rs= [0.5,1.5]
+    for r in rs:
+        epidiff= numpy.fabs((rzpot.epifreq(r)
+                               -potential.epifreq(potential.MWPotential,r))/potential.epifreq(potential.MWPotential,r)) 
+        assert epidiff < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = %g by %g' % (r,epidiff)
+    return None
 
 # Test verticalfreq
 

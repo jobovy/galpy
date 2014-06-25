@@ -242,8 +242,8 @@ class interpRZPotential(Potential):
         if interpepifreq:
             from galpy.potential import epifreq
             if not numcores is None:
-                self._epifreqGrid= multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
-                                                      range(len(self._rgrid)),numcores=numcores)
+                self._epifreqGrid= numpy.array(multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
+                                                      range(len(self._rgrid)),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             indx= True-numpy.isnan(self._epifreqGrid)
@@ -403,14 +403,21 @@ class interpRZPotential(Potential):
         else:
             return dvcircdR(self._origPot,R)
 
+    @scalarDecorator
     def epifreq(self,R):
+        from galpy.potential import epifreq
         if self._interpepifreq:
-            if self._logR:
-                return self._epifreqInterp(numpy.log(R))
-            else:
-                return self._epifreqInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._epifreqInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._epifreqInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= epifreq(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import epifreq
             return epifreq(self._origPot,R)
 
     def verticalfreq(self,R):
