@@ -4,7 +4,7 @@ import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
-from galpy import potential, potential_src
+from galpy import potential
 from galpy.util import galpyWarning
 from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
@@ -12,18 +12,25 @@ _lib = None
 _libname = ctypes.util.find_library('galpy_integrate_c')
 if _libname:
     _lib = ctypes.CDLL(_libname)
+outerr= None
 if _lib is None:
     import sys
     for path in sys.path:
         try:
             _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-        except OSError:
+        except OSError, e:
+            if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+                outerr= e
             _lib = None
         else:
             break
 if _lib is None: #pragma: no cover
-    warnings.warn("integrateFullOrbit_c extension module not loaded",
-                  galpyWarning)
+    if not outerr is None:
+        warnings.warn("integrateFullOrbit_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+                      galpyWarning)
     _ext_loaded= False
 else:
     _ext_loaded= True
