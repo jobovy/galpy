@@ -2,7 +2,7 @@
   C code for actionAngle calculations
 */
 #ifndef __GALPY_ACTIONANGLE_H__
-#define __GALPY_ACTIONANGLE_H_
+#define __GALPY_ACTIONANGLE_H__
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_spline.h>
 #include "interp_2d.h"
