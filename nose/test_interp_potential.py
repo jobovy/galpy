@@ -314,6 +314,24 @@ def test_interpolation_potential_force():
     assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
+def test_interpolation_potential_force_diffinputs():
+    #Test the interpolation of the potential for different inputs: combination of vector and scalar (we've already done both scalars and both vectors above)
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,201),
+                                       zgrid=(0.,0.2,201),
+                                       interpRforce=True,interpzforce=True,
+                                       zsym=True)
+    #Test all at the same time to use vector evaluation
+    rs= numpy.linspace(0.01,2.,20)
+    zs= numpy.linspace(-0.2,0.2,40)
+    #R vector, z scalar
+    assert numpy.all(numpy.fabs((rzpot.Rforce(rs,zs[10])-potential.evaluateRforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluateRforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of of Rforce w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.zforce(rs,zs[10])-potential.evaluatezforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatezforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of of zforce w/ interpRZPotential fails for vector R and scalar Z'
+    #R scalar, z vector
+    assert numpy.all(numpy.fabs((rzpot.Rforce(rs[10],zs)-potential.evaluateRforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluateRforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.zforce(rs[10],zs)-potential.evaluatezforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatezforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    return None
+
 # Test Rforce in C
 
 # Test zforce
