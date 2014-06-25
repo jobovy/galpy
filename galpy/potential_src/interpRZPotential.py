@@ -420,14 +420,21 @@ class interpRZPotential(Potential):
         else:
             return epifreq(self._origPot,R)
 
+    @scalarDecorator
     def verticalfreq(self,R):
+        from galpy.potential import verticalfreq
         if self._interpverticalfreq:
-            if self._logR:
-                return self._verticalfreqInterp(numpy.log(R))
-            else:
-                return self._verticalfreqInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._verticalfreqInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._verticalfreqInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= verticalfreq(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import verticalfreq
             return verticalfreq(self._origPot,R)
     
 def calc_potential_c(pot,R,z,rforce=False,zforce=False):
