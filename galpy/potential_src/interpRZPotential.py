@@ -1,4 +1,5 @@
 import os
+import sys
 import copy
 import ctypes
 import ctypes.util
@@ -11,19 +12,13 @@ from galpy.util import multi, galpyWarning
 from Potential import Potential
 _DEBUG= False
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_interppotential_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname)
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
-        except OSError:
-            _lib = None
-        else:
-            break
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
+    except OSError:
+        _lib = None
+    else:
+        break
 if _lib is None: #pragma: no cover
     warnings.warn("interppotential_c extension module not loaded",
                   galpyWarning)
