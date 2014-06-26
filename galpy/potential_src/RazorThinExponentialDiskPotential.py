@@ -206,7 +206,7 @@ class RazorThinExponentialDiskPotential(Potential):
                     +nu.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
             raise AttributeError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            z2deriv

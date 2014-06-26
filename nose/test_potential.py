@@ -513,11 +513,13 @@ def test_evaluateAndDerivs_potential():
         #2nd radial
         hasR2= True
         from galpy.potential import PotentialError
+        if 'RazorThin' in p: R2z= 0.
+        else: R2z= 0.1
         try:
             if isinstance(tp,potential.planarPotential): 
                 tp.R2deriv(1.2)
             else:
-                tp.R2deriv(1.2,0.1)
+                tp.R2deriv(1.2,R2z)
         except PotentialError:
             hasR2= False
         if hasR2:
@@ -525,8 +527,8 @@ def test_evaluateAndDerivs_potential():
                 tevaldr2= tp(1.2,phi=0.1,dR=2)
                 tr2deriv= tp.R2deriv(1.2,phi=0.1)
             else:
-                tevaldr2= tp(1.2,0.1,phi=0.1,dR=2)
-                tr2deriv= tp.R2deriv(1.2,0.1,phi=0.1)
+                tevaldr2= tp(1.2,R2z,phi=0.1,dR=2)
+                tr2deriv= tp.R2deriv(1.2,R2z,phi=0.1)
             if not tevaldr2 is None:
                 if tevaldr2**2. < 10.**ttol:
                     assert tr2deriv*2. < 10.**ttol, \
