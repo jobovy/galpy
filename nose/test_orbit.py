@@ -4,6 +4,7 @@ import numpy
 import os
 from galpy import potential
 from test_potential import testplanarMWPotential, testMWPotential, \
+    testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
     mockFlatDehnenBarPotential, \
@@ -37,6 +38,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSteadyLogSpiralPotential')
     pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('testMWPotential')
+    pots.append('testlinearMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -87,6 +89,8 @@ def test_energy_jacobi_conservation():
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p:
                 tJacobis= o.Jacobi(times,pot=tp)
+            elif isinstance(tp,potential.linearPotential):
+                tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(times)
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.

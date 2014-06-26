@@ -156,7 +156,7 @@ def evaluatelinearPotentials(x,Pot,t=0.):
         return sum
     elif isinstance(Pot,linearPotential):
         return Pot(x,t=t)
-    else:
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
 def evaluatelinearForces(x,Pot,t=0.):
@@ -193,7 +193,7 @@ def evaluatelinearForces(x,Pot,t=0.):
         return sum
     elif isinstance(Pot,linearPotential):
         return Pot.force(x,t=t)
-    else:
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 
 def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):

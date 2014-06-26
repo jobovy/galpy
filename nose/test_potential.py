@@ -61,6 +61,7 @@ def test_forceAsDeriv_potential():
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
@@ -190,6 +191,7 @@ def test_2ndDeriv_potential():
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
@@ -388,6 +390,7 @@ def test_poisson_potential():
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -1245,3 +1248,18 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
                                                 potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+
+#Class to test lists of linearPotentials
+from galpy.potential import linearPotential, \
+    evaluatelinearPotentials, evaluatelinearForces
+class testlinearMWPotential(linearPotential):
+    def __init__(self,potlist=MWPotential):
+        self._potlist= [p.toVertical(1.) for p in potlist if isinstance(p,Potential)]
+        self._potlist.extend([p for p in potlist if isinstance(p,linearPotential)])
+        linearPotential.__init__(self,amp=1.)
+        return None
+    def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
+        return evaluatelinearPotentials(R,self._potlist,phi=phi,t=t)
+    def _force(self,R,phi=0.,t=0.):
+        return evaluatelinearForces(R,self._potlist,phi=phi,t=t)
+
