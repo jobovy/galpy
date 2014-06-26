@@ -108,12 +108,13 @@ def test_energy_jacobi_conservation():
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 assert (o.E()-o.E(0.))**2. < 10.**ttol, \
                     "Energy calculated with o.E() and o.E(0.) do not agree"
-                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
-                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
-                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
+                if not isinstance(tp,potential.linearPotential):
+                    assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                        "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
                 if not isinstance(tp,potential.linearPotential) \
                         and not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
@@ -129,16 +130,18 @@ def test_energy_jacobi_conservation():
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
-                try:
-                    o.Jacobi()
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            
+                if not isinstance(tp,potential.linearPotential):
+                    try:
+                        o.Jacobi()
+                    except AttributeError:
+                        pass
+                    else:
+                        raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if isinstance(tp,potential.linearPotential) \
                     or (ptp is None and tp.isNonAxi):
-                if _QUICKTEST and not 'NFW' in p: break
+                if _QUICKTEST \
+                        and not ('NFW' in p or 'linearMWPotential' in p):
+                    break
                 else: continue
             #Now do axisymmetric
             o= setup_orbit_energy(tp,axi=True)
