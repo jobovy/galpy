@@ -115,6 +115,9 @@ class interpRZPotential(Potential):
            2010-07-21 - Written - Bovy (NYU)
            2013-01-24 - Started with new implementation - Bovy (IAS)
         """
+        if isinstance(RZPot,interpRZPotential):
+            from galpy.potential import PotentialError
+            raise PotentialError('Cannot setup interpRZPotential with another interpRZPotential')
         Potential.__init__(self,amp=1.)
         self.hasC= True
         self._origPot= RZPot

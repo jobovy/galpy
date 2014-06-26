@@ -1,6 +1,22 @@
 import numpy
 from galpy import potential
 
+def test_errors():
+    #Test that when we set up an interpRZPotential w/ another interpRZPotential, we get an error
+    rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
+                                       rgrid=(0.01,2.,11),
+                                       zgrid=(0.,0.2,11),
+                                       interpPot=True,
+                                       zsym=True)
+    try:
+        rzpot2= potential.interpRZPotential(RZPot=rzpot,
+                                            rgrid=(0.01,2.,11),
+                                            zgrid=(0.,0.2,11),
+                                            interpPot=True,
+                                            zsym=True)
+    except potential.PotentialError: pass
+    else: raise AssertionError('Setting up an interpRZPotential w/ another interpRZPotential did not raise PotentialError')
+
 def test_interpolation_potential():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
