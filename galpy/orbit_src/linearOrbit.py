@@ -103,7 +103,7 @@ class linearOrbit(OrbitTop):
                                  +thiso[1,ii]**2./2.\
                                  for ii in range(len(t))])
 
-    def e(self,analytic=False,pot=None):
+    def e(self,analytic=False,pot=None): #pragma: no cover
         """
         NAME:
            e
@@ -117,63 +117,14 @@ class linearOrbit(OrbitTop):
         """
         raise AttributeError("linearOrbit does not have an eccentricity")
 
-    def rap(self,analytic=False,pot=None):
+    def rap(self,analytic=False,pot=None): #pragma: no cover
         raise AttributeError("linearOrbit does not have an apocenter")
 
-    def rperi(self,analytic=False,pot=None):
+    def rperi(self,analytic=False,pot=None): #pragma: no cover
         raise AttributeError("linearOrbit does not have a pericenter")
 
-    def zmax(self):
+    def zmax(self): #pragma: no cover
         raise AttributeError("linearOrbit does not have a zmax")
-
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'x', 'vx'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluatelinearPotentials(self.orbit[ii,0],pot,t=self.t[ii])+
-                 self.orbit[ii,1]**2./2.
-                 for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'x':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vx':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
 
 def _integrateLinearOrbit(vxvv,pot,t,method):
     """

@@ -1609,6 +1609,32 @@ def test_physical_output_off():
     return None
 
 # Check plotting routines
+def test_linear_plotting():
+    from galpy.orbit import Orbit
+    from galpy.potential_src.verticalPotential import RZToverticalPotential
+    o= Orbit([1.,1.])
+    times= numpy.linspace(0.,7.,251)
+    from galpy.potential import LogarithmicHaloPotential
+    lp= RZToverticalPotential(LogarithmicHaloPotential(normalize=1.,q=0.8),1.)
+    try: o.plotE()
+    except AttributeError: pass
+    else: raise AssertionError('o.plotE() before the orbit was integrated did not raise AttributeError for planarOrbit')
+    # Integrate
+    o.integrate(times,lp)
+    # Energy
+    o.plotE()
+    o.plotE(pot=lp,d1='x',xlabel=r'$xlabel$')
+    o.plotE(pot=lp,d1='vx',ylabel=r'$ylabel$')
+    # Plot the orbit itself, defaults
+    o.plot()
+    o.plot(ro=8.)
+    # Plot the orbit itself in 3D
+    try: o.plot3d()
+    except AttributeError: pass
+    else: raise AssertionError('o.plot3d for linearOrbit did not raise Exception')
+    return None
+
+# Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.planarPotential import RZToplanarPotential
