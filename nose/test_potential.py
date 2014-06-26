@@ -1006,6 +1006,31 @@ def test_plotting():
     finally:
         os.remove(tmp_savefilename)
     potential.plotplanarPotentials([dp],gridx=11,gridy=11)
+    #Tests of linearPotential plotting
+    lip= potential.RZToverticalPotential(potential.MiyamotoNagaiPotential(normalize=1.),1.)
+    lip.plot()
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        lip.plot(t=0.,min=-15.,max=15,ns=21,savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        lip.plot(t=0.,min=-15.,max=15,ns=21,savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        potential.plotlinearPotentials(lip,t=0.,min=-15.,max=15,ns=21,
+                                       savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        potential.plotlinearPotentials(lip,t=0.,min=-15.,max=15,ns=21,
+                                       savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
     return None
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
