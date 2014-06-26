@@ -9,7 +9,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatLopsidedDiskPotential, \
     mockFlatDehnenBarPotential, \
     mockFlatSteadyLogSpiralPotential, \
-    mockFlatTransientLogSpiralPotential
+    mockFlatTransientLogSpiralPotential, \
+    mockCombLinearPotential, \
+    mockSimpleLinearPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -39,6 +41,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('testMWPotential')
     pots.append('testlinearMWPotential')
+    pots.append('mockCombLinearPotential')
+    pots.append('mockSimpleLinearPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']

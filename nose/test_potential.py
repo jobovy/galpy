@@ -1251,11 +1251,11 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
 
 #Class to test lists of linearPotentials
 from galpy.potential import linearPotential, \
-    evaluatelinearPotentials, evaluatelinearForces
+    evaluatelinearPotentials, evaluatelinearForces, \
+    RZToverticalPotential
 class testlinearMWPotential(linearPotential):
     def __init__(self,potlist=MWPotential):
-        self._potlist= [p.toVertical(1.) for p in potlist if isinstance(p,Potential)]
-        self._potlist.extend([p for p in potlist if isinstance(p,linearPotential)])
+        self._potlist= RZToverticalPotential(potlist,1.)
         linearPotential.__init__(self,amp=1.)
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
@@ -1263,3 +1263,14 @@ class testlinearMWPotential(linearPotential):
     def _force(self,R,phi=0.,t=0.):
         return evaluatelinearForces(R,self._potlist,phi=phi,t=t)
 
+class mockCombLinearPotential(testlinearMWPotential):
+    def __init__(self):
+        testlinearMWPotential.__init__(self,
+                                       potlist=[potential.MWPotential[0],
+                                                potential.MWPotential[1].toVertical(1.),
+                                                potential.MWPotential[2].toVertical(1.)])
+
+class mockSimpleLinearPotential(testlinearMWPotential):
+    def __init__(self):
+        testlinearMWPotential.__init__(self,
+                                       potlist=potential.MiyamotoNagaiPotential(normalize=1.))
