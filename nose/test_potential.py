@@ -856,6 +856,39 @@ def test_planar_nonaxi():
         raise AssertionError('evaluateplanarR2derivs for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
     return None
 
+def test_ExpDisk_special():
+    #Test some special cases for the ExponentialDisk potentials
+    if _TRAVIS: return None
+    #Test that array input works
+    dp= potential.DoubleExponentialDiskPotential(normalize=1.)
+    rs= numpy.linspace(0.1,2.11)
+    zs= numpy.ones_like(rs)*0.1
+    #Potential itself
+    dpevals= numpy.array([dp(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential evaluation does not work as expected for array inputs'
+    #Rforce
+    dpevals= numpy.array([dp.Rforce(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp.Rforce(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential Rforce evaluation does not work as expected for array inputs'
+    #zforce
+    dpevals= numpy.array([dp.zforce(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp.zforce(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential zforce evaluation does not work as expected for array inputs'
+    #R2deriv
+    dpevals= numpy.array([dp.R2deriv(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp.R2deriv(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential R2deriv evaluation does not work as expected for array inputs'
+    #z2deriv
+    dpevals= numpy.array([dp.z2deriv(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp.z2deriv(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential z2deriv evaluation does not work as expected for array inputs'
+    #Rzderiv
+    dpevals= numpy.array([dp.Rzderiv(r,z) for (r,z) in zip(rs,zs)])
+    assert numpy.all(numpy.fabs(dp.Rzderiv(rs,zs)-dpevals) < 10.**-10.), \
+        'DoubleExppnentialDiskPotential Rzderiv evaluation does not work as expected for array inputs'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
