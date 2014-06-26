@@ -83,6 +83,8 @@ def test_energy_jacobi_conservation():
             o= setup_orbit_energy(tp,axi=False)
             if isinstance(tp,testplanarMWPotential):
                 o.integrate(times,tp._potlist,method=integrator)
+            elif isinstance(tp,testlinearMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
             else:
                 o.integrate(times,tp,method=integrator)
             tEs= o.E(times)
@@ -100,7 +102,7 @@ def test_energy_jacobi_conservation():
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or 'MWPotential' in p:
+            if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
                 #Some basic checking of the energy and Jacobi functions
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
@@ -112,7 +114,8 @@ def test_energy_jacobi_conservation():
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
-                if not tp.isNonAxi:
+                if not isinstance(tp,potential.linearPotential) \
+                        and not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                     assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
@@ -132,7 +135,9 @@ def test_energy_jacobi_conservation():
                     pass
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            if ptp is None and tp.isNonAxi:
+            
+            if isinstance(tp,potential.linearPotential) \
+                    or (ptp is None and tp.isNonAxi):
                 if _QUICKTEST and not 'NFW' in p: break
                 else: continue
             #Now do axisymmetric

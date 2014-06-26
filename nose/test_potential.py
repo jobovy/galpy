@@ -1164,6 +1164,7 @@ from galpy.potential import Potential, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities
 class testMWPotential(Potential):
+    """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
         self._potlist= potlist
         Potential.__init__(self,amp=1.)
@@ -1194,6 +1195,7 @@ from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
 class testplanarMWPotential(planarPotential):
+    """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
         self._potlist= [p.toPlanar() for p in potlist if isinstance(p,Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p,planarPotential)])
@@ -1254,14 +1256,17 @@ from galpy.potential import linearPotential, \
     evaluatelinearPotentials, evaluatelinearForces, \
     RZToverticalPotential
 class testlinearMWPotential(linearPotential):
+    """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
         self._potlist= RZToverticalPotential(potlist,1.)
         linearPotential.__init__(self,amp=1.)
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
-        return evaluatelinearPotentials(R,self._potlist,phi=phi,t=t)
-    def _force(self,R,phi=0.,t=0.):
-        return evaluatelinearForces(R,self._potlist,phi=phi,t=t)
+        return evaluatelinearPotentials(R,self._potlist,t=t)
+    def _force(self,R,t=0.):
+        return evaluatelinearForces(R,self._potlist,t=t)
+    def normalize(self,norm,t=0.):
+        self._amp= norm
 
 class mockCombLinearPotential(testlinearMWPotential):
     def __init__(self):
@@ -1273,4 +1278,4 @@ class mockCombLinearPotential(testlinearMWPotential):
 class mockSimpleLinearPotential(testlinearMWPotential):
     def __init__(self):
         testlinearMWPotential.__init__(self,
-                                       potlist=potential.MiyamotoNagaiPotential(normalize=1.))
+                                       potlist=potential.MiyamotoNagaiPotential(normalize=1.).toVertical(1.))

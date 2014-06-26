@@ -56,7 +56,6 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        if method == 'leapfrog_c': method= 'odeint'
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         self.t= nu.array(t)
         self._pot= pot
@@ -87,15 +86,19 @@ class linearOrbit(OrbitTop):
         else:
             pot= kwargs['pot']
             kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
         #Get orbit
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatelinearPotentials(thiso[0],thispot,
+            return evaluatelinearPotentials(thiso[0],pot,
                                             t=t)\
                                             +thiso[1]**2./2.
         else:
-            return nu.array([evaluatelinearPotentials(thiso[0,ii],thispot,
+            return nu.array([evaluatelinearPotentials(thiso[0,ii],pot,
                                                       t=t[ii])\
                                  +thiso[1,ii]**2./2.\
                                  for ii in range(len(t))])
@@ -188,6 +191,11 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
     HISTORY:
        2010-07-13- Written - Bovy (NYU)
     """
+    if '_c' in method:
+        if 'leapfrog' in method or 'symplec' in method:
+            method= 'leapfrog'
+        else:
+            method= 'odeint'
     if method.lower() == 'leapfrog':
         return symplecticode.leapfrog(evaluatelinearForces,nu.array(vxvv),
                                       t,args=(pot,),rtol=10.**-8)
