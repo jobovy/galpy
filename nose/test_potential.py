@@ -887,6 +887,11 @@ def test_ExpDisk_special():
     dpevals= numpy.array([dp.Rzderiv(r,z) for (r,z) in zip(rs,zs)])
     assert numpy.all(numpy.fabs(dp.Rzderiv(rs,zs)-dpevals) < 10.**-10.), \
         'DoubleExppnentialDiskPotential Rzderiv evaluation does not work as expected for array inputs'
+    #Check the PotentialError for z=/=0 evaluation of R2deriv of RazorThinDiskPotential
+    rp= potential.RazorThinExponentialDiskPotential(normalize=1.)
+    try: rp.R2deriv(1.,0.1)
+    except potential.PotentialError: pass
+    else: raise AssertionError("RazorThinExponentialDiskPotential's R2deriv did not raise AttributeError for z=/= 0 input")
     return None
 
 def test_plotting():
