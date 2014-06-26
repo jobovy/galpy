@@ -255,6 +255,19 @@ The ``None`` here means that there is no inner Lindblad resonance, the
 the :ref:`Hercules stream <hercules>` in this documentation).
 
 
+Using interpolations of potentials
+-----------------------------------
+
+``galpy`` contains a general ``Potential`` class ``interpRZPotential``
+that can be used to generate interpolations of potentials that can be
+used in their stead to speed up calculations when the calculation of
+the original potential is computationally expensive (for example, for
+the ``DoubleExponentialDiskPotential``). Full details on how to set
+this up are given :ref:`here <interprz>`. Interpolated potentials can
+be used anywhere that general three-dimensional galpy potentials can
+be used. Some care must be taken with outside-the-interpolation-grid
+evaluations for functions that use ``C`` to speed up computations.
+
 Adding potentials to the galpy framework
 -----------------------------------------
 

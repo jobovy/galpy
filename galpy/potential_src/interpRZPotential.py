@@ -96,30 +96,48 @@ class interpRZPotential(Potential):
                  numcores=None):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize an interpRZPotential instance
+
         INPUT:
+
            RZPot - RZPotential to be interpolated
+
            rgrid - R grid to be given to linspace
+
            zgrid - z grid to be given to linspace
+
            logR - if True, rgrid is in the log of R
-           interpPot, interpRfoce, interpzforce, interpDens,interpvcirc, interpeopifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
-           use_c= use C to speed up the calculation
+
+           interpPot, interpRforce, interpzforce, interpDens,interpvcirc, interpepifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
+
+           use_c= use C to speed up the calculation of the grid
+
            enable_c= enable use of C for interpolations
+
            zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+
            numcores= if set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE)
+
         OUTPUT:
+
            instance
+
         HISTORY:
+
            2010-07-21 - Written - Bovy (NYU)
+
            2013-01-24 - Started with new implementation - Bovy (IAS)
+
         """
         if isinstance(RZPot,interpRZPotential):
             from galpy.potential import PotentialError
             raise PotentialError('Cannot setup interpRZPotential with another interpRZPotential')
         Potential.__init__(self,amp=1.)
-        self.hasC= True
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
         self._logR= logR
@@ -136,6 +154,7 @@ class interpRZPotential(Potential):
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
         self._enable_c= enable_c*ext_loaded
+        self.hasC= self._enable_c
         self._zsym= zsym
         if interpPot:
             if use_c*ext_loaded:
