@@ -7,7 +7,9 @@ _degtorad= math.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
+    .. math::
+
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
