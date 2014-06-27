@@ -7,11 +7,15 @@ _degtorad= math.pi/180.
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A(t)/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
+    .. math::
+
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}(t)}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
     where
 
-    A(t) = A_max exp(- [t-to]^2/sigma^2/2.)
+    .. math::
+
+        \\mathrm{amp}(t) = \\mathrm{amp}\\,\\times A\\,\\exp\\left(-\\frac{[t-t_0]^2}{2\\,\\sigma^2}\\right)
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
