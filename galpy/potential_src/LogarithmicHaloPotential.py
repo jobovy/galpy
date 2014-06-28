@@ -6,7 +6,13 @@ import numpy as nu
 from Potential import Potential
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
-    """Class that implements the logarithmic halo potential Phi(r)"""
+    """Class that implements the logarithmic halo potential
+
+    .. math::
+
+        \\Phi(R,z) = \\frac{\\mathrm{amp}}{2}\\,\\ln\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)
+
+    """
     def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False):
         """
         NAME:
