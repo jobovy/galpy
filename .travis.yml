@@ -9,7 +9,8 @@ virtualenv:
 before_install:
  - sudo apt-get install libgsl0-dev
  - pip uninstall -y numpy #uninstall numpy from virtualenv
- - sudo apt-get install -qq python-numpy python-scipy python-matplotlib
+ - pip install git+git://github.com/numpy/numpy.git#egg=numpy
+ - sudo apt-get install -qq python-scipy python-matplotlib
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
