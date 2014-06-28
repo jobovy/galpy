@@ -11,6 +11,9 @@ class SteadyLogSpiralPotential(planarPotential):
 
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
+
+    Can be grown in a similar way as the DehnenBarPotential
+
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
                  alpha=-7.,m=2,gamma=math.pi/4.,p=None,
