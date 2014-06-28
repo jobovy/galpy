@@ -10,26 +10,37 @@ from Potential import Potential
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
-                - amp
-    Phi(r)= ---------------- ---
-             b + sqrt{b^2+r^2}
+    .. math::
+
+        \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
+
     """
     def __init__(self,amp=1.,b=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an isochrone potential
+
         INPUT:
+
            amp= amplitude to be applied to the potential (default: 1)
+
            b= scale radius of the isochrone potential
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-09-08 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.b= b
