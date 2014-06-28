@@ -7,7 +7,11 @@ from planarPotential import planarPotential
 _degtorad= math.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
-           phi(R,phi) = phio (R/Ro)^p cos[m(phi-phib)]
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(m\\,(\\phi-\\phi_b)\\right)
+
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,m=1.,
@@ -249,8 +253,12 @@ class CosmphiDiskPotential(planarPotential):
 
 class LopsidedDiskPotential(CosmphiDiskPotential):
     """Class that implements the disk potential
-           phi(R,phi) = phio (R/Ro)^p cos[phi-phib)]
-           See documentation for CosmphiDiskPotential
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(\\phi-\\phi_b\\right)
+
+    See documentation for CosmphiDiskPotential
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,

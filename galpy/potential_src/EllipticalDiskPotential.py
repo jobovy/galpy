@@ -7,7 +7,11 @@ from planarPotential import planarPotential
 _degtorad= m.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
-           phi(R,phi) = phio (R/Ro)^p cos[2(phi-phib)]
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
+
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,twophio=0.01,
