@@ -197,7 +197,7 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
         """
         if self.alpha == 0.:
-            return 1./self.q2*((2.*self.q2+1.)*self.core2+R**2.\
+            return 1./4./nu.pi/self.q2*((2.*self.q2+1.)*self.core2+R**2.\
                                        +(2.-1./self.q2)*z**2.)/\
                                        (R**2.+z**2./self.q2+self.core2)**2.
         else:

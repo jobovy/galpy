@@ -18,6 +18,7 @@ def test_normalize_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('specialFlattenedPowerPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -59,6 +60,7 @@ def test_forceAsDeriv_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
@@ -189,6 +191,7 @@ def test_2ndDeriv_potential():
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
+    pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
@@ -387,6 +390,7 @@ def test_poisson_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
@@ -455,6 +459,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
@@ -1080,7 +1085,7 @@ def test_plotting():
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
-    MWPotential
+    MWPotential, FlattenedPowerPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -1108,6 +1113,10 @@ class specialPowerSphericalPotential(PowerSphericalPotential):
 class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
     def __init__(self):
         MiyamotoNagaiPotential.__init__(self,amp=1.,a=0.,b=0.1)
+        return None
+class specialFlattenedPowerPotential(FlattenedPowerPotential):
+    def __init__(self):
+        FlattenedPowerPotential.__init__(self,alpha=0.)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
