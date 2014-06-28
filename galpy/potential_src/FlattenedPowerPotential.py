@@ -13,9 +13,13 @@ from galpy.potential import LogarithmicHaloPotential
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)
-                                             amp
-                          phi(R,z)=-  ---------------- ; m^2 = R^2 + z^2/q^2
-                                       alpha m^\alpha
+
+    .. math::
+
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^\\alpha}
+
+    and the same as LogarithmicHaloPotential for :math:`\\alpha=0`
+
     """
     def __init__(self,amp=1.,alpha=2.,q=0.9,core=_CORE,normalize=False):
         """
