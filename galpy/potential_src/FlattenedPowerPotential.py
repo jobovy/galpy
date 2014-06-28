@@ -16,7 +16,7 @@ class FlattenedPowerPotential(Potential):
 
     .. math::
 
-        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^\\alpha}
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^{\\alpha/2}}
 
     and the same as LogarithmicHaloPotential for :math:`\\alpha=0`
 
