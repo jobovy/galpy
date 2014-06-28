@@ -59,7 +59,6 @@ def test_energy_jacobi_conservation():
     jactol= {}
     jactol['default']= -10.
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    jactol['FlattenedPowerPotential']= -8. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     firstTest= True
     for p in pots:
@@ -540,7 +539,7 @@ def test_apocenter():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
+    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -549,6 +548,7 @@ def test_apocenter():
     #tolerances in log10
     tol= {}
     tol['default']= -16.
+    tol['FlattenedPowerPotential']= -14. #these are more difficult
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
 #    tol['NFWPotential']= -12. #these are more difficult
     firstTest= True
@@ -576,7 +576,7 @@ def test_apocenter():
                     raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
             o.integrate(times,tp,method=integrator)
             tapo= o.rap()
-#            print p, integrator, tapo
+            #print p, integrator, tapo, (tapo-o.R())**2.
             assert (tapo-o.R())**2. < 10.**ttol, \
                 "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             #add tracking azimuth
@@ -644,7 +644,7 @@ def test_zmax():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
+    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -737,7 +737,7 @@ def test_analytic_ecc_rperi_rap():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
+    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -751,6 +751,7 @@ def test_analytic_ecc_rperi_rap():
     tol['JaffePotential']= -6. #these are more difficult
     tol['PowerSphericalPotential']= -8. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
+    tol['FlattenedPowerPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -788,13 +789,13 @@ def test_analytic_ecc_rperi_rap():
                 #Eccentricity
                 tecc= o.e()
                 tecc_analytic= o.e(analytic=True)
-#                print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+                #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
                 trperi_analytic= o.rperi(analytic=True)
-#                print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+                #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 assert (o.rperi(ro=8.)/8.-trperi_analytic)**2. < 10.**ttol, \
@@ -802,7 +803,7 @@ def test_analytic_ecc_rperi_rap():
                 #Apocenter radius
                 trap= o.rap()
                 trap_analytic= o.rap(analytic=True)
-#                print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+                #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
@@ -827,7 +828,7 @@ def test_analytic_zmax():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
+    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
     if _TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -844,6 +845,7 @@ def test_analytic_zmax():
     tol['LogarithmicHaloPotential']= -7. #these are more difficult
     tol['KeplerPotential']= -7. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
+    tol['FlattenedPowerPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -869,7 +871,7 @@ def test_analytic_zmax():
                 o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
                 tzmax_analytic= o.zmax(analytic=True)
-#                print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
+                #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \

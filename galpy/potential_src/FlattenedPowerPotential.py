@@ -20,8 +20,10 @@ class FlattenedPowerPotential(Potential):
 
     and the same as LogarithmicHaloPotential for :math:`\\alpha=0`
 
+    See Figure 1 in `Evans (1994) <http://adsabs.harvard.edu/abs/1994MNRAS.267..333E>`_ for combinations of alpha and q that correspond to positive densities
+
     """
-    def __init__(self,amp=1.,alpha=2.,q=0.9,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False):
         """
         NAME:
 
