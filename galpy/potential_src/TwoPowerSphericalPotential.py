@@ -15,9 +15,9 @@ class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
 
-                              A / (4 pi a^3)
-    rho(r)= ------------------------------------
-             (r/a)^\alpha (1+r/a)^(\beta-\alpha)
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^\\alpha\\,(1+r/a)^{\\beta-\\alpha}}
     """
     def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False):
         """
@@ -369,7 +369,13 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
                                                       _forceFloatEval=True)
 
 class HernquistPotential(TwoPowerIntegerSphericalPotential):
-    """Class that implements the Hernquist potential"""
+    """Class that implements the Hernquist potential
+
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{3}}
+
+    """
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
@@ -527,7 +533,13 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         return (r/self.a)**2./2./(1.+r/self.a)**2.
 
 class JaffePotential(TwoPowerIntegerSphericalPotential):
-    """Class that implements the Jaffe potential"""
+    """Class that implements the Jaffe potential
+
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^2\\,(1+r/a)^{2}}
+
+    """
     def __init__(self,amp=1.,a=1.,normalize=False):
         """
         NAME:
@@ -687,7 +699,13 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         return r/self.a/(1.+r/self.a)
 
 class NFWPotential(TwoPowerIntegerSphericalPotential):
-    """Class that implements the NFW potential"""
+    """Class that implements the NFW potential
+
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{2}}
+
+    """
     def __init__(self,amp=1.,a=1.,normalize=False,
                  conc=None,mvir=None,
                  vo=220.,ro=8.,
