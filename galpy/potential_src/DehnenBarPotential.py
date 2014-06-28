@@ -6,6 +6,29 @@ from planarPotential import planarPotential
 _degtorad= m.pi/180.
 class DehnenBarPotential(planarPotential):
     """Class that implements the Dehnen bar potential (Dehnen 2000)
+
+    .. math::
+
+        \\Phi(R,\\phi) = A_b(t)\\,\\cos\\left(2\\,(\\phi-\\Omega_b\\,t)\\right))\\times \\begin{cases}
+        -(R_b/R)^3\\,, & \\text{for}\\ R \\geq R_b\\\\
+        (R/R_b)^3-2\\,, & \\text{for}\\ R\\leq R_b.
+        \\end{cases}
+
+    where
+
+    .. math::
+
+        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = \\frac{t}{t_\mathrm{steady}-t_\\mathrm{form}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq t \\leq t_\\mathrm{steady}
+
+    and 
+
+    .. math::
+
+        A_b(t) = \\begin{cases}
+        0\\,, & t < t_\mathrm{form}\\\\
+        \\frac{\\alpha}{3\\,R_b^3}\\,, & t > t_\mathrm{steady}
+        \\end{cases}
+
     """
     def __init__(self,amp=1.,omegab=None,rb=None,chi=0.8,
                  rolr=0.9,barphi=25.*_degtorad,
