@@ -522,7 +522,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         pots= [MWPotential,
                DoubleExponentialDiskPotential(normalize=1.)]
     else:

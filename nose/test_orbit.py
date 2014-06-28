@@ -47,7 +47,7 @@ def test_energy_jacobi_conservation():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -333,7 +333,7 @@ def test_eccentricity():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -436,7 +436,7 @@ def test_pericenter():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -539,8 +539,7 @@ def test_apocenter():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -644,8 +643,7 @@ def test_zmax():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -737,8 +735,7 @@ def test_analytic_ecc_rperi_rap():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -828,8 +825,7 @@ def test_analytic_zmax():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    #rmpots.append('FlattenedPowerPotential') #odd behavior, issue #148
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1711,7 +1707,7 @@ def test_full_plotting():
     oa= Orbit([1.,0.1,1.1,0.1,0.2])
     times= numpy.linspace(0.,7.,251)
     from galpy.potential import LogarithmicHaloPotential
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         from galpy.potential import DoubleExponentialDiskPotential
         dp= DoubleExponentialDiskPotential(normalize=1.)
     lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
@@ -1751,7 +1747,7 @@ def test_full_plotting():
     o.plotE(pot=lp,d1='z')
     o.plotE(pot=lp,d1='vz')
     o.plotE(pot=lp,d1='phi')
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         o.plotE(pot=dp,d1='phi')
     oa.plotE()
     oa.plotE(pot=lp,d1='R')
@@ -1768,7 +1764,7 @@ def test_full_plotting():
     o.plotEz(pot=lp,d1='z')
     o.plotEz(pot=lp,d1='vz')
     o.plotEz(pot=lp,d1='phi')
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         o.plotEz(pot=dp,d1='phi')
     oa.plotEz()
     oa.plotEz(pot=lp,d1='R')
@@ -1787,7 +1783,7 @@ def test_full_plotting():
     o.plotEzJz(pot=lp,d1='z')
     o.plotEzJz(pot=lp,d1='vz')
     o.plotEzJz(pot=lp,d1='phi')
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         o.plotEzJz(pot=dp,d1='phi')
     oa.plotEzJz()
     oa.plotEzJz(pot=lp,d1='R')

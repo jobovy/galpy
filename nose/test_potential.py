@@ -3,11 +3,10 @@ import sys
 import numpy
 import os
 from galpy import potential
-_TRAVIS= False #bool(os.getenv('TRAVIS'))
+_TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
-    print numpy.__version__
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -23,7 +22,7 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -83,7 +82,7 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -214,7 +213,7 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -399,7 +398,7 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -478,7 +477,7 @@ def test_evaluateAndDerivs_potential():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -596,7 +595,7 @@ def test_toVertical_toPlanar():
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    if _TRAVIS: #travis CI
+    if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -827,7 +826,7 @@ def test_verticalfreq():
         assert numpy.fabs(potential.verticalfreq([bp],r)-bp.omegac(r)) < 10.**-10., \
             'Verticalfreq for spherical potential does not equal rotational freq'
     #For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 (explicitly, because we use a Kepler potential)
-    if not _TRAVIS:
+    if True: #not _TRAVIS:
         dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
         assert numpy.fabs(dp.epifreq(1.)**2.+dp.verticalfreq(1.)**2.-2.*dp.omegac(1.)**2.) < 10.**-6., 'epi^2+vert^2-2*rot^2 !=~ 0 for dblexp potential, very far from center'
         #Closer to the center, this becomes the Poisson eqn.
@@ -864,7 +863,7 @@ def test_planar_nonaxi():
 
 def test_ExpDisk_special():
     #Test some special cases for the ExponentialDisk potentials
-    if _TRAVIS: return None
+    #if _TRAVIS: return None
     #Test that array input works
     dp= potential.DoubleExponentialDiskPotential(normalize=1.)
     rs= numpy.linspace(0.1,2.11)
