@@ -14,7 +14,12 @@ _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
-    rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
+
+    .. math::
+
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R-|z|/h_z\\right)
+
+    """
     def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  new=True,kmaxFac=2.,glorder=10):

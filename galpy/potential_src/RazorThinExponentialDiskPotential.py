@@ -13,7 +13,12 @@ _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class RazorThinExponentialDiskPotential(Potential):
     """Class that implements the razor-thin exponential disk potential
-    rho(R,z) = rho_0 e^-R/h_R delta(z)"""
+
+    .. math::
+
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
+
+    """
     def __init__(self,amp=1.,ro=1.,hr=1./3.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  new=True,glorder=100):
