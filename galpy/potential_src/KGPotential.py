@@ -1,11 +1,19 @@
 import scipy as sc
 from linearPotential import linearPotential
 class KGPotential(linearPotential):
-    """Class representing the Kuijken & Gilmore (1989) potential"""
+    """Class representing the Kuijken & Gilmore (1989) potential
+
+    .. math::
+
+        \Phi(x) = \\mathrm{amp}\\,\\left(K\\,\\left(\\sqrt{x^2+D^2}-D\\right)+F\\,x^2\\right)
+
+    """
     def __init__(self,K=1.15,F=0.03,D=1.8,amp=1.):
         """
         NAME:
+
            __init__
+
         PURPOSE:
 
            Initialize a KGPotential
