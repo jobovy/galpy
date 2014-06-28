@@ -3,7 +3,7 @@ import sys
 import numpy
 import os
 from galpy import potential
-_TRAVIS= bool(os.getenv('TRAVIS'))
+_TRAVIS= False #bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
