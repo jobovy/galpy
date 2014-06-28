@@ -10,12 +10,12 @@ import numpy as nu
 from scipy import special, integrate
 from Potential import Potential
 class PowerSphericalPotential(Potential):
-    """Class that implements spherical potentials that are derived from 
-    power-law density models
+    """Class that implements spherical potentials that are derived from power-law density models
 
-                amp
-    rho(r)= ---------
-             r^\alpha
+    .. math::
+
+        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,r^{-\\alpha}
+
     """
     def __init__(self,amp=1.,alpha=1.,normalize=False):
         """
@@ -192,9 +192,10 @@ class PowerSphericalPotential(Potential):
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler potential
 
-                amp
-    Phi(r)= ---------
-                 r
+    .. math::
+
+        \\Phi(r) = -\\frac{\\mathrm{amp}}{r}
+
     """
     def __init__(self,amp=1.,normalize=False):
         """
