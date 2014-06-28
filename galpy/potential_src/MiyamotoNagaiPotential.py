@@ -9,9 +9,11 @@ import numpy as nu
 from Potential import Potential
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
-                                 amp
-    phi(R,z) = -  ---------------------------------
-                   \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
+
+    .. math::
+
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+(a+\\sqrt{z^2+b^2})^2}}
+
     """
     def __init__(self,amp=1.,a=1.,b=0.1,normalize=False):
         """
