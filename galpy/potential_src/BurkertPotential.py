@@ -6,9 +6,10 @@ from Potential import Potential
 class BurkertPotential(Potential):
     """BurkertPotential.py: Potential with a Burkert density
 
-                amp
-    rho(r)= -------------      ; x = r/a
-             (1+x)(1+x^2)
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{(1+r/a)\\,(1+[r/a]^2)}
+
     """
     def __init__(self,amp=1.,a=2.,normalize=False):
         """
