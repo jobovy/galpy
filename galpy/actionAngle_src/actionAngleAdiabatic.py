@@ -18,13 +18,8 @@ from galpy.util import galpyWarning
 from galpy.potential import planarPotential
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
-try:
-    import actionAngleAdiabatic_c
-except IOError: #pragma: no cover
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+import actionAngleAdiabatic_c
+from actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleAdiabatic():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
