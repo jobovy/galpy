@@ -476,6 +476,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSteadyLogSpiralPotentialTm1')
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
+    pots.append('mockMovingObjectPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -558,7 +559,15 @@ def test_evaluateAndDerivs_potential():
                 assert (tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol, \
                     "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
         #2nd phi
-        if hasattr(tp,'_phi2deriv'):
+        hasphi2= True
+        try:
+            if isinstance(tp,potential.planarPotential): 
+                tp.phi2deriv(1.2,phi=0.1)
+            else:
+                tp.phi2deriv(1.2,0.1,phi=0.1)
+        except (PotentialError,AttributeError):
+            hasphi2= False
+        if hasphi2 and hasattr(tp,'_phi2deriv'):
             if isinstance(tp,potential.planarPotential): 
                 tevaldphi2= tp(1.2,phi=0.1,dphi=2)
                 tphi2deriv= tp.phi2deriv(1.2,phi=0.1)
@@ -1347,6 +1356,8 @@ class mockMovingObjectPotential(testMWPotential):
         testMWPotential.__init__(self,[self._o1p,self._o2p])
         self.isNonAxi= True
         return None
+    def phi2deriv(self,R,z,phi=0.,t=0.):
+        raise AttributeError
     def OmegaP(self):
         return 1./self._rc
 from galpy.potential_src.ForceSoftening import PlummerSoftening
