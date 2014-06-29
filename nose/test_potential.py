@@ -910,6 +910,12 @@ def test_ExpDisk_special():
     else: raise AssertionError("RazorThinExponentialDiskPotential's R2deriv did not raise AttributeError for z=/= 0 input")
     return None
 
+def test_MovingObject_density():
+    mp= mockMovingObjectPotential()
+    #Just test that the density far away from the object is close to zero
+    assert numpy.fabs(mp.dens(5.,0.)) < 10.**-8., 'Density far away from MovingObject is not close to zero'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
