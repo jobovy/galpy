@@ -1350,7 +1350,7 @@ class mockMovingObjectPotential(testMWPotential):
     def OmegaP(self):
         return 1./self._rc
 from galpy.potential_src.ForceSoftening import PlummerSoftening
-class mockMovingObjectExplSoftPotential(mockMovingObjectPotential):
+class mockMovingObjectExplSoftPotential(testMWPotential):
     def __init__(self,rc=0.75,maxt=1.,nt=50):
         from galpy.orbit import Orbit
         self._rc= rc
