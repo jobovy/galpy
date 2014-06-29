@@ -13,16 +13,23 @@ from Potential import Potential
 _DEBUG= False
 #Find and load the library
 _lib= None
+outerr= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
-    except OSError:
+    except OSError,e:
+        if os.path.exists(os.path.join(path,'galpy_interppotential_c.so')): #pragma: no cover
+            outerr= e
         _lib = None
     else:
         break
 if _lib is None: #pragma: no cover
-    warnings.warn("interppotential_c extension module not loaded",
-                  galpyWarning)
+    if not outerr is None:
+        warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c.so image was not found",
+                      galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True
