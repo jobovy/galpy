@@ -7,13 +7,22 @@
 ###############################################################################
 import numpy as nu
 from Potential import Potential
-from galpy.snapshot_src.directnbody import _plummer_soft
 from galpy.potential_src.ForceSoftening import PlummerSoftening
 class MovingObjectPotential(Potential):
     """Class that implements the potential coming from a moving object
-                                 GM
-    phi(R,z) = -  ---------------------------------
-                               distance
+
+    .. math::
+
+        \\Phi(R,z,\\phi,t) = -\\mathrm{amp}\\,GM\\,S(d)
+
+    where :math:`d` is the distance between :math:`(R,z,\\phi)` and the moving object at time :math:`t` and :math:`S(\\cdot)` is a softening kernel. In the case of Plummer softening, this kernel is
+
+    .. math::
+
+        S(d) = \\frac{1}{\\sqrt{d^2+\\mathrm{softening\_length}^2}}
+
+    Plummer is currently the only implemented softening.
+
     """
     def __init__(self,orbit,amp=1.,GM=.06,
                  softening=None,

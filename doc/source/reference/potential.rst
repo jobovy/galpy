@@ -89,6 +89,7 @@ Specific potentials
    potentialkepler.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
+   potentialmovingobj.rst
    potentialnfw.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
