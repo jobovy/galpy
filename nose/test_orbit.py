@@ -11,7 +11,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatSteadyLogSpiralPotential, \
     mockFlatTransientLogSpiralPotential, \
     mockCombLinearPotential, \
-    mockSimpleLinearPotential
+    mockSimpleLinearPotential, \
+    mockMovingObjectLongIntPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -44,6 +45,7 @@ def test_energy_jacobi_conservation():
     pots.append('testlinearMWPotential')
     pots.append('mockCombLinearPotential')
     pots.append('mockSimpleLinearPotential')
+    pots.append('mockMovingObjectLongIntPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -60,6 +62,7 @@ def test_energy_jacobi_conservation():
     jactol['default']= -10.
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
+    jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -79,7 +82,8 @@ def test_energy_jacobi_conservation():
         else:
             ptp= None
         for integrator in integrators:
-            if integrator == 'dopr54_c': ttimes= times
+            if integrator == 'dopr54_c' \
+                    and not 'MovingObject' in p: ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
@@ -91,7 +95,8 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'DehnenBar' in p and not 'LogSpiral' in p:
+            if not 'DehnenBar' in p and not 'LogSpiral' in p \
+                    and not 'MovingObject' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
@@ -140,7 +145,8 @@ def test_energy_jacobi_conservation():
                     else:
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if isinstance(tp,potential.linearPotential) \
-                    or (ptp is None and tp.isNonAxi):
+                    or (ptp is None and tp.isNonAxi) \
+                    or 'MovingObject' in p:
                 if _QUICKTEST \
                         and not ('NFW' in p or 'linearMWPotential' in p):
                     break

@@ -1339,11 +1339,17 @@ class mockMovingObjectPotential(testMWPotential):
         o2= Orbit([self._rc,0.,1.,0.,0.,numpy.pi])
         lp= potential.LogarithmicHaloPotential(normalize=1.)
         times= numpy.linspace(0.,maxt,nt)
-        o1.integrate(times,lp)
-        o2.integrate(times,lp)
+        o1.integrate(times,lp,method='dopr54_c')
+        o2.integrate(times,lp,method='dopr54_c')
         self._o1p= potential.MovingObjectPotential(o1)
         self._o2p= potential.MovingObjectPotential(o1)
         testMWPotential.__init__(self,[self._o1p,self._o2p])
+        self.isNonAxi= True
         return None
     def OmegaP(self):
         return 1./self._rc
+
+class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
+    def __init__(self,rc=0.75):
+        mockMovingObjectPotential.__init__(self,rc=rc,maxt=28.,nt=1001)
+        return None
