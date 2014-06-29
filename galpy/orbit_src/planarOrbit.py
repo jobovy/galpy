@@ -422,6 +422,7 @@ class planarOrbit(planarOrbitTop):
         if '_c' in method and not c_possible:
             method= 'odeint'
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
+        self.orbit= self.orbit_dxdv[:,:4]
         return msg
 
     @physical_conversion('energy')
