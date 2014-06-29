@@ -1,3 +1,4 @@
+import sys
 import warnings
 import numpy as nu
 import ctypes
@@ -7,22 +8,17 @@ import os
 from galpy import potential, potential_src
 from galpy.util import galpyWarning
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_integrate_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname)
+_lib= None
 outerr= None
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-        except OSError, e:
-            if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
-                outerr= e
-            _lib = None
-        else:
-            break
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
+    except OSError, e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+            outerr= e
+        _lib = None
+    else:
+        break
 if _lib is None: #pragma: no cover
     if not outerr is None:
         warnings.warn("integratePlanarOrbit_c extension module not loaded, because of error '%s' " % outerr,
