@@ -80,6 +80,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     pots.append('mockMovingObjectPotential')
+    pots.append('mockMovingObjectExplSoftPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -1342,13 +1343,30 @@ class mockMovingObjectPotential(testMWPotential):
         o1.integrate(times,lp,method='dopr54_c')
         o2.integrate(times,lp,method='dopr54_c')
         self._o1p= potential.MovingObjectPotential(o1)
-        self._o2p= potential.MovingObjectPotential(o1)
+        self._o2p= potential.MovingObjectPotential(o2)
         testMWPotential.__init__(self,[self._o1p,self._o2p])
         self.isNonAxi= True
         return None
     def OmegaP(self):
         return 1./self._rc
-
+from galpy.potential_src.ForceSoftening import PlummerSoftening
+class mockMovingObjectExplSoftPotential(mockMovingObjectPotential):
+    def __init__(self,rc=0.75,maxt=1.,nt=50):
+        from galpy.orbit import Orbit
+        self._rc= rc
+        o1= Orbit([self._rc,0.,1.,0.,0.,0.])
+        o2= Orbit([self._rc,0.,1.,0.,0.,numpy.pi])
+        lp= potential.LogarithmicHaloPotential(normalize=1.)
+        times= numpy.linspace(0.,maxt,nt)
+        o1.integrate(times,lp,method='dopr54_c')
+        o2.integrate(times,lp,method='dopr54_c')
+        self._o1p= potential.MovingObjectPotential(o1,
+                                                   softening=PlummerSoftening(softening_length=0.05))
+        self._o2p= potential.MovingObjectPotential(o2,
+                                                   softening=PlummerSoftening(softening_length=0.05))
+        testMWPotential.__init__(self,[self._o1p,self._o2p])
+        self.isNonAxi= True
+        return None
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
         mockMovingObjectPotential.__init__(self,rc=rc,maxt=28.,nt=1001)
