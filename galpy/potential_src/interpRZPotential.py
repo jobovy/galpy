@@ -12,6 +12,7 @@ from galpy.util import multi, galpyWarning
 from Potential import Potential
 _DEBUG= False
 #Find and load the library
+_lib= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))

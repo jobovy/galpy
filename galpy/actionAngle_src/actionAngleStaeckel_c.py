@@ -1,4 +1,5 @@
 import os
+import sys
 import warnings
 import ctypes
 import ctypes.util
@@ -8,19 +9,14 @@ from galpy.util import galpyWarning
 from galpy.orbit_src.integrateFullOrbit import _parse_pot
 from galpy.util import bovy_coords
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_actionAngle_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname) #pragma: no cover
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
-        except OSError:
-            _lib = None
-        else:
-            break
+_lib= None
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
+    except OSError:
+        _lib = None
+    else:
+        break
 if _lib is None: #pragma: no cover
     raise IOError('galpy actionAngle_c module not found')
 

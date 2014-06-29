@@ -1,4 +1,5 @@
 import os
+import sys
 import warnings
 import ctypes
 import ctypes.util
@@ -7,12 +8,7 @@ from numpy.ctypeslib import ndpointer
 from galpy.util import galpyWarning
 from galpy.orbit_src.integrateFullOrbit import _parse_pot
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_actionAngle_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname) #pragma: no cover
-if _lib is None:
-    import sys
+_lib= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
