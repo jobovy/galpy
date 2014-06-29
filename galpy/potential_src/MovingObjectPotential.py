@@ -15,7 +15,7 @@ class MovingObjectPotential(Potential):
     phi(R,z) = -  ---------------------------------
                                distance
     """
-    def __init__(self,orbit,amp=1.,GM=.06,normalize=False,
+    def __init__(self,orbit,amp=1.,GM=.06,
                  softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
@@ -34,10 +34,6 @@ class MovingObjectPotential(Potential):
            amp= - amplitude to be applied to the potential (default: 1)
 
            GM - 'mass' of the object (degenerate with amp)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1. (at t=0)
 
            Softening: either provide
 
@@ -64,10 +60,6 @@ class MovingObjectPotential(Potential):
                 self._softening= PlummerSoftening(softening_length=softening_length)
         else:
             self._softening= softening
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
-            self.normalize(normalize)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):

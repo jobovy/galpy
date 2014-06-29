@@ -79,6 +79,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
+    pots.append('mockMovingObjectPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
@@ -1219,7 +1220,8 @@ class testMWPotential(Potential):
         Potential.__init__(self,amp=1.)
         return None
     def _evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0):
-        return evaluatePotentials(R,z,self._potlist,phi=phi,t=t)
+        return evaluatePotentials(R,z,self._potlist,phi=phi,t=t,
+                                  dR=dR,dphi=dphi)
     def _Rforce(self,R,z,phi=0.,t=0.):
         return evaluateRforces(R,z,self._potlist,phi=phi,t=t)
     def _phiforce(self,R,z,phi=0.,t=0.):
@@ -1328,3 +1330,20 @@ class mockSimpleLinearPotential(testlinearMWPotential):
     def __init__(self):
         testlinearMWPotential.__init__(self,
                                        potlist=potential.MiyamotoNagaiPotential(normalize=1.).toVertical(1.))
+
+class mockMovingObjectPotential(testMWPotential):
+    def __init__(self,rc=0.75,maxt=1.,nt=50):
+        from galpy.orbit import Orbit
+        self._rc= rc
+        o1= Orbit([self._rc,0.,1.,0.,0.,0.])
+        o2= Orbit([self._rc,0.,1.,0.,0.,numpy.pi])
+        lp= potential.LogarithmicHaloPotential(normalize=1.)
+        times= numpy.linspace(0.,maxt,nt)
+        o1.integrate(times,lp)
+        o2.integrate(times,lp)
+        self._o1p= potential.MovingObjectPotential(o1)
+        self._o2p= potential.MovingObjectPotential(o1)
+        testMWPotential.__init__(self,[self._o1p,self._o2p])
+        return None
+    def OmegaP(self):
+        return 1./self._rc
