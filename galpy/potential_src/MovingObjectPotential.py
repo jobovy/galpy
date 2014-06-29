@@ -97,8 +97,6 @@ class MovingObjectPotential(Potential):
             return -self._Rforce(R,z,phi=phi,t=t)
         elif dR == 0 and dphi == 1:
             return -self._phiforce(R,z,phi=phi,t=t)
-        else:
-            raise AttributeError
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
