@@ -389,7 +389,8 @@ class planarOrbit(planarOrbitTop):
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
         return msg
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c'):
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       rectIn=False,rectOut=False):
         """
         NAME:
            integrate_dxdv
@@ -402,10 +403,13 @@ class planarOrbit(planarOrbitTop):
            method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
                    leapfrog implementation, 'leapfrog_c' for a simple
                    leapfrog implemenation in C (if possible)
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
         OUTPUT:
            (none) (get the actual orbit using getOrbit_dxdv()
         HISTORY:
            2010-10-17 - Written - Bovy (IAS)
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         """
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
@@ -421,7 +425,8 @@ class planarOrbit(planarOrbitTop):
         c_possible*= ext_loaded
         if '_c' in method and not c_possible:
             method= 'odeint'
-        self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
+        self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,
+                                                   method,rectIn,rectOut)
         self.orbit= self.orbit_dxdv[:,:4]
         return msg
 
@@ -673,7 +678,7 @@ def _integrateOrbit(vxvv,pot,t,method):
     _parse_warnmessage(msg)
     return (out,msg)
 
-def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
+def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     """
     NAME:
        _integrateOrbit_dxdv
@@ -687,6 +692,8 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       rectIn= (False) if True, input dxdv is in rectangular coordinates
+       rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
     OUTPUT:
        [:,8] array of [R,vR,vT,phi,dR,dvR,dvT,dphi] at each t
        error message from integrator
@@ -698,12 +705,19 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
                          vxvv[0]*nu.sin(vxvv[3]),
                          vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                          vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
-    this_dxdv= nu.array([nu.cos(vxvv[3])*dxdv[0]-vxvv[0]*nu.sin(vxvv[3])*dxdv[3],
-                         nu.sin(vxvv[3])*dxdv[0]+vxvv[0]*nu.cos(vxvv[3])*dxdv[3],
-                         -(vxvv[1]*nu.sin(vxvv[3])+vxvv[2]*nu.cos(vxvv[3]))*dxdv[3]
-                         +nu.cos(vxvv[3])*dxdv[1]-nu.sin(vxvv[3])*dxdv[2],
-                         (vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]))*dxdv[3]
-                         +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
+    if not rectIn:
+        this_dxdv= nu.array([nu.cos(vxvv[3])*dxdv[0]
+                             -vxvv[0]*nu.sin(vxvv[3])*dxdv[3],
+                             nu.sin(vxvv[3])*dxdv[0]
+                             +vxvv[0]*nu.cos(vxvv[3])*dxdv[3],
+                             -(vxvv[1]*nu.sin(vxvv[3])
+                               +vxvv[2]*nu.cos(vxvv[3]))*dxdv[3]
+                             +nu.cos(vxvv[3])*dxdv[1]-nu.sin(vxvv[3])*dxdv[2],
+                             (vxvv[1]*nu.cos(vxvv[3])
+                              -vxvv[2]*nu.sin(vxvv[3]))*dxdv[3]
+                             +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
+    else:
+        this_dxdv= dxdv
     if method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
@@ -745,10 +759,13 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     out[:,1]= vR
     out[:,2]= vT
     out[:,3]= phi
-    out[:,4]= dR
-    out[:,7]= dphi
-    out[:,5]= dvR
-    out[:,6]= dvT
+    if rectOut:
+        out[:,4:]= tmp_out[:,4:]
+    else:
+        out[:,4]= dR
+        out[:,7]= dphi
+        out[:,5]= dvR
+        out[:,6]= dvT
     _parse_warnmessage(msg)
     return (out,msg)
 
