@@ -712,6 +712,13 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
+    elif method.lower() == 'leapfrog':
+        init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
+               this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
+        #integrate
+        raise NotImplementedError('leapfrog integration for dxdv not implemented currently')
+        tmp_out= symplecticode.leapfrog(_EOM_dxdv,init,t,args=(pot,),
+                                  rtol=10.**-8.)
     elif method.lower() == 'odeint':
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
