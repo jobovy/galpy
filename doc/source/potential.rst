@@ -288,13 +288,9 @@ following series of steps (some of these are also given in the file
   The new potential class should implement some of the following
   functions: 
 
-  * ``_evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0)`` which evaluates the
+  * ``_evaluate(self,R,z,phi=0,t=0)`` which evaluates the
     potential itself (*without* the amp factor, which is added in the
-    ``__call__`` method of the general Potential class). This function
-    should also call the relevant derivatives if dR or dphi is not
-    equal to zero (this is used only in some of the razor-thin disk
-    distribution functions, so doing this properly is not that
-    important).
+    ``__call__`` method of the general Potential class).
 
   * ``_Rforce(self,R,z,phi=0.,t=0.)`` which evaluates the radial force
     in cylindrical coordinates (-d potential / d R).
