@@ -570,7 +570,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
         if not ext_loaded: #odeint is not as accurate as dopr54_c
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.6,-7.,-1.6,ntimes=101,
+                                                -1.6,-6.,-1.6,ntimes=101,
                                                 inclphi=True)
         else:
             check_actionAngle_conserved_actions(aAS,obs,pot,
