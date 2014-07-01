@@ -1329,7 +1329,7 @@ class mockSlowFlatDehnenBarPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.)])
+                                                potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.5)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
 class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
