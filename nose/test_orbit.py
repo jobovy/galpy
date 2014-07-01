@@ -77,6 +77,7 @@ def test_energy_jacobi_conservation():
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatLopsidedDiskPotential']= -6. #these are more difficult (and also not quite conserved)
+    jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -120,7 +121,7 @@ def test_energy_jacobi_conservation():
                 tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
-#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
