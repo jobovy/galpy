@@ -8,6 +8,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
     mockFlatDehnenBarPotential, \
+    mockSlowFlatDehnenBarPotential, \
     mockFlatSteadyLogSpiralPotential, \
     mockFlatTransientLogSpiralPotential, \
     mockCombLinearPotential, \
@@ -41,6 +42,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
+    pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('mockFlatSteadyLogSpiralPotential')
     pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('specialMiyamotoNagaiPotential')
@@ -110,7 +112,7 @@ def test_energy_jacobi_conservation():
                 tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
-#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
