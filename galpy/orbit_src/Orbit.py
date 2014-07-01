@@ -296,6 +296,47 @@ class Orbit:
         """
         self._orb.integrate(t,pot,method=method)
 
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       rectIn=False,rectOut=False):
+        """
+        NAME:
+
+           integrate_dxdv
+
+        PURPOSE:
+
+           integrate the orbit and a small area of phase space
+
+        INPUT:
+
+           dxdv - [dR,dvR,dvT,dphi]
+
+           t - list of times at which to output (0 has to be in this!)
+
+           pot - potential instance or list of instances
+
+           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
+                   leapfrog implementation, 'leapfrog_c' for a simple
+                   leapfrog implemenation in C (if possible)
+
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
+
+        OUTPUT:
+
+           (none) (get the actual orbit using getOrbit_dxdv()
+
+        HISTORY:
+
+           2010-10-17 - Written - Bovy (IAS)
+
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
+
+        """
+        self._orb.integrate_dxdv(dxdv,t,pot,method=method,
+                                 rectIn=rectIn,rectOut=rectOut)
+
     def integrateBC(self,pot,bc=_zEqZeroBC,method='odeint'):
         """
         NAME:
@@ -433,6 +474,32 @@ class Orbit:
 
         """
         return self._orb.getOrbit()
+
+    def getOrbit_dxdv(self):
+        """
+
+        NAME:
+
+           getOrbit_dxdv
+
+        PURPOSE:
+
+           return a previously calculated orbit
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           array orbit[nt,nd*2] with for each t the dxdv vector
+
+        HISTORY:
+
+           2010-07-10 - Written - Bovy (NYU)
+
+        """
+        return self._orb.getOrbit_dxdv()
 
     def E(self,*args,**kwargs):
         """

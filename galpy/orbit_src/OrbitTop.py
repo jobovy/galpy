@@ -155,6 +155,21 @@ class OrbitTop:
         """
         return self.orbit
 
+    def getOrbit_dxdv(self):
+        """
+        NAME:
+           getOrbit_dxdv
+        PURPOSE:
+           return a previously calculated orbit_dxdv
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self.orbit_dxdv[:,4:]
+
     @physical_conversion('time')
     def time(self,*args,**kwargs):
         """
