@@ -106,7 +106,7 @@ class DehnenBarPotential(planarPotential):
         else:
             self._tsteady= tsteady*self._tb
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -130,25 +130,14 @@ class DehnenBarPotential(planarPotential):
             smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
         else: #bar is fully on
             smooth= 1.
-        if dR == 0 and dphi == 0:
-            if R <= self._rb:
-                return self._af*smooth*m.cos(2.*(phi-self._omegab*t-self._barphi))\
-                       *((R/self._rb)**3.-2.)
-            else:
-                return -self._af*smooth*m.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                                                  *(self._rb/R)**3.
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return self._phi2deriv(R,phi=phi,t=t)
-        elif dR == 1 and dphi == 1:
-            return self._Rphideriv(R,phi=phi,t=t)
-        
+        if R <= self._rb:
+            return self._af*smooth*m.cos(2.*(phi-self._omegab*t-self._barphi))\
+                *((R/self._rb)**3.-2.)
+        else:
+            return -self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                              self._barphi))\
+                                              *(self._rb/R)**3.
+
     def _Rforce(self,R,phi=0.,t=0.):
         """
         NAME:

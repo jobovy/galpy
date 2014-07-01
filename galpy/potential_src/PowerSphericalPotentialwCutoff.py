@@ -56,7 +56,7 @@ class PowerSphericalPotentialwCutoff(Potential):
             self.normalize(normalize)
         self.hasC= False
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -67,19 +67,13 @@ class PowerSphericalPotentialwCutoff(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-06-28 - Started - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            r= nu.sqrt(R**2.+z**2.)
-            return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        r= nu.sqrt(R**2.+z**2.)
+        return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

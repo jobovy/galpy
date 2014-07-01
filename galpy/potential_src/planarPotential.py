@@ -44,10 +44,21 @@ class planarPotential:
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        try:
-            return self._amp*self._evaluate(R,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError: #pragma: no cover
-            raise PotentialError("'_evaluate' function not implemented for this potential")
+        if dR == 0 and dphi == 0:
+            try:
+                return self._amp*self._evaluate(R,phi=phi,t=t)
+            except AttributeError: #pragma: no cover
+                raise PotentialError("'_evaluate' function not implemented for this potential")
+        elif dR == 1 and dphi == 0:
+            return -self.Rforce(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self.phiforce(R,phi=phi,t=t)
+        elif dR == 2 and dphi == 0:
+            return self.R2deriv(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 2:
+            return self.phi2deriv(R,phi=phi,t=t)
+        elif dR == 1 and dphi == 1:
+            return self.Rphideriv(R,phi=phi,t=t)
 
     def Rforce(self,R,phi=0.,t=0.):
         """
@@ -496,7 +507,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC= RZPot.hasC
         return None
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -511,7 +522,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.,t=t,dR=dR,dphi=dphi)
+        return self._RZPot(R,0.,t=t)
             
     def _Rforce(self,R,phi=0.,t=0.):
         """

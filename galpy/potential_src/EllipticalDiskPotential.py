@@ -75,7 +75,7 @@ class EllipticalDiskPotential(planarPotential):
             if self._tform is None: self._tsteady= None
             else: self._tsteady= self._tform+2.
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -102,19 +102,8 @@ class EllipticalDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        if dR == 0 and dphi == 0:
-            return smooth*self._twophio/2.*R**self._p\
-                *m.cos(2.*(phi-self._phib))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return self._phi2deriv(R,phi=phi,t=t)
-        elif dR == 1 and dphi == 1:
-            return self._Rphideriv(R,phi=phi,t=t)
+        return smooth*self._twophio/2.*R**self._p\
+            *m.cos(2.*(phi-self._phib))
         
     def _Rforce(self,R,phi=0.,t=0.):
         """

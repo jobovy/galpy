@@ -71,7 +71,7 @@ class MovingObjectPotential(Potential):
             self._softening= softening
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -87,16 +87,11 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010104-10 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            #Calculate distance
-            dist= _cyldist(R,phi,z,
-                           self._orb.R(t),self._orb.phi(t),self._orb.z(t))
-            #Evaluate potential
-            return -self._gm*self._softening.potential(dist)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        #Calculate distance
+        dist= _cyldist(R,phi,z,
+                       self._orb.R(t),self._orb.phi(t),self._orb.z(t))
+        #Evaluate potential
+        return -self._gm*self._softening.potential(dist)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

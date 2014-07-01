@@ -49,7 +49,7 @@ class BurkertPotential(Potential):
             self.normalize(normalize)
         self.hasC= False
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -60,19 +60,13 @@ class BurkertPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-04-10 - Started - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            x= numpy.sqrt(R**2.+z**2.)/self.a
-            return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)+2.*(1.+x)*numpy.log(1.+x)+(1.-x)*numpy.log(1.+x**2.))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        x= numpy.sqrt(R**2.+z**2.)/self.a
+        return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)+2.*(1.+x)*numpy.log(1.+x)+(1.-x)*numpy.log(1.+x**2.))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

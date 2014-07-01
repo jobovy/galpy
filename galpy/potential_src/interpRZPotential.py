@@ -302,7 +302,7 @@ class interpRZPotential(Potential):
                                                  
     @scalarVectorDecorator
     @zsymDecorator(False)
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         from galpy.potential import evaluatePotentials
         if self._interpPot:
             out= numpy.empty_like(R)

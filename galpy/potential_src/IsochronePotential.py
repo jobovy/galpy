@@ -52,7 +52,7 @@ class IsochronePotential(Potential):
             self.normalize(normalize)
         self.hasC= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -63,20 +63,14 @@ class IsochronePotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            r2= R**2.+z**2.
-            rb= nu.sqrt(r2+self.b2)
-            return -1./(self.b+rb)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        r2= R**2.+z**2.
+        rb= nu.sqrt(r2+self.b2)
+        return -1./(self.b+rb)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

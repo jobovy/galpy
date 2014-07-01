@@ -52,7 +52,7 @@ class LogarithmicHaloPotential(Potential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -63,25 +63,13 @@ class LogarithmicHaloPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR=, dphi=
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-04-02 - Started - Bovy (NYU)
            2010-04-30 - Adapted for R,z - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            return 1./2.*nu.log(R**2.+(z/self._q)**2.+self._core2)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return 0.
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return 0.
-        elif dR == 1 and dphi == 1: #pragma: no cover
-            return 0.
+        return 1./2.*nu.log(R**2.+(z/self._q)**2.+self._core2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

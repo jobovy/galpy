@@ -64,7 +64,7 @@ class FlattenedPowerPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -75,22 +75,16 @@ class FlattenedPowerPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-01-09 - Started - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            if self.alpha == 0.:
-                return 1./2.*nu.log(R**2.+z**2./self.q2+self.core2)
-            else:
-                m2= self.core2+R**2.+z**2./self.q2
-                return -m2**(-self.alpha/2.)/self.alpha
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        if self.alpha == 0.:
+            return 1./2.*nu.log(R**2.+z**2./self.q2+self.core2)
+        else:
+            m2= self.core2+R**2.+z**2./self.q2
+            return -m2**(-self.alpha/2.)/self.alpha
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

@@ -372,7 +372,10 @@ def test_2ndDeriv_potential():
                         tRphideriv= potential.evaluateplanarPotentials(Rs[ii],tp,
                                                                        phi=phis[jj],dR=1,dphi=1)
                     else:
-                        raise NotImplementedError("Rphideriv for Potentials is not implemented")
+                        mRforcederivphi= (tp.Rforce(Rs[ii],0.1,phi=phis[jj])\
+                                              -tp.Rforce(Rs[ii],0.1,phi=phis[jj]+dphi))/dphi
+                        tRphideriv= potential.evaluatePotentials(Rs[ii],0.1,tp,
+                                                                 phi=phis[jj],dR=1,dphi=1)
                     if tRphideriv**2. < 10.**ttol:
                         assert mRforcederivphi**2. < 10.**ttol, \
                             "Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))

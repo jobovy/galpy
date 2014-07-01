@@ -62,13 +62,26 @@ class Potential:
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         """
-        try:
-            rawOut= self._evaluate(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError: #pragma: no cover
-            raise PotentialError("'_evaluate' function not implemented for this potential")
-        if rawOut is None: return rawOut
-        else: return self._amp*rawOut
-
+        if dR == 0 and dphi == 0:
+            try:
+                rawOut= self._evaluate(R,z,phi=phi,t=t)
+            except AttributeError: #pragma: no cover
+                raise PotentialError("'_evaluate' function not implemented for this potential")
+            if rawOut is None: return rawOut
+            else: return self._amp*rawOut
+        elif dR == 1 and dphi == 0:
+            return -self.Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self.phiforce(R,z,phi=phi,t=t)
+        elif dR == 2 and dphi == 0:
+            return self.R2deriv(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 2:
+            return self.phi2deriv(R,z,phi=phi,t=t)
+        elif dR == 1 and dphi == 1:
+            return self.Rphideriv(R,z,phi=phi,t=t)           
+        elif dR != 0 or dphi != 0:
+            raise NotImplementedError('Higher-order derivatives not implemented for this potential')
+        
     def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -421,6 +434,40 @@ class Potential:
         except AttributeError: #pragma: no cover
             return 0.
 
+    def Rphideriv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           Rphideriv
+
+        PURPOSE:
+
+           evaluate the mixed radial, azimuthal derivative
+
+        INPUT:
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
+        OUTPUT:
+
+           d2Phi/dphidR
+
+        HISTORY:
+
+           2014-06-30 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            return 0.
+
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -454,6 +501,24 @@ class Potential:
            d2Phi/dphi2
         HISTORY:
            2013-09-24 - Written - Bovy (NYU)
+        """
+        return 0. #default is to assume axisymmetry
+
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rphideriv
+        PURPOSE:
+           evaluate the mixed radial and azimuthal derivative of the potential
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth (rad)
+           t - time (optional)
+        OUTPUT:
+           d2Phi/dphidR
+        HISTORY:
+           2014-06-30 - Written - Bovy (IAS)
         """
         return 0. #default is to assume axisymmetry
 

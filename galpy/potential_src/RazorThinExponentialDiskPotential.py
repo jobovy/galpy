@@ -69,7 +69,7 @@ class RazorThinExponentialDiskPotential(Potential):
         #Load Kepler potential for large R
         #self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -85,15 +85,6 @@ class RazorThinExponentialDiskPotential(Potential):
         HISTORY:
            2012-12-26 - Written - Bovy (IAS)
         """
-        if dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR != 0 or dphi != 0:
-            warnings.warn("High-order derivatives for RazorThinExponentialDiskPotential not implemented",galpyWarning)
-            return None
         if self._new:
             #if R > 6.: return self._kp(R,z)
             if nu.fabs(z) < 10.**-6.:
