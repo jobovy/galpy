@@ -1280,6 +1280,11 @@ class testplanarMWPotential(planarPotential):
         return evaluateplanarphiforces(R,self._potlist,phi=phi,t=t)
     def _R2deriv(self,R,phi=0.,t=0.):
         return evaluateplanarR2derivs(R,self._potlist,phi=phi,t=t)
+    def _phi2deriv(self,R,phi=0.,t=0.):
+        return evaluateplanarPotentials(R,self._potlist,phi=phi,t=t,dphi=2)
+    def _Rphideriv(self,R,phi=0.,t=0.):
+        return evaluateplanarPotentials(R,self._potlist,phi=phi,t=t,dR=1,
+                                        dphi=1)
     def normalize(self,norm,t=0.):
         self._amp= norm
     def OmegaP(self):

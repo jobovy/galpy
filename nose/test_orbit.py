@@ -322,6 +322,96 @@ def test_energy_symplec_longterm():
     #raise AssertionError
     return None
    
+def test_liouville_planar():
+    if _NOLONGINTEGRATIONS: return None
+    #Basic parameters for the test
+    times= numpy.linspace(0.,28.,1001) #~1 Gyr at the Solar circle
+    integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'odeint', #direct python solver
+                  'rk4_c','rk6_c']
+#                  'leapfrog','leapfrog_c',
+#                  'symplec4_c','symplec6_c']
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'evaluate' in p)]
+    pots.append('mockFlatEllipticalDiskPotential')
+    pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockFlatDehnenBarPotential')
+    #pots.append('mockFlatSteadyLogSpiralPotential')
+    #pots.append('mockFlatTransientLogSpiralPotential')
+    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError']
+    rmpots.append('BurkertPotential')
+    #Don't have C implementations of the relevant 2nd derivatives
+    rmpots.append('DoubleExponentialDiskPotential')
+    rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('PowerSphericalPotentialwCutoff')
+    #Doesn't have the R2deriv
+    rmpots.append('TwoPowerSphericalPotential')
+    for p in rmpots:
+        pots.remove(p)
+    #tolerances in log10
+    tol= {}
+    tol['default']= -8.
+    tol['KeplerPotential']= -7. #more difficult
+    for p in pots:
+        #Setup instance of potential
+        if p in tol.keys(): ttol= tol[p]
+        else: ttol= tol['default']
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if not hasattr(tp,'normalize'): continue #skip these
+        tp.normalize(1.)
+        if hasattr(tp,'toPlanar'):
+            tp= tp.toPlanar()
+        for integrator in integrators:
+            if integrator == 'odeint': ttol= -4.
+            if True: ttimes= times
+            o= setup_orbit_liouville(tp,axi=False)
+            #Calculate the Jacobian d x / d x
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential) \
+                    or isinstance(tp,testlinearMWPotential):
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp._potlist,
+                                 method=integrator,
+                                 rectIn=True,rectOut=True)
+                dx= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp._potlist,
+                                 method=integrator,
+                                 rectIn=True,rectOut=True)
+                dy= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp._potlist,
+                                 method=integrator,
+                                 rectIn=True,rectOut=True)
+                dvx= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp._potlist,
+                                 method=integrator,
+                                 rectIn=True,rectOut=True)
+                dvy= o.getOrbit_dxdv()[-1,:]
+            else:
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp,method=integrator,
+                                 rectIn=True,rectOut=True)
+                dx= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp,method=integrator,
+                                 rectIn=True,rectOut=True)
+                dy= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp,method=integrator,
+                                 rectIn=True,rectOut=True)
+                dvx= o.getOrbit_dxdv()[-1,:]
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method=integrator,
+                                 rectIn=True,rectOut=True)
+                dvy= o.getOrbit_dxdv()[-1,:]
+            tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
+            #print p, integrator, numpy.fabs(tjac-1.)
+            assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
+            if _QUICKTEST and not 'NFW' in p: break
+    return None
+
 # Test that the eccentricity of circular orbits is zero
 def test_eccentricity():
     #return None
@@ -1962,6 +2052,23 @@ def setup_orbit_energy(tp,axi=False):
             o= Orbit([1.,1.1,1.1,0.1,0.1])
         else:
             o= Orbit([1.,1.1,1.1,0.1,0.1,0.])
+    return o
+
+# Setup the orbit for the Liouville test
+def setup_orbit_liouville(tp,axi=False):
+    from galpy.orbit import Orbit
+    if isinstance(tp,potential.linearPotential): 
+        o= Orbit([1.,1.])
+    elif isinstance(tp,potential.planarPotential): 
+        if axi:
+            o= Orbit([1.,0.1,1.1])
+        else:
+            o= Orbit([1.,0.1,1.1,0.])
+    else:
+        if axi:
+            o= Orbit([1.,0.1,1.1,0.1,0.1])
+        else:
+            o= Orbit([1.,0.1,1.1,0.1,0.1,0.])
     return o
 
 # Setup the orbit for the eccentricity test

@@ -423,7 +423,10 @@ class planarOrbit(planarOrbitTop):
         else:
             c_possible= pot.hasC
         c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
+        if '_c' in method and ('leapfrog' in method or 'symplec' in method) \
+                and not c_possible:
+            method= 'leapfrog'
+        elif '_c' in method and not c_possible:
             method= 'odeint'
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,
                                                    method,rectIn,rectOut)
