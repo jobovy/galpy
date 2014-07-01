@@ -4,7 +4,7 @@ rm -rf build/
 rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 # Test the orbit extension
 python setup.py build_ext --coverage --orbit_ext --inplace
-python setup.py develop --coverage --orbit_ext
+python setup.py develop --coverage --orbit_ext --prefix=~/local
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_orbit_initial.info --initial
 /usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_orbit.info
@@ -12,7 +12,7 @@ rm -rf build/
 rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 # Test the actionAngle extension
 python setup.py build_ext --coverage --actionAngle_ext --inplace
-python setup.py develop --coverage --actionAngle_ext
+python setup.py develop --coverage --actionAngle_ext --prefix=~/local
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_actionAngle_initial.info --initial
 /usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_actionAngle.info
@@ -20,7 +20,7 @@ rm -rf build/
 rm -vf galpy_integrate_c.so galpy_actionAngle_c.so galpy_interppotential_c.so
 # Test the interppotential extension
 python setup.py build_ext --coverage --interppotential_ext --inplace
-python setup.py develop --coverage --interppotential_ext
+python setup.py develop --coverage --interppotential_ext --prefix=~/local
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_interppotential_initial.info --initial
 /usr/local/python-2.7.3/bin/nosetests -v -w nose/ -e plotting
 lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_interppotential.info
