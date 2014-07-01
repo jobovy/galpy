@@ -424,7 +424,7 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-            print p, integrator, numpy.fabs(tjac-1.)
+            #print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     return None
