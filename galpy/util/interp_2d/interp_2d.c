@@ -33,7 +33,7 @@ void interp_2d_init(interp_2d * i2d, const double * xa, const double * ya, const
         samples_to_coefficients(i2d->za,i2d->size1,i2d->size2);
     }
 }
-
+// LCOV_EXCL_START
 double interp_2d_eval_linear(interp_2d * i2d, double x, double y, 
 			     gsl_interp_accel * accx, gsl_interp_accel * accy)
 {
@@ -86,7 +86,7 @@ void interp_2d_eval_grad_linear(interp_2d * i2d, double x, double y, double * gr
     
     return;
 }
-
+// LCOV_EXCL_STOP
 double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, 
 				    gsl_interp_accel * accx, 
 				    gsl_interp_accel * accy)
@@ -110,7 +110,7 @@ double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y,
     
     return cubic_bspline_2d_interpol(za,size1,size2,x_norm,y_norm);
 }
-
+// LCOV_EXCL_START
 void interp_2d_eval_grad_cubic_bspline(interp_2d * i2d, double x, double y, 
 				       double * grad, 
 				       gsl_interp_accel * accx, 
@@ -155,3 +155,4 @@ void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad,
     }
     return;
 }
+// LCOV_EXCL_STOP

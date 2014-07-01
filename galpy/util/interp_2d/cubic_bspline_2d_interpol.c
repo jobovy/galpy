@@ -86,7 +86,7 @@ extern double	cubic_bspline_2d_interpol
     
 	return(interpolated);
 }
-
+// LCOV_EXCL_START
 /*--------------------------------------------------------------------------*/
 extern double	cubic_bspline_2d_interpol_dx
 (
@@ -269,3 +269,4 @@ extern double	cubic_bspline_2d_interpol_dy
 
 	return(interpolated);
 }
+// LCOV_EXCL_STOP
