@@ -556,27 +556,42 @@ def test_actionAngleStaeckel_conserved_actions():
 
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
-    from galpy.potential import MWPotential, DoubleExponentialDiskPotential
+    from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
+        FlattenedPowerPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
-    if True: #not _TRAVIS:
-        pots= [MWPotential,
-               DoubleExponentialDiskPotential(normalize=1.)]
-    else:
-        pots= [MWPotential]
+    pots= [MWPotential,
+           DoubleExponentialDiskPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.,alpha=0.)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
         if not ext_loaded: #odeint is not as accurate as dopr54_c
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.7,-7.,-1.7,ntimes=101,
+                                                -1.6,-7.,-1.6,ntimes=101,
                                                 inclphi=True)
         else:
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.9,-8.,-1.9,ntimes=101,
+                                                -1.7,-8.,-1.7,ntimes=101,
                                                 inclphi=True)
     return None
+
+#Test the actions of an actionAngleStaeckel, for a dblexp disk far away from the center
+def test_actionAngleStaeckel_conserved_actions_c_specialdblexp():
+    from galpy.potential import DoubleExponentialDiskPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    pot= DoubleExponentialDiskPotential(normalize=1.)
+    aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
+    #Close to circular in the Keplerian regime
+    obs= Orbit([7.05, 0.002,pot.vcirc(7.05), 0.003,0.,2.])
+    check_actionAngle_conserved_actions(aAS,obs,pot,
+                                        -2.,-7.,-2.,ntimes=101,
+                                        inclphi=True)
+    return None
+
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy import potential
