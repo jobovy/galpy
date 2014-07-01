@@ -12,7 +12,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatTransientLogSpiralPotential, \
     mockCombLinearPotential, \
     mockSimpleLinearPotential, \
-    mockMovingObjectLongIntPotential
+    mockMovingObjectLongIntPotential, \
+    specialFlattenedPowerPotential, \
+    specialMiyamotoNagaiPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -41,6 +43,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatSteadyLogSpiralPotential')
     pots.append('mockFlatTransientLogSpiralPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockCombLinearPotential')
@@ -1420,7 +1424,6 @@ def test_toLinear():
     assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
     assert numpy.fabs(obs._orb._ro-obsl._orb._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert numpy.fabs(obs._orb._vo-obsl._orb._vo) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    print obs._orb._zo, obsl._orb._zo
     assert (obsl._orb._zo is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert (obsl._orb._solarmotion is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert obs._orb._roSet == obsl._orb._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
@@ -1651,7 +1654,6 @@ def test_physical_output():
             assert numpy.fabs(o.Ez(pot=lp)/vo**2.-o.Ez(pot=lp,use_physical=False)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected'
         #Test angular momentun
         if ii > 0:
-            print o.L()/vo/ro,o.L(use_physical=False)
             assert numpy.all(numpy.fabs(o.L()/vo/ro-o.L(use_physical=False)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected'
 
     #Also test the times
@@ -1701,7 +1703,6 @@ def test_physical_output_off():
             assert numpy.fabs(o.Ez(pot=lp)-o.Ez(pot=lp,use_physical=False)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected when turned off'
         #Test angular momentun
         if ii > 0:
-            print o.L()/vo/ro,o.L(use_physical=False)
             assert numpy.all(numpy.fabs(o.L()-o.L(use_physical=False)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off'
     #Also test the times
     assert numpy.fabs((o.time(1.)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
