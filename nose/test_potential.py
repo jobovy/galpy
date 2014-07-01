@@ -1343,7 +1343,7 @@ class mockSlowFlatSteadyLogSpiralPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.SteadyLogSpiralPotential(tform=1.,tsteady=250.)])
+                                                potential.SteadyLogSpiralPotential(tform=.1,tsteady=25.)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
 class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
