@@ -389,9 +389,12 @@ class planarOrbit(planarOrbitTop):
            2010-10-17 - Written - Bovy (IAS)
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot_dxdv= thispot
+        self._pot= thispot
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,
                                                    method,rectIn,rectOut)
         self.orbit= self.orbit_dxdv[:,:4]

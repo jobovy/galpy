@@ -325,7 +325,7 @@ class Orbit:
 
         OUTPUT:
 
-           (none) (get the actual orbit using getOrbit_dxdv()
+           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be eresed!)
 
         HISTORY:
 
