@@ -244,17 +244,6 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
-            method= 'odeint'
         self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
         return msg
 
@@ -375,17 +364,6 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
-            method= 'odeint'
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
         return msg
 
@@ -414,20 +392,6 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot_dxdv= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and ('leapfrog' in method or 'symplec' in method) \
-                and not c_possible:
-            method= 'leapfrog'
-        elif '_c' in method and not c_possible:
-            method= 'odeint'
         self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,
                                                    method,rectIn,rectOut)
         self.orbit= self.orbit_dxdv[:,:4]
@@ -703,6 +667,16 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     HISTORY:
        2010-10-17 - Written - Bovy (IAS)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and ('leapfrog' in method or 'symplec' in method):
+            method= 'leapfrog'
+        elif not allHasC:
+            method= 'odeint'
     #go to the rectangular frame
     this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                          vxvv[0]*nu.sin(vxvv[3]),
