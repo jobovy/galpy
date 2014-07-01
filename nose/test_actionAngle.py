@@ -49,7 +49,11 @@ def test_actionAngleIsochrone_conserved_actions():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    check_actionAngle_conserved_actions(aAI,obs,ip,-8.,-8.,-8.)
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_conserved_actions(aAI,obs,ip,-5.,-5.,-5.)
+    else:
+        check_actionAngle_conserved_actions(aAI,obs,ip,-8.,-8.,-8.)
     return None
 
 #Test that the angles of an actionAngleIsochrone increase linearly
@@ -60,10 +64,17 @@ def test_actionAngleIsochrone_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    check_actionAngle_linear_angles(aAI,obs,ip,
-                                    -6.,-6.,-6.,
-                                    -8.,-8.,-8.,
-                                    -8.,-8.,-8.)
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -5.,-5.,-5.,
+                                        -6.,-6.,-6.,
+                                        -6.,-6.,-6.)
+    else:
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.)
     return None
 
 #Basic sanity checking of the actionAngleSpherical actions
@@ -129,7 +140,11 @@ def test_actionAngleSpherical_conserved_actions():
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101)
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101)
+    else:
+        check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101)
     return None
 
 #Test the actions of an actionAngleSpherical
@@ -140,8 +155,13 @@ def test_actionAngleSpherical_conserved_actions_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101,
-                                        fixed_quad=True)
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101,
+                                            fixed_quad=True)
+    else:
+        check_actionAngle_conserved_actions(aAS,obs,lp,-8.,-8.,-8.,ntimes=101,
+                                            fixed_quad=True)
     return None
 
 #Test that the angles of an actionAngleIsochrone increase linearly
@@ -152,11 +172,19 @@ def test_actionAngleSpherical_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    check_actionAngle_linear_angles(aAS,obs,lp,
-                                    -6.,-6.,-6.,
-                                    -8.,-8.,-8.,
-                                    -8.,-8.,-8.,
-                                    ntimes=501) #need fine sampling for de-period
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501) #need fine sampling for de-period
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501) #need fine sampling for de-period
     return None
   
 #Test that the angles of an actionAngleIsochrone increase linearly
@@ -167,12 +195,21 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    check_actionAngle_linear_angles(aAS,obs,lp,
-                                    -6.,-6.,-6.,
-                                    -8.,-8.,-8.,
-                                    -8.,-8.,-8.,
-                                    ntimes=501, #need fine sampling for de-period
-                                    fixed_quad=True)
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501, #need fine sampling for de-period
+                                        fixed_quad=True)
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501, #need fine sampling for de-period
+                                        fixed_quad=True)
     return None
   
 #Test the actionAngleSpherical against an isochrone potential: actions
@@ -522,6 +559,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.orbit_src.FullOrbit import ext_loaded
     if True: #not _TRAVIS:
         pots= [MWPotential,
                DoubleExponentialDiskPotential(normalize=1.)]
@@ -530,15 +568,21 @@ def test_actionAngleStaeckel_conserved_actions_c():
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
-        check_actionAngle_conserved_actions(aAS,obs,pot,
-                                            -1.9,-8.,-1.9,ntimes=101,
-                                            inclphi=True)
+        if not ext_loaded: #odeint is not as accurate as dopr54_c
+            check_actionAngle_conserved_actions(aAS,obs,pot,
+                                                -1.9,-7.,-1.9,ntimes=101,
+                                                inclphi=True)
+        else:
+            check_actionAngle_conserved_actions(aAS,obs,pot,
+                                                -1.9,-8.,-1.9,ntimes=101,
+                                                inclphi=True)
     return None
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy import potential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.orbit_src.FullOrbit import ext_loaded
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     hp= potential.HernquistPotential(normalize=1.)
     jp= potential.JaffePotential(normalize=1.)
@@ -549,20 +593,31 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-        check_actionAngle_conserved_actions(aAS,obs,pot,
-                                            -2.,-8.,-2.,ntimes=101,
-                                            inclphi=True)
+        if not ext_loaded: #odeint is not as accurate as dopr54_c
+            check_actionAngle_conserved_actions(aAS,obs,pot,
+                                                -2.,-6.,-2.,ntimes=101,
+                                                inclphi=True)
+        else:
+            check_actionAngle_conserved_actions(aAS,obs,pot,
+                                                -2.,-8.,-2.,ntimes=101,
+                                                inclphi=True)
     return None
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_fixed_quad():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.orbit_src.FullOrbit import ext_loaded
     aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
-    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
-                                        -2.,-8.,-2.,ntimes=101,
-                                        fixed_quad=True,inclphi=True)
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                            -2.,-7.,-2.,ntimes=101,
+                                            fixed_quad=True,inclphi=True)
+    else:
+        check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                            -2.,-8.,-2.,ntimes=101,
+                                            fixed_quad=True,inclphi=True)
     return None
 
 #Test that the angles of an actionAngleStaeckel increase linearly
@@ -699,6 +754,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
+    from galpy.orbit_src.FullOrbit import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -711,7 +767,10 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
-    assert djz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    if not ext_loaded: #odeint is less accurate than dopr54_c
+        assert djz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    else:
+        assert djz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
     return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: frequencies
