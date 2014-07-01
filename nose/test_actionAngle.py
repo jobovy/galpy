@@ -69,7 +69,7 @@ def test_actionAngleIsochrone_linear_angles():
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
                                         -6.,-6.,-6.,
-                                        -6.,-6.,-6.)
+                                        -5.,-5.,-5.)
     else:
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -6.,-6.,-6.,
@@ -198,16 +198,16 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
     from galpy.orbit_src.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
-                                        -6.,-6.,-6.,
-                                        -8.,-8.,-8.,
-                                        -8.,-8.,-8.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
                                         ntimes=501, #need fine sampling for de-period
                                         fixed_quad=True)
     else:
         check_actionAngle_linear_angles(aAS,obs,lp,
-                                        -4.,-4.,-4.,
-                                        -4.,-4.,-4.,
-                                        -4.,-4.,-4.,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
                                         ntimes=501, #need fine sampling for de-period
                                         fixed_quad=True)
     return None
@@ -570,7 +570,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
         if not ext_loaded: #odeint is not as accurate as dopr54_c
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.9,-7.,-1.9,ntimes=101,
+                                                -1.7,-7.,-1.7,ntimes=101,
                                                 inclphi=True)
         else:
             check_actionAngle_conserved_actions(aAS,obs,pot,
@@ -612,7 +612,7 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,MWPotential,
-                                            -2.,-7.,-2.,ntimes=101,
+                                            -2.,-5.,-2.,ntimes=101,
                                             fixed_quad=True,inclphi=True)
     else:
         check_actionAngle_conserved_actions(aAS,obs,MWPotential,
