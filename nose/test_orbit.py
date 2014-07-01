@@ -356,6 +356,7 @@ def test_liouville_planar():
     pots.append('mockSlowFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
+    pots.append('specialFlattenedPowerPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MovingObjectPotential',
