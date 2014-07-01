@@ -283,7 +283,12 @@ class Orbit:
 
            pot - potential instance or list of instances
 
-           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple leapfrog implementation
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
         OUTPUT:
 
@@ -315,9 +320,13 @@ class Orbit:
 
            pot - potential instance or list of instances
 
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation, 'leapfrog_c' for a simple
-                   leapfrog implemenation in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+                   'dopr54_c' is recommended, odeint is *not* recommended
 
            rectIn= (False) if True, input dxdv is in rectangular coordinates
 
@@ -353,8 +362,12 @@ class Orbit:
 
            bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
 
-           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
-                   a simple symplectic integrator
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
         OUTPUT:
         

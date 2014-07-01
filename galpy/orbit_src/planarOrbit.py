@@ -231,9 +231,12 @@ class planarROrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple 
-                   leapfrog implementation, 'leapfrog_c' for a simple leapfrog
-                   in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
         OUTPUT:
            error message number (get the actual orbit using getOrbit()
         HISTORY:
@@ -351,9 +354,12 @@ class planarOrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation, 'leapfrog_c' for a simple
-                   leapfrog implemenation in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -378,9 +384,12 @@ class planarOrbit(planarOrbitTop):
            dxdv - [dR,dvR,dvT,dphi]
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation, 'leapfrog_c' for a simple
-                   leapfrog implemenation in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
            rectIn= (False) if True, input dxdv is in rectangular coordinates
            rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
         OUTPUT:
