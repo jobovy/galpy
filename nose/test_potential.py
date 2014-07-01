@@ -1297,11 +1297,25 @@ class mockFlatEllipticalDiskPotential(testplanarMWPotential):
                                                 potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,twophio=14./220.)])
     def OmegaP(self):
         return 0.
+class mockSlowFlatEllipticalDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.EllipticalDiskPotential(phib=numpy.pi/2.,p=0.,twophio=14./220.,tform=1.,tsteady=250.)])
+    def OmegaP(self):
+        return 0.
 class mockFlatLopsidedDiskPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
+    def OmegaP(self):
+        return 0.
+class mockSlowFlatLopsidedDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=1.,tsteady=250.,phio=10./220.)])
     def OmegaP(self):
         return 0.
 class mockFlatDehnenBarPotential(testplanarMWPotential):
@@ -1323,6 +1337,13 @@ class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.SteadyLogSpiralPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockSlowFlatSteadyLogSpiralPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.SteadyLogSpiralPotential(tform=1.,tsteady=250.)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
 class mockFlatTransientLogSpiralPotential(testplanarMWPotential):

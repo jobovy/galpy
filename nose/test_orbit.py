@@ -7,9 +7,12 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
+    mockSlowFlatEllipticalDiskPotential, \
+    mockSlowFlatLopsidedDiskPotential, \
     mockFlatDehnenBarPotential, \
     mockSlowFlatDehnenBarPotential, \
     mockFlatSteadyLogSpiralPotential, \
+    mockSlowFlatSteadyLogSpiralPotential, \
     mockFlatTransientLogSpiralPotential, \
     mockCombLinearPotential, \
     mockSimpleLinearPotential, \
@@ -41,9 +44,12 @@ def test_energy_jacobi_conservation():
                and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockSlowFlatEllipticalDiskPotential')
+    pots.append('mockSlowFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('mockFlatSteadyLogSpiralPotential')
+    pots.append('mockSlowFlatSteadyLogSpiralPotential')
     pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialFlattenedPowerPotential')
@@ -69,6 +75,8 @@ def test_energy_jacobi_conservation():
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
+    jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
+    jactol['mockSlowFlatLopsidedDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -102,7 +110,7 @@ def test_energy_jacobi_conservation():
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'DehnenBar' in p and not 'LogSpiral' in p \
-                    and not 'MovingObject' in p:
+                    and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
@@ -112,7 +120,7 @@ def test_energy_jacobi_conservation():
                 tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
-            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
@@ -343,6 +351,8 @@ def test_liouville_planar():
                and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockSlowFlatEllipticalDiskPotential')
+    pots.append('mockSlowFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
