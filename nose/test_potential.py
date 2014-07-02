@@ -600,6 +600,29 @@ def test_evaluateAndDerivs_potential():
                 assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
 
+# Check that the masses are calculated correctly for spherical potentials
+def test_mass_spher():
+    pp= potential.PowerSphericalPotential(amp=2.)
+    #mass = amp x r^(3-alpha)
+    tR= 1.
+    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    tR= 2.
+    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    tR= 20.
+    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    #Test that for a cut-off potential, the mass far beyond the cut-off is 
+    # 2pi rc^(3-alpha) gamma(1.5-alpha/2)
+    pp= potential.PowerSphericalPotentialwCutoff(amp=2.)
+    from scipy import special
+    expecMass= 2.*pp._amp*numpy.pi*pp.rc**(3.-pp.alpha)*special.gamma(1.5-pp.alpha/2.)
+    tR= 5.
+    assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
+    tR= 15.
+    assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
+    tR= 50.
+    assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
+    return None
+
 # Check that the masses are calculated correctly for axisymmetric potentials
 def test_mass_axi():
     #For Miyamoto-Nagai, we know that mass integrated over everything should be equal to amp, so
