@@ -602,6 +602,10 @@ def test_evaluateAndDerivs_potential():
 
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
+    #PowerPotential close to Kepler should be very steep
+    pp= potential.PowerSphericalPotential(amp=2.,alpha=3.001)
+    kp= potential.KeplerPotential(amp=2.)
+    assert numpy.fabs(((pp.mass(10.)-kp.mass(10.)))/kp.mass(10.)) < 10.**-2., "Mass for PowerSphericalPotential close to KeplerPotential is not close to KeplerPotential's mass"
     pp= potential.PowerSphericalPotential(amp=2.)
     #mass = amp x r^(3-alpha)
     tR= 1.
@@ -621,6 +625,21 @@ def test_mass_spher():
     assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
     tR= 50.
     assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
+    #Jaffe and Hernquist both have finite masses
+    jp= potential.JaffePotential(amp=2.,a=0.1)
+    hp= potential.HernquistPotential(amp=2.,a=0.1)
+    tR= 10.
+    # Limiting behavior
+    jaffemass= jp._amp*(1.-jp.a/tR)
+    hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
+    assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
+    tR= 200.
+    # Limiting behavior
+    jaffemass= jp._amp*(1.-jp.a/tR)
+    hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
+    assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     return None
 
 # Check that the masses are calculated correctly for axisymmetric potentials

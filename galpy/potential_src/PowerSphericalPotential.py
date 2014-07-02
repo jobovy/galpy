@@ -237,4 +237,4 @@ class KeplerPotential(PowerSphericalPotential):
         HISTORY:
            2014-07-02 - Written - Bovy (IAS)
         """
-        return self._amp
+        return 1.
