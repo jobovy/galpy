@@ -623,8 +623,9 @@ def test_mass():
     tR,tz= 100.,100.
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-6., 'Mass for DoubleExponentialDiskPotential incorrect'
     #Test that nonAxi raises error
-    ep= potential.EllipticalDiskPotential()
-    try: ep.mass(1.,0.)
+    from galpy.orbit import Orbit
+    mop= potential.MovingObjectPotential(Orbit([1.,0.1,1.1,0.1,0.,0.]))
+    try: mop.mass(1.,0.)
     except NotImplementedError: pass
     else: raise AssertionError('mass for non-axisymmetric potential should have raised NotImplementedError, but did not')
     return None
