@@ -211,7 +211,8 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2014-04-01 - Written - Erkal (IoA)
         """
-        r= numpy.sqrt(R**2.+z**2.)
+        if z is None: r= R
+        else: r= numpy.sqrt(R**2.+z**2.)
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):

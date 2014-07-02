@@ -647,6 +647,20 @@ def test_mass_spher():
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
     return None
 
+# Check that the masses are implemented correctly for spherical potentials
+def test_mass_spher_analytic():
+    #TwoPowerSphericalPotentials all have explicitly implemented masses
+    jp= potential.JaffePotential(amp=2.)
+    hp= potential.HernquistPotential(amp=2.)
+    np= potential.NFWPotential(amp=2.)
+    tp= potential.TwoPowerSphericalPotential(amp=2.)
+    tR= 2.
+    assert numpy.fabs(jp.mass(tR,forceint=True)-jp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Jaffe potential'
+    assert numpy.fabs(hp.mass(tR,forceint=True)-hp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Hernquist potential'
+    assert numpy.fabs(np.mass(tR,forceint=True)-np.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for NFW potential'
+    assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
+    return None
+
 # Check that the masses are calculated correctly for axisymmetric potentials
 def test_mass_axi():
     #For Miyamoto-Nagai, we know that mass integrated over everything should be equal to amp, so
