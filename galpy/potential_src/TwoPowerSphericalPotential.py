@@ -195,7 +195,7 @@ class TwoPowerSphericalPotential(Potential):
         """
         return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
-    def _mass(self,R,z,phi=0.,t=0.):
+    def _mass(self,R,z,t=0.):
         """
         NAME:
            _mass
@@ -204,7 +204,6 @@ class TwoPowerSphericalPotential(Potential):
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
-           phi - azimuth
            t - time
         OUTPUT:
            the mass enclosed
