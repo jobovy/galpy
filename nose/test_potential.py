@@ -625,21 +625,26 @@ def test_mass_spher():
     assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
     tR= 50.
     assert numpy.fabs((pp.mass(tR,forceint=True)-expecMass)/expecMass) < 10.**-6., 'Mass of PowerSphericalPotentialwCutoff far beyond the cut-off not as expected'
-    #Jaffe and Hernquist both have finite masses
+    #Jaffe and Hernquist both have finite masses, NFW diverges logarithmically
     jp= potential.JaffePotential(amp=2.,a=0.1)
     hp= potential.HernquistPotential(amp=2.,a=0.1)
+    np= potential.NFWPotential(amp=2.,a=0.1)
     tR= 10.
     # Limiting behavior
     jaffemass= jp._amp*(1.-jp.a/tR)
     hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
+    nfwmass= np._amp*(numpy.log(tR/np.a)-1.+np.a/tR)
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-2., 'Limit mass for NFW potential not as expected'
     tR= 200.
     # Limiting behavior
     jaffemass= jp._amp*(1.-jp.a/tR)
     hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
+    nfwmass= np._amp*(numpy.log(tR/np.a)-1.+np.a/tR)
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
     return None
 
 # Check that the masses are calculated correctly for axisymmetric potentials
