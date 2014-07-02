@@ -600,8 +600,8 @@ def test_evaluateAndDerivs_potential():
                 assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
 
-# Check that the masses are calculated correctly
-def test_mass():
+# Check that the masses are calculated correctly for axisymmetric potentials
+def test_mass_axi():
     #For Miyamoto-Nagai, we know that mass integrated over everything should be equal to amp, so
     mp= potential.MiyamotoNagaiPotential(amp=1.)
     assert numpy.fabs(mp.mass(200.,20.)-1.) < 0.01, 'Total mass of Miyamoto-Nagai potential w/ amp=1 is not equal to 1'
