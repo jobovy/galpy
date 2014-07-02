@@ -599,6 +599,11 @@ def test_evaluateAndDerivs_potential():
             else:
                 assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
+    #Finally test that much higher derivatives are not implemented
+    try: tp(1.2,0.1,dR=4,dphi=10)
+    except NotImplementedError: pass
+    else: raise AssertionError('Higher-order derivative request in potential __call__ does not raise NotImplementedError')
+    return None
 
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
