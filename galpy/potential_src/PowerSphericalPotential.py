@@ -221,7 +221,7 @@ class KeplerPotential(PowerSphericalPotential):
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
                                          alpha=3.)
 
-    def _mass(self,R,z,t=0.):
+    def _mass(self,R,z=0.,t=0.):
         """
         NAME:
            _mass

@@ -195,7 +195,7 @@ class TwoPowerSphericalPotential(Potential):
         """
         return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
-    def _mass(self,R,z,t=0.):
+    def _mass(self,R,z=0.,t=0.):
         """
         NAME:
            _mass

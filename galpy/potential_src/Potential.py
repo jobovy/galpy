@@ -230,7 +230,7 @@ class Potential:
             raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
-            return self._amp*self._mass(R,z,t=t)
+            return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
             #Use numerical integration to get the mass
             if z is None:

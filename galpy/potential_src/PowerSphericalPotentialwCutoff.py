@@ -192,6 +192,21 @@ class PowerSphericalPotentialwCutoff(Potential):
         r= nu.sqrt(R**2.+z**2.)
         return 1./r**self.alpha*nu.exp(-(r/self.rc)**2.)
 
-    def _mass(self,r):
-        """Helper function that has the mass"""
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2013-XX-XX - Written - Bovy (IAS)
+        """
+        if z is None: r= R
+        else: r= nu.sqrt(R**2.+z**2.)
         return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
