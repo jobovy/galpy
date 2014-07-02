@@ -221,4 +221,20 @@ class KeplerPotential(PowerSphericalPotential):
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
                                          alpha=3.)
 
-
+    def _mass(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2014-07-02 - Written - Bovy (IAS)
+        """
+        return self._amp
