@@ -209,7 +209,6 @@ class Potential:
 
            z= (None) vertical height
 
-
            t - time (optional)
 
         KEYWORDS:
@@ -227,6 +226,8 @@ class Potential:
            2014-01-29 - Written - Bovy (IAS)
 
         """
+        if self.isNonAxi:
+            raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z,t=t)
@@ -236,6 +237,10 @@ class Potential:
                 return 4.*nu.pi\
                     *integrate.quad(lambda x: x**2.*self.dens(x,0.,),
                                     0.,R)[0]
+            else:
+                return 4.*nu.pi\
+                    *integrate.dblquad(lambda y,x: x*self.dens(x,y),
+                                       0.,R,lambda x: 0., lambda x: z)[0]
 
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """

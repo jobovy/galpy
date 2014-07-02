@@ -600,6 +600,35 @@ def test_evaluateAndDerivs_potential():
                 assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
 
+# Check that the masses are calculated correctly
+def test_mass():
+    #For Miyamoto-Nagai, we know that mass integrated over everything should be equal to amp, so
+    mp= potential.MiyamotoNagaiPotential(amp=1.)
+    assert numpy.fabs(mp.mass(200.,20.)-1.) < 0.01, 'Total mass of Miyamoto-Nagai potential w/ amp=1 is not equal to 1'
+    #For a double-exponential disk potential, the 
+    # mass(R,z) = amp x hR^2 x hz x (1-(1+R/hR)xe^(-R/hR)) x (1-e^(-Z/hz)
+    dp= potential.DoubleExponentialDiskPotential(amp=2.)
+    def dblexpmass(r,z,dp):
+        return 4.*numpy.pi*dp._amp*dp._hr**2.*dp._hz*(1.-(1.+r/dp._hr)*numpy.exp(-r/dp._hr))*(1.-numpy.exp(-z/dp._hz))
+    tR,tz= 0.01,0.01
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
+    tR,tz= 0.1,0.05
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
+    tR,tz= 1.,0.1
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
+    tR,tz= 5.,0.1
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
+    tR,tz= 5.,1.
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
+    tR,tz= 100.,100.
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-6., 'Mass for DoubleExponentialDiskPotential incorrect'
+    #Test that nonAxi raises error
+    ep= potential.EllipticalDiskPotential()
+    try: ep.mass(1.,0.)
+    except NotImplementedError: pass
+    else: raise AssertionError('mass for non-axisymmetric potential should have raised NotImplementedError, but did not')
+    return None
+
 # Check that toVertical and toPlanar work
 def test_toVertical_toPlanar():
     #Grab all of the potentials
