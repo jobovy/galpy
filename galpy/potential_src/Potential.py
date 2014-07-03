@@ -560,6 +560,7 @@ class Potential:
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,
              xrange=None,yrange=None,
+             justcontours=False,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -591,6 +592,8 @@ class Potential:
            Lz= (None) angular momentum to use for the effective potential when effective=True
 
            ncontours - number of contours
+
+           justcontours= (False) if True, just plot contours
 
            savefilename - save to or restore from this savefile (pickle)
 
@@ -645,11 +648,13 @@ class Potential:
                                 yrange=yrange,
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
     def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                      ncontours=21,savefilename=None,aspect=None,log=False):
+                    ncontours=21,savefilename=None,aspect=None,log=False,
+                    justcontours=False):
         """
         NAME:
            plotDensity
@@ -671,6 +676,8 @@ class Potential:
 
            ncontours= number of contours
 
+           justcontours= (False) if True, just plot contours
+
            savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
@@ -683,6 +690,7 @@ class Potential:
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
                              zmin=zmin,zmax=zmax,nzs=nzs,
                              ncontours=ncontours,savefilename=savefilename,
+                             justcontours=justcontours,
                              aspect=aspect,log=log)
 
     def vcirc(self,R):
@@ -1355,7 +1363,8 @@ def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   ncontours=21,savefilename=None,aspect=None):
+                   ncontours=21,savefilename=None,aspect=None,
+                   justcontours=False):
         """
         NAME:
 
@@ -1382,6 +1391,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            nzs= grid in z
 
            ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
 
            savefilename= save to or restore from this savefile (pickle)
 
@@ -1424,11 +1435,13 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                  ncontours=21,savefilename=None,aspect=None,log=False):
+                  ncontours=21,savefilename=None,aspect=None,log=False,
+                  justcontours=False):
         """
         NAME:
 
@@ -1455,6 +1468,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            nzs= grid in z
 
            ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
 
            savefilename= save to or restore from this savefile (pickle)
 
@@ -1496,6 +1511,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
