@@ -19,7 +19,8 @@ def test_normalize_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -81,7 +82,8 @@ def test_forceAsDeriv_potential():
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     pots.append('mockMovingObjectPotential')
     pots.append('mockMovingObjectExplSoftPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -212,7 +214,8 @@ def test_2ndDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -400,7 +403,8 @@ def test_poisson_potential():
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -480,7 +484,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockMovingObjectPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -702,7 +707,8 @@ def test_toVertical_toPlanar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -1013,6 +1019,23 @@ def test_MovingObject_density():
     mp= mockMovingObjectPotential()
     #Just test that the density far away from the object is close to zero
     assert numpy.fabs(mp.dens(5.,0.)) < 10.**-8., 'Density far away from MovingObject is not close to zero'
+    return None
+
+# Test that MWPotential is what it's supposed to be
+def test_MWPotential2014():
+    pot= potential.MWPotential2014
+    V0, R0= 220., 8.
+    #Check the parameters of the bulge
+    assert pot[0].rc == 1.9/R0, "MWPotential2014's bulge cut-off radius is incorrect"
+    assert pot[0].alpha == 1.8, "MWPotential2014's bulge power-law exponent is incorrect"
+    assert numpy.fabs(pot[0].Rforce(1.,0.)+0.05) < 10.**-14., "MWPotential2014's bulge amplitude is incorrect"
+    #Check the parameters of the disk
+    assert numpy.fabs(pot[1]._a-3./R0) < 10.**-14., "MWPotential2014's disk scale length is incorrect"
+    assert numpy.fabs(pot[1]._b-0.28/R0) < 10.**-14., "MWPotential2014's disk scale heigth is incorrect"
+    assert numpy.fabs(pot[1].Rforce(1.,0.)+0.60) < 10.**-14., "MWPotential2014's disk amplitude is incorrect"
+    #Check the parameters of the halo
+    assert numpy.fabs(pot[2].a-16./R0) < 10.**-14., "MWPotential2014's halo scale radius is incorrect"
+    assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
 def test_plotting():

@@ -58,7 +58,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockCombLinearPotential')
     pots.append('mockSimpleLinearPotential')
     pots.append('mockMovingObjectLongIntPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -359,7 +360,8 @@ def test_liouville_planar():
     pots.append('specialFlattenedPowerPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     rmpots.append('BurkertPotential')
@@ -445,7 +447,8 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -548,7 +551,8 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -651,7 +655,8 @@ def test_apocenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -755,7 +760,8 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -847,7 +853,8 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
@@ -937,7 +944,8 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
-    rmpots= ['Potential','MWPotential','MovingObjectPotential',
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
     if False: #_TRAVIS: #travis CI
