@@ -315,6 +315,13 @@ following series of steps (some of these are also given in the file
     the first and second derivatives of the potential (if all are
     implemented).
 
+  * ``_mass(self,R,z=0.,t=0.)`` which evaluates the mass. For
+    spherical potentials this should give the mass enclosed within the
+    spherical radius; for axisymmetric potentials this should return
+    the mass up to ``R`` and between ``-Z`` and ``Z``. If not given,
+    the mass is computed by integrating the density (if it is
+    implemented or can be calculated from the Poisson equation).
+
   * ``_phiforce(self,R,z,phi=0.,t=0.)``: the azimuthal force in
     cylindrical coordinates (assumed zero if not implemented).
 
