@@ -72,5 +72,5 @@ double PowerSphericalPotentialwCutoffPlanarR2deriv(double R,double phi,
   //Radius
   double r2= R*R;
   //Calculate R2deriv
-  return amp * 4. * M_PI * pow(r2,-1. - 0.5 * alpha) * exp(-r2/rc/rc) * r2 - 2. * mass(r2,alpha,rc)/pow(r2,1.5);
+  return amp * ( 4. * M_PI * pow(r2,- 0.5 * alpha) * exp(-r2/rc/rc) - 2. * mass(r2,alpha,rc)/pow(r2,1.5) );
 }

@@ -121,7 +121,7 @@ def test_energy_jacobi_conservation():
                 tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
-            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
@@ -426,7 +426,7 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-            #print p, integrator, numpy.fabs(tjac-1.)
+#            print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     return None
