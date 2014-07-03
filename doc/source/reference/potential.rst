@@ -20,6 +20,7 @@ Use as ``Potential-instance.method(...)``
    epifreq <potentialepifreq.rst>
    flattening <potentialflattening.rst>
    lindbladR <potentiallindbladR.rst>
+   mass <potentialmass.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    phi2deriv <potentialphi2deriv.rst>
