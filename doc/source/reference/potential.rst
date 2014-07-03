@@ -96,15 +96,27 @@ Specific potentials
    potentialpowerspherwcut.rst
    potentialrazorexp.rst
 
-In addition to these classes, a Milky-Way-like potential is defined as ``galpy.potential.MWPotential``. This potential is defined as
+In addition to these classes, a simple Milky-Way-like potential fit to
+data on the Milky Way is included as
+``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
+details). This potential is defined as
+
+>>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
+>>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
+>>> np= NFWPotential(a=16/8.,normalize=.35)
+>>> MWPotential2014= [bp,mp,np]
+
+and can thus be used like any list of ``Potentials``. An older version
+``galpy.potential.MWPotential`` of a similar potential that was *not*
+fit to data on the Milky Way is defined as
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> MWPotential= [mp,np,hp]
 
-and can thus be used like any list of ``Potentials``.
-
+``galpy.potential.MWPotential2014`` supersedes
+``galpy.potential.MWPotential``.
 
 2D potentials
 -------------
