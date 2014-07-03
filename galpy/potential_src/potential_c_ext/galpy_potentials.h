@@ -197,4 +197,15 @@ double IsochronePotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double IsochronePotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+//PowerSphericalPotentialwCutoff
+double PowerSphericalPotentialwCutoffEval(double ,double , double, double,
+					  struct potentialArg *);
+double PowerSphericalPotentialwCutoffRforce(double ,double , double, double,
+					    struct potentialArg *);
+double PowerSphericalPotentialwCutoffPlanarRforce(double ,double, double,
+						  struct potentialArg *);
+double PowerSphericalPotentialwCutoffzforce(double,double,double,double,
+					    struct potentialArg *);
+double PowerSphericalPotentialwCutoffPlanarR2deriv(double ,double, double,
+						   struct potentialArg *);
 #endif /* galpy_potentials.h */

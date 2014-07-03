@@ -147,6 +147,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
+    case 15: //PowerSphericalPotentialwCutoff, 3 arguments
+      potentialArgs->planarRforce= &PowerSphericalPotentialwCutoffPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &PowerSphericalPotentialwCutoffPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 3;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

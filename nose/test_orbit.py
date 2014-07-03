@@ -366,7 +366,7 @@ def test_liouville_planar():
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
-    rmpots.append('PowerSphericalPotentialwCutoff')
+    #rmpots.append('PowerSphericalPotentialwCutoff')
     #Doesn't have the R2deriv
     rmpots.append('TwoPowerSphericalPotential')
     for p in rmpots:

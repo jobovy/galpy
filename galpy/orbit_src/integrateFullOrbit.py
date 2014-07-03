@@ -90,6 +90,9 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)
             pot_args.extend([p._amp,p.b])
+        elif isinstance(p,potential.PowerSphericalPotentialwCutoff):
+            pot_type.append(15)
+            pot_args.extend([p._amp,p.alpha,p.rc])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
