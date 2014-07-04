@@ -2054,6 +2054,7 @@ def test_full_plotting():
     if True: #not _TRAVIS:
         o.plotEz(pot=dp,d1='phi')
     oa.plotEz()
+    oa.plotEz(normed=True)
     oa.plotEz(pot=lp,d1='R')
     oa.plotEz(pot=lp,d1='vR')
     oa.plotEz(pot=lp,d1='vT')
@@ -2062,6 +2063,9 @@ def test_full_plotting():
     # Radial energy
     o.plotER()
     o.plotER(normed=True)
+    # Radial energy
+    oa.plotER()
+    oa.plotER(normed=True)
     # EzJz
     o.plotEzJz()
     o.plotEzJz(pot=lp,d1='R')
