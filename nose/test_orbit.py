@@ -110,7 +110,7 @@ def test_energy_jacobi_conservation():
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'DehnenBar' in p and not 'LogSpiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -365,7 +365,7 @@ def test_liouville_planar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError']
-    rmpots.append('BurkertPotential')
+    #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
@@ -378,6 +378,7 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
+    firstTest= True
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -392,7 +393,7 @@ def test_liouville_planar():
         if hasattr(tp,'toPlanar'):
             tp= tp.toPlanar()
         for integrator in integrators:
-            if integrator == 'odeint': ttol= -4.
+            if integrator == 'odeint' or not tp.hasC: ttol= -4.
             if True: ttimes= times
             o= setup_orbit_liouville(tp,axi=False)
             #Calculate the Jacobian d x / d x
@@ -429,10 +430,19 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-            print p, integrator, numpy.fabs(tjac-1.)
+#            print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
+            if firstTest or ('Burkert' in p and not tp.hasC):
+                #Some one time tests
+                #Test non-rectangular in- and output
+                try:
+                    o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method='leapfrog',
+                                     rectIn=True,rectOut=True)
+                except TypeError: pass
+                else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
+                firstTest= False                    
             if _QUICKTEST and not ('NFW' in p \
-                                       or 'Burkert' in p and not tp.hasC): break
+                                       or ('Burkert' in p and not tp.hasC)): break
     return None
 
 # Test that the eccentricity of circular orbits is zero

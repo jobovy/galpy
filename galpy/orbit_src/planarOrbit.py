@@ -683,9 +683,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
             allHasC= nu.prod([p.hasC for p in pot])
         else:
             allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
+        if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
             method= 'odeint'
     #go to the rectangular frame
     this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
