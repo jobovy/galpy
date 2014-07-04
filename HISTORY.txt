@@ -3,6 +3,10 @@ v1.0 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
+- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of relevant data on the Milky Way; supersedes MWPotential, which is still included.
+
+- Add C implementation of PowerSphericalPotentialwCutoff;
+
 - Moved MovingObjectPotential, BurkertPotential, and interpRZPotential to top level; better implementation of interpRZPotential;
 
 - Sped up many of the functions in galpy.util.bovy_coords by removing scipy.frompyfunc dependency.
