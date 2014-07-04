@@ -2190,6 +2190,9 @@ def test_full_plotting():
     o.plot3d(d1='helioZ',d2='W',d3='U')
     o.plot3d(d2='helioZ',d1='W',d3='helioX')
     # Test AttributeErrors
+    try: o.plot3d(d1='R') #shouldn't work, bc there is no default
+    except AttributeError: pass
+    else: raise AssertionError('plot3d with just d1= set should have raised AttributeError, but did not')
     try: oa.plot3d(d2='x',d1='R',d3='t')
     except AttributeError: pass
     else: raise AssertionError("plot3d(d2='x') applied to RZOrbit did not raise AttributeError")
