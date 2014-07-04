@@ -286,6 +286,8 @@ class Orbit:
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
+                   'symplec4_c' for a 4th order symplectic integrator in C
+                   'symplec6_c' for a 6th order symplectic integrator in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
