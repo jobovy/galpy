@@ -295,6 +295,29 @@ def test_energy_jacobi_conservation():
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
                 firstTest= False
+            #Same for a planarPotential, but integrating w/ the potential directly, rather than the toPlanar instance; this tests that those potential attributes are passed to C correctly
+#            print integrator
+            o= setup_orbit_energy(ptp,axi=True)
+            o.integrate(ttimes,tp,method=integrator)
+            tEs= o.E(ttimes)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            #Jacobi
+            tJacobis= o.Jacobi(ttimes)
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            #Same for a planarPotential, track azimuth
+            o= setup_orbit_energy(ptp,axi=False)
+            o.integrate(ttimes,tp,method=integrator)
+            tEs= o.E(ttimes)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            #Jacobi
+            tJacobis= o.Jacobi(ttimes)
+            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not ('NFW' in p \
                                      or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
