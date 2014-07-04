@@ -1125,7 +1125,8 @@ class OrbitTop:
             return nu.array(self.vxvv)
         else:
             t= args[0]
-        if isinstance(t,(int,float)) and t in list(self.t):
+        if isinstance(t,(int,float)) and hasattr(self,'t') \
+                and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
         else:
             if isinstance(t,(int,float)): 
@@ -1145,10 +1146,7 @@ class OrbitTop:
                         raise LookupError("Orbit interpolaton failed; integrate on finer grid")
                     for ii in range(dim):
                         out[ii,jj]= self.orbit[indx,ii]
-                if nt == 1:
-                    return nu.array(out).reshape(dim)
-                else:
-                    return out
+                return out #should always have nt > 1, bc otherwise covered by above
             out= []
             for ii in range(dim):
                 out.append(self._orbInterp[ii](t))
