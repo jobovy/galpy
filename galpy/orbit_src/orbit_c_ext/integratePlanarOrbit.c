@@ -265,11 +265,6 @@ void integratePlanarOrbit_dxdv(double *yo,
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
   switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
-    break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
@@ -279,16 +274,6 @@ void integratePlanarOrbit_dxdv(double *yo,
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
     dim= 8;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
