@@ -1721,7 +1721,7 @@ def test_newOrbit():
 def test_newOrbit_b4integration():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.1,0.,0.])
-    no= o() #New orbit formed before integration
+    no= o(0.) #New orbit formed before integration
     assert numpy.fabs(no.R()-o.R()) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct R"
     assert numpy.fabs(no.vR()-o.vR()) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vR"
     assert numpy.fabs(no.vT()-o.vT()) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vT"
