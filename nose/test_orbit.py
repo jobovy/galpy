@@ -1767,6 +1767,29 @@ def test_physical_output_off():
     assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
     return None
 
+# Test that physical scales are propagated correctly when a new orbit is formed by calling an old orbit
+def test_physical_newOrbit():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.,0.],ro=9.,vo=230.,
+             zo=0.02,solarmotion=[-5.,15.,25.])
+    ts= numpy.linspace(0.,1.,21) #v. quick orbit integration
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o.integrate(ts,lp)
+    no= o(ts[-1]) #new orbit
+    assert no._ro == 9., "New orbit formed from calling old orbit's ro is not that of the old orbit"
+    assert no._vo == 230., "New orbit formed from calling old orbit's vo is not that of the old orbit"
+    assert no._orb._ro == 9., "New orbit formed from calling old orbit's ro is not that of the old orbit"
+    assert no._orb._vo == 230., "New orbit formed from calling old orbit's vo is not that of the old orbit"
+    assert no._roSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._voSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._orb._roSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._orb._voSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._orb._zo == 0.02, "New orbit formed from calling old orbit's zo is not that of the old orbit"
+    assert no._orb._solarmotion[0] == -5., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    assert no._orb._solarmotion[1] == 15., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    assert no._orb._solarmotion[2] == 25., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    return None
+
 # Check plotting routines
 def test_linear_plotting():
     from galpy.orbit import Orbit
