@@ -218,8 +218,6 @@ class planarROrbit(planarOrbitTop):
         """
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateROrbit
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):
@@ -341,8 +339,6 @@ class planarOrbit(planarOrbitTop):
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateOrbit
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):

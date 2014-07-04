@@ -57,8 +57,6 @@ class FullOrbit(OrbitTop):
         """
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateFullOrbit
         return None
 
     def integrate(self,t,pot,method='leapfrog_c'):

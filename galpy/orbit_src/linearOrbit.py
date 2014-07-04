@@ -37,8 +37,6 @@ class linearOrbit(OrbitTop):
         """
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=None,vo=vo,solarmotion=None)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateLinearOrbit
         return None
 
     def integrate(self,t,pot,method='odeint'):
