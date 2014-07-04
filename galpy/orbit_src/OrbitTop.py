@@ -92,54 +92,6 @@ class OrbitTop:
         """
         raise NotImplementedError
 
-    def integrateBC(self,pot,bc=None,method='odeint'):
-        """
-        NAME:
-           integrateBC
-        PURPOSE:
-           integrate the orbit subject to a final boundary condition
-        INPUT:
-           pot - potential instance or list of instances
-           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
-           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
-                   a simple symplectic integrator
-        OUTPUT:
-           Another Orbit instance, time at which the BC is reached
-        HISTORY:
-           2011-09-30
-        """
-        #Parse potential
-        if len(self.vxvv) == 3 or len(self.vxvv) == 4:
-            thispot= RZToplanarPotential(pot)
-        else:
-            thispot= pot
-        #First find the interval; initialize
-        dt= 1.
-        a,b=  0., dt
-        vxvv_a= self.vxvv
-        bc_a= bc(vxvv_a)
-        if bc_a == 0.:
-            return (nu.array([vxvv_a,vxvv_a]),0.)
-        tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
-        vxvv_b= tmp_orb[1,:]
-        bc_b= bc(vxvv_b)
-        if bc_b*bc_a < 0.: found_init_interval= True
-        else: found_init_interval= False
-        while not found_init_interval:
-            #Repeat!
-            a= b
-            b= a+1.
-            bc_a= bc_b
-            vxvv_a= vxvv_b
-            tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
-            vxvv_b= tmp_orb[1,:]
-            bc_b= bc(vxvv_b)
-            if bc_b*bc_a < 0.: found_init_interval= True
-        tout= optimize.brentq(_BCZeroFunction,a,b,
-                              args=(vxvv_a,thispot,method,bc,a,self._BCIntegrateFunction))
-        t= nu.array([a,tout])
-        return (self._BCIntegrateFunction(vxvv_a,thispot,t,method),a+tout)
-    
     def getOrbit(self):
         """
         NAME:
@@ -1932,10 +1884,3 @@ class _fakeInterp:
     def __call__(self,t):
         return self.x
 
-def _BCZeroFunction(t,vxvv,pot,method,bc,to,BCIntegrateFunc):
-    if t == to: return bc(vxvv)
-    #Determine number of ts
-    nts= int(nu.ceil(t-to))+1 #very simple estimate
-    tin= nu.linspace(to,t,nts)
-    orb= BCIntegrateFunc(vxvv,pot,tin,method)
-    return bc(orb[nts-1,:])

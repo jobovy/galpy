@@ -6,23 +6,6 @@ from RZOrbit import RZOrbit
 from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
 from linearOrbit import linearOrbit
 _K=4.74047
-def _zEqZeroBC(ar):
-    return ar[3]
-def _vzEqZeroBC(ar):
-    return ar[4]
-def _REqZeroBC(ar):
-    return ar[0]
-def _REqOneBC(ar):
-    return ar[0]-1.
-def _vREqZeroBC(ar):
-    return ar[1]
-def _vTEqZeroBC(ar):
-    return ar[2]
-def _vTEqOneBC(ar):
-    return ar[2]-1.
-def _phiEqZeroBC(ar):
-    if len(ar) > 4: return ar[5]
-    else: return ar[3]
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -345,41 +328,6 @@ class Orbit:
         """
         self._orb.integrate_dxdv(dxdv,t,pot,method=method,
                                  rectIn=rectIn,rectOut=rectOut)
-
-    def integrateBC(self,pot,bc=_zEqZeroBC,method='odeint'):
-        """
-        NAME:
-
-           integrateBC
-
-        PURPOSE:
-
-           integrate the orbit subject to a final boundary condition
-
-        INPUT:
-
-           pot - potential instance or list of instances
-
-           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
-
-           method= 'odeint' for scipy's odeint
-                   'leapfrog' for a simple leapfrog implementation
-                   'leapfrog_c' for a simple leapfrog implementation in C
-                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
-
-        OUTPUT:
-        
-           (Another Orbit instance,time at which BC is reached)
-
-        HISTORY:
-
-           2011-09-30
-
-        """
-        o,tout= self._orb.integrateBC(pot,bc=bc,method=method)
-        return (Orbit(vxvv=o[1,:]),tout)
 
     def reverse(self):
         """
