@@ -385,8 +385,6 @@ class planarOrbit(planarOrbitTop):
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
            method= 'odeint' for scipy's odeint
-                   'leapfrog' for a simple leapfrog implementation
-                   'leapfrog_c' for a simple leapfrog implementation in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
@@ -707,21 +705,14 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
                              +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
     else:
         this_dxdv= dxdv
-    if method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
-            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        #raise NotImplementedError("C implementation of phase space integration not implemented yet")
+    if 'leapfrog' in method.lower() or 'symplec' in method.lower():
+        raise TypeError('Symplectic integration for phase-space volume is not possible')
+    elif method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
+            or method.lower() == 'dopr54_c':
         warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
-    elif method.lower() == 'leapfrog':
-        init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
-               this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
-        #integrate
-        raise NotImplementedError('leapfrog integration for dxdv not implemented currently')
-        tmp_out= symplecticode.leapfrog(_EOM_dxdv,init,t,args=(pot,),
-                                  rtol=10.**-8.)
     elif method.lower() == 'odeint':
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]

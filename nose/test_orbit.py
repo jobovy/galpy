@@ -110,7 +110,7 @@ def test_energy_jacobi_conservation():
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'DehnenBar' in p and not 'LogSpiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -164,7 +164,8 @@ def test_energy_jacobi_conservation():
                     or (ptp is None and tp.isNonAxi) \
                     or 'MovingObject' in p:
                 if _QUICKTEST \
-                        and not ('NFW' in p or 'linearMWPotential' in p):
+                        and not ('NFW' in p or 'linearMWPotential' in p \
+                                     or ('Burkert' in p and not tp.hasC)):
                     break
                 else: continue
             #Now do axisymmetric
@@ -207,7 +208,8 @@ def test_energy_jacobi_conservation():
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None:
-                if _QUICKTEST and not 'NFW' in p: break
+                if _QUICKTEST and not ('NFW' in p \
+                                           or ('Burkert' in p and not tp.hasC)): break
                 else: continue
             #Same for a planarPotential
 #            print integrator
@@ -293,7 +295,8 @@ def test_energy_jacobi_conservation():
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
                 firstTest= False
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and not ('NFW' in p \
+                                     or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
     return None
 
@@ -345,8 +348,6 @@ def test_liouville_planar():
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
                   'rk4_c','rk6_c']
-#                  'leapfrog','leapfrog_c',
-#                  'symplec4_c','symplec6_c']
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
@@ -428,9 +429,10 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-#            print p, integrator, numpy.fabs(tjac-1.)
+            print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and not ('NFW' in p \
+                                       or 'Burkert' in p and not tp.hasC): break
     return None
 
 # Test that the eccentricity of circular orbits is zero
