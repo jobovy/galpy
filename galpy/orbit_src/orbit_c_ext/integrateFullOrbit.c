@@ -250,7 +250,7 @@ void integrateFullOrbit(double *yo,
   free(potentialArgs);
   //Done!
 }
-
+// LCOV_EXCL_START
 void integrateOrbit_dxdv(double *yo,
 			 int nt, 
 			 double *t,
@@ -321,7 +321,7 @@ void integrateOrbit_dxdv(double *yo,
   free(potentialArgs);
   //Done!
 }
-
+// LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce, z, zforce;
@@ -404,7 +404,7 @@ double calcPhiforce(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return phiforce;
 }
-
+// LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
@@ -501,3 +501,4 @@ double calcRphideriv(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return Rphideriv;
 }
+// LCOV_EXCL_STOP

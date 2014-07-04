@@ -166,7 +166,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
 
     return (result,err.value)
 
-def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
+def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pragma: no cover because not included in v1, uncover when included
     """
     NAME:
        integrateFullOrbit_dxdv_c
