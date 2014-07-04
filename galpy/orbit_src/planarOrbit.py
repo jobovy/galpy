@@ -866,6 +866,6 @@ def _rectForce(x,pot,t=0.):
                      sinphi*Rforce+1./R*cosphi*phiforce])
 
 def _parse_warnmessage(msg):
-    if msg == 1:
+    if msg == 1: #pragma: no cover
         warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate",galpyWarning)
         
