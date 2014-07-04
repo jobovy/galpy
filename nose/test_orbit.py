@@ -1673,6 +1673,50 @@ def test_getOrbit():
         'getOrbit does not work as expected for phi'
     return None
 
+# Test new orbits formed from __call__
+def test_newOrbit():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.,0.])
+    ts= numpy.linspace(0.,1.,21) #v. quick orbit integration
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o.integrate(ts,lp)
+    no= o(ts[-1]) #new orbit
+    assert no.R() == o.R(ts[-1]), "New orbit formed from calling an old orbit does not have the correct R"
+    assert no.vR() == o.vR(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert no.vT() == o.vT(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert no.z() == o.z(ts[-1]), "New orbit formed from calling an old orbit does not have the correct z"
+    assert no.vz() == o.vz(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert no.phi() == o.phi(ts[-1]), "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    #Also test this for multiple time outputs
+    nos= o(ts[-2:]) #new orbits
+    #First t
+    assert numpy.fabs(nos[0].R()-o.R(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.fabs(nos[0].vR()-o.vR(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.fabs(nos[0].vT()-o.vT(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.fabs(nos[0].z()-o.z(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    #Second t
+    assert numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.fabs(nos[1].vT()-o.vT(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.fabs(nos[1].z()-o.z(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    return None
+
 # Check the routines that should return physical coordinates
 def test_physical_output():
     from galpy.potential import LogarithmicHaloPotential
