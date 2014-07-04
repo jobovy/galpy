@@ -186,11 +186,11 @@ def _parse_tol(rtol,atol):
     #Process atol and rtol
     if rtol is None:
         rtol= -12.*nu.log(10.)
-    else:
+    else: #pragma: no cover
         rtol= nu.log(rtol)
     if atol is None:
         atol= -12.*nu.log(10.)
-    else:
+    else: #pragma: no cover
         atol= nu.log(atol)
     return (rtol,atol)
 
