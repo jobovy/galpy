@@ -598,6 +598,8 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -624,7 +626,10 @@ def test_pericenter():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
-        ptp= tp.toPlanar()
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= None
         for integrator in integrators:
             #First do axi
             o= setup_orbit_pericenter(tp,axi=True)
@@ -635,7 +640,11 @@ def test_pericenter():
                     pass
                 else:
                     raise AssertionError("o.rperi() before the orbit was integrated did not throw an AttributeError")
-            o.integrate(times,tp,method=integrator)
+            if isinstance(tp,testplanarMWPotential) \
+                    or isinstance(tp,testMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
+            else:
+                o.integrate(times,tp,method=integrator)
             tperi= o.rperi()
 #            print p, integrator, tperi
             assert (tperi-o.R())**2. < 10.**ttol, \
@@ -654,6 +663,8 @@ def test_pericenter():
 #            print p, integrator, tperi
             assert (tperi-o.R())**2. < 10.**ttol, \
                 "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
+            if ptp is None:
+                if _QUICKTEST and not 'NFW' in p: break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_pericenter(ptp,axi=True)
@@ -702,6 +713,8 @@ def test_apocenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -729,7 +742,10 @@ def test_apocenter():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
-        ptp= tp.toPlanar()
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= None
         for integrator in integrators:
             #First do axi
             o= setup_orbit_apocenter(tp,axi=True)
@@ -740,7 +756,11 @@ def test_apocenter():
                     pass
                 else:
                     raise AssertionError("o.rap() before the orbit was integrated did not throw an AttributeError")
-            o.integrate(times,tp,method=integrator)
+            if isinstance(tp,testplanarMWPotential) \
+                    or isinstance(tp,testMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
+            else:
+                o.integrate(times,tp,method=integrator)
             tapo= o.rap()
             #print p, integrator, tapo, (tapo-o.R())**2.
             assert (tapo-o.R())**2. < 10.**ttol, \
@@ -759,6 +779,8 @@ def test_apocenter():
 #            print p, integrator, tapo
             assert (tapo-o.R())**2. < 10.**ttol, \
                 "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
+            if ptp is None:
+                if _QUICKTEST and not 'NFW' in p: break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_apocenter(ptp,axi=True)
@@ -807,6 +829,7 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -833,7 +856,10 @@ def test_zmax():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
-        ptp= tp.toPlanar()
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= None
         for integrator in integrators:
             #First do axi
             o= setup_orbit_zmax(tp,axi=True)
@@ -844,7 +870,10 @@ def test_zmax():
                     pass
                 else:
                     raise AssertionError("o.zmax() before the orbit was integrated did not throw an AttributeError")
-            o.integrate(times,tp,method=integrator)
+            if isinstance(tp,testMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
+            else:
+                o.integrate(times,tp,method=integrator)
             tzmax= o.zmax()
 #            print p, integrator, tzmax
             assert (tzmax-o.z())**2. < 10.**ttol, \
