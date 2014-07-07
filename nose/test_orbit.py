@@ -941,12 +941,15 @@ def test_analytic_ecc_rperi_rap():
     #tolerances in log10
     tol= {}
     tol['default']= -10.
+    tol['NFWPotential']= -9. #these are more difficult
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    tol['RazorThinExponentialDiskPotential']= -8. #these are more difficult
     tol['IsochronePotential']= -6. #these are more difficult
     tol['JaffePotential']= -6. #these are more difficult
     tol['PowerSphericalPotential']= -8. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
+    tol['KeplerPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -1003,6 +1006,85 @@ def test_analytic_ecc_rperi_rap():
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
                     "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
+                #Do this also for an orbit starting at pericenter
+                if ii == 0: #axi, full
+                    #First do axi
+                    o= setup_orbit_pericenter(tp,axi=True)
+                    o.integrate(times,tp,method=integrator)
+                elif ii == 1: #track azimuth, full
+                    #First do axi
+                    o= setup_orbit_pericenter(tp,axi=False)
+                    o.integrate(times,tp,method=integrator)
+                elif ii == 2: #axi, planar
+                    #First do axi
+                    o= setup_orbit_pericenter(ptp,axi=True)
+                    o.integrate(times,ptp,method=integrator)
+                elif ii == 3: #track azimuth, full
+                    #First do axi
+                    o= setup_orbit_pericenter(ptp,axi=False)
+                    o.integrate(times,ptp,method=integrator)
+                #Eccentricity
+                tecc= o.e()
+                tecc_analytic= o.e(analytic=True)
+                #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+                assert (tecc-tecc_analytic)**2. < 10.**ttol, \
+                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                #Pericenter radius
+                trperi= o.rperi()
+                trperi_analytic= o.rperi(analytic=True)
+                #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+                assert (trperi-trperi_analytic)**2. < 10.**ttol, \
+                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rperi(ro=8.)/8.-trperi_analytic)**2. < 10.**ttol, \
+                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
+                #Apocenter radius
+                trap= o.rap()
+                trap_analytic= o.rap(analytic=True)
+                #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+                assert (trap-trap_analytic)**2. < 10.**ttol, \
+                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
+                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
+                #Do this also for an orbit starting at apocenter
+                if ii == 0: #axi, full
+                    #First do axi
+                    o= setup_orbit_apocenter(tp,axi=True)
+                    o.integrate(times,tp,method=integrator)
+                elif ii == 1: #track azimuth, full
+                    #First do axi
+                    o= setup_orbit_apocenter(tp,axi=False)
+                    o.integrate(times,tp,method=integrator)
+                elif ii == 2: #axi, planar
+                    #First do axi
+                    o= setup_orbit_apocenter(ptp,axi=True)
+                    o.integrate(times,ptp,method=integrator)
+                elif ii == 3: #track azimuth, full
+                    #First do axi
+                    o= setup_orbit_apocenter(ptp,axi=False)
+                    o.integrate(times,ptp,method=integrator)
+                #Eccentricity
+                tecc= o.e()
+                tecc_analytic= o.e(analytic=True)
+                #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
+                assert (tecc-tecc_analytic)**2. < 10.**ttol, \
+                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                #Pericenter radius
+                trperi= o.rperi()
+                trperi_analytic= o.rperi(analytic=True)
+                #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
+                assert (trperi-trperi_analytic)**2. < 10.**ttol, \
+                    "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rperi(ro=8.)/8.-trperi_analytic)**2. < 10.**ttol, \
+                    "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
+                #Apocenter radius
+                trap= o.rap()
+                trap_analytic= o.rap(analytic=True)
+                #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+                assert (trap-trap_analytic)**2. < 10.**ttol, \
+                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
+                    "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
+
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
     return None
