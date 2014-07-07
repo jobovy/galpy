@@ -18,6 +18,11 @@ def test_actionAngleIsochrone_basic_actions():
     js= aAI(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jz'
+    #Close-to-circular orbit, called with time
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAI(Orbit([R,vR,vT,z,vz])(0.))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jr'
+    assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the isochrone potential does not have small Jz'
     return None
 
 #Basic sanity checking of the actionAngleIsochrone actions
