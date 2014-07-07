@@ -54,6 +54,7 @@ def test_energy_jacobi_conservation():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockCombLinearPotential')
     pots.append('mockSimpleLinearPotential')
@@ -125,7 +126,7 @@ def test_energy_jacobi_conservation():
 #            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if firstTest or 'MWPotential' in p or 'linearMWPotential' in p:
+            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
                 #Some basic checking of the energy and Jacobi functions
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
@@ -482,6 +483,8 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -508,7 +511,10 @@ def test_eccentricity():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
-        ptp= tp.toPlanar()
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= None
         for integrator in integrators:
             #First do axi
             o= setup_orbit_eccentricity(tp,axi=True)
@@ -519,7 +525,11 @@ def test_eccentricity():
                     pass
                 else:
                     raise AssertionError("o.e() before the orbit was integrated did not throw an AttributeError")
-            o.integrate(times,tp,method=integrator)
+            if isinstance(tp,testplanarMWPotential) \
+                    or isinstance(tp,testMWPotential):
+                o.integrate(times,tp._potlist,method=integrator)
+            else:
+                o.integrate(times,tp,method=integrator)
             tecc= o.e()
 #            print p, integrator, tecc
             assert tecc**2. < 10.**ttol, \
@@ -538,6 +548,8 @@ def test_eccentricity():
 #            print p, integrator, tecc
             assert tecc**2. < 10.**ttol, \
                 "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
+            if ptp is None:
+                if _QUICKTEST and not 'NFW' in p: break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_eccentricity(ptp,axi=True)
