@@ -49,7 +49,7 @@ class RZOrbit(OrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate

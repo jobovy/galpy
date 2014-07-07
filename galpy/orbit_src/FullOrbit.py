@@ -59,7 +59,7 @@ class FullOrbit(OrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate

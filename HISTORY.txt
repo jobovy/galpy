@@ -3,6 +3,8 @@ v1.0 (XXXX-XX-XX)
 
 CURRENT DEVELOPMENT VERSION
 
+- Changed default integrator to symplec4_c
+
 - Added MWPotential2014: a Milky-Way-like potential fit to a bunch of relevant data on the Milky Way; supersedes MWPotential, which is still included.
 
 - Add C implementation of PowerSphericalPotentialwCutoff;

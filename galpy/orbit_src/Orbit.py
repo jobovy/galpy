@@ -250,7 +250,7 @@ class Orbit:
         """
         self._orb.turn_physical_off()
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
 
