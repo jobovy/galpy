@@ -222,13 +222,12 @@ def test_actionAngleSpherical_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleSpherical, \
         actionAngleIsochrone
-    from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAS= actionAngleSpherical(pot=ip)
     R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
     ji= aAI(R,vR,vT,z,vz,phi)
-    jia= aAS(Orbit([R,vR,vT,z,vz,phi]))
+    jia= aAS(R,vR,vT,z,vz,phi)
     djr= numpy.fabs((ji[0]-jia[0])/ji[0])
     dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
     djz= numpy.fabs((ji[2]-jia[2])/ji[2])
