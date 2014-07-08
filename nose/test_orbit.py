@@ -929,6 +929,8 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -965,25 +967,46 @@ def test_analytic_ecc_rperi_rap():
             tp= tclass()
             if not hasattr(tp,'normalize'): continue #skip these
             tp.normalize(1.)
-            ptp= tp.toPlanar()
+            if hasattr(tp,'toPlanar'):
+                ptp= tp.toPlanar()
+            else:
+                ptp= None
         for integrator in integrators:
             for ii in range(4):
                 if ii == 0: #axi, full
                     #First do axi
                     o= setup_orbit_analytic(tp,axi=True)
-                    o.integrate(times,tp,method=integrator)
+                    if isinstance(tp,testplanarMWPotential) \
+                            or isinstance(tp,testMWPotential):
+                        o.integrate(times,tp._potlist,method=integrator)
+                    else:
+                        o.integrate(times,tp,method=integrator)
                 elif ii == 1: #track azimuth, full
                     #First do axi
                     o= setup_orbit_analytic(tp,axi=False)
-                    o.integrate(times,tp,method=integrator)
+                    if isinstance(tp,testplanarMWPotential) \
+                            or isinstance(tp,testMWPotential):
+                        o.integrate(times,tp._potlist,method=integrator)
+                    else:
+                        o.integrate(times,tp,method=integrator)
                 elif ii == 2: #axi, planar
+                    if ptp is None: continue
                     #First do axi
                     o= setup_orbit_analytic(ptp,axi=True)
-                    o.integrate(times,ptp,method=integrator)
+                    if isinstance(ptp,testplanarMWPotential) \
+                            or isinstance(ptp,testMWPotential):
+                        o.integrate(times,ptp._potlist,method=integrator)
+                    else:
+                        o.integrate(times,ptp,method=integrator)
                 elif ii == 3: #track azimuth, full
+                    if ptp is None: continue
                     #First do axi
                     o= setup_orbit_analytic(ptp,axi=False)
-                    o.integrate(times,ptp,method=integrator)
+                    if isinstance(ptp,testplanarMWPotential) \
+                            or isinstance(ptp,testMWPotential):
+                        o.integrate(times,ptp._potlist,method=integrator)
+                    else:
+                        o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
                 tecc_analytic= o.e(analytic=True)
@@ -1102,6 +1125,7 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'evaluate' in p)]
+    pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1123,6 +1147,7 @@ def test_analytic_zmax():
     tol['KeplerPotential']= -7. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
+    tol['testMWPotential']= -6. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in tol.keys(): ttol= tol[p]
@@ -1145,7 +1170,10 @@ def test_analytic_zmax():
                 elif ii == 1: #track azimuth, full
                     #First do axi
                     o= setup_orbit_analytic_zmax(tp,axi=False)
-                o.integrate(times,tp,method=integrator)
+                if isinstance(tp,testMWPotential):
+                    o.integrate(times,tp._potlist,method=integrator)
+                else:
+                    o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
                 tzmax_analytic= o.zmax(analytic=True)
                 #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.

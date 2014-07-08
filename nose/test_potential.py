@@ -1377,6 +1377,8 @@ class testMWPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(R,z,self._potlist,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
+    def vcirc(self,R):
+        return potential.vcirc(self._potlist,R)
     def normalize(self,norm,t=0.):
         self._amp= norm
     def OmegaP(self):
@@ -1406,6 +1408,8 @@ class testplanarMWPotential(planarPotential):
     def _Rphideriv(self,R,phi=0.,t=0.):
         return evaluateplanarPotentials(R,self._potlist,phi=phi,t=t,dR=1,
                                         dphi=1)
+    def vcirc(self,R):
+        return potential.vcirc(self._potlist,R)
     def normalize(self,norm,t=0.):
         self._amp= norm
     def OmegaP(self):
