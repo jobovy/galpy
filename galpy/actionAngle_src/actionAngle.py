@@ -78,9 +78,6 @@ class actionAngle:
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
         OUTPUT:
@@ -105,9 +102,6 @@ class actionAngle:
                  1) floats: phase-space value for single object (phi is optional)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
-
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
@@ -134,9 +128,6 @@ class actionAngle:
                  1) floats: phase-space value for single object (phi needs to be specified)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
-
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
