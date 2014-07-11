@@ -81,8 +81,8 @@ class actionAngle:
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
 
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -109,8 +109,8 @@ class actionAngle:
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
 
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -138,8 +138,8 @@ class actionAngle:
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
 
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
