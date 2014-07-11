@@ -72,9 +72,9 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi is optional)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
@@ -100,9 +100,9 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi is optional)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
@@ -129,9 +129,9 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz,phi:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi needs to be specified)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
