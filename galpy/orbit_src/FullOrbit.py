@@ -19,6 +19,10 @@ from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
 from OrbitTop import OrbitTop
+_ORBFITNORMRADEC= 360.
+_ORBFITNORMDIST= 10.
+_ORBFITNORMPMRADEC= 4.
+_ORBFITNORMVLOS= 200.
 class FullOrbit(OrbitTop):
     """Class that holds and integrates orbits in full 3D potentials"""
     def __init__(self,vxvv=[1.,0.,0.9,0.,0.1],vo=220.,ro=8.0,zo=0.025,
@@ -777,6 +781,6 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
         #print sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))]
         if not vxvv_err is None:
             sub_vxvv/= vxvv_err[ii,:]**2.
-        out+= logsumexp(-0.5*nu.log(nu.sum(sub_vxvv,axis=1)))
+        out+= logsumexp(-0.5*nu.sum(sub_vxvv,axis=1))
     return -out
 
