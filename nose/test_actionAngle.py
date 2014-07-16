@@ -810,6 +810,14 @@ def test_actionAngleIsochroneApprox_otherIsochrone_freqs():
     assert dOr < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Or at %f%%' % (dOr*100.)
     assert dOp < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Op at %f%%' % (dOp*100.)
     assert dOz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Oz at %f%%' % (dOz*100.)
+    #Same with _firstFlip, shouldn't be different bc doesn't do anything for R,vR,... input
+    jiaO= aAIA.actionsFreqs(R,vR,vT,z,vz,phi,_firstFlip=True)
+    dOr= numpy.fabs((jiO[3]-jiaO[3])/jiO[3])
+    dOp= numpy.fabs((jiO[4]-jiaO[4])/jiO[4])
+    dOz= numpy.fabs((jiO[5]-jiaO[5])/jiO[5])
+    assert dOr < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Or at %f%%' % (dOr*100.)
+    assert dOp < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Op at %f%%' % (dOp*100.)
+    assert dOz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Oz at %f%%' % (dOz*100.)
     return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: angles
@@ -823,6 +831,14 @@ def test_actionAngleIsochroneApprox_otherIsochrone_angles():
     R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
     jiO= aAI.actionsFreqsAngles(R,vR,vT,z,vz,phi)
     jiaO= aAIA.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
+    dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
+    daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
+    assert dar < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ar at %f%%' % (dar*100.)
+    assert dap < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ap at %f%%' % (dap*100.)
+    assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
+    #Same with _firstFlip, shouldn't be different bc doesn't do anything for R,vR,... input
+    jiaO= aAIA.actionsFreqsAngles(R,vR,vT,z,vz,phi,_firstFlip=True)
     dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
     dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
     daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
@@ -847,6 +863,99 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
     assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Jr at %f%%' % (djr*100.)
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Lz at %f%%' % (dlz*100.)
+    return None
+
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions; for an integrated orbit
+def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
+    ji= aAI(R,vR,vT,z,vz,phi)
+    #Setup an orbit, and integrated it first
+    o= Orbit([R,vR,vT,z,vz,phi])
+    ts= numpy.linspace(0.,250.,25000) #Integrate for a long time, not the default
+    o.integrate(ts,ip)
+    jia= aAIA(o) #actions, with an integrated orbit
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
+    if not ext_loaded: #odeint is less accurate than dopr54_c
+        assert djz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    else:
+        assert djz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleIsochroneApprox against an isochrone potential: frequencies; for an integrated orbit
+def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
+    jiO= aAI.actionsFreqs(R,vR,vT,z,vz,phi)
+    #Setup an orbit, and integrated it first
+    o= Orbit([R,vR,vT,z,vz,phi])
+    ts= numpy.linspace(0.,250.,25000) #Integrate for a long time, not the default
+    o.integrate(ts,ip)
+    jiaO= aAIA.actionsFreqs(o)
+    dOr= numpy.fabs((jiO[3]-jiaO[3])/jiO[3])
+    dOp= numpy.fabs((jiO[4]-jiaO[4])/jiO[4])
+    dOz= numpy.fabs((jiO[5]-jiaO[5])/jiO[5])
+    assert dOr < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Or at %f%%' % (dOr*100.)
+    assert dOp < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Op at %f%%' % (dOp*100.)
+    assert dOz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Oz at %f%%' % (dOz*100.)
+    #Same with specifying ts
+    jiaO= aAIA.actionsFreqs(o,ts=ts)
+    dOr= numpy.fabs((jiO[3]-jiaO[3])/jiO[3])
+    dOp= numpy.fabs((jiO[4]-jiaO[4])/jiO[4])
+    dOz= numpy.fabs((jiO[5]-jiaO[5])/jiO[5])
+    assert dOr < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Or at %f%%' % (dOr*100.)
+    assert dOp < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Op at %f%%' % (dOp*100.)
+    assert dOz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Oz at %f%%' % (dOz*100.)
+    return None
+
+#Test the actionAngleIsochroneApprox against an isochrone potential: angles; for an integrated orbit
+def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
+    jiO= aAI.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    #Setup an orbit, and integrated it first
+    o= Orbit([R,vR,vT,z,vz,phi])
+    ts= numpy.linspace(0.,250.,25000) #Integrate for a long time, not the default
+    o.integrate(ts,ip)
+    jiaO= aAIA.actionsFreqsAngles(o)
+    dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
+    dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
+    daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
+    assert dar < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ar at %f%%' % (dar*100.)
+    assert dap < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ap at %f%%' % (dap*100.)
+    assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
+    #Same with specifying ts
+    jiaO= aAIA.actionsFreqsAngles(o,ts=ts)
+    dar= numpy.fabs((jiO[6]-jiaO[6])/jiO[6])
+    dap= numpy.fabs((jiO[7]-jiaO[7])/jiO[7])
+    daz= numpy.fabs((jiO[8]-jiaO[8])/jiO[8])
+    assert dar < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ar at %f%%' % (dar*100.)
+    assert dap < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for ap at %f%%' % (dap*100.)
+    assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
     return None
 
 #Check that actionAngleIsochroneApprox gives the same answer for different setups

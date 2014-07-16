@@ -206,12 +206,21 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        from galpy.orbit import Orbit
         if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
             raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
         if kwargs.has_key('_firstFlip'):
             _firstFlip= kwargs['_firstFlip']
         else:
             _firstFlip= False
+        #If the orbit was already integrated, set ts to the integration times
+        if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0]._orb.t
+        elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
+                and hasattr(args[0][0]._orb,'orbit')  \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0][0]._orb.t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if kwargs.has_key('ts') and not kwargs['ts'] is None:
             ts= kwargs['ts']
@@ -560,17 +569,10 @@ class actionAngleIsochroneApprox():
                 R,vR,vT, phi= args
                 z, vz= 0., 0.
             if isinstance(R,float):
-                o= Orbit([R,vR,vT,z,vz,phi])
-                o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
-                this_orbit= o.getOrbit()
-                R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
-                vR= nu.reshape(this_orbit[:,1],(1,self._ntintJ))
-                vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
-                z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
-                vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
-                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+                os= [Orbit([R,vR,vT,z,vz,phi])]
+                RasOrbit= True
                 integrated= False
-            if len(R.shape) == 1: #not integrated yet
+            elif len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 RasOrbit= True
                 integrated= False
