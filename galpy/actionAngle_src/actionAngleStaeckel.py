@@ -15,7 +15,8 @@ import warnings
 import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
-    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs
+    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
+    epifreq, omegac, verticalfreq
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from actionAngle import actionAngle, UnboundError
@@ -199,6 +200,12 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
             else: #pragma: no cover
@@ -263,6 +270,12 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
