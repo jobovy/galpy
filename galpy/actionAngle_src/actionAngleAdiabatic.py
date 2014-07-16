@@ -65,6 +65,7 @@ class actionAngleAdiabatic():
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
            scipy.integrate.quadrature keywords
+           _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
         OUTPUT:
            (jr,lz,jz), where jr=[jr,jrerr], and jz=[jz,jzerr]
         HISTORY:
@@ -132,7 +133,14 @@ class actionAngleAdiabatic():
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
-                return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+                if kwargs.get('_justjr',False):
+                    kwargs.pop('_justjr')
+                    return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
+                elif kwargs.get('_justjz',False):
+                    kwargs.pop('_justjz')
+                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                else:
+                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
 
     def calcRapRperi(self,*args,**kwargs):
         """
