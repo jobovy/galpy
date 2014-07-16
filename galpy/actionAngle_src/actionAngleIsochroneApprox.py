@@ -256,12 +256,8 @@ class actionAngleIsochroneApprox():
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
-            if kwargs.has_key('cumul') and kwargs['cumul']:
-                sumFunc= nu.cumsum
-            else:
-                sumFunc= nu.sum
-            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
-            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
+            jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
+            jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
             if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
@@ -269,7 +265,7 @@ class actionAngleIsochroneApprox():
                               *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
-                lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+                lz= nu.sum(lzI*danglephiI,axis=1)/nu.sum(danglephiI,axis=1)
             else:
                 lz= R[:,len(ts)/2]*vT[:,len(ts)/2]
             #Now do an 'angle-fit'
