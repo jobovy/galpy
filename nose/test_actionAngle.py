@@ -122,7 +122,7 @@ def test_actionAngleSpherical_basic_freqs():
     assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
 
 #Basic sanity checking of the actionAngleSpherical actions
-@expected_failure
+#@expected_failure
 def test_actionAngleSpherical_basic_freqsAngles():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
@@ -847,8 +847,8 @@ def test_actionAngleIsochroneApprox_otherIsochrone_angles():
     assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
     return None
 
-#Test the actionAngleIsochroneApprox against an isochrone potential: actions, cumsum
-def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumsum():
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions, cumul
+def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
@@ -858,7 +858,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumsum():
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
     R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
     ji= aAI(R,vR,vT,z,vz,phi)
-    jia= aAIA(R,vR,vT,z,vz,phi,cumsum=True)
+    jia= aAIA(R,vR,vT,z,vz,phi,cumul=True)
     djr= numpy.fabs((ji[0]-jia[0][-1])/ji[0])
     dlz= numpy.fabs((ji[1]-jia[1][-1])/ji[1])
     djz= numpy.fabs((ji[2]-jia[2][-1])/ji[2])
