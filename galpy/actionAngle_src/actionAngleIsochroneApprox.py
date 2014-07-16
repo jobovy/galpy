@@ -581,11 +581,11 @@ class actionAngleIsochroneApprox():
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             if not hasattr(os[0]._orb,'orbit'): #not integrated yet
                 if _firstFlip:

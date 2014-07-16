@@ -377,8 +377,8 @@ def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
                                         inclphi=True)
     return None
 
-#Test the actionAngleIsochroneApprox against an isochrone potential: actions
-def test_actionAngleAdiabatic_otherIsochrone_actions():
+#Test the actionAngleAdiabatic against an isochrone potential: actions
+def test_actionAngleAdiabatic_Isochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleAdiabatic, \
         actionAngleIsochrone
@@ -396,7 +396,6 @@ def test_actionAngleAdiabatic_otherIsochrone_actions():
     assert dlz < 10.**-10., 'actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
     assert djz < 10.**-1.2, 'actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
     return None
-
 
 #Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_actions():
@@ -832,6 +831,26 @@ def test_actionAngleIsochroneApprox_otherIsochrone_angles():
     assert daz < 10.**-4., 'actionAngleIsochroneApprox applied to isochrone potential fails for az at %f%%' % (daz*100.)
     return None
 
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions; planarOrbit
+def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,phi= 1.1, 0.3, 1.2, 2.
+    ji= aAI(R,vR,vT,0.,0.,phi)
+    jia= aAIA(R,vR,vT,phi)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
+    assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Lz at %f%%' % (dlz*100.)
+    return None
+
 #Check that actionAngleIsochroneApprox gives the same answer for different setups
 def test_actionAngleIsochroneApprox_diffsetups(): 
     from galpy.potential import LogarithmicHaloPotential, \
@@ -855,12 +874,12 @@ def test_actionAngleIsochroneApprox_diffsetups():
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
                 0.88719443,-0.47713334,0.12019596])
     #Actions, frequencies, angles
-    acfs= numpy.array(list(aAI.actionsFreqsAngles(obs))).flatten()
-    acfsip= numpy.array(list(aAIip.actionsFreqsAngles(obs))).flatten()
-    acfsaAIip= numpy.array(list(aAIaAIip.actionsFreqsAngles(obs))).flatten()
-    acfsrk6= numpy.array(list(aAIrk6.actionsFreqsAngles(obs))).flatten()
-    acfslong= numpy.array(list(aAIlong.actionsFreqsAngles(obs))).flatten()
-    acfsmany= numpy.array(list(aAImany.actionsFreqsAngles(obs))).flatten()
+    acfs= numpy.array(list(aAI.actionsFreqsAngles(obs()))).flatten()
+    acfsip= numpy.array(list(aAIip.actionsFreqsAngles(obs()))).flatten()
+    acfsaAIip= numpy.array(list(aAIaAIip.actionsFreqsAngles(obs()))).flatten()
+    acfsrk6= numpy.array(list(aAIrk6.actionsFreqsAngles(obs()))).flatten()
+    acfslong= numpy.array(list(aAIlong.actionsFreqsAngles(obs()))).flatten()
+    acfsmany= numpy.array(list(aAImany.actionsFreqsAngles(obs()))).flatten()
     #Check that they are the same
     assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-16., \
         'actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree'
@@ -1053,7 +1072,7 @@ def test_orbit_interface_actionAngleIsochroneApprox():
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     aAS= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
     acfs= list(aAS(obs))
-    acfs.extend(list(aAS.actionsFreqsAngles(obs))[3:])
+    acfs.extend(list(aAS.actionsFreqsAngles(obs()))[3:])
     acfs= numpy.array(acfs).reshape(9)
     type= 'isochroneApprox'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,b=0.8),
