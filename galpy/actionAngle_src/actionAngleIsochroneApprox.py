@@ -707,7 +707,7 @@ def estimateBIsochrone(R,z,pot=None):
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)
-        except:
+        except: #pragma: no cover
             b= nu.nan
         return b
 
