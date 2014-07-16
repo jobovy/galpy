@@ -94,7 +94,7 @@ class actionAngleAdiabaticGrid():
                 jz= multi.parallel_map((lambda x: self._aA(thisRs[x],0.,1.,#these two r dummies
                                                               0.,math.sqrt(2.*thisy[x]*thisEzZmaxs[x]),
                                                            _justjz=True,
-                                                           **kwargs)[0]),
+                                                           **kwargs)[2]),
                                        range(nR*nEz),numcores=numcores)
                 jz= numpy.reshape(jz,(nR,nEz))
                 jzEzzmax[0:nR]= jz[:,nEz-1]
@@ -104,7 +104,7 @@ class actionAngleAdiabaticGrid():
                         #Calculate Jz
                         jz[ii,jj]= self._aA(self._Rs[ii],0.,1.,#these two r dummies
                                             0.,numpy.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
-                                            _justjz=True,**kwargs)[0]
+                                            _justjz=True,**kwargs)[2]
                         if jj == nEz-1: 
                             jzEzzmax[ii]= jz[ii,jj]
         for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
@@ -254,7 +254,7 @@ class actionAngleAdiabaticGrid():
                                    numpy.zeros(numpy.sum(indx)),
                                    numpy.sqrt(2.*Ez[indx]),
                                    _justjz=True,
-                                   **kwargs)[0]
+                                   **kwargs)[2]
             """
                 for ii in range(numpy.sum(indx)):
                     try:
@@ -272,7 +272,7 @@ class actionAngleAdiabaticGrid():
                 jz= self._aA(R,0.,1.,#these two r dummies
                              0.,math.sqrt(2.*Ez),
                              _justjz=True,
-                             **kwargs)[0]
+                             **kwargs)[2]
             else:
                 jz= (self._jzInterp(R,Ez/thisEzZmax)\
                          *(numpy.exp(self._jzEzmaxInterp(R))-10.**-5.))[0][0]
@@ -379,7 +379,7 @@ class actionAngleAdiabaticGrid():
             jz= self._aA(meta._R,0.,1.,#these two r dummies
                          0.,math.sqrt(2.*Ez),
                          _justjz=True,
-                         **kwargs)[0]
+                         **kwargs)[2]
         else:
             jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
                 *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
