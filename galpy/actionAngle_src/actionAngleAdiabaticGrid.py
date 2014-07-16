@@ -49,7 +49,7 @@ class actionAngleAdiabaticGrid():
         HISTORY:
             2012-07-27 - Written - Bovy (IAS@MPIA)
         """
-        if pot is None:
+        if pot is None: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         if kwargs.has_key('c') and kwargs['c']:
             self._c= True
@@ -267,7 +267,7 @@ class actionAngleAdiabaticGrid():
             """
         else:
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-                if _PRINTOUTSIDEGRID:
+                if _PRINTOUTSIDEGRID: #pragma: no cover
                     print "Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
                 jz= self._aA(R,0.,1.,#these two r dummies
                              0.,math.sqrt(2.*Ez),
@@ -334,7 +334,7 @@ class actionAngleAdiabaticGrid():
             if ERLz < self._Lzmin or ERLz > self._Lzmax \
                     or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
-                if _PRINTOUTSIDEGRID:
+                if _PRINTOUTSIDEGRID: #pragma: no cover
                     print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                         , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                         , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
@@ -374,7 +374,7 @@ class actionAngleAdiabaticGrid():
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
         if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
-            if _PRINTOUTSIDEGRID:
+            if _PRINTOUTSIDEGRID: #pragma: no cover
                 print "Outside of grid in Ez"
             jz= self._aA(meta._R,0.,1.,#these two r dummies
                          0.,math.sqrt(2.*Ez),
