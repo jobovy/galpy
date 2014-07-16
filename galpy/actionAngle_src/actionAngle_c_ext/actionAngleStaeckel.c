@@ -1323,8 +1323,10 @@ void calcAnglesStaeckel(int ndata,
     }
     *(Angler+ii)= *(Omegar+ii) * ( Or1 + Or2 ) 
       + *(dI3dJR+ii) * ( I3r1 + I3r2 );
+    // In Binney (2012) Anglez starts at zmax/vmin and v_z < 0 / v_v > 0; 
+    // Put this on the same system as Isochrone and Spherical angles +pi/2
     *(Anglez+ii)= *(Omegaz+ii) * ( Or1 + Or2 ) 
-      + *(dI3dJz+ii) * ( I3r1 + I3r2 );
+      + *(dI3dJz+ii) * ( I3r1 + I3r2 ) + 0.5 * M_PI;
     *(Anglephi+ii)+= phitmp;
     *(Anglephi+ii)+= *(Omegaphi+ii) * ( Or1 + Or2 ) 
       + *(dI3dLz+ii) * ( I3r1 + I3r2 );

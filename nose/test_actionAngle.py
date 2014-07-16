@@ -746,8 +746,7 @@ def test_actionAngleStaeckel_otherIsochrone_freqs():
     assert dOz < 1.5*10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%' % (dOz*100.)
     return None
 
-#Test the actionAngleStaeckel against an isochrone potential: frequencies
-@expected_failure
+#Test the actionAngleStaeckel against an isochrone potential: angles
 def test_actionAngleStaeckel_otherIsochrone_angles():   
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleStaeckel, \
@@ -766,7 +765,6 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     assert dap < 10.**-6., 'actionAngleStaeckel applied to isochrone potential fails for ap at %g%%' % (dap*100.)
     assert daz < 10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for az at %g%%' % (daz*100.)
     return None
-
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
