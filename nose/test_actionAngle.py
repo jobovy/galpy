@@ -122,7 +122,6 @@ def test_actionAngleSpherical_basic_freqs():
     assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
 
 #Basic sanity checking of the actionAngleSpherical actions
-#@expected_failure
 def test_actionAngleSpherical_basic_freqsAngles():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical

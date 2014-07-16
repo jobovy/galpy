@@ -184,8 +184,8 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR))
-                    Op.append(omegac(self._pot,axiR))
+                    Or.append(epifreq(self._pot,axiR[ii]))
+                    Op.append(omegac(self._pot,axiR[ii]))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
@@ -271,13 +271,13 @@ class actionAngleSpherical(actionAngle):
                 E, L= EL
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
-                if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR))
-                    Op.append(omegac(self._pot,axiR))
-                    continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-                Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
-                Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                if Jr[-1] < 10.**-9.: #Circular orbit
+                    Or.append(epifreq(self._pot,axiR[ii]))
+                    Op.append(omegac(self._pot,axiR[ii]))
+                else:
+                    Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                    Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 #Angles
                 ar.append(self._calc_angler(Or[-1],axiR[ii],Rmean,rperi,rap,
                                             E,L,axivR[ii],fixed_quad,**kwargs))
