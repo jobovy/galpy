@@ -836,7 +836,6 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -845,7 +844,6 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
     jia= aAIA(R,vR,vT,phi)
     djr= numpy.fabs((ji[0]-jia[0])/ji[0])
     dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
-    djz= numpy.fabs((ji[2]-jia[2])/ji[2])
     assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Jr at %f%%' % (djr*100.)
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Lz at %f%%' % (dlz*100.)
@@ -1072,7 +1070,7 @@ def test_orbit_interface_actionAngleIsochroneApprox():
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     aAS= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
     acfs= list(aAS(obs))
-    acfs.extend(list(aAS.actionsFreqsAngles(obs()))[3:])
+    acfs.extend(list(aAS.actionsFreqsAngles([obs()]))[3:])
     acfs= numpy.array(acfs).reshape(9)
     type= 'isochroneApprox'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,b=0.8),
