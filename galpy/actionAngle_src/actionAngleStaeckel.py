@@ -438,7 +438,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JR
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
-        if (umax-umin)/umax < 10.**-6: return nu.array([0.,0.])
+        if (umax-umin)/umax < 10.**-6: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
@@ -482,7 +482,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JZ'): #pragma: no cover
             return self._JZ
         vmin= self.calcVmin()
-        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
+        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
