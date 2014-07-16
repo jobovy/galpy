@@ -599,9 +599,11 @@ class actionAngleStaeckelSingle(actionAngle):
                                        self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
+                if nu.fabs(rstart/0.9-self._ux) < 10.**-2.: rup= self._ux
+                else: rup= rstart/0.9
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                          rstart,rstart/0.9,
+                                          rstart,rup,
                                           (E,L,self._I3U,self._delta,
                                            self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
