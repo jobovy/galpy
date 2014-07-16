@@ -858,12 +858,10 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
     R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
     ji= aAI(R,vR,vT,z,vz,phi)
     jia= aAIA(R,vR,vT,z,vz,phi,cumul=True)
-    djr= numpy.fabs((ji[0]-jia[0][-1])/ji[0])
-    dlz= numpy.fabs((ji[1]-jia[1][-1])/ji[1])
-    djz= numpy.fabs((ji[2]-jia[2][-1])/ji[2])
+    djr= numpy.fabs((ji[0]-jia[0][0,-1])/ji[0])
+    djz= numpy.fabs((ji[2]-jia[2][0,-1])/ji[2])
     assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
     #Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
     if not ext_loaded: #odeint is less accurate than dopr54_c
         assert djz < 10.**-6., 'actionAngleIsochroneApprox applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
     else:
