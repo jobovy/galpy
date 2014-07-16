@@ -424,6 +424,14 @@ methods.
    are *only* implemented in C. So use ``c=True`` in the setup of the
    actionAngleStaeckel object.
 
+.. WARNING:: Angles using the Staeckel approximation in galpy are such
+   that (a) the radial angle starts at zero at pericenter and
+   increases then going toward apocenter; (b) the vertical angle
+   starts at zero at *z=* and increases toward positive zmax. The
+   latter is a different convention from that in Binney (2012), but is
+   consistent with that in actionAngleIsochrone and
+   actionAngleSpherical.
+
 >>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
 >>> o= Orbit([1.,0.1,1.1,0.,0.25,0.]) #need to specify phi for angles
 >>> aAS.actionsFreqsAngles(o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
