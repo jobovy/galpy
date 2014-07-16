@@ -208,7 +208,7 @@ class actionAngleIsochroneApprox():
         """
         from galpy.orbit import Orbit
         if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
-            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
+            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         if kwargs.has_key('_firstFlip'):
             _firstFlip= kwargs['_firstFlip']
         else:
@@ -258,7 +258,7 @@ class actionAngleIsochroneApprox():
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
             jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']: #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\

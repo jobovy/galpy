@@ -889,6 +889,28 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
     assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Lz at %f%%' % (dlz*100.)
     return None
 
+#Test the actionAngleIsochroneApprox against an isochrone potential: actions; integrated planarOrbit
+def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_integratedOrbit_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
+    R,vR,vT,phi= 1.1, 0.3, 1.2, 2.
+    ji= aAI(R,vR,vT,0.,0.,phi)
+    o= Orbit([R,vR,vT,phi])
+    ts= numpy.linspace(0.,250.,25000)
+    o.integrate(ts,ip)
+    jia= aAIA(o)
+    djr= numpy.fabs((ji[0]-jia[0])/ji[0])
+    dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
+    assert djr < 10.**-2., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Jr at %f%%' % (djr*100.)
+    #Lz and Jz are easy, because ip is a spherical potential
+    assert dlz < 10.**-10., 'actionAngleIsochroneApprox applied to isochrone potential for planarOrbit fails for Lz at %f%%' % (dlz*100.)
+    return None
+
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions; for an integrated orbit
 def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
     from galpy.potential import IsochronePotential
