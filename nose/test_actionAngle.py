@@ -987,6 +987,7 @@ def test_actionAngleIsochroneApprox_diffsetups():
     acfsrk6= numpy.array(list(aAIrk6.actionsFreqsAngles(obs()))).flatten()
     acfslong= numpy.array(list(aAIlong.actionsFreqsAngles(obs()))).flatten()
     acfsmany= numpy.array(list(aAImany.actionsFreqsAngles(obs()))).flatten()
+    acfsfirstFlip= numpy.array(list(aAI.actionsFreqsAngles(obs(),_firstFlip=True))).flatten()
     #Check that they are the same
     assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-16., \
         'actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree'
@@ -998,6 +999,39 @@ def test_actionAngleIsochroneApprox_diffsetups():
         'actionAngleIsochroneApprox calculated w/ tintJ=100 and 200 do not agree at %g%%' % (100.*numpy.amax(numpy.fabs((acfs-acfslong)/acfs)))
     assert numpy.amax(numpy.fabs((acfs-acfsmany)/acfs)) < 10.**-4., \
         'actionAngleIsochroneApprox calculated w/ ntintJ=10000 and 20000 do not agree at %g%%' % (100.*numpy.amax(numpy.fabs((acfs-acfsmany)/acfs)))
+    assert numpy.amax(numpy.fabs((acfs-acfsfirstFlip)/acfs)) < 10.**-4., \
+        'actionAngleIsochroneApprox calculated w/ _firstFlip and w/o do not agree at %g%%' % (100.*numpy.amax(numpy.fabs((acfs-acfsmany)/acfs)))
+    return None
+
+#Check that actionAngleIsochroneApprox gives the same answer w/ and w/o firstFlip
+def test_actionAngleIsochroneApprox_firstFlip(): 
+    from galpy.potential import LogarithmicHaloPotential, \
+        IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleIsochrone
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    #Orbit to test on
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    #Actions, frequencies, angles
+    acfs= numpy.array(list(aAI.actionsFreqsAngles(obs()))).flatten()
+    acfsfirstFlip= numpy.array(list(aAI.actionsFreqsAngles(obs(),_firstFlip=True))).flatten()
+    #Check that they are the same
+    assert numpy.amax(numpy.fabs((acfs-acfsfirstFlip)/acfs)) < 10.**-4., \
+        'actionAngleIsochroneApprox calculated w/ _firstFlip and w/o do not agree at %g%%' % (100.*numpy.amax(numpy.fabs((acfs-acfsfirstFlip)/acfs)))
+    #Also test that this still works when the orbit was already integrated
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    ts= numpy.linspace(0.,250.,25000)
+    obs.integrate(ts,lp)
+    acfs= numpy.array(list(aAI.actionsFreqsAngles(obs()))).flatten()
+    acfsfirstFlip= numpy.array(list(aAI.actionsFreqsAngles(obs(),
+                                                           _firstFlip=True))).flatten()
+    #Check that they are the same
+    assert numpy.amax(numpy.fabs((acfs-acfsfirstFlip)/acfs)) < 10.**-4., \
+        'actionAngleIsochroneApprox calculated w/ _firstFlip and w/o do not agree at %g%%' % (100.*numpy.amax(numpy.fabs((acfs-acfsfirstFlip)/acfs)))
     return None
 
 #Test the actionAngleIsochroneApprox used in Bovy (2014)
