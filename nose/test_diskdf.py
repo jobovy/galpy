@@ -180,3 +180,33 @@ def test_dehnendf_cold_powerfall_oortK():
     assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
+# Tests for cold population, flat rotation curve: sigma_R^2 / sigma_T^2 = kappa^2 / Omega^2
+def test_dehnendf_cold_flat_srst():
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(df.sigmaR2(1.)/df.sigmaT2(1.)-2.) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(0.5)/df.sigmaT2(0.5)-2.) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(2.)/df.sigmaT2(2.)-2.) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    return None
+
+# Tests for cold population, power-law rotation curve: sigma_R^2 / sigma_T^2 = kappa^2 / Omega^2
+def test_dehnendf_cold_powerrise_srst():
+    # Rising rotation curve
+    beta= 0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.sigmaR2(1.)/df.sigmaT2(1.)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(0.5)/df.sigmaT2(0.5)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(2.)/df.sigmaT2(2.)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    return None
+
+def test_dehnendf_cold_powerfall_srst():
+    # Falling rotation curve
+    beta= -0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.sigmaR2(1.)/df.sigmaT2(1.)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(0.5)/df.sigmaT2(0.5)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.sigmaR2(2.)/df.sigmaT2(2.)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
+    return None
+
