@@ -120,3 +120,63 @@ def test_dehnendf_cold_powerfall_oortB():
     assert numpy.fabs(df.oortB(2.)+0.5*(2.)**beta/2.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
+# Tests for cold population, flat rotation curve: C = 0
+def test_dehnendf_cold_flat_oortC():
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortC(0.5)) < 10.**-3., 'Oort C of cold dehnendf in a flat rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a flat rotation curve is not close to expected at R=2'
+    return None
+
+# Tests for cold population, power-law rotation curve: C
+def test_dehnendf_cold_powerrise_oortC():
+    # Rising rotation curve
+    beta= 0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortC(0.5)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    return None
+
+def test_dehnendf_cold_powerfall_oortC():
+    # Falling rotation curve
+    beta= -0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortC(0.5)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    return None
+
+# Tests for cold population, flat rotation curve: K = 0
+def test_dehnendf_cold_flat_oortK():
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a flat rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortK(0.5)) < 10.**-3., 'Oort K of cold dehnendf in a flat rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a flat rotation curve is not close to expected at R=2'
+    return None
+
+# Tests for cold population, power-law rotation curve: K
+def test_dehnendf_cold_powerrise_oortK():
+    # Rising rotation curve
+    beta= 0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortK(0.5)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    return None
+
+def test_dehnendf_cold_powerfall_oortK():
+    # Falling rotation curve
+    beta= -0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    assert numpy.fabs(df.oortK(0.5)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
+    assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    return None
+
