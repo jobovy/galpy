@@ -70,6 +70,35 @@ def test_dehnendf_cold_flat_vr():
     assert numpy.fabs(df.meanvR(2.)-0.) < 10.**-3., 'mean vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
+# Tests for cold population, flat rotation curve: kurtosis = 0
+def test_dehnendf_cold_flat_kurtosisvt():
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=1'
+    assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=0.5'
+    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=2'
+    return None
+
+# Tests for cold population, power-law rotation curve: kurtosis = 0
+def test_dehnendf_cold_powerrise_kurtosisvt():
+    # Rising rotation curve
+    beta= 0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
+    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+
+def test_dehnendf_cold_powerfall_kurtosisvt():
+    # Falling rotation curve
+    beta= -0.2
+    df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
+    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    return None
+
 # Tests for cold population, power-law rotation curve: <vr> = 0
 def test_dehnendf_cold_powerrise_vr():
     # Rising rotation curve
@@ -119,7 +148,7 @@ def test_dehnendf_cold_powerfall_skewvr():
     assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
-# Tests for cold population, flat rotation curve: <vr> = 0
+# Tests for cold population, flat rotation curve: kurtosis = 0
 def test_dehnendf_cold_flat_kurtosisvr():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
@@ -128,7 +157,7 @@ def test_dehnendf_cold_flat_kurtosisvr():
     assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
-# Tests for cold population, power-law rotation curve: <vr> = 0
+# Tests for cold population, power-law rotation curve: kurtosis = 0
 def test_dehnendf_cold_powerrise_kurtosisvr():
     # Rising rotation curve
     beta= 0.2
