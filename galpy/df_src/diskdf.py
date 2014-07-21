@@ -36,6 +36,7 @@ from galpy.actionAngle import actionAngleFlat, actionAnglePower
 from galpy.actionAngle_src.actionAngleFlat import calcRapRperiFromELFlat #HACK
 from galpy.actionAngle_src.actionAnglePower import \
     calcRapRperiFromELPower #HACK
+from galpy.actionAngle import actionAngleAxi
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -1431,6 +1432,10 @@ class diskdf:
             rperi, rap= calcRapRperiFromELPower(E,L,vc=1.,ro=1.)
             aA= actionAnglePower(rperi,0.,L/rperi,beta=self._beta)
         TR= aA.TR()[0]
+        #Replace the above w/
+        #aA= actionAngleAxi(rperi,0.,L/rperi,pot=PowerSphericalPotential(normalize=1.,alpha=2.-2.*self._beta))
+        #rperi, rap= aA.calcRapRperi()
+        #TR= aA.TR()
         return (2.*math.pi/TR, rap, rperi)
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
