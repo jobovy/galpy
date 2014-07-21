@@ -276,13 +276,13 @@ class actionAnglePower(actionAngle,actionAngleVertical):
             rap= optimize.brentq(_rapRperiPowerEq,rperi+0.000001,
                                  rend,args=(E,L,self._beta))
 #                                 fprime=_rapRperiPowerDeriv)
-        elif self._vR == 0. and self._vT <self.R**self._beta: #We are exactly at apocenter
+        elif self._vR == 0. and self._vT <self._R**self._beta: #We are exactly at apocenter
             rap= self._R
             rstart= _rapRperiPowerFindStart(self._R,E,L,self._beta)
             rperi= optimize.brentq(_rapRperiPowerEq,rstart,rap-0.000001,
                                    args=(E,L,self._beta))
 #                                   fprime=_rapRperiPowerDeriv)
-        elif self._vR == 0. and self._vT == self._R**self.__beta: #We are on a circular orbit
+        elif self._vR == 0. and self._vT == self._R**self._beta: #We are on a circular orbit
             rperi= self._R
             rap = self._R
         else:
