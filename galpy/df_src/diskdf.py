@@ -148,9 +148,9 @@ class diskdf:
                     kwargs.pop('marginalizeVlos')
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
-                    return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[1],
-                                                        args[0].vxvv[2],
-                                                        args[0].vxvv[0],
+                    return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
+                                                        args[0]._orb.vxvv[2],
+                                                        args[0]._orb.vxvv[0],
                                                         self._beta)))
             else:
                 vxvv= args[0](args[1])
