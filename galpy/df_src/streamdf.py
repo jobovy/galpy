@@ -11,6 +11,7 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from galpy.util import logsumexp as _mylogsumexp
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
@@ -2322,23 +2323,6 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         jac2[5,:]= jac[5,:]
         jac= numpy.dot(jac2,numpy.linalg.inv(jac))[0:3,0:3]
     return jac
-
-def _mylogsumexp(arr,axis=0):
-    """Faster logsumexp?"""
-    minarr= numpy.amax(arr,axis=axis)
-    if axis == 1:
-        minarr= numpy.reshape(minarr,(arr.shape[0],1))
-    if axis == 0:
-        minminarr= numpy.tile(minarr,(arr.shape[0],1))
-    elif axis == 1:
-        minminarr= numpy.tile(minarr,(1,arr.shape[1]))
-    elif axis == None:
-        minminarr= numpy.tile(minarr,arr.shape)
-    else:
-        raise NotImplementedError("'_mylogsumexp' not implemented for axis > 2")
-    if axis == 1:
-        minarr= numpy.reshape(minarr,(arr.shape[0]))
-    return minarr+numpy.log(numpy.sum(numpy.exp(arr-minminarr),axis=axis))
 
 def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
     #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
