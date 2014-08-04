@@ -68,6 +68,8 @@ def test_bovy14():
     check_track_spread(sdfl,'ll','bb',0.5,0.5)
     check_track_spread(sdfl,'dist','vlos',0.5,5.)
     check_track_spread(sdfl,'pmll','pmbb',0.5,0.5)
+    #Check that we can find the closest trackpoint properly
+    check_closest_trackpoint(sdfl,1)
     #Check plotting routines
     check_track_plotting(sdfl,'R','Z')
     check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
@@ -131,6 +133,28 @@ def check_track_plotting(sdf,d1,d2,phys=False,interp=True,spread=2,ls='-'):
         sdf.plotProgenitor(d1=d1,d2=d2,scaleToPhysical=phys)
     return None
 
+def check_closest_trackpoint(sdf,trackp,usev=False,xy=True,interp=True):
+    # Check that the closest trackpoint (close )to a trackpoint is the trackpoint
+    if interp:
+        if xy:
+            RvR= sdf._interpolatedObsTrackXY[trackp,:]
+        else:
+            RvR= sdf._interpolatedObsTrack[trackp,:]
+    else:
+        if xy:
+            RvR= sdf._ObsTrackXY[trackp,:]
+        else:
+            RvR= sdf._ObsTrack[trackp,:]
+    R= RvR[0]
+    vR= RvR[1]
+    vT= RvR[2]
+    z= RvR[3]
+    vz= RvR[4]
+    phi= RvR[5]
+    indx= sdf.find_closest_trackpoint(R,vR,vT,z,vz,phi,interp=interp,
+                                      xy=xy,usev=usev)
+    assert indx == trackp, 'Closest trackpoint to a trackpoint is not that trackpoint'
+    return None
 @expected_failure
 def test_diff_pot():
     raise AssertionError()
