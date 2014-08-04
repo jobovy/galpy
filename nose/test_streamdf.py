@@ -69,7 +69,11 @@ def test_bovy14():
     check_track_spread(sdfl,'dist','vlos',0.5,5.)
     check_track_spread(sdfl,'pmll','pmbb',0.5,0.5)
     #Check that we can find the closest trackpoint properly
-    check_closest_trackpoint(sdfl,1)
+    check_closest_trackpoint(sdfl,50)
+    check_closest_trackpoint(sdfl,230,usev=True)
+    check_closest_trackpoint(sdfl,330,usev=True,xy=False)
+    check_closest_trackpoint(sdfl,40,xy=False)
+    check_closest_trackpoint(sdfl,4,interp=False)
     #Check plotting routines
     check_track_plotting(sdfl,'R','Z')
     check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
@@ -154,7 +158,15 @@ def check_closest_trackpoint(sdf,trackp,usev=False,xy=True,interp=True):
     indx= sdf.find_closest_trackpoint(R,vR,vT,z,vz,phi,interp=interp,
                                       xy=xy,usev=usev)
     assert indx == trackp, 'Closest trackpoint to a trackpoint is not that trackpoint'
+    #Same test for a slight offset
+    doff= 10.**-5.
+    indx= sdf.find_closest_trackpoint(R+doff,vR+doff,vT+doff,
+                                      z+doff,vz+doff,phi+doff,
+                                      interp=interp,
+                                      xy=xy,usev=usev)
+    assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint (%i,%i)' % (indx,trackp)
     return None
+
 @expected_failure
 def test_diff_pot():
     raise AssertionError()
