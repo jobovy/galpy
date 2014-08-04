@@ -75,6 +75,14 @@ def test_bovy14():
     check_closest_trackpoint(sdfl,40,xy=False)
     check_closest_trackpoint(sdfl,4,interp=False)
     check_closest_trackpoint(sdfl,6,interp=False,usev=True,xy=False)
+    #Check that we can find the closest trackpoint properly in LB
+    check_closest_trackpointLB(sdfl,50)
+    check_closest_trackpointLB(sdfl,230,usev=True)
+    check_closest_trackpointLB(sdfl,4,interp=False)
+    check_closest_trackpointLB(sdfl,8,interp=False,usev=True)
+    check_closest_trackpointLB(sdfl,-1,interp=False,usev=False)
+    check_closest_trackpointLB(sdfl,-2,interp=False,usev=True)
+    check_closest_trackpointLB(sdfl,-3,interp=False,usev=True)
     #Check plotting routines
     check_track_plotting(sdfl,'R','Z')
     check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
@@ -166,6 +174,72 @@ def check_closest_trackpoint(sdf,trackp,usev=False,xy=True,interp=True):
                                       interp=interp,
                                       xy=xy,usev=usev)
     assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint (%i,%i)' % (indx,trackp)
+    return None
+
+def check_closest_trackpointLB(sdf,trackp,usev=False,interp=True):
+    # Check that the closest trackpoint (close )to a trackpoint is the trackpoint
+    if trackp == -1: # in this case, rm some coordinates
+        trackp= 1
+        if interp:
+            RvR= sdf._interpolatedObsTrackLB[trackp,:]
+        else:
+            RvR= sdf._ObsTrackLB[trackp,:]
+        R= RvR[0]
+        vR= None
+        vT= RvR[2]
+        z= None
+        vz= RvR[4]
+        phi= None
+    elif trackp == -2: # in this case, rm some coordinates
+        trackp= 1
+        if interp:
+            RvR= sdf._interpolatedObsTrackLB[trackp,:]
+        else:
+            RvR= sdf._ObsTrackLB[trackp,:]
+        R= None
+        vR= RvR[1]
+        vT= None
+        z= RvR[3]
+        vz= None
+        phi= RvR[5]
+    elif trackp == -3: # in this case, rm some coordinates
+        trackp= 1
+        if interp:
+            RvR= sdf._interpolatedObsTrackLB[trackp,:]
+        else:
+            RvR= sdf._ObsTrackLB[trackp,:]
+        R= RvR[0]
+        vR= RvR[1]
+        vT= None
+        z= None
+        vz= None
+        phi= None
+    else:
+        if interp:
+            RvR= sdf._interpolatedObsTrackLB[trackp,:]
+        else:
+            RvR= sdf._ObsTrackLB[trackp,:]
+        R= RvR[0]
+        vR= RvR[1]
+        vT= RvR[2]
+        z= RvR[3]
+        vz= RvR[4]
+        phi= RvR[5]
+    indx= sdf.find_closest_trackpointLB(R,vR,vT,z,vz,phi,interp=interp,
+                                      usev=usev)
+    assert indx == trackp, 'Closest trackpoint to a trackpoint is not that trackpoint in LB'
+    #Same test for a slight offset
+    doff= 10.**-5.
+    if not R is None: R= R+doff
+    if not vR is None: vR= vR+doff
+    if not vT is None: vT= vT+doff
+    if not z is None: z= z+doff
+    if not vz  is None: vz= vz+doff
+    if not phi is None: phi= phi+doff
+    indx= sdf.find_closest_trackpointLB(R,vR,vT,z,vz,phi,
+                                        interp=interp,
+                                        usev=usev)
+    assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint in LB (%i,%i)' % (indx,trackp)
     return None
 
 @expected_failure
