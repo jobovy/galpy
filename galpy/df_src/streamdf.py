@@ -297,7 +297,8 @@ class streamdf:
         tx= self._parse_track_dim(d1,interp=interp,phys=phys)
         ty= self._parse_track_dim(d2,interp=interp,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            xlabel=_labelDict[d1.lower()],
+                            ylabel=_labelDict[d2.lower()],
                             **kwargs)
         if spread:
             addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys)
@@ -364,7 +365,8 @@ class streamdf:
         ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
                                        obs=obs,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            xlabel=_labelDict[d1.lower()],
+                            ylabel=_labelDict[d2.lower()],
                             **kwargs)
         return None
 

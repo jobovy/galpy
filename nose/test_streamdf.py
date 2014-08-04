@@ -68,6 +68,27 @@ def test_bovy14():
     check_track_spread(sdfl,'ll','bb',0.5,0.5)
     check_track_spread(sdfl,'dist','vlos',0.5,5.)
     check_track_spread(sdfl,'pmll','pmbb',0.5,0.5)
+    #Check plotting routines
+    check_track_plotting(sdfl,'R','Z')
+    check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
+    check_track_plotting(sdfl,'R','Z',interp=False) #do 1 w/o interp
+    check_track_plotting(sdfl,'R','X',spread=0)
+    check_track_plotting(sdfl,'R','Y',spread=0)
+    check_track_plotting(sdfl,'R','phi')
+    check_track_plotting(sdfl,'R','vZ')
+    check_track_plotting(sdfl,'R','vZ',phys=True) #do 1 with phys
+    check_track_plotting(sdfl,'R','vZ',interp=False) #do 1 w/o interp
+    check_track_plotting(sdfl,'R','vX',spread=0)
+    check_track_plotting(sdfl,'R','vY',spread=0)
+    check_track_plotting(sdfl,'R','vT')
+    check_track_plotting(sdfl,'R','vR')
+    check_track_plotting(sdfl,'ll','bb')
+    check_track_plotting(sdfl,'ll','bb',interp=False) #do 1 w/o interp
+    check_track_plotting(sdfl,'ll','dist')
+    check_track_plotting(sdfl,'ll','vlos')
+    check_track_plotting(sdfl,'ll','pmll')
+    delattr(sdfl,'_ObsTrackLB') #rm, to test that this gets recalculated
+    check_track_plotting(sdfl,'ll','pmbb')
     return None
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
@@ -96,6 +117,18 @@ def check_track_spread(sdf,d1,d2,tol1,tol2,phys=False,interp=True):
     addx, addy= sdf._parse_track_spread(d1,d2,interp=interp,phys=phys) 
     assert numpy.amax(addx) < tol1, "Stream track spread is larger in %s than expected; max. deviation = %f" % (d1,numpy.amax(addx))
     assert numpy.amax(addy) < tol2, "Stream track spread is larger in %s than expected; max. deviation = %f" % (d2,numpy.amax(addy))
+    return None
+
+def check_track_plotting(sdf,d1,d2,phys=False,interp=True,spread=2,ls='-'):
+    #Test that we can plot the stream track
+    if not phys and d1 == 'R' and d2 == 'Z': #one w/ default
+        sdf.plotTrack(d1=d1,d2=d2,interp=interp,spread=spread)
+        sdf.plotProgenitor(d1=d1,d2=d2)
+    else:
+        sdf.plotTrack(d1=d1,d2=d2,interp=interp,spread=spread,
+                      scaleToPhysical=phys,ls='none',linestyle='--',
+                      color='k',lw=2.,marker='.')
+        sdf.plotProgenitor(d1=d1,d2=d2,scaleToPhysical=phys)
     return None
 
 @expected_failure
