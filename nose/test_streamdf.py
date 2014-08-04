@@ -74,6 +74,7 @@ def test_bovy14():
     check_closest_trackpoint(sdfl,330,usev=True,xy=False)
     check_closest_trackpoint(sdfl,40,xy=False)
     check_closest_trackpoint(sdfl,4,interp=False)
+    check_closest_trackpoint(sdfl,6,interp=False,usev=True,xy=False)
     #Check plotting routines
     check_track_plotting(sdfl,'R','Z')
     check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
