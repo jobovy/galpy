@@ -100,6 +100,8 @@ class streamdf:
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
         self._progenitor= progenitor
+        # Make sure we do not use physical coordinates
+        self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
