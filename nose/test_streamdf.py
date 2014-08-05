@@ -185,6 +185,50 @@ def test_meanangledAngle():
     assert numpy.fabs(sdf_bovy14.meanangledAngle(da,smallest=True)) < 10.**-2, 'mean perpendicular angle not zero'
     return None
 
+def test_sigangledAngle():
+    #Test that the spread in perpendicular angle is much smaller than 1 (the typical spread in the parallel angle)
+    da= 0.1
+    print sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,
+                                     simple=False)
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=True,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    da= 1.1
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=True,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    #w/o assuming zeroMean
+    da= 0.1
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=False,smallest=False,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=False,smallest=True,
+                                     simple=False) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    #simple estimate
+    da= 0.1
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=False,smallest=False,
+                                     simple=True) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=False,smallest=True,
+                                     simple=True) \
+                                     < 1./sdf_bovy14.freqEigvalRatio(), \
+                                     'spread in perpendicular angle is not small'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
