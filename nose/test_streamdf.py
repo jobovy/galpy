@@ -278,6 +278,68 @@ def test_bovy14_approxaA_inv():
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
+def test_bovy14_gaussApprox_onemissing():
+    #Test the Gaussian approximation
+    #First, test near an interpolated point, without using interpolation (non-trivial)
+    tol= -3.
+    trackp= 110
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    # X
+    XvX[0]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,0]) < 10.**tol, 'gaussApprox along track does not work for X'
+    # Y
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[1]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,1]) < 10.**tol, 'gaussApprox along track does not work for Y'
+    # Z
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[2]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,2]) < 10.**tol, 'gaussApprox along track does not work for Z'
+    # vX
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[3]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,3]) < 10.**tol, 'gaussApprox along track does not work for vX'
+    # vY
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[4]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,4]) < 10.**tol, 'gaussApprox along track does not work for vY'
+    # vZ
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[5]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,5]) < 10.**tol, 'gaussApprox along track does not work for vZ'
+    return None
+
+def test_bovy14_gaussApprox_threemissing():
+    #Test the Gaussian approximation
+    #First, test near an interpolated point, without using interpolation (non-trivial)
+    tol= -3.
+    trackp= 110
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    # X,vX,vY
+    XvX[0]= None
+    XvX[3]= None
+    XvX[4]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,0]) < 10.**tol, 'gaussApprox along track does not work for X'
+    assert numpy.fabs(meanp[1]-sdf_bovy14._interpolatedObsTrackXY[trackp,3]) < 10.**tol, 'gaussApprox along track does not work for vX'
+    assert numpy.fabs(meanp[2]-sdf_bovy14._interpolatedObsTrackXY[trackp,4]) < 10.**tol, 'gaussApprox along track does not work for vY'
+    # Y,Z,vZ
+    XvX= list(sdf_bovy14._interpolatedObsTrackXY[trackp,:].flatten())
+    XvX[1]= None
+    XvX[2]= None
+    XvX[5]= None
+    meanp, varp= sdf_bovy14.gaussApprox(XvX,interp=False)
+    assert numpy.fabs(meanp[0]-sdf_bovy14._interpolatedObsTrackXY[trackp,1]) < 10.**tol, 'gaussApprox along track does not work for Y'
+    assert numpy.fabs(meanp[1]-sdf_bovy14._interpolatedObsTrackXY[trackp,2]) < 10.**tol, 'gaussApprox along track does not work for Z'
+    assert numpy.fabs(meanp[2]-sdf_bovy14._interpolatedObsTrackXY[trackp,5]) < 10.**tol, 'gaussApprox along track does not work for vZ'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
