@@ -2,6 +2,7 @@ import functools
 import nose
 import numpy
 from scipy import interpolate
+sdf_bovy14= None #so we can set this up and then use in other tests
 
 # Decorator for expected failure
 def expected_failure(test):
@@ -17,7 +18,7 @@ def expected_failure(test):
 
 #Exact setup from Bovy (2014); should reproduce those results (which have been
 # sanity checked
-def test_bovy14():
+def test_bovy14_setup():
     #Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
@@ -29,84 +30,104 @@ def test_bovy14():
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
                 0.88719443,-0.47713334,0.12019596])
     sigv= 0.365 #km/s
-    sdfl= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,
-                   nTrackChunks=11,
-                   tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    global sdf_bovy14
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                         leading=True,
+                         nTrackChunks=11,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    assert not sdf_bovy14 is None, 'bovy14 streamdf setup did not work'
+    return None
+
+def test_bovy14_freqratio():
     #Test the frequency ratio
-    assert (sdfl.freqEigvalRatio()-30.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give a frequency ratio of about 30'
-    assert (sdfl.freqEigvalRatio(isotropic=True)-34.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34'
+    assert (sdf_bovy14.freqEigvalRatio()-30.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give a frequency ratio of about 30'
+    assert (sdf_bovy14.freqEigvalRatio(isotropic=True)-34.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34'
+
+def test_bovy14_misalignment():
     #Test the misalignment
-    assert (sdfl.misalignment()+0.5)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree'
-    assert (sdfl.misalignment(isotropic=True)-1.3)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree'
+    assert (sdf_bovy14.misalignment()+0.5)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree'
+    assert (sdf_bovy14.misalignment(isotropic=True)-1.3)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree'
+
+def test_bovy14_track_prog_diff():
     #Test that the stream and the progenitor are close together, for both leading and trailing
-    check_track_prog_diff(sdfl,'R','Z',0.1)
-    check_track_prog_diff(sdfl,'R','Z',0.8,phys=True) #do 1 with phys
-    check_track_prog_diff(sdfl,'R','X',0.1)
-    check_track_prog_diff(sdfl,'R','Y',0.1)
-    check_track_prog_diff(sdfl,'R','vZ',0.03)
-    check_track_prog_diff(sdfl,'R','vZ',6.6,phys=True) #do 1 with phys
-    check_track_prog_diff(sdfl,'R','vX',0.05)
-    check_track_prog_diff(sdfl,'R','vY',0.05)
-    check_track_prog_diff(sdfl,'R','vT',0.05)
-    check_track_prog_diff(sdfl,'R','vR',0.05)
-    check_track_prog_diff(sdfl,'ll','bb',0.3)
-    check_track_prog_diff(sdfl,'ll','dist',0.5)
-    check_track_prog_diff(sdfl,'ll','vlos',4.)
-    check_track_prog_diff(sdfl,'ll','pmll',0.3)
-    check_track_prog_diff(sdfl,'ll','pmbb',0.25)
+    check_track_prog_diff(sdf_bovy14,'R','Z',0.1)
+    check_track_prog_diff(sdf_bovy14,'R','Z',0.8,phys=True) #do 1 with phys
+    check_track_prog_diff(sdf_bovy14,'R','X',0.1)
+    check_track_prog_diff(sdf_bovy14,'R','Y',0.1)
+    check_track_prog_diff(sdf_bovy14,'R','vZ',0.03)
+    check_track_prog_diff(sdf_bovy14,'R','vZ',6.6,phys=True) #do 1 with phys
+    check_track_prog_diff(sdf_bovy14,'R','vX',0.05)
+    check_track_prog_diff(sdf_bovy14,'R','vY',0.05)
+    check_track_prog_diff(sdf_bovy14,'R','vT',0.05)
+    check_track_prog_diff(sdf_bovy14,'R','vR',0.05)
+    check_track_prog_diff(sdf_bovy14,'ll','bb',0.3)
+    check_track_prog_diff(sdf_bovy14,'ll','dist',0.5)
+    check_track_prog_diff(sdf_bovy14,'ll','vlos',4.)
+    check_track_prog_diff(sdf_bovy14,'ll','pmll',0.3)
+    check_track_prog_diff(sdf_bovy14,'ll','pmbb',0.25)
+
+def test_bovy14_track_spread():
     #Test that the spreads are small
-    check_track_spread(sdfl,'R','Z',0.01,0.005)
-    check_track_spread(sdfl,'R','Z',0.08,0.04,phys=True) #do 1 with phys
-    check_track_spread(sdfl,'R','Z',0.01,0.005,interp=False) #do 1 with interp
-    check_track_spread(sdfl,'X','Y',0.01,0.005)
-    check_track_spread(sdfl,'X','Y',0.08,0.04,phys=True) #do 1 with phys
-    check_track_spread(sdfl,'R','phi',0.01,0.005)
-    check_track_spread(sdfl,'vR','vT',0.005,0.005)
-    check_track_spread(sdfl,'vR','vT',1.1,1.1,phys=True) #do 1 with phys
-    check_track_spread(sdfl,'vR','vZ',0.005,0.005)
-    check_track_spread(sdfl,'vX','vY',0.005,0.005)
-    check_track_spread(sdfl,'ll','bb',0.5,0.5)
-    check_track_spread(sdfl,'dist','vlos',0.5,5.)
-    check_track_spread(sdfl,'pmll','pmbb',0.5,0.5)
+    check_track_spread(sdf_bovy14,'R','Z',0.01,0.005)
+    check_track_spread(sdf_bovy14,'R','Z',0.08,0.04,phys=True) #do 1 with phys
+    check_track_spread(sdf_bovy14,'R','Z',0.01,0.005,interp=False) #do 1 with interp
+    check_track_spread(sdf_bovy14,'X','Y',0.01,0.005)
+    check_track_spread(sdf_bovy14,'X','Y',0.08,0.04,phys=True) #do 1 with phys
+    check_track_spread(sdf_bovy14,'R','phi',0.01,0.005)
+    check_track_spread(sdf_bovy14,'vR','vT',0.005,0.005)
+    check_track_spread(sdf_bovy14,'vR','vT',1.1,1.1,phys=True) #do 1 with phys
+    check_track_spread(sdf_bovy14,'vR','vZ',0.005,0.005)
+    check_track_spread(sdf_bovy14,'vX','vY',0.005,0.005)
+    check_track_spread(sdf_bovy14,'ll','bb',0.5,0.5)
+    check_track_spread(sdf_bovy14,'dist','vlos',0.5,5.)
+    check_track_spread(sdf_bovy14,'pmll','pmbb',0.5,0.5)
+
+def test_closest_trackpoint():
     #Check that we can find the closest trackpoint properly
-    check_closest_trackpoint(sdfl,50)
-    check_closest_trackpoint(sdfl,230,usev=True)
-    check_closest_trackpoint(sdfl,330,usev=True,xy=False)
-    check_closest_trackpoint(sdfl,40,xy=False)
-    check_closest_trackpoint(sdfl,4,interp=False)
-    check_closest_trackpoint(sdfl,6,interp=False,usev=True,xy=False)
+    check_closest_trackpoint(sdf_bovy14,50)
+    check_closest_trackpoint(sdf_bovy14,230,usev=True)
+    check_closest_trackpoint(sdf_bovy14,330,usev=True,xy=False)
+    check_closest_trackpoint(sdf_bovy14,40,xy=False)
+    check_closest_trackpoint(sdf_bovy14,4,interp=False)
+    check_closest_trackpoint(sdf_bovy14,6,interp=False,usev=True,xy=False)
+
+def test_closest_trackpointLB():
     #Check that we can find the closest trackpoint properly in LB
-    check_closest_trackpointLB(sdfl,50)
-    check_closest_trackpointLB(sdfl,230,usev=True)
-    check_closest_trackpointLB(sdfl,4,interp=False)
-    check_closest_trackpointLB(sdfl,8,interp=False,usev=True)
-    check_closest_trackpointLB(sdfl,-1,interp=False,usev=False)
-    check_closest_trackpointLB(sdfl,-2,interp=False,usev=True)
-    check_closest_trackpointLB(sdfl,-3,interp=False,usev=True)
+    check_closest_trackpointLB(sdf_bovy14,50)
+    check_closest_trackpointLB(sdf_bovy14,230,usev=True)
+    check_closest_trackpointLB(sdf_bovy14,4,interp=False)
+    check_closest_trackpointLB(sdf_bovy14,8,interp=False,usev=True)
+    check_closest_trackpointLB(sdf_bovy14,-1,interp=False,usev=False)
+    check_closest_trackpointLB(sdf_bovy14,-2,interp=False,usev=True)
+    check_closest_trackpointLB(sdf_bovy14,-3,interp=False,usev=True)
+
+def test_closest_trackpointaA():
     #Check that we can find the closest trackpoint properly in AA
-    check_closest_trackpointaA(sdfl,50)
-    check_closest_trackpointaA(sdfl,4,interp=False)
+    check_closest_trackpointaA(sdf_bovy14,50)
+    check_closest_trackpointaA(sdf_bovy14,4,interp=False)
+
+def test_plotting():
     #Check plotting routines
-    check_track_plotting(sdfl,'R','Z')
-    check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
-    check_track_plotting(sdfl,'R','Z',interp=False) #do 1 w/o interp
-    check_track_plotting(sdfl,'R','X',spread=0)
-    check_track_plotting(sdfl,'R','Y',spread=0)
-    check_track_plotting(sdfl,'R','phi')
-    check_track_plotting(sdfl,'R','vZ')
-    check_track_plotting(sdfl,'R','vZ',phys=True) #do 1 with phys
-    check_track_plotting(sdfl,'R','vZ',interp=False) #do 1 w/o interp
-    check_track_plotting(sdfl,'R','vX',spread=0)
-    check_track_plotting(sdfl,'R','vY',spread=0)
-    check_track_plotting(sdfl,'R','vT')
-    check_track_plotting(sdfl,'R','vR')
-    check_track_plotting(sdfl,'ll','bb')
-    check_track_plotting(sdfl,'ll','bb',interp=False) #do 1 w/o interp
-    check_track_plotting(sdfl,'ll','dist')
-    check_track_plotting(sdfl,'ll','vlos')
-    check_track_plotting(sdfl,'ll','pmll')
-    delattr(sdfl,'_ObsTrackLB') #rm, to test that this gets recalculated
-    check_track_plotting(sdfl,'ll','pmbb')
+    check_track_plotting(sdf_bovy14,'R','Z')
+    check_track_plotting(sdf_bovy14,'R','Z',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','Z',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','X',spread=0)
+    check_track_plotting(sdf_bovy14,'R','Y',spread=0)
+    check_track_plotting(sdf_bovy14,'R','phi')
+    check_track_plotting(sdf_bovy14,'R','vZ')
+    check_track_plotting(sdf_bovy14,'R','vZ',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','vZ',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','vX',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vY',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vT')
+    check_track_plotting(sdf_bovy14,'R','vR')
+    check_track_plotting(sdf_bovy14,'ll','bb')
+    check_track_plotting(sdf_bovy14,'ll','bb',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'ll','dist')
+    check_track_plotting(sdf_bovy14,'ll','vlos')
+    check_track_plotting(sdf_bovy14,'ll','pmll')
+    delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
+    check_track_plotting(sdf_bovy14,'ll','pmbb')
     return None
 
 @expected_failure
