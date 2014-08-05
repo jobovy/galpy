@@ -277,8 +277,6 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
     #Now go back to real space
     RvR= sdf._approxaAInv(Oa[0],Oa[1],Oa[2],Oa[3],Oa[4],Oa[5],interp=interp).flatten()
-    if RvR[5] > 2.*numpy.pi: RvR[5]-= 2.*numpy.pi
-    if RvR[5] < 0.: RvR[5]+= 2.*numpy.pi
     if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
     if phi < 0.: phi+= 2.*numpy.pi
     #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
