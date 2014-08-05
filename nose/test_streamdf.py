@@ -143,6 +143,30 @@ def test_meantdAngle():
     assert numpy.fabs((sdf_bovy14.meantdAngle(0.4)-0.4/sdf_bovy14._meandO)/sdf_bovy14.meantdAngle(0.1)) < 10.**-0.9, 'mean td close to the progenitor is not dangle/dO'
     return None
 
+def test_ptdAngle():
+    #Test that the probability distribution for p(td|angle) is reasonable
+    #at 0.1
+    da= 0.1
+    expected_max= da/sdf_bovy14._meandO
+    assert sdf_bovy14.ptdAngle(expected_max,da) > \
+        sdf_bovy14.ptdAngle(2.*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
+    assert sdf_bovy14.ptdAngle(expected_max,da) > \
+        sdf_bovy14.ptdAngle(0.5*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
+    #at 0.6
+    da= 0.6
+    expected_max= da/sdf_bovy14._meandO
+    assert sdf_bovy14.ptdAngle(expected_max,da) > \
+        sdf_bovy14.ptdAngle(2.*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
+    assert sdf_bovy14.ptdAngle(expected_max,da) > \
+        sdf_bovy14.ptdAngle(0.5*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
+    #Now test that the mean calculated with a simple Riemann sum agrees with meantdAngle
+    da= 0.2
+    ts= numpy.linspace(0.,50.,101)
+    pts= numpy.array([sdf_bovy14.ptdAngle(t,da) for t in ts])
+    assert numpy.fabs((numpy.sum(ts*pts)/numpy.sum(pts)\
+                           -sdf_bovy14.meantdAngle(da))/sdf_bovy14.meantdAngle(da)) < 10.**-2., 'mean td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
