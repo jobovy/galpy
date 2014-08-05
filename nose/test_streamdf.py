@@ -125,9 +125,16 @@ def test_meanOmega_oned():
     assert numpy.fabs(sdf_bovy14.meanOmega(0.5,oned=True)) < 10.**-2., 'Oned-dimensional meanOmega near progenitor not close to zero for Bovy14 stream'
     return None
 
-def test_sigOmega():
+def test_sigOmega_constant():
     #Test that sigOmega is close to constant close to the progenitor
-    assert numpy.all(numpy.fabs(sdf_bovy14.sigOmega(0.1)-sdf_bovy14.sigOmega(0.5)) < 10.**-4.), 'sigOmega near progenitor not close to constant for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.sigOmega(0.1)-sdf_bovy14.sigOmega(0.5)) < 10.**-4., 'sigOmega near progenitor not close to constant for Bovy14 stream'
+    return None
+
+def test_sigOmega_small():
+    #Test that sigOmega is smaller than the total spread
+    assert sdf_bovy14.sigOmega(0.1) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), 'sigOmega near progenitor not smaller than the total Omega spread'
+    assert sdf_bovy14.sigOmega(0.5) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), 'sigOmega near progenitor not smaller than the total Omega spread'
+    assert sdf_bovy14.sigOmega(1.2) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), 'sigOmega near progenitor not smaller than the total Omega spread'
     return None
 
 def test_plotting():
