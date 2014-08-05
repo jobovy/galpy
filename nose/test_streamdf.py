@@ -175,6 +175,16 @@ def test_ptdAngle():
                            -sdf_bovy14.sigtdAngle(da))/sdf_bovy14.sigtdAngle(da)) < 10.**-1.5, 'sig td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle'
     return None
 
+def test_meanangledAngle():
+    #Test that the mean perpendicular angle at a given angle is zero
+    da= 0.1
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da,smallest=False)) < 10.**-2, 'mean perpendicular angle not zero'
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da,smallest=True)) < 10.**-2, 'mean perpendicular angle not zero'
+    da= 1.1
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da,smallest=False)) < 10.**-2, 'mean perpendicular angle not zero'
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da,smallest=True)) < 10.**-2, 'mean perpendicular angle not zero'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
