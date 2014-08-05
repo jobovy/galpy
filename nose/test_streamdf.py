@@ -119,6 +119,12 @@ def test_meanOmega():
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.5)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
     return None
 
+def test_meanOmega_oned():
+    #Test that meanOmega is close to constant and the mean Omega close to the progenitor
+    assert numpy.fabs(sdf_bovy14.meanOmega(0.1,oned=True)) < 10.**-2., 'One-dimensional meanOmega near progenitor not close to zero for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.meanOmega(0.5,oned=True)) < 10.**-2., 'Oned-dimensional meanOmega near progenitor not close to zero for Bovy14 stream'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
