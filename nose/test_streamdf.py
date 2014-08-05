@@ -143,6 +143,12 @@ def test_meantdAngle():
     assert numpy.fabs((sdf_bovy14.meantdAngle(0.4)-0.4/sdf_bovy14._meandO)/sdf_bovy14.meantdAngle(0.1)) < 10.**-0.9, 'mean td close to the progenitor is not dangle/dO'
     return None
 
+def test_sigtdAngle():
+    #Test that the sigma of td for a given angle is small
+    assert sdf_bovy14.sigtdAngle(0.1) < 0.2*0.1/sdf_bovy14._meandO, 'sigma of td close to the progenitor is not small'
+    assert sdf_bovy14.sigtdAngle(0.5) > 0.2*0.1/sdf_bovy14._meandO, 'sigma of td in the middle of the stream is not large'
+    return None
+
 def test_ptdAngle():
     #Test that the probability distribution for p(td|angle) is reasonable
     #at 0.1
