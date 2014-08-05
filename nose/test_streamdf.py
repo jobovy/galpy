@@ -137,6 +137,12 @@ def test_sigOmega_small():
     assert sdf_bovy14.sigOmega(1.2) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), 'sigOmega near progenitor not smaller than the total Omega spread'
     return None
 
+def test_meantdAngle():
+    #Test that the mean td for a given angle is close to what's expected
+    assert numpy.fabs((sdf_bovy14.meantdAngle(0.1)-0.1/sdf_bovy14._meandO)/sdf_bovy14.meantdAngle(0.1)) < 10.**-1.5, 'mean td close to the progenitor is not dangle/dO'
+    assert numpy.fabs((sdf_bovy14.meantdAngle(0.4)-0.4/sdf_bovy14._meandO)/sdf_bovy14.meantdAngle(0.1)) < 10.**-0.9, 'mean td close to the progenitor is not dangle/dO'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
