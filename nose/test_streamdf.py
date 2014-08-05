@@ -83,6 +83,9 @@ def test_bovy14():
     check_closest_trackpointLB(sdfl,-1,interp=False,usev=False)
     check_closest_trackpointLB(sdfl,-2,interp=False,usev=True)
     check_closest_trackpointLB(sdfl,-3,interp=False,usev=True)
+    #Check that we can find the closest trackpoint properly in AA
+    check_closest_trackpointaA(sdfl,50)
+    check_closest_trackpointaA(sdfl,4,interp=False)
     #Check plotting routines
     check_track_plotting(sdfl,'R','Z')
     check_track_plotting(sdfl,'R','Z',phys=True) #do 1 with phys
@@ -105,6 +108,10 @@ def test_bovy14():
     delattr(sdfl,'_ObsTrackLB') #rm, to test that this gets recalculated
     check_track_plotting(sdfl,'ll','pmbb')
     return None
+
+@expected_failure
+def test_diff_pot():
+    raise AssertionError()
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     observe= [sdf._R0,0.,sdf._Zsun]
@@ -242,6 +249,26 @@ def check_closest_trackpointLB(sdf,trackp,usev=False,interp=True):
     assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint in LB (%i,%i)' % (indx,trackp)
     return None
 
-@expected_failure
-def test_diff_pot():
-    raise AssertionError()
+def check_closest_trackpointaA(sdf,trackp,interp=True):
+    # Check that the closest trackpoint (close )to a trackpoint is the trackpoint
+    if interp:
+        RvR= sdf._interpolatedObsTrackAA[trackp,:]
+    else:
+        RvR= sdf._ObsTrackAA[trackp,:]
+    #These aren't R,vR etc., but frequencies and angles
+    R= RvR[0]
+    vR= RvR[1]
+    vT= RvR[2]
+    z= RvR[3]
+    vz= RvR[4]
+    phi= RvR[5]
+    indx= sdf._find_closest_trackpointaA(R,vR,vT,z,vz,phi,interp=interp)
+    assert indx == trackp, 'Closest trackpoint to a trackpoint is not that trackpoint for AA'
+    #Same test for a slight offset
+    doff= 10.**-5.
+    indx= sdf._find_closest_trackpointaA(R+doff,vR+doff,vT+doff,
+                                        z+doff,vz+doff,phi+doff,
+                                        interp=interp)
+    assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint for AA (%i,%i)' % (indx,trackp)
+    return None
+
