@@ -42,11 +42,13 @@ def test_bovy14_freqratio():
     #Test the frequency ratio
     assert (sdf_bovy14.freqEigvalRatio()-30.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give a frequency ratio of about 30'
     assert (sdf_bovy14.freqEigvalRatio(isotropic=True)-34.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34'
+    return None
 
 def test_bovy14_misalignment():
     #Test the misalignment
     assert (sdf_bovy14.misalignment()+0.5)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree'
     assert (sdf_bovy14.misalignment(isotropic=True)-1.3)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree'
+    return None
 
 def test_bovy14_track_prog_diff():
     #Test that the stream and the progenitor are close together, for both leading and trailing
@@ -65,6 +67,7 @@ def test_bovy14_track_prog_diff():
     check_track_prog_diff(sdf_bovy14,'ll','vlos',4.)
     check_track_prog_diff(sdf_bovy14,'ll','pmll',0.3)
     check_track_prog_diff(sdf_bovy14,'ll','pmbb',0.25)
+    return None
 
 def test_bovy14_track_spread():
     #Test that the spreads are small
@@ -81,6 +84,7 @@ def test_bovy14_track_spread():
     check_track_spread(sdf_bovy14,'ll','bb',0.5,0.5)
     check_track_spread(sdf_bovy14,'dist','vlos',0.5,5.)
     check_track_spread(sdf_bovy14,'pmll','pmbb',0.5,0.5)
+    return None
 
 def test_closest_trackpoint():
     #Check that we can find the closest trackpoint properly
@@ -90,6 +94,7 @@ def test_closest_trackpoint():
     check_closest_trackpoint(sdf_bovy14,40,xy=False)
     check_closest_trackpoint(sdf_bovy14,4,interp=False)
     check_closest_trackpoint(sdf_bovy14,6,interp=False,usev=True,xy=False)
+    return None
 
 def test_closest_trackpointLB():
     #Check that we can find the closest trackpoint properly in LB
@@ -100,11 +105,19 @@ def test_closest_trackpointLB():
     check_closest_trackpointLB(sdf_bovy14,-1,interp=False,usev=False)
     check_closest_trackpointLB(sdf_bovy14,-2,interp=False,usev=True)
     check_closest_trackpointLB(sdf_bovy14,-3,interp=False,usev=True)
-
+    return None
+    
 def test_closest_trackpointaA():
     #Check that we can find the closest trackpoint properly in AA
     check_closest_trackpointaA(sdf_bovy14,50)
     check_closest_trackpointaA(sdf_bovy14,4,interp=False)
+    return None
+
+def test_meanOmega():
+    #Test that meanOmega is close to constant and the mean Omega close to the progenitor
+    assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
+    assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.5)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
+    return None
 
 def test_plotting():
     #Check plotting routines
