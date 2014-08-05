@@ -165,12 +165,14 @@ def test_ptdAngle():
         sdf_bovy14.ptdAngle(2.*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
     assert sdf_bovy14.ptdAngle(expected_max,da) > \
         sdf_bovy14.ptdAngle(0.5*expected_max,da), 'ptdAngle does not peak close to where it is expected to peak'
-    #Now test that the mean calculated with a simple Riemann sum agrees with meantdAngle
+    #Now test that the mean and sigma calculated with a simple Riemann sum agrees with meantdAngle
     da= 0.2
-    ts= numpy.linspace(0.,50.,101)
+    ts= numpy.linspace(0.,100.,1001)
     pts= numpy.array([sdf_bovy14.ptdAngle(t,da) for t in ts])
     assert numpy.fabs((numpy.sum(ts*pts)/numpy.sum(pts)\
                            -sdf_bovy14.meantdAngle(da))/sdf_bovy14.meantdAngle(da)) < 10.**-2., 'mean td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle'
+    assert numpy.fabs((numpy.sqrt(numpy.sum(ts**2.*pts)/numpy.sum(pts)-(numpy.sum(ts*pts)/numpy.sum(pts))**2.)\
+                           -sdf_bovy14.sigtdAngle(da))/sdf_bovy14.sigtdAngle(da)) < 10.**-1.5, 'sig td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle'
     return None
 
 def test_plotting():
