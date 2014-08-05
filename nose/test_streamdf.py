@@ -269,6 +269,13 @@ def test_bovy14_approxaA_inv():
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]*(1.+10.**-2.)
     check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
+    #Now find some trackpoints close to where angles wrap, to test that wrapping is covered properly everywhere
+    dphi= numpy.roll(sdf_bovy14._interpolatedObsTrack[:,5],-1)-\
+        sdf_bovy14._interpolatedObsTrack[:,5]
+    indx= dphi < 0.
+    RvR= sdf_bovy14._interpolatedObsTrack[indx,:][0,:]*(1.+10.**-2.)
+    check_approxaA_inv(sdf_bovy14,-3.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
 def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
@@ -276,7 +283,8 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     #Calculate frequency-angle coords
     Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
     #Now go back to real space
-    RvR= sdf._approxaAInv(Oa[0],Oa[1],Oa[2],Oa[3],Oa[4],Oa[5],interp=interp).flatten()
+    RvR= sdf._approxaAInv(Oa[0,0],Oa[1,0],Oa[2,0],Oa[3,0],Oa[4,0],Oa[5,0],
+                          interp=interp).flatten()
     if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
     if phi < 0.: phi+= 2.*numpy.pi
     #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
