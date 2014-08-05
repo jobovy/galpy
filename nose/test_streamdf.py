@@ -188,8 +188,6 @@ def test_meanangledAngle():
 def test_sigangledAngle():
     #Test that the spread in perpendicular angle is much smaller than 1 (the typical spread in the parallel angle)
     da= 0.1
-    print sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,
-                                     simple=False)
     assert sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,
                                      simple=False) \
                                      < 1./sdf_bovy14.freqEigvalRatio(), \
@@ -227,6 +225,30 @@ def test_sigangledAngle():
                                      simple=True) \
                                      < 1./sdf_bovy14.freqEigvalRatio(), \
                                      'spread in perpendicular angle is not small'
+    return None
+
+def test_pangledAngle():
+    #Sanity check pangledAngle, does it peak near zero? Does the mean agree with meandAngle, does the sigma agree with sigdAngle?
+    da= 0.1
+    assert sdf_bovy14.pangledAngle(0.,da,smallest=False) > \
+        sdf_bovy14.pangledAngle(0.1,da,smallest=False), 'pangledAngle does not peak near zero'
+    assert sdf_bovy14.pangledAngle(0.,da,smallest=False) > \
+        sdf_bovy14.pangledAngle(-0.1,da,smallest=False), 'pangledAngle does not peak near zero'
+    #also for smallest
+    assert sdf_bovy14.pangledAngle(0.,da,smallest=True) > \
+        sdf_bovy14.pangledAngle(0.1,da,smallest=False), 'pangledAngle does not peak near zero'
+    assert sdf_bovy14.pangledAngle(0.,da,smallest=True) > \
+        sdf_bovy14.pangledAngle(-0.1,da,smallest=False), 'pangledAngle does not peak near zero'
+    dangles= numpy.linspace(-0.01,0.01,201)
+    pdangles= (numpy.array([sdf_bovy14.pangledAngle(pda,da,smallest=False) for pda in dangles])).flatten()               
+    assert numpy.fabs(numpy.sum(dangles*pdangles)/numpy.sum(pdangles)) < 10.**-2., 'mean calculated using Riemann sum of pangledAngle does not agree with actual mean'
+    acsig= sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,simple=False)
+    assert numpy.fabs((numpy.sqrt(numpy.sum(dangles**2.*pdangles)/numpy.sum(pdangles))-acsig)/acsig) < 10.**-2., 'sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma'
+    #also for smallest
+    pdangles= (numpy.array([sdf_bovy14.pangledAngle(pda,da,smallest=True) for pda in dangles])).flatten()
+    assert numpy.fabs(numpy.sum(dangles*pdangles)/numpy.sum(pdangles)) < 10.**-2., 'mean calculated using Riemann sum of pangledAngle does not agree with actual mean'
+    acsig= sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=True,simple=False)
+    assert numpy.fabs((numpy.sqrt(numpy.sum(dangles**2.*pdangles)/numpy.sum(pdangles))-acsig)/acsig) < 10.**-1.95, 'sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma'
     return None
 
 def test_plotting():
