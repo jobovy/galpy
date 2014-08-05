@@ -253,9 +253,22 @@ def test_pangledAngle():
 
 def test_bovy14_approxaA_inv():
     #Test that the approximate action-angle conversion near the track works, ie, that the inverse gives the initial point
+    #Point on track, interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[22,:]
     check_approxaA_inv(sdf_bovy14,-5.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
+    #Point on track, not interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[152,:]
+    check_approxaA_inv(sdf_bovy14,-5.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
+    #Point near track, interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[22,:]*(1.+10.**-2.)
+    check_approxaA_inv(sdf_bovy14,-3.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
+    #Point near track, not interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[152,:]*(1.+10.**-2.)
+    check_approxaA_inv(sdf_bovy14,-2.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
 def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
@@ -263,13 +276,18 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     #Calculate frequency-angle coords
     Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
     #Now go back to real space
-    RvR= sdf._approxaAInv(Oa[0],Oa[1],Oa[2],Oa[3],Oa[4],Oa[5],interp=interp)
-    assert numpy.fabs(RvR[0]-R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
-    assert numpy.fabs(RvR[1]-vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
-    assert numpy.fabs(RvR[2]-vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
-    assert numpy.fabs(RvR[3]-z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
-    assert numpy.fabs(RvR[4]-vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
-    assert numpy.fabs(RvR[5]-phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
+    RvR= sdf._approxaAInv(Oa[0],Oa[1],Oa[2],Oa[3],Oa[4],Oa[5],interp=interp).flatten()
+    if RvR[5] > 2.*numpy.pi: RvR[5]-= 2.*numpy.pi
+    if RvR[5] < 0.: RvR[5]+= 2.*numpy.pi
+    if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
+    if phi < 0.: phi+= 2.*numpy.pi
+    #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
+    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
+    assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
+    assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
+    assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
+    assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
+    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
     return None
 
 def test_plotting():
