@@ -251,6 +251,27 @@ def test_pangledAngle():
     assert numpy.fabs((numpy.sqrt(numpy.sum(dangles**2.*pdangles)/numpy.sum(pdangles))-acsig)/acsig) < 10.**-1.95, 'sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma'
     return None
 
+def test_bovy14_approxaA_inv():
+    #Test that the approximate action-angle conversion near the track works, ie, that the inverse gives the initial point
+    RvR= sdf_bovy14._interpolatedObsTrack[22,:]
+    check_approxaA_inv(sdf_bovy14,-5.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
+    return None
+
+def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
+    #Routine to test that approxaA works
+    #Calculate frequency-angle coords
+    Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
+    #Now go back to real space
+    RvR= sdf._approxaAInv(Oa[0],Oa[1],Oa[2],Oa[3],Oa[4],Oa[5],interp=interp)
+    assert numpy.fabs(RvR[0]-R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
+    assert numpy.fabs(RvR[1]-vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
+    assert numpy.fabs(RvR[2]-vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
+    assert numpy.fabs(RvR[3]-z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
+    assert numpy.fabs(RvR[4]-vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
+    assert numpy.fabs(RvR[5]-phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
