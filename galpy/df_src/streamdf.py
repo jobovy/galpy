@@ -1444,7 +1444,7 @@ class streamdf:
             nummean= 0.
         denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
         if denom == 0.: return numpy.nan
-        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)\
+        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)
 
     def _pangledAnglet(self,t,angleperp,dangle,smallest):
         """p(angle_perp|angle_par,time)"""
