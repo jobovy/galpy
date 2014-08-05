@@ -496,6 +496,20 @@ def test_bovy14_gaussApproxLB_interp():
     assert numpy.fabs(meanp[1]-sdf_bovy14._interpolatedObsTrackLB[trackp,2]) < 10.**tol, 'Gaussian approximation when using interpolation does not work as expected for d'
     return None
 
+def test_bovy14_callMargXZ():
+    #Example from the tutorial and paper
+    meanp, varp= sdf_bovy14.gaussApprox([None,None,2./8.,None,None,None])
+    xs= numpy.linspace(-3.*numpy.sqrt(varp[0,0]),3.*numpy.sqrt(varp[0,0]),
+                        21)+meanp[0]
+    logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None]) 
+                        for x in xs])
+    ps= numpy.exp(logps)
+    ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
+    #Test that the mean is close to the approximation
+    assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[0]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected'
+    assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
