@@ -278,24 +278,6 @@ def test_bovy14_approxaA_inv():
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
-def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
-    #Routine to test that approxaA works
-    #Calculate frequency-angle coords
-    Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
-    #Now go back to real space
-    RvR= sdf._approxaAInv(Oa[0,0],Oa[1,0],Oa[2,0],Oa[3,0],Oa[4,0],Oa[5,0],
-                          interp=interp).flatten()
-    if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
-    if phi < 0.: phi+= 2.*numpy.pi
-    #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
-    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
-    assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
-    assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
-    assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
-    assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
-    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
-    return None
-
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
@@ -481,5 +463,23 @@ def check_closest_trackpointaA(sdf,trackp,interp=True):
                                         z+doff,vz+doff,phi+doff,
                                         interp=interp)
     assert indx == trackp, 'Closest trackpoint to close to a trackpoint is not that trackpoint for AA (%i,%i)' % (indx,trackp)
+    return None
+
+def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
+    #Routine to test that approxaA works
+    #Calculate frequency-angle coords
+    Oa= sdf._approxaA(R,vR,vT,z,vz,phi,interp=interp)
+    #Now go back to real space
+    RvR= sdf._approxaAInv(Oa[0,0],Oa[1,0],Oa[2,0],Oa[3,0],Oa[4,0],Oa[5,0],
+                          interp=interp).flatten()
+    if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
+    if phi < 0.: phi+= 2.*numpy.pi
+    #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
+    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
+    assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
+    assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
+    assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
+    assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
+    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
     return None
 
