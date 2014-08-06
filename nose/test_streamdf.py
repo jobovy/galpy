@@ -551,30 +551,6 @@ def test_bovy14_callMargDPMLL():
                                           cindx=cindx,interp=True)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
     return None
 
-def test_plotting():
-    #Check plotting routines
-    check_track_plotting(sdf_bovy14,'R','Z')
-    check_track_plotting(sdf_bovy14,'R','Z',phys=True) #do 1 with phys
-    check_track_plotting(sdf_bovy14,'R','Z',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'R','X',spread=0)
-    check_track_plotting(sdf_bovy14,'R','Y',spread=0)
-    check_track_plotting(sdf_bovy14,'R','phi')
-    check_track_plotting(sdf_bovy14,'R','vZ')
-    check_track_plotting(sdf_bovy14,'R','vZ',phys=True) #do 1 with phys
-    check_track_plotting(sdf_bovy14,'R','vZ',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'R','vX',spread=0)
-    check_track_plotting(sdf_bovy14,'R','vY',spread=0)
-    check_track_plotting(sdf_bovy14,'R','vT')
-    check_track_plotting(sdf_bovy14,'R','vR')
-    check_track_plotting(sdf_bovy14,'ll','bb')
-    check_track_plotting(sdf_bovy14,'ll','bb',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'ll','dist')
-    check_track_plotting(sdf_bovy14,'ll','vlos')
-    check_track_plotting(sdf_bovy14,'ll','pmll')
-    delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
-    check_track_plotting(sdf_bovy14,'ll','pmbb')
-    return None
-
 def test_bovy14_sample():
     RvR= sdf_bovy14.sample(n=1000)
     #Sanity checks
@@ -605,6 +581,51 @@ def test_bovy14_sampleXY():
     XvX= sdf_bovy14.sample(n=10000)
     indx= (XvX[3] > 4.4/8.)*(XvX[3] < 4.6/8.)
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(XvX[0][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    return None
+
+def test_bovy14_sampleLB():
+    LB= sdf_bovy14.sample(n=1000,lb=True)
+    #Sanity checks
+    # Range in l
+    indx= (LB[0] > 210.)*(LB[0] < 220.)
+    meanp, varp= sdf_bovy14.gaussApprox([215,None,None,None,None,None],lb=True)
+    #mean
+    assert numpy.fabs((meanp[0]-numpy.mean(LB[1][indx]))/meanp[0]) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    assert numpy.fabs((meanp[1]-numpy.mean(LB[2][indx]))/meanp[1]) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    assert numpy.fabs((meanp[3]-numpy.mean(LB[4][indx]))/meanp[3]) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    #variance, use smaller range
+    LB= sdf_bovy14.sample(n=10000,lb=True,
+                          Rnorm=sdf_bovy14._Rnorm,
+                          Vnorm=sdf_bovy14._Vnorm,
+                          R0=sdf_bovy14._R0,
+                          Zsun=sdf_bovy14._Zsun,
+                          vsun=sdf_bovy14._vsun)
+    indx= (LB[0] > 214.)*(LB[0] < 216.)
+    assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(LB[1][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    return None
+
+def test_plotting():
+    #Check plotting routines
+    check_track_plotting(sdf_bovy14,'R','Z')
+    check_track_plotting(sdf_bovy14,'R','Z',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','Z',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','X',spread=0)
+    check_track_plotting(sdf_bovy14,'R','Y',spread=0)
+    check_track_plotting(sdf_bovy14,'R','phi')
+    check_track_plotting(sdf_bovy14,'R','vZ')
+    check_track_plotting(sdf_bovy14,'R','vZ',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','vZ',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','vX',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vY',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vT')
+    check_track_plotting(sdf_bovy14,'R','vR')
+    check_track_plotting(sdf_bovy14,'ll','bb')
+    check_track_plotting(sdf_bovy14,'ll','bb',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'ll','dist')
+    check_track_plotting(sdf_bovy14,'ll','vlos')
+    check_track_plotting(sdf_bovy14,'ll','pmll')
+    delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
+    check_track_plotting(sdf_bovy14,'ll','pmbb')
     return None
 
 @expected_failure
