@@ -575,6 +575,22 @@ def test_plotting():
     check_track_plotting(sdf_bovy14,'ll','pmbb')
     return None
 
+def test_bovy14_sample():
+    RvR= sdf_bovy14.sample(n=1000)
+    #Sanity checks
+    # Range in Z
+    indx= (RvR[3] > 4./8.)*(RvR[3] < 5./8.)
+    meanp, varp= sdf_bovy14.gaussApprox([None,None,4.5/8.,None,None,None])
+    #mean
+    assert numpy.fabs(numpy.sqrt(meanp[0]**2.+meanp[1]**2.)\
+                          -numpy.mean(RvR[0][indx])) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    assert numpy.fabs(meanp[4]-numpy.mean(RvR[4][indx])) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    #variance, use smaller range
+    RvR= sdf_bovy14.sample(n=10000)
+    indx= (RvR[3] > 4.4/8.)*(RvR[3] < 4.6/8.)
+    assert numpy.fabs(numpy.sqrt(varp[4,4])/numpy.std(RvR[4][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    return None
+
 @expected_failure
 def test_diff_pot():
     raise AssertionError()
