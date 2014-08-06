@@ -552,6 +552,7 @@ def test_bovy14_callMargDPMLL():
     return None
 
 def test_bovy14_sample():
+    numpy.random.seed(1)
     RvR= sdf_bovy14.sample(n=1000)
     #Sanity checks
     # Range in Z
@@ -602,6 +603,19 @@ def test_bovy14_sampleLB():
                           vsun=sdf_bovy14._vsun)
     indx= (LB[0] > 214.)*(LB[0] < 216.)
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(LB[1][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    return None
+
+def test_bovy14_sampleA():
+    AA= sdf_bovy14.sample(n=1000,returnaAdt=True)
+    #Sanity checks
+    indx= (AA[0][0] > 0.5625)*(AA[0][0] < 0.563)
+    assert numpy.fabs(numpy.mean(AA[0][2][indx])-0.42525) < 10.**-1., "Sample's vertical frequency at given radial frequency is not as expected"
+    #Sanity check w/ time
+    AA= sdf_bovy14.sample(n=10000,returnaAdt=True)
+    daperp= numpy.sqrt(numpy.sum((AA[1]
+                                  -numpy.tile(sdf_bovy14._progenitor_angle,(10000,1)).T)**2.,axis=0))
+    indx= (daperp > 0.24)*(daperp < 0.26)
+    assert numpy.fabs((numpy.mean(AA[2][indx])-sdf_bovy14.meantdAngle(0.25))/numpy.mean(AA[2][indx])) < 10.**-2., 'mean stripping time along sample not as expected'
     return None
 
 def test_plotting():
