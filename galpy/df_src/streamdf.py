@@ -262,7 +262,7 @@ class streamdf:
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
 ############################STREAM TRACK FUNCTIONS#############################
-    def plotTrack(self,d1='x',d2='z',interp=True,spread=0,
+    def plotTrack(self,d1='x',d2='z',interp=True,spread=0,simple=_USESIMPLE,
                   *args,**kwargs):
         """
         NAME:
@@ -276,6 +276,7 @@ class streamdf:
            interp= (True) if True, use the interpolated stream track
            spread= (0) if int > 0, also plot the spread around the track as spread x sigma
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
+           simple= (False), if True, use a simple estimate for the spread in perpendicular angle
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -302,7 +303,8 @@ class streamdf:
                             ylabel=_labelDict[d2.lower()],
                             **kwargs)
         if spread:
-            addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys)
+            addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys,
+                                                 simple=simple)
             if (kwargs.has_key('ls') and kwargs['ls'] == 'none') \
                     or (kwargs.has_key('linestyle') \
                             and kwargs['linestyle'] == 'none'):
@@ -464,8 +466,11 @@ class streamdf:
             tx*= self._Vnorm
         return tx        
 
-    def _parse_track_spread(self,d1,d2,interp=True,phys=False):
+    def _parse_track_spread(self,d1,d2,interp=True,phys=False,
+                            simple=_USESIMPLE):
         """Determine the spread around the track"""
+        if not hasattr(self,'_allErrCovs'):
+            self._determine_stream_spread(simple=simple)
         okaySpreadR= ['r','vr','vt','z','vz','phi']
         okaySpreadXY= ['x','y','z','vx','vy','vz']
         okaySpreadLB= ['ll','bb','dist','vlos','pmll','pmbb']

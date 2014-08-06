@@ -82,9 +82,17 @@ def test_bovy14_track_spread():
     check_track_spread(sdf_bovy14,'vR','vT',1.1,1.1,phys=True) #do 1 with phys
     check_track_spread(sdf_bovy14,'vR','vZ',0.005,0.005)
     check_track_spread(sdf_bovy14,'vX','vY',0.005,0.005)
+    delattr(sdf_bovy14,'_allErrCovs') #to test that this is re-generated
     check_track_spread(sdf_bovy14,'ll','bb',0.5,0.5)
     check_track_spread(sdf_bovy14,'dist','vlos',0.5,5.)
     check_track_spread(sdf_bovy14,'pmll','pmbb',0.5,0.5)
+    #These should all exist, so return None
+    assert sdf_bovy14._interpolate_stream_track() is None, '_interpolate_stream_track does not return None, even though it should be set up'
+    assert sdf_bovy14._interpolate_stream_track_aA() is None, '_interpolate_stream_track_aA does not return None, even though it should be set up'
+    delattr(sdf_bovy14,'_interpolatedObsTrackAA')
+    delattr(sdf_bovy14,'_interpolatedThetasTrack')
+    #Re-build
+    assert sdf_bovy14._interpolate_stream_track_aA() is None, 'Re-building interpolated AA track does not return None'
     return None
 
 def test_closest_trackpoint():
@@ -550,6 +558,14 @@ def test_bovy14_callMargDPMLL():
                       sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True,
                                           cindx=cindx,interp=True)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
+    if cindx % 100 > 50: cindx= cindx/100+1
+    else: cindx= cindx/100
+    assert numpy.fabs(sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True,interp=False)-
+                      sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True,interp=False,
+                                          cindx=cindx)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
+    #Same w/o interpolation
     return None
 
 def test_callArgs():
@@ -661,7 +677,7 @@ def test_bovy14_sampleA():
     assert numpy.fabs((numpy.mean(AA[2][indx])-sdf_bovy14.meantdAngle(0.25))/numpy.mean(AA[2][indx])) < 10.**-2., 'mean stripping time along sample not as expected'
     return None
 
-def test_bovy14_trailing_setup():
+def test_bovy14_oppositetrailing_setup():
     #Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
@@ -671,8 +687,9 @@ def test_bovy14_trailing_setup():
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     lp_false= LogarithmicHaloPotential(normalize=1.,q=0.8)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
-    obs= Orbit([1.56148083,0.35081535,-1.15481504,
-                0.88719443,-0.47713334,0.12019596])
+    #This is the trailing of the stream that is going the opposite direction
+    obs= Orbit([1.56148083,-0.35081535,1.15481504,
+                0.88719443,0.47713334,0.12019596])
     sigv= 0.365 #km/s
     global sdft_bovy14
     #First provoke some errors
@@ -681,6 +698,15 @@ def test_bovy14_trailing_setup():
                               leading=False)
     except IOError: pass
     else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
+    #Warning when deltaAngleTrack is too large (turn warning into error for testing)
+    import warnings
+    warnings.simplefilter("error")
+    try:
+        sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                              leading=False,deltaAngleTrack=100.) #much too big deltaAngle
+    except: pass
+    else: raise AssertionError('streamdf setup w/ deltaAngleTrack too large did not raise warning')
+    warnings.simplefilter("default")
     #Now setup w/ the right potential
     sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                           multi=True, #test multi
