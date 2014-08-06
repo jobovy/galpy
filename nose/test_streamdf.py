@@ -591,6 +591,22 @@ def test_bovy14_sample():
     assert numpy.fabs(numpy.sqrt(varp[4,4])/numpy.std(RvR[4][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
     return None
 
+def test_bovy14_sampleXY():
+    XvX= sdf_bovy14.sample(n=1000,xy=True)
+    #Sanity checks
+    # Range in Z
+    indx= (XvX[2] > 4./8.)*(XvX[2] < 5./8.)
+    meanp, varp= sdf_bovy14.gaussApprox([None,None,4.5/8.,None,None,None])
+    #mean
+    assert numpy.fabs(meanp[0]-numpy.mean(XvX[0][indx])) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    assert numpy.fabs(meanp[1]-numpy.mean(XvX[1][indx])) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    assert numpy.fabs(meanp[3]-numpy.mean(XvX[4][indx])) < 10.**-2., 'Sample track does not lie in the same location as the track'
+    #variance, use smaller range
+    XvX= sdf_bovy14.sample(n=10000)
+    indx= (XvX[3] > 4.4/8.)*(XvX[3] < 4.6/8.)
+    assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(XvX[0][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    return None
+
 @expected_failure
 def test_diff_pot():
     raise AssertionError()
