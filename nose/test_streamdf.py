@@ -548,7 +548,7 @@ def test_bovy14_callMargDPMLL():
                                           lb=True)-
                       sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True,
-                                          cindx=cindx)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
+                                          cindx=cindx,interp=True)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
     return None
 
 def test_plotting():
