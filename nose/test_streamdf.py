@@ -666,6 +666,45 @@ def test_calcaAJac():
         0.88719443,-0.47713334,0.12019596
     jac= calcaAJac([R,vR,vT,z,vz,phi],aAI,dxv=10**-8.*numpy.ones(6))
     assert numpy.fabs((numpy.fabs(numpy.linalg.det(jac))-R)/R) < 10.**-2., 'Determinant of (x,v) -> (J,theta) transformation is not equal to 1'
+    #Now w/ frequencies
+    jac= calcaAJac([R,vR,vT,z,vz,phi],aAI,dxv=10**-8.*numpy.ones(6),
+                   actionsFreqsAngles=True)
+    #extract (J,theta)
+    Jajac= jac[numpy.array([True,True,True,False,False,False,True,True,True],dtype='bool'),:]
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(Jajac))-R)/R) < 10.**-2., 'Determinant of (x,v) -> (J,theta) transformation is not equal to 1, when calculated with actionsFreqsAngles'
+    #extract (O,theta)
+    Oajac= jac[numpy.array([False,False,False,True,True,True,True,True,True],dtype='bool'),:]
+    OJjac= calcaAJac([R,vR,vT,z,vz,phi],aAI,dxv=10**-8.*numpy.ones(6),
+                     dOdJ=True)
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(Oajac))-R*numpy.fabs(numpy.linalg.det(OJjac)))/R/numpy.fabs(numpy.linalg.det(OJjac))) < 10.**-2., 'Determinant of (x,v) -> (O,theta) is not equal to that of dOdJ'
+    OJjac= calcaAJac([R,vR,vT,z,vz,phi],aAI,dxv=10**-8.*numpy.ones(6),
+                     freqs=True)
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(Oajac))-numpy.fabs(numpy.linalg.det(OJjac)))/numpy.fabs(numpy.linalg.det(OJjac))) < 10.**-2., 'Determinant of (x,v) -> (O,theta) is not equal to that calculated w/ actionsFreqsAngles'
+    return None
+
+def test_calcaAJacLB():
+    from galpy.df_src.streamdf import calcaAJac
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_coords
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
+        0.88719443,-0.47713334,0.12019596
+    #First convert these to l,b,d,vlos,pmll,pmbb
+    XYZ= bovy_coords.galcencyl_to_XYZ(R*8.,phi,z*8.,Xsun=8.,Ysun=0.,Zsun=0.02)
+    l,b,d= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],degree=True)
+    vXYZ= bovy_coords.galcencyl_to_vxvyvz(vR*220.,vT*220.,vz*220.,phi=phi,
+                                          vsun=[10.,240.,-10.])
+    vlos,pmll,pmbb= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                                     l,b,d,degree=True)
+    jac= calcaAJac([l,b,d,vlos,pmll,pmbb,],aAI,dxv=10**-8.*numpy.ones(6),
+                   lb=True,R0=8.,Zsun=0.02,vsun=[10.,240.,-10.],
+                   Rnorm=8.,Vnorm=220.)
+    lbdjac= numpy.fabs(numpy.linalg.det(bovy_coords.lbd_to_XYZ_jac(l,b,d,
+                                                                   vlos,pmll,pmbb,
+                                                                   degree=True)))
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(jac))*8.**3.*220.**3.-lbdjac)/lbdjac) < 10.**-2., 'Determinant of (x,v) -> (J,theta) transformation is not equal to 1'
     return None
 
 def test_plotting():
