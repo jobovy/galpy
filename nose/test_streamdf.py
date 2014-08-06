@@ -538,7 +538,8 @@ def test_bovy14_callMargDPMLL():
                                           R0=sdf_bovy14._R0,
                                           Zsun=sdf_bovy14._Zsun,
                                           vsun=sdf_bovy14._vsun)) < 10.**-10., 'callMarg with Rnorm, etc. options set to default does not agree with default'
-    cindx= sdf_bovy14.find_closest_trackpointLB([None,meanp[1],None,None,8.,None],
+    cindx= sdf_bovy14.find_closest_trackpointLB(None,meanp[1],None,
+                                                None,8.,None,
                                                 usev=True)
     assert numpy.fabs(sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True)-
