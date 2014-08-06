@@ -566,6 +566,9 @@ def test_bovy14_sample():
     RvR= sdf_bovy14.sample(n=10000)
     indx= (RvR[3] > 4.4/8.)*(RvR[3] < 4.6/8.)
     assert numpy.fabs(numpy.sqrt(varp[4,4])/numpy.std(RvR[4][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    # Test that t is returned
+    RvRdt= sdf_bovy14.sample(n=10,returndt=True)
+    assert len(RvRdt) == 2, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleXY():
@@ -582,13 +585,16 @@ def test_bovy14_sampleXY():
     XvX= sdf_bovy14.sample(n=10000)
     indx= (XvX[3] > 4.4/8.)*(XvX[3] < 4.6/8.)
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(XvX[0][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    # Test that t is returned
+    XvXdt= sdf_bovy14.sample(n=10,returndt=True,xy=True)
+    assert len(XvXdt) == 2, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleLB():
     LB= sdf_bovy14.sample(n=1000,lb=True)
     #Sanity checks
     # Range in l
-    indx= (LB[0] > 210.)*(LB[0] < 220.)
+    indx= (LB[0] > 212.5)*(LB[0] < 217.5)
     meanp, varp= sdf_bovy14.gaussApprox([215,None,None,None,None,None],lb=True)
     #mean
     assert numpy.fabs((meanp[0]-numpy.mean(LB[1][indx]))/meanp[0]) < 10.**-2., 'Sample track does not lie in the same location as the track'
@@ -603,6 +609,9 @@ def test_bovy14_sampleLB():
                           vsun=sdf_bovy14._vsun)
     indx= (LB[0] > 214.)*(LB[0] < 216.)
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(LB[1][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
+    # Test that t is returned
+    LBdt= sdf_bovy14.sample(n=10,returndt=True,lb=True)
+    assert len(LBdt) == 2, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleA():

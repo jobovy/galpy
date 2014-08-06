@@ -2055,7 +2055,10 @@ class streamdf:
             out[3]= svX
             out[4]= svY
             out[5]= svZ
-            return out
+            if returndt:
+                return (out,dt)
+            else:
+                return out
         if lb:
             if Vnorm is None:
                 Vnorm= self._Vnorm
@@ -2089,7 +2092,10 @@ class streamdf:
             out[3]= svlbd[:,0]
             out[4]= svlbd[:,1]
             out[5]= svlbd[:,2]
-            return out
+            if returndt:
+                return (out,dt)
+            else:
+                return out
 
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
