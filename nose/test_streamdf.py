@@ -3,6 +3,7 @@ import nose
 import numpy
 from scipy import interpolate
 sdf_bovy14= None #so we can set this up and then use in other tests
+sdft_bovy14= None #so we can set this up and then use in other tests, trailing
 
 # Decorator for expected failure
 def expected_failure(test):
@@ -649,6 +650,34 @@ def test_plotting():
     check_track_plotting(sdf_bovy14,'ll','pmll')
     delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
     check_track_plotting(sdf_bovy14,'ll','pmbb')
+    return None
+
+def test_bovy14_trailing_setup():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    lp_false= LogarithmicHaloPotential(normalize=1.,q=0.8)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    global sdft_bovy14
+    #First provoke some errors
+    try:
+        sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp_false,aA=aAI,
+                              leading=False)
+    except IOError: pass
+    else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
+    #Now setup w/ the right potential
+    sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                          multi=True, #test multi
+                          leading=False,
+                          sigangle=0.657)
+    assert not sdft_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
 
 @expected_failure
