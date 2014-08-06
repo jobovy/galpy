@@ -500,7 +500,7 @@ def test_bovy14_callMargXZ():
     #Example from the tutorial and paper
     meanp, varp= sdf_bovy14.gaussApprox([None,None,2./8.,None,None,None])
     xs= numpy.linspace(-3.*numpy.sqrt(varp[0,0]),3.*numpy.sqrt(varp[0,0]),
-                        21)+meanp[0]
+                        11)+meanp[0]
     logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None]) 
                         for x in xs])
     ps= numpy.exp(logps)
@@ -522,7 +522,7 @@ def test_bovy14_callMargDPMLL():
     #p(D|pmll)
     meanp, varp= sdf_bovy14.gaussApprox([None,None,None,None,8.,None],lb=True)
     xs= numpy.linspace(-3.*numpy.sqrt(varp[1,1]),3.*numpy.sqrt(varp[1,1]),
-                        21)+meanp[1]
+                        11)+meanp[1]
     logps= numpy.array([sdf_bovy14.callMarg([None,x,None,None,8.,None],
                                             lb=True) 
                         for x in xs])
