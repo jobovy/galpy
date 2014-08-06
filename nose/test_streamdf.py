@@ -552,6 +552,39 @@ def test_bovy14_callMargDPMLL():
                                           cindx=cindx,interp=True)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
     return None
 
+def test_callArgs():
+    #Tests of _parse_call_args
+    from galpy.orbit import Orbit
+    #Just checking that different types of inputs give the same result
+    trackp= 191
+    RvR= sdf_bovy14._interpolatedObsTrack[trackp,:].flatten()
+    OA= sdf_bovy14._interpolatedObsTrackAA[trackp,:].flatten()
+    #RvR vs. array of OA
+    s= numpy.ones(2)
+    assert numpy.all(numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -sdf_bovy14(OA[0]*s,OA[1]*s,OA[2]*s,OA[3]*s,OA[4]*s,OA[5]*s,aAInput=True)) < 10.**-8.), '__call__ w/ R,vR,... and equivalent O,theta,... does not give the same result'
+    #RvR vs. OA
+    assert numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -sdf_bovy14(OA[0],OA[1],OA[2],OA[3],OA[4],OA[5],aAInput=True)) < 10.**-8., '__call__ w/ R,vR,... and equivalent O,theta,... does not give the same result'
+    #RvR vs. orbit
+    assert numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -sdf_bovy14(Orbit([RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5]]))) < 10.**-8., '__call__ w/ R,vR,... and equivalent orbit does not give the same result'
+    #RvR vs. list of orbit
+    assert numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -sdf_bovy14([Orbit([RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5]])])) < 10.**-8., '__call__ w/ R,vR,... and equivalent list of orbit does not give the same result'
+    #RvR w/ and w/o log
+    assert numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -numpy.log(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],log=False))) < 10.**-8., '__call__ w/ R,vR,... log and not log does not give the same result'
+    #RvR w/ explicit interp
+    assert numpy.fabs(sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5])\
+                          -sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)) < 10.**-8., '__call__ w/ R,vR,... w/ explicit interp does not give the same result as w/o'
+    #RvR w/o phi should raise error
+    try:
+        sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4])
+    except IOError: pass
+    else: raise AssertionError('__call__ w/o phi does not raise IOError')
+    return None
+
 def test_bovy14_sample():
     numpy.random.seed(1)
     RvR= sdf_bovy14.sample(n=1000)
