@@ -1608,7 +1608,7 @@ class streamdf:
            Either:
               a) R,vR,vT,z,vz,phi ndarray [nobjects]
               b)(Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple if 
-                aaInput
+                aAInput
                 where:
                     Omegar - radial frequency
                     Omegaphi - azimuthal frequency
