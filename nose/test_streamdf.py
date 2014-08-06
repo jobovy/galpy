@@ -528,6 +528,23 @@ def test_bovy14_callMargDPMLL():
     #Test that the mean is close to the approximation
     assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[1]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)'
     assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[1,1])) < 10.**-1., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)'
+    #Test options
+    assert numpy.fabs(sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True)-
+                      sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True,
+                                          Rnorm=sdf_bovy14._Rnorm,
+                                          Vnorm=sdf_bovy14._Vnorm,
+                                          R0=sdf_bovy14._R0,
+                                          Zsun=sdf_bovy14._Zsun,
+                                          vsun=sdf_bovy14._vsun)) < 10.**-10., 'callMarg with Rnorm, etc. options set to default does not agree with default'
+    cindx= sdf_bovy14.find_closest_trackpointLB([None,meanp[1],None,None,8.,None],
+                                                usev=True)
+    assert numpy.fabs(sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True)-
+                      sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
+                                          lb=True,
+                                          cindx=cindx)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
     return None
 
 def test_plotting():
