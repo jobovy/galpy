@@ -506,8 +506,23 @@ def test_bovy14_callMargXZ():
     ps= numpy.exp(logps)
     ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
     #Test that the mean is close to the approximation
-    assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[0]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected'
-    assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected'
+    assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[0]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
+    assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
+    return None
+
+def test_bovy14_callMargDPMLL():
+    #p(D|pmll)
+    meanp, varp= sdf_bovy14.gaussApprox([None,None,None,None,8.,None],lb=True)
+    xs= numpy.linspace(-3.*numpy.sqrt(varp[1,1]),3.*numpy.sqrt(varp[1,1]),
+                        21)+meanp[1]
+    logps= numpy.array([sdf_bovy14.callMarg([None,x,None,None,8.,None],
+                                            lb=True) 
+                        for x in xs])
+    ps= numpy.exp(logps)
+    ps/= numpy.sum(ps)*(xs[1]-xs[0])
+    #Test that the mean is close to the approximation
+    assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[1]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)'
+    assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[1,1])) < 10.**-1., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)'
     return None
 
 def test_plotting():
