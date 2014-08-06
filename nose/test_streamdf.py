@@ -508,11 +508,14 @@ def test_bovy14_callMargXZ():
     #Test that the mean is close to the approximation
     assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[0]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
     assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
-    #Test some of the options
-    assert numpy.fabs(sdf_bovy14.callMarg([meanp[0],None,2./8.,None,None,None])-
-                      sdf_bovy14.callMarg([meanp[0],None,2./8.,None,None,None],
-                                          nsigma=4,ngl=10)) < 10.**-8., 'callMarg w/ larger nsigma and ngl does not agree w/ default'
-
+    #Test that the mean is close to the approximation, when explicitly setting sigma and ngl
+    logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None],
+                                            ngl=6,nsigma=3.1) 
+                        for x in xs])
+    ps= numpy.exp(logps)
+    ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
+    assert numpy.fabs(numpy.sum(xs*ps)/numpy.sum(ps)-meanp[0]) < 10.**-2., 'mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
+    assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
     return None
 
 def test_bovy14_callMargDPMLL():
