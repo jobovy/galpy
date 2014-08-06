@@ -766,6 +766,13 @@ def test_calcaAJacLB():
     assert numpy.fabs((numpy.fabs(numpy.linalg.det(jac))*8.**3.*220.**3.-lbdjac)/lbdjac) < 10.**-2., 'Determinant of (x,v) -> (J,theta) transformation is not equal to 1'
     return None
 
+def test_estimateTdisrupt():
+    from galpy.util import bovy_conversion
+    td= numpy.log10(sdf_bovy14.estimateTdisrupt(1.)\
+                        *bovy_conversion.time_in_Gyr(220.,8.))
+    assert (td > 0.)*(td < 1.), 'estimate of disruption time is not a few Gyr'
+    return None
+
 def test_plotting():
     #Check plotting routines
     check_track_plotting(sdf_bovy14,'R','Z')
