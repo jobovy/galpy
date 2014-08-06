@@ -628,30 +628,6 @@ def test_bovy14_sampleA():
     assert numpy.fabs((numpy.mean(AA[2][indx])-sdf_bovy14.meantdAngle(0.25))/numpy.mean(AA[2][indx])) < 10.**-2., 'mean stripping time along sample not as expected'
     return None
 
-def test_plotting():
-    #Check plotting routines
-    check_track_plotting(sdf_bovy14,'R','Z')
-    check_track_plotting(sdf_bovy14,'R','Z',phys=True) #do 1 with phys
-    check_track_plotting(sdf_bovy14,'R','Z',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'R','X',spread=0)
-    check_track_plotting(sdf_bovy14,'R','Y',spread=0)
-    check_track_plotting(sdf_bovy14,'R','phi')
-    check_track_plotting(sdf_bovy14,'R','vZ')
-    check_track_plotting(sdf_bovy14,'R','vZ',phys=True) #do 1 with phys
-    check_track_plotting(sdf_bovy14,'R','vZ',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'R','vX',spread=0)
-    check_track_plotting(sdf_bovy14,'R','vY',spread=0)
-    check_track_plotting(sdf_bovy14,'R','vT')
-    check_track_plotting(sdf_bovy14,'R','vR')
-    check_track_plotting(sdf_bovy14,'ll','bb')
-    check_track_plotting(sdf_bovy14,'ll','bb',interp=False) #do 1 w/o interp
-    check_track_plotting(sdf_bovy14,'ll','dist')
-    check_track_plotting(sdf_bovy14,'ll','vlos')
-    check_track_plotting(sdf_bovy14,'ll','pmll')
-    delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
-    check_track_plotting(sdf_bovy14,'ll','pmbb')
-    return None
-
 def test_bovy14_trailing_setup():
     #Imports
     from galpy.df import streamdf
@@ -678,6 +654,42 @@ def test_bovy14_trailing_setup():
                           leading=False,
                           sigangle=0.657)
     assert not sdft_bovy14 is None, 'bovy14 streamdf setup did not work'
+    return None
+
+def test_calcaAJac():
+    from galpy.df_src.streamdf import calcaAJac
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
+        0.88719443,-0.47713334,0.12019596
+    jac= calcaAJac([R,vR,vT,z,vz,phi],aAI,dxv=10**-8.*numpy.ones(6))
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(jac))-R)/R) < 10.**-2., 'Determinant of (x,v) -> (J,theta) transformation is not equal to 1'
+    return None
+
+def test_plotting():
+    #Check plotting routines
+    check_track_plotting(sdf_bovy14,'R','Z')
+    check_track_plotting(sdf_bovy14,'R','Z',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','Z',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','X',spread=0)
+    check_track_plotting(sdf_bovy14,'R','Y',spread=0)
+    check_track_plotting(sdf_bovy14,'R','phi')
+    check_track_plotting(sdf_bovy14,'R','vZ')
+    check_track_plotting(sdf_bovy14,'R','vZ',phys=True) #do 1 with phys
+    check_track_plotting(sdf_bovy14,'R','vZ',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'R','vX',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vY',spread=0)
+    check_track_plotting(sdf_bovy14,'R','vT')
+    check_track_plotting(sdf_bovy14,'R','vR')
+    check_track_plotting(sdf_bovy14,'ll','bb')
+    check_track_plotting(sdf_bovy14,'ll','bb',interp=False) #do 1 w/o interp
+    check_track_plotting(sdf_bovy14,'ll','dist')
+    check_track_plotting(sdf_bovy14,'ll','vlos')
+    check_track_plotting(sdf_bovy14,'ll','pmll')
+    delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
+    check_track_plotting(sdf_bovy14,'ll','pmbb')
     return None
 
 @expected_failure
