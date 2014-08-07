@@ -327,3 +327,12 @@ def test_dehnendf_cold_powerfall_srst():
     assert numpy.fabs(df.sigmaR2(2.)/df.sigmaT2(2.)-2./(1.+beta)) < 10.**-2., 'sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1'
     return None
 
+def test_dehnendf_targetSigma2():
+    beta= 0.
+    df= dehnendf(profileParams=(0.3333333333333333,1.0,0.1),
+                 beta=beta,correct=False)
+    assert numpy.fabs(df.targetSigma2(1.)-0.1**2.) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    assert numpy.fabs(df.targetSigma2(.3)-0.1**2.*numpy.exp(-(0.3-1.)/0.5)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    assert numpy.fabs(df.targetSigma2(3.,log=True)-numpy.log(0.1)*2.+(3.-1.)/0.5) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    return None
+
