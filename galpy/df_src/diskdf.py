@@ -729,13 +729,13 @@ class diskdf:
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
         if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if romberg:
-            return bovy_dblquad(_surfaceIntegrand,
-                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                 self._gamma],
-                                tol=10.**-8)/sc.pi*norm
+            return sc.real(bovy_dblquad(_surfaceIntegrand,
+                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                        lambda x: 0., lambda x: nsigma,
+                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                         self._gamma],
+                                        tol=10.**-8)/sc.pi*norm)
         else:
             return integrate.dblquad(_surfaceIntegrand,
                                      self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -794,13 +794,13 @@ class diskdf:
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
         if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if romberg:
-            return bovy_dblquad(_sigma2surfaceIntegrand,
-                                self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                lambda x: 0., lambda x: nsigma,
-                                [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                 self._gamma],
-                                tol=10.**-8)/sc.pi*norm
+            return sc.real(bovy_dblquad(_sigma2surfaceIntegrand,
+                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                        lambda x: 0., lambda x: nsigma,
+                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                         self._gamma],
+                                        tol=10.**-8)/sc.pi*norm)
         else:
             return integrate.dblquad(_sigma2surfaceIntegrand,
                                      self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -869,13 +869,13 @@ class diskdf:
         if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if deriv is None:
             if romberg:
-                return bovy_dblquad(_vmomentsurfaceIntegrand,
-                                    self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                    self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                    lambda x: -nsigma, lambda x: nsigma,
-                                    [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                     self._gamma,n,m],
-                                    tol=10.**-8)/sc.pi*norm/2.
+                return sc.real(bovy_dblquad(_vmomentsurfaceIntegrand,
+                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                            lambda x: -nsigma, lambda x: nsigma,
+                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                             self._gamma,n,m],
+                                            tol=10.**-8)/sc.pi*norm/2.)
             else:
                 return integrate.dblquad(_vmomentsurfaceIntegrand,
                                          self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -886,13 +886,13 @@ class diskdf:
                                          epsrel=_EPSREL)[0]/sc.pi*norm/2.
         else:
             if romberg:
-                return bovy_dblquad(_vmomentderivsurfaceIntegrand,
-                                    self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                    self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                    lambda x: -nsigma, lambda x: nsigma,
-                                    [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                     self._gamma,n,m,deriv],
-                                    tol=10.**-8)/sc.pi*norm/2.
+                return sc.real(bovy_dblquad(_vmomentderivsurfaceIntegrand,
+                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                            lambda x: -nsigma, lambda x: nsigma,
+                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                             self._gamma,n,m,deriv],
+                                            tol=10.**-8)/sc.pi*norm/2.)
             else:
                 return integrate.dblquad(_vmomentderivsurfaceIntegrand,
                                          self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
