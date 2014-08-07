@@ -344,3 +344,15 @@ def test_targetSurfacemass():
     assert numpy.fabs(df.targetSurfacemass(.3)-numpy.exp(-0.3/0.3333333333333333)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
     assert numpy.fabs(df.targetSurfacemass(3.,log=True)+3./0.3333333333333333) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
     return None
+
+def test_targetSurfacemassLOS():
+    beta= 0.
+    df= dehnendf(profileParams=(0.3333333333333333,1.0,0.1),
+                 beta=beta,correct=False)
+    #Some easy directions in l
+    assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=0.,deg=True)-0.2*numpy.exp(-0.8/0.3333333333333333)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=180.,deg=True)-0.2*numpy.exp(-1.2/0.3333333333333333)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=numpy.pi,deg=False)-0.2*numpy.exp(-1.2/0.3333333333333333)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=numpy.pi/2.,log=True,deg=False)-numpy.log(0.2)+numpy.sqrt(1.+0.2**2.-2.*0.2*numpy.cos(numpy.pi/2.))/0.3333333333333333) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
+    return None
+    
