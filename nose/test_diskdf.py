@@ -356,6 +356,14 @@ def test_targetSurfacemassLOS():
     assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=numpy.pi/2.,log=True,deg=False)-numpy.log(0.2)+numpy.sqrt(1.+0.2**2.-2.*0.2*numpy.cos(numpy.pi/2.))/0.3333333333333333) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
     return None
     
+def test_cold_surfacemass():
+    dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(numpy.log(dfc.surfacemass(0.9))-numpy.log(dfc.targetSurfacemass(0.9))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemass(0.5))-numpy.log(dfc.targetSurfacemass(0.5))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemass(2.))-numpy.log(dfc.targetSurfacemass(2.))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    return None
+
 def test_surfacemass():
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
     assert numpy.fabs(numpy.log(dfc.surfacemass(0.9))-numpy.log(dfc.targetSurfacemass(0.9))) < 0.05, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
