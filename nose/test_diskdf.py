@@ -370,3 +370,18 @@ def test_surfacemass():
     assert numpy.fabs(numpy.log(dfc.surfacemass(0.05))-numpy.log(dfc.targetSurfacemass(0.05))) < 0.5, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
     assert numpy.fabs(numpy.log(dfc.surfacemass(4.,romberg=True,relative=True))) < 0.05, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
     return None
+
+def test_cold_sigma2surfacemass():
+    dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
+                 beta=0.,correct=False)
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.9))-numpy.log(dfc.targetSigma2(0.9)*dfc.targetSurfacemass(0.9))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.5))-numpy.log(dfc.targetSigma2(0.5)*dfc.targetSurfacemass(0.5))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(2.))-numpy.log(dfc.targetSigma2(2.)*dfc.targetSurfacemass(2.))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    return None
+
+def test_sigma2surfacemass():
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.9))-numpy.log(dfc.targetSigma2(0.9)*dfc.targetSurfacemass(0.9))) < 0.05, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.3))-numpy.log(dfc.targetSigma2(0.3)*dfc.targetSurfacemass(0.3))) < 0.2, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
+    assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(3.,relative=True,romberg=True))) < 0.1, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
+    return None
