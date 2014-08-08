@@ -41,7 +41,7 @@ from galpy.actionAngle import actionAngleAxi
 try:
     sversion=re.split(r'\.',sc.__version__)
     _SCIPYVERSION=float(sversion[0])+float(sversion[1])/10.
-except:
+except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= math.pi/180.
