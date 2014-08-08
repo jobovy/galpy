@@ -183,7 +183,8 @@ def test_dehnendf_cold_flat_oortA():
                  beta=0.,correct=False)
     assert numpy.fabs(df.oortA(1.)-0.5*1./1.) < 10.**-3., 'Oort A of cold dehnendf in a flat rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortA(0.5)-0.5*1./0.5) < 10.**-3., 'Oort A of cold dehnendf in a flat rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortA(2.)-0.5*1./2.) < 10.**-3., 'Oort A of cold dehnendf in a flat rotation curve is not close to expected at R=2'
+    #one w/ Romberg
+    assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*1./2.) < 10.**-3., 'Oort A of cold dehnendf in a flat rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: A 
@@ -194,7 +195,8 @@ def test_dehnendf_cold_powerrise_oortA():
                  beta=beta,correct=False)
     assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortA(0.5)-0.5*(0.5)**beta/0.5*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortA(2.)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    #one w/ Romberg
+    assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 def test_dehnendf_cold_powerfall_oortA():
@@ -204,7 +206,8 @@ def test_dehnendf_cold_powerfall_oortA():
                  beta=beta,correct=False)
     assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortA(0.5)-0.5*(0.5)**beta/0.5*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortA(2.)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    #One w/ Romberg
+    assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: B = -0.5
@@ -384,4 +387,14 @@ def test_sigma2surfacemass():
     assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.9))-numpy.log(dfc.targetSigma2(0.9)*dfc.targetSurfacemass(0.9))) < 0.05, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
     assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(0.3))-numpy.log(dfc.targetSigma2(0.3)*dfc.targetSurfacemass(0.3))) < 0.2, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
     assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(3.,relative=True,romberg=True))) < 0.1, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
+    return None
+
+def test_vmomemtsurfacemass():
+    #Test that vmomentsurfacemass gives reasonable results
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.)-dfc.surfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.,relative=True)-dfc.surfacemass(0.9)/dfc.targetSurfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) and relative=True is not equal to surfacemass/targetSurfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,2.,0.)-dfc.sigma2surfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (2,0) is not equal to sigma2surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1.,1.,romberg=True)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1.,1.) is not equal to zero (not automatically zero)'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1,1)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1,1) is not equal to zero'
     return None
