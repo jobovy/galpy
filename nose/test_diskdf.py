@@ -1,6 +1,6 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
 import numpy
-from galpy.df import dehnendf
+from galpy.df import dehnendf, shudf
 
 # First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
 def test_expSurfaceSigmaProfile_surfacemass():
@@ -454,3 +454,24 @@ def test_vmomemtsurfacemass():
     assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1.,1.,romberg=True)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1.,1.) is not equal to zero (not automatically zero)'
     assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1,1)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1,1) is not equal to zero'
     return None
+
+def test_dehnendf_call_sanity():
+    #Sanity checking of dehnendf's call function
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    meanvt= dfc.meanvT(0.7)
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    return None
+
+def test_shudf_call_sanity():
+    #Sanity checking of shudf's call function
+    dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
+    meanvt= dfc.meanvT(0.7)
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    return None
+
