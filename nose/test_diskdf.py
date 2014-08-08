@@ -1,6 +1,51 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
 import numpy
-from galpy.df import dehnendf, shudf
+from galpy.df import dehnendf
+
+# First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
+def test_expSurfaceSigmaProfile_surfacemass():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert numpy.fabs(essp.surfacemass(0.5)-numpy.exp(-0.5/0.25)) < 10.**-8., "expSurfaceSigmaProfile's surfacemass does not work as expected"
+    assert numpy.fabs(essp.surfacemass(1.5,log=True)+1.5/0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemass does not work as expected"
+    return None
+
+def test_expSurfaceSigmaProfile_surfacemassDerivative():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert numpy.fabs(essp.surfacemassDerivative(0.5)+numpy.exp(-0.5/0.25)/0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
+    assert numpy.fabs(essp.surfacemassDerivative(1.5,log=True)+1./0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
+    return None
+
+def test_expSurfaceSigmaProfile_sigma2():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert numpy.fabs(essp.sigma2(0.5)-0.1**2.*numpy.exp(-(0.5-1.)/0.75*2.)) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
+    assert numpy.fabs(essp.sigma2(1.5,log=True)-2.*numpy.log(0.1)+(1.5-1.)/0.75*2.) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
+    return None
+
+def test_expSurfaceSigmaProfile_sigma2Derivative():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert numpy.fabs(essp.sigma2Derivative(0.5)+2.*0.1**2./0.75*numpy.exp(-(0.5-1.)/0.75*2.)) < 10.**-8., "expSurfaceSigmaProfile's sigma2Derivative does not work as expected"
+    assert numpy.fabs(essp.sigma2Derivative(1.5,log=True)+2./0.75) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
+    return None
+
+def test_surfaceSigmaProfile_outputParams():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert numpy.fabs(essp.outputParams()[0]-0.25) < 10.**-8., "surfaceSigmaProfile's outputParams does not behave as expected"
+    assert numpy.fabs(essp.outputParams()[1]-0.75) < 10.**-8., "surfaceSigmaProfile's outputParams does not behave as expected"
+    assert numpy.fabs(essp.outputParams()[2]-0.1) < 10.**-8., "surfaceSigmaProfile's outputParams does not behave as expected"
+    return None
+
+def test_surfaceSigmaProfile_formatStringParams():
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    assert essp.formatStringParams()[0] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
+    assert essp.formatStringParams()[1] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
+    assert essp.formatStringParams()[2] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
+    return None
 
 # Tests for cold population, flat rotation curve: <vt> =~ v_c
 def test_dehnendf_cold_flat_vt():
