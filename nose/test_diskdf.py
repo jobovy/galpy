@@ -47,6 +47,17 @@ def test_surfaceSigmaProfile_formatStringParams():
     assert essp.formatStringParams()[2] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
     return None
 
+def test_dfsetup_surfaceSigmaProfile():
+    df= dehnendf(profileParams=(0.25,0.75,0.1),
+                 beta=0.,correct=False)
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    df_alt= dehnendf(surfaceSigma=essp,
+                     beta=0.,correct=False)
+    assert numpy.all(numpy.fabs(numpy.array(df._surfaceSigmaProfile._params)
+                                -numpy.array(df_alt._surfaceSigmaProfile._params)) < 10.**-10.), 'diskdf setup with explicit surfaceSigmaProfile class does not give the same profile as with parameters only'
+    return None
+
 # Tests for cold population, flat rotation curve: <vt> =~ v_c
 def test_dehnendf_cold_flat_vt():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
