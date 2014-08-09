@@ -534,3 +534,34 @@ def test_call_marginalizevlos():
                                marginalizeVlos=True,
                                nsigma=4)) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
     return None
+
+def test_dehnendf_dlnfdR_flat():
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    dR= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdR does not work"
+    return None
+
+def test_dehnendf_dlnfdR_powerfall():
+    dfc= dehnendf(beta=-0.2,profileParams=(1./4.,1.,0.2))
+    dR= 10**-6.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdR does not work"
+    return None
+
+def test_dehnendf_dlnfdR_powerrise():
+    dfc= dehnendf(beta=0.2,profileParams=(1./4.,1.,0.2))
+    dR= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdR does not work"
+    return None
+
