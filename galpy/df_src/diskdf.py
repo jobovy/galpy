@@ -153,17 +153,17 @@ class diskdf:
                                                         args[0]._orb.vxvv[0],
                                                         self._beta)))
             else:
-                vxvv= args[0](args[1])
-                return sc.real(self.eval(*vRvTRToEL(vxvv[1],
-                                                    vxvv[2],
-                                                    vxvv[0],
+                no= args[0](args[1])
+                return sc.real(self.eval(*vRvTRToEL(no._orb.vxvv[1],
+                                                    no._orb.vxvv[2],
+                                                    no._orb.vxvv[0],
                                                     self._beta)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
             #Grab all of the vR, vT, and R
-            vR= nu.array([o.vxvv[1] for o in args[0]])
-            vT= nu.array([o.vxvv[2] for o in args[0]])
-            R= nu.array([o.vxvv[0] for o in args[0]])
+            vR= nu.array([o._orb.vxvv[1] for o in args[0]])
+            vT= nu.array([o._orb.vxvv[2] for o in args[0]])
+            R= nu.array([o._orb.vxvv[0] for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
         elif isinstance(args[0],nu.ndarray):
             #Grab all of the vR, vT, and R

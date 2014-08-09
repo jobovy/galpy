@@ -475,3 +475,24 @@ def test_shudf_call_sanity():
     assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
     return None
 
+def test_call_diffinputs():
+    from galpy.orbit import Orbit
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    R,vR,vT,phi= 0.8,0.4,1.1,2.
+    to= Orbit([R,vR,vT,phi])
+    tao= Orbit([R,vR,vT])
+    #R,vR,vT,phi vs R,vR,vT
+    assert numpy.fabs(dfc(numpy.array([R,vR,vT,phi]))-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ array R,vR,vT,phi neq w/ array R,vR,vT'
+    #orbit vs R,vR,vT
+    assert numpy.fabs(dfc(to)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ orbit neq w/ array R,vR,vT'
+    #axi orbit vs R,vR,vT
+    assert numpy.fabs(dfc(tao)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ axi orbit neq w/ array R,vR,vT'
+    #orbit w/ t vs R,vR,vT
+    assert numpy.fabs(dfc(to,0.)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ orbit and t neq w/ array R,vR,vT'
+    #axi orbit w/ t vs R,vR,vT
+    assert numpy.fabs(dfc(tao,0.)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ axi orbit and t neq w/ array R,vR,vT'
+    #list of orbit vs R,vR,vT
+    assert numpy.fabs(dfc([to])-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ list of orbit neq w/ array R,vR,vT'
+    #E,L vs R,vR,vT
+    assert numpy.fabs(dfc(numpy.log(R)+vR**2./2.+vT**2./2.,R*vT)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ E,L and t neq w/ array R,vR,vT'
+    return None
