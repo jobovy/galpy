@@ -625,3 +625,37 @@ def test_dehnendf_dlnfdvT_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdvT does not work"
     return None
 
+def test_dehnendf_dlnfdRe_flat():
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    #Calculate dlndfdRe w/ the chain rule; first calculate dR
+    dR= 10**-6.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))
+    E= vR**2./2.+vT**2./2.+numpy.log(R) 
+    RE= numpy.exp(E-.5) 
+    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
+    dRE= numpy.exp(dE-.5) 
+    dRedR= (dRE-RE)
+    #dvR
+    dvR= 10**-6.
+    vRn= vR+dvR
+    dvR= vRn-vR #representable number
+    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))
+    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
+    dRE= numpy.exp(dE-.5) 
+    dRedvR= (dRE-RE)
+    #dvT
+    dvT= 10**-6.
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))
+    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
+    dRE= numpy.exp(dE-.5) 
+    dRedvT= (dRE-RE)
+    dlnf= dlnfdR/dRedR+dlnfdvR/dRedvR+dlnfdvT/dRedvT
+    print dlnf,dfc._dlnfdRe(R,vR,vT)
+    print numpy.fabs(dlnf-dfc._dlnfdRe(R,vR,vT))
+    assert numpy.fabs(dlnf-dfc._dlnfdRe(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdRe does not work"
+    return None
