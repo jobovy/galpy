@@ -176,8 +176,7 @@ class diskdf:
 
     def _call_marginalizevperp(self,o,**kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
-        #Get d, l, vlos
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
+        #Get l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
         R= o.R()
@@ -202,14 +201,15 @@ class diskdf:
         if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
             cosalphalos= math.cos(alphalos)
-            tanalphalos= math.tan(alphalos)
+            tanalphalos= math.tan(alphalos)            
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
                                   -self._gamma*va/sigmaR1+nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/math.fabs(cosalphalos)
+                                  **kwargs)[0]/math.fabs(cosalphalos)\
+                                  *sigmaR1/self._gamma
         else:
             sinalphalos= math.sin(alphalos)
             cotalphalos= 1./math.tan(alphalos)
@@ -217,7 +217,7 @@ class diskdf:
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1),
-                                  **kwargs)[0]/math.fabs(sinalphalos)
+                                  **kwargs)[0]/math.fabs(sinalphalos)*sigmaR1
         
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""

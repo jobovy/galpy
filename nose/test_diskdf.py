@@ -496,3 +496,22 @@ def test_call_diffinputs():
     #E,L vs R,vR,vT
     assert numpy.fabs(dfc(numpy.log(R)+vR**2./2.+vT**2./2.,R*vT)-dfc(numpy.array([R,vR,vT]))) < 10.**-10., 'diskdf __call__ w/ E,L and t neq w/ array R,vR,vT'
     return None
+
+def test_call_marginalizevperp():
+    from galpy.orbit import Orbit
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    #l=0
+    R,vR = 0.8, 0.4
+    vts= numpy.linspace(0.,1.5,51)
+    pvts= numpy.array([dfc(numpy.array([R,vR,vt])) for vt in vts])
+    assert numpy.fabs(numpy.sum(pvts)*(vts[1]-vts[0])\
+                          -dfc(Orbit([R,vR,0.,0.]),marginalizeVperp=True)) < 10.**-4., 'diskdf call w/ marginalizeVperp does not work'
+    #l=270
+    R,vT = numpy.sin(numpy.pi/6.), 0.7 #l=30 degree
+    vrs= numpy.linspace(-1.,1.,101)
+    pvrs= numpy.array([dfc(numpy.array([R,vr,vT])) for vr in vrs])
+    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
+                          -dfc(Orbit([R,0.,vT,-numpy.pi/3.]),
+                               marginalizeVperp=True,
+                               nsigma=4)) < 10.**-4., 'diskdf call w/ marginalizeVperp does not work'
+    return None
