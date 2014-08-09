@@ -595,3 +595,33 @@ def test_dehnendf_dlnfdvR_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdvR(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdvR does not work"
     return None
 
+def test_dehnendf_dlnfdvT_flat():
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    dvT= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdvT does not work"
+    return None
+
+def test_dehnendf_dlnfdvT_powerfall():
+    dfc= dehnendf(beta=-0.2,profileParams=(1./4.,1.,0.2))
+    dvT= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdvT does not work"
+    return None
+
+def test_dehnendf_dlnfdvT_powerrise():
+    dfc= dehnendf(beta=0.2,profileParams=(1./4.,1.,0.2))
+    dvT= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnf= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "dehnendf's dlnfdvT does not work"
+    return None
+
