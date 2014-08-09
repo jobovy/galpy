@@ -222,7 +222,6 @@ class diskdf:
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
         R= o.R()
@@ -256,7 +255,8 @@ class diskdf:
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/math.fabs(cosalphaperp)
+                                  **kwargs)[0]/math.fabs(cosalphaperp)\
+                                  *sigmaR1/self._gamma
         else:
             sinalphaperp= math.sin(alphaperp)
             cotalphaperp= 1./math.tan(alphaperp)
@@ -265,7 +265,7 @@ class diskdf:
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1),
-                                  **kwargs)[0]/math.fabs(sinalphaperp)
+                                  **kwargs)[0]/math.fabs(sinalphaperp)*sigmaR1
         
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need

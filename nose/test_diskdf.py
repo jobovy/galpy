@@ -515,3 +515,22 @@ def test_call_marginalizevperp():
                                marginalizeVperp=True,
                                nsigma=4)) < 10.**-4., 'diskdf call w/ marginalizeVperp does not work'
     return None
+
+def test_call_marginalizevlos():
+    from galpy.orbit import Orbit
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    #l=0
+    R,vT = 0.8, 0.7
+    vrs= numpy.linspace(-1.,1.,101)
+    pvrs= numpy.array([dfc(numpy.array([R,vr,vT])) for vr in vrs])
+    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
+                          -dfc(Orbit([R,0.,vT,0.]),marginalizeVlos=True)) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
+    #l=270
+    R,vR = numpy.sin(numpy.pi/6.), 0.4 #l=30 degree
+    vts= numpy.linspace(0.,1.5,51)
+    pvts= numpy.array([dfc(numpy.array([R,vR,vt])) for vt in vts])
+    assert numpy.fabs(numpy.sum(pvts)*(vts[1]-vts[0])\
+                          -dfc(Orbit([R,vR,0.,-numpy.pi/3.]),
+                               marginalizeVlos=True,
+                               nsigma=4)) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
+    return None
