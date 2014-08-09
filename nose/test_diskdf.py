@@ -735,3 +735,113 @@ def test_dehnendf_dlnfdRe_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdRe(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdRe does not work"
     return None
 
+def test_dehnendf_dlnfdl_flat():
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    #Calculate dlndfdl w/ the chain rule; first calculate dR
+    dR= 10**-6.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    E= vR**2./2.+vT**2./2.+numpy.log(R) 
+    RE= numpy.exp(E-.5) 
+    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
+    dRE= numpy.exp(dE-.5) 
+    dRedR= (dRE-RE)/dR
+    #dvR
+    dvR= 10**-6.
+    vRn= vR+dvR
+    dvR= vRn-vR #representable number
+    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
+    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
+    dRE= numpy.exp(dE-.5) 
+    dRedvR= (dRE-RE)/dvR
+    #dvT
+    dvT= 10**-6.
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
+    dRE= numpy.exp(dE-.5) 
+    dRedvT= (dRE-RE)/dvT
+    #Calculate dR/dl etc. from matrix inversion
+    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRedR,dRedvR,dRedvT],[vT,0.,R],[0.,1.,0.]]))
+    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
+        +dlnfdvT*dRvRvTdl[2,1]
+    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
+    return None
+
+def test_dehnendf_dlnfdl_powerfall():
+    beta= -0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Calculate dlndfdl w/ the chain rule; first calculate dR
+    dR= 10**-6.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
+    RE= (2.*E/(1.+1./beta))**(1./2./beta)
+    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedR= (dRE-RE)/dR
+    #dvR
+    dvR= 10**-6.
+    vRn= vR+dvR
+    dvR= vRn-vR #representable number
+    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
+    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedvR= (dRE-RE)/dvR
+    #dvT
+    dvT= 10**-6.
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedvT= (dRE-RE)/dvT
+    #Calculate dR/dl etc. from matrix inversion
+    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRedR,dRedvR,dRedvT],[vT,0.,R],[0.,1.,0.]]))
+    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
+        +dlnfdvT*dRvRvTdl[2,1]
+    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
+    return None
+
+def test_dehnendf_dlnfdl_powerrise():
+    beta= 0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Calculate dlndfdl w/ the chain rule; first calculate dR
+    dR= 10**-8.
+    R,vR,vT= 0.8,0.1,0.9
+    Rn= R+dR
+    dR= Rn-R #representable number
+    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
+    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
+    RE= (2.*E/(1.+1./beta))**(1./2./beta)
+    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedR= (dRE-RE)/dR
+    #dvR
+    dvR= 10**-8.
+    vRn= vR+dvR
+    dvR= vRn-vR #representable number
+    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
+    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedvR= (dRE-RE)/dvR
+    #dvT
+    dvT= 10**-8.
+    vTn= vT+dvT
+    dvT= vTn-vT #representable number
+    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
+    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
+    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
+    dRedvT= (dRE-RE)/dvT
+    #Calculate dR/dl etc. from matrix inversion
+    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRedR,dRedvR,dRedvT],[vT,0.,R],[0.,1.,0.]]))
+    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
+        +dlnfdvT*dRvRvTdl[2,1]
+    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
+    return None
+
