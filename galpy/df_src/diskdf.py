@@ -1626,7 +1626,7 @@ class dehnendf(diskdf):
            2010-03-10 - Written - Bovy (NYU)
            2010-03-28 - Moved to dehnenDF - Bovy (NYU)
         """
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             import time
             start= time.time()
         #Calculate Re,LE, OmegaE
@@ -1636,18 +1636,18 @@ class dehnendf(diskdf):
         else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
             logOLLE= self._beta*sc.log(xE)+sc.log(L/xE-xE**self._beta)
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             one_time= (time.time()-start)
             start= time.time()
         if self._correct: 
             correction= self._corr.correct(xE,log=True)
         else:
             correction= sc.zeros(2)
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             corr_time= (time.time()-start)
             start= time.time()
         SRE2= self.targetSigma2(xE,log=True)+correction[1]
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             targSigma_time= (time.time()-start)
             start= time.time()
             out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
