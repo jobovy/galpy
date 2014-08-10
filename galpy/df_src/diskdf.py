@@ -490,7 +490,8 @@ class diskdf:
             lrad= l
         R, phi= _dlToRphi(d,lrad)
         if target:
-            return self.targetSurfacemass(R)*d
+            if relative: return d
+            else: return self.targetSurfacemass(R)*d
         else:
             return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                     relative=relative)\
