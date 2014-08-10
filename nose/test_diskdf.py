@@ -1,5 +1,6 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
 import numpy
+from scipy import stats
 from galpy.df import dehnendf, shudf
 
 # First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
@@ -937,3 +938,47 @@ def test_ELtowRRapRperi_powerrise():
     assert numpy.fabs(wr-2.*Rc**(beta-1.)/gamma) < 10.**-3., "diskdf's _ELtowRRapRperi's radial frequency for close to circular orbit is wrong"
     return None
 
+def test_sampledSurfacemassLOS_target():
+    numpy.random.seed(1)
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    ds= dfc.sampledSurfacemassLOS(numpy.pi/4.,n=10000,target=True)
+    xds= numpy.linspace(0.001,4.,201)
+    pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
+    md= numpy.sum(xds*pds)/numpy.sum(pds)
+    sd= numpy.sqrt(numpy.sum(xds**2.*pds)/numpy.sum(pds)-md**2.)
+    assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of surfacemassLOS for target surfacemass is not equal to the mean of the samples'
+    assert numpy.fabs(numpy.std(ds)-sd) < 10.**-2., 'stddev of surfacemassLOS for target surfacemass is not equal to the mean of the samples'
+    assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 10.**-1, 'skew of surfacemassLOS for target surfacemass is not equal to the mean of the samples'
+    return None
+
+def test_sampledSurfacemassLOS():
+    numpy.random.seed(1)
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    ds= dfc.sampledSurfacemassLOS(numpy.pi/4.,n=10000,target=False)
+    xds= numpy.linspace(0.001,4.,101)
+    #check against target, bc that's easy to calculate
+    pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
+    md= numpy.sum(xds*pds)/numpy.sum(pds)
+    sd= numpy.sqrt(numpy.sum(xds**2.*pds)/numpy.sum(pds)-md**2.)
+    print numpy.fabs(numpy.mean(ds)-md)
+    assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of surfacemassLOS surfacemass is not equal to the mean of the samples'
+    assert numpy.fabs(numpy.std(ds)-sd) < 10.**-2., 'stddev of surfacemassLOS surfacemass is not equal to the mean of the samples'
+    assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 10.**-1, 'skew of surfacemassLOS surfacemass is not equal to the mean of the samples'
+    return None
+
+def skew_samples(s):
+    m1= numpy.mean(s)
+    m2= numpy.mean((s-m1)**2.)
+    m3= numpy.mean((s-m1)**3.)
+    return m3/m2**1.5
+
+def skew_pdist(s,ps):
+    norm= numpy.sum(ps)
+    m1= numpy.sum(s*ps)/norm
+    m2= numpy.sum((s-m1)**2.*ps)/norm
+    m3= numpy.sum((s-m1)**3.*ps)/norm
+    return m3/m2**1.5
