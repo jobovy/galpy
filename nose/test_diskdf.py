@@ -975,7 +975,19 @@ def test_sampleVRVT_target_flat():
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
     #Sample a large number of points, then check some moments against the analytic distribution
     vrvt= dfc.sampleVRVT(0.7,n=500,target=True)
-    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 10.**-2., 'mean vr of vrvt samples is not zero'
+    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 0.05, 'mean vr of vrvt samples is not zero'
+    assert numpy.fabs(numpy.mean(vrvt[:,1])-dfc.meanvT(0.7)) < 10.**-2., 'mean vt of vrvt samples is not equal to numerical calculation'
+    assert numpy.fabs(numpy.std(vrvt[:,0])-numpy.sqrt(dfc.sigmaR2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
+    assert numpy.fabs(numpy.std(vrvt[:,1])-numpy.sqrt(dfc.sigmaT2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
+    return None
+
+def test_sampleVRVT_flat():
+    numpy.random.seed(1)
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    vrvt= dfc.sampleVRVT(0.7,n=500,target=False)
+    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 0.05, 'mean vr of vrvt samples is not zero'
     assert numpy.fabs(numpy.mean(vrvt[:,1])-dfc.meanvT(0.7)) < 10.**-2., 'mean vt of vrvt samples is not equal to numerical calculation'
     assert numpy.fabs(numpy.std(vrvt[:,0])-numpy.sqrt(dfc.sigmaR2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
     assert numpy.fabs(numpy.std(vrvt[:,1])-numpy.sqrt(dfc.sigmaT2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
@@ -987,7 +999,7 @@ def test_sampleVRVT_target_powerfall():
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
     #Sample a large number of points, then check some moments against the analytic distribution
     vrvt= dfc.sampleVRVT(0.7,n=500,target=True)
-    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 10.**-2., 'mean vr of vrvt samples is not zero'
+    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 0.05, 'mean vr of vrvt samples is not zero'
     assert numpy.fabs(numpy.mean(vrvt[:,1])-dfc.meanvT(0.7)) < 10.**-2., 'mean vt of vrvt samples is not equal to numerical calculation'
     assert numpy.fabs(numpy.std(vrvt[:,0])-numpy.sqrt(dfc.sigmaR2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
     assert numpy.fabs(numpy.std(vrvt[:,1])-numpy.sqrt(dfc.sigmaT2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
