@@ -458,10 +458,19 @@ def test_vmomemtsurfacemass():
 def test_cold_surfacemassLOS():
     dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                   beta=0.,correct=False)
-    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(0.1,0.,target=False))-numpy.log(0.1*dfc.targetSurfacemass(0.9))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
-    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/6.),numpy.pi/6.,target=False,deg=False))-numpy.log(numpy.cos(numpy.pi/6.)*dfc.targetSurfacemass(numpy.cos(numpy.pi/3.)))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
-    print numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,relative=True,target=True))-numpy.log(numpy.cos(numpy.pi/3.)))
-    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,relative=True,target=True))-numpy.log(numpy.cos(numpy.pi/3.))) < 0.01, 'True surfacemass deviates more from target surfacemass for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(0.1,0.,target=False))-numpy.log(0.1*dfc.targetSurfacemass(0.9))) < 0.01, 'True surfacemassLOS deviates more from target surfacemassLOS for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/6.),numpy.pi/6.,target=False,deg=False))-numpy.log(numpy.cos(numpy.pi/6.)*dfc.targetSurfacemass(numpy.cos(numpy.pi/3.)))) < 0.01, 'True surfacemassLOS deviates more from target surfacemassLOS for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,target=True))-numpy.log(numpy.cos(numpy.pi/3.)*dfc.targetSurfacemass(numpy.cos(numpy.pi/6.)))) < 0.01, 'True surfacemassLOS deviates more from target surfacemassLOS for cold Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,relative=True,target=True))-numpy.log(numpy.cos(numpy.pi/3.))) < 0.01, 'True surfacemassLOS deviates more from target surfacemassLOS for cold Dehnen DF than expected'
+    return None
+
+def test_warm_surfacemassLOS():
+    dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.1),
+                  beta=0.,correct=False)
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(0.1,0.,target=False))-numpy.log(0.1*dfc.surfacemass(0.9))) < 10.**-6., 'surfacemassLOS deviates more from surfacemass for warm Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/6.),numpy.pi/6.,target=False,deg=False))-numpy.log(numpy.cos(numpy.pi/6.)*dfc.surfacemass(numpy.cos(numpy.pi/3.)))) < 0.01, 'surfacemassLOS deviates more from target surfacemass for warm Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,target=True))-numpy.log(numpy.cos(numpy.pi/3.)*dfc.targetSurfacemass(numpy.cos(numpy.pi/6.)))) < 0.01, 'surfacemassLOS w/ target deviates more from target surfacemassLOS for warm Dehnen DF than expected'
+    assert numpy.fabs(numpy.log(dfc.surfacemassLOS(numpy.cos(numpy.pi/3.),numpy.pi/3.,deg=False,relative=True,target=True))-numpy.log(numpy.cos(numpy.pi/3.))) < 0.01, 'surfacemassLOS w/ target deviates more from target surfacemass for warm Dehnen DF than expected'
     return None
 
 def test_dehnendf_call_sanity():
