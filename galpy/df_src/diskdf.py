@@ -586,7 +586,7 @@ class diskdf:
         """
         #Determine where the max of the v-distribution is using asymmetric drift
         maxVR= 0.
-        maxVT= optimize.brentq(_vtmaxEq,0.,1.,(R,self))
+        maxVT= optimize.brentq(_vtmaxEq,0.,R**self._beta+0.2,(R,self))
         maxVD= self(Orbit([R,maxVR,maxVT]))
         #Now rejection-sample
         if nsigma == None:
