@@ -598,10 +598,11 @@ class diskdf:
             sigma= math.sqrt(self.sigma2(R))
         while len(out) < n:
             #sample
-            propvR= nu.random.normal()*_NSIGMA*sigma
-            propvT= nu.random.normal()*_NSIGMA*sigma/self._gamma+1.
+            vrg, vtg= nu.random.normal(), nu.random.normal()
+            propvR= vrg*nsigma*sigma
+            propvT= vtg*nsigma*sigma/self._gamma+maxVT
             VDatprop= self(Orbit([R,propvR,propvT]))
-            if VDatprop/maxVD > nu.random.random(): #accept
+            if VDatprop/maxVD > nu.random.uniform()*nu.exp(-0.5*(vrg**2.+vtg**2.)): #accept
                 out.append(sc.array([propvR,propvT]))
         return nu.array(out)
 

@@ -964,10 +964,21 @@ def test_sampledSurfacemassLOS():
     pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
     md= numpy.sum(xds*pds)/numpy.sum(pds)
     sd= numpy.sqrt(numpy.sum(xds**2.*pds)/numpy.sum(pds)-md**2.)
-    print numpy.fabs(numpy.mean(ds)-md)
     assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of surfacemassLOS surfacemass is not equal to the mean of the samples'
     assert numpy.fabs(numpy.std(ds)-sd) < 10.**-2., 'stddev of surfacemassLOS surfacemass is not equal to the mean of the samples'
     assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 10.**-1, 'skew of surfacemassLOS surfacemass is not equal to the mean of the samples'
+    return None
+
+def test_sampleVRVT_sarget_flat():
+    numpy.random.seed(1)
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    vrvt= dfc.sampleVRVT(0.7,n=500,target=True)
+    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 10.**-2., 'mean vr of vrvt samples is not zero'
+    assert numpy.fabs(numpy.mean(vrvt[:,1])-dfc.meanvT(0.7)) < 10.**-2., 'mean vt of vrvt samples is not equal to numerical calculation'
+    assert numpy.fabs(numpy.std(vrvt[:,0])-numpy.sqrt(dfc.sigmaR2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
+    assert numpy.fabs(numpy.std(vrvt[:,1])-numpy.sqrt(dfc.sigmaT2(0.7))) < 10.**-1.5, 'std dev vr of vrvt samples is not equal to the expected valueo'
     return None
 
 def skew_samples(s):
