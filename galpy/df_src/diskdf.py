@@ -32,11 +32,7 @@ from surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.potential import PowerSphericalPotential
-from galpy.actionAngle import actionAngleFlat, actionAnglePower
-from galpy.actionAngle_src.actionAngleFlat import calcRapRperiFromELFlat #HACK
-from galpy.actionAngle_src.actionAnglePower import \
-    calcRapRperiFromELPower #HACK
-from galpy.actionAngle import actionAngleAxi
+from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -91,6 +87,9 @@ class diskdf:
                                      beta=beta,**kwargs)
         else:
             self._correct= False
+        #Setup aA objects for frequency and rap,rperi calculation
+        self._aA= actionAngleAdiabatic(pot=PowerSphericalPotential(normalize=1.,
+                                                                   alpha=2.-2.*self._beta),gamma=0.)
         return None
     
     def __call__(self,*args,**kwargs):
@@ -1427,17 +1426,16 @@ class diskdf:
            2010-07-11 - Written - Bovy (NYU)
         """
         if self._beta == 0.:
-            rperi, rap= calcRapRperiFromELFlat(E,L,vc=1.,ro=1.)
-            aA= actionAngleFlat(rperi,0.,L/rperi)
-        else:
-            rperi, rap= calcRapRperiFromELPower(E,L,vc=1.,ro=1.)
-            aA= actionAnglePower(rperi,0.,L/rperi,beta=self._beta)
-        TR= aA.TR()[0]
+            xE= sc.exp(E-.5)
+        else: #non-flat rotation curve                                      
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+        rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
         #Replace the above w/
-        #aA= actionAngleAxi(rperi,0.,L/rperi,pot=PowerSphericalPotential(normalize=1.,alpha=2.-2.*self._beta))
-        #rperi, rap= aA.calcRapRperi()
-        #TR= aA.TR()
-        return (2.*math.pi/TR, rap, rperi)
+        aA= actionAngleAxi(xE,0.,L/xE,
+                           pot=PowerSphericalPotential(normalize=1.,
+                                                       alpha=2.-2.*self._beta).toPlanar())
+        TR= aA.TR()
+        return (2.*math.pi/TR,rap,rperi)
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):

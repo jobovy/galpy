@@ -883,3 +883,36 @@ def test_asymmetricdrift_powerrise():
     assert numpy.fabs(dfc.asymmetricdrift(0.8)-0.8**beta+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
     assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.2**beta+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
     return None
+
+def test_ELtowRRapRperi_flat():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    Rc= 0.8
+    Lc= Rc
+    Ec= numpy.log(Rc)+Lc**2./2./Rc**2.+0.01**2./2.
+    wr,rap,rperi= dfc._ELtowRRapRperi(Ec,Lc)
+    assert numpy.fabs(wr-numpy.sqrt(2.)/Rc) < 10.**-3., "diskdf's _ELtowRRapRperi's radial frequency for close to circular orbit is wrong"
+    return None
+
+def test_ELtowRRapRperi_powerfall():
+    beta= -0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    Rc= 0.8
+    Lc= Rc*Rc**beta
+    Ec= 1./2./beta*Rc**(2.*beta)+Lc**2./2./Rc**2.+0.01**2./2.
+    gamma= numpy.sqrt(2./(1.+beta))
+    wr,rap,rperi= dfc._ELtowRRapRperi(Ec,Lc)
+    assert numpy.fabs(wr-2.*Rc**(beta-1.)/gamma) < 10.**-3., "diskdf's _ELtowRRapRperi's radial frequency for close to circular orbit is wrong"
+    return None
+
+def test_ELtowRRapRperi_powerrise():
+    beta= 0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    Rc= 0.8
+    Lc= Rc*Rc**beta
+    Ec= 1./2./beta*Rc**(2.*beta)+Lc**2./2./Rc**2.+0.01**2./2.
+    gamma= numpy.sqrt(2./(1.+beta))
+    wr,rap,rperi= dfc._ELtowRRapRperi(Ec,Lc)
+    assert numpy.fabs(wr-2.*Rc**(beta-1.)/gamma) < 10.**-3., "diskdf's _ELtowRRapRperi's radial frequency for close to circular orbit is wrong"
+    return None
+
