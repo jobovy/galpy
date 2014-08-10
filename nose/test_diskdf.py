@@ -483,14 +483,35 @@ def test_dehnendf_call_sanity():
     assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
     return None
 
-def test_shudf_call_sanity():
+def test_shudf_call_sanity_flat():
     #Sanity checking of shudf's call function
     dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
     meanvt= dfc.meanvT(0.7)
-    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
-    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
-    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
-    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "dehnendf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,-0.1])) == 0., "shudf not zero for counter-rotating orbits"
+    return None
+
+def test_shudf_call_sanity_powerfall():
+    #Sanity checking of shudf's call function
+    dfc= shudf(beta=-0.2,profileParams=(1./4.,1.,0.2))
+    meanvt= dfc.meanvT(0.7)
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    return None
+
+def test_shudf_call_sanity_powerrise():
+    #Sanity checking of shudf's call function
+    dfc= shudf(beta=0.2,profileParams=(1./4.,1.,0.2))
+    meanvt= dfc.meanvT(0.7,nsigma=3.)
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt/2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.,meanvt*2.])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,-0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
+    assert dfc(numpy.array([0.7,0.,meanvt])) > dfc(numpy.array([0.7,0.1,meanvt])), "shudf does not peak near (vR,vT) = (0,meanvT)"
     return None
 
 def test_call_diffinputs():
