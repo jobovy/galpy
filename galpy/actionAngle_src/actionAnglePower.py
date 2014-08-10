@@ -313,9 +313,10 @@ def calcRapRperiFromELPower(E,L,beta,vc=1.,ro=1.):
     HISTORY:
        2010-11-30 - Written - Bovy (NYU)
     """
-    rstart= _rapRperiPowerFindStart(L,E,L)
+    rstart= _rapRperiPowerFindStart(L,E,L,beta)
+    print rstart, L, _rapRperiPowerEq(rstart,E,L,beta), _rapRperiPowerEq(L,E,L,beta)
     rperi= optimize.brentq(_rapRperiPowerEq,rstart,L,(E,L,beta))
-    rend= _rapRperiPowerFindStart(L,E,L,rap=True)
+    rend= _rapRperiPowerFindStart(L,E,L,beta,rap=True)
     rap= optimize.brentq(_rapRperiPowerEq,L,rend,(E,L,beta))
     return (rperi,rap)
 
