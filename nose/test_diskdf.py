@@ -863,3 +863,23 @@ def test_dehnendf_dlnfdl_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
     return None
 
+def test_asymmetricdrift_flat():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(dfc.asymmetricdrift(0.8)-1.+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    return None
+
+def test_asymmetricdrift_powerfall():
+    beta= -0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(dfc.asymmetricdrift(0.8)-0.8**beta+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.2**beta+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    return None
+
+def test_asymmetricdrift_powerrise():
+    beta= 0.2
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(dfc.asymmetricdrift(0.8)-0.8**beta+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.2**beta+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    return None
