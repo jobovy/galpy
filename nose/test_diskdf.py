@@ -1149,6 +1149,20 @@ def test_dehnendf_sample_flat_returnOrbit():
     assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
     return None
 
+def test_dehnendf_sample_flat_EL():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    numpy.random.seed(1)
+    EL= dfc.sample(n=50,returnROrbit=False,returnOrbit=False)
+    E= [el[0] for el in EL]
+    L= [el[1] for el in EL]
+    #radii of circular orbits with this energy, these should follow an exponential
+    rs= numpy.array([numpy.exp(e-0.5) for e in E])
+    assert numpy.fabs(numpy.mean(rs)-0.5) < 0.05, 'mean R of sampled points does not agree with that of the input surface profile'
+    assert numpy.fabs(numpy.std(rs)-numpy.sqrt(2.)/4.) < 0.03, 'stddev R of sampled points does not agree with that of the input surface profile'
+    #BOVY: Could use another test
+    return None
+
 def skew_samples(s):
     m1= numpy.mean(s)
     m2= numpy.mean((s-m1)**2.)

@@ -1747,7 +1747,7 @@ class dehnendf(diskdf):
                     thisOrbit= thisOrbit(tr)
                 kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
                 if not rrange == None:
-                    if thisOrbit.vxvv[0] < rrange[0] \
+                    if thisOrbit._orb.vxvv[0] < rrange[0] \
                             or thisOrbit._orb.vxvv[0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
