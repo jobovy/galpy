@@ -1446,6 +1446,14 @@ def test_shudf_flat_DFcorrection_setup():
                             savedir='.')
     return None
 
+def test_shudf_flat_DFcorrection_surfacemass():
+    #Test that the surfacemass is better than before
+    dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2),correct=False)
+    diff_uncorr= numpy.fabs(numpy.log(dfc.surfacemass(0.8))-numpy.log(dfc.targetSurfacemass(0.8)))
+    diff_corr= numpy.fabs(numpy.log(sdf_correct_flat.surfacemass(0.8))-numpy.log(dfc.targetSurfacemass(0.8)))
+    assert diff_corr < diff_uncorr, 'surfacemass w/ corrected shuDF is does not agree better with target than with uncorrected shuDF'
+    return None
+
 def test_shudf_sample_flat_returnROrbit():
     beta= 0.
     dfc= sdf_correct_flat
