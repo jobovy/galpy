@@ -1660,7 +1660,8 @@ class dehnendf(diskdf):
             return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True,nsigma=None,target=True,
+               nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
+               targetSigma2=True,
                maxd=None):
         """
         NAME:
@@ -1678,7 +1679,7 @@ class dehnendf(diskdf):
            nphi - number of azimuths to sample for each E,L
            los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
            losdeg= if False, los is in radians (default=True)
-           target= if True, use target surface mass and sigma2 profiles
+           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
                    (default=True)
            nsigma= number of sigma to rejection-sample on
            maxd= maximum distance to consider (for the rejection sampling)
@@ -1691,7 +1692,8 @@ class dehnendf(diskdf):
         """
         if not los is None:
             return self.sampleLOS(los,deg=losdeg,n=n,maxd=maxd,
-                                  nsigma=nsigma,target=target)
+                                  nsigma=nsigma,targetSurfmass=targetSurfmass,
+                                  targetSigma2=targetSigma2)
         #First sample xE
         if self._correct:
             xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
@@ -1767,11 +1769,11 @@ class dehnendf(diskdf):
                                                             *math.pi*2.])\
                                              .reshape(4))
                 else:
-                    thisOrbit= Orbit(thisOrbit(tr))
-                kappa= _kappa(thisOrbit.vxvv[0],self._beta)
+                    thisOrbit= thisOrbit(tr)
+                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
                 if not rrange == None:
                     if thisOrbit.vxvv[0] < rrange[0] \
-                            or thisOrbit.vxvv[0] > rrange[1]:
+                            or thisOrbit._orb.vxvv[0] > rrange[1]:
                         continue
                 if los is None:
                     mult= sc.ceil(kappa/wR*nphi)-1.
@@ -1907,7 +1909,8 @@ class shudf(diskdf):
         return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
+               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
+               targetSurfmass=True,targetSigma2=True):
         """
         NAME:
            sample
@@ -1924,7 +1927,7 @@ class shudf(diskdf):
            nphi - number of azimuths to sample for each E,L
            los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
            losdeg= if False, los is in radians (default=True)
-           target= if True, use target surface mass and sigma2 profiles
+           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
                    (default=True)
            nsigma= number of sigma to rejection-sample on
            maxd= maximum distance to consider (for the rejection sampling)
@@ -1936,7 +1939,9 @@ class shudf(diskdf):
            2010-07-10 - Started  - Bovy (NYU)
         """
         if not los is None:
-            return self.sampleLOS(los,n=n,maxd=maxd,nsigma=nsigma,target=target)
+            return self.sampleLOS(los,n=n,maxd=maxd,
+                                  nsigma=nsigma,targetSurfmass=targetSurfmass,
+                                  targetSigma2=targetSigma2)
         #First sample xL
         if self._correct:
             xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,

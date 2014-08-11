@@ -1078,6 +1078,23 @@ def test_shudf_sample_sampleLOS():
     assert numpy.all(numpy.fabs(vts-vts2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
     return None
 
+def test_dehnendf_sample_flat_returnROrbit():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    numpy.random.seed(1)
+    os= dfc.sample(n=50,returnROrbit=True)
+    #Test the spatial distribution
+    rs= numpy.array([o.R() for o in os])
+    assert numpy.fabs(numpy.mean(rs)-0.5) < 0.05, 'mean R of sampled points does not agree with that of the input surface profile'
+    assert numpy.fabs(numpy.std(rs)-numpy.sqrt(2.)/4.) < 0.03, 'stddev R of sampled points does not agree with that of the input surface profile'
+    #Test the velocity distribution
+    vrs= numpy.array([o.vR() for o in os])
+    assert numpy.fabs(numpy.mean(vrs)) < 0.05, 'mean vR of sampled points does not agree with that of the input surface profile (i.e., it is not zero)'
+    vts= numpy.array([o.vT() for o in os])
+    dvts= numpy.array([vt-r**beta+dfc.asymmetricdrift(r) for (r,vt) in zip(rs,vts)])
+    assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
+    return None
+
 def skew_samples(s):
     m1= numpy.mean(s)
     m2= numpy.mean((s-m1)**2.)
