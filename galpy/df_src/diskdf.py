@@ -1715,8 +1715,7 @@ class dehnendf(diskdf):
         OR= xE**(self._beta-1.)
         Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
         if self._correct:
-            for ii in range(len(xE)):
-                Lz[ii]*= self._corr.correct(xE[ii],log=False)[1]
+            Lz*= self._corr.correct(xE,log=False)[1,:]
         Lz+= LCE
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
@@ -1906,8 +1905,7 @@ class shudf(diskdf):
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
         E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniform.rvs(size=n))
         if self._correct:
-            for ii in range(len(xL)):
-                E[ii]*= self._corr.correct(xL[ii],log=False)[1]
+            E*= self._corr.correct(xL,log=False)[1,:]
         E+= ECL
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
@@ -2191,8 +2189,8 @@ class DFcorrection:
             out= sc.array([0.,0.])
         else:
             if _SCIPYVERSION >= 0.9:
-                out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
-                               self._sigma2Interpolate(R,nu=1)[0]])
+                out= sc.array([self._surfaceInterpolate(R,nu=1),
+                               self._sigma2Interpolate(R,nu=1)])
             else:
                 out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
                                self._sigma2Interpolate(R,nu=1)[0]])
