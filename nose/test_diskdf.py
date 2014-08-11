@@ -1095,6 +1095,23 @@ def test_dehnendf_sample_flat_returnROrbit():
     assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
     return None
 
+def test_dehnendf_sample_flat_returnROrbit_rrange():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    numpy.random.seed(1)
+    os= dfc.sample(n=50,returnROrbit=True,rrange=[0.,1.])
+    #Test the spatial distribution
+    rs= numpy.array([o.R() for o in os])
+    assert numpy.fabs(numpy.mean(rs)-0.419352) < 0.05, 'mean R of sampled points does not agree with that of the input surface profile'
+    assert numpy.fabs(numpy.std(rs)-0.240852) < 0.05, 'stddev R of sampled points does not agree with that of the input surface profile'
+    #Test the velocity distribution
+    vrs= numpy.array([o.vR() for o in os])
+    assert numpy.fabs(numpy.mean(vrs)) < 0.075, 'mean vR of sampled points does not agree with that of the input surface profile (i.e., it is not zero)'
+    vts= numpy.array([o.vT() for o in os])
+    dvts= numpy.array([vt-r**beta+dfc.asymmetricdrift(r) for (r,vt) in zip(rs,vts)])
+    assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
+    return None
+
 def test_dehnendf_sample_powerrise_returnROrbit():
     beta= 0.2
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
