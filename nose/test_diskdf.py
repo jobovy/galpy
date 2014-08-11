@@ -931,11 +931,21 @@ def test_dehnendf_dlnfdl_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
     return None
 
+def test_estimatemeanvR()
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    vrp8= dfc.meanvR(0.8)
+    assert numpy.fabs(dfc._estimatemeanvR(0.8)-vrp8) < 0.02, '_estimatemeanvR does not agree with meanvR to the expected level'
+    return None
+
 def test_asymmetricdrift_flat():
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
-    assert numpy.fabs(dfc.asymmetricdrift(0.8)-1.+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    vtp8= dfc.meanvT(0.8)
+    assert numpy.fabs(dfc.asymmetricdrift(0.8)-1.+vtp8) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
     assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    #also test _estimatemeanvT
+    assert numpy.fabs(dfc._estimatemeanvT(0.8)-vtp8) < 0.02, '_estimatemeanvT does not agree with meanvT for flat rotation curve to the expected level'
     return None
 
 def test_asymmetricdrift_powerfall():
@@ -950,6 +960,19 @@ def test_asymmetricdrift_powerrise():
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
     assert numpy.fabs(dfc.asymmetricdrift(0.8)-0.8**beta+dfc.meanvT(0.8)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
     assert numpy.fabs(dfc.asymmetricdrift(1.2)-1.2**beta+dfc.meanvT(1.2)) < 0.02, 'asymmetricdrift does not agree with meanvT for flat rotation curve to the expected level'
+    return None
+
+def test_estimateSigmaR2():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    assert numpy.fabs(dfc._estimateSigmaR2(0.8)/dfc.targetSigma2(0.8)-1.) < 0.02, '_estimateSigmaR2 does not agree with targetSigma2 to the expected level'
+    return None
+
+def test_estimateSigmaT2():
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.02))
+    assert numpy.fabs(dfc._estimateSigmaT2(0.8)/dfc.targetSigma2(0.8)*2.-1.) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
+    assert numpy.fabs(dfc._estimateSigmaT2(0.8,log=True-numpy.log(dfc.targetSigma2(0.8))+numpy.log(2.)) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
     return None
 
 def test_ELtowRRapRperi_flat():
