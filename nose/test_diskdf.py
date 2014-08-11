@@ -1038,6 +1038,46 @@ def test_sampleLOS():
     assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 0.3, 'skew of ds of sampleLOS is not equal to the mean of the distribution'
     return None
 
+def test_dehnendf_sample_sampleLOS():
+    #Test that the samples returned through sample with los are the same as those returned with sampleLOS
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    numpy.random.seed(1)
+    os= dfc.sampleLOS(45.,n=2,targetSurfmass=False,deg=True)
+    rs= numpy.array([o.R() for o in os])
+    vrs= numpy.array([o.vR() for o in os])
+    vts= numpy.array([o.vT() for o in os])
+    numpy.random.seed(1)
+    os2= dfc.sample(los=45.,n=2,targetSurfmass=False,losdeg=True)
+    rs2= numpy.array([o.R() for o in os2])
+    vrs2= numpy.array([o.vR() for o in os2])
+    vts2= numpy.array([o.vT() for o in os2])
+    assert numpy.all(numpy.fabs(rs-rs2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    assert numpy.all(numpy.fabs(vrs-vrs2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    assert numpy.all(numpy.fabs(vts-vts2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    return None
+
+def test_shudf_sample_sampleLOS():
+    #Test that the samples returned through sample with los are the same as those returned with sampleLOS
+    beta= 0.
+    dfc= shudf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    numpy.random.seed(1)
+    os= dfc.sampleLOS(45.,n=2,targetSurfmass=False,deg=True)
+    rs= numpy.array([o.R() for o in os])
+    vrs= numpy.array([o.vR() for o in os])
+    vts= numpy.array([o.vT() for o in os])
+    numpy.random.seed(1)
+    os2= dfc.sample(los=45.,n=2,targetSurfmass=False,losdeg=True)
+    rs2= numpy.array([o.R() for o in os2])
+    vrs2= numpy.array([o.vR() for o in os2])
+    vts2= numpy.array([o.vT() for o in os2])
+    assert numpy.all(numpy.fabs(rs-rs2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    assert numpy.all(numpy.fabs(vrs-vrs2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    assert numpy.all(numpy.fabs(vts-vts2) < 10.**-10.), 'Samples returned from dehnendf.sample with los set are not the same as those returned with sampleLOS'
+    return None
+
 def skew_samples(s):
     m1= numpy.mean(s)
     m2= numpy.mean((s-m1)**2.)
