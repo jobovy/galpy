@@ -1918,7 +1918,7 @@ class shudf(diskdf):
             for ii in range(n):
                 try:
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
-                except ValueError:
+                except ValueError: #pragma: no cover
                     continue
                 TR= 2.*math.pi/wR
                 tr= stats.uniform.rvs()*TR
@@ -1929,14 +1929,15 @@ class shudf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr).vxvv
+                    vxvv= thisOrbit(tr)._orb.vxvv
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()*math.pi*2.]).reshape(4))
                 else:
-                    thisOrbit= Orbit(thisOrbit(tr))
-                kappa= _kappa(thisOrbit.vxvv[0],self._beta)
+                    thisOrbit= thisOrbit(tr)
+                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
                 if not rrange == None:
-                    if thisOrbit.vxvv[0] < rrange[0] or thisOrbit.vxvv[0] > rrange[1]:
+                    if thisOrbit._orb.vxvv[0] < rrange[0] \
+                            or thisOrbit._orb.vxvv[0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
@@ -1953,11 +1954,11 @@ class shudf(diskdf):
                 out.append(thisOrbit)
         #Recurse to get enough
         if len(out) < n*nphi:
-            out.extend(self.sample(n=n-len(out)/nphi,rrange=rrange,
+            out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit,nphi=nphi))
         if len(out) > n*nphi:
-            out= out[0:n*nphi]
+            out= out[0:int(n*nphi)]
         return out
 
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
