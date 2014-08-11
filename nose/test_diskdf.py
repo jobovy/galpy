@@ -3,6 +3,7 @@ import os
 import numpy
 from scipy import stats
 from galpy.df import dehnendf, shudf
+_FEWERLONGINTEGRALS= True
 #So we can reuse the following
 ddf_correct_flat= None
 ddf_correct2_flat= None
@@ -98,9 +99,11 @@ def test_dehnendf_cold_powerfall_vt():
 def test_dehnendf_cold_flat_skewvt():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
-    assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a flat rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a flat rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvT(0.5)) < 1./20., 'skew vT of cold dehnendf in a flat rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a flat rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: <vt> =~ v_c
@@ -109,9 +112,11 @@ def test_dehnendf_cold_powerrise_skewvt():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvT(0.5)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
 def test_dehnendf_cold_powerfall_skewvt():
@@ -119,9 +124,11 @@ def test_dehnendf_cold_powerfall_skewvt():
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(1.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvT(0.5)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvT(2.)) < 1./20., 'skew vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: <vr> = 0
@@ -137,9 +144,11 @@ def test_dehnendf_cold_flat_vr():
 def test_dehnendf_cold_flat_kurtosisvt():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
-    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: kurtosis = 0
@@ -148,18 +157,22 @@ def test_dehnendf_cold_powerrise_kurtosisvt():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
 
 def test_dehnendf_cold_powerfall_kurtosisvt():
     # Falling rotation curve
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(1.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvT(0.5)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvT(2.)) < 1./20., 'kurtosis vT of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: <vr> = 0
@@ -186,9 +199,11 @@ def test_dehnendf_cold_powerfall_vr():
 def test_dehnendf_cold_flat_skewvr():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
-    assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a flat rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a flat rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvR(0.5)-0.) < 10.**-3., 'skew vR of cold dehnendf in a flat rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: <vr> = 0
@@ -197,27 +212,33 @@ def test_dehnendf_cold_powerrise_skewvr():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvR(0.5)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
 
 def test_dehnendf_cold_powerfall_skewvr():
     # Falling rotation curve
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(1.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.skewvR(0.5)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.skewvR(2.)-0.) < 10.**-3., 'skew vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: kurtosis = 0
 def test_dehnendf_cold_flat_kurtosisvr():
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
-    assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvR(0.5)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a flat rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, power-law rotation curve: kurtosis = 0
@@ -226,18 +247,22 @@ def test_dehnendf_cold_powerrise_kurtosisvr():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvR(0.5)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
 
 def test_dehnendf_cold_powerfall_kurtosisvr():
     # Falling rotation curve
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(1.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=1'
     assert numpy.fabs(df.kurtosisvR(0.5)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=0.5'
-    assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.kurtosisvR(2.)) < 1./20., 'kurtosis vR of cold dehnendf in a power-law rotation curve is not close to zero at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: A = 0.5
@@ -256,7 +281,8 @@ def test_dehnendf_cold_powerrise_oortA():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortA(0.5)-0.5*(0.5)**beta/0.5*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
     #one w/ Romberg
     assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
@@ -267,10 +293,12 @@ def test_dehnendf_cold_powerfall_oortA():
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortA(1.)-0.5*1./1.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortA(0.5)-0.5*(0.5)**beta/0.5*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
     #One w/ Romberg
-    assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*(2.)**beta/2.*(1.-beta)) < 10.**-3., 'Oort A of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: B = -0.5
@@ -288,9 +316,11 @@ def test_dehnendf_cold_powerrise_oortB():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortB(1.)+0.5*1./1.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortB(1.)+0.5*1./1.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortB(0.5)+0.5*(0.5)**beta/0.5*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortB(2.)+0.5*(2.)**beta/2.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortB(2.)+0.5*(2.)**beta/2.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 def test_dehnendf_cold_powerfall_oortB():
@@ -298,9 +328,11 @@ def test_dehnendf_cold_powerfall_oortB():
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortB(1.)+0.5*1./1.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortB(1.)+0.5*1./1.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortB(0.5)+0.5*(0.5)**beta/0.5*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortB(2.)+0.5*(2.)**beta/2.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortB(2.)+0.5*(2.)**beta/2.*(1.+beta)) < 10.**-3., 'Oort B of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: C = 0
@@ -318,9 +350,11 @@ def test_dehnendf_cold_powerrise_oortC():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortC(0.5)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 def test_dehnendf_cold_powerfall_oortC():
@@ -328,9 +362,11 @@ def test_dehnendf_cold_powerfall_oortC():
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortC(1.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortC(0.5)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortC(2.)) < 10.**-3., 'Oort C of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: K = 0
@@ -348,9 +384,11 @@ def test_dehnendf_cold_powerrise_oortK():
     beta= 0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortK(0.5)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 def test_dehnendf_cold_powerfall_oortK():
@@ -358,9 +396,11 @@ def test_dehnendf_cold_powerfall_oortK():
     beta= -0.2
     df= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=beta,correct=False)
-    assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortK(1.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=1'
     assert numpy.fabs(df.oortK(0.5)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=0.5'
-    assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
+    if not _FEWERLONGINTEGRALS:
+        assert numpy.fabs(df.oortK(2.)) < 10.**-3., 'Oort K of cold dehnendf in a power-law rotation curve is not close to expected at R=2'
     return None
 
 # Tests for cold population, flat rotation curve: sigma_R^2 / sigma_T^2 = kappa^2 / Omega^2
@@ -452,7 +492,7 @@ def test_sigma2surfacemass():
     assert numpy.fabs(numpy.log(dfc.sigma2surfacemass(3.,relative=True,romberg=True))) < 0.1, 'True surfacemass deviates more from target surfacemass for Dehnen DF with documentation-example parameters than expected'
     return None
 
-def test_vmomemtsurfacemass():
+def test_vmomentsurfacemass():
     #Test that vmomentsurfacemass gives reasonable results
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
     assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.)-dfc.surfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
