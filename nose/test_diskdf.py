@@ -1056,7 +1056,8 @@ def test_sampleLOS_target():
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
     #Sample a large number of points, then check some moments against the analytic distribution
-    os= dfc.sampleLOS(numpy.pi/4.,n=1000,target=True,deg=False)
+    os= dfc.sampleLOS(numpy.pi/4.,n=1000,targetSurfmass=True,targetSigma2=True,
+                      deg=False)
     ds= numpy.array([o.dist(ro=1.,obs=[1.,0.,0.]) for o in os])
     xds= numpy.linspace(0.001,4.,201)
     pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
@@ -1441,7 +1442,7 @@ def test_shudf_sample_flat_returnROrbit():
 
 def test_shudf_flat_DFcorrection_cleanup():
     #This should run quickly
-    dfc= shundf(beta=0.,profileParams=(1./4.,1.,0.2),
+    dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2),
                 correct=True,
                 niter=1,
                 npoints=21,
