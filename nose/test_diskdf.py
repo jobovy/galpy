@@ -1318,6 +1318,43 @@ def stest_dehnendf_flat_DFcorrection_cleanup():
     except: raise AssertionError("removing DFcorrection's savefile did not work")
     return None
 
+def test_DFcorrection_setup():
+    #Test that the keywords are setup correctly and that exceptions are raised
+    dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
+                  correct=True,
+                  rmax=4.,
+                  niter=2,
+                  npoints=5,
+                  interp_k=3,
+                  savedir='.')
+    assert numpy.fabs(dfc._corr._rmax-4.) < 10.**-10., 'rmax not set up correctly in DFcorrection'
+    assert numpy.fabs(dfc._corr._npoints-5) < 10.**-10., 'npoints not set up correctly in DFcorrection'
+    assert numpy.fabs(dfc._corr._interp_k-3) < 10.**-10., 'interp_k not set up correctly in DFcorrection'
+    assert numpy.fabs(dfc._corr._beta-0.1) < 10.**-10., 'beta not set up correctly in DFcorrection'
+    try:
+        os.remove(dfc._corr._createSavefilename(2))
+    except: raise AssertionError("removing DFcorrection's savefile did not work")
+    #Also explicily setup a DFcorrection, to test for other stuff
+    from galpy.df import DFcorrection
+    from galpy.df_src.diskdf import DFcorrectionError
+    #Should raise DFcorrectionError bc surfaceSigmaProfile is not set
+    try:
+        dfc= DFcorrection(npoints=2,niter=2,rmax=4.,
+                          beta=-0.1,interp_k=3)
+    except DFcorrectionError: pass
+    else: raise AssertionError('DFcorrection setup with no surfaceSigmaProfile set did not raise DFcorrectionError')
+    #Now w/ surfaceSigmaProfile to test default dftype
+    from galpy.df import expSurfaceSigmaProfile 
+    essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
+    dfc= DFcorrection(npoints=5,niter=1,rmax=4.,surfaceSigmaProfile=essp,
+                      interp_k=3)
+    assert issubclass(dfc._dftype,dehnendf), 'DFcorrection w/ no dftype set does not default to dehnendf'
+    assert numpy.fabs(dfc._beta) < 10.**-10., 'DFcorrection w/ no beta does not default to zero'
+    try:
+        os.remove(dfc._createSavefilename(1))
+    except: raise AssertionError("removing DFcorrection's savefile did not work")
+    return None
+
 def skew_samples(s):
     m1= numpy.mean(s)
     m2= numpy.mean((s-m1)**2.)

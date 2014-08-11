@@ -2057,14 +2057,14 @@ class DFcorrection:
         if not kwargs.has_key('npoints'):
             if kwargs.has_key('corrections'):
                 self._npoints= kwargs['corrections'].shape[0]
-            else:
-                self._npoints= 151
+            else: #pragma: no cover
+                self._npoints= 151 #would take too long to cover
         else:
             self._npoints= kwargs['npoints']
         if kwargs.has_key('dftype'):
             self._dftype= kwargs['dftype']
         else:
-            self._dftype= dehnenDF
+            self._dftype= dehnendf
         if kwargs.has_key('beta'):
             self._beta= kwargs['beta']
         else:
