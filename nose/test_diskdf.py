@@ -1291,6 +1291,18 @@ def test_dehnendf_flat_DFcorrection_sigmaR2():
     assert diff_corr2 < diff_corr, 'sigmaR2 w/ corrected dehnenDF w/ 2 iterations is does not agree better with target than with 1 iteration'
     return None
 
+def test_dehnendf_flat_DFcorrection_reload():
+    #Test that the corrections aren't re-calculated if they were saved
+    import time
+    start= time.time()
+    reddf= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
+                    correct=True,
+                    niter=1,
+                    npoints=21,
+                    savedir='.')
+    assert time.time()-start < 1., 'Setup w/ correct=True, but already computed corrections takes too long'
+    return None
+
 def stest_dehnendf_flat_DFcorrection_cleanup():
     #This should run quickly
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
