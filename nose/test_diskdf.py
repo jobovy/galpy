@@ -1016,9 +1016,26 @@ def test_sampleLOS_target():
     pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
     md= numpy.sum(xds*pds)/numpy.sum(pds)
     sd= numpy.sqrt(numpy.sum(xds**2.*pds)/numpy.sum(pds)-md**2.)
-    assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of distance in sampleLOS for target surfacemass is not equal to the mean of the samples'
-    assert numpy.fabs(numpy.std(ds)-sd) < 10.**-1., 'stddev of distance in sampleLOS for target surfacemass is not equal to the mean of the samples'
-    assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 0.3, 'skew of distance in sampleLOS for target surfacemass is not equal to the mean of the samples'
+    assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of distance in sampleLOS for target surfacemass is not equal to the mean of the distribution'
+    assert numpy.fabs(numpy.std(ds)-sd) < 10.**-1., 'stddev of distance in sampleLOS for target surfacemass is not equal to the mean of the distribution'
+    assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 0.3, 'skew of distance in sampleLOS for target surfacemass is not equal to the mean of the distribution'
+    return None
+
+def test_sampleLOS():
+    numpy.random.seed(1)
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
+    #Sample a large number of points, then check some moments against the analytic distribution
+    os= dfc.sampleLOS(45.,n=1000,targetSurfmass=False,deg=True)
+    ds= numpy.array([o.dist(ro=1.,obs=[1.,0.,0.]) for o in os])
+    xds= numpy.linspace(0.001,4.,101)
+    #check against target, bc that's easy to calculate
+    pds= numpy.array([dfc.surfacemassLOS(d,45.,deg=True,target=True) for d in xds])
+    md= numpy.sum(xds*pds)/numpy.sum(pds)
+    sd= numpy.sqrt(numpy.sum(xds**2.*pds)/numpy.sum(pds)-md**2.)
+    assert numpy.fabs(numpy.mean(ds)-md) < 10.**-2., 'mean of ds of sampleLOS is not equal to the mean of the distribution'
+    assert numpy.fabs(numpy.std(ds)-sd) < 0.05, 'stddev of ds of sampleLOS is not equal to the mean of the distribution'
+    assert numpy.fabs(skew_samples(ds)-skew_pdist(xds,pds)) < 0.3, 'skew of ds of sampleLOS is not equal to the mean of the distribution'
     return None
 
 def skew_samples(s):

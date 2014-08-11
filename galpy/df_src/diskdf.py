@@ -607,7 +607,7 @@ class diskdf:
         return nu.array(out)
 
     def sampleLOS(self,los,n=1,deg=True,maxd=None,nsigma=None,
-                  target=True):
+                  targetSurfmass=True,targetSigma2=True):
         """
         NAME:
 
@@ -625,7 +625,7 @@ class diskdf:
 
            deg= los in degrees? (default=True)
 
-           target= if True, use target surface mass and sigma2 profiles
+           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
                    (default=True)
 
         OUTPUT:
@@ -645,12 +645,12 @@ class diskdf:
             l= los
         out= []
         #sample distances
-        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=target)
+        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass)
         for ii in range(int(n)):
             #Calculate R and phi
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
-            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=target)[0]
+            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
             out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
