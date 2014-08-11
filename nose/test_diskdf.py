@@ -5,6 +5,7 @@ from scipy import stats
 from galpy.df import dehnendf, shudf
 #So we can reuse the following
 ddf_correct_flat= None
+ddf_correct2_flat= None
 ddf_correct_powerrise= None
 
 # First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
@@ -1257,11 +1258,17 @@ def test_shudf_sample_flat_EL():
 ###############################################################################
 def test_dehnendf_flat_DFcorrection_setup():
     global ddf_correct_flat
+    global ddf_correct2_flat
     ddf_correct_flat= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
                                correct=True,
                                niter=1,
                                npoints=21,
                                savedir='.')
+    ddf_correct2_flat= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
+                                correct=True,
+                                niter=2,
+                                npoints=21,
+                                savedir='.')
     return None
 
 def test_dehnendf_flat_DFcorrection_surfacemass():
@@ -1269,10 +1276,12 @@ def test_dehnendf_flat_DFcorrection_surfacemass():
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),correct=False)
     diff_uncorr= numpy.fabs(numpy.log(dfc.surfacemass(0.8))-numpy.log(dfc.targetSurfacemass(0.8)))
     diff_corr= numpy.fabs(numpy.log(ddf_correct_flat.surfacemass(0.8))-numpy.log(dfc.targetSurfacemass(0.8)))
+    diff_corr2= numpy.fabs(numpy.log(ddf_correct2_flat.surfacemass(0.8))-numpy.log(dfc.targetSurfacemass(0.8)))
     assert diff_corr < diff_uncorr, 'surfacemass w/ corrected dehnenDF is does not agree better with target than with uncorrected dehnenDF'
+    assert diff_corr2 < diff_corr, 'surfacemass w/ corrected dehnenDF w/ 2 iterations is does not agree better with target than with 1 iteration'
     return None
 
-def test_dehnendf_flat_DFcorrection_cleanup():
+def stest_dehnendf_flat_DFcorrection_cleanup():
     #This should run quickly
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
                   correct=True,
@@ -1281,6 +1290,9 @@ def test_dehnendf_flat_DFcorrection_cleanup():
                   savedir='.')
     try:
         os.remove(dfc._corr._createSavefilename(1))
+    except: raise AssertionError("removing DFcorrection's savefile did not work")
+    try:
+        os.remove(dfc._corr._createSavefilename(2))
     except: raise AssertionError("removing DFcorrection's savefile did not work")
     return None
 
