@@ -7,6 +7,7 @@ from galpy.df import dehnendf, shudf
 ddf_correct_flat= None
 ddf_correct2_flat= None
 ddf_correct_powerrise= None
+sdf_correct_flat= None
 
 # First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
 def test_expSurfaceSigmaProfile_surfacemass():
@@ -1303,7 +1304,7 @@ def test_dehnendf_flat_DFcorrection_reload():
     assert time.time()-start < 1., 'Setup w/ correct=True, but already computed corrections takes too long'
     return None
 
-def stest_dehnendf_flat_DFcorrection_cleanup():
+def test_dehnendf_flat_DFcorrection_cleanup():
     #This should run quickly
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),
                   correct=True,
@@ -1355,7 +1356,7 @@ def test_DFcorrection_setup():
     except: raise AssertionError("removing DFcorrection's savefile did not work")
     return None
 
-def test_dehnendf_tample_flat_returnROrbit_wcorrections():
+def test_dehnendf_sample_flat_returnROrbit_wcorrections():
     beta= 0.
     dfc= ddf_correct2_flat
     numpy.random.seed(1)
@@ -1370,6 +1371,44 @@ def test_dehnendf_tample_flat_returnROrbit_wcorrections():
     vts= numpy.array([o.vT() for o in os])
     dvts= numpy.array([vt-r**beta+dfc.asymmetricdrift(r) for (r,vt) in zip(rs,vts)])
     assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
+    return None
+
+def test_shudf_flat_DFcorrection_setup():
+    global sdf_correct_flat
+    sdf_correct_flat= shudf(beta=0.,profileParams=(1./4.,1.,0.2),
+                            correct=True,
+                            niter=1,
+                            npoints=21,
+                            savedir='.')
+    return None
+
+def test_shudf_sample_flat_returnROrbit():
+    beta= 0.
+    dfc= sdf_correct_flat
+    numpy.random.seed(1)
+    os= dfc.sample(n=50,returnROrbit=True)
+    #Test the spatial distribution
+    rs= numpy.array([o.R() for o in os])
+    assert numpy.fabs(numpy.mean(rs)-0.5) < 0.05, 'mean R of sampled points does not agree with that of the input surface profile'
+    assert numpy.fabs(numpy.std(rs)-numpy.sqrt(2.)/4.) < 0.03, 'stddev R of sampled points does not agree with that of the input surface profile'
+    #Test the velocity distribution
+    vrs= numpy.array([o.vR() for o in os])
+    assert numpy.fabs(numpy.mean(vrs)) < 0.05, 'mean vR of sampled points does not agree with that of the input surface profile (i.e., it is not zero)'
+    vts= numpy.array([o.vT() for o in os])
+    dvts= numpy.array([vt-r**beta+dfc.asymmetricdrift(r) for (r,vt) in zip(rs,vts)])
+    assert numpy.fabs(numpy.mean(dvts)) < 0.1, 'mean vT of sampled points does not agree with an estimate based on asymmetric drift'
+    return None
+
+def test_shudf_flat_DFcorrection_cleanup():
+    #This should run quickly
+    dfc= shundf(beta=0.,profileParams=(1./4.,1.,0.2),
+                correct=True,
+                niter=1,
+                npoints=21,
+                savedir='.')
+    try:
+        os.remove(dfc._corr._createSavefilename(1))
+    except: raise AssertionError("removing DFcorrection's savefile did not work")
     return None
 
 def skew_samples(s):
