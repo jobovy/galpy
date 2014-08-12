@@ -931,7 +931,7 @@ def test_dehnendf_dlnfdl_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
     return None
 
-def test_estimatemeanvR()
+def test_estimatemeanvR():
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
     vrp8= dfc.meanvR(0.8)
@@ -972,7 +972,7 @@ def test_estimateSigmaT2():
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.02))
     assert numpy.fabs(dfc._estimateSigmaT2(0.8)/dfc.targetSigma2(0.8)*2.-1.) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
-    assert numpy.fabs(dfc._estimateSigmaT2(0.8,log=True-numpy.log(dfc.targetSigma2(0.8))+numpy.log(2.)) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
+    assert numpy.fabs(dfc._estimateSigmaT2(0.8,log=True)-numpy.log(dfc.targetSigma2(0.8))+numpy.log(2.)) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
     return None
 
 def test_ELtowRRapRperi_flat():
