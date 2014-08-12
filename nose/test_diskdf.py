@@ -975,6 +975,13 @@ def test_estimateSigmaT2():
     assert numpy.fabs(dfc._estimateSigmaT2(0.8,log=True)-numpy.log(dfc.targetSigma2(0.8))+numpy.log(2.)) < 0.02, '_estimateSigmaT2 does not agree with targetSigma2 to the expected level'
     return None
 
+def test_vmomentsurfacedensity_deriv():
+    #Quick test that the phi derivative is zero
+    beta= 0.
+    dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.02))
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0,0,deriv='phi')) < 10.**-6., 'surfacemass phi derivative is not zero'
+    return None
+
 def test_ELtowRRapRperi_flat():
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.2))
