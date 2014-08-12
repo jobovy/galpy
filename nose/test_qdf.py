@@ -1,7 +1,7 @@
 # Tests of the quasiisothermaldf module
 import numpy
 #fiducial setup uses these
-from galpy.potential import MWPotential, vcirc, omegac, epifreq
+from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
 aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
@@ -351,9 +351,23 @@ def test_meanjr():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     assert numpy.fabs(numpy.log(qdf.meanjr(0.9,0.,mc=True))\
-                          -2.*numpy.log(0.2)+0.2
-                      -numpy.log(epifreq(MWPotential,0.9))) < 0.4, 'meanjr is not what is expected'
+                          -2.*numpy.log(0.2)-0.2
+                      +numpy.log(epifreq(MWPotential,0.9))) < 0.4, 'meanjr is not what is expected'
     assert numpy.fabs(numpy.log(qdf.meanjr(0.5,0.,mc=True))\
-                          -2.*numpy.log(0.2)+1.
-                      -numpy.log(epifreq(MWPotential,0.5))) < 0.4, 'meanjr is not what is expected'
+                          -2.*numpy.log(0.2)-1.
+                      +numpy.log(epifreq(MWPotential,0.5))) < 0.4, 'meanjr is not what is expected'
     return None
+
+def test_meanjz():
+    #This is a *very* rough test against a rough estimate of the mean
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    ldiff= numpy.log(qdf.meanjz(0.9,0.,mc=True))-2.*numpy.log(0.1)-0.2\
+        +numpy.log(verticalfreq(MWPotential,0.9))
+    #expect this to be smaller than the rough estimate, but not by more than an order of magnitude
+    assert ldiff > -1. and ldiff < 0., 'meanjz is not what is expected'
+    ldiff= numpy.log(qdf.meanjz(0.5,0.,mc=True))-2.*numpy.log(0.1)-1.0\
+        +numpy.log(verticalfreq(MWPotential,0.5))
+    assert ldiff > -1. and ldiff < 0., 'meanjz is not what is expected'
+    return None
+
