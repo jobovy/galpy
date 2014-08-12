@@ -180,10 +180,24 @@ def test_sigmarz_adiabatic_gl():
     assert numpy.fabs(qdf.sigmaRz(0.9,0.,gl=True)) < 0.05, "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
     return None
 
+def test_sigmarz_adiabatic_mc():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    #In the mid-plane, should be zero
+    assert numpy.fabs(qdf.sigmaRz(0.9,0.,mc=True)) < 0.05, "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
+    return None
+
 def test_sigmarz_staeckel_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #In the mid-plane, should be zero
     assert numpy.fabs(qdf.sigmaRz(0.9,0.,gl=True)) < 0.05, "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
+    return None
+
+def test_sigmarz_staeckel_mc():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #In the mid-plane, should be zero
+    assert numpy.fabs(qdf.sigmaRz(0.9,0.,mc=True)) < 0.05, "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
     return None
 
