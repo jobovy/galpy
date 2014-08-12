@@ -322,3 +322,13 @@ def test_estimate_hz():
     assert numpy.fabs((qdf.estimate_hz(0.9,z=0.125)-expec_hz)/expec_hz) < 0.15, 'estimated scale height not as expected'
     return None
 
+def test_estimate_hsr():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hsr(0.9,z=0.)-1.0)/1.0) < 0.25, 'estimated radial-dispersion scale length deviates more from input scale length than expected'
+    #Another one
+    qdf= quasiisothermaldf(1./2.,0.2,0.1,2.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hsr(0.9,z=0.05)-2.0)/2.0) < 0.25, 'estimated radial-dispersion scale length deviates more from input scale length than expected'
+    return None
+
