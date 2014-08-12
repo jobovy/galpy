@@ -1403,6 +1403,30 @@ def test_DFcorrection_setup():
     assert numpy.fabs(dfc._corr._npoints-5) < 10.**-10., 'npoints not set up correctly in DFcorrection'
     assert numpy.fabs(dfc._corr._interp_k-3) < 10.**-10., 'interp_k not set up correctly in DFcorrection'
     assert numpy.fabs(dfc._corr._beta-0.1) < 10.**-10., 'beta not set up correctly in DFcorrection'
+    #setup w/ corrections
+    corrs= dfc._corr._corrections
+    dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
+                  correct=True,
+                  rmax=4.,
+                  niter=2,
+                  npoints=5,
+                  interp_k=3,
+                  savedir='.',
+                  corrections=corrs)
+    assert numpy.all(numpy.fabs(corrs-dfc._corr._corrections) < 10.**-10.), 'DFcorrection initialized w/ corrections does not work properly'
+    #If corrections.shape[0] neq npoints, should raise error
+    try:
+        dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
+                      correct=True,
+                      rmax=4.,
+                      niter=2,
+                      npoints=6,
+                      interp_k=3,
+                      savedir='.',
+                      corrections=corrs)
+    except DFcorrectionError: pass
+    else: raise AssertionError('DFcorrection setup with corrections.shape[0] neq npoints did not raise DFcorrectionError')
+    #rm savefile
     try:
         os.remove(dfc._corr._createSavefilename(2))
     except: raise AssertionError("removing DFcorrection's savefile did not work")
