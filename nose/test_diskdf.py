@@ -1447,7 +1447,6 @@ def test_DFcorrection_setup():
                   correct=True,
                   rmax=4.,
                   niter=2,
-                  npoints=5,
                   interp_k=3,
                   savedir='.',
                   corrections=corrs)
