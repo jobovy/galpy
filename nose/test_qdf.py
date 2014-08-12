@@ -332,3 +332,13 @@ def test_estimate_hsr():
     assert numpy.fabs((qdf.estimate_hsr(0.9,z=0.05)-2.0)/2.0) < 0.25, 'estimated radial-dispersion scale length deviates more from input scale length than expected'
     return None
 
+def test_estimate_hsz():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hsz(0.9,z=0.)-1.0)/1.0) < 0.25, 'estimated vertical-dispersion scale length deviates more from input scale length than expected'
+    #Another one
+    qdf= quasiisothermaldf(1./2.,0.2,0.1,1.,2.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hsz(0.9,z=0.05)-2.0)/2.0) < 0.25, 'estimated vertical-dispersion scale length deviates more from input scale length than expected'
+    return None
+
