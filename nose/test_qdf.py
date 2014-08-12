@@ -302,3 +302,23 @@ def test_estimate_hr():
                            pot=MWPotential,aA=aAS,cutcounter=True)
     assert numpy.fabs((qdf.estimate_hr(0.9,z=None)-0.5)/0.5) < 0.15, 'estimated scale length deviates more from input scale length than expected'
     return None
+
+def test_estimate_hz():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    from scipy import integrate
+    from galpy.potential import evaluateDensities
+    expec_hz= 0.1**2./2.\
+        /integrate.quad(lambda x: evaluateDensities(0.9,x,MWPotential),
+                        0.,0.125)[0]/2./numpy.pi
+    assert numpy.fabs((qdf.estimate_hz(0.9,z=0.125)-expec_hz)/expec_hz) < 0.1, 'estimated scale height not as expected'
+    assert qdf.estimate_hz(0.9,z=0.) > 1., 'estimated scale height at z=0 not very large'
+    #Another one
+    qdf= quasiisothermaldf(1./4.,0.3,0.2,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    expec_hz= 0.2**2./2.\
+        /integrate.quad(lambda x: evaluateDensities(0.9,x,MWPotential),
+                        0.,0.125)[0]/2./numpy.pi
+    assert numpy.fabs((qdf.estimate_hz(0.9,z=0.125)-expec_hz)/expec_hz) < 0.15, 'estimated scale height not as expected'
+    return None
+
