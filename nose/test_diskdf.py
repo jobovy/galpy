@@ -1343,6 +1343,44 @@ def test_dehnendf_flat_DFcorrection_setup():
                                 savedir='.')
     return None
 
+def test_dehnendf_flat_DFcorrection_mag():
+    #Test that the call is not too different from before
+    tcorr= numpy.log(ddf_correct2_flat._corr.correct(1.1))
+    assert numpy.fabs(tcorr[0]) < 0.15, 'dehnendf correction is larger than expected'
+    assert numpy.fabs(tcorr[1]) < 0.1, 'dehnendf correction is larger than expected'
+    #small R
+    tcorr= numpy.log(ddf_correct2_flat._corr.correct(10.**-12.))
+    assert numpy.fabs(tcorr[0]) < 0.4, 'dehnendf correction is larger than expected'
+    assert numpy.fabs(tcorr[1]) < 1., 'dehnendf correction is larger than expected'
+    #large R
+    tcorr= numpy.log(ddf_correct2_flat._corr.correct(12.))
+    assert numpy.fabs(tcorr[0]) < 0.01, 'dehnendf correction is larger than expected'
+    assert numpy.fabs(tcorr[1]) < 0.01, 'dehnendf correction is larger than expected'
+    #small R, array
+    tcorr= numpy.log(ddf_correct2_flat._corr.correct(10.**-12.*numpy.ones(2)))
+    assert numpy.all(numpy.fabs(tcorr[0]) < 0.4), 'dehnendf correction is larger than expected'
+    assert numpy.all(numpy.fabs(tcorr[1]) < 1.), 'dehnendf correction is larger than expected'
+    #large R
+    tcorr= numpy.log(ddf_correct2_flat._corr.correct(12.*numpy.ones(2)))
+    assert numpy.all(numpy.fabs(tcorr[0]) < 0.01), 'dehnendf correction is larger than expected'
+    assert numpy.all(numpy.fabs(tcorr[1]) < 0.01), 'dehnendf correction is larger than expected'
+    return None
+
+def test_dehnendf_flat_DFcorrection_deriv_mag():
+    #Test that the derivative behaves as expected
+    tcorr= ddf_correct2_flat._corr.derivLogcorrect(2.)
+    assert numpy.fabs(tcorr[0]) < 0.1, 'dehnendf correction derivative is larger than expected'
+    assert numpy.fabs(tcorr[1]) < 0.1, 'dehnendf correction derivative is larger than expected'
+    #small R, derivative should be very large
+    tcorr= ddf_correct2_flat._corr.derivLogcorrect(10.**-12.)
+    assert numpy.fabs(tcorr[0]) > 1., 'dehnendf correction derivative is smaller than expected'
+    assert numpy.fabs(tcorr[1]) > 1., 'dehnendf correction derivative is larger than expected'
+    #large R
+    tcorr= ddf_correct2_flat._corr.derivLogcorrect(12.)
+    assert numpy.fabs(tcorr[0]) < 0.01, 'dehnendf correction derivative is larger than expected'
+    assert numpy.fabs(tcorr[1]) < 0.01, 'dehnendf correction derivative is larger than expected'
+    return None
+
 def test_dehnendf_flat_DFcorrection_surfacemass():
     #Test that the surfacemass is better than before
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2),correct=False)
@@ -1415,6 +1453,7 @@ def test_DFcorrection_setup():
                   corrections=corrs)
     assert numpy.all(numpy.fabs(corrs-dfc._corr._corrections) < 10.**-10.), 'DFcorrection initialized w/ corrections does not work properly'
     #If corrections.shape[0] neq npoints, should raise error
+    from galpy.df_src.diskdf import DFcorrectionError
     try:
         dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
                       correct=True,
@@ -1427,6 +1466,13 @@ def test_DFcorrection_setup():
     except DFcorrectionError: pass
     else: raise AssertionError('DFcorrection setup with corrections.shape[0] neq npoints did not raise DFcorrectionError')
     #rm savefile
+    dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
+                  correct=True,
+                  rmax=4.,
+                  niter=2,
+                  npoints=5,
+                  interp_k=3,
+                  savedir='.')
     try:
         os.remove(dfc._corr._createSavefilename(2))
     except: raise AssertionError("removing DFcorrection's savefile did not work")

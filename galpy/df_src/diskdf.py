@@ -2159,7 +2159,7 @@ class DFcorrection:
             if _SCIPYVERSION >= 0.9:
                 out= sc.array([self._surfaceInterpolate(R),
                                self._sigma2Interpolate(R)])
-            else:
+            else: #pragma: no cover
                 out= sc.array([self._surfaceInterpolate(R)[0],
                                self._sigma2Interpolate(R)[0]])
         if log:
@@ -2191,7 +2191,7 @@ class DFcorrection:
             if _SCIPYVERSION >= 0.9:
                 out= sc.array([self._surfaceInterpolate(R,nu=1),
                                self._sigma2Interpolate(R,nu=1)])
-            else:
+            else: #pragma: no cover
                 out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
                                self._sigma2Interpolate(R,nu=1)[0]])
         return out
