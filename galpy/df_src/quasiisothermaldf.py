@@ -646,7 +646,7 @@ class quasiisothermaldf:
                 vzs= numpy.random.normal(size=nmc)
             else:
                 vzs= _vzs
-            Is= _jmomentsurfaceMCIntegrand(vzs,vrs,vts,nump.ones(nmc)*R,numpy.ones(nmc)*z,self,sigmaR1,gamma,sigmaz1,mvT,n,m,o)
+            Is= _jmomentsurfaceMCIntegrand(vzs,vrs,vts,numpy.ones(nmc)*R,numpy.ones(nmc)*z,self,sigmaR1,gamma,sigmaz1,mvT,n,m,o)
             if _returnmc:
                 return (numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1,
                         vrs,vts,vzs)

@@ -346,3 +346,14 @@ def test_estimate_hsz():
     assert numpy.fabs((qdf.estimate_hsz(0.9,z=0.05)-2.0)/2.0) < 0.25, 'estimated vertical-dispersion scale length deviates more from input scale length than expected'
     return None
 
+def test_meanjr():
+    #This is a *very* rough test against a rough estimate of the mean
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs(numpy.log(qdf.meanjr(0.9,0.,mc=True))\
+                          -2.*numpy.log(0.2)+0.2
+                      -numpy.log(epifreq(MWPotential,0.9))) < 0.4, 'meanjr is not what is expected'
+    assert numpy.fabs(numpy.log(qdf.meanjr(0.5,0.,mc=True))\
+                          -2.*numpy.log(0.2)+1.
+                      -numpy.log(epifreq(MWPotential,0.5))) < 0.4, 'meanjr is not what is expected'
+    return None
