@@ -1437,7 +1437,7 @@ def test_DFcorrection_setup():
     try:
         dfc= DFcorrection(npoints=2,niter=2,rmax=4.,
                           beta=-0.1,interp_k=3)
-    except DFcorrectionError: pass
+    except DFcorrectionError as e: print e
     else: raise AssertionError('DFcorrection setup with no surfaceSigmaProfile set did not raise DFcorrectionError')
     #Now w/ surfaceSigmaProfile to test default dftype
     from galpy.df import expSurfaceSigmaProfile 
@@ -1512,6 +1512,22 @@ def test_shudf_flat_DFcorrection_cleanup():
     try:
         os.remove(dfc._corr._createSavefilename(1))
     except: raise AssertionError("removing DFcorrection's savefile did not work")
+    return None
+
+def test_axipotential():
+    from galpy.df_src.diskdf import axipotential, _RMIN
+    assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.)-numpy.log(0.5)) < 10.**-8, 'axipotential w/ beta=0.0 does not work as expected'
+    assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.2)-1./0.4*0.5**0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
+    assert numpy.fabs(axipotential(numpy.array([0.5]),beta=-0.2)+1./0.4*0.5**-0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
+    #special case of R=0 should go to _RMIN
+    assert numpy.fabs(axipotential(numpy.array([0.]),beta=0.)-numpy.log(_RMIN)) < 10.**-8, 'axipotential w/ beta=0.0 does not work as expected'
+    return None
+
+def test_dlToRphi():
+    from galpy.df_src.diskdf import _dlToRphi
+    R,theta= _dlToRphi(1.,0.)
+    assert numpy.fabs(R) < 10.**-3., '_dlToRphi close to center does not behave properly'
+    assert numpy.fabs(theta % numpy.pi) < 10.**-3., '_dlToRphi close to center does not behave properly'
     return None
 
 def skew_samples(s):
