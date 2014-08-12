@@ -301,6 +301,10 @@ def test_estimate_hr():
     qdf= quasiisothermaldf(1./2.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     assert numpy.fabs((qdf.estimate_hr(0.9,z=None)-0.5)/0.5) < 0.15, 'estimated scale length deviates more from input scale length than expected'
+    #Another one
+    qdf= quasiisothermaldf(1.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hr(0.9,z=None,fixed_quad=False)-1.0)/1.0) < 0.3, 'estimated scale length deviates more from input scale length than expected'
     return None
 
 def test_estimate_hz():
