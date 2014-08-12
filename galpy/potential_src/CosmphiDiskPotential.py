@@ -7,7 +7,11 @@ from planarPotential import planarPotential
 _degtorad= math.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
-           phi(R,phi) = phio (R/Ro)^p cos[m(phi-phib)]
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(m\\,(\\phi-\\phi_b)\\right)
+
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,m=1.,
@@ -76,7 +80,7 @@ class CosmphiDiskPotential(planarPotential):
             if self._tform is None: self._tsteady= None
             else: self._tsteady= self._tform+2.
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -103,19 +107,8 @@ class CosmphiDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        if dR == 0 and dphi == 0:
-            return smooth*self._mphio/self._m*R**self._p\
-                *math.cos(self._m*(phi-self._phib))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return self._phi2deriv(R,phi=phi,t=t)
-        elif dR == 1 and dphi == 1:
-            return self._Rphideriv(R,phi=phi,t=t)
+        return smooth*self._mphio/self._m*R**self._p\
+            *math.cos(self._m*(phi-self._phib))
         
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -249,8 +242,12 @@ class CosmphiDiskPotential(planarPotential):
 
 class LopsidedDiskPotential(CosmphiDiskPotential):
     """Class that implements the disk potential
-           phi(R,phi) = phio (R/Ro)^p cos[phi-phib)]
-           See documentation for CosmphiDiskPotential
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(\\phi-\\phi_b\\right)
+
+    See documentation for CosmphiDiskPotential
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,

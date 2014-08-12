@@ -4,6 +4,7 @@ import numpy
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
+from galpy.orbit import Orbit
 _NSIGMA=4
 _DEFAULTNGL=10
 _DEFAULTNGL2=20
@@ -177,7 +178,7 @@ class quasiisothermaldf:
             nu= None
             Omega= None
         #First parse args
-        if len(args) == 1: #(jr,lz,jz)
+        if len(args) == 1 and not isinstance(args[0],Orbit): #(jr,lz,jz)
             jr,lz,jz= args[0]
         else:
             #Use self._aA to calculate the actions

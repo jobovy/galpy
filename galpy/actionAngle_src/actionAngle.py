@@ -36,9 +36,12 @@ class actionAngle:
             self._phi= phi
         else:
             if len(args) == 2:
-                vxvv= args[0](args[1]).vxvv
+                vxvv= args[0](args[1])._orb.vxvv
             else:
-                vxvv= args[0].vxvv
+                try:
+                    vxvv= args[0]._orb.vxvv
+                except AttributeError: #if we're given an OrbitTop instance
+                    vxvv= args[0].vxvv
             self._R= vxvv[0]
             self._vR= vxvv[1]
             self._vT= vxvv[2]
@@ -69,17 +72,14 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi is optional)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -97,17 +97,14 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi is optional)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -126,17 +123,14 @@ class actionAngle:
 
            Either:
 
-              a) R,vR,vT,z,vz:
+              a) R,vR,vT,z,vz,phi:
 
-                 1) floats: phase-space value for single object
+                 1) floats: phase-space value for single object (phi needs to be specified)
 
                  2) numpy.ndarray: [N] phase-space values for N objects 
 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-
-              b) Orbit instance or list thereof; can be integrated already
-
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:

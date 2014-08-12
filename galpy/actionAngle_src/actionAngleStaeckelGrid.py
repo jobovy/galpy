@@ -10,23 +10,14 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import math
-import warnings
 import numpy
 from scipy import interpolate, optimize, ndimage
-from galpy.util import galpyWarning
 import actionAngleStaeckel
-from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
-try:
-    import actionAngleStaeckel_c
-except IOError:
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+from galpy.actionAngle_src.actionAngle import actionAngle
+import actionAngleStaeckel_c
+from actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
 from galpy.util import multi, bovy_coords
-from matplotlib import pyplot
 _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""

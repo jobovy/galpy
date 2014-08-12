@@ -1,31 +1,34 @@
 import os
+import sys
 import warnings
 import ctypes
 import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 from galpy.util import galpyWarning
-try:
-    from galpy.orbit_src.integrateFullOrbit import _parse_pot
-except IOError: #pragma: no cover
-    warnings.warn("integrateFullOrbit_c extension module not loaded",
-                  galpyWarning)
+from galpy.orbit_src.integrateFullOrbit import _parse_pot
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_actionAngle_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname) #pragma: no cover
-if _lib is None:
-    import sys
+_lib= None
+outerr= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c.so'))
-    except OSError:
+    except OSError, e:
+        if os.path.exists(os.path.join(path,'galpy_actionAngle_c.so')): #pragma: no cover
+            outerr= e
         _lib = None
     else:
         break
 if _lib is None: #pragma: no cover
-    raise IOError('galpy actionAngle_c module not found')
+    if not outerr is None:
+        warnings.warn("actionAngleAdiabatic_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("actionAngleAdiabatic_c extension module not loaded, because galpy_actionAngle_c.so image was not found",
+                      galpyWarning)
+    _ext_loaded= False
+else:
+    _ext_loaded= True
 
 def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     """

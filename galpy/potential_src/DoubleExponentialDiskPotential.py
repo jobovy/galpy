@@ -14,7 +14,12 @@ _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
-    rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z"""
+
+    .. math::
+
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R-|z|/h_z\\right)
+
+    """
     def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  new=True,kmaxFac=2.,glorder=10):
@@ -113,15 +118,6 @@ class DoubleExponentialDiskPotential(Potential):
            ...
            >>> assert( r+1.89595350484)**2.< 10.**-6.
         """
-        if dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR != 0 or dphi != 0:
-            warnings.warn("High-order derivatives for DoubleExponentialDiskPotential not implemented",galpyWarning)
-            return None
         if True:
             if isinstance(R,float):
                 floatIn= True
@@ -167,7 +163,7 @@ class DoubleExponentialDiskPotential(Potential):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
                 return out
-            if R > 6.: return self._kp.Rforce(R,z)
+            if (R > 16.*self._hr or R > 6.) and hasattr(self,'_kp'): return self._kp.Rforce(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta
@@ -200,7 +196,7 @@ class DoubleExponentialDiskPotential(Potential):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
                 return out
-            if R > 6.: return self._kp.zforce(R,z)
+            if R > 16.*self._hr or R > 6.: return self._kp.zforce(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta
@@ -270,7 +266,7 @@ class DoubleExponentialDiskPotential(Potential):
                 if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
                 out= nu.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
                 return out
-            if R > 6.: return self._kp.z2deriv(R,z)
+            if R > 16.*self._hr or R > 6.: return self._kp.z2deriv(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta

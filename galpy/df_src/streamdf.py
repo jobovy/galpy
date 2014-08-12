@@ -12,6 +12,7 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from galpy.util import logsumexp as _mylogsumexp
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
@@ -107,6 +108,8 @@ class streamdf:
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
         self._progenitor= progenitor
+        # Make sure we do not use physical coordinates
+        self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
@@ -298,7 +301,7 @@ class streamdf:
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
 ############################STREAM TRACK FUNCTIONS#############################
-    def plotTrack(self,d1='x',d2='z',interp=True,spread=0,
+    def plotTrack(self,d1='x',d2='z',interp=True,spread=0,simple=_USESIMPLE,
                   *args,**kwargs):
         """
         NAME:
@@ -312,6 +315,7 @@ class streamdf:
            interp= (True) if True, use the interpolated stream track
            spread= (0) if int > 0, also plot the spread around the track as spread x sigma
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
+           simple= (False), if True, use a simple estimate for the spread in perpendicular angle
            bovy_plot.bovy_plot args and kwargs
         OUTPUT:
            plot to output device
@@ -334,10 +338,12 @@ class streamdf:
         tx= self._parse_track_dim(d1,interp=interp,phys=phys)
         ty= self._parse_track_dim(d2,interp=interp,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            xlabel=_labelDict[d1.lower()],
+                            ylabel=_labelDict[d2.lower()],
                             **kwargs)
         if spread:
-            addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys)
+            addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys,
+                                                 simple=simple)
             if (kwargs.has_key('ls') and kwargs['ls'] == 'none') \
                     or (kwargs.has_key('linestyle') \
                             and kwargs['linestyle'] == 'none'):
@@ -401,7 +407,8 @@ class streamdf:
         ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
                                        obs=obs,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1],ylabel=_labelDict[d2],
+                            xlabel=_labelDict[d1.lower()],
+                            ylabel=_labelDict[d2.lower()],
                             **kwargs)
         return None
 
@@ -498,8 +505,11 @@ class streamdf:
             tx*= self._Vnorm
         return tx        
 
-    def _parse_track_spread(self,d1,d2,interp=True,phys=False):
+    def _parse_track_spread(self,d1,d2,interp=True,phys=False,
+                            simple=_USESIMPLE):
         """Determine the spread around the track"""
+        if not hasattr(self,'_allErrCovs'):
+            self._determine_stream_spread(simple=simple)
         okaySpreadR= ['r','vr','vt','z','vz','phi']
         okaySpreadXY= ['x','y','z','vx','vy','vz']
         okaySpreadLB= ['ll','bb','dist','vlos','pmll','pmbb']
@@ -1539,7 +1549,7 @@ class streamdf:
             nummean= 0.
         denom= integrate.quad(self.pangledAngle,aplow,-aplow,(dangle,))[0]
         if denom == 0.: return numpy.nan
-        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)\
+        else: return numpy.sqrt(numsig2/denom-(nummean/denom)**2.)
 
     def _pangledAnglet(self,t,angleperp,dangle,smallest):
         """p(angle_perp|angle_par,time)"""
@@ -1703,7 +1713,7 @@ class streamdf:
            Either:
               a) R,vR,vT,z,vz,phi ndarray [nobjects]
               b)(Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple if 
-                aaInput
+                aAInput
                 where:
                     Omegar - radial frequency
                     Omegaphi - azimuthal frequency
@@ -2192,7 +2202,10 @@ class streamdf:
             out[3]= svX
             out[4]= svY
             out[5]= svZ
-            return out
+            if returndt:
+                return (out,dt)
+            else:
+                return out
         if lb:
             if Vnorm is None:
                 Vnorm= self._Vnorm
@@ -2226,7 +2239,10 @@ class streamdf:
             out[3]= svlbd[:,0]
             out[4]= svlbd[:,1]
             out[5]= svlbd[:,2]
-            return out
+            if returndt:
+                return (out,dt)
+            else:
+                return out
 
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
@@ -2461,23 +2477,6 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         jac2[5,:]= jac[5,:]
         jac= numpy.dot(jac2,numpy.linalg.inv(jac))[0:3,0:3]
     return jac
-
-def _mylogsumexp(arr,axis=0):
-    """Faster logsumexp?"""
-    minarr= numpy.amax(arr,axis=axis)
-    if axis == 1:
-        minarr= numpy.reshape(minarr,(arr.shape[0],1))
-    if axis == 0:
-        minminarr= numpy.tile(minarr,(arr.shape[0],1))
-    elif axis == 1:
-        minminarr= numpy.tile(minarr,(1,arr.shape[1]))
-    elif axis == None:
-        minminarr= numpy.tile(minarr,arr.shape)
-    else:
-        raise NotImplementedError("'_mylogsumexp' not implemented for axis > 2")
-    if axis == 1:
-        minarr= numpy.reshape(minarr,(arr.shape[0]))
-    return minarr+numpy.log(numpy.sum(numpy.exp(arr-minminarr),axis=axis))
 
 def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
     #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)

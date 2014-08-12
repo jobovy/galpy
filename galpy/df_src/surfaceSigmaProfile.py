@@ -23,7 +23,7 @@ class surfaceSigmaProfile:
         PURPOSE:
            when writing the parameters of this profile, what 
            format-strings to use?
-           This function defaults to '%4.2f' for each parameter in self._params
+           This function defaults to '%6.4f' for each parameter in self._params
         INPUT:
         OUTPUT:
            tuple of format-strings
@@ -63,7 +63,7 @@ class surfaceSigmaProfile:
         HISTORY:
            2010-03-26 - Written - Bovy (NYU)
         """
-        raise surfaceSigmaProfileError("'surfacemass' function not implemented for this surfaceSigmaProfile class")
+        raise NotImplementedError("'surfacemass' function not implemented for this surfaceSigmaProfile class")
 
     def sigma2(self,R,log=False):
         """
@@ -79,7 +79,7 @@ class surfaceSigmaProfile:
         HISTORY:
            2010-03-26 - Written - Bovy (NYU)
         """
-        raise surfaceSigmaProfileError("'sigma2' function not implemented for this surfaceSigmaProfile class")
+        raise NotImplementedError("'sigma2' function not implemented for this surfaceSigmaProfile class")
         
 class expSurfaceSigmaProfile(surfaceSigmaProfile):
     """Exponential surface density and sigma_R^2 class"""
@@ -96,6 +96,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         HISTORY:
            2010-03-26 - Written - Bovy (NYU)
         """
+        surfaceSigmaProfile.__init__(self)
         self._params= params
 
     def surfacemass(self,R,log=False):
@@ -174,10 +175,3 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         else:
             return self._params[2]**2.*sc.exp(-2.*(R-1.)/self._params[1])\
                 *(-2./self._params[1])
-
-class surfaceSigmaProfileError(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-

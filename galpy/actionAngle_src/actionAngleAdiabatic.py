@@ -18,13 +18,8 @@ from galpy.util import galpyWarning
 from galpy.potential import planarPotential
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
-try:
-    import actionAngleAdiabatic_c
-except IOError: #pragma: no cover
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+import actionAngleAdiabatic_c
+from actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleAdiabatic():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
@@ -70,6 +65,7 @@ class actionAngleAdiabatic():
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
            scipy.integrate.quadrature keywords
+           _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
         OUTPUT:
            (jr,lz,jz), where jr=[jr,jrerr], and jz=[jz,jzerr]
         HISTORY:
@@ -137,7 +133,14 @@ class actionAngleAdiabatic():
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
-                return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+                if kwargs.get('_justjr',False):
+                    kwargs.pop('_justjr')
+                    return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
+                elif kwargs.get('_justjz',False):
+                    kwargs.pop('_justjz')
+                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                else:
+                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
 
     def calcRapRperi(self,*args,**kwargs):
         """

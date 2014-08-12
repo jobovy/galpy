@@ -69,7 +69,7 @@ inline void calcEREzL(int ndata,
 		      int nargs,
 		      struct potentialArg * actionAngleArgs){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(ER+ii)= evaluatePotentials(*(R+ii),0.,
@@ -114,7 +114,7 @@ void actionAngleAdiabatic_actions(int ndata,
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
   calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
   //Adjust planar effective potential for gamma
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
@@ -126,8 +126,10 @@ void actionAngleAdiabatic_actions(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -161,7 +163,7 @@ void calcJRAdiabatic(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jr,rperi,rap,JRInt,params,T,ER,Lz)
@@ -214,7 +216,7 @@ void calcJzAdiabatic(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jz,zmax,JzInt,params,T,Ez,R)
@@ -274,7 +276,7 @@ void calcRapRperi(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,R_lo,R_hi,meps,peps)			\
@@ -477,7 +479,7 @@ void calcZmax(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,z_lo,z_hi)				\

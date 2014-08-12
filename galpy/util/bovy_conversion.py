@@ -403,11 +403,12 @@ def time_in_Gyr(vo,ro):
 
 #Decorator to apply these transformations
 def print_physical_warning():
-    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, and times in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
+    warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, energies and the Jacobi integral in (km/s)^2, the angular momentum o.L() and actions in km/s kpc, frequencies in 1/Gyr, and times and periods in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
                   galpyWarning)   
 _roNecessary= {'time': True,
                'position': True,
                'velocity': False,
+               'energy': False,
                'density': True,
                'force': True,
                'surfacedensity': True,
@@ -417,6 +418,7 @@ _roNecessary= {'time': True,
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
 _voNecessary['velocity']= True
+_voNecessary['energy']= True
 def physical_conversion(quantity,pop=False):
     """Decorator to convert to physical coordinates: 
     quantity = [position,velocity,time]"""
@@ -452,6 +454,15 @@ def physical_conversion(quantity,pop=False):
                     fac= ro
                 elif quantity.lower() == 'velocity':
                     fac= vo
+                elif quantity.lower() == 'frequency':
+                    if kwargs.get('kmskpc',False):
+                        fac= freq_in_kmskpc(vo,ro)
+                    else:
+                        fac= freq_in_Gyr(vo,ro)
+                elif quantity.lower() == 'action':
+                    fac= ro*vo
+                elif quantity.lower() == 'energy':
+                    fac= vo**2.
                 return method(*args,**kwargs)*fac
             else:
                 return method(*args,**kwargs)

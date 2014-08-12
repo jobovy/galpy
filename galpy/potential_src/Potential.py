@@ -62,13 +62,26 @@ class Potential:
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         """
-        try:
-            rawOut= self._evaluate(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError: #pragma: no cover
-            raise PotentialError("'_evaluate' function not implemented for this potential")
-        if rawOut is None: return rawOut
-        else: return self._amp*rawOut
-
+        if dR == 0 and dphi == 0:
+            try:
+                rawOut= self._evaluate(R,z,phi=phi,t=t)
+            except AttributeError: #pragma: no cover
+                raise PotentialError("'_evaluate' function not implemented for this potential")
+            if rawOut is None: return rawOut
+            else: return self._amp*rawOut
+        elif dR == 1 and dphi == 0:
+            return -self.Rforce(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self.phiforce(R,z,phi=phi,t=t)
+        elif dR == 2 and dphi == 0:
+            return self.R2deriv(R,z,phi=phi,t=t)
+        elif dR == 0 and dphi == 2:
+            return self.phi2deriv(R,z,phi=phi,t=t)
+        elif dR == 1 and dphi == 1:
+            return self.Rphideriv(R,z,phi=phi,t=t)           
+        elif dR != 0 or dphi != 0:
+            raise NotImplementedError('Higher-order derivatives not implemented for this potential')
+        
     def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -196,7 +209,6 @@ class Potential:
 
            z= (None) vertical height
 
-
            t - time (optional)
 
         KEYWORDS:
@@ -214,15 +226,21 @@ class Potential:
            2014-01-29 - Written - Bovy (IAS)
 
         """
+        if self.isNonAxi:
+            raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
-            return self._amp*self._mass(R,z,t=t)
+            return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
             #Use numerical integration to get the mass
             if z is None:
                 return 4.*nu.pi\
                     *integrate.quad(lambda x: x**2.*self.dens(x,0.,),
                                     0.,R)[0]
+            else:
+                return 4.*nu.pi\
+                    *integrate.dblquad(lambda y,x: x*self.dens(x,y),
+                                       0.,R,lambda x: 0., lambda x: z)[0]
 
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
@@ -421,6 +439,40 @@ class Potential:
         except AttributeError: #pragma: no cover
             return 0.
 
+    def Rphideriv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           Rphideriv
+
+        PURPOSE:
+
+           evaluate the mixed radial, azimuthal derivative
+
+        INPUT:
+
+           R - Galactocentric radius
+
+           Z - vertical height
+
+           phi - Galactocentric azimuth
+
+           t - time
+
+        OUTPUT:
+
+           d2Phi/dphidR
+
+        HISTORY:
+
+           2014-06-30 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            return 0.
+
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -457,6 +509,24 @@ class Potential:
         """
         return 0. #default is to assume axisymmetry
 
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rphideriv
+        PURPOSE:
+           evaluate the mixed radial and azimuthal derivative of the potential
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth (rad)
+           t - time (optional)
+        OUTPUT:
+           d2Phi/dphidR
+        HISTORY:
+           2014-06-30 - Written - Bovy (IAS)
+        """
+        return 0. #default is to assume axisymmetry
+
     def toPlanar(self):
         """
         NAME:
@@ -490,6 +560,7 @@ class Potential:
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,
              xrange=None,yrange=None,
+             justcontours=False,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -502,25 +573,27 @@ class Potential:
 
         INPUT:
 
-           t - time tp plot potential at
+           t= time tp plot potential at
 
-           rmin - minimum R at which to calculate
+           rmin= minimum R at which to calculate
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
            effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
 
            Lz= (None) angular momentum to use for the effective potential when effective=True
 
            ncontours - number of contours
+
+           justcontours= (False) if True, just plot contours
 
            savefilename - save to or restore from this savefile (pickle)
 
@@ -539,7 +612,7 @@ class Potential:
         """
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
-        if not savefilename == None and os.path.exists(savefilename):
+        if not savefilename is None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
@@ -575,11 +648,13 @@ class Potential:
                                 yrange=yrange,
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
     def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                      ncontours=21,savefilename=None,aspect=None,log=False):
+                    ncontours=21,savefilename=None,aspect=None,log=False,
+                    justcontours=False):
         """
         NAME:
            plotDensity
@@ -587,21 +662,23 @@ class Potential:
            plot the density of this potential
         INPUT:
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
 
@@ -610,10 +687,11 @@ class Potential:
         HISTORY:
            2014-01-05 - Written - Bovy (IAS)
         """
-        plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                      zmin=zmin,zmax=zmax,nzs=nzs,
-                      ncontours=ncontours,savefilename=savefilename,
-                      aspect=aspect,log=log)
+        return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
+                             zmin=zmin,zmax=zmax,nzs=nzs,
+                             ncontours=ncontours,savefilename=savefilename,
+                             justcontours=justcontours,
+                             aspect=aspect,log=log)
 
     def vcirc(self,R):
         """
@@ -908,9 +986,9 @@ class Potential:
 
            Rrange - range
 
-           grid - number of points to plot
+           grid= number of points to plot
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename=- save to or restore from this savefile (pickle)
 
            +bovy_plot(*args,**kwargs)
 
@@ -923,7 +1001,7 @@ class Potential:
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        plotRotcurve(self,*args,**kwargs)
+        return plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
@@ -940,9 +1018,9 @@ class Potential:
 
            Rrange - range
 
-           grid - number of points to plot
+           grid= number of points to plot
 
-           savefilename - save to or restore from this savefile (pickle)
+           savefilename= save to or restore from this savefile (pickle)
 
            +bovy_plot(*args,**kwargs)
 
@@ -955,7 +1033,7 @@ class Potential:
            2010-08-08 - Written - Bovy (NYU)
 
         """
-        plotEscapecurve(self.toPlanar(),*args,**kwargs)
+        return plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
     def conc(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
@@ -1285,34 +1363,47 @@ def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   ncontours=21,savefilename=None,aspect=None):
+                   ncontours=21,savefilename=None,aspect=None,
+                   justcontours=False):
         """
         NAME:
+
            plotPotentials
+
         PURPOSE:
+
            plot a set of potentials
+
         INPUT:
+
            Pot - Potential or list of Potential instances
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2010-07-09 - Written - Bovy (NYU)
+
         """
         if not savefilename == None and os.path.exists(savefilename):
             print "Restoring savefile "+savefilename+" ..."
@@ -1344,34 +1435,43 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                  ncontours=21,savefilename=None,aspect=None,log=False):
+                  ncontours=21,savefilename=None,aspect=None,log=False,
+                  justcontours=False):
         """
         NAME:
+
            plotDensities
+
         PURPOSE:
+
            plot the density a set of potentials
+
         INPUT:
+
            Pot - Potential or list of Potential instances
 
-           rmin - minimum R
+           rmin= minimum R
 
-           rmax - maximum R
+           rmax= maximum R
 
-           nrs - grid in R
+           nrs= grid in R
 
-           zmin - minimum z
+           zmin= minimum z
 
-           zmax - maximum z
+           zmax= maximum z
 
-           nzs - grid in z
+           nzs= grid in z
 
-           ncontours - number of contours
+           ncontours= number of contours
 
-           savefilename - save to or restore from this savefile (pickle)
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
         OUTPUT:
@@ -1411,6 +1511,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
                                 cntrls='-',
+                                justcontours=justcontours,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
@@ -1440,12 +1541,13 @@ def epifreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS)
     
     """
+    from galpy.potential import planarPotential
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
             sum+= pot.epifreq(R)**2.
         return nu.sqrt(sum)
-    elif isinstance(Pot,Potential):
+    elif isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R)
 
 def verticalfreq(Pot,R):
@@ -1698,7 +1800,7 @@ def omegac(Pot,R):
     from planarPotential import evaluateplanarRforces
     try:
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
-    except TypeError:
+    except PotentialError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)

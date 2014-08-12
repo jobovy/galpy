@@ -241,7 +241,7 @@ which returns a tuple with three components: an array with shape [3,N]
 of frequency vectors :math:`(\Omega_R,\Omega_\phi,\Omega_Z)`, an array
 with shape [3,N] of angle vectors
 :math:`(\theta_R,\theta_\phi,\theta_Z)` and :math:`t_s`, the stripping
-time. We can plot the vertical versus the radial angle
+time. We can plot the vertical versus the radial frequency
 
 >>> plot(mockaA[0][0],mockaA[0][2],'k.',ms=2.)
 

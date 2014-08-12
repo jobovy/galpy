@@ -10,12 +10,12 @@ import numpy as nu
 from scipy import special, integrate
 from Potential import Potential
 class PowerSphericalPotential(Potential):
-    """Class that implements spherical potentials that are derived from 
-    power-law density models
+    """Class that implements spherical potentials that are derived from power-law density models
 
-                amp
-    rho(r)= ---------
-             r^\alpha
+    .. math::
+
+        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,r^{-\\alpha}
+
     """
     def __init__(self,amp=1.,alpha=1.,normalize=False):
         """
@@ -52,7 +52,7 @@ class PowerSphericalPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -63,21 +63,15 @@ class PowerSphericalPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-07-10 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            if self.alpha == 2.:
-                return nu.log(R**2.+z**2.)/2. 
-            else:
-                return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        if self.alpha == 2.:
+            return nu.log(R**2.+z**2.)/2. 
+        else:
+            return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -192,9 +186,10 @@ class PowerSphericalPotential(Potential):
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler potential
 
-                amp
-    Phi(r)= ---------
-                 r
+    .. math::
+
+        \\Phi(r) = -\\frac{\\mathrm{amp}}{r}
+
     """
     def __init__(self,amp=1.,normalize=False):
         """
@@ -226,4 +221,19 @@ class KeplerPotential(PowerSphericalPotential):
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
                                          alpha=3.)
 
-
+    def _mass(self,R,z=0.,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2014-07-02 - Written - Bovy (IAS)
+        """
+        return 1.

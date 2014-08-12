@@ -15,17 +15,13 @@ import warnings
 import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
-    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs
+    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
+    epifreq, omegac, verticalfreq
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from actionAngle import actionAngle, UnboundError
-try:
-    import actionAngleStaeckel_c
-except IOError: #pragma: no cover
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+import actionAngleStaeckel_c
+from actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -204,6 +200,12 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
             else: #pragma: no cover
@@ -268,6 +270,12 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
@@ -430,7 +438,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JR
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
-        if (umax-umin)/umax < 10.**-6: return nu.array([0.,0.])
+        if (umax-umin)/umax < 10.**-6: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
@@ -474,7 +482,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JZ'): #pragma: no cover
             return self._JZ
         vmin= self.calcVmin()
-        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
+        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
@@ -591,9 +599,11 @@ class actionAngleStaeckelSingle(actionAngle):
                                        self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
+                if nu.fabs(rstart/0.9-self._ux) < 10.**-2.: rup= self._ux
+                else: rup= rstart/0.9
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                          rstart,rstart/0.9,
+                                          rstart,rup,
                                           (E,L,self._I3U,self._delta,
                                            self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
