@@ -293,3 +293,12 @@ def test_tilt_staeckel_mc():
     assert numpy.fabs(qdf.tilt(0.9,0.1,mc=True)-numpy.arctan(0.1/0.9)/numpy.pi*180.) < 3., "qdf's tilt deviates more than expected from expected for staeckel approx."
     return None
 
+def test_estimate_hr():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hr(0.9,z=0.)-0.25)/0.25) < 0.1, 'estimated scale length deviates more from input scale length than expected'
+    #Another one
+    qdf= quasiisothermaldf(1./2.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    assert numpy.fabs((qdf.estimate_hr(0.9,z=None)-0.5)/0.5) < 0.15, 'estimated scale length deviates more from input scale length than expected'
+    return None
