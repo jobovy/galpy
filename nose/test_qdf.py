@@ -1,7 +1,7 @@
 # Tests of the quasiisothermaldf module
 import numpy
 #fiducial setup uses these
-from galpy.potential import MWPotential, vcirc
+from galpy.potential import MWPotential, vcirc, omegac, epifreq
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
 aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
@@ -172,6 +172,28 @@ def test_sigmar_staeckel_mc():
     #higher up
     assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,0.2,mc=True))-2.*numpy.log(0.2)-0.2) < 0.4, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
     assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,-0.25,mc=True))-2.*numpy.log(0.2)-0.2) < 0.3, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
+    return None
+
+def test_sigmat_staeckel_gl():
+    #colder, st closer to epicycle expectation
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #In the mid-plane
+    gamma= 2.*omegac(MWPotential,0.9)/epifreq(MWPotential,0.9)
+    assert numpy.fabs(numpy.log(qdf.sigmaT2(0.9,0.,gl=True)/qdf.sigmaR2(0.9,0.,gl=True))+2.*numpy.log(gamma)) < 0.3, "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
+    #higher up
+    assert numpy.fabs(numpy.log(qdf.sigmaT2(0.9,0.2,gl=True)/qdf.sigmaR2(0.9,0.2,gl=True))+2.*numpy.log(gamma)) < 0.3, "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
+    return None
+
+def test_sigmat_staeckel_mc():
+    numpy.random.seed(2)
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #In the mid-plane
+    gamma= 2.*omegac(MWPotential,0.9)/epifreq(MWPotential,0.9)
+    assert numpy.fabs(numpy.log(qdf.sigmaT2(0.9,0.,mc=True)/qdf.sigmaR2(0.9,0.,mc=True))+2.*numpy.log(gamma)) < 0.3, "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
+    #higher up
+    assert numpy.fabs(numpy.log(qdf.sigmaT2(0.9,0.2,mc=True)/qdf.sigmaR2(0.9,0.2,mc=True))+2.*numpy.log(gamma)) < 0.3, "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
     return None
 
 def test_sigmaz_staeckel_gl():
