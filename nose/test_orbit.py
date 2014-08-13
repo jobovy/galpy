@@ -2050,6 +2050,35 @@ def test_physical_newOrbit():
     assert no._orb._solarmotion[2] == 25., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
     return None
 
+#Test the orbit interpolation
+def test_interpolation_issue187():
+    #Test that fails because of issue 187 reported by Mark Fardal
+    from galpy.orbit import Orbit
+    from scipy import interpolate
+    pot = potential.IsochronePotential(b=1./7.,normalize=True)
+    R, vR, vT, z, vz, phi = 1.,0.0,0.8,0.,0.,0.
+    orb = Orbit(vxvv=(R, vR, vT, z, vz, phi))
+    ts = numpy.linspace(0.,10.,1000)
+    orb.integrate(ts, pot)
+    orbpts = orb.getOrbit()
+    #detect phase wrap
+    pdiff= orbpts[:,5]-numpy.roll(orbpts[:,5],1)
+    phaseWrapIndx= numpy.where(pdiff < -6.)[0][0]
+    tsPreWrap = numpy.linspace(ts[phaseWrapIndx]-5.e-2,
+                               ts[phaseWrapIndx]-0.002,100)
+    tsPostWrap = numpy.linspace(ts[phaseWrapIndx]+0.002,
+                                ts[phaseWrapIndx]+5.e-2,100)
+    #Interpolate just before and after the phase-wrap
+    preWrapInterpolate=\
+        interpolate.InterpolatedUnivariateSpline(ts[phaseWrapIndx-11:phaseWrapIndx-1],
+                                                 orbpts[phaseWrapIndx-11:phaseWrapIndx-1,5])
+    postWrapInterpolate=\
+        interpolate.InterpolatedUnivariateSpline(ts[phaseWrapIndx:phaseWrapIndx+10],
+                                                 orbpts[phaseWrapIndx:phaseWrapIndx+10,5])
+    assert numpy.all(numpy.fabs((preWrapInterpolate(tsPreWrap) % (2.*numpy.pi))-orb.phi(tsPreWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    assert numpy.all(numpy.fabs((postWrapInterpolate(tsPostWrap) % (2.*numpy.pi))-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    return None
+
 # Check plotting routines
 def test_linear_plotting():
     from galpy.orbit import Orbit

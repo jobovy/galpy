@@ -1148,8 +1148,22 @@ class OrbitTop:
                         out[ii,jj]= self.orbit[indx,ii]
                 return out #should always have nt > 1, bc otherwise covered by above
             out= []
-            for ii in range(dim):
-                out.append(self._orbInterp[ii](t))
+            if dim == 4 or dim == 6:
+                #Unpack interpolated x and y to R and phi
+                x= self._orbInterp[0](t)
+                y= self._orbInterp[-1](t)
+                R= nu.sqrt(x*x+y*y)
+                phi= nu.arctan2(y,x) % (2.*nu.pi)
+                for ii in range(dim):
+                    if ii == 0:
+                        out.append(R) 
+                    elif ii == dim-1:
+                        out.append(phi) 
+                    else:
+                        out.append(self._orbInterp[ii](t))
+            else:
+                for ii in range(dim):
+                    out.append(self._orbInterp[ii](t))
             if nt == 1:
                 return nu.array(out).reshape(dim)
             else:
@@ -1866,11 +1880,26 @@ class OrbitTop:
         if not hasattr(self,"_orbInterp"):
             orbInterp= []
             for ii in range(len(self.vxvv)):
-                if not hasattr(self,"t"): #Orbit has not been integrated
-                    orbInterp.append(_fakeInterp(self.vxvv[ii]))
+                if (len(self.vxvv) == 4 or len(self.vxvv) == 6) and ii == 0:
+                   #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[0]*nu.cos(self.vxvv[-1])))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1])))
+                elif (len(self.vxvv) == 4 or len(self.vxvv) == 6) and \
+                        ii == len(self.vxvv)-1:
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[0]*nu.sin(self.vxvv[-1])))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1])))
                 else:
-                    orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                            self.t,self.orbit[:,ii]))
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[ii]))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,ii]))
             self._orbInterp= orbInterp
         return None
 
