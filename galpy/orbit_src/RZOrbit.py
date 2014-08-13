@@ -47,11 +47,9 @@ class RZOrbit(OrbitTop):
         """
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateRZOrbit
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate
@@ -60,8 +58,12 @@ class RZOrbit(OrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
-                   a simple symplectic integrator
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -73,6 +75,7 @@ class RZOrbit(OrbitTop):
         self._pot= pot
         self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -118,6 +121,7 @@ class RZOrbit(OrbitTop):
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
+    @physical_conversion('energy')
     def ER(self,*args,**kwargs):
         """
         NAME:
@@ -161,6 +165,7 @@ class RZOrbit(OrbitTop):
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
+    @physical_conversion('energy')
     def Ez(self,*args,**kwargs):
         """
         NAME:
@@ -207,6 +212,7 @@ class RZOrbit(OrbitTop):
                                                 t=t[ii])\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
+    @physical_conversion('energy')
     def Jacobi(self,*args,**kwargs):
         """
         NAME:
@@ -244,8 +250,16 @@ class RZOrbit(OrbitTop):
         else:
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',None)
+        kwargs['use_physical']= False
         thiso= self(*args,**kwargs)
-        return self.E(*args,**kwargs)-OmegaP*thiso[0]*thiso[2]
+        out= self.E(*args,**kwargs)-OmegaP*thiso[0]*thiso[2]
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
 
     def e(self,analytic=False,pot=None):
         """
@@ -342,175 +356,46 @@ class RZOrbit(OrbitTop):
             raise AttributeError("Integrate the orbit first")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot= - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot E vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot,
-                                     t=self.t[ii])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.+
-                  self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-
     def plotEz(self,*args,**kwargs):
         """
         NAME:
            plotEz
         PURPOSE:
-           plot E_z(.) along the orbit
+           plot Ez(.) along the orbit
         INPUT:
-           pot= Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
+           bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
+           2014-06-16 - Written - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Eznorm'
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Ezs= [evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],pot,
-                                      t=self.t[ii])-
-                   evaluatePotentials(self.orbit[ii,0],0.,pot,t=self.t[ii])+
-                   self.orbit[ii,4]**2./2. for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E_z$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-        elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.Ezs)/self.Ezs[0],
-                           *args,**kwargs)
-         
-    def plotJacobi(self,*args,**kwargs):
+            kwargs['d2']= 'Ez'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
+    def plotER(self,*args,**kwargs):
         """
         NAME:
-           plotJacobi
+           plotER
         PURPOSE:
-           plot the Jacobi integral(.) along the orbit
+           plot ER(.) along the orbit
         INPUT:
-           OmegaP= pattern speed
-           pot= Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Jacobi vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
+           bovy_plot.bovy_plot inputs
         OUTPUT:
            figure to output device
         HISTORY:
-           2011-10-10 - Written - Bovy (IAS)
+           2014-06-16 - Written - Bovy (IAS)
         """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        Js= self.Jacobi(self.t,**kwargs)
-        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
-        if kwargs.has_key('pot'): kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'ERnorm'
         else:
-            d1= 't'
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],Js/Js[0],
-                           *args,**kwargs)
-
+            kwargs['d2']= 'ER'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
     def plotEzJz(self,*args,**kwargs):
         """
         NAME:
@@ -648,13 +533,4 @@ def _RZEOM(y,t,pot,l2):
             l2/y[0]**3.+evaluateRforces(y[0],y[2],pot,t=t),
             y[3],
             evaluatezforces(y[0],y[2],pot,t=t)]
-"""
-def _integrateBCFuncRZ(t,vxvv,pot,method,bc,to):
-    if t == to: return bc(vxvv)
-    #Determine number of ts
-    nts= int(nu.ceil(t-to))+1 #very simple estimate
-    tin= nu.linspace(to,t,nts)
-    orb= _integrateRZOrbit(vxvv,pot,tin,method)
-    return bc(orb[nts-1,:])
-"""
 

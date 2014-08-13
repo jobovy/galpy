@@ -17,6 +17,18 @@ def test_save_pickles():
         assert numpy.all(numpy.fabs(restorethis-savethis) < 10.**-10.), 'save_pickles did not work as expected'
     finally:
         os.remove(tmp_savefilename)
+    #Also test the handling of KeyboardInterrupt
+    try:
+        save_pickles(tmp_savefilename,savethis,testKeyboardInterrupt=True)
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError('save_pickles with testKeyboardInterrupt=True did not raise KeyboardInterrupt')
+    savefile= open(tmp_savefilename,'rb')
+    restorethis= pickle.load(savefile)
+    savefile.close()
+    assert numpy.all(numpy.fabs(restorethis-savethis) < 10.**-10.), 'save_pickles did not work as expected when KeyboardInterrupted'
+    if os.path.exists(tmp_savefilename): os.remove(tmp_savefilename)   
     return None
 
 def test_logsumexp():

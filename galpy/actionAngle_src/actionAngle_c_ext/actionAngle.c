@@ -27,50 +27,58 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialEval;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 8: //HernquistPotential, 2 arguments
       potentialArgs->potentialEval= &HernquistPotentialEval;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 9: //NFWPotential, 2 arguments
       potentialArgs->potentialEval= &NFWPotentialEval;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 10: //JaffePotential, 2 arguments
       potentialArgs->potentialEval= &JaffePotentialEval;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1));
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
       potentialArgs->nargs= 4;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;     
     case 13: //interpRZPotential, XX arguments
       //Grab the grids and the coefficients
@@ -89,7 +97,8 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2d,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
-      potentialArgs->acc= gsl_interp_accel_alloc ();
+      potentialArgs->accx= gsl_interp_accel_alloc ();
+      potentialArgs->accy= gsl_interp_accel_alloc ();
       potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->nargs= 2;
       //clean up
@@ -101,8 +110,16 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->potentialEval= &IsochronePotentialEval;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
-      potentialArgs->acc= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
       break;     
+    case 15: //PowerSphericalPotentialwCutoff, 3 arguments
+      potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
+      potentialArgs->nargs= 3;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

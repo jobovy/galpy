@@ -1,7 +1,15 @@
-v0.2 (XXXX-XX-XX)
+v1.0 (XXXX-XX-XX)
 ==================
 
 CURRENT DEVELOPMENT VERSION
+
+- Changed default integrator to symplec4_c
+
+- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of relevant data on the Milky Way; supersedes MWPotential, which is still included.
+
+- Add C implementation of PowerSphericalPotentialwCutoff;
+
+- Moved MovingObjectPotential, BurkertPotential, and interpRZPotential to top level; better implementation of interpRZPotential;
 
 - Sped up many of the functions in galpy.util.bovy_coords by removing scipy.frompyfunc dependency.
 
@@ -13,7 +21,7 @@ CURRENT DEVELOPMENT VERSION
 
 - Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass;
 
-- Started adding potential.mass to return the mass enclosed;
+- Added potential.mass to return the mass enclosed for individual potential instances; both spherical and axisymmetric potentials are covered.
 
 - Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP);
 

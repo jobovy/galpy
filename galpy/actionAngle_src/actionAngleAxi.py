@@ -20,6 +20,7 @@ from actionAngle import *
 from actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     evaluateplanarPotentials
+from galpy.potential_src.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
 class actionAngleAxi(actionAngle,actionAngleVertical):
@@ -122,11 +123,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             return self._TR
         (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi: #Rough limit
-            raise AttributeError("Not implemented yet")
-            #TR=kappa
-            gamma= m.sqrt(2./(1.+self._beta))
-            kappa= 2.*self._R**(self._beta-1.)/gamma
-            self._TR= 2.*m.pi/kappa
+            self._TR= 2.*m.pi/epifreq(self._pot,self._R)
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         EL= self.calcEL(**kwargs)

@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential, lindbladR
@@ -42,10 +44,21 @@ class planarPotential:
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        try:
-            return self._amp*self._evaluate(R,phi=phi,t=t,dR=dR,dphi=dphi)
-        except AttributeError:
-            raise PotentialError("'_evaluate' function not implemented for this potential")
+        if dR == 0 and dphi == 0:
+            try:
+                return self._amp*self._evaluate(R,phi=phi,t=t)
+            except AttributeError: #pragma: no cover
+                raise PotentialError("'_evaluate' function not implemented for this potential")
+        elif dR == 1 and dphi == 0:
+            return -self.Rforce(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 1:
+            return -self.phiforce(R,phi=phi,t=t)
+        elif dR == 2 and dphi == 0:
+            return self.R2deriv(R,phi=phi,t=t)
+        elif dR == 0 and dphi == 2:
+            return self.phi2deriv(R,phi=phi,t=t)
+        elif dR == 1 and dphi == 1:
+            return self.Rphideriv(R,phi=phi,t=t)
 
     def Rforce(self,R,phi=0.,t=0.):
         """
@@ -76,7 +89,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._Rforce(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
     def phiforce(self,R,phi=0.,t=0.):
@@ -108,7 +121,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._phiforce(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
     def R2deriv(self,R,phi=0.,t=0.):
@@ -140,7 +153,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._R2deriv(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     def phi2deriv(self,R,phi=0.,t=0.):
@@ -172,7 +185,7 @@ class planarPotential:
         """
         try:
             return self._amp*self._phi2deriv(R,phi=phi,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
     def Rphideriv(self,R,phi=0.,t=0.):
@@ -223,7 +236,7 @@ class planarPotential:
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        plotplanarPotentials(self,*args,**kwargs)
+        return plotplanarPotentials(self,*args,**kwargs)
 
 class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
@@ -235,7 +248,7 @@ class planarAxiPotential(planarPotential):
     def _phiforce(self,R,phi=0.,t=0.):
         return 0.
 
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
+    def _phi2deriv(self,R,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _phi2deriv
@@ -253,7 +266,7 @@ class planarAxiPotential(planarPotential):
         """
         return 0.
 
-    def _Rphideriv(self,R,z,phi=0.,t=0.):
+    def _Rphideriv(self,R,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _Rphideriv
@@ -440,7 +453,7 @@ class planarAxiPotential(planarPotential):
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        plotRotcurve(self,*args,**kwargs)
+        return plotRotcurve(self,*args,**kwargs)
 
     def plotEscapecurve(self,*args,**kwargs):
         """
@@ -471,7 +484,7 @@ class planarAxiPotential(planarPotential):
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        plotEscapecurve(self,*args,**kwargs)
+        return plotEscapecurve(self,*args,**kwargs)
 
 class planarPotentialFromRZPotential(planarAxiPotential):
     """Class that represents an axisymmetic planar potential derived from a 
@@ -494,7 +507,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC= RZPot.hasC
         return None
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -509,7 +522,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.,t=t,dR=dR,dphi=dphi)
+        return self._RZPot(R,0.,t=t)
             
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -622,7 +635,8 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -635,8 +649,8 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
             return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
         else:
             return Pot(R,t=t,dR=dR,dphi=dphi)
-    else:
-        raise TypeError("Input to 'evaluateplanarPotentials' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarRforces(R,Pot,phi=None,t=0.):
     """
@@ -675,7 +689,8 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -688,8 +703,8 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
             return Pot.Rforce(R,phi=phi,t=t)
         else:
             return Pot.Rforce(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarRforces' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
     """
@@ -728,7 +743,8 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -741,8 +757,8 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
             return Pot.phiforce(R,phi=phi,t=t)
         else:
             return Pot.phiforce(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarphiforces' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
     """
@@ -781,7 +797,8 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
         nonAxi= Pot.isNonAxi
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list):
+    if isinstance(Pot,list) \
+            and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -794,8 +811,8 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
             return Pot.R2deriv(R,phi=phi,t=t)
         else:
             return Pot.R2deriv(R,t=t)
-    else:
-        raise TypeError("Input to 'evaluateplanarR2derivs' is neither a Potential-instance or a list of such instances")
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
@@ -849,12 +866,12 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         grid= kwargs['grid']
         kwargs.pop('grid')
     else:
-        grid= 1000 #avoid zero
+        grid= 100 #avoid zero
     if kwargs.has_key('gridx'):
         gridx= kwargs['gridx']
         kwargs.pop('gridx')
     else:
-        gridx= 1000 #avoid zero
+        gridx= 100 #avoid zero
     if kwargs.has_key('gridy'):
         gridy= kwargs['gridy']
         kwargs.pop('gridy')
@@ -867,17 +884,16 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         savefilename= None
     isList= isinstance(Pot,list)
     nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
-    if not savefilename == None and os.path.exists(savefilename):
+    if not savefilename is None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
         potR= pickle.load(savefile)
-        Rs= pickle.load(savefile)
         if nonAxi:
             xs= pickle.load(savefile)
             ys= pickle.load(savefile)
         else:
             Rs= pickle.load(savefile)
-            savefile.close()
+        savefile.close()
     else:
         if nonAxi:
             xs= nu.linspace(xrange[0],xrange[1],gridx)
@@ -897,8 +913,8 @@ def plotplanarPotentials(Pot,*args,**kwargs):
             potR= nu.zeros(grid)
             for ii in range(grid):
                 potR[ii]= evaluateplanarPotentials(Rs[ii],Pot)
-        if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
+        if not savefilename is None:
+            print "Writing planar savefile "+savefilename+" ..."
             savefile= open(savefilename,'wb')
             pickle.dump(potR,savefile)
             if nonAxi:
@@ -906,7 +922,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                 pickle.dump(ys,savefile)
             else:
                 pickle.dump(Rs,savefile)
-                savefile.close()
+            savefile.close()
     if nonAxi:
         if not kwargs.has_key('origin'):
             kwargs['origin']= 'lower'
@@ -934,7 +950,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                                 yrange=yrange,**kwargs)
     else:
         kwargs['xlabel']=r"$R/R_0$"
-        kwargs['ylabel']=r"$\Phi(R)$",
+        kwargs['ylabel']=r"$\Phi(R)$"
         kwargs['xrange']=Rrange
         return plot.bovy_plot(Rs,potR,*args,**kwargs)
                               

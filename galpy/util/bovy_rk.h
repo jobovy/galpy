@@ -46,13 +46,13 @@ void bovy_rk4(void (*func)(double, double *, double *,
 	      int, struct potentialArg *,
 	      double, double,
 	      double *,int *);
-inline void bovy_rk4_onestep(void (*func)(double, double *, double *,
-					  int, struct potentialArg *),
-			     int,
-			     double *,double *,
-			     double, double,
-			     int, struct potentialArg *,
-			     double *,double *);
+void bovy_rk4_onestep(void (*func)(double, double *, double *,
+				   int, struct potentialArg *),
+		      int,
+		      double *,double *,
+		      double, double,
+		      int, struct potentialArg *,
+		      double *,double *);
 void bovy_rk6(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,
@@ -61,16 +61,19 @@ void bovy_rk6(void (*func)(double, double *, double *,
 	      int, struct potentialArg *,
 	      double, double,
 	      double *,int *);
-inline void bovy_rk6_onestep(void (*func)(double, double *, double *,
-					  int, struct potentialArg *),
-			     int,
-			     double *,double *,
-			     double, double,
-			     int, struct potentialArg *,
-			     double *,double *,
-			     double *, double *, double * , double *,
-			     double *);
-inline void save_rk(int, double *, double *);
+void bovy_rk6_onestep(void (*func)(double, double *, double *,
+				   int, struct potentialArg *),
+		      int,
+		      double *,double *,
+		      double, double,
+		      int, struct potentialArg *,
+		      double *,double *,
+		      double *, double *, double * , double *,
+		      double *);
+static inline void save_rk(int dim, double *yo, double *result){
+  int ii;
+  for (ii=0; ii < dim; ii++) *result++= *yo++;
+}
 double rk4_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
 			 int, double *,
 			 double, double *,

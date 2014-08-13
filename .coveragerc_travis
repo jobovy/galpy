@@ -18,8 +18,6 @@ omit =
     galpy/util/bovy_plot.py
     galpy/util/bovy_ars.py
     galpy/util/multi.py
-    galpy/potential_src/DoubleExponentialDiskPotential.py
-    galpy/potential_src/RazorThinExponentialDiskPotential.py
 
 ignore_errors = True
 

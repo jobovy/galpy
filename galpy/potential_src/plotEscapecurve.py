@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 _INF= 10**12.
@@ -16,11 +18,11 @@ def plotEscapecurve(Pot,*args,**kwargs):
 
        Pot - Potential or list of Potential instances
 
-       Rrange - Range in R to consider
+       Rrange= Range in R to consider
 
-       grid - grid in R
+       grid= grid in R
 
-       savefilename - save to or restore from this savefile (pickle)
+       savefilename= save to or restore from this savefile (pickle)
 
        +bovy_plot.bovy_plot args and kwargs
 
@@ -101,10 +103,11 @@ def calcEscapecurve(Pot,Rs):
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
     from planarPotential import evaluateplanarPotentials
+    from Potential import PotentialError
     for ii in range(grid):
         try:
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
-        except TypeError:
+        except PotentialError:
             from planarPotential import RZToplanarPotential
             Pot= RZToplanarPotential(Pot)
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
@@ -137,9 +140,10 @@ def vesc(Pot,R):
 
     """
     from planarPotential import evaluateplanarPotentials
+    from Potential import PotentialError
     try:
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
-    except TypeError:
+    except PotentialError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))

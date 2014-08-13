@@ -92,5 +92,5 @@ def RZToverticalPotential(RZPot,R):
         return verticalPotential(RZPot,R)
     elif isinstance(RZPot,linearPotential):
         return RZPot
-    else:
+    else: #pragma: no cover
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")

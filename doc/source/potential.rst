@@ -255,6 +255,19 @@ The ``None`` here means that there is no inner Lindblad resonance, the
 the :ref:`Hercules stream <hercules>` in this documentation).
 
 
+Using interpolations of potentials
+-----------------------------------
+
+``galpy`` contains a general ``Potential`` class ``interpRZPotential``
+that can be used to generate interpolations of potentials that can be
+used in their stead to speed up calculations when the calculation of
+the original potential is computationally expensive (for example, for
+the ``DoubleExponentialDiskPotential``). Full details on how to set
+this up are given :ref:`here <interprz>`. Interpolated potentials can
+be used anywhere that general three-dimensional galpy potentials can
+be used. Some care must be taken with outside-the-interpolation-grid
+evaluations for functions that use ``C`` to speed up computations.
+
 Adding potentials to the galpy framework
 -----------------------------------------
 
@@ -275,13 +288,9 @@ following series of steps (some of these are also given in the file
   The new potential class should implement some of the following
   functions: 
 
-  * ``_evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0)`` which evaluates the
+  * ``_evaluate(self,R,z,phi=0,t=0)`` which evaluates the
     potential itself (*without* the amp factor, which is added in the
-    ``__call__`` method of the general Potential class). This function
-    should also call the relevant derivatives if dR or dphi is not
-    equal to zero (this is used only in some of the razor-thin disk
-    distribution functions, so doing this properly is not that
-    important).
+    ``__call__`` method of the general Potential class).
 
   * ``_Rforce(self,R,z,phi=0.,t=0.)`` which evaluates the radial force
     in cylindrical coordinates (-d potential / d R).
@@ -305,6 +314,13 @@ following series of steps (some of these are also given in the file
     not given, the density is computed using the Poisson equation from
     the first and second derivatives of the potential (if all are
     implemented).
+
+  * ``_mass(self,R,z=0.,t=0.)`` which evaluates the mass. For
+    spherical potentials this should give the mass enclosed within the
+    spherical radius; for axisymmetric potentials this should return
+    the mass up to ``R`` and between ``-Z`` and ``Z``. If not given,
+    the mass is computed by integrating the density (if it is
+    implemented or can be calculated from the Poisson equation).
 
   * ``_phiforce(self,R,z,phi=0.,t=0.)``: the azimuthal force in
     cylindrical coordinates (assumed zero if not implemented).

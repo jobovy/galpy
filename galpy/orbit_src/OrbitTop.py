@@ -40,6 +40,8 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        # If you change the way an Orbit object is setup, also change each of
+        # the methods that return Orbits
         self.vxvv= vxvv
         if vo is None:
             self._vo= 220.
@@ -57,7 +59,24 @@ class OrbitTop:
         self._solarmotion= solarmotion
         return None
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def turn_physical_off(self):
+        """
+        NAME:
+           turn_physical_off
+        PURPOSE:
+           turn off automatic returning of outputs in physical units
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2014-06-17 - Written - Bovy (IAS)
+        """
+        self._roSet= False
+        self._voSet= False
+        return None
+
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate
@@ -73,54 +92,6 @@ class OrbitTop:
         """
         raise NotImplementedError
 
-    def integrateBC(self,pot,bc=None,method='odeint'):
-        """
-        NAME:
-           integrateBC
-        PURPOSE:
-           integrate the orbit subject to a final boundary condition
-        INPUT:
-           pot - potential instance or list of instances
-           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
-           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
-                   a simple symplectic integrator
-        OUTPUT:
-           Another Orbit instance, time at which the BC is reached
-        HISTORY:
-           2011-09-30
-        """
-        #Parse potential
-        if len(self.vxvv) == 3 or len(self.vxvv) == 4:
-            thispot= RZToplanarPotential(pot)
-        else:
-            thispot= pot
-        #First find the interval; initialize
-        dt= 1.
-        a,b=  0., dt
-        vxvv_a= self.vxvv
-        bc_a= bc(vxvv_a)
-        if bc_a == 0.:
-            return (nu.array([vxvv_a,vxvv_a]),0.)
-        tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
-        vxvv_b= tmp_orb[1,:]
-        bc_b= bc(vxvv_b)
-        if bc_b*bc_a < 0.: found_init_interval= True
-        else: found_init_interval= False
-        while not found_init_interval:
-            #Repeat!
-            a= b
-            b= a+1.
-            bc_a= bc_b
-            vxvv_a= vxvv_b
-            tmp_orb= self._BCIntegrateFunction(vxvv_a,thispot,nu.array([0.,b-a]),method)
-            vxvv_b= tmp_orb[1,:]
-            bc_b= bc(vxvv_b)
-            if bc_b*bc_a < 0.: found_init_interval= True
-        tout= optimize.brentq(_BCZeroFunction,a,b,
-                              args=(vxvv_a,thispot,method,bc,a,self._BCIntegrateFunction))
-        t= nu.array([a,tout])
-        return (self._BCIntegrateFunction(vxvv_a,thispot,t,method),a+tout)
-    
     def getOrbit(self):
         """
         NAME:
@@ -135,6 +106,21 @@ class OrbitTop:
            2010-07-10 - Written - Bovy (NYU)
         """
         return self.orbit
+
+    def getOrbit_dxdv(self):
+        """
+        NAME:
+           getOrbit_dxdv
+        PURPOSE:
+           return a previously calculated orbit_dxdv
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2010-07-10 - Written - Bovy (NYU)
+        """
+        return self.orbit_dxdv[:,4:]
 
     @physical_conversion('time')
     def time(self,*args,**kwargs):
@@ -423,7 +409,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            ra(t)
         HISTORY:
@@ -444,7 +430,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            dec(t)
         HISTORY:
@@ -465,7 +451,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            l(t)
         HISTORY:
@@ -486,7 +472,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            b(t)
         HISTORY:
@@ -507,7 +493,7 @@ class OrbitTop:
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            dist(t) in kpc
         HISTORY:
@@ -528,8 +514,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            pm_ra(t) in mas / yr
         HISTORY:
@@ -550,8 +536,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            pm_dec(t) in mas/yr
         HISTORY:
@@ -572,8 +558,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            pm_l(t) in mas/yr
         HISTORY:
@@ -594,8 +580,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            pm_b(t) in mas/yr
         HISTORY:
@@ -616,8 +602,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            vlos(t) in km/s
         HISTORY:
@@ -638,7 +624,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioX(t) in kpc
         HISTORY:
@@ -659,7 +645,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioY(t) in kpc
         HISTORY:
@@ -680,7 +666,7 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioZ(t) in kpc
         HISTORY:
@@ -701,8 +687,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            U(t) in km/s
         HISTORY:
@@ -723,8 +709,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            V(t) in km/s
         HISTORY:
@@ -745,8 +731,8 @@ class OrbitTop:
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            W(t) in km/s
         HISTORY:
@@ -966,6 +952,7 @@ class OrbitTop:
         """
         raise NotImplementedError("'Jacobi' for this Orbit type is not implemented yet")
 
+    @physical_conversion('action')
     def L(self,*args,**kwargs):
         """
         NAME:
@@ -979,6 +966,9 @@ class OrbitTop:
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',None)
+        kwargs['use_physical']= False
         if kwargs.has_key('Omega'):
             Omega= kwargs['Omega']
             kwargs.pop('Omega')
@@ -993,9 +983,9 @@ class OrbitTop:
             raise AttributeError("'linearOrbit has no angular momentum")
         elif len(thiso[:,0]) == 3 or len(thiso[:,0]) == 4:
             if Omega is None:
-                return thiso[0,:]*thiso[2,:]
+                out= thiso[0,:]*thiso[2,:]
             else:
-                return thiso[0,:]*(thiso[2,:]-Omega*t*thiso[0,:])
+                out= thiso[0,:]*(thiso[2,:]-Omega*t*thiso[0,:])
         elif len(thiso[:,0]) == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
         else: #len(thiso[:,0]) == 6
@@ -1009,7 +999,11 @@ class OrbitTop:
             out[:,0]= y*vz-z*vy
             out[:,1]= z*vx-x*vz
             out[:,2]= x*vy-y*vx
-            return out
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
 
     def _resetaA(self,pot=None,type=None):
         """
@@ -1131,7 +1125,8 @@ class OrbitTop:
             return nu.array(self.vxvv)
         else:
             t= args[0]
-        if isinstance(t,(int,float)) and t in list(self.t):
+        if isinstance(t,(int,float)) and hasattr(self,'t') \
+                and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
         else:
             if isinstance(t,(int,float)): 
@@ -1151,35 +1146,28 @@ class OrbitTop:
                         raise LookupError("Orbit interpolaton failed; integrate on finer grid")
                     for ii in range(dim):
                         out[ii,jj]= self.orbit[indx,ii]
-                if nt == 1:
-                    return nu.array(out).reshape(dim)
-                else:
-                    return out
+                return out #should always have nt > 1, bc otherwise covered by above
             out= []
-            for ii in range(dim):
-                out.append(self._orbInterp[ii](t))
+            if dim == 4 or dim == 6:
+                #Unpack interpolated x and y to R and phi
+                x= self._orbInterp[0](t)
+                y= self._orbInterp[-1](t)
+                R= nu.sqrt(x*x+y*y)
+                phi= nu.arctan2(y,x) % (2.*nu.pi)
+                for ii in range(dim):
+                    if ii == 0:
+                        out.append(R) 
+                    elif ii == dim-1:
+                        out.append(phi) 
+                    else:
+                        out.append(self._orbInterp[ii](t))
+            else:
+                for ii in range(dim):
+                    out.append(self._orbInterp[ii](t))
             if nt == 1:
                 return nu.array(out).reshape(dim)
             else:
                 return nu.array(out).reshape((dim,nt))
-
-    def plotE(self,pot,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot E vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        raise NotImplementedError
 
     def plot(self,*args,**kwargs):
         """
@@ -1213,11 +1201,24 @@ class OrbitTop:
                         'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
                         'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
                         'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
-                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
+                        'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Enorm':r'$E(t)/E(0.)$',
+                        'Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
+                        'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
@@ -1316,6 +1317,22 @@ class OrbitTop:
             x= self.V(self.t,**kwargs)
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
+        elif d1 == 'E':
+            x= self.E(self.t,**kwargs)
+        elif d1 == 'Enorm':
+            x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+        elif d1 == 'Ez':
+            x= self.Ez(self.t,**kwargs)
+        elif d1 == 'Eznorm':
+            x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+        elif d1 == 'ER':
+            x= self.ER(self.t,**kwargs)
+        elif d1 == 'ERnorm':
+            x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d1 == 'Jacobi':
+            x= self.Jacobi(self.t,**kwargs)
+        elif d1 == 'Jacobinorm':
+            x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
         if d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
@@ -1370,10 +1387,28 @@ class OrbitTop:
             y= self.V(self.t,**kwargs)
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
+        elif d2 == 'E':
+            y= self.E(self.t,**kwargs)
+        elif d2 == 'Enorm':
+            y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+        elif d2 == 'Ez':
+            y= self.Ez(self.t,**kwargs)
+        elif d2 == 'Eznorm':
+            y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+        elif d2 == 'ER':
+            y= self.ER(self.t,**kwargs)
+        elif d2 == 'ERnorm':
+            y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d2 == 'Jacobi':
+            y= self.Jacobi(self.t,**kwargs)
+        elif d2 == 'Jacobinorm':
+            y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
         if kwargs.has_key('ro'): kwargs.pop('ro')
         if kwargs.has_key('vo'): kwargs.pop('vo')
         if kwargs.has_key('obs'): kwargs.pop('obs')
         if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
+        if kwargs.has_key('pot'): kwargs.pop('pot')
+        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
         #Plot
         if not kwargs.has_key('xlabel'):
             kwargs['xlabel']= labeldict[d1]
@@ -1801,15 +1836,70 @@ class OrbitTop:
         kwargs['d2']= 'vz'
         self.plot(*args,**kwargs)
         
+    def plotE(self,*args,**kwargs):
+        """
+        NAME:
+           plotE
+        PURPOSE:
+           plot E(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2014-06-16 - Written - Bovy (IAS)
+        """
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Enorm'
+        else:
+            kwargs['d2']= 'E'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
+    def plotJacobi(self,*args,**kwargs):
+        """
+        NAME:
+           plotE
+        PURPOSE:
+           plot Jacobi(.) along the orbit
+        INPUT:
+           bovy_plot.bovy_plot inputs
+        OUTPUT:
+           figure to output device
+        HISTORY:
+           2014-06-16 - Written - Bovy (IAS)
+        """
+        if kwargs.get('normed',False):
+            kwargs['d2']= 'Jacobinorm'
+        else:
+            kwargs['d2']= 'Jacobi'
+        if kwargs.has_key('normed'): kwargs.pop('normed')
+        self.plot(*args,**kwargs)
+        
     def _setupOrbitInterp(self):
         if not hasattr(self,"_orbInterp"):
             orbInterp= []
             for ii in range(len(self.vxvv)):
-                if not hasattr(self,"t"): #Orbit has not been integrated
-                    orbInterp.append(_fakeInterp(self.vxvv[ii]))
+                if (len(self.vxvv) == 4 or len(self.vxvv) == 6) and ii == 0:
+                   #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[0]*nu.cos(self.vxvv[-1])))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1])))
+                elif (len(self.vxvv) == 4 or len(self.vxvv) == 6) and \
+                        ii == len(self.vxvv)-1:
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[0]*nu.sin(self.vxvv[-1])))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1])))
                 else:
-                    orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                            self.t,self.orbit[:,ii]))
+                    if not hasattr(self,"t"): #Orbit has not been integrated
+                        orbInterp.append(_fakeInterp(self.vxvv[ii]))
+                    else:
+                        orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
+                                self.t,self.orbit[:,ii]))
             self._orbInterp= orbInterp
         return None
 
@@ -1821,10 +1911,3 @@ class _fakeInterp:
     def __call__(self,t):
         return self.x
 
-def _BCZeroFunction(t,vxvv,pot,method,bc,to,BCIntegrateFunc):
-    if t == to: return bc(vxvv)
-    #Determine number of ts
-    nts= int(nu.ceil(t-to))+1 #very simple estimate
-    tin= nu.linspace(to,t,nts)
-    orb= BCIntegrateFunc(vxvv,pot,tin,method)
-    return bc(orb[nts-1,:])

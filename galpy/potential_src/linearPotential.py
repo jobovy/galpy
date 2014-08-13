@@ -37,7 +37,7 @@ class linearPotential:
         """
         try:
             return self._amp*self._evaluate(x,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
     def force(self,x,t=0.):
@@ -67,7 +67,7 @@ class linearPotential:
         """
         try:
             return self._amp*self._force(x,t=t)
-        except AttributeError:
+        except AttributeError: #pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 
     def plot(self,t=0.,min=-15.,max=15,ns=21,savefilename=None):
@@ -122,93 +122,6 @@ class linearPotential:
                               xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                               xrange=[min,max])
 
-class linearPotentialFromRZPotential(linearPotential):
-    def __init__(self,RZPot,R=1.):
-        """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize
-        INPUT:
-           RZPot - RZPotential instance
-           R - Galactocentric radius at which to use the zPotential
-        OUTPUT:
-           linearAxiPotential instance
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
-        """
-        linearPotential.__init__(self,amp=1.)
-        self._RZPot= RZPot
-        self._R= R
-        return None
-
-    def _evaluate(self,x,t=0.):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential
-        INPUT:
-           x
-           t
-        OUTPUT:
-          Pot(x,t)
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
-        """
-        return self._RZPot(self._R,x,t=t)
-            
-    def _force(self,x,t=0.):
-        """
-        NAME:
-           _force
-        PURPOSE:
-           evaluate the force
-        INPUT:
-           x
-           t
-        OUTPUT:
-          F(x,t)
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
-        """
-        return self._RZPot.Rforce(self._R,x,t=t)
-            
-def RZTolinearPotential(RZPot,R=1.):
-    """
-    NAME:
-
-       RZTolinearPotential
-
-    PURPOSE:
-
-       convert an RZPotential to a linearPotential at some radius R
-
-    INPUT:
-
-       RZPot - RZPotential instance or list
-
-       R - Galactocentric radius at which to evaluate the zPotential
-
-    OUTPUT:
-
-       linearPotential instance or list
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
-
-    """
-    if isinstance(RZPot,list):
-        out= []
-        for pot in RZPot:
-            out.append(linearPotentialFromRZPotential(pot,R=R))
-        return out
-    elif isinstance(RZPot,Potential):
-        return linearPotentialFromRZPotential(RZPot,R=R)
-    else:
-        raise PotentialError("Input to 'RZTolinearPotential' is neither an RZPotential-instance or a list of such instances")
-    
 def evaluatelinearPotentials(x,Pot,t=0.):
     """
     NAME:
@@ -243,7 +156,7 @@ def evaluatelinearPotentials(x,Pot,t=0.):
         return sum
     elif isinstance(Pot,linearPotential):
         return Pot(x,t=t)
-    else:
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
 def evaluatelinearForces(x,Pot,t=0.):
@@ -280,7 +193,7 @@ def evaluatelinearForces(x,Pot,t=0.):
         return sum
     elif isinstance(Pot,linearPotential):
         return Pot.force(x,t=t)
-    else:
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 
 def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):

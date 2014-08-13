@@ -112,10 +112,11 @@ or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3} \approx
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
 
 When ``galpy`` Orbits are initialized using a distance scale ``ro=``
-and a velocity scale ``vo=`` distances and velocities are returned and
-plotted in physical coordinates. Support for doing the same for
-energies, angular momentum, actions, and frequencies is under
-construction.
+and a velocity scale ``vo=`` output quantities returned and plotted in
+physical coordinates. Specifically, positions are are returned in
+units of kpc, velocities in km/s, energies and the Jacobi integral in
+(km/s)^2, the angular momentum o.L() and actions in km/s kpc,
+frequencies in 1/Gyr, and times and periods in Gyr.
 
 Orbit integration
 -----------------
@@ -134,7 +135,7 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
->>> o.integrate(ts,mp)
+>>> o.integrate(ts,mp,nethod='odeint')
 
 Now we plot the resulting orbit as
 
@@ -146,7 +147,7 @@ Which gives
 
 The integrator used is not symplectic, so the energy error grows with time, but is small nonetheless
 
->>> o.plotE(xlabel=r'$t$',ylabel=r'$E(t)/E(0)$')
+>>> o.plotE(normed=True)
 
 .. image:: images/mp-orbit-E.png
 
@@ -170,7 +171,7 @@ When we integrate for much longer we see how the orbit fills up a
 torus (this could take a minute)
 
 >>> ts= numpy.linspace(0,1000,10000)
->>> o.integrate(ts,mp)
+>>> o.integrate(ts,mp,method='odeint')
 >>> o.plot()
 
 .. image:: images/mp-long-orbit-integration.png

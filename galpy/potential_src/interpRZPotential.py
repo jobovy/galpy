@@ -1,8 +1,10 @@
 import os
+import sys
 import copy
 import ctypes
 import ctypes.util
 import warnings
+from functools import wraps
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
@@ -10,25 +12,84 @@ from galpy.util import multi, galpyWarning
 from Potential import Potential
 _DEBUG= False
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_interppotential_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname)
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
-        except OSError:
-            _lib = None
-        else:
-            break
+_lib= None
+outerr= None
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
+    except OSError,e:
+        if os.path.exists(os.path.join(path,'galpy_interppotential_c.so')): #pragma: no cover
+            outerr= e
+        _lib = None
+    else:
+        break
 if _lib is None: #pragma: no cover
-    warnings.warn("interppotential_c extension module not loaded",
-                  galpyWarning)
+    if not outerr is None:
+        warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c.so image was not found",
+                      galpyWarning)
     ext_loaded= False
 else:
     ext_loaded= True
+
+def scalarVectorDecorator(func):
+    """Decorator to return scalar outputs as a set"""
+    @wraps(func)
+    def scalar_wrapper(*args,**kwargs):
+        if numpy.array(args[1]).shape == () \
+                and numpy.array(args[2]).shape == (): #only if both R and z are scalars
+            scalarOut= True
+            args= (args[0],numpy.array([args[1]]),numpy.array([args[2]]))
+        elif numpy.array(args[1]).shape == () \
+                and not numpy.array(args[2]).shape == (): #R scalar, z vector
+            scalarOut= False
+            args= (args[0],args[1]*numpy.ones_like(args[2]),args[2])
+        elif not numpy.array(args[1]).shape == () \
+                and numpy.array(args[2]).shape == (): #R vector, z scalar
+            scalarOut= False
+            args= (args[0],args[1],args[2]*numpy.ones_like(args[1]))
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            return result[0]
+        else:
+            return result
+    return scalar_wrapper
+
+def zsymDecorator(odd):
+    """Decorator to deal with zsym=True input; set odd=True if the function is an odd function of z (like zforce)"""
+    def wrapper(func):
+        @wraps(func)
+        def zsym_wrapper(*args,**kwargs):
+            if args[0]._zsym:
+                out= func(args[0],args[1],numpy.fabs(args[2]),**kwargs)
+            else:
+                out= func(*args,**kwargs)
+            if odd and args[0]._zsym:
+                return sign(args[2])*out
+            else:
+                return out
+        return zsym_wrapper
+    return wrapper
+
+def scalarDecorator(func):
+    """Decorator to return scalar output for 1D functions (vcirc,etc.)"""
+    @wraps(func)
+    def scalar_wrapper(*args,**kwargs):
+        if numpy.array(args[1]).shape == ():
+            scalarOut= True
+            args= (args[0],numpy.array([args[1]]))
+        else:
+            scalarOut= False
+        result= func(*args,**kwargs)
+        if scalarOut:
+            return result[0]
+        else:
+            return result
+    return scalar_wrapper
 
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
@@ -43,27 +104,48 @@ class interpRZPotential(Potential):
                  numcores=None):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize an interpRZPotential instance
+
         INPUT:
+
            RZPot - RZPotential to be interpolated
+
            rgrid - R grid to be given to linspace
+
            zgrid - z grid to be given to linspace
+
            logR - if True, rgrid is in the log of R
-           interpPot, interpRfoce, interpzforce, interpDens,interpvcirc, interpeopifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
-           use_c= use C to speed up the calculation
+
+           interpPot, interpRforce, interpzforce, interpDens,interpvcirc, interpepifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
+
+           use_c= use C to speed up the calculation of the grid
+
            enable_c= enable use of C for interpolations
+
            zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+
            numcores= if set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE)
+
         OUTPUT:
+
            instance
+
         HISTORY:
+
            2010-07-21 - Written - Bovy (NYU)
+
            2013-01-24 - Started with new implementation - Bovy (IAS)
+
         """
+        if isinstance(RZPot,interpRZPotential):
+            from galpy.potential import PotentialError
+            raise PotentialError('Cannot setup interpRZPotential with another interpRZPotential')
         Potential.__init__(self,amp=1.)
-        self.hasC= True
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
         self._logR= logR
@@ -80,6 +162,7 @@ class interpRZPotential(Potential):
         self._interpepifreq= interpepifreq
         self._interpverticalfreq= interpverticalfreq
         self._enable_c= enable_c*ext_loaded
+        self.hasC= self._enable_c
         self._zsym= zsym
         if interpPot:
             if use_c*ext_loaded:
@@ -148,16 +231,12 @@ class interpRZPotential(Potential):
             if enable_c*ext_loaded:
                 self._zforceGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._zforceGrid)
         if interpDens:
-            if False:
-                raise NotImplementedError("Using C to calculate an interpolation grid for the density is not supported currently")
-                self._densGrid, err= calc_dens_c(self._origPot,self._rgrid,self._zgrid)
-            else:
-                from galpy.potential import evaluateDensities
-                densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
-                for ii in range(len(self._rgrid)):
-                    for jj in range(len(self._zgrid)):
-                        densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
-                self._densGrid= densGrid
+            from galpy.potential import evaluateDensities
+            densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
+            for ii in range(len(self._rgrid)):
+                for jj in range(len(self._zgrid)):
+                    densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
+            self._densGrid= densGrid
             if self._logR:
                 self._densInterp= interpolate.RectBivariateSpline(self._logrgrid,
                                                                   self._zgrid,
@@ -168,8 +247,6 @@ class interpRZPotential(Potential):
                                                                   self._zgrid,
                                                                   numpy.log(self._densGrid+10.**-10.),
                                                                   kx=3,ky=3,s=0.)
-            if False:
-                self._densGrid_splinecoeffs= calc_2dsplinecoeffs_c(self._densGrid)
         if interpvcirc:
             from galpy.potential import vcirc
             if not numcores is None:
@@ -195,8 +272,8 @@ class interpRZPotential(Potential):
         if interpepifreq:
             from galpy.potential import epifreq
             if not numcores is None:
-                self._epifreqGrid= multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
-                                                      range(len(self._rgrid)),numcores=numcores)
+                self._epifreqGrid= numpy.array(multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
+                                                      range(len(self._rgrid)),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             indx= True-numpy.isnan(self._epifreqGrid)
@@ -223,34 +300,17 @@ class interpRZPotential(Potential):
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
                                                  
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
-        if self._interpPot and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
-            if self._zsym:
-                return eval_potential_c(self,R,numpy.fabs(z))[0]
-            else:
-                return eval_potential_c(self,R,z)[0]
+    @scalarVectorDecorator
+    @zsymDecorator(False)
+    def _evaluate(self,R,z,phi=0.,t=0.):
         from galpy.potential import evaluatePotentials
         if self._interpPot:
-            if isinstance(R,float):
-                return self._evaluate(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= self._potInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
-                    else:
-                        out[indx]= self._potInterp.ev(R[indx],numpy.fabs(z[indx]))
+                if self._enable_c:
+                    out[indx]= eval_potential_c(self,R[indx],z[indx])[0]
                 else:
                     if self._logR:
                         out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
@@ -264,34 +324,17 @@ class interpRZPotential(Potential):
         else:
             return evaluatePotentials(R,z,self._origPot)
 
+    @scalarVectorDecorator
+    @zsymDecorator(False)
     def _Rforce(self,R,z,phi=0.,t=0.):
-        if self._interpRforce and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
-            if self._zsym:
-                return eval_force_c(self,R,numpy.fabs(z))[0]
-            else:
-                return eval_force_c(self,R,z)[0]
         from galpy.potential import evaluateRforces
         if self._interpRforce:
-            if isinstance(R,float):
-                return self._Rforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
-                    else:
-                        out[indx]= self._rforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                if self._enable_c:
+                    out[indx]= eval_force_c(self,R[indx],z[indx])[0]
                 else:
                     if self._logR:
                         out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),z[indx])
@@ -305,37 +348,22 @@ class interpRZPotential(Potential):
         else:
             return evaluateRforces(R,z,self._origPot)
 
+    @scalarVectorDecorator
+    @zsymDecorator(True)
     def _zforce(self,R,z,phi=0.,t=0.):
-        if self._interpzforce and self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
-            if self._zsym:
-                return sign(z) * eval_force_c(self,R,numpy.fabs(z),zforce=True)[0]
-            else:
-                return eval_force_c(self,R,z,zforce=True)[0]
         from galpy.potential import evaluatezforces
         if self._interpzforce:
-            if isinstance(R,float):
-                return self._zforce(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= sign(z) * self._zforceInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx]))
-                    else:
-                        out[indx]= sign(z) * self._zforceInterp.ev(R[indx],numpy.fabs(z[indx]))
+                if self._enable_c:
+                    out[indx]= eval_force_c(self,R[indx],z[indx],
+                                            zforce=True)[0]
                 else:
                     if self._logR:
-                        out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),z[indx])
+                        out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),
+                                                         z[indx])
                     else:
                         out[indx]= self._zforceInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
@@ -350,54 +378,19 @@ class interpRZPotential(Potential):
         from galpy.potential import evaluateRzderivs
         return evaluateRzderivs(R,z,self._origPot)
     
+    @scalarVectorDecorator
+    @zsymDecorator(False)
     def _dens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2013-01-29 - Written - Bovy (IAS)
-        """
-        if self._interpDens and False:#self._enable_c:
-            if isinstance(R,float):
-                R= numpy.array([R])
-            if isinstance(z,float):
-                z= numpy.array([z])
-            if self._zsym:
-                return eval_dens_c(self,R,numpy.fabs(z))[0]
-            else:
-                return eval_dens_c(self,R,z)[0]
         from galpy.potential import evaluateDensities
         if self._interpDens:
-            if isinstance(R,float):
-                return self._dens(numpy.array([R]),numpy.array([z]))
             out= numpy.empty_like(R)
-            if self._zsym:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(numpy.fabs(z) < self._zgrid[1])\
-                    *(numpy.fabs(z) > self._zgrid[0])
-            else:
-                indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
-                    *(z < self._zgrid[1])*(z > self._zgrid[0])
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
+                *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
-                if self._zsym:
-                    if self._logR:
-                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),numpy.fabs(z[indx])))-10.**-10.
-                    else:
-                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],numpy.fabs(z[indx])))-10.**-10.
+                if self._logR:
+                    out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
                 else:
-                    if self._logR:
-                        out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
-                    else:
-                        out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
+                    out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
             if numpy.sum(True-indx) > 0:
                 out[True-indx]= evaluateDensities(R[True-indx],
                                                   z[True-indx],
@@ -406,44 +399,72 @@ class interpRZPotential(Potential):
         else:
             return evaluateDensities(R,z,self._origPot)
 
+    @scalarDecorator
     def vcirc(self,R):
+        from galpy.potential import vcirc
         if self._interpvcirc:
-            if self._logR:
-                return self._vcircInterp(numpy.log(R))
-            else:
-                return self._vcircInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._vcircInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._vcircInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= vcirc(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import vcirc
             return vcirc(self._origPot,R)
 
+    @scalarDecorator
     def dvcircdR(self,R):
+        from galpy.potential import dvcircdR
         if self._interpdvcircdr:
-            if self._logR:
-                return self._dvcircdrInterp(numpy.log(R))
-            else:
-                return self._dvcircdrInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._dvcircdrInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._dvcircdrInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= dvcircdR(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import dvcircdR
             return dvcircdR(self._origPot,R)
 
+    @scalarDecorator
     def epifreq(self,R):
+        from galpy.potential import epifreq
         if self._interpepifreq:
-            if self._logR:
-                return self._epifreqInterp(numpy.log(R))
-            else:
-                return self._epifreqInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._epifreqInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._epifreqInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= epifreq(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import epifreq
             return epifreq(self._origPot,R)
 
+    @scalarDecorator
     def verticalfreq(self,R):
+        from galpy.potential import verticalfreq
         if self._interpverticalfreq:
-            if self._logR:
-                return self._verticalfreqInterp(numpy.log(R))
-            else:
-                return self._verticalfreqInterp(R)
+            indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
+            out= numpy.empty_like(R)
+            if numpy.sum(indx) > 0:
+                if self._logR:
+                    out[indx]= self._verticalfreqInterp(numpy.log(R[indx]))
+                else:
+                    out[indx]= self._verticalfreqInterp(R[indx])
+            if numpy.sum(True-indx) > 0:
+                out[True-indx]= verticalfreq(self._origPot,R[True-indx])
+            return out
         else:
-            from galpy.potential import verticalfreq
             return verticalfreq(self._origPot,R)
     
 def calc_potential_c(pot,R,z,rforce=False,zforce=False):
@@ -561,12 +582,6 @@ def eval_potential_c(pot,R,z):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
-    #check input
-    if isinstance(z,float):
-        z= numpy.ones(len(R))*z
-    if isinstance(R,float):
-        R= numpy.ones(len(z))*R
-
     #Set up result arrays
     out= numpy.empty((len(R)))
     err= ctypes.c_int(0)
@@ -625,12 +640,6 @@ def eval_force_c(pot,R,z,zforce=False):
     from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot)
-
-    #check input
-    if isinstance(z,float):
-        z= numpy.ones(len(R))*z
-    if isinstance(R,float):
-        R= numpy.ones(len(z))*R
 
     #Set up result arrays
     out= numpy.empty((len(R)))

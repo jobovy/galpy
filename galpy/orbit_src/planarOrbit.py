@@ -78,6 +78,7 @@ class planarOrbitTop(OrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
+    @physical_conversion('energy')
     def Jacobi(self,*args,**kwargs):
         """
         NAME:
@@ -115,7 +116,15 @@ class planarOrbitTop(OrbitTop):
         else:
             OmegaP= kwargs['OmegaP']
             kwargs.pop('OmegaP')
-        return self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',None)
+        kwargs['use_physical']= False
+        out= self.E(*args,**kwargs)-OmegaP*self.L(*args,**kwargs)
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
 
     @physical_conversion('position')
     def rap(self,analytic=False,pot=None,**kwargs):
@@ -169,52 +178,7 @@ class planarOrbitTop(OrbitTop):
 
     @physical_conversion('position')
     def zmax(self,pot=None,analytic=False,**kwargs):
-        raise AttributeError("planarOrbit does not have a zmax")
-    
-    def plotJacobi(self,*args,**kwargs):
-        """
-        NAME:
-           plotJacobi
-        PURPOSE:
-           plot Jacobi integratl(.) along the orbit
-        INPUT:
-           OmegaP= pattern speed
-           pot= Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Jacobi vs d1: e.g., 't', 'R', 'vR', 'vT'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2011-10-09 - Written - Bovy (IAS)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        Js= self.Jacobi(self.t,**kwargs)
-        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
-        if kwargs.has_key('pot'): kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E-\Omega_p\,L$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],Js/Js[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],Js/Js[0],
-                           *args,**kwargs)
+        raise AttributeError("planarOrbit does not have a zmax")    
 
 class planarROrbit(planarOrbitTop):
     """Class representing a planar orbit, without \phi. Useful for 
@@ -254,11 +218,9 @@ class planarROrbit(planarOrbitTop):
         """
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateROrbit
         return None
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate
@@ -267,9 +229,12 @@ class planarROrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple 
-                   leapfrog implementation, 'leapfrog_c' for a simple leapfrog
-                   in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
         OUTPUT:
            error message number (get the actual orbit using getOrbit()
         HISTORY:
@@ -280,20 +245,10 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
-            method= 'odeint'
         self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
         return msg
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -346,68 +301,6 @@ class planarROrbit(planarOrbitTop):
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
         
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
-        elif isinstance(pot,list):
-            thispot= []
-            for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
-                else: thispot.append(p)
-        else:
-            thispot= pot
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
-                                           t=self.t[ii])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                  for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-
 class planarOrbit(planarOrbitTop):
     """Class representing a full planar orbit (R,vR,vT,phi)"""
     def __init__(self,vxvv=[1.,0.,1.,0.],vo=220.,ro=8.0,zo=0.025,
@@ -446,11 +339,9 @@ class planarOrbit(planarOrbitTop):
             raise ValueError("You only provided R,vR, & vT, but not phi; you probably want planarROrbit")
         OrbitTop.__init__(self,vxvv=vxvv,
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
-        #For boundary-condition integration
-        self._BCIntegrateFunction= _integrateOrbit
         return None
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
            integrate
@@ -459,9 +350,12 @@ class planarOrbit(planarOrbitTop):
         INPUT:
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation, 'leapfrog_c' for a simple
-                   leapfrog implemenation in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -472,21 +366,11 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
-            method= 'odeint'
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
         return msg
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c'):
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       rectIn=False,rectOut=False):
         """
         NAME:
            integrate_dxdv
@@ -496,31 +380,30 @@ class planarOrbit(planarOrbitTop):
            dxdv - [dR,dvR,dvT,dphi]
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
-           method= 'odeint' for scipy's odeint, 'leapfrog' for a simple
-                   leapfrog implementation, 'leapfrog_c' for a simple
-                   leapfrog implemenation in C (if possible)
+           method= 'odeint' for scipy's odeint
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
         OUTPUT:
            (none) (get the actual orbit using getOrbit_dxdv()
         HISTORY:
            2010-10-17 - Written - Bovy (IAS)
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         """
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot_dxdv= thispot
-        if isinstance(pot,list):
-            c_possible= True
-            for p in pot:
-                if not p.hasC:
-                    c_possible= False
-                    break
-        else:
-            c_possible= pot.hasC
-        c_possible*= ext_loaded
-        if '_c' in method and not c_possible:
-            method= 'odeint'
-        self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,method)
+        self._pot= thispot
+        self.orbit_dxdv, msg= _integrateOrbit_dxdv(self.vxvv,dxdv,thispot,t,
+                                                   method,rectIn,rectOut)
+        self.orbit= self.orbit_dxdv[:,:4]
         return msg
 
+    @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -596,71 +479,6 @@ class planarOrbit(planarOrbitTop):
         if not hasattr(self,'rs'):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
-
-    def plotE(self,*args,**kwargs):
-        """
-        NAME:
-           plotE
-        PURPOSE:
-           plot E(.) along the orbit
-        INPUT:
-           pot - Potential instance or list of instances in which the orbit was
-                 integrated
-           d1= - plot Ez vs d1: e.g., 't', 'R', 'vR', 'vT', 'phi'
-           +bovy_plot.bovy_plot inputs
-        OUTPUT:
-           figure to output device
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit first or specify pot=")
-        else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
-        elif isinstance(pot,list):
-            thispot= []
-            for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
-                else: thispot.append(p)
-        else:
-            thispot= pot
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
-        self.Es= [evaluateplanarPotentials(self.orbit[ii,0],thispot,
-                                           phi=self.orbit[ii,3])+
-                  self.orbit[ii,1]**2./2.+self.orbit[ii,2]**2./2.
-                  for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
-            kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
-            kwargs['ylabel']= r'$E$'
-        if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
-        elif d1 == 'phi':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.Es)/self.Es[0],
-                           *args,**kwargs)
 
 def _integrateROrbit(vxvv,pot,t,method):
     """
@@ -833,7 +651,7 @@ def _integrateOrbit(vxvv,pot,t,method):
     _parse_warnmessage(msg)
     return (out,msg)
 
-def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
+def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     """
     NAME:
        _integrateOrbit_dxdv
@@ -847,27 +665,44 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       rectIn= (False) if True, input dxdv is in rectangular coordinates
+       rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
     OUTPUT:
        [:,8] array of [R,vR,vT,phi,dR,dvR,dvT,dphi] at each t
        error message from integrator
     HISTORY:
        2010-10-17 - Written - Bovy (IAS)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if isinstance(pot,list):
+            allHasC= nu.prod([p.hasC for p in pot])
+        else:
+            allHasC= pot.hasC
+        if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
+            method= 'odeint'
     #go to the rectangular frame
     this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                          vxvv[0]*nu.sin(vxvv[3]),
                          vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                          vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
-    this_dxdv= nu.array([nu.cos(vxvv[3])*dxdv[0]-vxvv[0]*nu.sin(vxvv[3])*dxdv[3],
-                         nu.sin(vxvv[3])*dxdv[0]+vxvv[0]*nu.cos(vxvv[3])*dxdv[3],
-                         -(vxvv[1]*nu.sin(vxvv[3])+vxvv[2]*nu.cos(vxvv[3]))*dxdv[3]
-                         +nu.cos(vxvv[3])*dxdv[1]-nu.sin(vxvv[3])*dxdv[2],
-                         (vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]))*dxdv[3]
-                         +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
-    if method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
-            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        #raise NotImplementedError("C implementation of phase space integration not implemented yet")
+    if not rectIn:
+        this_dxdv= nu.array([nu.cos(vxvv[3])*dxdv[0]
+                             -vxvv[0]*nu.sin(vxvv[3])*dxdv[3],
+                             nu.sin(vxvv[3])*dxdv[0]
+                             +vxvv[0]*nu.cos(vxvv[3])*dxdv[3],
+                             -(vxvv[1]*nu.sin(vxvv[3])
+                               +vxvv[2]*nu.cos(vxvv[3]))*dxdv[3]
+                             +nu.cos(vxvv[3])*dxdv[1]-nu.sin(vxvv[3])*dxdv[2],
+                             (vxvv[1]*nu.cos(vxvv[3])
+                              -vxvv[2]*nu.sin(vxvv[3]))*dxdv[3]
+                             +nu.sin(vxvv[3])*dxdv[1]+nu.cos(vxvv[3])*dxdv[2]])
+    else:
+        this_dxdv= dxdv
+    if 'leapfrog' in method.lower() or 'symplec' in method.lower():
+        raise TypeError('Symplectic integration for phase-space volume is not possible')
+    elif method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
+            or method.lower() == 'dopr54_c':
         warnings.warn("Using C implementation to integrate orbits",galpyWarning)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
@@ -898,10 +733,13 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method):
     out[:,1]= vR
     out[:,2]= vT
     out[:,3]= phi
-    out[:,4]= dR
-    out[:,7]= dphi
-    out[:,5]= dvR
-    out[:,6]= dvT
+    if rectOut:
+        out[:,4:]= tmp_out[:,4:]
+    else:
+        out[:,4]= dR
+        out[:,7]= dphi
+        out[:,5]= dvR
+        out[:,6]= dvT
     _parse_warnmessage(msg)
     return (out,msg)
 
@@ -1013,6 +851,6 @@ def _rectForce(x,pot,t=0.):
                      sinphi*Rforce+1./R*cosphi*phiforce])
 
 def _parse_warnmessage(msg):
-    if msg == 1:
+    if msg == 1: #pragma: no cover
         warnings.warn("During numerical integration, steps smaller than the smallest step were requested; integration might not be accurate",galpyWarning)
         

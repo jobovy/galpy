@@ -45,7 +45,7 @@ class actionAngleIsochroneApprox():
 
            tintJ= (default: 100) time to integrate orbits for to estimate actions
 
-           ntintJ= (default: 10000) number of time-integration points actions
+           ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
@@ -206,12 +206,21 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        from galpy.orbit import Orbit
         if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
-            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
+            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         if kwargs.has_key('_firstFlip'):
             _firstFlip= kwargs['_firstFlip']
         else:
             _firstFlip= False
+        #If the orbit was already integrated, set ts to the integration times
+        if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0]._orb.t
+        elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
+                and hasattr(args[0][0]._orb,'orbit')  \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0][0]._orb.t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if kwargs.has_key('ts') and not kwargs['ts'] is None:
             ts= kwargs['ts']
@@ -247,20 +256,16 @@ class actionAngleIsochroneApprox():
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
-            if kwargs.has_key('cumul') and kwargs['cumul']:
-                sumFunc= nu.cumsum
-            else:
-                sumFunc= nu.sum
-            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
-            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
+            jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']: #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
                               *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
-                lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+                lz= nu.sum(lzI*danglephiI,axis=1)/nu.sum(danglephiI,axis=1)
             else:
                 lz= R[:,len(ts)/2]*vT[:,len(ts)/2]
             #Now do an 'angle-fit'
@@ -560,17 +565,10 @@ class actionAngleIsochroneApprox():
                 R,vR,vT, phi= args
                 z, vz= 0., 0.
             if isinstance(R,float):
-                o= Orbit([R,vR,vT,z,vz,phi])
-                o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
-                this_orbit= o.getOrbit()
-                R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
-                vR= nu.reshape(this_orbit[:,1],(1,self._ntintJ))
-                vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
-                z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
-                vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
-                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+                os= [Orbit([R,vR,vT,z,vz,phi])]
+                RasOrbit= True
                 integrated= False
-            if len(R.shape) == 1: #not integrated yet
+            elif len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 RasOrbit= True
                 integrated= False
@@ -581,13 +579,13 @@ class actionAngleIsochroneApprox():
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
-            if not hasattr(os[0],'orbit'): #not integrated yet
+            if not hasattr(os[0]._orb,'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
                         o._orb.vxvv[1]= -o._orb.vxvv[1]
@@ -707,7 +705,7 @@ def estimateBIsochrone(R,z,pot=None):
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)
-        except:
+        except: #pragma: no cover
             b= nu.nan
         return b
 

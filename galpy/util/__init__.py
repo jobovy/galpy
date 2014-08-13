@@ -17,7 +17,7 @@ def _warning(
     else:
         print(warnings.formatwarning(message,category,filename,lineno))
 warnings.showwarning = _warning
-def save_pickles(savefilename,*args):
+def save_pickles(savefilename,*args,**kwargs):
     """
     NAME:
        save_pickles
@@ -40,6 +40,8 @@ def save_pickles(savefilename,*args):
         try:
             savefile= open(tmp_savefilename,'wb')
             file_open= True
+            if kwargs.get('testKeyboardInterrupt',False) and not interrupted:
+                raise KeyboardInterrupt
             for f in args:
                 pickle.dump(f,savefile)
             savefile.close()

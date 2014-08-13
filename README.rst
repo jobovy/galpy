@@ -37,6 +37,11 @@ DEPENDENCIES
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy <http://www.scipy.org/>`__, and `Matplotlib <http://matplotlib.sourceforge.net/>`__. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`__)
 
+ISSUES
+-------
+
+If you find *any* bug in the code, please report these using the `Issue Tracker <http://github.com/jobovy/galpy/issues>`__ or by emailing the maintainer of the code.
+
 DISK DF CORRECTIONS
 --------------------
 

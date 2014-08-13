@@ -108,13 +108,13 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   //We're done
 }
 
-inline void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
-					  int nargs, struct potentialArg * potentialArgs),
-			     int dim,
-			     double * yn,double * yn1,
-			     double tn, double dt,
-			     int nargs, struct potentialArg * potentialArgs,
-			     double * ynk, double * a){
+void bovy_rk4_onestep(void (*func)(double t, double *q, double *a,
+				   int nargs, struct potentialArg * potentialArgs),
+		      int dim,
+		      double * yn,double * yn1,
+		      double tn, double dt,
+		      int nargs, struct potentialArg * potentialArgs,
+		      double * ynk, double * a){
   int ii;
   //calculate k1
   func(tn,yn,a,nargs,potentialArgs);
@@ -210,16 +210,16 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   k_7 = step * dxdt(start + step, x[i] + (9*k_1 - 36*k_2 + 63*k_3 +
 72*k_4 -64*k_6)/44)
 */
-inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
-					  int nargs, struct potentialArg * potentialArgs),
-			     int dim,
-			     double * yn,double * yn1,
-			     double tn, double dt,
-			     int nargs, struct potentialArg * potentialArgs,
-			     double * ynk, double * a,
-			     double * k1, double * k2,
-			     double * k3, double * k4,
-			     double * k5){
+void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
+				   int nargs, struct potentialArg * potentialArgs),
+		      int dim,
+		      double * yn,double * yn1,
+		      double tn, double dt,
+		      int nargs, struct potentialArg * potentialArgs,
+		      double * ynk, double * a,
+		      double * k1, double * k2,
+		      double * k3, double * k4,
+		      double * k5){
   int ii;
   //calculate k1
   func(tn,yn,a,nargs,potentialArgs);
@@ -268,10 +268,6 @@ inline void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
   //yn1 is new value
 }
 
-inline void save_rk(int dim, double *yo, double *result){
-  int ii;
-  for (ii=0; ii < dim; ii++) *result++= *yo++;
-}
 double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			 int dim, double *yo,
 			 double dt, double *t,
