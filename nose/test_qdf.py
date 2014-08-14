@@ -158,9 +158,9 @@ def test_sigmar_staeckel_gl():
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #In the mid-plane
     assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,0.,gl=True))-2.*numpy.log(0.2)-0.2) < 0.2, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
-    #higher up
-    assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,0.2,gl=True))-2.*numpy.log(0.2)-0.2) < 0.3, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
-    assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,-0.25,gl=True))-2.*numpy.log(0.2)-0.2) < 0.3, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
+    #higher up, also w/ different ngl
+    assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,0.2,gl=True,ngl=20))-2.*numpy.log(0.2)-0.2) < 0.3, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
+    assert numpy.fabs(numpy.log(qdf.sigmaR2(0.9,-0.25,gl=True,ngl=24))-2.*numpy.log(0.2)-0.2) < 0.3, "qdf's sigmaR2 deviates more than expected from input for staeckel approx."
     return None
 
 def test_sigmar_staeckel_mc():
@@ -902,4 +902,52 @@ def test_call_diffinoutputs():
                                                    *numpy.cos(0.9)\
                                                    *numpy.exp(0.02))-
                       lfval) < 10.**-8, 'qdf __call__ w/ func does not work as expected'
+    return None
+
+def test_vmomentdensity_diffinoutputs():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #Test that we can input use different ngl
+    R, z= 0.8, 0.1
+    sigmar2= qdf.sigmaR2(R,z,gl=True)
+    assert numpy.fabs(numpy.log(qdf.sigmaR2(R,z,gl=True,_sigmaR1=0.95*numpy.sqrt(qdf.sigmaR2(R,z)),_sigmaz1=0.95*numpy.sqrt(qdf.sigmaz2(R,z))))-numpy.log(sigmar2)) < 0.01, 'sigmaR2 calculated w/ explicit sigmaR1 and sigmaz1  do not agree'
+    #Test ngl inputs further
+    try:
+        qdf.vmomentdensity(R,z,0,0,0,gl=True,ngl=11)
+    except ValueError: pass
+    else: raise AssertionError('qdf.vmomentdensity w/ ngl == odd does not raise ValueError')
+    surfmass, glqeval= qdf.vmomentdensity(R,z,0.,0.,0., 
+                                          gl=True,
+                                          _returngl=True)
+    #This shouldn't reuse gleval, but should work nonetheless
+    assert numpy.fabs(numpy.log(surfmass)\
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,
+                                                        gl=True,
+                                                        _glqeval=glqeval,
+                                                        ngl=30))) < 0.05, 'vmomentsurfmass w/ wrong glqeval input does not work'
+    #Test that we can re-use jr, etc.
+    surfmass, jr,lz,jz= qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
+                                           _return_actions=True)
+    assert numpy.fabs(numpy.log(surfmass)\
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
+                                                        _jr=jr,_lz=lz,_jz=jz))) < 0.01, 'surfacemass calculated from re-used actions does not agree with that before'
+    surfmass, jr,lz,jz, rg, kappa, nu, Omega=\
+        qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
+                           _return_actions=True,
+                           _return_freqs=True)
+    assert numpy.fabs(numpy.log(surfmass)\
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
+                                                        _jr=jr,_lz=lz,_jz=jz,
+                                                        _rg=rg,_kappa=kappa,
+                                                        _nu=nu,_Omega=Omega))) < 0.01, 'surfacemass calculated from re-used actions does not agree with that before'
+    #Some tests of mc=True
+    surfmass, vrs, vts, vzs= qdf.vmomentdensity(R,z,0.,0.,0.,mc=True,gl=False,
+                                                _rawgausssamples=True,
+                                                _returnmc=True)
+    assert numpy.fabs(numpy.log(surfmass)-numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,
+                                                             mc=True,gl=False,
+                                                             _rawgausssamples=True,
+                                                             _vrs=vrs,
+                                                             _vts=vts,
+                                                             _vzs=vzs))) < 0.0001, 'qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
     return None
