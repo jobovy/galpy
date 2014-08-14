@@ -451,3 +451,69 @@ def test_pvR_staeckel_diffngl():
     else: raise AssertionError('pvR w/ ngl=odd did not raise ValueError')
     return None
 
+def test_pvz_adiabatic():
+    # Test pvz by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    R,z= 0.8, 0.1
+    vzs= numpy.linspace(-1.,1.,51)
+    pvz= numpy.array([qdf.pvz(vz,R,z) for vz in vzs])
+    mvz= numpy.sum(vzs*pvz)/numpy.sum(pvz)
+    svz= numpy.sqrt(numpy.sum(vzs**2.*pvz)/numpy.sum(pvz)-mvz**2.)
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvz not equal to zero for adiabatic actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvz not equal to that from sigmaz2 for adiabatic actions'
+    return None
+
+def test_pvz_staeckel():
+    # Test pvz by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vzs= numpy.linspace(-1.,1.,51)
+    pvz= numpy.array([qdf.pvz(vz,R,z) for vz in vzs])
+    mvz= numpy.sum(vzs*pvz)/numpy.sum(pvz)
+    svz= numpy.sqrt(numpy.sum(vzs**2.*pvz)/numpy.sum(pvz)-mvz**2.)
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions'
+    #same w/ explicit sigmaR input
+    pvz= numpy.array([qdf.pvz(vz,R,z,_sigmaR1=0.95*numpy.sqrt(qdf.sigmaR2(R,z))) for vz in vzs])
+    mvz= numpy.sum(vzs*pvz)/numpy.sum(pvz)
+    svz= numpy.sqrt(numpy.sum(vzs**2.*pvz)/numpy.sum(pvz)-mvz**2.)
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions'
+    return None
+
+def test_pvz_staeckel_diffngl():
+    # Test pvz by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vzs= numpy.linspace(-1.,1.,51)
+    #ngl=10
+    pvz= numpy.array([qdf.pvz(vz,R,z,ngl=10) for vz in vzs])
+    mvz= numpy.sum(vzs*pvz)/numpy.sum(pvz)
+    svz= numpy.sqrt(numpy.sum(vzs**2.*pvz)/numpy.sum(pvz)-mvz**2.)
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions'
+    #ngl=40
+    pvz= numpy.array([qdf.pvz(vz,R,z,ngl=40) for vz in vzs])
+    mvz= numpy.sum(vzs*pvz)/numpy.sum(pvz)
+    svz= numpy.sqrt(numpy.sum(vzs**2.*pvz)/numpy.sum(pvz)-mvz**2.)
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions'
+    #ngl=11, shouldn't work
+    try:
+        pvz= numpy.array([qdf.pvz(vz,R,z,ngl=11) for vz in vzs])
+    except ValueError: pass
+    else: raise AssertionError('pvz w/ ngl=odd did not raise ValueError')
+    return None
+
+def test_pvz_staeckel_arrayin():
+    # Test pvz by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    pvz= qdf.pvz(0.05,R*numpy.ones(2),z*numpy.ones(2))
+    assert numpy.all(numpy.log(pvz)-numpy.log(qdf.pvz(0.05,R,z))) < 10.**-10., 'pvz calculated with R and z array input does not equal to calculated with scalar input'
+    return None
+
