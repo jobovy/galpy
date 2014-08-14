@@ -951,3 +951,40 @@ def test_vmomentdensity_diffinoutputs():
                                                              _vts=vts,
                                                              _vzs=vzs))) < 0.0001, 'qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
     return None
+
+def test_jmomentdensity_diffinoutputs():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #Some tests of mc=True
+    R,z= 0.8, 0.1
+    jr2surfmass, vrs, vts, vzs= qdf.jmomentdensity(R,z,2.,0.,0.,mc=True,
+                                                   _returnmc=True)
+    assert numpy.fabs(numpy.log(jr2surfmass)-numpy.log(qdf.jmomentdensity(R,z,2.,0.,0.,
+                                                             mc=True,
+                                                             _vrs=vrs,
+                                                             _vts=vts,
+                                                             _vzs=vzs))) < 0.0001, 'qdf.jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
+    return None
+
+def test_pvz_diffinoutput():
+    #pvz, similarly to vmomentdensity, can output certain intermediate results
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #test re-using the actions
+    R,z= 0.8,0.1
+    tpvz,jr,lz,jz= qdf.pvz(0.1,R,z,_return_actions=True)
+    assert numpy.fabs(numpy.log(qdf.pvz(0.1,R,z,_jr=jr,_lz=lz,_jz=jz))\
+                          -numpy.log(tpvz)) < 0.001, 'qdf.pvz does not return the same result when re-using the actions'
+    #test re-using the frequencies
+    tpvz,rg,kappa,nu,Omega= qdf.pvz(0.1,R,z,_return_freqs=True)
+    assert numpy.fabs(numpy.log(qdf.pvz(0.1,R,z,_rg=rg,_kappa=kappa,
+                                        _nu=nu,_Omega=Omega))
+                          -numpy.log(tpvz)) < 0.001, 'qdf.pvz does not return the same result when re-using the frequencies'
+    #test re-using the actions and the frequencies
+    tpvz,jr,lz,jz,rg,kappa,nu,Omega= qdf.pvz(0.1,R,z,_return_actions=True,
+                                             _return_freqs=True)
+    assert numpy.fabs(numpy.log(qdf.pvz(0.1,R,z,_jr=jr,_lz=lz,_jz=jz,
+                                        _rg=rg,_kappa=kappa,
+                                        _nu=nu,_Omega=Omega))
+                          -numpy.log(tpvz)) < 0.001, 'qdf.pvz does not return the same result when re-using the actions and the frequencies'
+    return None

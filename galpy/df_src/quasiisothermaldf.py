@@ -1591,7 +1591,7 @@ class quasiisothermaldf:
                 vRgl= vRgl.flatten()
             vRgl*= numpy.tile(4.*sigmaR1/2.,(ngl,ngl,1)).T.flatten()
             #evaluate
-            if _jr is None:
+            if _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega= self(R,
                                                                  vRgl.flatten(),
                                                                  vTgl.flatten(),
