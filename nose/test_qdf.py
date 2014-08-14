@@ -399,3 +399,55 @@ def test_sampleV():
     assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01, 'sampleV vz mean is not zero'
     assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
     return None
+
+def test_pvR_adiabatic():
+    # Test pvR by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,51)
+    pvR= numpy.array([qdf.pvR(vr,R,z) for vr in vRs])
+    mvR= numpy.sum(vRs*pvR)/numpy.sum(pvR)
+    svR= numpy.sqrt(numpy.sum(vRs**2.*pvR)/numpy.sum(pvR)-mvR**2.)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvR not equal to zero for adiabatic actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(qdf.sigmaR2(R,z))) < 0.01, 'sigma vR calculated from pvR not equal to that from sigmaR2 for adiabatic actions'
+    return None
+
+def test_pvR_staeckel():
+    # Test pvR by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,51)
+    pvR= numpy.array([qdf.pvR(vr,R,z) for vr in vRs])
+    mvR= numpy.sum(vRs*pvR)/numpy.sum(pvR)
+    svR= numpy.sqrt(numpy.sum(vRs**2.*pvR)/numpy.sum(pvR)-mvR**2.)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvR not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(qdf.sigmaR2(R,z))) < 0.01, 'sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions'
+    return None
+
+def test_pvR_staeckel_diffngl():
+    # Test pvR by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,51)
+    #ngl=10
+    pvR= numpy.array([qdf.pvR(vr,R,z,ngl=10) for vr in vRs])
+    mvR= numpy.sum(vRs*pvR)/numpy.sum(pvR)
+    svR= numpy.sqrt(numpy.sum(vRs**2.*pvR)/numpy.sum(pvR)-mvR**2.)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvR not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(qdf.sigmaR2(R,z))) < 0.01, 'sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions'
+    #ngl=40
+    pvR= numpy.array([qdf.pvR(vr,R,z,ngl=40) for vr in vRs])
+    mvR= numpy.sum(vRs*pvR)/numpy.sum(pvR)
+    svR= numpy.sqrt(numpy.sum(vRs**2.*pvR)/numpy.sum(pvR)-mvR**2.)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvR not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(qdf.sigmaR2(R,z))) < 0.01, 'sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions'
+    #ngl=11, shouldn't work
+    try:
+        pvR= numpy.array([qdf.pvR(vr,R,z,ngl=11) for vr in vRs])
+    except ValueError: pass
+    else: raise AssertionError('pvR w/ ngl=odd did not raise ValueError')
+    return None
+
