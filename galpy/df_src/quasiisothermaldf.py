@@ -1,10 +1,12 @@
 #A 'Binney' quasi-isothermal DF
 import math
+import warnings
 import numpy
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
 from galpy.orbit import Orbit
+from galpy.util import galpyWarning
 _NSIGMA=4
 _DEFAULTNGL=10
 _DEFAULTNGL2=20
@@ -585,7 +587,8 @@ class quasiisothermaldf:
                             vrs,vts,vzs)
             else:
                 return numpy.mean(Is)*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
+            warnings.warn("Calculations using direct numerical integration using tplquad is not recommended and extremely slow; it has also not been carefully tested",galpyWarning)
             return integrate.tplquad(_vmomentsurfaceIntegrand,
                                      1./gamma*(thisvc-va)/sigmaR1-nsigma,
                                      1./gamma*(thisvc-va)/sigmaR1+nsigma,
@@ -656,7 +659,8 @@ class quasiisothermaldf:
                         vrs,vts,vzs)
             else:
                 return numpy.mean(Is)*sigmaR1**2.*gamma*sigmaz1
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
+            warnings.warn("Calculations using direct numerical integration using tplquad is not recommended and extremely slow; it has also not been carefully tested",galpyWarning)
             return integrate.tplquad(_jmomentsurfaceIntegrand,
                                      1./gamma*(thisvc-va)/sigmaR1-nsigma,
                                      1./gamma*(thisvc-va)/sigmaR1+nsigma,
@@ -748,7 +752,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,2.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -805,7 +809,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,1.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -931,7 +935,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -992,7 +996,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1049,7 +1053,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1106,7 +1110,7 @@ class quasiisothermaldf:
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.vmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1173,7 +1177,7 @@ class quasiisothermaldf:
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass-mvt**2.
 
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             surfmass= self.vmomentdensity(R,z,0.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,
                                               **kwargs)
@@ -1219,7 +1223,7 @@ class quasiisothermaldf:
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.jmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1262,7 +1266,7 @@ class quasiisothermaldf:
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.jmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1305,7 +1309,7 @@ class quasiisothermaldf:
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
-        else:
+        else: #pragma: no cover because this is too slow; a warning is shown
             return (self.jmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
@@ -1905,15 +1909,7 @@ class quasiisothermaldf:
                 return potential.rl(self._pot,lz)
             return numpy.atleast_1d(self._rgInterp(lz))
 
-def _surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
-    """Internal function that is the integrand for the surface mass integration"""
-    return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
-
-def _surfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT):
-    """Internal function that is the integrand for the surface mass integration"""
-    return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
-
-def _vmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o):
+def _vmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o): #pragma: no cover because this is too slow; a warning is shown
     """Internal function that is the integrand for the vmomentsurface mass integration"""
     return vR**n*vT**m*vz**o*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
 
@@ -1921,7 +1917,7 @@ def _vmomentsurfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT,n,m,o):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
     return vR**n*vT**m*vz**o*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)*numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
 
-def _jmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o):
+def _jmomentsurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,n,m,o): #pragma: no cover because this is too slow; a warning is shown
     """Internal function that is the integrand for the vmomentsurface mass integration"""
     return df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1,
               func= (lambda x,y,z: x**n*y**m*z**o))
@@ -1932,25 +1928,4 @@ def _jmomentsurfaceMCIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1,mvT,n,m,o):
               func=(lambda x,y,z: x**n*y**m*z**o))\
               *numpy.exp(vR**2./2.+(vT-mvT)**2./2.+vz**2./2.)
 
-def _sigmaR2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
-    """Internal function that is the integrand for the sigma-squared times
-    surface mass integration"""
-    return (vR*sigmaR1)**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
-
-def _sigmaz2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
-    """Internal function that is the integrand for the sigma-squared times
-    surface mass integration"""
-    return (vz*sigmaz1)**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,z,vz*sigmaz1)
-
-def _meanvphisurfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
-    """Internal function that is the integrand for the <vT> times
-    surface mass integration"""
-    return (vT*sigmaR1*gamma)*df(R,vR*sigmaR1,vT*sigmaR1*gamma,
-                                     z,vz*sigmaz1)
-
-def _meanvphi2surfaceIntegrand(vz,vR,vT,R,z,df,sigmaR1,gamma,sigmaz1):
-    """Internal function that is the integrand for the sigma-squared times
-    surface mass integration"""
-    return (vT*sigmaR1*gamma)**2.*df(R,vR*sigmaR1,vT*sigmaR1*gamma,
-                                     z,vz*sigmaz1)
 
