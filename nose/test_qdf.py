@@ -649,5 +649,83 @@ def test_pvRvT_staeckel_diffngl():
     else: raise AssertionError('pvz w/ ngl=odd did not raise ValueError')
     return None
 
+def test_pvTvz_adiabatic():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    R,z= 0.8, 0.1
+    vTs= numpy.linspace(0.,1.5,51)
+    vzs= numpy.linspace(-1.,1.,21)
+    pvTvz= numpy.array([[qdf.pvTvz(vt,vz,R,z) for vt in vTs] for vz in vzs])
+    tvT= numpy.tile(vTs,(len(vzs),1))
+    tvz= numpy.tile(vzs,(len(vTs),1)).T
+    mvz= numpy.sum(tvz*pvTvz)/numpy.sum(pvTvz)
+    mvT= numpy.sum(tvT*pvTvz)/numpy.sum(pvTvz)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvTvz)/numpy.sum(pvTvz)-mvz**2.)
+    svT= numpy.sqrt(numpy.sum(tvT**2.*pvTvz)/numpy.sum(pvTvz)-mvT**2.)
+    svTvz= (numpy.sum(tvz*tvT*pvTvz)/numpy.sum(pvTvz)-mvz*mvT)/svz/svT
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvTvz not equal to zero for adiabatic actions'
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvTvz not equal to zero for adiabatic actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvTvz not equal to that from sigmaz2 for adiabatic actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvTvz not equal to that from sigmaT2 for adiabatic actions'
+    assert numpy.fabs(svTvz) < 0.01, 'correlation between vz and vT calculated from pvTvz not equal to zero for adiabatic actions'
     return None
 
+def test_pvTvz_staeckel():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vzs= numpy.linspace(-1.,1.,21)
+    vTs= numpy.linspace(0.,1.5,51)
+    pvTvz= numpy.array([[qdf.pvTvz(vt,vz,R,z) for vt in vTs] for vz in vzs])
+    tvz= numpy.tile(vzs,(len(vTs),1)).T
+    tvT= numpy.tile(vTs,(len(vzs),1))
+    mvz= numpy.sum(tvz*pvTvz)/numpy.sum(pvTvz)
+    mvT= numpy.sum(tvT*pvTvz)/numpy.sum(pvTvz)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvTvz)/numpy.sum(pvTvz)-mvz**2.)
+    svT= numpy.sqrt(numpy.sum(tvT**2.*pvTvz)/numpy.sum(pvTvz)-mvT**2.)
+    svTvz= (numpy.sum(tvz*tvT*pvTvz)/numpy.sum(pvTvz)-mvz*mvT)/svz/svT
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvTvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvTvz not equal to that from sigmaT2 for staeckel actions'
+    assert numpy.fabs(svTvz) < 0.01, 'correlation between vz and vT calculated from pvTvz not equal to zero for staeckel actions'
+    return None
+
+def test_pvTvz_staeckel_diffngl():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vzs= numpy.linspace(-1.,1.,21)
+    vTs= numpy.linspace(0.,1.5,51)
+    #ngl=10
+    pvTvz= numpy.array([[qdf.pvTvz(vt,vz,R,z,ngl=10) for vt in vTs] for vz in vzs])
+    tvz= numpy.tile(vzs,(len(vTs),1)).T
+    tvT= numpy.tile(vTs,(len(vzs),1))
+    mvz= numpy.sum(tvz*pvTvz)/numpy.sum(pvTvz)
+    mvT= numpy.sum(tvT*pvTvz)/numpy.sum(pvTvz)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvTvz)/numpy.sum(pvTvz)-mvz**2.)
+    svT= numpy.sqrt(numpy.sum(tvT**2.*pvTvz)/numpy.sum(pvTvz)-mvT**2.)
+    svTvz= (numpy.sum(tvz*tvT*pvTvz)/numpy.sum(pvTvz)-mvz*mvT)/svz/svT
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvTvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvTvz not equal to that from sigmaT2 for staeckel actions'
+    assert numpy.fabs(svTvz) < 0.01, 'correlation between vz and vT calculated from pvTvz not equal to zero for staeckel actions'
+    #ngl=24
+    pvTvz= numpy.array([[qdf.pvTvz(vt,vz,R,z,ngl=40) for vt in vTs] for vz in vzs])
+    mvz= numpy.sum(tvz*pvTvz)/numpy.sum(pvTvz)
+    mvT= numpy.sum(tvT*pvTvz)/numpy.sum(pvTvz)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvTvz)/numpy.sum(pvTvz)-mvz**2.)
+    svT= numpy.sqrt(numpy.sum(tvT**2.*pvTvz)/numpy.sum(pvTvz)-mvT**2.)
+    svTvz= (numpy.sum(tvz*tvT*pvTvz)/numpy.sum(pvTvz)-mvz*mvT)/svz/svT
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvTvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(qdf.sigmaz2(R,z))) < 0.01, 'sigma vz calculated from pvTvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvTvz not equal to that from sigmaT2 for staeckel actions'
+    assert numpy.fabs(svTvz) < 0.01, 'correlation between vz and vT calculated from pvTvz not equal to zero for staeckel actions'
+    #ngl=11, shouldn't work
+    try:
+        pvTvz= numpy.array([[qdf.pvTvz(vt,vz,R,z,ngl=11) for vt in vTs] for vz in vzs])
+    except ValueError: pass
+    else: raise AssertionError('pvz w/ ngl=odd did not raise ValueError')
+    return None
