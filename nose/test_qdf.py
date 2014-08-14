@@ -560,7 +560,6 @@ def test_pvz_staeckel_diffngl():
     return None
 
 def test_pvz_staeckel_arrayin():
-    # Test pvz by calculating its mean and stddev by Riemann sum
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     R,z= 0.8, 0.1
@@ -729,3 +728,99 @@ def test_pvTvz_staeckel_diffngl():
     except ValueError: pass
     else: raise AssertionError('pvz w/ ngl=odd did not raise ValueError')
     return None
+
+def test_pvRvz_adiabatic():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,21)
+    vzs= numpy.linspace(-1.,1.,21)
+    pvRvz= numpy.array([[qdf.pvRvz(vr,vz,R,z) for vz in vzs] for vr in vRs])
+    tvR= numpy.tile(vRs,(len(vzs),1)).T
+    tvz= numpy.tile(vzs,(len(vRs),1))
+    mvR= numpy.sum(tvR*pvRvz)/numpy.sum(pvRvz)
+    mvz= numpy.sum(tvz*pvRvz)/numpy.sum(pvRvz)
+    svR= numpy.sqrt(numpy.sum(tvR**2.*pvRvz)/numpy.sum(pvRvz)-mvR**2.)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvRvz)/numpy.sum(pvRvz)-mvz**2.)
+    svRvz= (numpy.sum(tvR*tvz*pvRvz)/numpy.sum(pvRvz)-mvR*mvz)/svR/svz
+    sR2= qdf.sigmaR2(R,z) #direct calculation
+    sz2= qdf.sigmaz2(R,z)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvRvz not equal to zero for adiabatic actions'
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvRvz not equal to zero for adiabatic actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(sR2)) < 0.01, 'sigma vR calculated from pvRvz not equal to that from sigmaR2 for adiabatic actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(sz2)) < 0.01, 'sigma vz calculated from pvRvz not equal to that from sigmaz2 for adiabatic actions'
+    assert numpy.fabs(svRvz-qdf.sigmaRz(R,z)/numpy.sqrt(sR2*sz2)) < 0.01, 'correlation between vR and vz calculated from pvRvz not equal to zero for adiabatic actions'
+    return None
+
+def test_pvRvz_staeckel():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,21)
+    vzs= numpy.linspace(-1.,1.,21)
+    pvRvz= numpy.array([[qdf.pvRvz(vr,vz,R,z) for vz in vzs] for vr in vRs])
+    tvR= numpy.tile(vRs,(len(vzs),1)).T
+    tvz= numpy.tile(vzs,(len(vRs),1))
+    mvR= numpy.sum(tvR*pvRvz)/numpy.sum(pvRvz)
+    mvz= numpy.sum(tvz*pvRvz)/numpy.sum(pvRvz)
+    svR= numpy.sqrt(numpy.sum(tvR**2.*pvRvz)/numpy.sum(pvRvz)-mvR**2.)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvRvz)/numpy.sum(pvRvz)-mvz**2.)
+    svRvz= (numpy.sum(tvR*tvz*pvRvz)/numpy.sum(pvRvz)-mvR*mvz)/svR/svz
+    sR2= qdf.sigmaR2(R,z) #direct calculation
+    sz2= qdf.sigmaz2(R,z)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(sR2)) < 0.01, 'sigma vR calculated from pvRvz not equal to that from sigmaR2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(sz2)) < 0.01, 'sigma vz calculated from pvRvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(svRvz-qdf.sigmaRz(R,z)/numpy.sqrt(sR2*sz2)) < 0.01, 'correlation between vR and vz calculated from pvRvz not equal to zero for adiabatic actions'
+    return None
+
+def test_pvRvz_staeckel_diffngl():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vRs= numpy.linspace(-1.,1.,21)
+    vzs= numpy.linspace(-1.,1.,21)
+    #ngl=10
+    pvRvz= numpy.array([[qdf.pvRvz(vr,vz,R,z,ngl=10) for vz in vzs] for vr in vRs])
+    tvR= numpy.tile(vRs,(len(vzs),1)).T
+    tvz= numpy.tile(vzs,(len(vRs),1))
+    mvR= numpy.sum(tvR*pvRvz)/numpy.sum(pvRvz)
+    mvz= numpy.sum(tvz*pvRvz)/numpy.sum(pvRvz)
+    svR= numpy.sqrt(numpy.sum(tvR**2.*pvRvz)/numpy.sum(pvRvz)-mvR**2.)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvRvz)/numpy.sum(pvRvz)-mvz**2.)
+    svRvz= (numpy.sum(tvR*tvz*pvRvz)/numpy.sum(pvRvz)-mvR*mvz)/svR/svz
+    sR2= qdf.sigmaR2(R,z) #direct calculation
+    sz2= qdf.sigmaz2(R,z)
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(sR2)) < 0.01, 'sigma vR calculated from pvRvz not equal to that from sigmaR2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(sz2)) < 0.01, 'sigma vz calculated from pvRvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(svRvz-qdf.sigmaRz(R,z)/numpy.sqrt(sR2*sz2)) < 0.01, 'correlation between vR and vz calculated from pvRvz not equal to zero for adiabatic actions'
+    #ngl=24
+    pvRvz= numpy.array([[qdf.pvRvz(vr,vz,R,z,ngl=40) for vz in vzs] for vr in vRs])
+    mvR= numpy.sum(tvR*pvRvz)/numpy.sum(pvRvz)
+    mvz= numpy.sum(tvz*pvRvz)/numpy.sum(pvRvz)
+    svR= numpy.sqrt(numpy.sum(tvR**2.*pvRvz)/numpy.sum(pvRvz)-mvR**2.)
+    svz= numpy.sqrt(numpy.sum(tvz**2.*pvRvz)/numpy.sum(pvRvz)-mvz**2.)
+    svRvz= (numpy.sum(tvR*tvz*pvRvz)/numpy.sum(pvRvz)-mvR*mvz)/svR/svz
+    assert numpy.fabs(mvR) < 0.01, 'mean vR calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(mvz) < 0.01, 'mean vz calculated from pvRvz not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svR)-0.5*numpy.log(sR2)) < 0.01, 'sigma vR calculated from pvRvz not equal to that from sigmaR2 for staeckel actions'
+    assert numpy.fabs(numpy.log(svz)-0.5*numpy.log(sz2)) < 0.01, 'sigma vz calculated from pvRvz not equal to that from sigmaz2 for staeckel actions'
+    assert numpy.fabs(svRvz-qdf.sigmaRz(R,z)/numpy.sqrt(sR2*sz2)) < 0.01, 'correlation between vR and vz calculated from pvRvz not equal to zero for adiabatic actions'
+    #ngl=11, shouldn't work
+    try:
+        pvRvz= numpy.array([[qdf.pvRvz(vr,vz,R,z,ngl=11) for vz in vzs] for vr in vRs])
+    except ValueError: pass
+    else: raise AssertionError('pvz w/ ngl=odd did not raise ValueError')
+    return None
+
+def test_pvRvz_staeckel_arrayin():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    pvRvz= qdf.pvRvz(0.1,0.05,R*numpy.ones(2),z*numpy.ones(2))
+    assert numpy.all(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10., 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
+    return None
+
