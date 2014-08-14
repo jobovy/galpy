@@ -852,3 +852,54 @@ def test_setup_diffsetups():
                               pot=MWPotential,aA=aAS,cutcounter=True,
                               _precomputerg=False)
     assert numpy.fabs(qdf.rg(1.1)-qdfnpc.rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
+
+def test_call_diffinoutputs():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    #when specifying rg etc., first get these from a previous output
+    val, trg, tkappa, tnu, tOmega= qdf((0.03,0.9,0.02),_return_freqs=True)
+    #First check that just supplying these again works
+    assert numpy.fabs(val-qdf((0.03,0.9,0.02),rg=trg,kappa=tkappa,nu=tnu,
+                              Omega=tOmega)) < 10.**-8., 'qdf calls w/ rg, and frequencies specified and w/ not specified do not agrees'
+    #Also calculate the frequencies
+    assert numpy.fabs(val-qdf((0.03,0.9,0.02),rg=trg,
+                              kappa=epifreq(MWPotential,trg),
+                              nu=verticalfreq(MWPotential,trg),
+                              Omega=omegac(MWPotential,trg))) < 10.**-8., 'qdf calls w/ rg, and frequencies specified and w/ not specified do not agrees'
+    #Also test _return_actions
+    val, jr,lz,jz= qdf(0.9,0.1,0.95,0.1,0.08,_return_actions=True)
+    assert numpy.fabs(val-qdf((jr,lz,jz))) < 10.**-8., 'qdf call w/ R,vR,... and actions specified do not agree'
+    acs= aAS(0.9,0.1,0.95,0.1,0.08)
+    assert numpy.fabs(acs[0]-jr) < 10.**-8., 'direct calculation of jr and that returned from qdf.__call__ does not agree'
+    assert numpy.fabs(acs[1]-lz) < 10.**-8., 'direct calculation of lz and that returned from qdf.__call__ does not agree'
+    assert numpy.fabs(acs[2]-jz) < 10.**-8., 'direct calculation of jz and that returned from qdf.__call__ does not agree'
+    #Test unbound orbits
+    #Find unbound orbit, new qdf s.t. we can get UnboundError (only with 
+    taAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.5)
+    qdfnc= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                             pot=MWPotential,
+                             aA=taAS,
+                             cutcounter=True)
+    from galpy.actionAngle import UnboundError
+    try: acs= taAS(0.9,10.,-20.,0.1,10.)
+    except UnboundError: pass
+    else: 
+        print acs
+        raise AssertionError('Test orbit in qdf that is supposed to be unbound is not')
+    assert qdfnc(0.9,10.,-20.,0.1,10.) < 10.**-10., 'unbound orbit does not return qdf equal to zero'
+    #Test negative lz
+    assert qdf((0.03,-0.1,0.02)) < 10.**-8., 'qdf w/ cutcounter=True and negative lz does not return 0'
+    assert qdf((0.03,-0.1,0.02),log=True) <= numpy.finfo(numpy.dtype(numpy.float64)).min+1., 'qdf w/ cutcounter=True and negative lz does not return 0'
+    #Test func
+    val= qdf((0.03,0.9,0.02))
+    fval= qdf((0.03,0.9,0.02),func=lambda x,y,z: numpy.sin(x)*numpy.cos(y)\
+                  *numpy.exp(z))
+    assert numpy.fabs(val*numpy.sin(0.03)*numpy.cos(0.9)*numpy.exp(0.02)-
+                      fval) < 10.**-8, 'qdf __call__ w/ func does not work as expected'  
+    lfval= qdf((0.03,0.9,0.02),func=lambda x,y,z: numpy.sin(x)*numpy.cos(y)\
+                   *numpy.exp(z),log=True)
+    assert numpy.fabs(numpy.log(val)+numpy.log(numpy.sin(0.03)\
+                                                   *numpy.cos(0.9)\
+                                                   *numpy.exp(0.02))-
+                      lfval) < 10.**-8, 'qdf __call__ w/ func does not work as expected'
+    return None
