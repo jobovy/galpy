@@ -383,3 +383,19 @@ def test_meanjz():
         +numpy.log(verticalfreq(MWPotential,0.5))
     assert ldiff > -1. and ldiff < 0., 'meanjz is not what is expected'
     return None
+
+def test_sampleV():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    numpy.random.seed(1)
+    samples= qdf.sampleV(0.8,0.1,n=1000)
+    #test vR
+    assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02, 'sampleV vR mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,0]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1))) < 0.05, 'sampleV vR stddev is not equal to sigmaR'
+    #test vT
+    assert numpy.fabs(numpy.mean(samples[:,1]-qdf.meanvT(0.8,0.1))) < 0.015, 'sampleV vT mean is not equal to meanvT'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,1]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1))) < 0.05, 'sampleV vT stddev is not equal to sigmaT'
+    #test vz
+    assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01, 'sampleV vz mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
+    return None
