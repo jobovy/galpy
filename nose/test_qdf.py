@@ -451,6 +451,57 @@ def test_pvR_staeckel_diffngl():
     else: raise AssertionError('pvR w/ ngl=odd did not raise ValueError')
     return None
 
+def test_pvT_adiabatic():
+    # Test pvT by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAA,cutcounter=True)
+    R,z= 0.8, 0.1
+    vTs= numpy.linspace(0.,1.5,101)
+    pvT= numpy.array([qdf.pvT(vt,R,z) for vt in vTs])
+    mvT= numpy.sum(vTs*pvT)/numpy.sum(pvT)
+    svT= numpy.sqrt(numpy.sum(vTs**2.*pvT)/numpy.sum(pvT)-mvT**2.)
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvT not equal to zero for adiabatic actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvT not equal to that from sigmaT2 for adiabatic actions'
+    return None
+
+def test_pvT_staeckel():
+    # Test pvT by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vTs= numpy.linspace(0.,1.5,101)
+    pvT= numpy.array([qdf.pvT(vt,R,z) for vt in vTs])
+    mvT= numpy.sum(vTs*pvT)/numpy.sum(pvT)
+    svT= numpy.sqrt(numpy.sum(vTs**2.*pvT)/numpy.sum(pvT)-mvT**2.)
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvT not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions'
+    return None
+
+def test_pvT_staeckel_diffngl():
+    # Test pvT by calculating its mean and stddev by Riemann sum
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R,z= 0.8, 0.1
+    vTs= numpy.linspace(0.,1.5,101)
+    #ngl=10
+    pvT= numpy.array([qdf.pvT(vt,R,z,ngl=10) for vt in vTs])
+    mvT= numpy.sum(vTs*pvT)/numpy.sum(pvT)
+    svT= numpy.sqrt(numpy.sum(vTs**2.*pvT)/numpy.sum(pvT)-mvT**2.)
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvT not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions'
+    #ngl=40
+    pvT= numpy.array([qdf.pvT(vt,R,z,ngl=40) for vt in vTs])
+    mvT= numpy.sum(vTs*pvT)/numpy.sum(pvT)
+    svT= numpy.sqrt(numpy.sum(vTs**2.*pvT)/numpy.sum(pvT)-mvT**2.)
+    assert numpy.fabs(mvT-qdf.meanvT(R,z)) < 0.01, 'mean vT calculated from pvT not equal to zero for staeckel actions'
+    assert numpy.fabs(numpy.log(svT)-0.5*numpy.log(qdf.sigmaT2(R,z))) < 0.01, 'sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions'
+    #ngl=11, shouldn't work
+    try:
+        pvT= numpy.array([qdf.pvT(vt,R,z,ngl=11) for vt in vTs])
+    except ValueError: pass
+    else: raise AssertionError('pvT w/ ngl=odd did not raise ValueError')
+    return None
+
 def test_pvz_adiabatic():
     # Test pvz by calculating its mean and stddev by Riemann sum
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
