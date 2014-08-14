@@ -99,6 +99,10 @@ class quasiisothermaldf:
             self._rls= None
             self._precomputergnr= None
             self._precomputergLzgrid= None
+            self._precomputergLzmin= \
+                numpy.finfo(numpy.dtype(numpy.float64)).max
+            self._precomputergLzmax= \
+                numpy.finfo(numpy.dtype(numpy.float64)).min
         self._precomputerg= _precomputerg
         self._glxdef, self._glwdef= \
             numpy.polynomial.legendre.leggauss(_DEFAULTNGL)

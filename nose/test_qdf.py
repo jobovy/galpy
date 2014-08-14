@@ -824,3 +824,31 @@ def test_pvRvz_staeckel_arrayin():
     assert numpy.all(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10., 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
 
+def test_setup_diffsetups():
+    #Test the different ways to setup a qdf object
+    #Test errors
+    try:
+        qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                               aA=aAS,cutcounter=True)
+    except IOError: pass
+    else: raise AssertionError("qdf setup w/o pot set did not raise exception")
+    try:
+        qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                               pot=MWPotential,cutcounter=True)
+    except IOError: pass
+    else: raise AssertionError("qdf setup w/o aA set did not raise exception")
+    from galpy.potential import LogarithmicHaloPotential
+    try:
+        qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                               pot=LogarithmicHaloPotential(),
+                               aA=aAS,cutcounter=True)
+    except IOError: pass
+    else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
+    #precompute
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True,
+                           _precomputerg=True)
+    qdfnpc= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                              pot=MWPotential,aA=aAS,cutcounter=True,
+                              _precomputerg=False)
+    assert numpy.fabs(qdf.rg(1.1)-qdfnpc.rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
