@@ -358,6 +358,19 @@ def test_meanjr():
                       +numpy.log(epifreq(MWPotential,0.5))) < 0.4, 'meanjr is not what is expected'
     return None
 
+def test_meanlz():
+    #This is a *very* rough test against a rough estimate of the mean
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    from galpy.df import dehnendf #baseline
+    dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
+                  beta=0.,correct=False)
+    assert numpy.fabs(numpy.log(qdf.meanlz(0.9,0.,mc=True))\
+                          -numpy.log(0.9*dfc.meanvT(0.9))) < 0.1, 'meanlz is not what is expected'
+    assert numpy.fabs(numpy.log(qdf.meanlz(0.5,0.,mc=True))\
+                          -numpy.log(0.5*dfc.meanvT(0.5))) < 0.2, 'meanlz is not what is expected'
+    return None
+
 def test_meanjz():
     #This is a *very* rough test against a rough estimate of the mean
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
@@ -370,4 +383,3 @@ def test_meanjz():
         +numpy.log(verticalfreq(MWPotential,0.5))
     assert ldiff > -1. and ldiff < 0., 'meanjz is not what is expected'
     return None
-
