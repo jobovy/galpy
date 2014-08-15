@@ -31,13 +31,13 @@ install:
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
- - lcov --capture --base-directory galpy/ --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info --initial
+ - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info --initial
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
  # Generate lcov output 
  - ls build
  - ls build/temp.linux-x86_64-2.7/galpy/potential_src/potential_c_ext/
- - lcov --capture --base-directory galpy/ --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
+ - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
