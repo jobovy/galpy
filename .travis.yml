@@ -4,6 +4,9 @@ python:
 #env: #Doesn't seem to work terribly well
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
+env: #split tests into two
+   - NOSE_IGNORE_FILES=test_qdf.py
+   - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
 virtualenv:
   system_site_packages: true
 before_install:
