@@ -29,14 +29,11 @@ install:
  - easy_install --upgrade coveralls
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
- - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage_initial.info --initial
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
- - lcov --add-tracefile coverage.info --output-file dummy.info
- - if [[ "$?" -ne "0" ]]; then cp coverage_initial.info coverage.info; fi
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
