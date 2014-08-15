@@ -34,7 +34,8 @@ script:
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
  # Generate lcov output 
- - lcov --capture --directory . -b . --output-file coverage.info
+ - ls
+ - lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
