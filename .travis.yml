@@ -30,9 +30,8 @@ install:
  - gem install coveralls-lcov
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
- - rm galpy_integrate_c.so
- - ln -s build/lib.linux-x86_64-2.7/galpy_integrate_c.so galpy_integrate_c.so
 script:
+ - lcov --capture --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info --initial
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
  # Generate lcov output 
