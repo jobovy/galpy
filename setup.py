@@ -121,7 +121,6 @@ if single_ext: #add the code and libraries for the other extensions
                                'galpy/orbit_src/orbit_c_ext',
                                'galpy/potential_src/interppotential_c_ext'])
     orbit_include_dirs= list(set(orbit_include_dirs))
-    print pot_libraries
 
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
