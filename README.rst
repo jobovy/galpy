@@ -15,7 +15,7 @@ galpy
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
 
-.. image:: http://img.shields.io/pypi/l/galpy.svg
+.. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
 `lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
 
