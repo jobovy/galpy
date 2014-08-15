@@ -25,8 +25,8 @@ before_install:
 install:
  - pip install coveralls
  - pip install nose-cov
- - pip install coveralls-merge
- - "gem install coveralls-lcov"
+ - pip install git+git://github.com/wiredfool/coveralls-merge.git#egg=coveralls-merge
+ - gem install coveralls-lcov
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
