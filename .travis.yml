@@ -24,7 +24,7 @@ before_install:
 # command to install dependencies
 install:
  - pip install nose-cov
- - pip install git+git://github.com/wiredfool/coveralls-merge.git#egg=coveralls-merge
+ - pip install coveralls-merge
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
