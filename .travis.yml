@@ -5,10 +5,11 @@ python:
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
 env: #split tests into two
-   - NOSE_IGNORE_FILES='test_qdf.py|test_diskdf.py|test_orbit.py'
+   - NOSE_IGNORE_FILES='test_qdf.py|test_diskdf.py|test_orbit.py|test_coords.py'
    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
+   - NOSE_IGNORE_FILES='^((?!test_coords).)*$'
 virtualenv:
   system_site_packages: true
 before_install:
@@ -25,13 +26,14 @@ install:
  - pip install coveralls
  - pip install nose-cov
  - pip install coveralls-merge
- - python setup.py develop
  - "gem install coveralls-lcov"
+ - python setup.py build_ext --coverage --single_ext --inplace
+ - python setup.py develop
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
- # Download lcov output 
- - wget http://sns.ias.edu/~bovy/galpy_lcov/coverage.info -O coverage.info
+ # Generate lcov output 
+ - lcov --capture --directory . -b . --output-file coverage.info
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
