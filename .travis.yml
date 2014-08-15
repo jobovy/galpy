@@ -23,11 +23,11 @@ before_install:
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
 install:
- - pip install coveralls
  - pip install nose-cov
  - pip install git+git://github.com/wiredfool/coveralls-merge.git#egg=coveralls-merge
  - gem install coveralls-lcov
- -  easy_install --upgrade requests
+ - easy_install --upgrade requests
+ - easy_install --upgrade coveralls
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info --initial
