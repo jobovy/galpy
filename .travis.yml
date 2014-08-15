@@ -36,7 +36,7 @@ after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  - lcov --add-tracefile coverage_orbit.info --output-file dummy.info
-- if [[ "$?" -ne "0" ]]; then cp coverage_orbit_initial.info coverage_orbit.info; fi
+ - if [[ "$?" -ne "0" ]]; then cp coverage_orbit_initial.info coverage_orbit.info; fi
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
