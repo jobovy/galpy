@@ -10,7 +10,7 @@ galpy
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
-  :target: https://readthedocs.org/projects/galpy/?badge=latest
+  :target: http://galpy.readthedocs.org/en/latest/
 
 .. image:: https://pypip.in/v/galpy/badge.png
    :target: https://pypi.python.org/pypi/galpy/ 
