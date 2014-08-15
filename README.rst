@@ -3,10 +3,10 @@ galpy
 
 **Galactic Dynamics in python**
 
-.. image:: https://travis-ci.org/jobovy/galpy.png?branch=master 
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
    :target: http://travis-ci.org/jobovy/galpy
 
-.. image:: https://coveralls.io/repos/jobovy/galpy/badge.png?branch=master
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
