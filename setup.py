@@ -110,7 +110,7 @@ if single_ext: #add the code and libraries for the other extensions
     #libraries
     orbit_libraries.extend(pot_libraries)
     orbit_libraries= list(set(orbit_libraries))
-    orbit_libraries.append('lgcov')
+    orbit_libraries.append('gcov')
     #includes
     orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
                                'galpy/util/interp_2d',
