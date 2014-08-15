@@ -14,6 +14,7 @@ virtualenv:
   system_site_packages: true
 before_install:
  - sudo apt-get install libgsl0-dev
+ - sudo apt-get -qq install lcov
  - pip uninstall -y numpy #uninstall numpy from virtualenv
  - sudo apt-get install -qq python-scipy python-matplotlib
  - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
