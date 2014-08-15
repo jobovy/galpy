@@ -5,20 +5,19 @@ python:
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
 env: #split tests into two
-   - NOSE_IGNORE_FILES='test_qdf.py|test_diskdf.py|test_orbit.py|test_coords.py'
+   - NOSE_IGNORE_FILES='test_qdf.py|test_diskdf.py|test_orbit.py'
    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_coords).)*$'
 virtualenv:
   system_site_packages: true
 before_install:
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
-# - pip uninstall -y numpy #uninstall numpy from virtualenv
+ - pip uninstall -y numpy #uninstall numpy from virtualenv
  - sudo apt-get install -qq python-scipy python-matplotlib
-# - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
-# - pip install numpy>=1.7
+ - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
+ - pip install numpy>=1.7
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
@@ -35,8 +34,6 @@ script:
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
  # Generate lcov output 
- - ls build
- - ls build/temp.linux-x86_64-2.7/galpy/potential_src/potential_c_ext/
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  - lcov --add-tracefile coverage_orbit.info --output-file dummy.info
 - if [ "$?" -ne "0" ]; then cp coverage_orbit_initial.info coverage_orbit.info; fi
