@@ -1,7 +1,7 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
-import os
+import os, os.path
 import subprocess
 import glob
 
@@ -245,5 +245,7 @@ print 'You can run the test suite using `nosetests -v -w nose/` to check the ins
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so
 if single_ext:
-    os.symlink('galpy_integrate_c.so','galpy_actionAngle_c.so')
-    os.symlink('galpy_integrate_c.so','galpy_interppotential_c.so')
+    if not os.path.exists('galpy_actionAngle_c.so'):
+        os.symlink('galpy_integrate_c.so','galpy_actionAngle_c.so')
+    if not os.path.exists('galpy_interppotential_c.so'):
+        os.symlink('galpy_integrate_c.so','galpy_interppotential_c.so')
