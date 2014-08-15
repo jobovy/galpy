@@ -16,7 +16,6 @@ before_install:
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
 # - pip uninstall -y numpy #uninstall numpy from virtualenv
- - pip uninstall -y requests #uninstall requests from virtualenv
  - sudo apt-get install -qq python-scipy python-matplotlib
 # - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
 # - pip install numpy>=1.7
@@ -24,9 +23,9 @@ before_install:
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
 install:
+ - pip install requests>=2.0.0
  - pip install coveralls
  - pip install nose-cov
- - pip install requests>=2.0.0
  - pip install git+git://github.com/wiredfool/coveralls-merge.git#egg=coveralls-merge
  - gem install coveralls-lcov
  - python setup.py build_ext --coverage --single_ext --inplace
