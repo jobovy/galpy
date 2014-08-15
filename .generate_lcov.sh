@@ -38,6 +38,7 @@ if [ "$?" -ne "0" ]; then
     cp coverage_interppotential_initial.info coverage_interppotential.info
 fi
 lcov --add-tracefile coverage_orbit.info --add-tracefile coverage_actionAngle.info --add-tracefile coverage_interppotential.info -output-file coverage.info
+cp coverage.info ~/public_html/galpy_lcov/
 # Generate HTML
 genhtml coverage.info --output-directory ~/public_html/galpy_lcov/
 rm -vf dummy.info

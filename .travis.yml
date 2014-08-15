@@ -24,11 +24,18 @@ install:
  - pip install gcovr
  - pip install coveralls
  - pip install nose-cov
+ - pip install coveralls-merge
  - python setup.py develop
+ - "gem install coveralls-lcov"
 script:
  - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
 after_success:
- - coveralls
+ # Download lcov output 
+ - wget http://sns.ias.edu/~bovy/galpy_lcov/coverage.info -O coverage.info
+ # combine, generate json, and upload
+ - coveralls-lcov -v -n coverage.info > coverage.c.json
+ - coveralls-merge coverage.c.json
+# - coveralls
 notifications:
   email:
     recipients:
