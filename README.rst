@@ -12,7 +12,7 @@ galpy
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
   :target: http://galpy.readthedocs.org/en/latest/
 
-.. image:: https://pypip.in/v/galpy/badge.png
+.. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
 
 .. image:: http://img.shields.io/pypi/l/galpy.svg
