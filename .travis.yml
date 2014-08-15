@@ -5,7 +5,9 @@ python:
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
 env: #split tests into two
-   - NOSE_IGNORE_FILES=test_qdf.py
+   - NOSE_IGNORE_FILES='test_qdf.py|test_diskdf.py|test_orbit.py'
+   - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
+   - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
 virtualenv:
   system_site_packages: true
