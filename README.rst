@@ -9,6 +9,9 @@ galpy
 .. image:: https://coveralls.io/repos/jobovy/galpy/badge.png?branch=master
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
+.. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
+  :target: https://readthedocs.org/projects/galpy/?badge=latest
+
 .. image:: https://pypip.in/v/galpy/badge.png
    :target: https://pypi.python.org/pypi/galpy/ 
 `lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
