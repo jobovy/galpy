@@ -1,6 +1,7 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
+import os
 import subprocess
 import glob
 
@@ -10,6 +11,7 @@ with open('README.rst') as dfile:
 # Parse options; current options
 # --no-openmp: compile without OpenMP support
 # --coverage: compile with gcov support
+# --single_ext: compile all of the C code into a single extension (just for testing, do not use this)
 # --orbit_ext: just compile the orbit extension (for use w/ --coverage)
 # --actionAngle_ext: just compile the actionAngle extension (for use w/ --coverage)
 # --interppotential_ext: just compile the interppotential extension (for use w/ --coverage)
@@ -34,6 +36,15 @@ else:
     del sys.argv[coverage_pos]
     extra_compile_args.extend(["-O0","--coverage"])
     extra_link_args= ["--coverage"]
+
+#Option to compile everything into a single extension
+try:
+    single_ext_pos = sys.argv.index('--single_ext')
+except ValueError:
+    single_ext= False
+else:
+    del sys.argv[single_ext_pos]
+    single_ext= True
 
 #Option to just compile the orbit extension
 try:
@@ -87,12 +98,35 @@ orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
+
+orbit_include_dirs= ['galpy/util',
+                     'galpy/util/interp_2d',
+                     'galpy/potential_src/potential_c_ext']
+
+if single_ext: #add the code and libraries for the other extensions
+    #src
+    orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
+    orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+    #libraries
+    orbit_libraries.extend(pot_libraries)
+    orbit_libraries= list(set(orbit_libraries))
+    #includes
+    orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
+                               'galpy/util/interp_2d',
+                               'galpy/potential_src/potential_c_ext'])
+    orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
+                               'galpy/util/interp_2d',
+                               'galpy/util/',
+                               'galpy/actionAngle_src/actionAngle_c_ext',
+                               'galpy/orbit_src/orbit_c_ext',
+                               'galpy/potential_src/interppotential_c_ext'])
+    orbit_include_dirs= list(set(orbit_include_dirs))
+    print pot_libraries
+
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
-                       include_dirs=['galpy/util',
-                                     'galpy/util/interp_2d',
-                                     'galpy/potential_src/potential_c_ext'],
+                       include_dirs=orbit_include_dirs,
                        extra_compile_args=extra_compile_args,
                        extra_link_args=extra_link_args)
 ext_modules=[]
@@ -108,6 +142,10 @@ actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
+actionAngle_include_dirs= ['galpy/actionAngle_src/actionAngle_c_ext',
+                           'galpy/util/interp_2d',
+                           'galpy/potential_src/potential_c_ext']
+
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
 #using
@@ -115,13 +153,11 @@ actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 actionAngle_c= Extension('galpy_actionAngle_c',
                          sources=actionAngle_c_src,
                          libraries=pot_libraries,
-                         include_dirs=['galpy/actionAngle_src/actionAngle_c_ext',
-                                       'galpy/util/interp_2d',
-                                       'galpy/potential_src/potential_c_ext'],
+                         include_dirs=actionAngle_include_dirs,
                          extra_compile_args=extra_compile_args,
                          extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
-        not orbit_ext and not interppotential_ext:
+        not orbit_ext and not interppotential_ext and not single_ext:
     actionAngle_c_incl= True
     ext_modules.append(actionAngle_c)
 else:
@@ -135,19 +171,21 @@ interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngl
 interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
+interppotential_include_dirs= ['galpy/potential_src/potential_c_ext',
+                               'galpy/util/interp_2d',
+                               'galpy/util/',
+                               'galpy/actionAngle_src/actionAngle_c_ext',
+                               'galpy/orbit_src/orbit_c_ext',
+                               'galpy/potential_src/interppotential_c_ext']
+
 interppotential_c= Extension('galpy_interppotential_c',
-                         sources=interppotential_c_src,
-                         libraries=pot_libraries,
-                         include_dirs=['galpy/potential_src/potential_c_ext',
-                                       'galpy/util/interp_2d',
-                                       'galpy/util/',
-                                       'galpy/actionAngle_src/actionAngle_c_ext',
-                                       'galpy/orbit_src/orbit_c_ext',
-                                       'galpy/potential_src/interppotential_c_ext'],
+                             sources=interppotential_c_src,
+                             libraries=pot_libraries,
+                             include_dirs=interppotential_include_dirs,
                              extra_compile_args=extra_compile_args,
                              extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
-        and not orbit_ext and not actionAngle_ext:
+        and not orbit_ext and not actionAngle_ext and not single_ext:
     interppotential_c_incl= True
     ext_modules.append(interppotential_c)
 else:
@@ -193,10 +231,10 @@ if not orbit_int_c_incl:
     num_gsl_warn+= 1
     print '\033[91;1m'+'WARNING: orbit-integration C library not installed because your GSL version < 1'+'\033[0m'
 
-if not actionAngle_c_incl:
+if not actionAngle_c_incl and not single_ext:
     num_gsl_warn+= 1
     print '\033[91;1m'+'WARNING: action-angle C library not installed because your GSL version < 1.14'+'\033[0m'
-if not interppotential_c_incl:
+if not interppotential_c_incl and not single_ext:
     num_gsl_warn+= 1
     print '\033[91;1m'+'WARNING: Potential-interpolation C library not installed because your GSL version < 1.14'+'\033[0m'
 
@@ -205,3 +243,8 @@ if num_gsl_warn > 0:
     print '\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m'
 print '\033[1m'+'Finished installing galpy'+'\033[0m'
 print 'You can run the test suite using `nosetests -v -w nose/` to check the installation (note that the test suite currently takes about 8 minutes to run)'
+
+#if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so
+if single_ext:
+    os.symlink('galpy_integrate_c.so','galpy_actionAngle_c.so')
+    os.symlink('galpy_integrate_c.so','galpy_interppotential_c.so')
