@@ -9,6 +9,9 @@ galpy
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
+.. image:: http://img.shields.io/badge/lcov-96%-brightgreen.svg
+   :target: http://sns.ias.edu/~bovy/galpy_lcov/
+
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
   :target: http://galpy.readthedocs.org/en/latest/
 
@@ -17,7 +20,6 @@ galpy
 
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
-`lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
 
 AUTHOR
 -------
