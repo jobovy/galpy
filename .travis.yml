@@ -25,6 +25,7 @@ before_install:
 install:
  - pip install coveralls
  - pip install nose-cov
+ - pip install -U requests
  - pip install git+git://github.com/wiredfool/coveralls-merge.git#egg=coveralls-merge
  - gem install coveralls-lcov
  - python setup.py build_ext --coverage --single_ext --inplace
