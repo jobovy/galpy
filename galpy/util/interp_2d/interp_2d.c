@@ -28,10 +28,12 @@ void interp_2d_init(interp_2d * i2d, const double * xa, const double * ya, const
     memcpy(i2d->ya,ya,(i2d->size2)*sizeof(double));
     memcpy(i2d->za,za,(i2d->size1)*(i2d->size2)*sizeof(double));
     
+// LCOV_EXCL_START
     if(type==INTERP_2D_CUBIC_BSPLINE)
     {
         samples_to_coefficients(i2d->za,i2d->size1,i2d->size2);
     }
+// LCOV_EXCL_STOP
 }
 // LCOV_EXCL_START
 double interp_2d_eval_linear(interp_2d * i2d, double x, double y, 
