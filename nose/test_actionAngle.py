@@ -328,6 +328,36 @@ def test_actionAngleAdiabatic_basic_actions_c():
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
 
+#Basic sanity checking of the actionAngleAdiabatic actions
+def test_actionAngleAdiabatic_unboundz_actions_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=True,gamma=0.)
+    #Unbound in z, so jz should be very large
+    R,vR,vT,z,vz= 1.,0.,1.,0., 10.
+    js= aAA(R,vR,vT,z,vz)
+    assert numpy.fabs(js[2]) > 1000., 'Unbound orbit in z in the MWPotential does not have large Jz'
+    return None
+
+#Basic sanity checking of the actionAngleAdiabatic actions
+def test_actionAngleAdiabatic_zerolz_actions_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=True,gamma=0.)
+    #Zero angular momentum, so rperi=0, but should have finite jr
+    R,vR,vT,z,vz= 1.,0.,0.,0., 0.
+    js= aAA(R,vR,vT,z,vz)
+    R,vR,vT,z,vz= 1.,0.,0.0000001,0., 0.
+    js2= aAA(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
+    #Zero angular momentum, so rperi=0, but should have finite jr
+    R,vR,vT,z,vz= 1.,-0.5,0.,0., 0.
+    js= aAA(R,vR,vT,z,vz)
+    R,vR,vT,z,vz= 1.,-0.5,0.0000001,0., 0.
+    js2= aAA(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
+    return None
+
 #Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions():
     from galpy.potential import MWPotential
