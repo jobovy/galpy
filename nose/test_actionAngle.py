@@ -363,7 +363,7 @@ def test_actionAngleAdiabatic_conserved_actions_singlepot():
                                         inclphi=True)
     return None
 
-#Test the actions of an actionAngleAdiabatic, single pot
+#Test the actions of an actionAngleAdiabatic, single pot, C
 def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
     from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import actionAngleAdiabatic
@@ -374,6 +374,21 @@ def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
     check_actionAngle_conserved_actions(aAA,obs,mp,
                                         -1.5,-8.,-2.,ntimes=101,
                                         inclphi=True)
+    return None
+
+#Test the actions of an actionAngleAdiabatic, interpolated pot
+def test_actionAngleAdiabatic_conserved_actions_interppot_c():
+    from galpy.potential import MWPotential, interpRZPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=ip,c=True)
+    check_actionAngle_conserved_actions(aAA,obs,ip,
+                                        -1.4,-8.,-1.7,ntimes=101)
     return None
 
 #Test the actionAngleAdiabatic against an isochrone potential: actions
