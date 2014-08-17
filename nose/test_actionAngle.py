@@ -565,6 +565,28 @@ def test_actionAngleStaeckel_basic_actions_u0_c():
     assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     return None
 
+#Basic sanity checking of the actionAngleStaeckel actions, w/ u0, and interppot
+def test_actionAngleStaeckel_basic_actions_u0_interppot_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, interpRZPotential
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True)
+    aAS= actionAngleStaeckel(pot=ip,delta=0.71,c=True,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    js= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -644,11 +666,16 @@ def test_actionAngleStaeckel_basic_freqs_c_u0():
     return None
 
 #Basic sanity checking of the actionAngleStaeckel actions
-def test_actionAngleStaeckel_basic_freqsAngles_u0():
+def test_actionAngleStaeckel_basic_freqs_u0():
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq, \
+        interpRZPotential
     from galpy.orbit import Orbit
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True)
+    aAS= actionAngleStaeckel(pot=ip,delta=0.71,c=True,useu0=True)
     #v. close-to-circular orbit
     R,vR,vT,z,vz= 1.,10.**-4.,1.,10.**-4.,0.
     jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz,2.]))
@@ -671,14 +698,19 @@ def test_actionAngleStaeckel_conserved_actions():
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
-        FlattenedPowerPotential
+        FlattenedPowerPotential, interpRZPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
     pots= [MWPotential,
            DoubleExponentialDiskPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.),
-           FlattenedPowerPotential(normalize=1.,alpha=0.)]
+           FlattenedPowerPotential(normalize=1.,alpha=0.),
+           ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -688,7 +720,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
                                                 inclphi=True)
         else:
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.7,-8.,-1.7,ntimes=101,
+                                                -1.7,-8.,-1.65,ntimes=101,
                                                 inclphi=True)
     return None
 
@@ -757,6 +789,24 @@ def test_actionAngleStaeckel_linear_angles():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    check_actionAngle_linear_angles(aAS,obs,MWPotential,
+                                    -2.,-4.,-3.,
+                                    -3.,-3.,-2.,
+                                    -2.,-3.5,-2.,
+                                    ntimes=1001) #need fine sampling for de-period
+    return None
+
+#Test that the angles of an actionAngleStaeckel increase linearly, interppot
+def test_actionAngleStaeckel_linear_angles_interppot():
+    from galpy.potential import MWPotential, interpRZPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    aAS= actionAngleStaeckel(pot=ip,delta=0.71,c=True)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     check_actionAngle_linear_angles(aAS,obs,MWPotential,
                                     -2.,-4.,-3.,
