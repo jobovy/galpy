@@ -1432,7 +1432,7 @@ void calcUminUmax(int ndata,
 	//Find root
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = 0.;
+	  *(umin+ii) = 0.;//Assume zero if below 0.000000001
 	} else {
 	  iter= 0;
 	  do
@@ -1504,7 +1504,7 @@ void calcUminUmax(int ndata,
       //Find root
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = 0.;
+	*(umin+ii) = 0.;//Assume zero if below 0.000000001
       } else {
 	iter= 0;
 	do
