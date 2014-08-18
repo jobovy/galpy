@@ -862,12 +862,18 @@ void calcFreqsFromDerivsStaeckel(int ndata,
   private(ii)							\
   shared(Omegar,Omegaphi,Omegaz,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3,detA)
   for (ii=0; ii < ndata; ii++){
-    //First calculate the determinant of the relevant matrix
-    *(detA+ii)= *(djrdE+ii) * *(djzdI3+ii) - *(djzdE+ii) * *(djrdI3+ii);
-    //Then calculate the frequencies
-    *(Omegar+ii)= *(djzdI3+ii) / *(detA+ii);
-    *(Omegaz+ii)= - *(djrdI3+ii) / *(detA+ii);
-    *(Omegaphi+ii)= ( *(djrdI3+ii) * *(djzdLz+ii) - *(djzdI3+ii) * *(djrdLz+ii)) / *(detA+ii);
+    if ( *(djrdE+ii) == 9999.99 || *(djzdE+ii) == 9999.99 ) {
+      *(Omegar+ii)= 9999.99;
+      *(Omegaz+ii)= 9999.99;
+      *(Omegaphi+ii)= 9999.99;
+    } else {
+      //First calculate the determinant of the relevant matrix
+      *(detA+ii)= *(djrdE+ii) * *(djzdI3+ii) - *(djzdE+ii) * *(djrdI3+ii);
+      //Then calculate the frequencies
+      *(Omegar+ii)= *(djzdI3+ii) / *(detA+ii);
+      *(Omegaz+ii)= - *(djrdI3+ii) / *(detA+ii);
+      *(Omegaphi+ii)= ( *(djrdI3+ii) * *(djzdLz+ii) - *(djzdI3+ii) * *(djrdLz+ii)) / *(detA+ii);
+    }
   }
 }		 
 void calcdI3dJFromDerivsStaeckel(int ndata,
@@ -1426,28 +1432,29 @@ void calcUminUmax(int ndata,
 	//Find root
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
-	  continue;
-	}
-	iter= 0;
-	do
-	  {
-	    iter++;
-	    status = gsl_root_fsolver_iterate ((s+tid)->s);
-	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
-	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
-	    status = gsl_root_test_interval (u_lo, u_hi,
-					     9.9999999999999998e-13,
-					     4.4408920985006262e-16);
+	  *(umin+ii) = 0.;
+	} else {
+	  iter= 0;
+	  do
+	    {
+	      iter++;
+	      status = gsl_root_fsolver_iterate ((s+tid)->s);
+	      u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	      u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	      status = gsl_root_test_interval (u_lo, u_hi,
+					       9.9999999999999998e-13,
+					       4.4408920985006262e-16);
+	    }
+	  while (status == GSL_CONTINUE && iter < max_iter);
+	  // LCOV_EXCL_START
+	  if (status == GSL_EINVAL) {//Shouldn't ever get here
+	    *(umin+ii) = -9999.99;
+	    *(umax+ii) = -9999.99;
+	    continue;
 	  }
-	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
-	  continue;
+	  // LCOV_EXCL_STOP
+	  *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
 	}
-	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
@@ -1476,11 +1483,13 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
+	// LCOV_EXCL_STOP
 	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -1495,28 +1504,29 @@ void calcUminUmax(int ndata,
       //Find root
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
-	continue;
-      }
-      iter= 0;
-      do
-	{
-	  iter++;
-	  status = gsl_root_fsolver_iterate ((s+tid)->s);
-	  u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
-	  u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
-	  status = gsl_root_test_interval (u_lo, u_hi,
-					   9.9999999999999998e-13,
-					   4.4408920985006262e-16);
+	*(umin+ii) = 0.;
+      } else {
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	    status = gsl_root_test_interval (u_lo, u_hi,
+					     9.9999999999999998e-13,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
+	  *(umin+ii) = -9999.99;
+	  *(umax+ii) = -9999.99;
+	  continue;
 	}
-      while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
-	continue;
+	// LCOV_EXCL_STOP
+	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
-      *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
       u_hi= 1.1 * *(ux+ii);
@@ -1544,11 +1554,13 @@ void calcUminUmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(umin+ii) = -9999.99;
 	*(umax+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
@@ -1649,11 +1661,14 @@ void calcVmin(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(vmin+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(vmin+ii) = gsl_root_fsolver_root ((s+tid)->s);
+      fflush(stdout);
     }
   }
   gsl_set_error_handler (NULL);

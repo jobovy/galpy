@@ -336,7 +336,7 @@ def test_actionAngleAdiabatic_unboundz_actions_c():
     #Unbound in z, so jz should be very large
     R,vR,vT,z,vz= 1.,0.,1.,0., 10.
     js= aAA(R,vR,vT,z,vz)
-    assert numpy.fabs(js[2]) > 1000., 'Unbound orbit in z in the MWPotential does not have large Jz'
+    assert js[2] > 1000., 'Unbound orbit in z in the MWPotential does not have large Jz'
     return None
 
 #Basic sanity checking of the actionAngleAdiabatic actions
@@ -605,6 +605,40 @@ def test_actionAngleStaeckel_basic_actions_c():
     assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     return None
 
+#Basic sanity checking of the actionAngleStaeckel actions, unbound
+def test_actionAngleStaeckel_unboundr_actions_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #Unbound orbit, shouldn't fail
+    R,vR,vT,z,vz= 1.,0.,10.,0.1,0.
+    js= aAS(R,vR,vT,z,vz)
+    assert js[0] > 1000., 'Unbound in R orbit in the MWPotential does not have large Jr'
+    #Another unbound orbit, shouldn't fail
+    R,vR,vT,z,vz= 1.,0.1,10.,0.1,0.
+    js= aAS(R,vR,vT,z,vz)
+    assert js[0] > 1000., 'Unbound in R orbit in the MWPotential does not have large Jr'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions
+def test_actionAngleStaeckel_zerolz_actions_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.71)
+    #Zero angular momentum, so rperi=0, but should have finite jr
+    R,vR,vT,z,vz= 1.,0.,0.,0., 0.
+    js= aAS(R,vR,vT,z,vz)
+    R,vR,vT,z,vz= 1.,0.,0.0000001,0., 0.
+    js2= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
+    #Zero angular momentum, so rperi=0, but should have finite jr
+    R,vR,vT,z,vz= 1.,-0.5,0.,0., 0.
+    js= aAS(R,vR,vT,z,vz)
+    R,vR,vT,z,vz= 1.,-0.5,0.0000001,0., 0.
+    js2= aAS(R,vR,vT,z,vz)
+    assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel frequencies
 def test_actionAngleStaeckel_basic_freqs_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -682,6 +716,46 @@ def test_actionAngleStaeckel_basic_freqs_u0():
     assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
     assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
     assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions, unbound
+def test_actionAngleStaeckel_unboundr_freqs_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #Unbound orbit, shouldn't fail
+    R,vR,vT,z,vz= 1.,0.1,10.,0.1,0.
+    js= aAS.actionsFreqs(R,vR,vT,z,vz)
+    assert js[0] > 1000., 'Unbound in R orbit in the MWPotential does not have large Jr'
+    assert js[3] > 1000., 'Unbound in R orbit in the MWPotential does not have large Or'
+    assert js[4] > 1000., 'Unbound in R orbit in the MWPotential does not have large Op'
+    assert js[5] > 1000., 'Unbound in R orbit in the MWPotential does not have large Oz'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions, unbound
+def test_actionAngleStaeckel_unboundr_angles_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #Unbound orbit, shouldn't fail
+    R,vR,vT,z,vz,phi= 1.,0.1,10.,0.1,0.,0.
+    js= aAS.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    assert js[0] > 1000., 'Unbound in R orbit in the MWPotential does not have large Jr'
+    assert js[6] > 1000., 'Unbound in R orbit in the MWPotential does not have large ar'
+    assert js[7] > 1000., 'Unbound in R orbit in the MWPotential does not have large ap'
+    assert js[8] > 1000., 'Unbound in R orbit in the MWPotential does not have large az'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel actions, unbound
+def test_actionAngleStaeckel_circular_angles_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True)
+    #Circular orbits, have zero r and z angles in our implementation
+    R,vR,vT,z,vz,phi= 1.,0.,1.,0.,0.,1.
+    js= aAS.actionsFreqsAngles(R,vR,vT,z,vz,phi)
+    assert numpy.fabs(js[6]) < 10.**-8., 'Circular orbit does not have zero angles'
+    assert numpy.fabs(js[8]) < 10.**-8., 'Circular orbit does not have zero angles'
     return None
 
 #Test the actions of an actionAngleStaeckel
