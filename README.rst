@@ -9,7 +9,7 @@ galpy
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
-.. image:: http://img.shields.io/badge/C%20coverage-96%-green.svg
+.. image:: http://img.shields.io/badge/C%20coverage-99%-green.svg
    :target: http://sns.ias.edu/~bovy/galpy_lcov/
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
