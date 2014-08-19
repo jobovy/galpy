@@ -96,6 +96,8 @@ Specific potentials
    potentialpowerspherwcut.rst
    potentialrazorexp.rst
 
+.. _potential-mw:
+
 In addition to these classes, a simple Milky-Way-like potential fit to
 data on the Milky Way is included as
 ``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for

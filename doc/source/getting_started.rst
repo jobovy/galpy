@@ -49,6 +49,16 @@ As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
 
 >>> from galpy.potential import MWPotential
 
+This is *not* the recommended Milky-Way-like potential in
+``galpy``. The (currently) recommended Milky-Way-like potential is
+``MWPotential2014``:
+
+>>> from galpy.potential import MWPotential2014
+
+``MWPotential2014`` has a more realistic bulge model and is actually
+fit to various dynamical constraints on the Milky Way (see
+:ref:`here <potential-mw>` and the ``galpy`` paper).
+
 Units in galpy
 --------------
 .. _units:
