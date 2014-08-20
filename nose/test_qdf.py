@@ -844,6 +844,16 @@ def test_setup_diffsetups():
                                aA=aAS,cutcounter=True)
     except IOError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
+    #qdf setup with an actionAngleIsochrone instance (issue #190)
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=2.)
+    try:
+        qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                               pot=ip,
+                               aA=actionAngleIsochrone(ip=ip),cutcounter=True)
+    except:
+        raise AssertionError('quasi-isothermaldf setup w/ an actionAngleIsochrone instance failed')
     #precompute
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True,
