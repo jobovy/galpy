@@ -5,6 +5,8 @@ import numpy
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
+from galpy.actionAngle import actionAngleIsochrone
+from galpy.potential import IsochronePotential
 from galpy.orbit import Orbit
 from galpy.util import galpyWarning
 _NSIGMA=4
@@ -81,7 +83,12 @@ class quasiisothermaldf:
             raise IOError("aA= must be set")
         self._aA= aA
         if not self._aA._pot == self._pot:
-            raise IOError("Potential in aA does not appear to be the same as given potential pot")
+            if not isinstance(self._aA,actionAngleIsochrone):
+                raise IOError("Potential in aA does not appear to be the same as given potential pot")
+            elif isinstance(self._pot,IsochronePotential) and \
+                    not self._aA.b == self._pot.b and \
+                    not self._aA.amp == self._pot._amp:
+                raise IOError("Potential in aA does not appear to be the same as given potential pot")
         self._cutcounter= cutcounter
         if _precomputerg:
             if _precomputergrmax is None:
