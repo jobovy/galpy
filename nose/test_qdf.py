@@ -853,7 +853,17 @@ def test_setup_diffsetups():
                                pot=ip,
                                aA=actionAngleIsochrone(ip=ip),cutcounter=True)
     except:
+        raise
         raise AssertionError('quasi-isothermaldf setup w/ an actionAngleIsochrone instance failed')
+    #qdf setup with an actionAngleIsochrone instance should raise error if potentials are not the same
+    ip= IsochronePotential(normalize=1.,b=2.)
+    try:
+        qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                               pot=ip,
+                               aA=actionAngleIsochrone(ip=IsochronePotential(normalize=1.,b=2.5)),
+                               cutcounter=True)
+    except IOError: pass
+    else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #precompute
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True,
