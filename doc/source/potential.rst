@@ -37,19 +37,19 @@ such instances. Similarly, we can evaluate a Potential instance
 Most member functions of Potential instances have corresponding
 functions in the galpy.potential module that allow them to be
 evaluated for lists of multiple Potential
-instances. ``galpy.potential.MWPotential`` is such a list of three
+instances. ``galpy.potential.MWPotential2014`` is such a list of three
 Potential instances
 
->>> from galpy.potential import MWPotential
->>> print MWPotential
-[<galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1078d5c20>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1078d5c68>, <galpy.potential_src.TwoPowerSphericalPotential.HernquistPotential instance at 0x1078d5cb0>]
+>>> from galpy.potential import MWPotential2014
+>>> print MWPotential2014
+[<galpy.potential_src.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
 
 and we can evaluate the potential by using the ``evaluatePotentials``
 function
 
 >>> from galpy.potential import evaluatePotentials
->>> evaluatePotentials(1.,0.,MWPotential)
--4.5525780402192924
+>>> evaluatePotentials(1.,0.,MWPotential2014)
+-1.3733506513947895
 
 We can plot the potential of axisymmetric potentials (or of
 non-axisymmetric potentials at phi=0) using the ``plot`` member
@@ -64,7 +64,8 @@ which produces the following plot
 Similarly, we can plot combinations of Potentials using
 ``plotPotentials``, e.g., 
 
->>> plotPotentials(MWPotential)
+>>> from galpy.potential import plotPotentials
+>>> plotPotentials(MWPotential2014,rmin=0.01)
 
 .. image:: images/MWPotential-potential.png
 
@@ -107,11 +108,11 @@ Again, there are functions in ``galpy.potential`` that allow for the
 evaluation of the forces for lists of Potential instances, such that
 
 >>> from galpy.potential import evaluateRforces
->>> evaluateRforces(1.,0.,MWPotential)
+>>> evaluateRforces(1.,0.,MWPotential2014)
 -1.0
 >>> from galpy.potential import evaluatezforces
->>> evaluatezforces(1.,0.125,MWPotential)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
->>> -82.898379883714099 #2 \pi G Msol / pc^2
+>>> evaluatezforces(1.,0.125,MWPotential2014)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> -69.680720137571114 #2 \pi G Msol / pc^2
 
 We can evaluate the flattening of the potential as
 :math:`\sqrt{|z\,F_R/R\,F_Z|}` for a Potential instance as well as for
@@ -120,8 +121,8 @@ a list of such instances
 >>> mp.flattening(1.,0.125)
 0.4549542914935209
 >>> from galpy.potential import flattening
->>> flattening(MWPotential,1.,0.125)
-0.5593251065691105
+>>> flattening(MWPotential2014,1.,0.125)
+0.61231675305658628
 
 Densities
 ---------
@@ -146,22 +147,22 @@ which are the same to machine precision
 >>> mp.dens(1.,0.,forcepoisson=True)-mp.dens(1.,0.)
 -2.2204460492503131e-16
 
-Similarly, all of the potentials in ``galpy.potential.MWPotential``
+Similarly, all of the potentials in ``galpy.potential.MWPotential2014``
 have explicitly-implemented densities, so we can do
 
 >>> from galpy.potential import evaluateDensities
->>> evaluateDensities(1.,0.,MWPotential)
-0.71812049194200644
+>>> evaluateDensities(1.,0.,MWPotential2014)
+0.57508603122264867
 
 In physical coordinates, this becomes
 
->>> evaluateDensities(1.,0.,MWPotential)*bovy_conversion.dens_in_msolpc3(220.,8.)
-0.1262386383150029 #Msol / pc^3
+>>> evaluateDensities(1.,0.,MWPotential2014)*bovy_conversion.dens_in_msolpc3(220.,8.)
+0.1010945632524705 #Msol / pc^3
 
 We can also plot densities
 
 >>> from galpy.potential import plotDensities
->>> plotDensities(MWPotential,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+>>> plotDensities(MWPotential2014,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
 
 which gives
 
@@ -207,11 +208,11 @@ of all, we can calculate the circular velocity and its derivative
 or, for lists of Potential instances
 
 >>> from galpy.potential import vcirc
->>> vcirc(MWPotential,1.)
+>>> vcirc(MWPotential2014,1.)
 1.0
 >>> from galpy.potential import dvcircdR
->>> dvcircdR(MWPotential,1.)
-0.012084123754590059
+>>> dvcircdR(MWPotential2014,1.)
+-0.10091361254334696
 
 We can also calculate the various frequencies for close-to-circular
 orbits. For example, the rotational frequency
@@ -219,24 +220,24 @@ orbits. For example, the rotational frequency
 >>> mp.omegac(0.8)
 1.2784598203204887
 >>> from galpy.potential import omegac
->>> omegac(MWPotential,0.8)
-1.2389547535552212
+>>> omegac(MWPotential2014,0.8)
+1.2733514576122869
 
 and the epicycle frequency
 
 >>> mp.epifreq(0.8)
 1.7774973530267848
 >>> from galpy.potential import epifreq
->>> epifreq(MWPotential,0.8)
-1.8144833328444094
+>>> epifreq(MWPotential2014,0.8)
+1.7452189766287691
 
 as well as the vertical frequency
 
 >>> mp.verticalfreq(1.0)
 3.7859388972001828
 >>> from galpy.potential import verticalfreq
->>> verticalfreq(MWPotential,1.)
-3.0000000000000004
+>>> verticalfreq(MWPotential2014,1.)
+2.7255405754769875
 
 
 For close-to-circular orbits, we can also compute the radii of the
