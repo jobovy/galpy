@@ -1739,7 +1739,7 @@ class streamdf:
                   if not given, determined from the dimensions given          
            nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
            ngl= (5) order of Gauss-Legendre integration
-           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the marginalized PDF in these coordinates is returned          
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the marginalized PDF in these coordinates is returned          
            Vnorm= (220) circular velocity to normalize with when lb=True
            Rnorm= (8) Galactocentric radius to normalize with when lb=True
            R0= (8) Galactocentric radius of the Sun (kpc)
@@ -1913,7 +1913,7 @@ class streamdf:
                    stream track
            cindx= index of the closest point on the (interpolated) stream track
                   if not given, determined from the dimensions given
-           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the Gaussian approximation in these coordinates is returned
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the Gaussian approximation in these coordinates is returned
         OUTPUT:
            (mean,variance) of the approximate Gaussian DF for the missing 
            directions in xy
