@@ -124,7 +124,7 @@ class evolveddiskdf:
             ts= self._create_ts_tlist(t,integrate_method)
             o= args[0]
             #integrate orbit
-            if _PROFILE:
+            if _PROFILE: #pragma: no cover
                 start= time_module.time()
             if not deriv is None:
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
@@ -144,10 +144,10 @@ class evolveddiskdf:
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
-            if _PROFILE:
+            if _PROFILE: #pragma: no cover
                 int_time= (time_module.time()-start)
             #Now evaluate the DF
-            if _PROFILE:
+            if _PROFILE: #pragma: no cover
                 start= time_module.time()
             if integrate_method == 'odeint':
                 retval= []
@@ -166,7 +166,7 @@ class evolveddiskdf:
                 elif not isinstance(retval,float) and len(retval.shape) > 0:
                     retval[(nu.isnan(retval))]= 0.
                 if len(t) > 1: retval= retval[::-1]
-            if _PROFILE:
+            if _PROFILE: #pragma: no cover
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
                 print int_time/tot_time, df_time/tot_time, tot_time
@@ -366,7 +366,7 @@ class evolveddiskdf:
         if deg: az= phi*_DEGTORAD
         else: az= phi
         if nsigma is None: nsigma= _NSIGMA
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             start= time_module.time()
         if hasattr(self._initdf,'_estimatemeanvR') \
            and hasattr(self._initdf,'_estimatemeanvT') \
@@ -383,17 +383,17 @@ class evolveddiskdf:
             sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az))
             meanvR= self._initdf.meanvR(R,phi=az)
             meanvT= self._initdf.meanvT(R,phi=az)
-        if _PROFILE:
+        if _PROFILE: #pragma: no cover
             setup_time= (time_module.time()-start)
         if not grid is None and isinstance(grid,bool) and grid:
             if not hierarchgrid:
-                if _PROFILE:
+                if _PROFILE: #pragma: no cover
                     start= time_module.time()
                 grido= self._buildvgrid(R,az,nsigma,t,
                                         sigmaR1,sigmaT1,meanvR,meanvT,
                                         gridpoints,print_progress,
                                         integrate_method,deriv)
-                if _PROFILE:
+                if _PROFILE: #pragma: no cover
                     grid_time= (time_module.time()-start)
                     print setup_time/(setup_time+grid_time), \
                           grid_time/(setup_time+grid_time), \
