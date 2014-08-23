@@ -17,11 +17,6 @@ import warnings
 import numpy as nu
 from scipy import integrate
 from galpy.util import galpyWarning
-try:
-    import bovy_mcmc
-    _BOVY_MCMC_LOADED= True
-except ImportError:
-    _BOVY_MCMC_LOADED= False
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
 from galpy.util.bovy_quadpack import dblquad
@@ -304,8 +299,6 @@ class evolveddiskdf:
                            grid=None,gridpoints=101,returnGrid=False,
                            hierarchgrid=False,nlevels=2,
                            print_progress=False,
-                           sample=None,nsamples=100,
-                           returnSamples=False,
                            integrate_method='leapfrog_c',
                            deriv=None):
         """
@@ -335,10 +328,6 @@ class evolveddiskdf:
            hierarchgrid= if True, use a hierarchical grid (default=False)
            nlevels= number of hierarchical levels for the hierarchical grid
            print_progress= if True, print progress updates
-           sample= if True, calculate vmomentsurfacemass using a sampling,
-                   if set to a sampling, use this sampling
-           returnSamples= of True, return the sampling (default=False)
-           nsamples= if sample then use this many samples
            integrate_method= orbit.integrate method argument
            deriv= None, 'R', or 'phi': calculates derivative of the moment wrt
                                        R or phi ONLY WITH GRID
@@ -414,32 +403,6 @@ class evolveddiskdf:
                             grido)
                 else:
                     return self._vmomentsurfacemassHierarchicalGrid(n,m,grido)
-        if not sample is None and isinstance(sample,list):
-            if returnSamples:
-                return (self._vmomentsurfacemassSampling(n,m,sample),sample)
-            else:
-                return self._vmomentsurfacemassSampling(n,m,sample)
-        elif sample and _BOVY_MCMC_LOADED:
-            #Use sampling
-            if isinstance(t,(list,nu.ndarray)):
-                raise IOError("list of times is only supported with grid-based calculation")            
-
-            #Initial value
-            initial_theta= nu.array([meanvR,meanvT])
-            step= 0.01
-            tsampling= bovy_mcmc.markovpy(initial_theta,step,_vmomentlnPDF,(self,R,az,t),
-                                          isDomainFinite=[[False,False],[False,False]],
-                                          domain=[[0.,0.],[0.,0.]],
-                                          nsamples=nsamples)
-            sampling= nu.zeros((nsamples,2))
-            sampling[:,0]= nu.array([s[0] for s in tsampling])
-            sampling[:,1]= nu.array([s[1] for s in tsampling])
-            if returnSamples:
-                return (self._vmomentsurfacemassSampling(n,m,sampling),sampling)
-            else:
-                return self._vmomentsurfacemassSampling(n,m,sampling)
-        elif not _BOVY_MCMC_LOADED:
-            raise ImportError( "Error: could not load bovy_mcmc module, which is necessary in order to create the sampling")
         #Calculate the initdf moment and then calculate the ratio
         initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma,
                                                      phi=phi)
@@ -1664,11 +1627,6 @@ class evolveddiskdf:
             if print_progress: sys.stdout.write('\n')
         return out
 
-    def _vmomentsurfacemassSampling(self,n,m,sample):
-        """Internal function to evaluate vmomentsurfacemass using a sampling
-        rather than direct integration"""
-        return nu.mean(sample[:,0]**n*sample[:,1]**m)
-        
     def _create_ts_tlist(self,t,integrate_method):
         #Check input
         if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
