@@ -1038,6 +1038,33 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
+def test_LinShuReductionFactor():
+    #Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
+    from galpy.potential import LinShuReductionFactor, \
+        LogarithmicHaloPotential, omegac, epifreq
+    lp= LogarithmicHaloPotential(normalize=1.) #work in flat rotation curve
+    #nu^2 = 0.2, x=4 for m=2,sigmar=0.1 
+    # w/ nu = m(OmegaP-omegac)/epifreq, x=sr^2*k^2/epifreq^2
+    R,m,sr = 0.9,2.,0.1
+    tepi, tomegac= epifreq(lp,R), omegac(lp,R)
+    OmegaP= tepi*numpy.sqrt(0.2)/m+tomegac #leads to nu^2 = 0.2
+    k= numpy.sqrt(4.)*tepi/sr
+    assert numpy.fabs(LinShuReductionFactor(lp,R,sr,m=m,k=k,OmegaP=OmegaP)-0.18) < 0.01, 'LinShuReductionFactor does not agree w/ Figure 1 from Lin & Shu (1966)'
+    #nu^2 = 0.8, x=10
+    OmegaP= tepi*numpy.sqrt(0.8)/m+tomegac #leads to nu^2 = 0.8
+    k= numpy.sqrt(10.)*tepi/sr
+    assert numpy.fabs(LinShuReductionFactor(lp,R,sr,m=m,k=k,OmegaP=OmegaP)-0.04) < 0.01, 'LinShuReductionFactor does not agree w/ Figure 1 from Lin & Shu (1966)'   
+    #Similar test, but using a nonaxiPot= input
+    from galpy.potential import SteadyLogSpiralPotential
+    sp= SteadyLogSpiralPotential(m=2.,omegas=OmegaP,alpha=k*R)
+    assert numpy.fabs(LinShuReductionFactor(lp,R,sr,nonaxiPot=sp)-0.04) < 0.01, 'LinShuReductionFactor does not agree w/ Figure 1 from Lin & Shu (1966)'   
+    #Test exception
+    try:
+        LinShuReductionFactor(lp,R,sr)
+    except IOError: pass
+    else: raise AssertionError("LinShuReductionFactor w/o nonaxiPot set or k=,m=,OmegaP= set did not raise IOError")
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
