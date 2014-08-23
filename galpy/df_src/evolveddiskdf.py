@@ -1846,7 +1846,8 @@ class evolveddiskdfHierarchicalGrid:
                             and jj >= ysubmin and jj < ysubmax:
                         continue
                     thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
-                    self.df[ii,jj,:]= edf(thiso,nu.array(t).flatten())
+                    self.df[ii,jj,:]= edf(thiso,nu.array(t).flatten(),
+                                          deriv=deriv)
                     self.df[ii,jj,nu.isnan(self.df[ii,jj,:])]= 0.#BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
@@ -1884,7 +1885,7 @@ class evolveddiskdfHierarchicalGrid:
                             and jj >= ysubmin and jj < ysubmax:
                         continue
                     thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
-                    self.df[ii,jj]= edf(thiso,t)
+                    self.df[ii,jj]= edf(thiso,t,deriv=deriv)
                     if nu.isnan(self.df[ii,jj]): self.df[ii,jj]= 0. #BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
@@ -1911,6 +1912,7 @@ class evolveddiskdfHierarchicalGrid:
                                                         meanvT,
                                                         gridpoints,
                                                         nlevels-1,
+                                                        deriv,
                                                         upperdxdy=dxdy,
                                                         print_progress=print_progress,
                                                         nlevelsTotal=nlevelsTotal)
