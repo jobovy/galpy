@@ -113,7 +113,7 @@ class evolveddiskdf:
         if tlist:
             if self._to == t[0]:
                 if kwargs.has_key('log') and kwargs['log']:
-                    return numpy.log([self._initdf(args[0])])
+                    return nu.log([self._initdf(args[0])])
                 else:
                     return [self._initdf(args[0])]
             ts= self._create_ts_tlist(t,integrate_method)
