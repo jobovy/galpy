@@ -45,6 +45,21 @@ def test_axi_meanvr_direct():
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
     return None
                        
+def test_axi_meanvr_grid_tlist():
+    # Test that for a close to axisymmetric potential, the mean vr is close to zero
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvr, grid= edf.meanvR(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                          phi=0.2,integrate_method='rk6_c',
+                          grid=True,returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.all(numpy.fabs(mvr) < 0.003), 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero for list of times'
+    mvr= edf.meanvR(0.9,t=[0.,-5.,-10.],
+                    phi=0.2,integrate_method='rk6_c',grid=grid)
+    assert numpy.all(numpy.fabs(mvr) < 0.003), 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid for list of times'
+    return None
+                       
 def test_axi_meanvt_grid():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf= dehnendf(beta=0.)
