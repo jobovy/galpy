@@ -271,9 +271,9 @@ class evolveddiskdf:
             #start= time.time()
             retval= self._initdf(o(self._to-t))
             #print int_time/(time.time()-start)
-            if nu.isnan(retval): print retval, o.vxvv, o(self._to-t).vxvv
+            if nu.isnan(retval): print retval, o._orb.vxvv, o(self._to-t)._orb.vxvv
             if not deriv is None:
-                thisorbit= o(self._to-t).vxvv
+                thisorbit= o(self._to-t)._orb.vxvv
                 dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
                                               thisorbit[1],
                                               thisorbit[2])

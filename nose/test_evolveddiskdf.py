@@ -1,7 +1,9 @@
 # Tests of the evolveddiskdf module
 import numpy
 from galpy.df import evolveddiskdf, dehnendf
-from galpy.potential import LogarithmicHaloPotential, SteadyLogSpiralPotential
+from galpy.potential import LogarithmicHaloPotential, \
+    SteadyLogSpiralPotential, \
+    EllipticalDiskPotential
 # globals to save the results from previous calculations to be re-used, pre-setting them allows one to skip tests
 _maxi_surfacemass= 0.0672746475968
 _maxi_meanvr= -0.000517132979969
@@ -195,5 +197,71 @@ def test_axi_vertexdev_direct():
     edf= evolveddiskdf(idf,pot=pot,to=-10.)
     vdev= edf.vertexdev(0.9,phi=0.2,integrate_method='rk6_c',grid=False)
     assert numpy.fabs(vdev) < 0.01, 'vertexdev of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
+    return None
+                       
+def test_axi_oortA_grid():
+    # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    oa, grid, dgridR, dgridphi=\
+        edf.oortA(0.9,phi=0.2,integrate_method='rk6_c',
+                  grid=True,derivRGrid=True,derivphiGrid=True,
+                  returnGrids=True)
+    ioa= idf.oortA(0.9)
+    assert numpy.fabs(oa-ioa) < 0.005, 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF'
+    oa= edf.oortA(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
+                    derivRGrid=dgridR,derivphiGrid=dgridphi)
+    assert numpy.fabs(oa-ioa) < 0.005, 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
+    return None
+                       
+def test_axi_oortB_grid():
+    # Test that for a close to axisymmetric potential, the oortB is close to the value of the initial DF
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    ob, grid, dgridR, dgridphi=\
+        edf.oortB(0.9,phi=0.2,integrate_method='rk6_c',
+                  grid=True,derivRGrid=True,derivphiGrid=True,
+                  returnGrids=True)
+    iob= idf.oortB(0.9)
+    assert numpy.fabs(ob-iob) < 0.005, 'oortB of evolveddiskdf for axisymmetric potential is not equal to that of initial DF'
+    ob= edf.oortB(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
+                  derivRGrid=dgridR,derivphiGrid=dgridphi)
+    assert numpy.fabs(ob-iob) < 0.005, 'oortB of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
+    return None
+                       
+def test_axi_oortC_grid():
+    # Test that for a close to axisymmetric potential, the oortC is close to zero
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    oc, grid, dgridR, dgridphi=\
+        edf.oortC(0.9,phi=0.2,integrate_method='rk6_c',
+                  grid=True,derivRGrid=True,derivphiGrid=True,
+                  returnGrids=True)
+    assert numpy.fabs(oc) < 0.005, 'oortC of evolveddiskdf for axisymmetric potential is not equal to that of initial DF'
+    oc= edf.oortC(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
+                    derivRGrid=dgridR,derivphiGrid=dgridphi)
+    assert numpy.fabs(oc) < 0.005, 'oortC of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
+    return None
+                       
+def test_axi_oortK_grid():
+    # Test that for a close to axisymmetric potential, the oortK is close to zero
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    ok, grid, dgridR, dgridphi=\
+        edf.oortK(0.9,phi=0.2,integrate_method='rk6_c',
+                  grid=True,derivRGrid=True,derivphiGrid=True,
+                  returnGrids=True)
+    assert numpy.fabs(ok) < 0.005, 'oortK of evolveddiskdf for axisymmetric potential is not equal to that of initial DF'
+    ok= edf.oortK(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
+                    derivRGrid=dgridR,derivphiGrid=dgridphi)
+    assert numpy.fabs(ok) < 0.005, 'oortK of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
