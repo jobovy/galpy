@@ -55,7 +55,7 @@ class evolveddiskdf:
            Orbit instance:
               a) Orbit instance alone: use initial state and t=0
               b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself)
-                 If t is a list of t, DF is returned for each t, times must be in descending order (does not work with marginalize...)
+                 If t is a list of t, DF is returned for each t, times must be in descending order and equally spaced (does not work with marginalize...)
 
         KWARGS:
 
@@ -312,7 +312,7 @@ class evolveddiskdf:
            phi= azimuth (rad unless deg=True)
            n - vR^n
            m - vT^m
-           t= time at which to evaluate the DF (can be a list or ndarray)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous, but not too generous)
            deg= azimuth is in degree (default=False)
@@ -435,7 +435,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF (can be a list)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            sigmaR2, sigmaT2, sigmaRT= if set the vertex deviation is simply 
                                       calculated using these
@@ -522,7 +522,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            surfacemass= if set use this pre-calculated surfacemass
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
@@ -606,7 +606,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            surfacemass= if set use this pre-calculated surfacemass
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
@@ -692,7 +692,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            surfacemass, meanvR= if set use this pre-calculated surfacemass and
                                 mean vR
@@ -792,7 +792,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            surfacemass, meanvT= if set use this pre-calculated surfacemass
                                 and mean tangential velocity
@@ -890,7 +890,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate the moment(/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            surfacemass, meanvR, meavT= if set use this pre-calculated 
                                        surfacemass and mean vR and vT
@@ -998,7 +998,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate A (/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
            deg= azimuth is in degree (default=False)
@@ -1144,7 +1144,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate B (/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
            deg= azimuth is in degree (default=False)
@@ -1290,7 +1290,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate C (/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
            deg= azimuth is in degree (default=False)
@@ -1436,7 +1436,7 @@ class evolveddiskdf:
         INPUT:
            R - radius at which to calculate K (/ro)
            phi= azimuth (rad unless deg=True)
-           t= time at which to evaluate the DF
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
            deg= azimuth is in degree (default=False)
@@ -1601,7 +1601,7 @@ class evolveddiskdf:
             out.df= nu.zeros((gridpoints,gridpoints,nt))
             for ii in range(gridpoints):
                 for jj in range(gridpoints-1,-1,-1):#Reverse, so we get the peak before we get to the extreme lags NOT NECESSARY
-                    if print_progress:
+                    if print_progress: #pragma: no cover
                         sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
@@ -1610,12 +1610,12 @@ class evolveddiskdf:
                                           integrate_method=integrate_method,
                                           deriv=deriv)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
-            if print_progress: sys.stdout.write('\n')
+            if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
             out.df= nu.zeros((gridpoints,gridpoints))
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
-                    if print_progress:
+                    if print_progress: #pragma: no cover
                         sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
@@ -1624,7 +1624,7 @@ class evolveddiskdf:
                                         integrate_method=integrate_method,
                                         deriv=deriv)
                     if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
-            if print_progress: sys.stdout.write('\n')
+            if print_progress: sys.stdout.write('\n') #pragma: no cover
         return out
 
     def _create_ts_tlist(self,t,integrate_method):
@@ -1837,7 +1837,7 @@ class evolveddiskdfHierarchicalGrid:
             ysubmin, ysubmax= xsubmin, xsubmax
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
-                    if print_progress:
+                    if print_progress: #pragma: no cover
                         sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
@@ -1862,7 +1862,7 @@ class evolveddiskdfHierarchicalGrid:
                         self.df[ii,jj,:]*= 1.5*dxdy
                     else: #corner
                         self.df[ii,jj,:]*= 2.25*dxdy
-            if print_progress: sys.stdout.write('\n')
+            if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
             self.df= nu.zeros((gridpoints,gridpoints))
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
@@ -1876,7 +1876,7 @@ class evolveddiskdfHierarchicalGrid:
             ysubmin, ysubmax= xsubmin, xsubmax
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
-                    if print_progress:
+                    if print_progress: #pragma: no cover
                         sys.stdout.write('\r'+"Velocity gridpoint %i out of %i" % \
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
@@ -1900,7 +1900,7 @@ class evolveddiskdfHierarchicalGrid:
                         self.df[ii,jj]*= 1.5*dxdy
                     else: #corner
                         self.df[ii,jj]*= 2.25*dxdy
-            if print_progress: sys.stdout.write('\n')
+            if print_progress: sys.stdout.write('\n') #pragma: no cover
         if nlevels > 1:
             #Set up subgrid
             subnsigma= (self.meanvR-self.vRgrid[xsubmin])/self.sigmaR1
