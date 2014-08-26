@@ -91,6 +91,22 @@ def test_axi_meanvt_hierarchgrid():
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid'
     return None
                        
+def test_axi_meanvt_grid_rmEstimates():
+    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
+    idf= dehnendf(beta=0.)
+    #delete the estimateX functions, such that we need to use the actual X functions
+    delattr(idf,'_estimateSigmaR2')
+    delattr(idf,'_estimateSigmaT2')
+    delattr(idf,'_estimatemeanvR')
+    delattr(idf,'_estimatemeanvT')
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvt, grid= edf.meanvT(0.9,phi=0.2,integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf'
+    return None
+                       
 def test_axi_meanvt_direct():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     # We do this for an axisymmetric potential, bc otherwise it takes too long
