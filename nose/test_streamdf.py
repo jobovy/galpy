@@ -822,7 +822,19 @@ def test_2ndsetup():
     assert numpy.fabs(sdf_bovy14.misalignment()-rsdf_bovy14.misalignment()) < 0.01, 'misalignment not the same when setting up the same streamdf w/ a previously used progenitor'
     assert numpy.fabs(sdf_bovy14.freqEigvalRatio()-rsdf_bovy14.freqEigvalRatio()) < 0.01, 'freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor'
     return None
-    
+
+def test_bovy14_trackaa():
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test)
+    from galpy.orbit import Orbit
+    aastream= sdf_bovy14._ObsTrackAA #freqs and angles that the track is based on
+    RvR = sdf_bovy14._ObsTrack #the track in R,vR,...
+    aastream_expl= numpy.reshape(numpy.array([sdf_bovy14._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
+    #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
+    assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_bovy14._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for bovy14 setup'
+    #angles
+    assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for bovy14 setup'
+    return None
+
 @expected_failure
 def test_diff_pot():
     raise AssertionError()
