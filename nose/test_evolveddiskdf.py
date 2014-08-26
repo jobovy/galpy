@@ -90,7 +90,7 @@ def test_axi_meanvt_hierarchgrid():
     pot= [LogarithmicHaloPotential(normalize=1.),
           SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
     edf= evolveddiskdf(idf,pot=pot,to=-10.)
-    mvt, grid= edf.meanvT(0.9,phi=0.2,integrate_method='rk6_c',grid=True,
+    mvt, grid= edf.meanvT(0.9,phi=0.2,integrate_method='rk6_c',
                           hierarchgrid=True,
                           returnGrid=True,gridpoints=_GRIDPOINTS)
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid'
@@ -105,7 +105,8 @@ def test_axi_meanvt_hierarchgrid():
     assert ngrid == grid, 'hierarchical grid returned by vmomentsurfacemass w/ grid input is not the same as the input'
     nsmass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
                                    integrate_method='rk6_c',
-                                   grid=True,gridpoints=_GRIDPOINTS)
+                                   hierarchgrid=True,
+                                   gridpoints=_GRIDPOINTS)
     assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
     return None
                        
