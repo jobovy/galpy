@@ -23,9 +23,17 @@ def test_axi_meanvr_grid():
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero'
     mvr= edf.meanvR(0.9,phi=0.2,integrate_method='rk6_c',grid=grid)
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid'
+    #Pre-compute surfmass and use it, first test that grid is properly returned when given
+    smass, ngrid= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
+                                        integrate_method='rk6_c',
+                                        grid=grid,gridpoints=_GRIDPOINTS,
+                                        returnGrid=True)
+    assert ngrid == grid, 'grid returned by vmomentsurfacemass w/ grid input is not the same as the input'
     #Pre-compute surfmass and use it
-    smass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,integrate_method='rk6_c',
-                                  grid=True,gridpoints=_GRIDPOINTS)
+    nsmass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
+                                   integrate_method='rk6_c',
+                                   grid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
     mvr= edf.meanvR(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
                     surfacemass=smass)
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid and surfacemass'
@@ -89,16 +97,28 @@ def test_axi_meanvt_hierarchgrid():
     mvt= edf.meanvT(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
                     gridpoints=_GRIDPOINTS)
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid'
+    #Also test that the hierarchgrid is properly returned
+    smass, ngrid= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
+                                        integrate_method='rk6_c',
+                                        grid=grid,gridpoints=_GRIDPOINTS,
+                                         returnGrid=True)
+    assert ngrid == grid, 'hierarchical grid returned by vmomentsurfacemass w/ grid input is not the same as the input'
+    nsmass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
+                                   integrate_method='rk6_c',
+                                   grid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
     return None
                        
 def test_axi_meanvt_grid_rmEstimates():
-    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
-    idf= dehnendf(beta=0.)
-    #delete the estimateX functions, such that we need to use the actual X functions
-    delattr(idf,'_estimateSigmaR2')
-    delattr(idf,'_estimateSigmaT2')
-    delattr(idf,'_estimatemeanvR')
-    delattr(idf,'_estimatemeanvT')
+    # Test vmomentsurfacemass w/o having the _estimateX functions in the intial DF
+    class fakeDehnen(dehnendf): #class that removes the _estimate functions
+        def __init__(self,*args,**kwargs):
+            dehnendf.__init__(self,*args,**kwargs)
+        _estimatemeanvR= property()
+        _estimatemeanvT= property()
+        _estimateSigmaR2= property()
+        _estimateSigmaT2= property()
+    idf= fakeDehnen(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
           SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
     edf= evolveddiskdf(idf,pot=pot,to=-10.)
