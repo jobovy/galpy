@@ -63,7 +63,7 @@ class evolveddiskdf:
 
            marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
 
-           log= if True, return the log
+           log= if True, return the log (not for deriv, bc that can be negative)
 
            integrate_method= method argument of orbit.integrate
 
@@ -91,7 +91,10 @@ class evolveddiskdf:
                 t= args[1]
         else:
             raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
-        if isinstance(t,(list,nu.ndarray)): tlist= True
+        if isinstance(t,list):
+            t= nu.array(t)
+            tlist= True
+        elif isinstance(t,nu.ndarray): tlist= True
         else: tlist= False
         if kwargs.has_key('marginalizeVperp') and \
                 kwargs['marginalizeVperp']:
@@ -133,9 +136,10 @@ class evolveddiskdf:
                     tmp= o.phi()+dderiv
                     dderiv= tmp-o.phi()
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
-                if msg > 0.:
+                if msg > 0.: # pragma: no cover
                     print "Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ..."
-                    return nu.zeros(len(t))
+                    if kwargs.has_key('log') and kwargs['log'] and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
+                    else: return nu.zeros(len(t))
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
@@ -156,7 +160,7 @@ class evolveddiskdf:
                     orb_array= o.getOrbit().T
                 retval= self._initdf(orb_array)
                 if (isinstance(retval,float) or len(retval.shape) == 0) \
-                       and nu.isnan(retval):
+                        and nu.isnan(retval):
                     retval= 0.
                 elif not isinstance(retval,float) and len(retval.shape) > 0:
                     retval[(nu.isnan(retval))]= 0.
@@ -225,20 +229,12 @@ class evolveddiskdf:
                 else:
                     return self._initdf(args[0])
             elif self._to == t and not deriv is None:
-                if kwargs.has_key('log') and kwargs['log']:
-                    if deriv.lower() == 'r':
-                        return nu.log(self._initdf(args[0])*self._initdf._dlnfdR(args[0].vxvv[0],
-                                                                                 args[0].vxvv[1],
-                                                                                 args[0].vxvv[2]))
-                    elif deriv.lower() == 'phi':
-                        return -nu.finfo(nu.dtype(nu.float64)).max
-                else:
-                    if deriv.lower() == 'r':
-                        return self._initdf(args[0])*self._initdf._dlnfdR(args[0].vxvv[0],
-                                                                          args[0].vxvv[1],
-                                                                          args[0].vxvv[2])
-                    elif deriv.lower() == 'phi':
-                        return 0.
+                if deriv.lower() == 'r':
+                    return self._initdf(args[0])*self._initdf._dlnfdR(args[0]._orb.vxvv[0],
+                                                                      args[0]._orb.vxvv[1],
+                                                                      args[0]._orb.vxvv[2])
+                elif deriv.lower() == 'phi':
+                    return 0.
             if integrate_method == 'odeint':
                 ts= nu.linspace(t,self._to,_NTS)
             else:
@@ -289,8 +285,14 @@ class evolveddiskdf:
                 dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
-        if kwargs.has_key('log') and kwargs['log']:
-            return nu.log(retval)
+        if kwargs.has_key('log') and kwargs['log'] and deriv is None:
+            if tlist:
+                out= nu.log(retval)
+                out[retval == 0.]= -nu.finfo(nu.dtype(nu.float64)).max
+            else:
+                if retval == 0.: out= -nu.finfo(nu.dtype(nu.float64)).max
+                else: out= nu.log(retval)
+            return out
         else:
             return retval
 
