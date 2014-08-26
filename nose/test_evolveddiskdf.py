@@ -353,3 +353,15 @@ def test_axi_meanvt_grid_tlist_onet():
     _maxi_meanvt= mvt
     return None
                        
+def test_axi_meanvt_direct_tlist():
+    # Shouldn't work
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    try:
+        edf.meanvT(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                   phi=0.2,integrate_method='rk6_c',grid=False)
+    except IOError: pass
+    else: raise AssertionError('direct evolveddiskdf calculation of meanvT w/ list of times did not raise IOError')
+    return None
+                       
