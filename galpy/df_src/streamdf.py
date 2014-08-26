@@ -53,7 +53,7 @@ class streamdf:
            tdisrupt= (5 Gyr) time since start of disruption (natural units)
            leading= (True) if True, model the leading part of the stream
                            if False, model the trailing part
-           progenitor= progenitor orbit as Orbit instance 
+           progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
            pot= Potential instance or list thereof
            aA= actionAngle instance used to convert (x,v) to actions
            sigMeanOffset= (6.) offset between the mean of the frequencies
@@ -100,7 +100,7 @@ class streamdf:
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
-        self._progenitor= progenitor
+        self._progenitor= progenitor() #call to get new Orbit
         # Make sure we do not use physical coordinates
         self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
