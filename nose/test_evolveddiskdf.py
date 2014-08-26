@@ -243,6 +243,27 @@ def test_axi_oortA_grid():
     assert numpy.fabs(oa-ioa) < 0.005, 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
+def test_axi_oortA_grid_tlist():
+    # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    oa, grid, dgridR, dgridphi=\
+        edf.oortA(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                  phi=0.2,integrate_method='rk6_c',
+                  grid=True,derivRGrid=True,derivphiGrid=True,
+                  returnGrids=True,
+                  gridpoints=_GRIDPOINTS,derivGridpoints=_GRIDPOINTS)
+    ioa= idf.oortA(0.9)
+    assert numpy.all(numpy.fabs(oa-ioa) < 0.005), 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF'
+    oa= edf.oortA(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                  phi=0.2,integrate_method='rk6_c',grid=grid,
+                  derivRGrid=dgridR,derivphiGrid=dgridphi,
+                  gridpoints=_GRIDPOINTS,derivGridpoints=_GRIDPOINTS)
+    assert numpy.all(numpy.fabs(oa-ioa) < 0.005), 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
+    return None
+                       
 def test_axi_oortB_grid():
     # Test that for a close to axisymmetric potential, the oortB is close to the value of the initial DF
     idf= dehnendf(beta=0.)
@@ -296,5 +317,23 @@ def test_axi_oortK_grid():
                     derivRGrid=dgridR,derivphiGrid=dgridphi,
                   gridpoints=_GRIDPOINTS,derivGridpoints=_GRIDPOINTS)
     assert numpy.fabs(ok) < 0.005, 'oortK of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
+    return None
+                       
+# Some special cases
+def test_axi_meanvt_grid_tlist_onet():
+    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF, for a list consisting of a single time
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvt, grid= edf.meanvT(0.9,t=[0.],
+                          phi=0.2,integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf'
+    mvt= edf.meanvT(0.9,t=[0.],phi=0.2,integrate_method='rk6_c',grid=grid,
+                    gridpoints=_GRIDPOINTS,)
+    assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid'
+    global _maxi_meanvt
+    _maxi_meanvt= mvt
     return None
                        
