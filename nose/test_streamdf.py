@@ -17,6 +17,32 @@ def expected_failure(test):
             raise AssertionError('Test is expected to fail, but passed instead')
     return inner
 
+def test_2ndsetup():
+    # Test related to #195: when we re-do the setup with the same progenitor, we should get the same
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                         leading=True,
+                         nTrackChunks=11,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         nosetup=True) #won't look at track
+    rsdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                         leading=True,
+                         nTrackChunks=11,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         nosetup=True) #won't look at track
+    assert numpy.fabs(sdf_bovy14.misalignment()-rsdf_bovy14.misalignment()) < 0.01, 'misalignment not the same when setting up the same streamdf w/ a previously used progenitor'
+    assert numpy.fabs(sdf_bovy14.freqEigvalRatio()-rsdf_bovy14.freqEigvalRatio()) < 0.01, 'freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor'
+    return None
+    
 #Exact setup from Bovy (2014); should reproduce those results (which have been
 # sanity checked
 def test_bovy14_setup():
