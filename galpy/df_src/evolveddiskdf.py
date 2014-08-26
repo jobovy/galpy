@@ -79,7 +79,7 @@ class evolveddiskdf:
         if kwargs.has_key('integrate_method'):
             integrate_method= kwargs['integrate_method']
         else:
-            integrate_method= 'leapfrog_c'
+            integrate_method= 'dopr54_c'
         if kwargs.has_key('deriv'):
             deriv= kwargs['deriv']
         else:
@@ -299,7 +299,7 @@ class evolveddiskdf:
                            grid=None,gridpoints=101,returnGrid=False,
                            hierarchgrid=False,nlevels=2,
                            print_progress=False,
-                           integrate_method='leapfrog_c',
+                           integrate_method='dopr54_c',
                            deriv=None):
         """
         NAME:
@@ -425,7 +425,7 @@ class evolveddiskdf:
                   grid=None,gridpoints=101,returnGrid=False,
                   sigmaR2=None,sigmaT2=None,sigmaRT=None,surfacemass=None,
                   hierarchgrid=False,nlevels=2,
-                  integrate_method='leapfrog_c'):
+                  integrate_method='dopr54_c'):
         """
         NAME:
            vertexdev
@@ -512,7 +512,7 @@ class evolveddiskdf:
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None,
-               hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+               hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            meanvR
@@ -596,7 +596,7 @@ class evolveddiskdf:
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
                surfacemass=None,
-               hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+               hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            meanvT
@@ -682,7 +682,7 @@ class evolveddiskdf:
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None,
                 hierarchgrid=False,nlevels=2,
-                integrate_method='leapfrog_c'):
+                integrate_method='dopr54_c'):
         """
         NAME:
            sigmaR2
@@ -782,7 +782,7 @@ class evolveddiskdf:
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvT=None,
                 hierarchgrid=False,nlevels=2,
-                integrate_method='leapfrog_c'):
+                integrate_method='dopr54_c'):
         """
         NAME:
            sigmaT2
@@ -880,7 +880,7 @@ class evolveddiskdf:
                 grid=None,gridpoints=101,returnGrid=False,
                 surfacemass=None,meanvR=None,meanvT=None,
                 hierarchgrid=False,nlevels=2,
-                integrate_method='leapfrog_c'):
+                integrate_method='dopr54_c'):
         """
         NAME:
            sigmaRT
@@ -989,7 +989,7 @@ class evolveddiskdf:
               grid=None,gridpoints=101,returnGrids=False,
               derivRGrid=None,derivphiGrid=None,derivGridpoints=101,
               derivHierarchgrid=False,
-              hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+              hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            oortA
@@ -1135,7 +1135,7 @@ class evolveddiskdf:
               grid=None,gridpoints=101,returnGrids=False,
               derivRGrid=None,derivphiGrid=None,derivGridpoints=101,
               derivHierarchgrid=False,
-              hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+              hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            oortB
@@ -1281,7 +1281,7 @@ class evolveddiskdf:
               grid=None,gridpoints=101,returnGrids=False,
               derivRGrid=None,derivphiGrid=None,derivGridpoints=101,
               derivHierarchgrid=False,
-              hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+              hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            oortC
@@ -1427,7 +1427,7 @@ class evolveddiskdf:
               grid=None,gridpoints=101,returnGrids=False,
               derivRGrid=None,derivphiGrid=None,derivGridpoints=101,
               derivHierarchgrid=False,
-              hierarchgrid=False,nlevels=2,integrate_method='leapfrog_c'):
+              hierarchgrid=False,nlevels=2,integrate_method='dopr54_c'):
         """
         NAME:
            oortK
