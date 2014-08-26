@@ -12,7 +12,7 @@ _maxi_meanvt= 0.913328340109
 _maxi_sigmar2= 0.0457686414529
 _maxi_sigmat2= 0.0268245643697
 _maxi_sigmart= -0.000541204894097
-def test_axi_meanvr_grid():
+def test_mildnonaxi_meanvr_grid():
     # Test that for a close to axisymmetric potential, the mean vr is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -43,7 +43,7 @@ def test_axi_meanvr_grid():
     _maxi_surfacemass= smass
     return None
                        
-def test_axi_meanvr_direct():
+def test_mildnonaxi_meanvr_direct():
     # Test that for an axisymmetric potential, the mean vr is close to zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -53,7 +53,7 @@ def test_axi_meanvr_direct():
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
     return None
                        
-def test_axi_meanvr_grid_tlist():
+def test_mildnonaxi_meanvr_grid_tlist():
     # Test that for a close to axisymmetric potential, the mean vr is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -68,7 +68,7 @@ def test_axi_meanvr_grid_tlist():
     assert numpy.all(numpy.fabs(mvr) < 0.003), 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid for list of times'
     return None
                        
-def test_axi_meanvt_grid():
+def test_mildnonaxi_meanvt_grid():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -84,7 +84,7 @@ def test_axi_meanvt_grid():
     _maxi_meanvt= mvt
     return None
                        
-def test_axi_meanvt_hierarchgrid():
+def test_mildnonaxi_meanvt_hierarchgrid():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -110,7 +110,7 @@ def test_axi_meanvt_hierarchgrid():
     assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
     return None
                        
-def test_axi_meanvt_grid_rmEstimates():
+def test_mildnonaxi_meanvt_grid_rmEstimates():
     # Test vmomentsurfacemass w/o having the _estimateX functions in the intial DF
     class fakeDehnen(dehnendf): #class that removes the _estimate functions
         def __init__(self,*args,**kwargs):
@@ -128,7 +128,7 @@ def test_axi_meanvt_grid_rmEstimates():
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf'
     return None
                        
-def test_axi_meanvt_direct():
+def test_mildnonaxi_meanvt_direct():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -138,7 +138,7 @@ def test_axi_meanvt_direct():
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.001, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using direct integration'
     return None
                        
-def test_axi_sigmar2_grid():
+def test_mildnonaxi_sigmar2_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to the value of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -159,7 +159,7 @@ def test_axi_sigmar2_grid():
     _maxi_sigmar2= sr2
     return None
                        
-def test_axi_sigmar2_direct():
+def test_mildnonaxi_sigmar2_direct():
     # Test that for an axisymmetric potential, the sigmaR2  is close to the value of the initial DF   
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -170,7 +170,7 @@ def test_axi_sigmar2_direct():
     assert numpy.fabs(numpy.log(sr2)-numpy.log(isr2)) < 0.025, 'sigmar2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated directly'
     return None
                        
-def test_axi_sigmat2_grid():
+def test_mildnonaxi_sigmat2_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to the value of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -191,7 +191,7 @@ def test_axi_sigmat2_grid():
     _maxi_sigmat2= st2
     return None
                        
-def test_axi_sigmat2_direct():
+def test_mildnonaxi_sigmat2_direct():
     # Test that for an axisymmetric potential, the sigmaT2  is close to the value of the initial DF   
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -202,7 +202,7 @@ def test_axi_sigmat2_direct():
     assert numpy.fabs(numpy.log(st2)-numpy.log(ist2)) < 0.025, 'sigmat2 of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated directly'
     return None
                        
-def test_axi_sigmart_grid():
+def test_mildnonaxi_sigmart_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -223,7 +223,7 @@ def test_axi_sigmart_grid():
     _maxi_sigmart= srt
     return None
                        
-def test_axi_sigmart_direct():
+def test_mildnonaxi_sigmart_direct():
     # Test that for an axisymmetric potential, the sigmaRT is close zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -233,7 +233,7 @@ def test_axi_sigmart_direct():
     assert numpy.fabs(srt) < 0.01, 'sigmart of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
     return None
                        
-def test_axi_vertexdev_grid():
+def test_mildnonaxi_vertexdev_grid():
     # Test that for a close to axisymmetric potential, the vertex deviation is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -251,7 +251,7 @@ def test_axi_vertexdev_grid():
     assert numpy.fabs(vdev) < 2., 'sigmart of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed sigmaR2,sigmaT2,sigmaRT'
     return None
                        
-def test_axi_vertexdev_direct():
+def test_mildnonaxi_vertexdev_direct():
     # Test that for an axisymmetric potential, the vertex deviation is close zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf= dehnendf(beta=0.)
@@ -261,7 +261,7 @@ def test_axi_vertexdev_direct():
     assert numpy.fabs(vdev) < 0.01, 'vertexdev of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
     return None
                        
-def test_axi_oortA_grid():
+def test_mildnonaxi_oortA_grid():
     # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -280,7 +280,7 @@ def test_axi_oortA_grid():
     assert numpy.fabs(oa-ioa) < 0.005, 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
-def test_axi_oortA_grid_tlist():
+def test_mildnonaxi_oortA_grid_tlist():
     # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -301,7 +301,7 @@ def test_axi_oortA_grid_tlist():
     assert numpy.all(numpy.fabs(oa-ioa) < 0.005), 'oortA of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
-def test_axi_oortB_grid():
+def test_mildnonaxi_oortB_grid():
     # Test that for a close to axisymmetric potential, the oortB is close to the value of the initial DF
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -320,7 +320,7 @@ def test_axi_oortB_grid():
     assert numpy.fabs(ob-iob) < 0.005, 'oortB of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
-def test_axi_oortC_grid():
+def test_mildnonaxi_oortC_grid():
     # Test that for a close to axisymmetric potential, the oortC is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -338,7 +338,7 @@ def test_axi_oortC_grid():
     assert numpy.fabs(oc) < 0.005, 'oortC of evolveddiskdf for axisymmetric potential is not equal to that of initial DF when calculated with pre-computed grid'
     return None
                        
-def test_axi_oortK_grid():
+def test_mildnonaxi_oortK_grid():
     # Test that for a close to axisymmetric potential, the oortK is close to zero
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -357,7 +357,7 @@ def test_axi_oortK_grid():
     return None
                        
 # Some special cases
-def test_axi_meanvt_grid_tlist_onet():
+def test_mildnonaxi_meanvt_grid_tlist_onet():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF, for a list consisting of a single time
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
@@ -374,7 +374,7 @@ def test_axi_meanvt_grid_tlist_onet():
     _maxi_meanvt= mvt
     return None
                        
-def test_axi_meanvt_direct_tlist():
+def test_mildnonaxi_meanvt_direct_tlist():
     # Shouldn't work
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.)]
