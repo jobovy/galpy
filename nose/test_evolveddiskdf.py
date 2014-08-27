@@ -63,7 +63,7 @@ def test_mildnonaxi_meanvr_grid_tlist():
                           phi=0.2,integrate_method='rk6_c',
                           grid=True,returnGrid=True,gridpoints=_GRIDPOINTS)
     assert numpy.all(numpy.fabs(mvr) < 0.003), 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero for list of times'
-    mvr= edf.meanvR(0.9,t=[0.,-5.,-10.],
+    mvr= edf.meanvR(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
                     phi=0.2,integrate_method='rk6_c',grid=grid)
     assert numpy.all(numpy.fabs(mvr) < 0.003), 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid for list of times'
     return None
@@ -108,6 +108,23 @@ def test_mildnonaxi_meanvt_hierarchgrid():
                                    grid=True,hierarchgrid=True,
                                    gridpoints=_GRIDPOINTS)
     assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
+    return None
+                       
+def test_mildnonaxi_meanvt_hierarchgrid_tlist():
+    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvt, grid= edf.meanvT(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                          phi=0.2,integrate_method='rk6_c',
+                          grid=True,hierarchgrid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.all(numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005), 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist'
+    mvt= edf.meanvT(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                    phi=0.2,integrate_method='rk6_c',grid=grid,
+                    gridpoints=_GRIDPOINTS)
+    assert numpy.all(numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005), 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist'
     return None
                        
 def test_mildnonaxi_meanvt_grid_rmEstimates():
