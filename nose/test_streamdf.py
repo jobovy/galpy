@@ -18,7 +18,7 @@ def expected_failure(test):
     return inner
 
 def test_fardalpot_trackaa():
-    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); fails for the potential suggested by Fardal
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); used to fail for the potential suggested by Fardal
     #First setup this specific streamdf instance
     from galpy.df import streamdf
     from galpy.orbit import Orbit
@@ -36,6 +36,35 @@ def test_fardalpot_trackaa():
                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
     assert numpy.fabs(sdf_fardal.misalignment()) > 4., 'misalignment in Fardal test is not large'
+    #Now run the test
+    aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
+    RvR = sdf_fardal._ObsTrack #the track in R,vR,...
+    aastream_expl= numpy.reshape(numpy.array([sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
+    #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
+    #print numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega))
+    #print numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi)
+    assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup'
+    #angles
+    assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup'
+    return None
+
+def test_fardalwmwpot_trackaa():
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
+    #First setup this specific streamdf instance
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    aAI= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.6)
+    obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
+    sigv= 1.3 #km/s
+    sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=MWPotential2014,aA=aAI,
+                         leading=True,
+                         nTrackChunks=21,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    #First test that the misalignment is indeed large
+    assert numpy.fabs(sdf_fardal.misalignment()) > 1., 'misalignment in Fardal test is not large enough'
     #Now run the test
     aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
     RvR = sdf_fardal._ObsTrack #the track in R,vR,...
@@ -726,7 +755,8 @@ def test_bovy14_oppositetrailing_setup():
     #First provoke some errors
     try:
         sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp_false,aA=aAI,
-                              leading=False)
+                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                              nTrackIterations=0,leading=False) #expl set iterations
     except IOError: pass
     else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
     #Warning when deltaAngleTrack is too large (turn warning into error for testing)
