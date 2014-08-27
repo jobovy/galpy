@@ -77,7 +77,7 @@ class evolveddiskdf:
            2011-04-15 - Added list of times option - BOVY (NYU)
         """
         if kwargs.has_key('integrate_method'):
-            integrate_method= kwargs['integrate_method']
+            integrate_method= kwargs.pop('integrate_method')
         else:
             integrate_method= 'dopr54_c'
         if kwargs.has_key('deriv'):
@@ -101,17 +101,17 @@ class evolveddiskdf:
             kwargs.pop('marginalizeVperp')
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.has_key('log') and kwargs['log']:
-                return nu.log(self._call_marginalizevperp(args[0],**kwargs))
+                return nu.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
-                return self._call_marginalizevperp(args[0],**kwargs)
+                return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
         elif kwargs.has_key('marginalizeVlos') and \
                 kwargs['marginalizeVlos']:
             kwargs.pop('marginalizeVlos') 
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
             if kwargs.has_key('log') and kwargs['log']:
-                return nu.log(self._call_marginalizevlos(args[0],**kwargs))
+                return nu.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
             else:
-                return self._call_marginalizevlos(args[0],**kwargs)   
+                return self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs)   
         #Integrate back
         if tlist:
             if self._to == t[0]:
@@ -1650,10 +1650,9 @@ class evolveddiskdf:
         ts.sort(reverse=True)
         return nu.array(ts)
 
-    def _call_marginalizevperp(self,o,**kwargs):
+    def _call_marginalizevperp(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
         #Get d, l, vlos
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R()
@@ -1664,7 +1663,6 @@ class evolveddiskdf:
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
         vcirclos= vcirc*math.sin(phi+l)
-        print R, vlos, vlos-vcirclos
         #Marginalize
         alphalos= phi+l
         if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
@@ -1683,7 +1681,7 @@ class evolveddiskdf:
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(cosalphalos)
+                                  **kwargs)[0]/math.fabs(cosalphalos)*sigmaR1
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
             sinalphalos= math.sin(alphalos)
@@ -1692,12 +1690,11 @@ class evolveddiskdf:
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(sinalphalos)
+                                  **kwargs)[0]/math.fabs(sinalphalos)*sigmaR1
         
-    def _call_marginalizevlos(self,o,**kwargs):
+    def _call_marginalizevlos(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
-        d= o.dist(ro=1.,obs=[1.,0.,0.])
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R()
@@ -1708,7 +1705,7 @@ class evolveddiskdf:
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*math.sin(phi+l)
+        vcircperp= vcirc*math.cos(phi+l) 
         #Marginalize
         alphaperp= math.pi/2.+phi+l
         if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
@@ -1720,15 +1717,17 @@ class evolveddiskdf:
         #BOVY: Put asymmetric drift in here?
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
+            va= vcirc-self._initdf.meanvT(R,phi=phi)
             cosalphaperp= math.cos(alphaperp)
             tanalphaperp= math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
-                                  -nsigma,nsigma,
+                                  -va/sigmaR1-nsigma,
+                                  -va/sigmaR1+nsigma,
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(cosalphaperp)
+                                  **kwargs)[0]/math.fabs(cosalphaperp)*sigmaR1
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
             sinalphaperp= math.sin(alphaperp)
@@ -1738,7 +1737,7 @@ class evolveddiskdf:
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(sinalphaperp)
+                                  **kwargs)[0]/math.fabs(sinalphaperp)*sigmaR1
 
     def _vmomentsurfacemassHierarchicalGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a 

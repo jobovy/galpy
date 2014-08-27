@@ -429,3 +429,50 @@ def test_call_special():
     codeint= edf(o,0,integrate_method='odeint',log=True)
     crk6c= edf(o,0.,integrate_method='rk6_c',log=True)
     assert numpy.fabs(codeint-crk6c) < 10.**-4., 'edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c'
+
+def test_call_marginalizevperp():
+    from galpy.orbit import Orbit
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    #l=0
+    R,phi,vR = 0.8, 0., 0.4
+    vts= numpy.linspace(0.,1.5,51)
+    pvts= numpy.array([edf(Orbit([R,vR,vt,phi]),integrate_method='rk6_c') for vt in vts])
+    assert numpy.fabs(numpy.sum(pvts)*(vts[1]-vts[0])\
+                          -edf(Orbit([R,vR,0.,phi]),marginalizeVperp=True,integrate_method='rk6_c')) < 10.**-3.5, 'evolveddiskdf call w/ marginalizeVperp does not work'
+    #l=270
+    R,phi,vT = numpy.sin(numpy.pi/6.), -numpy.pi/3.,0.7 #l=30 degree
+    vrs= numpy.linspace(-1.,1.,101)
+    pvrs= numpy.array([edf(Orbit([R,vr,vT,phi]),integrate_method='rk6_c') for vr in vrs])
+    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
+                          -edf(Orbit([R,0.,vT,phi]),
+                               marginalizeVperp=True,
+                               integrate_method='rk6_c',
+                               nsigma=4)) < 10.**-3.5, 'evolveddiskdf call w/ marginalizeVperp does not work'
+    return None
+
+def test_call_marginalizevlos():
+    from galpy.orbit import Orbit
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    #l=0
+    R,phi,vT = 0.8, 0., 0.7
+    vrs= numpy.linspace(-1.,1.,101)
+    pvrs= numpy.array([edf(Orbit([R,vr,vT,phi]),integrate_method='rk6_c') for vr in vrs])
+    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
+                          -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c')) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
+    #l=270, this DF has some issues, but it suffices to test the mechanics of the code
+    R,phi,vR = numpy.sin(numpy.pi/6.), -numpy.pi/3.,0.4 #l=30 degree
+    vts= numpy.linspace(0.3,1.5,101)
+    pvts= numpy.array([edf(Orbit([R,vR,vt,phi]),integrate_method='rk6_c') for vt in vts])
+    assert numpy.fabs(numpy.sum(pvts)*(vts[1]-vts[0])\
+                          -edf(Orbit([R,vR,0.,phi]),
+                               marginalizeVlos=True,
+                               integrate_method='rk6_c',
+                               nsigma=4)) < 10.**-3.5, 'diskdf call w/ marginalizeVlos does not work'
+    return None
+
