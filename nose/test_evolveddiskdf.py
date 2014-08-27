@@ -497,3 +497,17 @@ def test_call_marginalizevlos():
                                nsigma=4)) < 10.**-3.5, 'diskdf call w/ marginalizeVlos does not work'
     return None
 
+def test_plot_grid():
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvr, grid= edf.meanvR(0.9,phi=0.2,integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    grid.plot()
+    #w/ list of tiems
+    mvr, grid= edf.meanvR(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                          phi=0.2,integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    grid.plot(1)
+    return None
