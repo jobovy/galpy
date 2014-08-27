@@ -356,7 +356,7 @@ class streamdf:
            2013-12-09 - Written - Bovy (IAS)
         """
         tts= self._progenitor._orb.t[self._progenitor._orb.t \
-                                          < self._trackts[-1]]
+                                          < self._trackts[self._nTrackChunks-1]]
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
         if kwargs.has_key('scaleToPhysical'):
