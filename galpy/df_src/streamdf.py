@@ -37,7 +37,7 @@ class streamdf:
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
-                 deltaAngleTrack=None,nTrackChunks=None,
+                 deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -64,6 +64,7 @@ class streamdf:
                      estimate of the angle spread of the debris initially
            deltaAngleTrack= (None) angle to estimate the stream track over (rad)
            nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
+           nTrackIterations= Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates
            interpTrack= (might change), interpolate the stream track while 
                         setting up the instance (can be done by hand by 
                         calling self._interpolate_stream_track() and 
@@ -189,7 +190,8 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         if not nosetup:
-            self._determine_stream_track(deltaAngleTrack,nTrackChunks)
+            self._determine_stream_track(deltaAngleTrack,nTrackChunks,
+                                         nTrackIterations)
             self._useInterp= useInterp
             if interpTrack or self._useInterp:
                 self._interpolate_stream_track()
@@ -580,7 +582,8 @@ class streamdf:
             out[:,1]*= self._ErrCovsLBScale[relevantDict[d2.lower()]]
         return (out[:,0],out[:,1])
 
-    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
+    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks,
+                                nTrackIterations):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         self._deltaAngleTrack= deltaAngleTrack
@@ -591,28 +594,34 @@ class streamdf:
             self._nTrackChunks= nTrackChunks
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
-        self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
-        #Instantiate another Orbit for the progenitor orbit where there is data
-        #This can be somewhat sped up by re-using the previously integrated
-        #progenitor orbit, but because the computational cost is dominated
-        #by the calculation of the Jacobian, this does not gain much (~few %)
+        self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
+        #Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
+        prog_stream_offset=\
+            _determine_stream_track_single(self._aA,
+                                           self._progenitor,
+                                           0., #time = 0
+                                           self._progenitor_angle,
+                                           self._sigMeanSign,
+                                           self._dsigomeanProgDirection,
+                                           self.meanOmega,
+                                           0.) #angle = 0
+        auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
-            self._trackts= numpy.linspace(0.,-dt,self._nTrackChunks)
+            self._trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunks-1)
             #Flip velocities before integrating
-            self._progenitorTrack= Orbit([self._progenitor.R(0.),
-                                          -self._progenitor.vR(0.),
-                                          -self._progenitor.vT(0.),
-                                          self._progenitor.z(0.),
-                                          -self._progenitor.vz(0.),
-                                          self._progenitor.phi(0.)])
-        else:
-            self._progenitorTrack= self._progenitor(0.)
-        self._progenitorTrack.integrate(self._trackts,self._pot)
+            auxiliaryTrack= self._auxiliaryTrack.flip()
+        auxiliaryTrack.integrate(self._trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            self._progenitorTrack._orb.orbit[:,1]= -self._progenitorTrack._orb.orbit[:,1]
-            self._progenitorTrack._orb.orbit[:,2]= -self._progenitorTrack._orb.orbit[:,2]
-            self._progenitorTrack._orb.orbit[:,4]= -self._progenitorTrack._orb.orbit[:,4]
+            auxiliaryTrack._orb.orbit[:,1]= -self._auxiliaryTrack._orb.orbit[:,1]
+            auxiliaryTrack._orb.orbit[:,2]= -self._auxiliaryTrack._orb.orbit[:,2]
+            auxiliaryTrack._orb.orbit[:,4]= -self._auxiliaryTrack._orb.orbit[:,4]
+        #Calculate the actions, frequencies, and angle for this auxiliary orbit
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(),maxn=3)
+        auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
+)
+        auxiliary_Omega_along_dOmega= \
+            numpy.dot(auxiliary_Omega,self._dsigomeanProgDirection)
         #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
         allAcfsTrack= numpy.empty((self._nTrackChunks,9))
         alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
@@ -625,8 +634,8 @@ class streamdf:
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
-                                                         self._progenitorTrack,
-                                                         self._trackts[ii],
+                                                         auxiliaryTrack,
+                                                         self._trackts[ii]*numpy.fabs(self._progenitor_Omega_along_dOmega/auxiliary_Omega_along_dOmega), #this factor accounts for the difference in frequency between the progenitor and the auxiliary track
                                                          self._progenitor_angle,
                                                          self._sigMeanSign,
                                                          self._dsigomeanProgDirection,
@@ -640,7 +649,8 @@ class streamdf:
                 detdOdJps[ii]= multiOut[5]
         else:
             multiOut= multi.parallel_map(\
-                (lambda x: _determine_stream_track_single(self._aA,self._progenitorTrack,self._trackts[x],
+                (lambda x: _determine_stream_track_single(self._aA,auxiliaryTrack,
+                                                          self._trackts[x]*numpy.fabs(self._progenitor_Omega_along_dOmega/auxiliary_Omega_along_dOmega),
                                                           self._progenitor_angle,
                                                           self._sigMeanSign,
                                                           self._dsigomeanProgDirection,
@@ -657,6 +667,44 @@ class streamdf:
                 ObsTrack[ii,:]= multiOut[ii][3]
                 ObsTrackAA[ii,:]= multiOut[ii][4]
                 detdOdJps[ii]= multiOut[ii][5]
+        #Repeat the track calculation using the previous track, to get closer to it
+        for nn in range(nTrackIterations):
+            if self._multi is None:
+                for ii in range(self._nTrackChunks):
+                    multiOut= _determine_stream_track_single(self._aA,
+                                                             Orbit(ObsTrack[ii,:]),
+                                                             0.,
+                                                             self._progenitor_angle,
+                                                             self._sigMeanSign,
+                                                             self._dsigomeanProgDirection,
+                                                             self.meanOmega,
+                                                             thetasTrack[ii])
+                    allAcfsTrack[ii,:]= multiOut[0]
+                    alljacsTrack[ii,:,:]= multiOut[1]
+                    allinvjacsTrack[ii,:,:]= multiOut[2]
+                    ObsTrack[ii,:]= multiOut[3]
+                    ObsTrackAA[ii,:]= multiOut[4]
+                    detdOdJps[ii]= multiOut[5]
+        else:
+            multiOut= multi.parallel_map(\
+                (lambda x: _determine_stream_track_single(self._aA,Orbit(ObsTrack[x,:]),0.,
+                                                          self._progenitor_angle,
+                                                          self._sigMeanSign,
+                                                          self._dsigomeanProgDirection,
+                                                          self.meanOmega,
+                                                          thetasTrack[x])),
+                range(self._nTrackChunks),
+                numcores=numpy.amin([self._nTrackChunks,
+                                     multiprocessing.cpu_count(),
+                                     self._multi]))
+            for ii in range(self._nTrackChunks):
+                allAcfsTrack[ii,:]= multiOut[ii][0]
+                alljacsTrack[ii,:,:]= multiOut[ii][1]
+                allinvjacsTrack[ii,:,:]= multiOut[ii][2]
+                ObsTrack[ii,:]= multiOut[ii][3]
+                ObsTrackAA[ii,:]= multiOut[ii][4]
+                detdOdJps[ii]= multiOut[ii][5]           
+        #Store the track
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._ObsTrackAA= ObsTrackAA
