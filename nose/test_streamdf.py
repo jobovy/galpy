@@ -41,8 +41,8 @@ def test_fardalpot_trackaa():
     RvR = sdf_fardal._ObsTrack #the track in R,vR,...
     aastream_expl= numpy.reshape(numpy.array([sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
     #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
-    print numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega))
-    print numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi)
+    #print numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega))
+    #print numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi)
     assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup'
     #angles
     assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup'
