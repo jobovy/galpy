@@ -481,8 +481,6 @@ def test_call_marginalizevlos():
     R,phi,vT = 0.8, 0., 0.7
     vrs= numpy.linspace(-1.,1.,101)
     pvrs= numpy.array([edf(Orbit([R,vr,vT,phi]),integrate_method='rk6_c') for vr in vrs])
-    print numpy.log(numpy.sum(pvrs)*(vrs[1]-vrs[0]))\
-                          -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c',log=True)
     assert numpy.fabs(numpy.log(numpy.sum(pvrs)*(vrs[1]-vrs[0]))\
                           -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c',log=True)) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
     #l=270, this DF has some issues, but it suffices to test the mechanics of the code
@@ -508,6 +506,23 @@ def test_plot_grid():
     #w/ list of tiems
     mvr, grid= edf.meanvR(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
                           phi=0.2,integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    grid.plot(1)
+    return None
+
+def test_plot_hierarchgrid():
+    idf= dehnendf(beta=0.)
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SteadyLogSpiralPotential(A=-0.005,omegas=0.2)] #very mild non-axi
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    mvr, grid= edf.meanvR(0.9,phi=0.2,integrate_method='rk6_c',grid=True,
+                          hierarchgrid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    grid.plot()
+    #w/ list of tiems
+    mvr, grid= edf.meanvR(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
+                          phi=0.2,integrate_method='rk6_c',grid=True,
+                          hierarchgrid=True,
                           returnGrid=True,gridpoints=_GRIDPOINTS)
     grid.plot(1)
     return None
