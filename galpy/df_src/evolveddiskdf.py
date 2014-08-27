@@ -2045,8 +2045,3 @@ def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
 def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma,phi):
     return df(Orbit([R,tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,phi]))
-
-def _vmomentlnPDF(theta,edf,R,phi,t):
-    thiso= Orbit([R,theta[0],theta[1],phi])
-    return edf(thiso,t,log=True)
-    
