@@ -108,7 +108,7 @@ class streamdf:
         else:
             self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
-        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
+        acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
@@ -582,6 +582,55 @@ class streamdf:
             out[:,1]*= self._ErrCovsLBScale[relevantDict[d2.lower()]]
         return (out[:,0],out[:,1])
 
+    def plotCompareTrackAAModel(self,**kwargs):
+        """
+        NAME:
+           plotCompareTrackAAModel
+        PURPOSE:
+           plot the comparison between the underlying model's dOmega_perp vs. dangle_r (line) and the track in (x,v)'s dOmega_perp vs. dangle_r (dots; explicitly calculating the track's action-angle coordinates)
+        INPUT:
+           bovy_plot.bovy_plot kwargs
+        OUTPUT:
+           plot
+        HISTORY:
+           2014-08-27 - Written - Bovy (IAS)
+        """
+        #First calculate the model
+        model_adiff= (self._ObsTrackAA[:,3:]-self._progenitor_angle)[:,0]\
+            *self._sigMeanSign
+        model_operp= numpy.dot(self._ObsTrackAA[:,:3]-self._progenitor_Omega,
+                               self._dsigomeanProgDirection)\
+                               *self._sigMeanSign
+        #Then calculate the track's frequency-angle coordinates
+        if self._multi is None:
+            aatrack= numpy.empty((self._nTrackChunks,6))
+            for ii in range(self._nTrackChunks):
+                aatrack[ii]= self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
+                                                         maxn=3)[3:]
+        else:
+            aatrack= numpy.reshape(\
+                multi.parallel_map(
+                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]), maxn=3)[3:]),
+                    range(self._nTrackChunks),
+                    numcores=numpy.amin([self._nTrackChunks,
+                                         multiprocessing.cpu_count(),
+                                         self._multi])),(self._nTrackChunks,6))
+        track_adiff= (aatrack[:,3:]-self._progenitor_angle)[:,0]\
+            *self._sigMeanSign
+        track_operp= numpy.dot(aatrack[:,:3]-self._progenitor_Omega,
+                               self._dsigomeanProgDirection)\
+                               *self._sigMeanSign
+        overplot= kwargs.pop('overplot',False)
+        yrange= kwargs.pop('yrange',
+                           [0.,numpy.amax(numpy.hstack((model_operp,track_operp)))*1.1])
+        xlabel= kwargs.pop('xlabel',r'$\Delta \theta_R$')
+        ylabel= kwargs.pop('ylabel',r'$\Delta \Omega_\parallel$')
+        bovy_plot.bovy_plot(model_adiff,model_operp,'k-',overplot=overplot,
+                            xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
+        bovy_plot.bovy_plot(track_adiff,track_operp,'ko',overplot=True,
+                            **kwargs)
+        return None
+
     def _determine_nTrackIterations(self,nTrackIterations):
         """Determine a good value for nTrackIterations based on the misalignment between stream and orbit; just based on some rough experience for now"""
         if not nTrackIterations is None:
@@ -698,25 +747,25 @@ class streamdf:
                     ObsTrack[ii,:]= multiOut[3]
                     ObsTrackAA[ii,:]= multiOut[4]
                     detdOdJps[ii]= multiOut[5]
-        else:
-            multiOut= multi.parallel_map(\
-                (lambda x: _determine_stream_track_single(self._aA,Orbit(ObsTrack[x,:]),0.,
-                                                          self._progenitor_angle,
-                                                          self._sigMeanSign,
-                                                          self._dsigomeanProgDirection,
-                                                          self.meanOmega,
-                                                          thetasTrack[x])),
-                range(self._nTrackChunks),
-                numcores=numpy.amin([self._nTrackChunks,
-                                     multiprocessing.cpu_count(),
-                                     self._multi]))
-            for ii in range(self._nTrackChunks):
-                allAcfsTrack[ii,:]= multiOut[ii][0]
-                alljacsTrack[ii,:,:]= multiOut[ii][1]
-                allinvjacsTrack[ii,:,:]= multiOut[ii][2]
-                ObsTrack[ii,:]= multiOut[ii][3]
-                ObsTrackAA[ii,:]= multiOut[ii][4]
-                detdOdJps[ii]= multiOut[ii][5]           
+            else:
+                multiOut= multi.parallel_map(\
+                    (lambda x: _determine_stream_track_single(self._aA,Orbit(ObsTrack[x,:]),0.,
+                                                              self._progenitor_angle,
+                                                              self._sigMeanSign,
+                                                              self._dsigomeanProgDirection,
+                                                              self.meanOmega,
+                                                              thetasTrack[x])),
+                    range(self._nTrackChunks),
+                    numcores=numpy.amin([self._nTrackChunks,
+                                         multiprocessing.cpu_count(),
+                                         self._multi]))
+                for ii in range(self._nTrackChunks):
+                    allAcfsTrack[ii,:]= multiOut[ii][0]
+                    alljacsTrack[ii,:,:]= multiOut[ii][1]
+                    allinvjacsTrack[ii,:,:]= multiOut[ii][2]
+                    ObsTrack[ii,:]= multiOut[ii][3]
+                    ObsTrackAA[ii,:]= multiOut[ii][4]
+                    detdOdJps[ii]= multiOut[ii][5]           
         #Store the track
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
