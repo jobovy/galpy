@@ -64,7 +64,7 @@ class streamdf:
                      estimate of the angle spread of the debris initially
            deltaAngleTrack= (None) angle to estimate the stream track over (rad)
            nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
-           nTrackIterations= Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates
+           nTrackIterations= Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates; if not set, an appropriate value is determined based on the magnitude of the misalignment between stream and orbit, with larger numbers of iterations for larger misalignments
            interpTrack= (might change), interpolate the stream track while 
                         setting up the instance (can be done by hand by 
                         calling self._interpolate_stream_track() and 
@@ -190,8 +190,8 @@ class streamdf:
         self._Zsun= Zsun
         self._vsun= vsun
         if not nosetup:
-            self._determine_stream_track(deltaAngleTrack,nTrackChunks,
-                                         nTrackIterations)
+            self._determine_nTrackIterations(nTrackIterations)
+            self._determine_stream_track(deltaAngleTrack,nTrackChunks)
             self._useInterp= useInterp
             if interpTrack or self._useInterp:
                 self._interpolate_stream_track()
@@ -582,8 +582,21 @@ class streamdf:
             out[:,1]*= self._ErrCovsLBScale[relevantDict[d2.lower()]]
         return (out[:,0],out[:,1])
 
-    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks,
-                                nTrackIterations):
+    def _determine_nTrackIterations(self,nTrackIterations):
+        """Determine a good value for nTrackIterations based on the misalignment between stream and orbit; just based on some rough experience for now"""
+        if not nTrackIterations is None:
+            self.nTrackIterations= nTrackIterations
+            return None
+        if numpy.fabs(self.misalignment()) < 1.:
+            self.nTrackIterations= 0
+        elif numpy.fabs(self.misalignment()) >= 1. \
+                and numpy.fabs(self.misalignment()) < 3.:
+            self.nTrackIterations= 1
+        elif numpy.fabs(self.misalignment()) >= 3.:
+            self.nTrackIterations= 2
+        return None
+
+    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
         self._deltaAngleTrack= deltaAngleTrack
@@ -668,7 +681,7 @@ class streamdf:
                 ObsTrackAA[ii,:]= multiOut[ii][4]
                 detdOdJps[ii]= multiOut[ii][5]
         #Repeat the track calculation using the previous track, to get closer to it
-        for nn in range(nTrackIterations):
+        for nn in range(self.nTrackIterations):
             if self._multi is None:
                 for ii in range(self._nTrackChunks):
                     multiOut= _determine_stream_track_single(self._aA,
