@@ -1859,9 +1859,9 @@ class evolveddiskdfHierarchicalGrid:
                             or \
                             ((jj == 0 or jj == gridpoints-1) and \
                                  (ii != 0 and ii != gridpoints-1)): #edge
-                        self.df[ii,jj,:]*= 1.5*dxdy
+                        self.df[ii,jj,:]*= 1.5*dxdy/1.5 #turn this off for now
                     else: #corner
-                        self.df[ii,jj,:]*= 2.25*dxdy
+                        self.df[ii,jj,:]*= 2.25*dxdy/2.25 #turn this off for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
             self.df= nu.zeros((gridpoints,gridpoints))
@@ -1897,9 +1897,9 @@ class evolveddiskdfHierarchicalGrid:
                             or \
                             ((jj == 0 or jj == gridpoints-1) and \
                                  (ii != 0 and ii != gridpoints-1)): #edge
-                        self.df[ii,jj]*= 1.5*dxdy
+                        self.df[ii,jj]*= 1.5*dxdy/1.5#turn this off for now
                     else: #corner
-                        self.df[ii,jj]*= 2.25*dxdy
+                        self.df[ii,jj]*= 2.25*dxdy/2.25#turn this off for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         if nlevels > 1:
             #Set up subgrid
@@ -1954,49 +1954,40 @@ class evolveddiskdfHierarchicalGrid:
            2011-06-27 - Written - Bovy (NYU)
         """
         if vmax is None:
-            print "You want to figure out a good vmax= using the max(tt=) member function ..."
+            vmax= self.max(tt=tt)*2.
         #Figure out how big of a grid we need
         dvR= (self.vRgrid[1]-self.vRgrid[0])
         dvT= (self.vTgrid[1]-self.vTgrid[0])
         nvR= len(self.vRgrid)
         nvT= len(self.vTgrid)
         nUpperLevels= self.nlevelsTotal-self.nlevels
-        for ii in range(nUpperLevels):
-            nvR*= 2
-            nvT*= 2
-        plotthis= nu.zeros((nvR,nvT))
+        nvRTot= nvR*2**nUpperLevels
+        nvTTot= nvT*2**nUpperLevels
+        plotthis= nu.zeros((nvRTot,nvTTot))
         if len(self.df.shape) == 3:
             plotdf= copy.copy(self.df[:,:,tt])
         else:
             plotdf= copy.copy(self.df)
-        print plotdf
         plotdf[(plotdf == 0.)]= _NAN
         #Fill up the grid
-        xsubmin= 0
-        xsubmax= nvR
-        ysubmin= 0
-        ysubmax= nvT
-        for ii in range(nUpperLevels):
-            xsubmin= int(nvR)/4
-            xsubmax= nvR-int(nvR)/4
-            ysubmin= int(nvT)/4
-            ysubmax= nvT-int(nvT)/4
-            for jj in range(nvR):
-                for kk in range(nvT):
-                    #If this is part of a subgrid, ignore
-                    if jj >= xsubmin and jj < xsubmax \
-                            and kk >= ysubmin and kk < ysubmax:
-                        continue
-                    plotthis[jj,kk]= _NAN
-            nvR/= 2
-            nvT/= 2
+        if nUpperLevels > 0:
+            xsubmin= nvRTot/2-nvR/2-1
+            xsubmax= nvRTot/2+nvR/2
+            ysubmin= nvTTot/2-nvT/2-1
+            ysubmax= nvTTot/2+nvT/2
+            #Set outside this subgrid to NaN
+            plotthis[:,:]= _NAN #within the grid gets filled in below
+        else:
+            xsubmin= 0
+            xsubmax= nvR
+            ysubmin= 0
+            ysubmax= nvT
         #Fill in this level
-        plotthis[xsubmin:xsubmax,ysubmin:ysubmax]= plotdf
-        #print plotthis
+        plotthis[xsubmin:xsubmax,ysubmin:ysubmax]= plotdf/dvR/dvT/nvR/nvT
         #Plot
         if nUpperLevels == 0:
-            xrange= [self.vRgrid[0],self.vRgrid[len(self.vRgrid)-1]]
-            yrange= [self.vTgrid[0],self.vTgrid[len(self.vTgrid)-1]]
+            xrange= [self.vRgrid[0]+dvR/2.,self.vRgrid[len(self.vRgrid)-1]-dvR/2.]
+            yrange= [self.vTgrid[0]+dvT/2.,self.vTgrid[len(self.vTgrid)-1]-dvT/2.]
             aspect=(xrange[1]-xrange[0])/\
                 (yrange[1]-yrange[0])
             extent=[xrange[0],xrange[1],
