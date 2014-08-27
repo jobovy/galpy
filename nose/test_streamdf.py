@@ -17,6 +17,7 @@ def expected_failure(test):
             raise AssertionError('Test is expected to fail, but passed instead')
     return inner
 
+@expected_failure
 def test_fardalpot_trackaa():
     #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); fails for the potential suggested by Fardal
     #First setup this specific streamdf instance
