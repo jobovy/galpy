@@ -11,7 +11,6 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from galpy.util import logsumexp as _mylogsumexp
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
