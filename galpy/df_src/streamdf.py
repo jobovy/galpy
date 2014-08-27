@@ -671,13 +671,13 @@ class streamdf:
         if dt < 0.:
             self._trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunks-1)
             #Flip velocities before integrating
-            auxiliaryTrack= self._auxiliaryTrack.flip()
+            auxiliaryTrack= auxiliaryTrack.flip()
         auxiliaryTrack.integrate(self._trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            auxiliaryTrack._orb.orbit[:,1]= -self._auxiliaryTrack._orb.orbit[:,1]
-            auxiliaryTrack._orb.orbit[:,2]= -self._auxiliaryTrack._orb.orbit[:,2]
-            auxiliaryTrack._orb.orbit[:,4]= -self._auxiliaryTrack._orb.orbit[:,4]
+            auxiliaryTrack._orb.orbit[:,1]= -auxiliaryTrack._orb.orbit[:,1]
+            auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
+            auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs= self._aA.actionsFreqs(auxiliaryTrack(),maxn=3)
         auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
