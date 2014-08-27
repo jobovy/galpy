@@ -26,6 +26,10 @@ AUTHOR
 
 Jo Bovy - bovy at ias dot edu
 
+See `AUTHORS.txt
+<https://github.com/jobovy/galpy/blob/master/AUTHORS.txt>`__ for a
+full list of contributors.
+
 If you find this code useful in your research, please let me know. If
 you use galpy in a publication, please cite Bovy (2014, in
 preparation) and link to http://github.com/jobovy/galpy. Please also
