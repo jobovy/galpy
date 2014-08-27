@@ -17,7 +17,6 @@ def expected_failure(test):
             raise AssertionError('Test is expected to fail, but passed instead')
     return inner
 
-@expected_failure
 def test_fardalpot_trackaa():
     #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); fails for the potential suggested by Fardal
     #First setup this specific streamdf instance
@@ -866,10 +865,6 @@ def test_bovy14_trackaa():
     #angles
     assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for bovy14 setup'
     return None
-
-@expected_failure
-def test_diff_pot():
-    raise AssertionError()
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     observe= [sdf._R0,0.,sdf._Zsun]
