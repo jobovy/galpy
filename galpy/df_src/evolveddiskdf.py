@@ -100,7 +100,7 @@ class evolveddiskdf:
                 kwargs['marginalizeVperp']:
             kwargs.pop('marginalizeVperp')
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
-            if kwargs.has_key('log') and kwargs['log']:
+            if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
@@ -108,7 +108,7 @@ class evolveddiskdf:
                 kwargs['marginalizeVlos']:
             kwargs.pop('marginalizeVlos') 
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
-            if kwargs.has_key('log') and kwargs['log']:
+            if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs)   
@@ -1714,7 +1714,6 @@ class evolveddiskdf:
         else:
             nsigma= kwargs['nsigma']
         if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
-        #BOVY: Put asymmetric drift in here?
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
             va= vcirc-self._initdf.meanvT(R,phi=phi)

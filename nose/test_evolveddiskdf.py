@@ -435,7 +435,7 @@ def test_call_marginalizevperp():
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
           EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
-    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    edf= evolveddiskdf(idf,pot=pot[0],to=-10.) #one with just one potential
     #l=0
     R,phi,vR = 0.8, 0., 0.4
     vts= numpy.linspace(0.,1.5,51)
@@ -443,14 +443,15 @@ def test_call_marginalizevperp():
     assert numpy.fabs(numpy.sum(pvts)*(vts[1]-vts[0])\
                           -edf(Orbit([R,vR,0.,phi]),marginalizeVperp=True,integrate_method='rk6_c')) < 10.**-3.5, 'evolveddiskdf call w/ marginalizeVperp does not work'
     #l=270
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
     R,phi,vT = numpy.sin(numpy.pi/6.), -numpy.pi/3.,0.7 #l=30 degree
     vrs= numpy.linspace(-1.,1.,101)
     pvrs= numpy.array([edf(Orbit([R,vr,vT,phi]),integrate_method='rk6_c') for vr in vrs])
-    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
-                          -edf(Orbit([R,0.,vT,phi]),
-                               marginalizeVperp=True,
-                               integrate_method='rk6_c',
-                               nsigma=4)) < 10.**-3.5, 'evolveddiskdf call w/ marginalizeVperp does not work'
+    assert numpy.fabs(numpy.log(numpy.sum(pvrs)*(vrs[1]-vrs[0]))\
+                                    -edf(Orbit([R,0.,vT,phi]),
+                                         marginalizeVperp=True,
+                                         integrate_method='rk6_c',log=True,
+                                         nsigma=4)) < 10.**-2.5, 'evolveddiskdf call w/ marginalizeVperp does not work'
     return None
 
 def test_call_marginalizevlos():
@@ -458,14 +459,17 @@ def test_call_marginalizevlos():
     idf= dehnendf(beta=0.)
     pot= [LogarithmicHaloPotential(normalize=1.),
           EllipticalDiskPotential(twophio=0.001)] #very mild non-axi
-    edf= evolveddiskdf(idf,pot=pot,to=-10.)
+    edf= evolveddiskdf(idf,pot=pot[0],to=-10.) #one with just one potential
     #l=0
     R,phi,vT = 0.8, 0., 0.7
     vrs= numpy.linspace(-1.,1.,101)
     pvrs= numpy.array([edf(Orbit([R,vr,vT,phi]),integrate_method='rk6_c') for vr in vrs])
-    assert numpy.fabs(numpy.sum(pvrs)*(vrs[1]-vrs[0])\
-                          -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c')) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
+    print numpy.log(numpy.sum(pvrs)*(vrs[1]-vrs[0]))\
+                          -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c',log=True)
+    assert numpy.fabs(numpy.log(numpy.sum(pvrs)*(vrs[1]-vrs[0]))\
+                          -edf(Orbit([R,0.,vT,phi]),marginalizeVlos=True,integrate_method='rk6_c',log=True)) < 10.**-4., 'diskdf call w/ marginalizeVlos does not work'
     #l=270, this DF has some issues, but it suffices to test the mechanics of the code
+    edf= evolveddiskdf(idf,pot=pot,to=-10.)
     R,phi,vR = numpy.sin(numpy.pi/6.), -numpy.pi/3.,0.4 #l=30 degree
     vts= numpy.linspace(0.3,1.5,101)
     pvts= numpy.array([edf(Orbit([R,vR,vt,phi]),integrate_method='rk6_c') for vt in vts])
