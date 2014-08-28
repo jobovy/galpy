@@ -883,7 +883,7 @@ def test_fardalwmwpot_trackaa():
     obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
     sigv= 1.3 #km/s
     sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=MWPotential2014,aA=aAI,
-                         leading=True,
+                         leading=True,multi=True,
                          nTrackChunks=21,
                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
