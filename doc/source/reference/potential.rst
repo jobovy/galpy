@@ -29,7 +29,7 @@ Use as ``Potential-instance.method(...)``
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
-   Rzderiv <potentialr2deriv.rst>
+   Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
