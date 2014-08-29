@@ -1,8 +1,8 @@
 DF
 ===
 
-Two-dimensional Disk distribution functions
----------------------------------------------
+Two-dimensional, axisymmetric disk distribution functions
+----------------------------------------------------------
 
 Distribution function for orbits in the plane of a galactic
 disk. 
@@ -59,7 +59,38 @@ Specific distribution functions
    Shu DF <dfshu.rst>
 
 
-Three-dimensional Disk distribution functions
+Two-dimensional, non-axisymmetric disk distribution functions
+--------------------------------------------------------------
+
+Distribution function for orbits in the plane of a galactic disk in
+non-axisymmetric potentials. These are calculated using the technique
+of `Dehnen 2000 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_,
+where the DF at the current time is obtained as the evolution of an
+initially-axisymmetric DF at time ``to`` in the non-axisymmetric
+potential until the current time.
+
+General instance routines
++++++++++++++++++++++++++
+
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <edfcall.rst>
+   __init__ <edf.rst>
+   meanvR <edfmeanvr.rst>
+   meanvT <edfmeanvt.rst>
+   oortA <edfoorta.rst>
+   oortB <edfoortb.rst>
+   oortC <edfoortc.rst>
+   oortK <edfoortk.rst>
+   sigmaR2 <edfsigmar2.rst>
+   sigmaRT <edfsigmart.rst>
+   sigmaT2 <edfsigmat2.rst>
+   vertexdev <edfvertexdev.rst>
+   vmomentsurfacemass <edfvmomentsurfacemass.rst>
+
+Three-dimensional disk distribution functions
 ----------------------------------------------
 
 Distribution functions for orbits in galactic disks, including the
@@ -145,27 +176,4 @@ General instance routines
    sigangledAngle <streamdfsigangledangle.rst>
    sigOmega <streamdfsigomega.rst>
    sigtdAngle <streamdfsigtdangle.rst>
-
-
-..
-	Ergodic distribution functions
-	------------------------------
-
-	General instance routines
-	+++++++++++++++++++++++++
-
-
-	.. toctree::
-	   :maxdepth: 2
-
-	      __call__ <edfcall.rst>
-	         sample <edfsample.rst>
-
-		 Specific distribution functions
-		 +++++++++++++++++++++++++++++++
-
-		 .. toctree::
-		    :maxdepth: 2
-
-		       Isothermal DF <dfisotherm.rst>
 
