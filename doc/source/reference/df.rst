@@ -111,6 +111,42 @@ Specific distribution functions
    quasiisothermal DF <dfquasiisothermal.rst>
 
 
+The distribution function of a tidal stream
+---------------------------------------------
+
+From `Bovy 2014 <http://arxiv.org/abs/1401.2985>`_;
+see :ref:`stream-tutorial`.
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <streamdfcall.rst>
+   __init__ <streamdf.rst>
+   calc_stream_lb <streamdfcalcstreamlb.rst>
+   callMarg <streamdfcallmarg.rst>
+   estimateTdisrupt <streamdfestimatetdisrupt.rst>
+   find_closest_trackpoint <streamdffindclosesttrackpoint.rst>
+   find_closest_trackpointLB <streamdffindclosesttrackpointlb.rst>
+   freqEigvalRatio <streamdffreqeigvalratio.rst>
+   gaussApprox <streamdfgaussapprox.rst>
+   meanangledAngle <streamdfmeanangledangle.rst>
+   meanOmega <streamdfmeanomega.rst>
+   meantdAngle <streamdfmeantdangle.rst>
+   misalignment <streamdfmisalignment.rst>
+   pangledAngle <streamdfpangledangle.rst>
+   plotCompareTrackAAModel <streamdfplotcomparetrackaamodel.rst>
+   plotProgenitor <streamdfplotprogenitor.rst>
+   plotTrack <streamdfplottrack.rst>
+   ptdAngle <streamdfptdangle.rst>
+   sample <streamdfsample.rst>
+   sigangledAngle <streamdfsigangledangle.rst>
+   sigOmega <streamdfsigomega.rst>
+   sigtdAngle <streamdfsigtdangle.rst>
+
+
 ..
 	Ergodic distribution functions
 	------------------------------
