@@ -17,6 +17,78 @@ def expected_failure(test):
             raise AssertionError('Test is expected to fail, but passed instead')
     return inner
 
+def test_progenitor_coordtransformparams():
+    #Test related to #189: test that the streamdf setup throws a warning when the given coordinate transformation parameters differ from those of the given progenitor orbit
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    #odeint to make sure that the C integration warning isn't thrown
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8,integrate_method='odeint')
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               ro=8.5,vo=235.,zo=0.1,solarmotion=[0.,-10.,0.])
+    sigv= 0.365 #km/s
+    #Turn warnings into errors to test for them
+    import warnings
+    warnings.simplefilter("error")
+    #Test w/ diff Rnorm
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=10.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from Rnorm")
+    #Test w/ diff R0
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             R0=10.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from R0")
+    #Test w/ diff Vnorm
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=220.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  vo is different from Vnorm")
+    #Test w/ diff zo
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.025)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  zo is different from Zsun")
+    #Test w/ diff vsun
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.1,
+                             vsun=[0.,220.,0.])
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default")
+    return None
+
 #Exact setup from Bovy (2014); should reproduce those results (which have been
 # sanity checked
 def test_bovy14_setup():
