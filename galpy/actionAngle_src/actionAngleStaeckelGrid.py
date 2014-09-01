@@ -213,7 +213,6 @@ class actionAngleStaeckelGrid():
         Lz= R*vT
         Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
-        thisRL= self._RLInterp(Lz)
         thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
         thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
         if isinstance(R,numpy.ndarray):
@@ -236,7 +235,6 @@ class actionAngleStaeckelGrid():
             if numpy.sum(indxc) > 0:
                 u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
                                                    (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
-                #                                                   (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
                 sinh2u0= numpy.sinh(u0)**2.
                 thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
                                 E[indxc],Lz[indxc],sinh2u0,u0)
@@ -252,7 +250,6 @@ class actionAngleStaeckelGrid():
                 psi= numpy.arccos(numpy.sqrt(cos2psi[True-indxCos2psi]))
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
-                #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
@@ -464,7 +461,9 @@ def _u0Eq(logu,delta,pot,E,Lz22):
 
 def _Efunc(E,*args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
-    return ((E-args[0]))**0.5
+#    return ((E-args[0]))**0.5
+    return numpy.log((E-args[0]+10.**-10.))
 def _invEfunc(Ef,*args):
     """Inverse of Efunc"""
-    return Ef**2.+args[0]
+#    return Ef**2.+args[0]
+    return numpy.exp(Ef)+args[0]-10.**-10.
