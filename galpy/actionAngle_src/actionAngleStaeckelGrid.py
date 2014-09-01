@@ -22,7 +22,7 @@ _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
-                 nE=25,npsi=25,nLz=25,numcores=1,
+                 nE=25,npsi=25,nLz=30,numcores=1,
                  **kwargs):
         """
         NAME:
