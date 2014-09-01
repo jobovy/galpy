@@ -154,16 +154,19 @@ class actionAngleStaeckelGrid():
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
-                jrLzE[ii]= numpy.amax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
-                jzLzE[ii]= numpy.amax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
-        jrLzE[(jrLzE == 0.)]= numpy.amin(jrLzE[(jrLzE > 0.)])
-        jzLzE[(jzLzE == 0.)]= numpy.amin(jzLzE[(jzLzE > 0.)])
+            jrLzE[ii]= numpy.nanmax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
+            jzLzE[ii]= numpy.nanmax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
+        jrLzE[(jrLzE == 0.)]= numpy.nanmin(jrLzE[(jrLzE > 0.)])
+        jzLzE[(jzLzE == 0.)]= numpy.nanmin(jzLzE[(jzLzE > 0.)])
         for ii in range(nLz):
             jr[ii,:,:]/= jrLzE[ii]
             jz[ii,:,:]/= jzLzE[ii]
         #Deal w/ 9999.99
         jr[(jr > 1.)]= 1.
         jz[(jz > 1.)]= 1.
+        #Deal w/ NaN
+        jr[numpy.isnan(jr)]= 0.
+        jz[numpy.isnan(jz)]= 0.
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
@@ -309,6 +312,8 @@ class actionAngleStaeckelGrid():
                             numpy.array([vz]),
                             **kwargs)
             return (jr[0],Lz[0],jz[0])
+        jr[jr < 0.]= 0.
+        jz[jz < 0.]= 0.
         return (jr,R*vT,jz)
 
     def Jz(self,*args,**kwargs):
