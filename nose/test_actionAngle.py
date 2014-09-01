@@ -1002,23 +1002,20 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     return None
 
 #Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved, bc takes a lot of time)
-@expected_failure
 def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False)
+    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False,nLz=20)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
-    js= aAA(R,vR,vT,z,vz,0.)
-    print js
-    assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
-    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    assert numpy.fabs(aAA.JR(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(aAA.Jz(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAA(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
-    assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
+    assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     #Check that actions are conserved along the orbit
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
     check_actionAngle_conserved_actions(aAA,obs,MWPotential,
@@ -1029,8 +1026,14 @@ def test_actionAngleStaeckelGrid_basicAndConserved_actions():
 def test_actionAngleStaeckelGrid_basic_actions_c():
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential
-    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=True)
+    from galpy.potential import MWPotential, interpRZPotential
+    rzpot= interpRZPotential(RZPot=MWPotential,
+                             rgrid=(numpy.log(0.01),numpy.log(20.),201),
+                             logR=True,
+                             zgrid=(0.,1.,101),
+                             interpPot=True,use_c=True,enable_c=True,
+                             zsym=True)
+    aAA= actionAngleStaeckelGrid(pot=rzpot,delta=0.71,c=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAA(R,vR,vT,z,vz)
@@ -1053,8 +1056,21 @@ def test_actionAngleStaeckelGrid_conserved_actions_c():
                                         -1.4,-8.,-1.7,ntimes=101)
     return None
 
+#Test the setup of an actionAngleStaeckelGrid
+def test_actionAngleStaeckelGrid_setuperrs():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    try:
+        aAA= actionAngleStaeckelGrid()
+    except IOError: pass
+    else: raise AssertionError('actionAngleStaeckelGrid w/o pot does not give IOError')
+    try:
+        aAA= actionAngleStaeckelGrid(pot=MWPotential)
+    except IOError: pass
+    else: raise AssertionError('actionAngleStaeckelGrid w/o delta does not give IOError')
+    return None
+
 #Test the actionAngleStaeckel against an isochrone potential: actions
-@expected_failure
 def test_actionAngleStaeckelGrid_Isochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleStaeckelGrid, \
@@ -1068,7 +1084,6 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
     djr= numpy.fabs((ji[0]-jia[0])/ji[0])
     dlz= numpy.fabs((ji[1]-jia[1])/ji[1])
     djz= numpy.fabs((ji[2]-jia[2])/ji[2])
-    print ji, jia, djr, dlz, djz
     assert djr < 10.**-1.2, 'actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%' % (djr*100.)
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
