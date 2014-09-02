@@ -241,7 +241,7 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print '\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m'
 print '\033[1m'+'Finished installing galpy'+'\033[0m'
-print 'You can run the test suite using `nosetests -v -w nose/` to check the installation (note that the test suite currently takes about 8 minutes to run)'
+print 'You can run the test suite using `nosetests -v -w nose/` to check the installation (but note that the test suite currently takes about 33 minutes to run)'
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so
 if single_ext:
