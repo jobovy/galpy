@@ -451,7 +451,7 @@ def test_actionAngleAdiabaticGrid_basicAndConserved_actions():
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAA(R,vR,vT,z,vz,0.)
     assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
-    assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    assert numpy.fabs(aAA.Jz(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAA(Orbit([R,vR,vT,z,vz]))
