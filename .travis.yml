@@ -17,9 +17,12 @@ before_install:
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
  - pip uninstall -y numpy #uninstall numpy from virtualenv
- - sudo apt-get install -qq python-scipy python-matplotlib
+ - pip uninstall -y scipy #uninstall numpy from virtualenv
+ - sudo apt-get install -qq python-matplotlib
  - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
+ - sudo dpkg -r --force-depends python-scipy #because this is 1.6.1
  - pip install numpy>=1.7
+ - pip install scipy>=0.14
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
