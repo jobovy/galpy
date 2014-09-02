@@ -480,6 +480,27 @@ def test_actionAngleAdiabaticGrid_basic_actions_c():
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz'
 
+#actionAngleAdiabaticGrid actions outside the grid
+def test_actionAngleAdiabaticGrid_outsidegrid_c():
+    from galpy.actionAngle import actionAngleAdiabaticGrid, \
+        actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    aAA= actionAngleAdiabaticGrid(pot=MWPotential,c=True,Rmax=2.,zmax=0.2)
+    R,vR,vT,z,vz,phi= 3.,0.1,1.,0.1,0.1,2.
+    js= aA(R,vR,vT,z,vz,phi)
+    jsa= aAA(R,vR,vT,z,vz,phi)
+    assert numpy.fabs(js[0]-jsa[0]) < 10.**-8., 'actionAngleAdiabaticGrid evaluation outside of the grid fails'
+    assert numpy.fabs(js[2]-jsa[2]) < 10.**-8., 'actionAngleAdiabaticGrid evaluation outside of the grid fails'
+    assert numpy.fabs(js[2]-aAA.Jz(R,vR,vT,z,vz,phi)) < 10.**-8., 'actionAngleAdiabaticGrid evaluation outside of the grid fails'
+    #Also for array
+    s= numpy.ones(2)
+    js= aA(R,vR,vT,z,vz,phi)
+    jsa= aAA(R*s,vR*s,vT*s,z*s,vz*s,phi*s)
+    assert numpy.all(numpy.fabs(js[0]-jsa[0]) < 10.**-8.), 'actionAngleAdiabaticGrid evaluation outside of the grid fails'
+    assert numpy.all(numpy.fabs(js[2]-jsa[2]) < 10.**-8.), 'actionAngleAdiabaticGrid evaluation outside of the grid fails'
+    return None
+
 #Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabaticGrid_conserved_actions_c():
     from galpy.potential import MWPotential

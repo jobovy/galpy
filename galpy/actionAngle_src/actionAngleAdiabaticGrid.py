@@ -300,9 +300,9 @@ class actionAngleAdiabaticGrid():
                     print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                         , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                         , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
-                jr= self._aA(thisRL,
-                             numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
-                             ERLz/thisRL,
+                jr= self._aA(thisRL[0],
+                             numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.)[0],
+                             (ERLz/thisRL)[0],
                              0.,0.,
                              _justjr=True,
                              **kwargs)[0]
