@@ -171,7 +171,7 @@ class actionAngleAdiabaticGrid():
                                                 0.,0.,
                                                 _justjr=True,
                                                    **kwargs)[0]
-                        except UnboundError:
+                        except UnboundError: #pragma: no cover
                             raise
                         if jj == 0: 
                             jrERRa[ii]= jr[ii,jj]
