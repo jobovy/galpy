@@ -104,7 +104,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
@@ -189,7 +189,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
@@ -259,7 +259,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,

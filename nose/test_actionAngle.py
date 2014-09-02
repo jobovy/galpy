@@ -583,7 +583,7 @@ def test_actionAngleStaeckel_basic_actions_u0_c():
     assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    js= aAS(Orbit([R,vR,vT,z,vz]))
+    js= aAS(Orbit([R,vR,vT,z,vz]),u0=1.15)
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
     return None
@@ -716,7 +716,7 @@ def test_actionAngleStaeckel_basic_freqs_c_u0():
     assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-12., 'Circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
     #close-to-circular orbit
     R,vR,vT,z,vz= 1.,0.01,1.01,0.01,0.01 
-    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]))
+    jos= aAS.actionsFreqs(Orbit([R,vR,vT,z,vz]),u0=1.15)
     assert numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%' % (100.*numpy.fabs((jos[3]-epifreq(MWPotential,1.))/epifreq(MWPotential,1.)))
     assert numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)) < 10.**-1.9, 'Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-omegac(MWPotential,1.))/omegac(MWPotential,1.)))
     assert numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)) < 10.**-1.5, 'Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-verticalfreq(MWPotential,1.))/verticalfreq(MWPotential,1.)))
@@ -923,7 +923,7 @@ def test_actionAngleStaeckel_linear_angles_u0():
                                     -2.,-4.,-3.,
                                     -3.,-3.,-2.,
                                     -2.,-3.5,-2.,
-                                    ntimes=1001) #need fine sampling for de-period
+                                    ntimes=1001,u0=1.23) #need fine sampling for de-period
     return None
 
 #Test the actionAngleStaeckel against an isochrone potential: actions
@@ -1691,7 +1691,8 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolor,tolop,toloz,
                                     toldar,toldap,toldaz,
                                     ntimes=1001,
-                                    fixed_quad=False):
+                                    fixed_quad=False,
+                                    u0=None):
     from galpy.actionAngle import dePeriod
     times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
@@ -1700,6 +1701,11 @@ def check_actionAngle_linear_angles(aA,obs,pot,
         acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
                                     obs.z(times),obs.vz(times),obs.phi(times),
                                     fixed_quad=True)
+    elif not u0 is None:
+        acfs_init= aA.actionsFreqsAngles(obs,u0=u0) #to check the init. angles
+        acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
+                                    obs.z(times),obs.vz(times),obs.phi(times),
+                                    u0=(u0+times*0.)) #array
     else:
         acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
         acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
