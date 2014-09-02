@@ -20,7 +20,7 @@ before_install:
  - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
  - sudo dpkg -r --force-depends python-scipy #because this is old
  - pip install numpy>=1.7
- - pip install scipy>=0.14
+ - pip install -v scipy>=0.14
  - sudo apt-get install -qq python-matplotlib
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
