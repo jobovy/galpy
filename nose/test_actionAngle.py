@@ -546,7 +546,17 @@ def test_actionAngleStaeckel_basic_actions():
     assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
-    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    js= aAS(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
+    assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
     js= aAS(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 2.*10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jz'
@@ -792,6 +802,17 @@ def test_actionAngleStaeckel_conserved_actions():
                                         -2.,-8.,-2.,ntimes=101)
     return None
 
+#Test the actions of an actionAngleStaeckel, more eccentric orbit
+def test_actionAngleStaeckel_conserved_actions_ecc():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.1,0.2, 1.3, 0.3,0.])
+    check_actionAngle_conserved_actions(aAS,obs,MWPotential,
+                                        -1.5,-8.,-1.4,ntimes=101)
+    return None
+
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
@@ -919,6 +940,12 @@ def test_actionAngleStaeckel_linear_angles_u0():
     from galpy.orbit import Orbit
     aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    check_actionAngle_linear_angles(aAS,obs,MWPotential,
+                                    -2.,-4.,-3.,
+                                    -3.,-3.,-2.,
+                                    -2.,-3.5,-2.,
+                                    ntimes=1001) #need fine sampling for de-period
+    #specifying u0
     check_actionAngle_linear_angles(aAS,obs,MWPotential,
                                     -2.,-4.,-3.,
                                     -3.,-3.,-2.,

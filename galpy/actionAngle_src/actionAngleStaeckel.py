@@ -571,7 +571,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                                self._vx,self._sinvx**2.,
                                                self._potu0v0,self._pot),
                                               maxiter=200)
-                    except RuntimeError:
+                    except RuntimeError: #pragma: no cover
                         raise UnboundError("Orbit seems to be unbound")
             elif peps > 0. and meps < 0.: #we are at umin
                 umin= self._ux
@@ -609,7 +609,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot),
                                            maxiter=200)
-                except RuntimeError:
+                except RuntimeError: #pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
             rend= _uminUmaxFindStart(self._ux,
                                      E,L,self._I3U,self._delta,
@@ -654,7 +654,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                               self._ux,self._coshux**2.,
                                               self._sinhux**2.,
                                               self._potupi2,self._pot)
-            if peps < 0. and meps > 0.: #we are at vmax
+            if peps < 0. and meps > 0.: #we are at vmax, which cannot happen
                 rstart= _vminFindStart(self._vx,
                                        E,L,self._I3V,self._delta,
                                        self._ux,self._coshux**2.,
@@ -670,7 +670,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                                self._sinhux**2.,
                                                self._potupi2,self._pot),
                                               maxiter=200)
-                    except RuntimeError:
+                    except RuntimeError: #pragma: no cover
                         raise UnboundError("Orbit seems to be unbound")
             elif peps > 0. and meps < 0.: #we are at vmin
                 vmin= self._vx
@@ -692,7 +692,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                            self._sinhux**2.,
                                            self._potupi2,self._pot),
                                           maxiter=200)
-                except RuntimeError:
+                except RuntimeError: #pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
         self._vmin= vmin
         return self._vmin
@@ -735,7 +735,7 @@ def potentialStaeckel(u,v,pot,delta):
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
     return evaluatePotentials(R,z,pot)
 
-def FRStaeckel(u,v,pot,delta):
+def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
     NAME:
        FRStaeckel
@@ -754,7 +754,7 @@ def FRStaeckel(u,v,pot,delta):
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
     return evaluateRforces(R,z,pot)
 
-def FZStaeckel(u,v,pot,delta):
+def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
     NAME:
        FZStaeckel
