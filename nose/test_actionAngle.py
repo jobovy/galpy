@@ -91,12 +91,12 @@ def test_actionAngleSpherical_basic_actions():
     aAS= actionAngleSpherical(pot=lp)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
-    js= aAS(R,vR,vT,z,vz)
+    js= aAS(Orbit([R,vR,vT]))
     assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Jr=0'
     assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    js= aAS(Orbit([R,vR,vT,z,vz]))
+    js= aAS(Orbit([R,vR,vT,z,vz])._orb) #with OrbitTop
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jz'
     return None
@@ -301,8 +301,8 @@ def test_actionAngleAdiabatic_basic_actions():
     from galpy.potential import MWPotential
     aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
     #circular orbit
-    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
-    js= aAA(R,vR,vT,z,vz,0.)
+    R,vR,vT,phi= 1.,0.,1.,2. 
+    js= aAA(Orbit([R,vR,vT,phi]))
     assert numpy.fabs(js[0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
