@@ -17,15 +17,15 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
- #Setup conda
- - wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib
-  - source activate test-environment
+ #Setup conda for faster installs
+ - wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh
+ - bash miniconda.sh -b -p $HOME/miniconda
+ - export PATH="$HOME/miniconda/bin:$PATH"
+ - hash -r
+ - conda config --set always_yes yes --set changeps1 no
+ - conda update -q conda
+ - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib
+ - source activate test-environment
 # - pip uninstall -y numpy #uninstall numpy from virtualenv
 # - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
 # - sudo dpkg -r --force-depends python-scipy #because this is old
