@@ -205,7 +205,7 @@ setup(name='galpy',
       package_data={'galpy/df_src':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['numpy>=1.7','scipy>=0.14','matplotlib','nose'],
+      install_requires=['numpy>=1.7','scipy','matplotlib','nose'],
       ext_modules=ext_modules,
       classifiers=[
         "Development Status :: 5 - Production/Stable",
