@@ -14,14 +14,24 @@ env: #split tests
 virtualenv:
   system_site_packages: true
 before_install:
+ - sudo apt-get update
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
- - pip uninstall -y numpy #uninstall numpy from virtualenv
- - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
- - sudo dpkg -r --force-depends python-scipy #because this is old
- - pip install numpy>=1.7
- - pip install -v scipy>=0.14
- - sudo apt-get install -qq python-matplotlib
+ #Setup conda
+ - wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib
+  - source activate test-environment
+# - pip uninstall -y numpy #uninstall numpy from virtualenv
+# - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
+# - sudo dpkg -r --force-depends python-scipy #because this is old
+# - pip install numpy>=1.7
+# - pip install -v scipy>=0.14
+# - sudo apt-get install -qq python-matplotlib
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 # command to install dependencies
