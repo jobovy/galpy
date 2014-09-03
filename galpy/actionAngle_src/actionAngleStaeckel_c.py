@@ -391,8 +391,9 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
-
-    Anglephi= (Anglephi + phi % (2.*numpy.pi)) % (2.*numpy.pi)
+    
+    badAngle = Anglephi != 9999.99
+    Anglephi[badAngle]= (Anglephi[badAngle] + phi[badAngle] % (2.*numpy.pi)) % (2.*numpy.pi)
     Anglephi[Anglephi < 0.]+= 2.*numpy.pi
 
     return (jr,jz,Omegar,Omegaphi,Omegaz,Angler,

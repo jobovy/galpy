@@ -1,6 +1,7 @@
 import os
 import pickle
 import numpy as nu
+from scipy import integrate
 import galpy.util.bovy_plot as plot
 from Potential import PotentialError, Potential, lindbladR
 from plotRotcurve import plotRotcurve
@@ -813,6 +814,59 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
             return Pot.R2deriv(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
+
+def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
+                          k=None,m=None,OmegaP=None):
+    """
+    NAME:
+
+       LinShuReductionFactor
+
+    PURPOSE:
+
+       Calculate the Lin & Shu (1966) reduction factor: the reduced linear response of a kinematically-warm stellar disk to a perturbation
+
+    INPUT:
+
+       axiPot - The background, axisymmetric potential
+
+       R - Cylindrical radius
+       
+       sigmar - radial velocity dispersion of the population
+
+       Then either provide:
+
+       1) m= m in the perturbation's m x phi (number of arms for a spiral)
+
+          k= wavenumber (see Binney & Tremaine 2008)
+
+          OmegaP= pattern speed
+
+       2) nonaxiPot= a non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber
+
+    OUTPUT:
+
+       reduction factor
+
+    HISTORY:
+
+       2014-08-23 - Written - Bovy (IAS)
+
+    """
+    from galpy.potential import omegac, epifreq
+    if nonaxiPot is None and (OmegaP is None or k is None or m is None):
+        raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
+    elif not nonaxiPot is None:
+        OmegaP= nonaxiPot.OmegaP()
+        k= nonaxiPot.wavenumber(R)
+        m= nonaxiPot.m()
+    tepif= epifreq(axiPot,R)
+    s= m*(OmegaP-omegac(axiPot,R))/tepif
+    chi= sigmar**2.*k**2./tepif**2.
+    return (1.-s**2.)/nu.sin(nu.pi*s)\
+        *integrate.quad(lambda t: nu.exp(-chi*(1.+nu.cos(t)))\
+                            *nu.sin(s*t)*nu.sin(t),
+                        0.,nu.pi)[0]
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """

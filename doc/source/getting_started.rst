@@ -49,6 +49,16 @@ As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
 
 >>> from galpy.potential import MWPotential
 
+This is *not* the recommended Milky-Way-like potential in
+``galpy``. The (currently) recommended Milky-Way-like potential is
+``MWPotential2014``:
+
+>>> from galpy.potential import MWPotential2014
+
+``MWPotential2014`` has a more realistic bulge model and is actually
+fit to various dynamical constraints on the Milky Way (see
+:ref:`here <potential-mw>` and the ``galpy`` paper). 
+
 Units in galpy
 --------------
 .. _units:
@@ -76,21 +86,22 @@ or about 223 Myr. We can also express forces in various physical
 units. For example, for the Milky-Way-like potential defined in galpy,
 we have that the vertical force at 1.1 kpc is
 
->>> from galpy.potential import MWPotential, evaluatezforces
->>> -evaluatezforces(1.,1.1/8.,MWPotential)*bovy_conversion.force_in_pcMyr2(220.,8.)
-2.3941221528330314
+>>> from galpy.potential import MWPotential2014, evaluatezforces
+>>> -evaluatezforces(1.,1.1/8.,MWPotential2014)*bovy_conversion.force_in_pcMyr2(220.,8.)
+2.0259181908629933
 
 which we can also express as an equivalent surface-density by dividing
 by :math:`2\pi G`
 
->>> -evaluatezforces(1.,1.1/8.,MWPotential)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
-84.681625645335686
+>>> -evaluatezforces(1.,1.1/8.,MWPotential2014)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+71.658016957792356
 
 Because the vertical force at the solar circle in the Milky Way at 1.1
 kpc above the plane is approximately :math:`70\,(2\pi G\,
 M_\odot\,\mathrm{pc}^{-2})` (e.g., `2013arXiv1309.0809B
 <http://adsabs.harvard.edu/abs/2013arXiv1309.0809B>`_), this shows
-that our Milky-Way-like potential has a bit too heavy of a disk.
+that our Milky-Way-like potential has a realistic disk (at least in
+this respect).
 
 ``bovy_conversion`` further has functions to convert densities,
 masses, surface densities, and frequencies to physical units (actions
@@ -98,15 +109,15 @@ are considered to be too obvious to be included); see :ref:`here
 <bovyconversion>` for a full list. As a final example, the local dark
 matter density in the Milky-Way-like potential is given by
 
->>> MWPotential[1].dens(1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
-0.0085853601686596628
+>>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
+0.0075419566970079373
 
 or
 
->>> MWPotential[1].dens(1.,0.)*bovy_conversion.dens_in_gevcc(220.,8.)
-0.32605775276339916
+>>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_gevcc(220.,8.)
+0.28643101789044584
 
-or about :math:`0.0085\,M_\odot\,\mathrm{pc}^{-3} \approx
+or about :math:`0.0075\,M_\odot\,\mathrm{pc}^{-3} \approx
 0.3\,\mathrm{GeV\,cm}^{-3}`, in line with current measurements (e.g.,
 `2012ApJ...756...89B
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
@@ -208,3 +219,26 @@ or of the combination of potentials defined above
 >>> plotEscapecurve([mp,hp,np],Rrange=[0.01,10.],grid=1001)
 
 .. image:: images/esc-comb.png
+
+For the Milky-Way-like potential ``MWPotential2014``, the
+escape-velocity curve is
+
+>>> plotEscapecurve(MWPotential2014,Rrange=[0.01,10.],grid=1001)
+
+.. image:: images/esc-mw14.png
+
+At the solar radius, the escape velocity is
+
+>>> from galpy.potential import vesc
+>>> vesc(MWPotential2014,1.)
+2.3316389848832784
+
+Or, for a local circular velocity of 220 km/s
+
+>>> vesc(MWPotential2014,1.)*220.
+512.96057667432126
+
+similar to direct measurements of this (e.g., `2007MNRAS.379..755S
+<http://adsabs.harvard.edu/abs/2007MNRAS.379..755S>`_ and
+`2014A%26A...562A..91P
+<http://adsabs.harvard.edu/abs/2014A%26A...562A..91P>`_).

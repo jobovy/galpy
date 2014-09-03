@@ -3,24 +3,36 @@ galpy
 
 **Galactic Dynamics in python**
 
-.. image:: https://travis-ci.org/jobovy/galpy.png?branch=master 
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
    :target: http://travis-ci.org/jobovy/galpy
 
-.. image:: https://coveralls.io/repos/jobovy/galpy/badge.png?branch=master
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
-.. image:: https://pypip.in/v/galpy/badge.png
+.. image:: http://img.shields.io/badge/C%20coverage-99%-brightgreen.svg
+   :target: http://sns.ias.edu/~bovy/galpy_lcov/
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
+  :target: http://galpy.readthedocs.org/en/latest/
+
+.. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
-`lcov coverage <http://sns.ias.edu/~bovy/galpy_lcov/>`__
+
+.. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
+   :target: https://github.com/jobovy/galpy/blob/master/LICENSE
 
 AUTHOR
 -------
 
 Jo Bovy - bovy at ias dot edu
 
-If you find this code useful in your research, please let me know. If
+See `AUTHORS.txt
+<https://github.com/jobovy/galpy/blob/master/AUTHORS.txt>`__ for a
+full list of contributors.
+
+If you find this code useful in your research, please let me know. **If
 you use galpy in a publication, please cite Bovy (2014, in
-preparation) and link to http://github.com/jobovy/galpy. Please also
+preparation) and link to http://github.com/jobovy/galpy**. Please also
 send me a reference to the paper or send a pull request including your
 paper in the list of galpy papers on `this page
 <http://galpy.readthedocs.org/en/latest/>`__ (this page is at

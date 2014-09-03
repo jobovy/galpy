@@ -139,7 +139,7 @@ class actionAngle:
         raise NotImplementedError("'actionsFreqsAngles' method not implemented for this actionAngle module")
 
 
-class UnboundError(Exception):
+class UnboundError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
     def __str__(self):

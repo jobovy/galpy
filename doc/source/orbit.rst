@@ -373,6 +373,54 @@ galpyWarning: Using C implementation to integrate orbits
 As this example shows, galpy will issue a warning that C is being
 used. Speed-ups by a factor of 20 are typical.
 
+Integration of the phase-space volume
+--------------------------------------
+
+``galpy`` further supports the integration of the phase-space volume
+through the method ``integrate_dxdv``, although this is currently only
+implemented for two-dimensional orbits (``planarOrbit``). As an
+example, we can check Liouville's theorem explicitly. We initialize
+the orbit
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.])
+
+and then integrate small deviations in each of the four
+phase-space directions
+
+>>> ts= numpy.linspace(0.,28.,1001) #~1 Gyr at the Solar circle
+>>> o.integrate_dxdv([1.,0.,0.,0.],ts,mp,method='dopr54_c',rectIn=True,rectOut=True)
+>>> dx= o.getOrbit_dxdv()[-1,:] # evolution of dxdv[0] along the orbit
+>>> o.integrate_dxdv([0.,1.,0.,0.],ts,mp,method='dopr54_c',rectIn=True,rectOut=True)
+>>> dy= o.getOrbit_dxdv()[-1,:]
+>>> o.integrate_dxdv([0.,0.,1.,0.],ts,mp,method='dopr54_c',rectIn=True,rectOut=True)
+>>> dvx= o.getOrbit_dxdv()[-1,:]
+>>> o.integrate_dxdv([0.,0.,0.,1.],ts,mp,method='dopr54_c',rectIn=True,rectOut=True)
+>>> dvy= o.getOrbit_dxdv()[-1,:]
+
+We can then compute the determinant of the Jacobian of the mapping
+defined by the orbit integration from time zero to the final time
+
+>>> tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
+
+This determinant should be equal to one 
+
+>>> print tjac
+0.999999991189
+>>> numpy.fabs(tjac-1.) < 10.**-8.
+True
+
+The calls to ``integrate_dxdv`` above set the keywords ``rectIn=`` and
+``rectOut=`` to True, as the default input and output uses phase-space
+volumes defined as (dR,dvR,dvT,dphi) in cylindrical coordinates. When
+``rectIn`` or ``rectOut`` is set, the in- or output is in rectangular
+coordinates ([x,y,vx,vy] in two dimensions).
+
+Implementing the phase-space integration for three-dimensional
+``FullOrbit`` instances is straightforward and is part of the longer
+term development plan for ``galpy``. Let the main developer know if
+you would like this functionality, or better yet, implement it
+yourself in a fork of the code and send a pull request!
+
 Example: The eccentricity distribution of the Milky Way's thick disk
 ---------------------------------------------------------------------
 

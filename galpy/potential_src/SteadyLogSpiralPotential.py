@@ -171,6 +171,32 @@ class SteadyLogSpiralPotential(planarPotential):
                                                                      -self._omegas*t
                                                                      -self._gamma))
     
+    def wavenumber(self,R):
+        """
+        NAME:
+
+
+           wavenumber
+
+        PURPOSE:
+
+           return the wavenumber at radius R (d f(R)/ d R in Phi_a(R) = F(R) e^[i f(R)]; see Binney & Tremaine 2008)
+
+        INPUT:
+
+           R - Cylindrical radius
+
+        OUTPUT:
+
+           wavenumber at R
+
+        HISTORY:
+
+           2014-08-23 - Written - Bovy (IAS)
+
+        """
+        return self._alpha/R
+
     def OmegaP(self):
         """
         NAME:
@@ -196,6 +222,32 @@ class SteadyLogSpiralPotential(planarPotential):
 
         """
         return self._omegas
+
+    def m(self):
+        """
+        NAME:
+
+
+           m
+
+        PURPOSE:
+
+           return the number of arms
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           number of arms
+
+        HISTORY:
+
+           2014-08-23 - Written - Bovy (IAS)
+
+        """
+        return self._m
 
     def tform(self): #pragma: no cover
         """

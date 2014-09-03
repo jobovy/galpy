@@ -67,12 +67,8 @@ class actionAngleAdiabaticGrid():
                                        c=self._c)
         #Build grid for Ez, first calculate Ez(zmax;R) function
         self._Rs= numpy.linspace(self._Rmin,self._Rmax,nR)
-        try:
-            self._EzZmaxs= galpy.potential.evaluatePotentials(self._Rs,self._zmax*numpy.ones(nR),self._pot)\
-                -galpy.potential.evaluatePotentials(self._Rs,numpy.zeros(nR),self._pot)
-        except TypeError:
-            self._EzZmaxs= numpy.array([galpy.potential.evaluatePotentials(r,self._zmax,self._pot)-
-                                        galpy.potential.evaluatePotentials(r,0.,self._pot) for r in self._Rs])
+        self._EzZmaxs= galpy.potential.evaluatePotentials(self._Rs,self._zmax*numpy.ones(nR),self._pot)\
+            -galpy.potential.evaluatePotentials(self._Rs,numpy.zeros(nR),self._pot)
         self._EzZmaxsInterp= interpolate.InterpolatedUnivariateSpline(self._Rs,numpy.log(self._EzZmaxs),k=3)
         y= numpy.linspace(0.,1.,nEz)
         jz= numpy.zeros((nR,nEz))
@@ -127,18 +123,12 @@ class actionAngleAdiabaticGrid():
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        try:
-            self._ERRL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(nLz),self._pot) +self._Lzs**2./2./self._RL**2.
-        except TypeError:
-            self._ERRL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
+        self._ERRL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(nLz),self._pot) +self._Lzs**2./2./self._RL**2.
         self._ERRLmax= numpy.amax(self._ERRL)+1.
         self._ERRLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(-(self._ERRL-self._ERRLmax)),k=3)
         self._Ramax= 99.
-        try:
-            self._ERRa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
-        except TypeError:
-            self._ERRa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        self._ERRa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
         self._ERRamax= numpy.amax(self._ERRa)+1.
         self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(-(self._ERRa-self._ERRamax)),k=3)
@@ -181,7 +171,7 @@ class actionAngleAdiabaticGrid():
                                                 0.,0.,
                                                 _justjr=True,
                                                    **kwargs)[0]
-                        except UnboundError:
+                        except UnboundError: #pragma: no cover
                             raise
                         if jj == 0: 
                             jrERRa[ii]= jr[ii,jj]
@@ -237,8 +227,6 @@ class actionAngleAdiabaticGrid():
         #Bigger than Ezzmax?
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(R))
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1 and not isinstance(thisEzZmax,numpy.ndarray):
-                thisEzZmax= numpy.array([thisEzZmax])
             indx= (R > self._Rmax)
             indx+= (R < self._Rmin)
             indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
@@ -255,16 +243,6 @@ class actionAngleAdiabaticGrid():
                                    numpy.sqrt(2.*Ez[indx]),
                                    _justjz=True,
                                    **kwargs)[2]
-            """
-                for ii in range(numpy.sum(indx)):
-                    try:
-                        jzindiv[ii]= self._aA.Jz(R[indx][ii],0.,1.,#these two r dummies
-                                                 0.,numpy.sqrt(2.*Ez[indx][ii]),
-                                                 **kwargs)[0]
-                    except UnboundError:
-                        jzindiv[ii]= numpy.nan
-            jz[indx]= jzindiv
-            """
         else:
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
                 if _PRINTOUTSIDEGRID: #pragma: no cover
@@ -283,10 +261,6 @@ class actionAngleAdiabaticGrid():
         thisERRL= -numpy.exp(self._ERRLInterp(ERLz))+self._ERRLmax
         thisERRa= -numpy.exp(self._ERRaInterp(ERLz))+self._ERRamax
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1 and not isinstance(thisRL,numpy.ndarray):
-                thisRL= numpy.array([thisRL])
-                thisERRL= numpy.array([thisERRL])
-                thisERRa= numpy.array([thisERRa])
             indx= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)\
                 *(((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.)
             ER[indx]= thisERRL[indx]
@@ -311,18 +285,6 @@ class actionAngleAdiabaticGrid():
                                    numpy.zeros(len(thisRL)),
                                    _justjr=True,
                                    **kwargs)[0]                
-                """
-                for ii in range(numpy.sum(indx)):
-                    try:
-                        jrindiv[ii]= self._aA.JR(thisRL[indx][ii],
-                                                 numpy.sqrt(2.*(ER[indx][ii]-galpy.potential.evaluatePotentials(thisRL[indx][ii],0.,self._pot))-ERLz[indx][ii]**2./thisRL[indx][ii]**2.),
-                                                 ERLz[indx][ii]/thisRL[indx][ii],
-                                                 0.,0.,
-                                                 **kwargs)[0]
-                    except (UnboundError,OverflowError):
-                        jrindiv[ii]= numpy.nan
-                jr[indx]= jrindiv
-                """
         else:
             if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:
@@ -338,9 +300,9 @@ class actionAngleAdiabaticGrid():
                     print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                         , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                         , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
-                jr= self._aA(thisRL,
-                             numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.),
-                             ERLz/thisRL,
+                jr= self._aA(thisRL[0],
+                             numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.)[0],
+                             (ERLz/thisRL)[0],
                              0.,0.,
                              _justjr=True,
                              **kwargs)[0]

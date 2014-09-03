@@ -17,6 +17,78 @@ def expected_failure(test):
             raise AssertionError('Test is expected to fail, but passed instead')
     return inner
 
+def test_progenitor_coordtransformparams():
+    #Test related to #189: test that the streamdf setup throws a warning when the given coordinate transformation parameters differ from those of the given progenitor orbit
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    #odeint to make sure that the C integration warning isn't thrown
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8,integrate_method='odeint')
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               ro=8.5,vo=235.,zo=0.1,solarmotion=[0.,-10.,0.])
+    sigv= 0.365 #km/s
+    #Turn warnings into errors to test for them
+    import warnings
+    warnings.simplefilter("error")
+    #Test w/ diff Rnorm
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=10.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from Rnorm")
+    #Test w/ diff R0
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             R0=10.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from R0")
+    #Test w/ diff Vnorm
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=220.)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  vo is different from Vnorm")
+    #Test w/ diff zo
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.025)
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  zo is different from Zsun")
+    #Test w/ diff vsun
+    try:
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True, #won't look at track
+                             Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.1,
+                             vsun=[0.,220.,0.])
+    except: pass
+    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default")
+    return None
+
 #Exact setup from Bovy (2014); should reproduce those results (which have been
 # sanity checked
 def test_bovy14_setup():
@@ -695,7 +767,7 @@ def test_bovy14_oppositetrailing_setup():
     #First provoke some errors
     try:
         sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp_false,aA=aAI,
-                              leading=False)
+                              leading=False) #expl set iterations
     except IOError: pass
     else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
     #Warning when deltaAngleTrack is too large (turn warning into error for testing)
@@ -711,6 +783,8 @@ def test_bovy14_oppositetrailing_setup():
     sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                           multi=True, #test multi
                           leading=False,
+                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                          nTrackIterations=0,
                           sigangle=0.657)
     assert not sdft_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
@@ -795,11 +869,108 @@ def test_plotting():
     check_track_plotting(sdf_bovy14,'ll','pmll')
     delattr(sdf_bovy14,'_ObsTrackLB') #rm, to test that this gets recalculated
     check_track_plotting(sdf_bovy14,'ll','pmbb')
+    #Also test plotCompareTrackAAModel
+    sdf_bovy14.plotCompareTrackAAModel()
+    sdft_bovy14.plotCompareTrackAAModel() #has multi
     return None
 
-@expected_failure
-def test_diff_pot():
-    raise AssertionError()
+def test_2ndsetup():
+    # Test related to #195: when we re-do the setup with the same progenitor, we should get the same
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                         leading=True,
+                         nTrackChunks=11,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         nosetup=True) #won't look at track
+    rsdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                         leading=True,
+                         nTrackChunks=11,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         nosetup=True) #won't look at track
+    assert numpy.fabs(sdf_bovy14.misalignment()-rsdf_bovy14.misalignment()) < 0.01, 'misalignment not the same when setting up the same streamdf w/ a previously used progenitor'
+    assert numpy.fabs(sdf_bovy14.freqEigvalRatio()-rsdf_bovy14.freqEigvalRatio()) < 0.01, 'freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor'
+    return None
+
+def test_bovy14_trackaa():
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
+    from galpy.orbit import Orbit
+    aastream= sdf_bovy14._ObsTrackAA #freqs and angles that the track is based on
+    RvR = sdf_bovy14._ObsTrack #the track in R,vR,...
+    aastream_expl= numpy.reshape(numpy.array([sdf_bovy14._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
+    #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
+    assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_bovy14._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for bovy14 setup'
+    #angles
+    assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for bovy14 setup'
+    return None
+
+def test_fardalpot_trackaa():
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); used to fail for the potential suggested by Fardal
+    #First setup this specific streamdf instance
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, FlattenedPowerPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    pot= [IsochronePotential(b=0.8,normalize=0.8),
+          FlattenedPowerPotential(alpha=-0.7,q=0.6,normalize=0.2)]
+    aAI= actionAngleIsochroneApprox(pot=pot,b=0.9)
+    obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
+    sigv= 1.3 #km/s
+    sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=pot,aA=aAI,
+                         leading=True,
+                         nTrackChunks=21,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    #First test that the misalignment is indeed large
+    assert numpy.fabs(sdf_fardal.misalignment()) > 4., 'misalignment in Fardal test is not large'
+    #Now run the test
+    aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
+    RvR = sdf_fardal._ObsTrack #the track in R,vR,...
+    aastream_expl= numpy.reshape(numpy.array([sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
+    #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
+    #print numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega))
+    #print numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi)
+    assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup'
+    #angles
+    assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup'
+    return None
+
+def test_fardalwmwpot_trackaa():
+    #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
+    #First setup this specific streamdf instance
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    aAI= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.6)
+    obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
+    sigv= 1.3 #km/s
+    sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=MWPotential2014,aA=aAI,
+                         leading=True,multi=True,
+                         nTrackChunks=21,
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    #First test that the misalignment is indeed large
+    assert numpy.fabs(sdf_fardal.misalignment()) > 1., 'misalignment in Fardal test is not large enough'
+    #Now run the test
+    aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
+    RvR = sdf_fardal._ObsTrack #the track in R,vR,...
+    aastream_expl= numpy.reshape(numpy.array([sdf_fardal._aA.actionsFreqsAngles(Orbit(trvr))[3:] for trvr in RvR]),aastream.shape)
+    #frequencies, compare to offset between track and progenitor (spread in freq ~ 1/6 that diff, so as long as we're smaller than that we're fine)
+    #print numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega))
+    #print numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi)
+    assert numpy.all(numpy.fabs((aastream[:,:3]-aastream_expl[:,:3])/(aastream[0,:3]-sdf_fardal._progenitor_Omega)) < 0.05), 'Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup'
+    #angles
+    assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup'
+    return None
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     observe= [sdf._R0,0.,sdf._Zsun]

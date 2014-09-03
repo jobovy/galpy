@@ -1,4 +1,4 @@
-galpy.df.Edf.__call__
-=======================
+galpy.df.evolveddiskdf.__call__
+==================================
 
-.. automethod:: galpy.df.Edf.__call__
+.. automethod:: galpy.df.evolveddiskdf.__call__

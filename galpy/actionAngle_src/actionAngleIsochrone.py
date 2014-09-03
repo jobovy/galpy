@@ -54,6 +54,8 @@ class actionAngleIsochrone():
             self._c= False
         if not self._c:
             self._ip= IsochronePotential(amp=self.amp,b=self.b)
+        #Define _pot, because some functions that use actionAngle instances need this
+        self._pot= IsochronePotential(amp=self.amp,b=self.b)
         return None
     
     def __call__(self,*args,**kwargs):

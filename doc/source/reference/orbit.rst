@@ -29,7 +29,9 @@ Methods
    Ez <orbitEz.rst>
    flip <orbitflip.rst>
    integrate <orbitint.rst>
+   integrate_dxdv <orbitintdxdv.rst>
    getOrbit <orbitgetorbit.rst>
+   getOrbit_dxdv <orbitgetorbitdxdv.rst>
    helioX <orbitheliox.rst>
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>

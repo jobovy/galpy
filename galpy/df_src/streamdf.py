@@ -11,7 +11,6 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from galpy.util import logsumexp as _mylogsumexp
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
@@ -38,55 +37,85 @@ class streamdf:
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
-                 deltaAngleTrack=None,nTrackChunks=None,
+                 deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
                  useInterp=_USEINTERP,nosetup=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            Initialize a quasi-isothermal DF
+
         INPUT:
+
            sigv - radial velocity dispersion of the progenitor
+
            tdisrupt= (5 Gyr) time since start of disruption (natural units)
+
            leading= (True) if True, model the leading part of the stream
                            if False, model the trailing part
-           progenitor= progenitor orbit as Orbit instance 
+
+           progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
+
            pot= Potential instance or list thereof
+
            aA= actionAngle instance used to convert (x,v) to actions
+
            sigMeanOffset= (6.) offset between the mean of the frequencies
                           and the progenitor, in units of the largest 
                           eigenvalue of the frequency covariance matrix 
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
+
            sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
                      estimate of the angle spread of the debris initially
+
            deltaAngleTrack= (None) angle to estimate the stream track over (rad)
+
            nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
+
+           nTrackIterations= Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates; if not set, an appropriate value is determined based on the magnitude of the misalignment between stream and orbit, with larger numbers of iterations for larger misalignments
+
            interpTrack= (might change), interpolate the stream track while 
                         setting up the instance (can be done by hand by 
                         calling self._interpolate_stream_track() and 
                         self._interpolate_stream_track_aA())
+
            useInterp= (might change), use interpolation by default when 
                       calculating approximated frequencies and angles
+
            nosetup= (False) if True, don't setup the stream track and anything
                             else that is expensive
+
            multi= (None) if set, use multi-processing
 
            Coordinate transformation inputs:
+
               Vnorm= (220) circular velocity to normalize velocities with
+
               Rnorm= (8) Galactocentric radius to normalize positions with
+
               R0= (8) Galactocentric radius of the Sun (kpc)
+
               Zsun= (0.025) Sun's height above the plane (kpc)
+
               vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
 
         OUTPUT:
+
            object
+
         HISTORY:
+
            2013-09-16 - Started - Bovy (IAS)
+
            2013-11-25 - Started over - Bovy (IAS)
+
         """
         self._sigv= sigv
         if tdisrupt is None:
@@ -100,7 +129,7 @@ class streamdf:
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
-        self._progenitor= progenitor
+        self._progenitor= progenitor() #call to get new Orbit
         # Make sure we do not use physical coordinates
         self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
@@ -108,7 +137,7 @@ class streamdf:
         else:
             self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
-        acfs= aA.actionsFreqsAngles(self._progenitor,maxn=3,
+        acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
@@ -182,14 +211,29 @@ class streamdf:
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
                 warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
-
-        #Determine the stream track
+        #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
+        if progenitor._roSet \
+                and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
+                         or numpy.fabs(R0-progenitor._orb._ro) > 10.**-8.):
+            warnings.warn("Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
+        if progenitor._voSet \
+                and numpy.fabs(Vnorm-progenitor._orb._vo) > 10.**-8.:
+            warnings.warn("Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables", galpyWarning)
+        if (progenitor._roSet or progenitor._voSet) \
+                and numpy.fabs(Zsun-progenitor._orb._zo) > 10.**-8.:
+            warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
+        if (progenitor._roSet or progenitor._voSet) \
+                and numpy.any(numpy.fabs(vsun-numpy.array([0.,Vnorm,0.])\
+                                    -progenitor._orb._solarmotion) > 10.**-8.):
+            warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
+        #Determine the stream track
         if not nosetup:
+            self._determine_nTrackIterations(nTrackIterations)
             self._determine_stream_track(deltaAngleTrack,nTrackChunks)
             self._useInterp= useInterp
             if interpTrack or self._useInterp:
@@ -202,17 +246,26 @@ class streamdf:
     def misalignment(self,isotropic=False):
         """
         NAME:
+
            misalignment
+
         PURPOSE:
+
            calculate the misalignment between the progenitor's frequency
            and the direction along which the stream disrupts
+
         INPUT:
-           isotropic= (False), if True, return the misalignment assuming an
-                      isotropic action distribution
+
+           isotropic= (False), if True, return the misalignment assuming an isotropic action distribution
+
         OUTPUT:
+
            misalignment in degree
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         if isotropic:
             dODir= self._dOdJpEig[1][:,numpy.argmax(numpy.fabs(self._dOdJpEig[0]))]
@@ -225,18 +278,27 @@ class streamdf:
     def freqEigvalRatio(self,isotropic=False):
         """
         NAME:
+
            freqEigvalRatio
+
         PURPOSE:
+
            calculate the ratio between the largest and 2nd-to-largest (in abs)
            eigenvalue of sqrt(dO/dJ^T V_J dO/dJ) 
            (if this is big, a 1D stream will form)
+
         INPUT:
-           isotropic= (False), if True, return the ratio assuming an
-                      isotropic action distribution (i.e., just of dO/dJ)
+
+           isotropic= (False), if True, return the ratio assuming an isotropic action distribution (i.e., just of dO/dJ)
+
         OUTPUT:
+
            ratio between eigenvalues of |dO / dJ|
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         if isotropic:
             sortedEig= sorted(numpy.fabs(self._dOdJpEig[0]))
@@ -248,15 +310,25 @@ class streamdf:
     def estimateTdisrupt(self,deltaAngle):
         """
         NAME:
+
            estimateTdisrupt
+
         PURPOSE:
+
            estimate the time of disruption
+
         INPUT:
+
            deltaAngle- spread in angle since disruption
+
         OUTPUT:
+
            time in natural units
+
         HISTORY:
+
            2013-11-27 - Written - Bovy (IAS)
+
         """
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
@@ -266,22 +338,37 @@ class streamdf:
                   *args,**kwargs):
         """
         NAME:
+
            plotTrack
+
         PURPOSE:
+
            plot the stream track
+
         INPUT:
-           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
-               'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
+
+           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz','vR','vt','ll','bb','dist','pmll','pmbb','vlos')
+
            d2= plot this on the Y axis (same list as for d1)
+
            interp= (True) if True, use the interpolated stream track
+
            spread= (0) if int > 0, also plot the spread around the track as spread x sigma
+
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
+
            simple= (False), if True, use a simple estimate for the spread in perpendicular angle
+
            bovy_plot.bovy_plot args and kwargs
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2013-12-09 - Written - Bovy (IAS)
+
         """
         if not hasattr(self,'_ObsTrackLB') and \
                 (d1.lower() == 'll' or d1.lower() == 'bb' 
@@ -336,26 +423,37 @@ class streamdf:
                                 overplot=True)            
         return None
 
-    def plotProgenitor(self,d1='x',d2='z',
-                       *args,**kwargs):
+    def plotProgenitor(self,d1='x',d2='z',*args,**kwargs):
         """
         NAME:
+
            plotProgenitor
+
         PURPOSE:
+
            plot the progenitor orbit
+
         INPUT:
-           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz',
-               'vR','vt','ll','bb','dist','pmll','pmbb','vlos')
+
+           d1= plot this on the X axis ('x','y','z','R','phi','vx','vy','vz','vR','vt','ll','bb','dist','pmll','pmbb','vlos')
+
            d2= plot this on the Y axis (same list as for d1)
+
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
+
            bovy_plot.bovy_plot args and kwargs
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2013-12-09 - Written - Bovy (IAS)
+
         """
         tts= self._progenitor._orb.t[self._progenitor._orb.t \
-                                          < self._trackts[-1]]
+                                          < self._trackts[self._nTrackChunks-1]]
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
         if kwargs.has_key('scaleToPhysical'):
@@ -581,6 +679,79 @@ class streamdf:
             out[:,1]*= self._ErrCovsLBScale[relevantDict[d2.lower()]]
         return (out[:,0],out[:,1])
 
+    def plotCompareTrackAAModel(self,**kwargs):
+        """
+        NAME:
+
+           plotCompareTrackAAModel
+
+        PURPOSE:
+
+           plot the comparison between the underlying model's dOmega_perp vs. dangle_r (line) and the track in (x,v)'s dOmega_perp vs. dangle_r (dots; explicitly calculating the track's action-angle coordinates)
+
+        INPUT:
+
+           bovy_plot.bovy_plot kwargs
+
+        OUTPUT:
+
+           plot
+
+        HISTORY:
+
+           2014-08-27 - Written - Bovy (IAS)
+
+        """
+        #First calculate the model
+        model_adiff= (self._ObsTrackAA[:,3:]-self._progenitor_angle)[:,0]\
+            *self._sigMeanSign
+        model_operp= numpy.dot(self._ObsTrackAA[:,:3]-self._progenitor_Omega,
+                               self._dsigomeanProgDirection)\
+                               *self._sigMeanSign
+        #Then calculate the track's frequency-angle coordinates
+        if self._multi is None:
+            aatrack= numpy.empty((self._nTrackChunks,6))
+            for ii in range(self._nTrackChunks):
+                aatrack[ii]= self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
+                                                         maxn=3)[3:]
+        else:
+            aatrack= numpy.reshape(\
+                multi.parallel_map(
+                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]), maxn=3)[3:]),
+                    range(self._nTrackChunks),
+                    numcores=numpy.amin([self._nTrackChunks,
+                                         multiprocessing.cpu_count(),
+                                         self._multi])),(self._nTrackChunks,6))
+        track_adiff= (aatrack[:,3:]-self._progenitor_angle)[:,0]\
+            *self._sigMeanSign
+        track_operp= numpy.dot(aatrack[:,:3]-self._progenitor_Omega,
+                               self._dsigomeanProgDirection)\
+                               *self._sigMeanSign
+        overplot= kwargs.pop('overplot',False)
+        yrange= kwargs.pop('yrange',
+                           [0.,numpy.amax(numpy.hstack((model_operp,track_operp)))*1.1])
+        xlabel= kwargs.pop('xlabel',r'$\Delta \theta_R$')
+        ylabel= kwargs.pop('ylabel',r'$\Delta \Omega_\parallel$')
+        bovy_plot.bovy_plot(model_adiff,model_operp,'k-',overplot=overplot,
+                            xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
+        bovy_plot.bovy_plot(track_adiff,track_operp,'ko',overplot=True,
+                            **kwargs)
+        return None
+
+    def _determine_nTrackIterations(self,nTrackIterations):
+        """Determine a good value for nTrackIterations based on the misalignment between stream and orbit; just based on some rough experience for now"""
+        if not nTrackIterations is None:
+            self.nTrackIterations= nTrackIterations
+            return None
+        if numpy.fabs(self.misalignment()) < 1.:
+            self.nTrackIterations= 0
+        elif numpy.fabs(self.misalignment()) >= 1. \
+                and numpy.fabs(self.misalignment()) < 3.:
+            self.nTrackIterations= 1
+        elif numpy.fabs(self.misalignment()) >= 3.:
+            self.nTrackIterations= 2
+        return None
+
     def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
@@ -592,28 +763,34 @@ class streamdf:
             self._nTrackChunks= nTrackChunks
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
-        self._trackts= numpy.linspace(0.,dt,self._nTrackChunks)
-        #Instantiate another Orbit for the progenitor orbit where there is data
-        #This can be somewhat sped up by re-using the previously integrated
-        #progenitor orbit, but because the computational cost is dominated
-        #by the calculation of the Jacobian, this does not gain much (~few %)
+        self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
+        #Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
+        prog_stream_offset=\
+            _determine_stream_track_single(self._aA,
+                                           self._progenitor,
+                                           0., #time = 0
+                                           self._progenitor_angle,
+                                           self._sigMeanSign,
+                                           self._dsigomeanProgDirection,
+                                           self.meanOmega,
+                                           0.) #angle = 0
+        auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
-            self._trackts= numpy.linspace(0.,-dt,self._nTrackChunks)
+            self._trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunks-1)
             #Flip velocities before integrating
-            self._progenitorTrack= Orbit([self._progenitor.R(0.),
-                                          -self._progenitor.vR(0.),
-                                          -self._progenitor.vT(0.),
-                                          self._progenitor.z(0.),
-                                          -self._progenitor.vz(0.),
-                                          self._progenitor.phi(0.)])
-        else:
-            self._progenitorTrack= self._progenitor(0.)
-        self._progenitorTrack.integrate(self._trackts,self._pot)
+            auxiliaryTrack= auxiliaryTrack.flip()
+        auxiliaryTrack.integrate(self._trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            self._progenitorTrack._orb.orbit[:,1]= -self._progenitorTrack._orb.orbit[:,1]
-            self._progenitorTrack._orb.orbit[:,2]= -self._progenitorTrack._orb.orbit[:,2]
-            self._progenitorTrack._orb.orbit[:,4]= -self._progenitorTrack._orb.orbit[:,4]
+            auxiliaryTrack._orb.orbit[:,1]= -auxiliaryTrack._orb.orbit[:,1]
+            auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
+            auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
+        #Calculate the actions, frequencies, and angle for this auxiliary orbit
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(),maxn=3)
+        auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
+)
+        auxiliary_Omega_along_dOmega= \
+            numpy.dot(auxiliary_Omega,self._dsigomeanProgDirection)
         #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
         allAcfsTrack= numpy.empty((self._nTrackChunks,9))
         alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
@@ -626,8 +803,8 @@ class streamdf:
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
-                                                         self._progenitorTrack,
-                                                         self._trackts[ii],
+                                                         auxiliaryTrack,
+                                                         self._trackts[ii]*numpy.fabs(self._progenitor_Omega_along_dOmega/auxiliary_Omega_along_dOmega), #this factor accounts for the difference in frequency between the progenitor and the auxiliary track
                                                          self._progenitor_angle,
                                                          self._sigMeanSign,
                                                          self._dsigomeanProgDirection,
@@ -641,7 +818,8 @@ class streamdf:
                 detdOdJps[ii]= multiOut[5]
         else:
             multiOut= multi.parallel_map(\
-                (lambda x: _determine_stream_track_single(self._aA,self._progenitorTrack,self._trackts[x],
+                (lambda x: _determine_stream_track_single(self._aA,auxiliaryTrack,
+                                                          self._trackts[x]*numpy.fabs(self._progenitor_Omega_along_dOmega/auxiliary_Omega_along_dOmega),
                                                           self._progenitor_angle,
                                                           self._sigMeanSign,
                                                           self._dsigomeanProgDirection,
@@ -658,6 +836,44 @@ class streamdf:
                 ObsTrack[ii,:]= multiOut[ii][3]
                 ObsTrackAA[ii,:]= multiOut[ii][4]
                 detdOdJps[ii]= multiOut[ii][5]
+        #Repeat the track calculation using the previous track, to get closer to it
+        for nn in range(self.nTrackIterations):
+            if self._multi is None:
+                for ii in range(self._nTrackChunks):
+                    multiOut= _determine_stream_track_single(self._aA,
+                                                             Orbit(ObsTrack[ii,:]),
+                                                             0.,
+                                                             self._progenitor_angle,
+                                                             self._sigMeanSign,
+                                                             self._dsigomeanProgDirection,
+                                                             self.meanOmega,
+                                                             thetasTrack[ii])
+                    allAcfsTrack[ii,:]= multiOut[0]
+                    alljacsTrack[ii,:,:]= multiOut[1]
+                    allinvjacsTrack[ii,:,:]= multiOut[2]
+                    ObsTrack[ii,:]= multiOut[3]
+                    ObsTrackAA[ii,:]= multiOut[4]
+                    detdOdJps[ii]= multiOut[5]
+            else:
+                multiOut= multi.parallel_map(\
+                    (lambda x: _determine_stream_track_single(self._aA,Orbit(ObsTrack[x,:]),0.,
+                                                              self._progenitor_angle,
+                                                              self._sigMeanSign,
+                                                              self._dsigomeanProgDirection,
+                                                              self.meanOmega,
+                                                              thetasTrack[x])),
+                    range(self._nTrackChunks),
+                    numcores=numpy.amin([self._nTrackChunks,
+                                         multiprocessing.cpu_count(),
+                                         self._multi]))
+                for ii in range(self._nTrackChunks):
+                    allAcfsTrack[ii,:]= multiOut[ii][0]
+                    alljacsTrack[ii,:,:]= multiOut[ii][1]
+                    allinvjacsTrack[ii,:,:]= multiOut[ii][2]
+                    ObsTrack[ii,:]= multiOut[ii][3]
+                    ObsTrackAA[ii,:]= multiOut[ii][4]
+                    detdOdJps[ii]= multiOut[ii][5]           
+        #Store the track
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
         self._ObsTrackAA= ObsTrackAA
@@ -968,21 +1184,36 @@ class streamdf:
                        R0=None,Zsun=None,vsun=None):
         """
         NAME:
+
            calc_stream_lb
+
         PURPOSE:
+
            convert the stream track to observational coordinates and store
+
         INPUT:
+
            Coordinate transformation inputs (all default to the instance-wide
            values):
+
               Vnorm= circular velocity to normalize velocities with
+
               Rnorm= Galactocentric radius to normalize positions with
+
               R0= Galactocentric radius of the Sun (kpc)
+
               Zsun= Sun's height above the plane (kpc)
+
               vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-12-02 - Written - Bovy (IAS)
+
         """
         if Vnorm is None:
             Vnorm= self._Vnorm
@@ -1060,18 +1291,31 @@ class streamdf:
                                  usev=False):
         """
         NAME:
+
            find_closest_trackpoint
+
         PURPOSE:
+
            find the closest point on the stream track to a given point
+
         INPUT:
+
            R,vR,vT,z,vz,phi - phase-space coordinates of the given point
+
            interp= (True), if True, return the index of the interpolated track
+
            xy= (False) if True, input is X,Y,Z,vX,vY,vZ in Galactocentric rectangular coordinates; if xy, some coordinates may be missing (given as None) and they will not be used
+
            usev= (False) if True, also use velocities to find the closest point
+
         OUTPUT:
+
            index into the track of the closest track point
+
         HISTORY:
+
            2013-12-04 - Written - Bovy (IAS)
+
         """
         if xy:
             X= R
@@ -1125,20 +1369,28 @@ class streamdf:
                                    usev=False):
         """
         NAME:
+
            find_closest_trackpointLB
+
         PURPOSE:
-           find the closest point on the stream track to a given point in 
-           (l,b,...) coordinates
+           find the closest point on the stream track to a given point in (l,b,...) coordinates
+
         INPUT:
+
            l,b,D,vlos,pmll,pmbb- coordinates in (deg,deg,kpc,km/s,mas/yr,mas/yr)
+
            interp= (True) if True, return the closest index on the interpolated track
-           usev= (False) if True, also use the velocity components (default is
-                 to only use the positions)
+
+           usev= (False) if True, also use the velocity components (default is to only use the positions)
+
         OUTPUT:
-           index of closest track point on the interpolated or not-interpolated
-           track
+
+           index of closest track point on the interpolated or not-interpolated track
+           
         HISTORY:
+
            2013-12-17- Written - Bovy (IAS)
+
         """
         if interp:
             nTrackPoints= len(self._interpolatedThetasTrack)
@@ -1239,18 +1491,27 @@ class streamdf:
     def meanOmega(self,dangle,oned=False):
         """
         NAME:
+
            meanOmega
+
         PURPOSE:
-           calculate the mean frequency as a function of angle, assuming a 
-           uniform time distribution up to a maximum time
+
+           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time
+
         INPUT:
+
            dangle - angle offset
-           oned= (False) if True, return the 1D offset from the progenitor
-                         (along the direction of disruption)
+
+           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
+
         OUTPUT:
+
            mean Omega
+
         HISTORY:
+
            2013-12-01 - Written - Bovy (IAS)
+
         """
         dOmin= dangle/self._tdisrupt
         meandO= self._meandO
@@ -1268,16 +1529,25 @@ class streamdf:
     def sigOmega(self,dangle):
         """
         NAME:
+
            sigmaOmega
+
         PURPOSE:
-           calculate the 1D sigma in frequency as a function of angle, 
-           assuming a uniform time distribution up to a maximum time
+
+           calculate the 1D sigma in frequency as a function of angle, assuming a uniform time distribution up to a maximum time
+
         INPUT:
+
            dangle - angle offset
+
         OUTPUT:
+
            sigma Omega
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         dOmin= dangle/self._tdisrupt
         meandO= self._meandO
@@ -1294,17 +1564,27 @@ class streamdf:
     def ptdAngle(self,t,dangle):
         """
         NAME:
+
            ptdangle
+
         PURPOSE:
-           return the probability of a given stripping time at a given
-           angle along the stream
+
+           return the probability of a given stripping time at a given angle along the stream
+
         INPUT:
+
            t - stripping time
+
            dangle - angle offset along the stream
+
         OUTPUT:
+
            p(td|dangle)
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         if isinstance(t,(int,float,numpy.float32,numpy.float64)):
             t= numpy.array([t])
@@ -1323,15 +1603,25 @@ class streamdf:
     def meantdAngle(self,dangle):
         """
         NAME:
+
            meantdAngle
+
         PURPOSE:
+
            calculate the mean stripping time at a given angle
+
         INPUT:
+
            dangle - angle offset along the stream
+
         OUTPUT:
+
            mean stripping time at this dangle
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
@@ -1345,15 +1635,25 @@ class streamdf:
     def sigtdAngle(self,dangle):
         """
         NAME:
+
            sigtdAngle
+
         PURPOSE:
+
            calculate the dispersion in the stripping times at a given angle
+
         INPUT:
+
            dangle - angle offset along the stream
+
         OUTPUT:
+
            dispersion in the stripping times at this angle
+
         HISTORY:
+
            2013-12-05 - Written - Bovy (IAS)
+
         """
         Tlow= dangle/(self._meandO+3.*numpy.sqrt(self._sortedSigOEig[2]))
         Thigh= dangle/(self._meandO-3.*numpy.sqrt(self._sortedSigOEig[2]))
@@ -1368,18 +1668,28 @@ class streamdf:
     def pangledAngle(self,angleperp,dangle,smallest=False):
         """
         NAME:
+
            pangledAngle
+
         PURPOSE:
-           return the probability of a given perpendicular angle  at a given
-           angle along the stream
+           return the probability of a given perpendicular angle  at a given angle along the stream
+
         INPUT:
+
            angleperp - perpendicular angle
+
            dangle - angle offset along the stream
+
            smallest= (False) calculate for smallest eigenvalue direction rather than for middle
+
         OUTPUT:
+
            p(angle_perp|dangle)
+
         HISTORY:
+
            2013-12-06 - Written - Bovy (IAS)
+
         """
         if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
             angleperp= numpy.array([angleperp])
@@ -1392,16 +1702,27 @@ class streamdf:
     def meanangledAngle(self,dangle,smallest=False):
         """
         NAME:
+
            meanangledAngle
+
         PURPOSE:
+
            calculate the mean perpendicular angle at a given angle
+
         INPUT:
+
            dangle - angle offset along the stream
+
            smallest= (False) calculate for smallest eigenvalue direction rather than for middle
+
         OUTPUT:
+
            mean perpendicular angle
+
         HISTORY:
+
            2013-12-06 - Written - Bovy (IAS)
+
         """
         if smallest: eigIndx= 0
         else: eigIndx= 1
@@ -1419,18 +1740,31 @@ class streamdf:
                        simple=False):
         """
         NAME:
+
            sigangledAngle
+
         PURPOSE:
+
            calculate the dispersion in the perpendicular angle at a given angle
+
         INPUT:
+
            dangle - angle offset along the stream
+
            assumeZeroMean= (True) if True, assume that the mean is zero (should be)
+
            smallest= (False) calculate for smallest eigenvalue direction rather than for middle
-        OUTPUT:
-           dispersion in the perpendicular angle at this angle
+
            simple= (False), if True, return an even simpler estimate
+
+        OUTPUT:
+
+           dispersion in the perpendicular angle at this angle
+
         HISTORY:
+
            2013-12-06 - Written - Bovy (IAS)
+
         """
         if smallest: eigIndx= 0
         else: eigIndx= 1
@@ -1606,28 +1940,49 @@ class streamdf:
     def __call__(self,*args,**kwargs):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the DF
+
         INPUT:
+
            Either:
+
               a) R,vR,vT,z,vz,phi ndarray [nobjects]
-              b)(Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple if 
-                aAInput
+
+              b) (Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) tuple if aAInput
+
                 where:
+
                     Omegar - radial frequency
+
                     Omegaphi - azimuthal frequency
+
                     Omegaz - vertical frequency
+
                     angler - radial angle
+
                     anglephi - azimuthal angle
+
                     anglez - vertical angle
+
               c) Orbit instance or list thereof
+
            log= if True, return the natural log
+
            aaInput= (False) if True, option b above
+
         OUTPUT:
+
            value of DF
+
         HISTORY:
+
            2013-12-03 - Written - Bovy (IAS)
+
         """
         #First parse log
         if kwargs.has_key('log'):
@@ -1726,29 +2081,44 @@ class streamdf:
     def callMarg(self,xy,**kwargs):
         """
         NAME:
+
            callMarg
+
         PURPOSE:
-           evaluate the DF, marginalizing over some directions, in 
-           Galactocentric rectangular coordinates (or in observed 
-           l,b,D,vlos,pmll,pmbb) coordinates)
+           evaluate the DF, marginalizing over some directions, in Galactocentric rectangular coordinates (or in observed l,b,D,vlos,pmll,pmbb) coordinates)
+
         INPUT:
+
            xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
-           interp= (object-wide interp default) if True, use the interpolated
-                   stream track
-           cindx= index of the closest point on the (interpolated) stream track
-                  if not given, determined from the dimensions given          
+
+           interp= (object-wide interp default) if True, use the interpolated stream track
+
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given          
+
            nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
+
            ngl= (5) order of Gauss-Legendre integration
-           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the marginalized PDF in these coordinates is returned          
+
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the marginalized PDF in these coordinates is returned          
+
            Vnorm= (220) circular velocity to normalize with when lb=True
+
            Rnorm= (8) Galactocentric radius to normalize with when lb=True
+
            R0= (8) Galactocentric radius of the Sun (kpc)
+
            Zsun= (0.025) Sun's height above the plane (kpc)
+
            vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
+
         OUTPUT:
+
            p(xy) marginalized over missing directions in xy
+
         HISTORY:
+
            2013-12-16 - Written - Bovy (IAS)
+
         """
         coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
         if numpy.sum(coordGiven) == 6:
@@ -1902,23 +2272,31 @@ class streamdf:
     def gaussApprox(self,xy,**kwargs):
         """
         NAME:
+
            gaussApprox
+
         PURPOSE:
-           return the mean and variance of a Gaussian approximation to the
-           stream DF at a given phase-space point in Galactocentric
-           rectangular coordinates (distribution is over missing directions)
+
+           return the mean and variance of a Gaussian approximation to the stream DF at a given phase-space point in Galactocentric rectangular coordinates (distribution is over missing directions)
+
         INPUT:
+
            xy - phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned
-           interp= (object-wide interp default) if True, use the interpolated
-                   stream track
-           cindx= index of the closest point on the (interpolated) stream track
-                  if not given, determined from the dimensions given
-           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,as/yr] and the Gaussian approximation in these coordinates is returned
+
+           interp= (object-wide interp default) if True, use the interpolated stream track
+
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given
+
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the Gaussian approximation in these coordinates is returned
+
         OUTPUT:
-           (mean,variance) of the approximate Gaussian DF for the missing 
-           directions in xy
+
+           (mean,variance) of the approximate Gaussian DF for the missing directions in xy
+
         HISTORY:
+
            2013-12-12 - Written - Bovy (IAS)
+
         """
         if kwargs.has_key('interp'):
             interp= kwargs['interp']
@@ -1984,29 +2362,48 @@ class streamdf:
                R0=None,Zsun=None,vsun=None):
         """
         NAME:
+
             sample
+
         PURPOSE:
+
             sample from the DF
+
         INPUT:
+
             n - number of points to return
+
             returnaAdt= (False) if True, return (Omega,angle,dt)
-            returndT= (False) if True, also return the time since the star was
-                      stripped
+
+            returndT= (False) if True, also return the time since the star was stripped
+
             interp= (object-wide default) use interpolation of the stream track
+
             xy= (False) if True, return Galactocentric rectangular coordinates
-            lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb 
-                coordinates
+
+            lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb coordinates
+
             +Coordinate transformation inputs (all default to the instance-wide
             values):
+
               Vnorm= circular velocity to normalize velocities with
+
               Rnorm= Galactocentric radius to normalize positions with
+
               R0= Galactocentric radius of the Sun (kpc)
+
               Zsun= Sun's height above the plane (kpc)
+
               vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
+
         OUTPUT:
+
             (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
+
         HISTORY:
+
             2013-12-22 - Written - Bovy (IAS)
+
         """
         if interp is None:
             interp= self._useInterp

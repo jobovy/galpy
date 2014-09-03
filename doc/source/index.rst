@@ -31,6 +31,14 @@ Quick-start guide
 
    diskdf.rst
 
+Tutorials
+---------
+
+.. toctree::
+   :maxdepth: 2
+
+   streamdf.rst
+
 Library reference
 -----------------
 
@@ -47,14 +55,6 @@ Library reference
 
    reference/util.rst
 
-
-Tutorials
----------
-
-.. toctree::
-   :maxdepth: 1
-
-   streamdf.rst
 
 Papers using galpy
 --------------------

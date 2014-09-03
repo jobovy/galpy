@@ -306,10 +306,15 @@ class Orbit:
            pot - potential instance or list of instances
 
            method= 'odeint' for scipy's odeint
+
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
+
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
+
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+
                    'dopr54_c' is recommended, odeint is *not* recommended
+
 
            rectIn= (False) if True, input dxdv is in rectangular coordinates
 
@@ -317,7 +322,7 @@ class Orbit:
 
         OUTPUT:
 
-           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be eresed!)
+           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!)
 
         HISTORY:
 
@@ -445,7 +450,7 @@ class Orbit:
 
         PURPOSE:
 
-           return a previously calculated orbit
+           return a previously calculated integration of a small phase-space volume (with integrate_dxdv)
 
         INPUT:
 

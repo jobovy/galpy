@@ -1,3 +1,5 @@
+.. _stream-tutorial:
+
 Dynamical modeling of tidal streams
 ++++++++++++++++++++++++++++++++++++
 

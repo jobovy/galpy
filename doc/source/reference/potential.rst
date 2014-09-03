@@ -29,7 +29,7 @@ Use as ``Potential-instance.method(...)``
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
-   Rzderiv <potentialr2deriv.rst>
+   Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
@@ -95,6 +95,8 @@ Specific potentials
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialrazorexp.rst
+
+.. _potential-mw:
 
 In addition to these classes, a simple Milky-Way-like potential fit to
 data on the Milky Way is included as
@@ -163,6 +165,7 @@ Use as ``method(...)``
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
+   LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
