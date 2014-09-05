@@ -18,7 +18,7 @@ class DehnenBarPotential(planarPotential):
 
     .. math::
 
-        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = \\frac{t}{t_\mathrm{steady}-t_\\mathrm{form}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq t \\leq t_\\mathrm{steady}
+        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq t \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
     and 
 
@@ -26,7 +26,7 @@ class DehnenBarPotential(planarPotential):
 
         A_b(t) = \\begin{cases}
         0\\,, & t < t_\mathrm{form}\\\\
-        \\frac{\\alpha}{3\\,R_b^3}\\,, & t > t_\mathrm{steady}
+        \\frac{\\alpha}{3\\,R_b^3}\\,, & t > t_\mathrm{form}+T_\mathrm{steady}
         \\end{cases}
 
     """
