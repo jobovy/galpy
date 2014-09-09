@@ -1034,6 +1034,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
 
+       levels - contour-levels
+
        onedhists - if True, make one-d histograms on the sides
 
        onedhistx - if True, make one-d histograms on the side of the x distribution
