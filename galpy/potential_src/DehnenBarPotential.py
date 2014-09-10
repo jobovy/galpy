@@ -61,6 +61,8 @@ class DehnenBarPotential(planarPotential):
 
            tform - start of bar growth / bar period (default: -4)
 
+           tsteady - time from tform at which the bar is fully grown / bar period (default: -tform/2, st the perturbation is fully grown at tform/2)
+
            tsteady - time at which the bar is fully grown / bar period
            (default: tform/2)
 
@@ -112,7 +114,7 @@ class DehnenBarPotential(planarPotential):
         if tsteady is None:
             self._tsteady= self._tform/2.
         else:
-            self._tsteady= tsteady*self._tb
+            self._tsteady= self._tform+tsteady*self._tb
 
     def _evaluate(self,R,phi=0.,t=0.):
         """

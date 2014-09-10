@@ -12,6 +12,8 @@ class EllipticalDiskPotential(planarPotential):
 
         \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
 
+    This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
+
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,twophio=0.01,
