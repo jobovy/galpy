@@ -1530,6 +1530,11 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='azaphi',deperiod=True)
     aAI.plot(obs,type='araphi',deperiod=True,downsample=True)
     aAI.plot(obs,type='azaphi',deperiod=True,downsample=True)
+    #With integrated orbit, just to make sure we're covering this
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    obs.integrate(numpy.linspace(0.,200.,20001),lp)
+    aAI.plot(obs,type='jr')   
     return None
 
 #Test the Orbit interface

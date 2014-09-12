@@ -397,7 +397,11 @@ class actionAngleIsochroneApprox():
             anglephiI= nu.reshape(acfs[7],R.shape)
             danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
-            ts= self._tsJ[:-1]
+            from galpy.orbit import Orbit
+            if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'t'):
+                ts= args[0]._orb.t[:-1]
+            else:
+                ts= self._tsJ[:-1]
             if type == 'jr':
                 if downsample:
                     plotx= ts[::int(round(self._ntintJ/400))]
