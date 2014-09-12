@@ -676,9 +676,9 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     #First check that the potential has C
     if '_c' in method:
         if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC*p.hasC_dxdv for p in pot])
+            allHasC= nu.prod([p.hasC and p.hasC_dxdv for p in pot])
         else:
-            allHasC= pot.hasC*pot.hasC_dxdv
+            allHasC= pot.hasC and pot.hasC_dxdv
         if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
             method= 'odeint'
             warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
