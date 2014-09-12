@@ -217,7 +217,7 @@ class Potential:
 
         OUTPUT:
 
-           1) for spherical potentials: M(<R) [or if z is None]
+           1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
 
            2) for axisymmetric potentials: M(<R,<|Z|)
 

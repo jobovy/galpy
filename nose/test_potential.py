@@ -648,13 +648,22 @@ def test_mass_spher():
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-2., 'Limit mass for NFW potential not as expected'
     tR= 200.
-    # Limiting behavior
+    # Limiting behavior, add z, to test that too
     jaffemass= jp._amp*(1.-jp.a/tR)
     hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
     nfwmass= np._amp*(numpy.log(tR/np.a)-1.+np.a/tR)
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
+    tR, tz= 200., 10.
+    tr= numpy.sqrt(tR**2.+tz**2.)
+    # Limiting behavior, add z, to test that too
+    jaffemass= jp._amp*(1.-jp.a/tr)
+    hernmass= hp._amp/2.*(1.-2.*hp.a/tr)
+    nfwmass= np._amp*(numpy.log(tr/np.a)-1.+np.a/tr)
+    assert numpy.fabs((jp.mass(tR,z=tz,forceint=False)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((hp.mass(tR,z=tz,forceint=False)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((np.mass(tR,z=tz,forceint=False)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
     return None
 
 # Check that the masses are implemented correctly for spherical potentials
@@ -669,6 +678,7 @@ def test_mass_spher_analytic():
     assert numpy.fabs(hp.mass(tR,forceint=True)-hp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Hernquist potential'
     assert numpy.fabs(np.mass(tR,forceint=True)-np.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for NFW potential'
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
+    assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential, for not z is None'
     return None
 
 # Check that the masses are calculated correctly for axisymmetric potentials
