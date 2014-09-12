@@ -1038,6 +1038,53 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
+# Test that the virial setup of NFW works
+def test_NFW_virialsetup_wrtmeanmatter():
+    from galpy.util import bovy_conversion
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., False
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    assert numpy.fabs(conc-np.conc(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)\
+                          -np.mvir(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's virial mass does not work"
+    return None
+
+def test_NFW_virialsetup_wrtcrit():
+    from galpy.util import bovy_conversion
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., True
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    assert numpy.fabs(conc-np.conc(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)\
+                          -np.mvir(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's virial mass does not work"
+    return None
+
+def test_conc_attributeerror():
+    pp= potential.PowerSphericalPotential(normalize=1.)
+    #This potential doesn't have a scale, so we cannot calculate the concentration
+    try: pp.conc(220.,8.)
+    except AttributeError: pass
+    else: raise AssertionError('conc function for potential w/o scale did not raise AttributeError')
+    return None
+
+def test_mvir_attributeerror():
+    mp= potential.MiyamotoNagaiPotential(normalize=1.)
+    #Don't think I will ever implement the virial radius for this
+    try: mp.mvir(220.,8.)
+    except AttributeError: pass
+    else: raise AssertionError('mvir function for potential w/o rvir did not raise AttributeError')
+    return None
+
 def test_LinShuReductionFactor():
     #Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import LinShuReductionFactor, \

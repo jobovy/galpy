@@ -242,6 +242,51 @@ class Potential:
                     *integrate.dblquad(lambda y,x: x*self.dens(x,y),
                                        0.,R,lambda x: 0., lambda x: z)[0]
 
+    def mvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
+             forceint=False):
+        """
+        NAME:
+
+           mvir
+
+        PURPOSE:
+
+           calculate the virial mass
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+           H= (default: 70) Hubble constant in km/s/Mpc
+           
+           Om= (default: 0.3) Omega matter
+       
+           overdens= (200) overdensity which defines the virial radius
+
+           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
+           
+        KEYWORDS:
+
+           forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
+
+        OUTPUT:
+
+           M(<rvir)
+
+        HISTORY:
+
+           2014-09-12 - Written - Bovy (IAS)
+
+        """
+        #Evaluate the virial radius
+        try:
+            rvir= self.rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)
+        except AttributeError:
+            raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
+        return self.mass(rvir,forceint=forceint)
+
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -1069,11 +1114,11 @@ class Potential:
 
         """
         try:
-            return self._rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/self._scale
+            return self.rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/self._scale
         except AttributeError:
-            raise AttributeError("This potential does not have a '_scale' defined to base the concentration on")
+            raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
 
-class PotentialError(Exception):
+class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
     def __str__(self):
