@@ -14,7 +14,6 @@ Use as ``Potential-instance.method(...)``
    :maxdepth: 2
 
    __call__ <potentialcall.rst>
-   conc <potentialconc.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
@@ -41,6 +40,14 @@ Use as ``Potential-instance.method(...)``
    z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
 
+In addition to these, the ``NFWPotential`` also has methods to calculate virial quantities
+
+.. toctree::
+   :maxdepth: 2
+
+   conc <potentialconc.rst>
+   mvir <potentialmvir.rst>
+   rvir <potentialrvir.rst>
 
 General 3D potential routines
 +++++++++++++++++++++++++++++
