@@ -27,6 +27,7 @@ Methods
    e <orbitecc.rst>
    ER <orbitER.rst>
    Ez <orbitEz.rst>
+   fit <orbitfit.rst>
    flip <orbitflip.rst>
    integrate <orbitint.rst>
    integrate_dxdv <orbitintdxdv.rst>
