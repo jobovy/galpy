@@ -467,6 +467,63 @@ class Orbit:
         """
         return self._orb.getOrbit_dxdv()
 
+    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+            **kwargs):
+        """
+        NAME:
+
+           fit
+
+        PURPOSE:
+
+           fit an Orbit to data using the current orbit as the initial condition
+
+        INPUT:
+
+           vxvv - [:,6] array of positions and velocities along the orbit
+
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
+
+           pot= Potential to fit the orbit in
+
+           Keywords related to the input data:
+
+               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                                      (in kpc and km/s) (default=Object-wide default)
+                                      Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
+
+                ro= distance in kpc corresponding to R=1. (default: taken from object)
+
+                vo= velocity in km/s corresponding to v=1. (default: taken from object)
+
+           Keywords related to the orbit integrations:
+
+               tintJ= (default: 10) time to integrate orbits for fitting the orbit
+
+               ntintJ= (default: 1000) number of time-integration points
+
+               integrate_method= (default: 'dopr54_c') integration method to use
+
+        OUTPUT:
+
+           max of log likelihood
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
+                             radec=radec,lb=lb,
+                             tintJ=tintJ,ntintJ=ntintJ,
+                             integrate_method=integrate_method,
+                             **kwargs)
+
     def E(self,*args,**kwargs):
         """
         NAME:
