@@ -60,6 +60,7 @@ class EllipticalDiskPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         if cp is None or sp is None:
             self._phib= phib
             self._twophio= twophio

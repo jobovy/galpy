@@ -262,3 +262,4 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
                                       tform=tform,tsteady=tsteady,
                                       cp=cp,sp=sp)
         self.hasC= True
+        self.hasC_dxdv= True

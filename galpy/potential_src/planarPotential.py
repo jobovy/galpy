@@ -14,6 +14,7 @@ class planarPotential:
         self.isNonAxi= True #Gets reset by planarAxiPotential
         self.isRZ= False
         self.hasC= False
+        self.hasC_dxdv= False
         return None
 
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):

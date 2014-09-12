@@ -95,6 +95,7 @@ class DehnenBarPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         self._barphi= barphi
         if omegab is None:
             self._rolr= rolr

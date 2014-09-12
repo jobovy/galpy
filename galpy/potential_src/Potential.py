@@ -38,6 +38,7 @@ class Potential:
         self.isRZ= True
         self.isNonAxi= False
         self.hasC= False
+        self.hasC_dxdv= False
         return None
 
     def __call__(self,R,z,phi=0.,t=0.,dR=0,dphi=0):

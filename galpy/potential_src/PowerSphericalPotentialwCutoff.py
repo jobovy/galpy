@@ -55,6 +55,7 @@ class PowerSphericalPotentialwCutoff(Potential):
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
+        self.hasC_dxdv= True
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
