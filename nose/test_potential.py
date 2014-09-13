@@ -1377,19 +1377,19 @@ class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=1.,tsteady=2.,
+                                    tform=1.,tsteady=1.,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-1.,tsteady=1.,
+                                    tform=-1.,tsteady=2.,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm5(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-5.,tsteady=-1.,
+                                    tform=-5.,tsteady=4.,
                                     alpha=0.01,Af=0.04)
 class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
     def __init__(self):
