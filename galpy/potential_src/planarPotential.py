@@ -818,8 +818,7 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
-                          k=None,m=None,OmegaP=None,
-                          vt=False):
+                          k=None,m=None,OmegaP=None):
     """
     NAME:
 
@@ -836,8 +835,6 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
        R - Cylindrical radius
        
        sigmar - radial velocity dispersion of the population
-
-       vt= (False) if True, return the reduction factor for the rotational velocity's response
 
        Then either provide:
 
@@ -857,8 +854,6 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
        2014-08-23 - Written - Bovy (IAS)
 
-       2014-09-02 - Added vT response - Bovy (IAS)
-
     """
     from galpy.potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
@@ -872,8 +867,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
     chi= sigmar**2.*k**2./tepif**2.
     return (1.-s**2.)/nu.sin(nu.pi*s)\
         *integrate.quad(lambda t: nu.exp(-chi*(1.+nu.cos(t)))\
-                            *nu.sin(s*t)*nu.sin(t)\
-                            *(1.-chi-chi*nu.cos(t))**vt,
+                            *nu.sin(s*t)*nu.sin(t),
                         0.,nu.pi)[0]
 
 def plotplanarPotentials(Pot,*args,**kwargs):
