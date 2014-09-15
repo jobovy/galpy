@@ -208,3 +208,51 @@ def test_surfacesection():
     xlim(0.3,1.); ylim(-0.69,0.69)
     plot(sect2Rs,sect2vRs,'yo',mec='none')
     return None
+
+def test_adinvariance():
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochrone
+    # Initialize two different IsochronePotentials
+    ip1= IsochronePotential(normalize=1.,b=1.)
+    ip2= IsochronePotential(normalize=0.5,b=1.)
+    # Use TimeInterpPotential to interpolate smoothly
+    tip= TimeInterpPotential(ip1,ip2,dt=100.,tform=50.)
+    # Integrate: 1) Orbit in the first isochrone potential
+    o1= Orbit([1.,0.1,1.1,0.0,0.1,0.])
+    ts= numpy.linspace(0.,50.,1001)
+    o1.integrate(ts,tip)
+    o1.plot(d1='x',d2='y',xrange=[-1.6,1.6],yrange=[-1.6,1.6],
+            color='b')
+    # 2) Orbit in the transition
+    o2= o1(ts[-1]) # Last time step => initial time step
+    ts2= numpy.linspace(50.,150.,1001)
+    o2.integrate(ts2,tip)
+    o2.plot(d1='x',d2='y',overplot=True,color='g')
+    # 3) Orbit in the second isochrone potential
+    o3= o2(ts2[-1])
+    ts3= numpy.linspace(150.,200.,1001)
+    o3.integrate(ts3,tip)
+    o3.plot(d1='x',d2='y',overplot=True,color='r')
+    # Now we calculate energy, maximum height, and mean radius
+    print o1.E(pot=ip1), (o1.rperi()+o1.rap())/2, o1.zmax()
+    assert numpy.fabs(o1.E(pot=ip1)+2.79921356237) < 10.**-4., 'Energy in the adiabatic invariance test is different'
+    assert numpy.fabs((o1.rperi()+o1.rap())/2-1.07854158141) < 10.**-4., 'mean radius in the adiabatic invariance test is different'
+    assert numpy.fabs(o1.zmax()-0.106331362938) < 10.**-4., 'zmax in the adiabatic invariance test is different'
+    print o3.E(pot=ip2), (o3.rperi()+o3.rap())/2, o3.zmax()
+    assert numpy.fabs(o3.E(pot=ip2)+1.19677002624) < 10.**-4., 'Energy in the adiabatic invariance test is different'
+    assert numpy.fabs((o3.rperi()+o3.rap())/2-1.39962036137) < 10.**-4., 'mean radius in the adiabatic invariance test is different'
+    assert numpy.fabs(o3.zmax()-0.138364269321) < 10.**-4., 'zmax in the adiabatic invariance test is different'
+    # The orbit has clearly moved to larger radii,
+    # the actions are however conserved from beginning to end
+    aAI1= actionAngleIsochrone(ip=ip1); print aAI1(o1)
+    js= aAI1(o1)
+    assert numpy.fabs(js[0]-numpy.array([ 0.00773779])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    assert numpy.fabs(js[2]-numpy.array([ 0.0045361])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    aAI2= actionAngleIsochrone(ip=ip2); print aAI2(o3)  
+    js= aAI2(o3)
+    assert numpy.fabs(js[0]-numpy.array([ 0.00773812])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    assert numpy.fabs(js[2]-numpy.array([ 0.0045361])) < 10.**-4., 'action in the adiabatic invariance test is different'
+    return None
