@@ -265,7 +265,7 @@ def test_diskdf():
     # Same, w/ correction factors to scale profiles
     dfc= dehnendf(beta=0.,profileParams=(1./3.,1.0,0.2),
                   correct=True,niter=20)
-    if False:
+    if True:
         # Log. diff. between scale and DF surf. dens.
         numpy.log(df.surfacemass(0.5)/df.targetSurfacemass(0.5))
         assert numpy.fabs(numpy.log(df.surfacemass(0.5)/df.targetSurfacemass(0.5))+0.056954077791649592) < 10.**-4., 'diskdf does not behave as expected'
