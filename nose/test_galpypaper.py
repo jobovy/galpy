@@ -1,4 +1,5 @@
 # Test that all of the examples in the galpy paper run
+import os
 import numpy
 
 def test_overview():
@@ -256,3 +257,140 @@ def test_adinvariance():
     assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[2]-numpy.array([ 0.0045361])) < 10.**-4., 'action in the adiabatic invariance test is different'
     return None
+
+def test_diskdf():
+    from galpy.df import dehnendf
+    # Init. dehnendf w/ flat rot., hr=1/3, hs=1, and sr(1)=0.2
+    df= dehnendf(beta=0.,profileParams=(1./3.,1.0,0.2))
+    # Same, w/ correction factors to scale profiles
+    dfc= dehnendf(beta=0.,profileParams=(1./3.,1.0,0.2),
+                  correct=True,niter=20)
+    if False:
+        # Log. diff. between scale and DF surf. dens.
+        numpy.log(df.surfacemass(0.5)/df.targetSurfacemass(0.5))
+        assert numpy.fabs(numpy.log(df.surfacemass(0.5)/df.targetSurfacemass(0.5))+0.056954077791649592) < 10.**-4., 'diskdf does not behave as expected'
+    # Same for corrected DF
+        numpy.log(dfc.surfacemass(0.5)/dfc.targetSurfacemass(0.5))
+        assert numpy.fabs(numpy.log(dfc.surfacemass(0.5)/dfc.targetSurfacemass(0.5))+4.1440377205802041e-06) < 10.**-4., 'diskdf does not behave as expected'
+    # Log. diff between scale and DF sr
+        numpy.log(df.sigmaR2(0.5)/df.targetSigma2(0.5))
+        assert numpy.fabs(numpy.log(df.sigmaR2(0.5)/df.targetSigma2(0.5))+0.12786083001363127) < 10.**-4., 'diskdf does not behave as expected'
+    # Same for corrected DF
+        numpy.log(dfc.sigmaR2(0.5)/dfc.targetSigma2(0.5))
+        assert numpy.fabs(numpy.log(dfc.sigmaR2(0.5)/dfc.targetSigma2(0.5))+6.8065001252214986e-06) < 10.**-4., 'diskdf does not behave as expected'
+    # Evaluate DF w/ R,vR,vT
+        df(numpy.array([0.9,0.1,0.8]))
+        assert numpy.fabs(df(numpy.array([0.9,0.1,0.8]))-numpy.array(0.1740247246180417)) < 10.**-4., 'diskdf does not behave as expected'
+    # Evaluate corrected DF w/ Orbit instance
+        from galpy.orbit import Orbit
+        dfc(Orbit([0.9,0.1,0.8]))   
+        assert numpy.fabs(dfc(Orbit([0.9,0.1,0.8]))-numpy.array(0.16834863725552207)) < 10.**-4., 'diskdf does not behave as expected'
+    # Calculate the mean velocities
+        df.meanvR(0.9), df.meanvT(0.9)
+        assert numpy.fabs(df.meanvR(0.9))  < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(df.meanvT(0.9)-0.91144428051168291) < 10.**-4., 'diskdf does not behave as expected'
+        # Calculate the velocity dispersions
+        numpy.sqrt(dfc.sigmaR2(0.9)), numpy.sqrt(dfc.sigmaT2(0.9))
+        assert numpy.fabs(numpy.sqrt(dfc.sigmaR2(0.9))-0.22103383792719539) < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(numpy.sqrt(dfc.sigmaT2(0.9))-0.17613725303902811) < 10.**-4., 'diskdf does not behave as expected'
+        # Calculate the skew of the velocity distribution
+        df.skewvR(0.9), df.skewvT(0.9)
+        assert numpy.fabs(df.skewvR(0.9)) < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(df.skewvT(0.9)+0.47331638366025863) < 10.**-4., 'diskdf does not behave as expected'
+        # Calculate the kurtosis of the velocity distribution
+        df.kurtosisvR(0.9), df.kurtosisvT(0.9)
+        assert numpy.fabs(df.kurtosisvR(0.9)+0.13561300880237059) < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(df.kurtosisvT(0.9)-0.12612702099300721) < 10.**-4., 'diskdf does not behave as expected'
+        # Calculate a higher-order moment of the velocity DF
+        df.vmomentsurfacemass(1.,6.,2.)/df.surfacemass(1.)
+        assert numpy.fabs(df.vmomentsurfacemass(1.,6.,2.)/df.surfacemass(1.)-0.00048953492205559054) < 10.**-4., 'diskdf does not behave as expected'
+        # Calculate the Oort functions
+        dfc.oortA(1.), dfc.oortB(1.), dfc.oortC(1.), dfc.oortK(1.)
+        assert numpy.fabs(dfc.oortA(1.)-0.40958989067012197) < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(dfc.oortB(1.)+0.49396172114486514) < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(dfc.oortC(1.))  < 10.**-4., 'diskdf does not behave as expected'
+        assert numpy.fabs(dfc.oortK(1.)) < 10.**-4., 'diskdf does not behave as expected'
+    # Sample Orbits from the DF, returns list of Orbits
+    numpy.random.seed(1)
+    os= dfc.sample(n=100,returnOrbit=True,nphi=1)
+    # check that these have the right mean radius = 2hr=2/3
+    rs= numpy.array([o.R() for o in os])
+    print numpy.mean(rs)
+    assert numpy.fabs(numpy.mean(rs)-2./3.) < 0.1
+    # Sample vR and vT at given R, check their mean
+    vrvt= dfc.sampleVRVT(0.7,n=500,target=True); vt= vrvt[:,1]
+    assert numpy.fabs(numpy.mean(vrvt[:,0])) < 0.05
+    assert numpy.fabs(numpy.mean(vt)-dfc.meanvT(0.7)) < 0.01
+    # Sample Orbits along a given line-of-sight
+    os= dfc.sampleLOS(45.,n=1000)
+    return None
+
+def test_oort():
+    from galpy.df import dehnendf
+    df= dehnendf(beta=0.,correct=True,niter=20,
+                 profileParams=(1./3.,1.,0.1))
+    va= 1.-df.meanvT(1.) # asymmetric drift
+    A= df.oortA(1.)
+    B= df.oortB(1.)
+    return None
+
+def test_qdf():
+    from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleStaeckel
+    # Setup actionAngle instance for action calcs
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45,
+                             c=True)
+    # Quasi-iso df w/ hr=1/3, hsr/z=1, sr(1)=0.2, sz(1)=0.1
+    df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,aA=aAS,
+                          pot=MWPotential2014)
+    # Evaluate DF w/ R,vR,vT,z,vz
+    df(0.9,0.1,0.8,0.05,0.02)
+    assert numpy.fabs(df(0.9,0.1,0.8,0.05,0.02)-numpy.array([ 123.57158928])) < 10.**-4., 'qdf does not behave as expected'
+    # Evaluate DF w/ Orbit instance, return ln
+    from galpy.orbit import Orbit
+    df(Orbit([0.9,0.1,0.8,0.05,0.02]),log=True)
+    assert numpy.fabs(df(Orbit([0.9,0.1,0.8,0.05,0.02]),log=True)-numpy.array([ 4.81682066])) < 10.**-4., 'qdf does not behave as expected'
+    # Evaluate DF marginalized over vz
+    df.pvRvT(0.1,0.9,0.9,0.05)
+    assert numpy.fabs(df.pvRvT(0.1,0.9,0.9,0.05)-23.273310451852243) < 10.**-4., 'qdf does not behave as expected'
+    # Evaluate DF marginalized over vR,vT
+    df.pvz(0.02,0.9,0.05)
+    assert numpy.fabs(df.pvz(0.02,0.9,0.05)-50.949586235238172) < 10.**-4., 'qdf does not behave as expected'
+    # Calculate the density
+    df.density(0.9,0.05)
+    assert numpy.fabs(df.density(0.9,0.05)-12.73725936526167) < 10.**-4., 'qdf does not behave as expected'
+    # Estimate the DF's actual density scale length at z=0
+    df.estimate_hr(0.9,0.)
+    assert numpy.fabs(df.estimate_hr(0.9,0.)-0.322420336223) < 10.**-2., 'qdf does not behave as expected'
+    # Estimate the DF's actual surface-density scale length
+    df.estimate_hr(0.9,None)
+    assert numpy.fabs(df.estimate_hr(0.9,None)-0.38059909132766462) < 10.**-4., 'qdf does not behave as expected'
+    # Estimate the DF's density scale height
+    df.estimate_hz(0.9,0.02)
+    assert numpy.fabs(df.estimate_hz(0.9,0.02)-0.064836202345657207) < 10.**-4., 'qdf does not behave as expected'
+    # Calculate the mean velocities
+    df.meanvR(0.9,0.05), df.meanvT(0.9,0.05), 
+    df.meanvz(0.9,0.05)
+    assert numpy.fabs(df.meanvR(0.9,0.05)-3.8432265354618213e-18) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(df.meanvT(0.9,0.05)-0.90840425173325279) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(df.meanvz(0.9,0.05)+4.3579787517991084e-19) < 10.**-4., 'qdf does not behave as expected'
+    # Calculate the velocity dispersions
+    from numpy import sqrt
+    sqrt(df.sigmaR2(0.9,0.05)), sqrt(df.sigmaz2(0.9,0.05))
+    assert numpy.fabs(sqrt(df.sigmaR2(0.9,0.05))-0.22695537077102387) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(sqrt(df.sigmaz2(0.9,0.05))-0.094215523962105044) < 10.**-4., 'qdf does not behave as expected'
+    # Calculate the tilt of the velocity ellipsoid
+    df.tilt(0.9,0.05)
+    assert numpy.fabs(df.tilt(0.9,0.05)-2.5166061974413765) < 10.**-4., 'qdf does not behave as expected'
+    # Calculate a higher-order moment of the velocity DF
+    df.vmomentdensity(0.9,0.05,6.,2.,2.,gl=True)
+    assert numpy.fabs(df.vmomentdensity(0.9,0.05,6.,2.,2.,gl=True)-0.0001591100892366438) < 10.**-4., 'qdf does not behave as expected'
+    # Sample velocities at given R,z, check mean
+    numpy.random.seed(1)
+    vs= df.sampleV(0.9,0.05,n=500); mvt= numpy.mean(vs[:,1])
+    assert numpy.fabs(numpy.mean(vs[:,0])) < 0.05 # vR
+    assert numpy.fabs(mvt-df.meanvT(0.9,0.05)) < 0.01 #vT
+    assert numpy.fabs(numpy.mean(vs[:,2])) < 0.05 # vz
+    return None
+
