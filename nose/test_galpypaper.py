@@ -120,3 +120,56 @@ def test_TimeInterpPotential():
     assert numpy.fabs(tip.Rforce(1.,0.1,t=10.)-lp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
     assert numpy.fabs(tip.Rforce(1.,0.1,t=200.)-mp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
     return None
+
+def test_orbitint():
+    import numpy
+    from galpy.potential import MWPotential2014
+    from galpy.potential import evaluatePotentials as evalPot
+    from galpy.orbit import Orbit
+    E, Lz= -1.25, 0.6
+    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.)),0.])
+    ts= numpy.linspace(0.,100.,2001)
+    o1.integrate(ts,MWPotential2014)
+    o1.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
+    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
+    o2.integrate(ts,MWPotential2014)
+    o2.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
+    return None
+
+def test_orbmethods():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    o= Orbit([0.8,0.3,0.75,0.,0.2,0.]) # setup R,vR,vT,z,vz,phi
+    times= numpy.linspace(0.,10.,1001) # Output times
+    o.integrate(times,MWPotential2014) # Integrate
+    o.E() # Energy
+    assert numpy.fabs(o.E()+1.2547650648697966) < 10.**-5., 'Orbit method does not work as expected'
+    o.L() # Angular momentum
+    assert numpy.all(numpy.fabs(o.L()-numpy.array([[ 0.  , -0.16,  0.6 ]])) < 10.**-5.), 'Orbit method does not work as expected'
+    o.Jacobi(OmegaP=0.65) #Jacobi integral E-OmegaP Lz
+    assert numpy.fabs(o.Jacobi(OmegaP=0.65)-numpy.array([-1.64476506])) < 10.**-5., 'Orbit method does not work as expected'
+    o.ER(times[-1]), o.Ez(times[-1]) # Rad. and vert. E at end
+    assert numpy.fabs(o.ER(times[-1])+1.27601734263047) < 10.**-5., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.Ez(times[-1])-0.021252201847851909) < 10.**-5.,  'Orbit method does not work as expected'
+    o.rperi(), o.rap(), o.zmax() # Peri-/apocenter r, max. |z|
+    assert numpy.fabs(o.rperi()-0.44231993168097) < 10.**-5., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.rap()-0.87769030382105) < 10.**-5., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.zmax()-0.077452357289016) < 10.**-5., 'Orbit method does not work as expected'
+    o.e() # eccentricity (rap-rperi)/(rap+rperi)
+    assert numpy.fabs(o.e()-0.32982348199330563) < 10.**-5., 'Orbit method does not work as expected'
+    o.R(2.,ro=8.) # Cylindrical radius at time 2. in kpc
+    assert numpy.fabs(o.R(2.,ro=8.)-3.5470772876920007) < 10.**-3., 'Orbit method does not work as expected'
+    o.vR(5.,vo=220.) # Cyl. rad. velocity at time 5. in km/s
+    assert numpy.fabs(o.vR(5.,vo=220.)-45.202530965094553) < 10.**-3., 'Orbit method does not work as expected'
+    o.ra(1.), o.dec(1.) # RA and Dec at t=1. (default settings)
+    assert numpy.fabs(o.ra(1.)-numpy.array([ 288.19277])) < 10.**-3., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.dec(1.)-numpy.array([ 18.98069155])) < 10.**-3., 'Orbit method does not work as expected'
+    o.jr(type='adiabatic'), o.jz() # R/z actions (ad. approx.)
+    assert numpy.fabs(o.jr(type='adiabatic')-0.05285302231137586) < 10.**-3., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.jz()-0.006637988850751242) < 10.**-3., 'Orbit method does not work as expected'
+    # Rad. period w/ Staeckel approximation w/ focal length 0.5,
+    o.Tr(type='staeckel',delta=0.5,ro=8.,vo=220.) # in Gyr  
+    assert numpy.fabs(o.Tr(type='staeckel',delta=0.5,ro=8.,vo=220.)-0.1039467864018446) < 10.**-3., 'Orbit method does not work as expected'
+    o.plot(d1='R',d2='z') # Plot the orbit in (R,z)
+    o.plot3d() # Plot the orbit in 3D, w/ default [x,y,z]
+    return None
