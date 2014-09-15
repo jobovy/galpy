@@ -28,7 +28,8 @@ typically be calculated using these three methods:
 These are not all implemented for each of the cases above yet.
 
 The adiabatic and Staeckel approximation have also been implemented in
-C, for extremely fast action-angle calculations (see below).
+C and using grid-based interpolation, for extremely fast action-angle
+calculations (see below).
 
 Action-angle coordinates for the isochrone potential
 -----------------------------------------------------
@@ -292,6 +293,50 @@ which gives
 
 The radial action is conserved to about half a percent, the vertical
 action to two percent.
+
+Another way to speed up the calculation of actions using the adiabatic
+approximation is to tabulate the actions on a grid in (approximate)
+integrals of the motion and evaluating new actions by interpolating on
+this grid. How this is done in practice is described in detail in the
+galpy paper. To setup this grid-based interpolation method, do
+
+>>> from galpy.actionAngle import actionAngleAdiabaticGrid
+>>> aAG= actionAngleAdiabaticGrid(pot=MWPotential2014,nR=31,nEz=31,nEr=51,nLz=51,c=True)
+
+where ``c=True`` specifies that we use the C implementation of
+``actionAngleAdiabatic`` for speed. We can now evaluate in the same
+was as before, for example
+
+>>> aAA(1.,0.1,1.1,0.,0.05), aAG(1.,0.1,1.1,0.,0.05)
+((array([ 0.01352523]), array([ 1.1]), array([ 0.00046909])),
+ (0.013527010324238781, 1.1, 0.00047747359874375148))
+
+which agree very well. To look at the timings, we first switch back to
+not using C and then list all of the relevant timings:
+
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=False)
+# Not using C, direct calculation
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1 loops, best of 3: 9.05 s per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=True)
+# Using C, direct calculation
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+10 loops, best of 3: 39.7 ms per loop
+# Grid-based calculation
+>>> timeit(aAG(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1000 loops, best of 3: 1.09 ms per loop
+
+Thus, in this example (and more generally) the grid-based calculation
+is significantly faster than even the direct implementation in C. The
+overall speed up between the direct Python version and the grid-based
+version is larger than 8,000; the speed up between the direct C
+version and the grid-based version is 36. For larger arrays of input
+phase-space positions, the latter speed up can increase to 150.  For
+simpler, fully analytical potentials the speed up will be slightly
+less, but for ``MWPotential2014`` and other more complicated
+potentials (such as those involving a double-exponential disk), the
+overhead of setting up the grid is worth it when evaluating more than
+a few thousand actions.
 
 The adiabatic approximation works well for orbits that stay close to
 the plane. The orbit we have been considering so far only reaches a
