@@ -298,7 +298,8 @@ Another way to speed up the calculation of actions using the adiabatic
 approximation is to tabulate the actions on a grid in (approximate)
 integrals of the motion and evaluating new actions by interpolating on
 this grid. How this is done in practice is described in detail in the
-galpy paper. To setup this grid-based interpolation method, do
+galpy paper. To setup this grid-based interpolation method, which is
+contained in ``actionAngleAdiabaticGrid``, do
 
 >>> from galpy.actionAngle import actionAngleAdiabaticGrid
 >>> aAG= actionAngleAdiabaticGrid(pot=MWPotential2014,nR=31,nEz=31,nEr=51,nLz=51,c=True)
@@ -448,9 +449,48 @@ the bulge model in ``MWPotential2014`` requires expensive special
 functions to be evaluated. Computations could be sped up ten times
 more when using a simpler bulge model.
 
-We can now go back to checking that the actions are conserved along
-the orbit
+Similar to ``actionAngleAdiabaticGrid``, we can also tabulate the
+actions on a grid of (approximate) integrals of the motion and
+interpolate over this look-up table when evaluating new actions. The
+details of how this look-up table is setup and used are again fully
+explained in the galpy paper. To use this grid-based Staeckel
+approximation, contained in ``actionAngleStaeckelGrid``, do
 
+>>> from galpy.actionAngle import actionAngleStaeckelGrid
+>>> aASG= actionAngleStaeckelGrid(pot=MWPotential2014,delta=0.4,nE=51,npsi=51,nLz=61,c=True)
+
+where ``c=True`` makes sure that we use the C implementation of the
+Staeckel method to calculate the grid. Because this is a fully
+three-dimensional grid, setting up the grid takes longer than it does
+for the adiabatic method (which only uses two two-dimensional
+grids). We can then evaluate actions as before
+
+>>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz()), aASG(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+((0.019212848866725911, 1.1000000000000001, 0.015274597971510892),
+ (0.019221119033345408, 1.1000000000000001, 0.015022528662310393))
+
+These actions agree very well. We can compare the timings of these
+methods as above
+
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s,fixed_quad=True))
+1 loops, best of 3: 576 ms per loop # Not using C, direct calculation
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=True)
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+100 loops, best of 3: 17.8 ms per loop # Using C, direct calculation
+>>> timeit(aASG(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+100 loops, best of 3: 3.45 ms per loop # Grid-based calculation
+
+This demonstrates that the grid-based interpolation again leeds to a
+significant speed up, even over the C implementation of the direct
+calculation. This speed up becomes more significant for larger array
+input, although it saturates at about 25 times (at least for
+``MWPotential2014``).
+
+We can now go back to checking that the actions are conserved along
+the orbit (going back to the ``c=False`` version of
+``actionAngleStaeckel``)
+
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=False)
 >>> js= aAS(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),fixed_quad=True)
 >>> plot(ts,numpy.log10(numpy.fabs((js[0]-numpy.mean(js[0]))/numpy.mean(js[0]))))
 >>> plot(ts,numpy.log10(numpy.fabs((js[2]-numpy.mean(js[2]))/numpy.mean(js[2]))))
