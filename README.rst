@@ -54,6 +54,17 @@ ISSUES
 
 If you find *any* bug in the code, please report these using the `Issue Tracker <http://github.com/jobovy/galpy/issues>`__ or by emailing the maintainer of the code.
 
+CONTRIBUTING TO GALPY
+----------------------
+
+Some development notes can be found on the `wiki
+<http://github.com/jobovy/galpy/wiki/>`__. This includes a list of
+small and larger extensions of galpy that would be useful `here
+<http://github.com/jobovy/galpy/wiki/Possible-galpy-extensions>`__ as
+well as a longer-term roadmap `here
+<http://github.com/jobovy/galpy/wiki/Roadmap>`__. Please let the main
+developer know if you need any help contributing!
+
 DISK DF CORRECTIONS
 --------------------
 
@@ -65,8 +76,3 @@ these corrections is expensive, and a large set of precalculated
 corrections can be found
 `here <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__ \[tar.gz
 archive\].
-
-DEVELOPMENT
------------
-
-Some development notes can be found on the `wiki <http://github.com/jobovy/galpy/wiki/>`__.
