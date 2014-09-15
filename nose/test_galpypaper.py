@@ -315,7 +315,6 @@ def test_diskdf():
     os= dfc.sample(n=100,returnOrbit=True,nphi=1)
     # check that these have the right mean radius = 2hr=2/3
     rs= numpy.array([o.R() for o in os])
-    print numpy.mean(rs)
     assert numpy.fabs(numpy.mean(rs)-2./3.) < 0.1
     # Sample vR and vT at given R, check their mean
     vrvt= dfc.sampleVRVT(0.7,n=500,target=True); vt= vrvt[:,1]
