@@ -173,3 +173,38 @@ def test_orbmethods():
     o.plot(d1='R',d2='z') # Plot the orbit in (R,z)
     o.plot3d() # Plot the orbit in 3D, w/ default [x,y,z]
     return None
+
+def test_orbsetup():
+    from galpy.orbit import Orbit
+    o= Orbit([25.,10.,2.,5.,-2.,50.],radec=True,ro=8.,
+             vo=220.,solarmotion=[-11.1,25.,7.25])
+    return None
+
+def test_surfacesection():
+    #Preliminary code
+    import numpy
+    from galpy.potential import MWPotential2014
+    from galpy.potential import evaluatePotentials as evalPot
+    from galpy.orbit import Orbit
+    E, Lz= -1.25, 0.6
+    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.)),0.])
+    ts= numpy.linspace(0.,100.,2001)
+    o1.integrate(ts,MWPotential2014)
+    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
+    o2.integrate(ts,MWPotential2014)
+    def surface_section(Rs,zs,vRs):
+        # Find points where the orbit crosses z from - to +
+        shiftzs= numpy.roll(zs,-1)
+        indx= (zs[:-1] < 0.)*(shiftzs[:-1] > 0.)
+        return (Rs[:-1][indx],vRs[:-1][indx])
+    # Calculate and plot the surface of section
+    ts= numpy.linspace(0.,1000.,20001) # long integration
+    o1.integrate(ts,MWPotential2014)
+    o2.integrate(ts,MWPotential2014)
+    sect1Rs,sect1vRs=surface_section(o1.R(ts),o1.z(ts),o1.vR(ts))
+    sect2Rs,sect2vRs=surface_section(o2.R(ts),o2.z(ts),o2.vR(ts))
+    from matplotlib.pyplot import plot, xlim, ylim
+    plot(sect1Rs,sect1vRs,'bo',mec='none')
+    xlim(0.3,1.); ylim(-0.69,0.69)
+    plot(sect2Rs,sect2vRs,'yo',mec='none')
+    return None
