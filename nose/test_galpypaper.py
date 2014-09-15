@@ -79,3 +79,44 @@ def test_potmethods():
     assert numpy.fabs(dp.lindbladR(1.75,m='corotation')-0.540985051273488) < 10.**-4., 'potmethods has changed'
     return None
 
+from galpy.potential import Potential
+
+def smoothInterp(t,dt,tform):
+    """Smooth interpolation in time, following Dehnen (2000)"""
+    if t < tform: smooth= 0.
+    elif t > (tform+dt): smooth= 1.
+    else:
+        xi= 2.*(t-tform)/dt-1.
+        smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+    return smooth
+    
+class TimeInterpPotential(Potential):
+    """Potential that smoothly interpolates in time between two static potentials"""
+    def __init__(self,pot1,pot2,dt=100.,tform=50.):
+        """pot1= potential for t < tform, pot2= potential for t > tform+dt, dt: time over which to turn on pot2,
+        tform: time at which the interpolation is switched on"""
+        Potential.__init__(self,amp=1.)
+        self._pot1= pot1
+        self._pot2= pot2
+        self._tform= tform
+        self._dt= dt
+        return None
+    
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        smooth= smoothInterp(t,self._dt,self._tform)
+        return (1.-smooth)*self._pot1.Rforce(R,z)+smooth*self._pot2.Rforce(R,z)
+    
+    def _zforce(self,R,z,phi=0.,t=0.):
+        smooth= smoothInterp(t,self._dt,self._tform)
+        return (1.-smooth)*self._pot1.zforce(R,z)+smooth*self._pot2.zforce(R,z)
+
+def test_TimeInterpPotential():
+    #Just to check that the code above has run properly
+    from galpy.potential import LogarithmicHaloPotential, \
+        MiyamotoNagaiPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    mp= MiyamotoNagaiPotential(normalize=1.)
+    tip= TimeInterpPotential(lp,mp)
+    assert numpy.fabs(tip.Rforce(1.,0.1,t=10.)-lp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
+    assert numpy.fabs(tip.Rforce(1.,0.1,t=200.)-mp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
+    return None
