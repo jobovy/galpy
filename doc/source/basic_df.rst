@@ -536,6 +536,19 @@ This gives
 
 .. image:: images/diskdf-dehnenhercules.png
 
+Now that ``galpy`` contains the ``evolveddiskdf`` described above,
+this whole calculation is encapsulated in this module and can be done
+much more easily as
+
+>>> edf= evolveddiskdf(dfc,[lp,dp],to=dp.tform())
+>>> mvr, grid= edf.meanvR(1.,grid=True,gridpoints=101,returnGrid=True)
+
+The gridded DF can be accessed as ``grid.df``, which we can plot as before
+
+>>> bovy_dens2d(grid.df.T,origin='lower',cmap='gist_yarg',contours=True,xrange=[grid.vRgrid[0],grid.vRgrid[-1]],yrange=[grid.vTgrid[0],grid.vTgrid[-1]],xlabel=r'$v_R$',ylabel=r'$v_T$')
+
+.. image:: images/diskdf-dehnenhercules-edf.png
+
 For more information see `2000AJ....119..800D
 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_ and
 `2010ApJ...725.1676B
