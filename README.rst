@@ -70,9 +70,14 @@ DISK DF CORRECTIONS
 
 The dehnendf and shudf disk distribution functions can be corrected to
 follow the desired surface-mass density and radial-velocity-dispersion
-profiles more closely (see
-`1999AJ....118.1201D <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`__). Calculating
+profiles more closely (see `1999AJ....118.1201D
+<http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`__). Calculating
 these corrections is expensive, and a large set of precalculated
-corrections can be found
-`here <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__ \[tar.gz
-archive\].
+corrections can be found `here
+<http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__
+\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df_src/data directory before running the setup.py installation. E.g.,
+
+.. code-block:: none
+
+   curl -O https://cloud.github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
+   tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
