@@ -515,7 +515,7 @@ methods.
 .. WARNING:: Angles using the Staeckel approximation in galpy are such
    that (a) the radial angle starts at zero at pericenter and
    increases then going toward apocenter; (b) the vertical angle
-   starts at zero at *z=* and increases toward positive zmax. The
+   starts at zero at *z=0* and increases toward positive zmax. The
    latter is a different convention from that in Binney (2012), but is
    consistent with that in actionAngleIsochrone and
    actionAngleSpherical.
