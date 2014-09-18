@@ -6,12 +6,14 @@ def test_errors():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,11),
                                        zgrid=(0.,0.2,11),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=True)
     try:
         rzpot2= potential.interpRZPotential(RZPot=rzpot,
                                             rgrid=(0.01,2.,11),
                                             zgrid=(0.,0.2,11),
+                                            logR=False,
                                             interpPot=True,
                                             zsym=True)
     except potential.PotentialError: pass
@@ -22,6 +24,7 @@ def test_interpolation_potential():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=True)
     #This just tests on the grid
@@ -60,6 +63,7 @@ def test_interpolation_potential():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(-0.2,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=False)
     rs= numpy.linspace(0.01,2.,20)
@@ -89,6 +93,7 @@ def test_interpolation_potential_diffinputs():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=True)
     #Test all at the same time to use vector evaluation
@@ -105,6 +110,7 @@ def test_interpolation_potential_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,151),
                                        zgrid=(0.,0.2,151),
+                                       logR=False,
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=True)
@@ -119,6 +125,7 @@ def test_interpolation_potential_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,151),
                                        zgrid=(-0.2,0.2,301),
+                                       logR=False,
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=False)
@@ -160,6 +167,7 @@ def test_interpolation_potential_diffinputs_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,151),
                                        zgrid=(0.,0.2,151),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=True,enable_c=True)
     #Test all at the same time to use vector evaluation
@@ -176,6 +184,7 @@ def test_interpolation_potential_c_vdiffgridsizes():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,271),
                                        zgrid=(0.,0.2,162),
+                                       logR=False,
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=True)
@@ -193,12 +202,14 @@ def test_interpolation_potential_use_c():
     rzpot_c= potential.interpRZPotential(RZPot=potential.MWPotential,
                                          rgrid=(0.01,2.,101),
                                          zgrid=(0.,0.2,101),
+                                         logR=False,
                                          interpPot=True,
                                          zsym=True,
                                          use_c=False)
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=True,
                                        use_c=True)
@@ -211,6 +222,7 @@ def test_interpolation_potential_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -226,6 +238,7 @@ def test_interpolation_potential_outsidegrid_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=True,
                                        zsym=False,
                                        enable_c=True)
@@ -241,6 +254,7 @@ def test_interpolation_potential_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpPot=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -257,6 +271,7 @@ def test_interpolation_potential_force():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(0.,0.2,201),
+                                       logR=False,
                                        interpRforce=True,
                                        interpzforce=True,
                                        zsym=True)
@@ -304,6 +319,7 @@ def test_interpolation_potential_force():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(-0.2,0.2,301),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        zsym=False)
     rs= numpy.linspace(0.01,2.,20)
@@ -335,6 +351,7 @@ def test_interpolation_potential_force_diffinputs():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(0.,0.2,201),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        zsym=True)
     #Test all at the same time to use vector evaluation
@@ -354,6 +371,7 @@ def test_interpolation_potential_force_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,251),
                                        zgrid=(0.,0.2,251),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        enable_c=True,
                                        zsym=True)
@@ -369,6 +387,7 @@ def test_interpolation_potential_force_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,251),
                                        zgrid=(-0.2,0.2,351),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        enable_c=True,
                                        zsym=False)
@@ -413,6 +432,7 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,391),
                                        zgrid=(0.,0.2,262),
+                                       logR=False,
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=True)
@@ -431,12 +451,14 @@ def test_interpolation_potential_force_use_c():
     rzpot_c= potential.interpRZPotential(RZPot=potential.MWPotential,
                                          rgrid=(0.01,2.,101),
                                          zgrid=(0.,0.2,101),
+                                       logR=False,
                                          interpRforce=True,interpzforce=True,
                                          zsym=True,
                                          use_c=False)
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        zsym=True,
                                        use_c=True)
@@ -451,6 +473,7 @@ def test_interpolation_potential_force_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -468,6 +491,7 @@ def test_interpolation_potential_force_outsidegrid_c():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpRforce=True,interpzforce=True,
                                        zsym=False,
                                        enable_c=True)
@@ -485,6 +509,7 @@ def test_interpolation_potential_force_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpRforce=False,interpzforce=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -502,6 +527,7 @@ def test_interpolation_potential_rzderiv():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        zsym=True)
     #Test all at the same time to use vector evaluation
     rs= numpy.linspace(0.01,2.,20)
@@ -518,6 +544,7 @@ def test_interpolation_potential_dens():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(0.,0.2,201),
+                                       logR=False,
                                        interpDens=True,
                                        zsym=True)
     #This just tests on the grid
@@ -558,6 +585,7 @@ def test_interpolation_potential_dens():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(-0.2,0.2,251),
+                                       logR=False,
                                        interpDens=True,
                                        zsym=False)
     rs= numpy.linspace(0.01,2.,20)
@@ -587,6 +615,7 @@ def test_interpolation_potential_dens_diffinputs():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
                                        zgrid=(0.,0.2,201),
+                                       logR=False,
                                        interpDens=True,
                                        zsym=True)
     #Test all at the same time to use vector evaluation
@@ -603,6 +632,7 @@ def test_interpolation_potential_dens_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpDens=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -617,6 +647,7 @@ def test_interpolation_potential_density_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
                                        zgrid=(0.,0.2,101),
+                                       logR=False,
                                        interpDens=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -632,6 +663,7 @@ def test_interpolation_potential_vcirc():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpvcirc=True,
                                        zsym=True)
     #This just tests on the grid
@@ -659,6 +691,7 @@ def test_interpolation_potential_vcirc():
     #Test the interpolation of the potential, with numcores
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpvcirc=True,
                                        numcores=1,
                                        zsym=True)
@@ -670,6 +703,7 @@ def test_interpolation_potential_vcirc():
 def test_interpolation_potential_vcirc_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpvcirc=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -682,6 +716,7 @@ def test_interpolation_potential_vcirc_outsidegrid():
 def test_interpolation_potential_vcirc_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpvcirc=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -696,6 +731,7 @@ def test_interpolation_potential_dvcircdR():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpdvcircdr=True,
                                        zsym=True)
     #This just tests on the grid
@@ -723,6 +759,7 @@ def test_interpolation_potential_dvcircdR():
     #Test the interpolation of the potential, with numcores
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpdvcircdr=True,
                                        numcores=1,
                                        zsym=True)
@@ -734,6 +771,7 @@ def test_interpolation_potential_dvcircdR():
 def test_interpolation_potential_dvcircdR_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpdvcircdr=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -746,6 +784,7 @@ def test_interpolation_potential_dvcircdR_outsidegrid():
 def test_interpolation_potential_dvcircdR_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpdvcircdr=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -760,6 +799,7 @@ def test_interpolation_potential_epifreq():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpepifreq=True,
                                        zsym=True)
     #This just tests on the grid
@@ -787,6 +827,7 @@ def test_interpolation_potential_epifreq():
     #Test the interpolation of the potential, with numcores
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpepifreq=True,
                                        numcores=1,
                                        zsym=True)
@@ -798,6 +839,7 @@ def test_interpolation_potential_epifreq():
 def test_interpolation_potential_epifreq_smalln():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(1.,1.3,3),
+                                       logR=False,
                                        interpepifreq=True,
                                        zsym=False)
     rs= numpy.linspace(1.1,1.2,20)
@@ -815,6 +857,7 @@ def test_interpolation_potential_epifreq_smalln():
 def test_interpolation_potential_epifreq_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpepifreq=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -827,6 +870,7 @@ def test_interpolation_potential_epifreq_outsidegrid():
 def test_interpolation_potential_epifreq_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpepifreq=False,
                                        zsym=True)
     rs= [0.5,1.5]
@@ -841,6 +885,7 @@ def test_interpolation_potential_verticalfreq():
     #Test the interpolation of the potential
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpverticalfreq=True,
                                        zsym=True)
     #This just tests on the grid
@@ -868,6 +913,7 @@ def test_interpolation_potential_verticalfreq():
     #Test the interpolation of the potential, with numcores
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpverticalfreq=True,
                                        numcores=1,
                                        zsym=True)
@@ -879,6 +925,7 @@ def test_interpolation_potential_verticalfreq():
 def test_interpolation_potential_verticalfreq_outsidegrid():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpverticalfreq=True,
                                        zsym=False)
     rs= [0.005,2.5]
@@ -891,6 +938,7 @@ def test_interpolation_potential_verticalfreq_outsidegrid():
 def test_interpolation_potential_verticalfreq_notinterpolated():
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
+                                       logR=False,
                                        interpverticalfreq=False,
                                        zsym=True)
     rs= [0.5,1.5]
