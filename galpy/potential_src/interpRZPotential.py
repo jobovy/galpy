@@ -94,7 +94,8 @@ def scalarDecorator(func):
 class interpRZPotential(Potential):
     """Class that interpolates a given potential on a grid for fast orbit integration"""
     def __init__(self,
-                 RZPot=None,rgrid=(0.01,2.,101),zgrid=(0.,0.2,101),logR=False,
+                 RZPot=None,rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                 zgrid=(0.,1.,101),logR=True,
                  interpPot=False,interpRforce=False,interpzforce=False,
                  interpDens=False,
                  interpvcirc=False,
@@ -115,11 +116,11 @@ class interpRZPotential(Potential):
 
            RZPot - RZPotential to be interpolated
 
-           rgrid - R grid to be given to linspace
+           rgrid - R grid to be given to linspace as in rs= linspace(*rgrid)
 
-           zgrid - z grid to be given to linspace
+           zgrid - z grid to be given to linspace as in zs= linspace(*zgrid)
 
-           logR - if True, rgrid is in the log of R
+           logR - if True, rgrid is in the log of R so logrs= linspace(*rgrid)
 
            interpPot, interpRforce, interpzforce, interpDens,interpvcirc, interpepifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
 
