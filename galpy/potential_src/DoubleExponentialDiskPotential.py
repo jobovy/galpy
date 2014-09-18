@@ -20,7 +20,7 @@ class DoubleExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R-|z|/h_z\\right)
 
     """
-    def __init__(self,amp=1.,ro=1.,hr=1./3.,hz=1./16.,
+    def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  new=True,kmaxFac=2.,glorder=10):
         """
@@ -36,7 +36,7 @@ class DoubleExponentialDiskPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1)
 
-           hr - disk scale-length in terms of ro
+           hr - disk scale-length
 
            hz - scale-height
 
@@ -61,7 +61,6 @@ class DoubleExponentialDiskPotential(Potential):
         self.hasC= True
         self._kmaxFac= kmaxFac
         self._glorder= glorder
-        self._ro= ro
         self._hr= hr
         self._scale= self._hr
         self._hz= hz
