@@ -115,9 +115,18 @@ details). This potential is defined as
 >>> np= NFWPotential(a=16/8.,normalize=.35)
 >>> MWPotential2014= [bp,mp,np]
 
-and can thus be used like any list of ``Potentials``. An older version
-``galpy.potential.MWPotential`` of a similar potential that was *not*
-fit to data on the Milky Way is defined as
+and can thus be used like any list of ``Potentials``. If one wants to
+add the supermassive black hole at the Galactic center, this can be
+done by
+
+>>> from galpy.potential import KeplerPotential
+>>> from galpy.util import bovy_conversion
+>>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
+
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+
+An older version ``galpy.potential.MWPotential`` of a similar
+potential that was *not* fit to data on the Milky Way is defined as
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
