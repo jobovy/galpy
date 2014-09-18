@@ -78,6 +78,8 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 
 * *Dynamical modeling of tidal streams*, Jo Bovy (2014), *Astrophys. J*, in press (`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_):
     Introduces ``galpy.df.streamdf`` and ``galpy.actionAngle.actionAngleIsochroneApprox`` for modeling tidal streams using simple models formulated in action-angle space (see the tutorial above).
+* *The Milky Way Tomography with SDSS. V. Mapping the Dark Matter Halo*, Sarah R. Loebman, Zeljko Ivezic Thomas R. Quinn, Jo Bovy, Charlotte R. Christensen, Mario Juric, Rok Roskar, Alyson M. Brooks, & Fabio Governato (2014), *Astrophys. J*, in press (`arXiv/1408.5388 <http://arxiv.org/abs/1408.5388>`_):
+    Uses ``galpy.potential`` functions to calculate the acceleration field of the best-fit potential in Bovy & Rix (2013) above.
 
 Acknowledging galpy
 --------------------
