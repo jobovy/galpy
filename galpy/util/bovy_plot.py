@@ -88,9 +88,9 @@ def bovy_end_print(filename,**kwargs):
 
     """
     if kwargs.has_key('format'):
-        pyplot.savefig(filename,format=kwags['format'])
+        pyplot.savefig(filename,**kwargs)
     else:
-        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1])
+        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1],**kwargs)
     pyplot.close()
 
 def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
