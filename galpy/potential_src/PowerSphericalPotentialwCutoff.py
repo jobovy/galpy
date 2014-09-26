@@ -74,7 +74,8 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Started - Bovy (IAS)
         """
         r= nu.sqrt(R**2.+z**2.)
-        return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+        w = r / self.rc
+        return -2.*nu.pi*self.rc**(2.-self.alpha) * (special.gamma(1.-self.alpha/2.)*special.gammaincc(1.-self.alpha/2.,w*w)+special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,w*w)/w)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
