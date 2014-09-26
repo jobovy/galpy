@@ -1530,6 +1530,11 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='azaphi',deperiod=True)
     aAI.plot(obs,type='araphi',deperiod=True,downsample=True)
     aAI.plot(obs,type='azaphi',deperiod=True,downsample=True)
+    #With integrated orbit, just to make sure we're covering this
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    obs.integrate(numpy.linspace(0.,200.,20001),lp)
+    aAI.plot(obs,type='jr')   
     return None
 
 #Test the Orbit interface
@@ -1681,6 +1686,14 @@ def test_orbit_interface_actionAngleIsochroneApprox():
                         obs.wz(pot=MWPotential,type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApproxStaeckel does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+        'Orbit.Tr does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+        'Orbit.Tp does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+        'Orbit.Tz does not agree with actionAngleSpherical frequency'
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+        'Orbit.TrTp does not agree with actionAngleSpherical frequency'
     return None
 
 #Test the b estimation

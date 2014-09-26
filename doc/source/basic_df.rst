@@ -353,6 +353,146 @@ which shows very good agreement with the sampled distances
 galpy can further sample full 4D phase--space coordinates along a
 given line of sight through ``dfc.sampleLOS``.
 
+Non-axisymmetric, time-dependent disk distribution functions
+-------------------------------------------------------------
+
+``galpy`` also supports the evaluation of non-axisymmetric,
+time-dependent two-dimensional DFs. These specific DFs are constructed
+by assuming an initial axisymmetric steady state, described by a DF of
+the family discussed above, that is then acted upon by a
+non-axisymmetric, time-dependent perturbation. The DF at a given time
+and phase-space position is evaluated by integrating the orbit
+backwards in time in the non-axisymmetric potential until the time of
+the initial DF is reached. From Liouville's theorem, which states that
+phase-space volume is conserved along the orbit, we then know that we
+can evaluate the non-axisymmetric DF today as the initial DF at the
+initial point on the orbit. This procedure was first used by `Dehnen
+(2000) <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_.
+
+This is implemented in ``galpy`` as ``galpy.df.evolveddiskdf``. Such a
+DF is setup by specifying the initial DF, the non-axisymmetric
+potential, and the time of the initial state. For example, we can look
+at the effect of an elliptical perturbation to the potential like that
+described by `Kuijken & Tremaine
+<http://adsabs.harvard.edu/abs/1994ApJ...421..178K>`_. To do this, we
+set up an elliptical perturbation to a logarithmic potential that is
+grown slowly to minimize non-adiabatic effects
+
+>>> from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,tform=-150.,tsteady=125.)
+
+This perturbation starts to be grown at ``tform=-150`` over a time
+period of ``tsteady=125`` time units. We will consider the effect of
+this perturbation on a very cold disk (velocity dispersion
+:math:`\sigma_R = 0.0125\,v_c`) and a warm disk (:math:`\sigma_R =
+0.15\,v_c`). We set up these two initial DFs
+
+>>> idfcold= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+>>> idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15))
+
+and then set up the ``evolveddiskdf``
+
+>>> from galpy.df import evolveddiskdf
+>>> edfcold= evolveddiskdf(idfcold,[lp,ep],to=-150.)
+>>> edfwarm= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
+
+where we specify that the initial state is at ``to=-150``.
+
+We can now use these ``evolveddiskdf`` instances in much the same way
+as ``diskdf`` instances. One difference is that there is much more
+support for evaluating the DF on a grid (to help speed up the rather
+slow computations involved). Thus, we can evaluate the mean radial
+velocity at ``R=0.9``, ``phi=22.5`` degree, and ``t=0`` by using a grid
+
+>>> mvrcold, gridcold= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51,nsigma=6.)
+>>> mvrwarm, gridwarm= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51)
+>>> print mvrcold, mvrwarm
+-0.0358753028951 -0.0294763627935
+
+The cold response agrees well with the analytical calculation, which
+predicts that this is :math:`-0.05/\sqrt{2}`:
+
+>>> print mvrcold+0.05/sqrt(2.)
+-0.000519963835811
+
+The warm response is slightly smaller in amplitude
+
+>>> print mvrwarm/mvrcold
+0.821633837619
+
+although the numerical uncertainty in ``mvrwarm`` is large, because
+the grid is not sufficiently fine.
+
+We can then re-use this grid in calculations of other moments of
+the DF, e.g.,
+
+>>> print edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold)
+0.965058551359
+>>> print edfwarm.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm)
+0.915397094614
+
+which returns the mean rotational velocity, and
+
+>>> print edfcold.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridcold)
+3.21160878582
+>>> print edfwarm.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm)
+4.23510254333
+
+which gives the vertex deviation. The reason we have to calculate the
+grid out to ``6nsigma`` for the cold response is that the response is
+much bigger than the velocity dispersion of the population. This
+velocity dispersion is used to automatically to set the grid edges,
+but sometimes has to be adjusted to contain the full DF.
+
+``evolveddiskdf`` can also calculate the Oort functions, by directly
+calculating the spatial derivatives of the DF. These can also be calculated on a grid, such that we can do
+
+>>> oortacold, gridcold, gridrcold, gridphicold= edfcold.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True,nsigma=6.)
+>>> oortawarm, gridwarm, gridrwarm, gridphiwarm= edfwarm.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True)
+>>> print oortacold, oortawarm
+0.575494559999 0.526389833249
+
+It is clear that these are quite different. The cold calculation is
+again close to the analytical prediction, which says that :math:`A =
+A_{\mathrm{axi}}+0.05/(2\sqrt{2})` where :math:`A_{\mathrm{axi}} =
+1/(2\times0.9)` in this case:
+
+>>> print oortacold-(0.5/0.9+0.05/2./sqrt(2.))
+0.0022613349141670236
+
+These grids can then be re-used for the other Oort functions, for
+example,
+
+>>> print edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold)
+-0.574674310521
+>>> print edfwarm.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm,derivphiGrid=gridphiwarm,derivRGrid=gridrwarm)
+-0.555546911144
+
+and similar for ``oortC`` and ``oortK``. These warm results should
+again be considered for illustration only, as the grid is not
+sufficiently fine to have a small numerical error.
+
+The grids that have been calculated can also be plotted to show the
+full velocity DF. For example,
+
+>>> gridcold.plot()
+
+gives
+
+.. image:: images/basic-df-nonaxi-cold.png
+
+which demonstrates that the DF is basically the initial DF that has been displaced (by a significant amount compared to the velocity dispersion). The warm velocityd distribution is given by
+
+>>> gridwarm.plot()
+
+which returns
+
+.. image:: images/basic-df-nonaxi-warm.png
+
+The shift of the smooth DF here is much smaller than the velocity
+dispersion.
+
 Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar 
 ---------------------------------------------------------------------------------------
 .. _hercules:
@@ -399,6 +539,19 @@ This gives
 >>> bovy_dens2d(out,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
 
 .. image:: images/diskdf-dehnenhercules.png
+
+Now that ``galpy`` contains the ``evolveddiskdf`` described above,
+this whole calculation is encapsulated in this module and can be done
+much more easily as
+
+>>> edf= evolveddiskdf(dfc,[lp,dp],to=dp.tform())
+>>> mvr, grid= edf.meanvR(1.,grid=True,gridpoints=101,returnGrid=True)
+
+The gridded DF can be accessed as ``grid.df``, which we can plot as before
+
+>>> bovy_dens2d(grid.df.T,origin='lower',cmap='gist_yarg',contours=True,xrange=[grid.vRgrid[0],grid.vRgrid[-1]],yrange=[grid.vTgrid[0],grid.vTgrid[-1]],xlabel=r'$v_R$',ylabel=r'$v_T$')
+
+.. image:: images/diskdf-dehnenhercules-edf.png
 
 For more information see `2000AJ....119..800D
 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`_ and

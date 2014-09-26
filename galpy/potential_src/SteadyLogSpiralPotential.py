@@ -12,7 +12,7 @@ class SteadyLogSpiralPotential(planarPotential):
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
 
-    Can be grown in a similar way as the DehnenBarPotential
+    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\pi/\Omega_s` to normalize :math:`t_{\mathrm{form}}` and :math:`T_{\mathrm{steady}}`.
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
@@ -48,7 +48,7 @@ class SteadyLogSpiralPotential(planarPotential):
               
            tform - start of spiral growth / spiral period (default: -Infinity)
 
-           tsteady - time from tform at which the spiral is fully grown / spiral period (default: tform+2 periods)
+           tsteady - time from tform at which the spiral is fully grown / spiral period (default: 2 periods)
 
         OUTPUT:
 

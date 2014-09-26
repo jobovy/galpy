@@ -76,13 +76,15 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 * *Chemodynamics of the Milky Way. I. The first year of APOGEE data*, Friedrich Anders, Christina Chiappini, Basilio X. Santiago, et al. (2013), *Astron. & Astrophys.*, **564**, A115 (`2014A&A...564A.115A <http://adsabs.harvard.edu/abs/2014A%26A...564A.115A>`_):
   		 Employs galpy to perform orbit integrations in ``galpy.potential.MWPotential`` to characterize the orbits of stars in the APOGEE sample.
 
-* *Dynamical modeling of tidal streams*, Jo Bovy (2014), *Astrophys. J*, submitted (`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_):
+* *Dynamical modeling of tidal streams*, Jo Bovy (2014), *Astrophys. J*, in press (`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_):
     Introduces ``galpy.df.streamdf`` and ``galpy.actionAngle.actionAngleIsochroneApprox`` for modeling tidal streams using simple models formulated in action-angle space (see the tutorial above).
+* *The Milky Way Tomography with SDSS. V. Mapping the Dark Matter Halo*, Sarah R. Loebman, Zeljko Ivezic Thomas R. Quinn, Jo Bovy, Charlotte R. Christensen, Mario Juric, Rok Roskar, Alyson M. Brooks, & Fabio Governato (2014), *Astrophys. J*, in press (`arXiv/1408.5388 <http://arxiv.org/abs/1408.5388>`_):
+    Uses ``galpy.potential`` functions to calculate the acceleration field of the best-fit potential in Bovy & Rix (2013) above.
 
 Acknowledging galpy
 --------------------
 
-If you use galpy in a publication, please cite Bovy (2014, in
+If you use galpy in a publication, please cite Bovy (2015, in
 preparation) and link ``to http://github.com/jobovy/galpy``. Please
 also send me a reference to the paper or send a pull request including
 your paper in the list of galpy papers on this page (this page is at

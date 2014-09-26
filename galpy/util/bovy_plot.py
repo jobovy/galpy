@@ -88,9 +88,9 @@ def bovy_end_print(filename,**kwargs):
 
     """
     if kwargs.has_key('format'):
-        pyplot.savefig(filename,format=kwags['format'])
+        pyplot.savefig(filename,**kwargs)
     else:
-        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1])
+        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1],**kwargs)
     pyplot.close()
 
 def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
@@ -1033,6 +1033,8 @@ def scatterplot(x,y,*args,**kwargs):
        cntrlw, cntrls - linewidths and linestyles for contour
 
        cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
+
+       levels - contour-levels
 
        onedhists - if True, make one-d histograms on the sides
 

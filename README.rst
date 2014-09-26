@@ -31,7 +31,7 @@ See `AUTHORS.txt
 full list of contributors.
 
 If you find this code useful in your research, please let me know. **If
-you use galpy in a publication, please cite Bovy (2014, in
+you use galpy in a publication, please cite Bovy (2015, in
 preparation) and link to http://github.com/jobovy/galpy**. Please also
 send me a reference to the paper or send a pull request including your
 paper in the list of galpy papers on `this page
@@ -54,19 +54,30 @@ ISSUES
 
 If you find *any* bug in the code, please report these using the `Issue Tracker <http://github.com/jobovy/galpy/issues>`__ or by emailing the maintainer of the code.
 
+CONTRIBUTING TO GALPY
+----------------------
+
+Some development notes can be found on the `wiki
+<http://github.com/jobovy/galpy/wiki/>`__. This includes a list of
+small and larger extensions of galpy that would be useful `here
+<http://github.com/jobovy/galpy/wiki/Possible-galpy-extensions>`__ as
+well as a longer-term roadmap `here
+<http://github.com/jobovy/galpy/wiki/Roadmap>`__. Please let the main
+developer know if you need any help contributing!
+
 DISK DF CORRECTIONS
 --------------------
 
 The dehnendf and shudf disk distribution functions can be corrected to
 follow the desired surface-mass density and radial-velocity-dispersion
-profiles more closely (see
-`1999AJ....118.1201D <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`__). Calculating
+profiles more closely (see `1999AJ....118.1201D
+<http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`__). Calculating
 these corrections is expensive, and a large set of precalculated
-corrections can be found
-`here <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__ \[tar.gz
-archive\].
+corrections can be found `here
+<http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__
+\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df_src/data directory before running the setup.py installation. E.g.,
 
-DEVELOPMENT
------------
+.. code-block:: none
 
-Some development notes can be found on the `wiki <http://github.com/jobovy/galpy/wiki/>`__.
+   curl -O https://cloud.github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
+   tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/

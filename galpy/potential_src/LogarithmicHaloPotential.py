@@ -44,6 +44,7 @@ class LogarithmicHaloPotential(Potential):
         """
         Potential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         self._core2= core**2.
         self._q= q
         if normalize or \

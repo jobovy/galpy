@@ -394,7 +394,9 @@ potential (in the **parse_actionAngleArgs** function).
 
 9. Finally, add ``self.hasC= True`` to the initialization of the
 potential in question (after the initialization of the super class, or
-otherwise it will be undone).
+otherwise it will be undone). If you have implemented the necessary
+second derivatives for integrating phase-space volumes, also add
+``self.hasC_dxdv=True``.
 
 After following the relevant steps, the new potential class can be
 used in any galpy context in which C is used to speed up computations.

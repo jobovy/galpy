@@ -648,13 +648,22 @@ def test_mass_spher():
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-2., 'Limit mass for NFW potential not as expected'
     tR= 200.
-    # Limiting behavior
+    # Limiting behavior, add z, to test that too
     jaffemass= jp._amp*(1.-jp.a/tR)
     hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
     nfwmass= np._amp*(numpy.log(tR/np.a)-1.+np.a/tR)
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
+    tR, tz= 200., 10.
+    tr= numpy.sqrt(tR**2.+tz**2.)
+    # Limiting behavior, add z, to test that too
+    jaffemass= jp._amp*(1.-jp.a/tr)
+    hernmass= hp._amp/2.*(1.-2.*hp.a/tr)
+    nfwmass= np._amp*(numpy.log(tr/np.a)-1.+np.a/tr)
+    assert numpy.fabs((jp.mass(tR,z=tz,forceint=False)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((hp.mass(tR,z=tz,forceint=False)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((np.mass(tR,z=tz,forceint=False)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
     return None
 
 # Check that the masses are implemented correctly for spherical potentials
@@ -669,6 +678,7 @@ def test_mass_spher_analytic():
     assert numpy.fabs(hp.mass(tR,forceint=True)-hp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Hernquist potential'
     assert numpy.fabs(np.mass(tR,forceint=True)-np.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for NFW potential'
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
+    assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential, for not z is None'
     return None
 
 # Check that the masses are calculated correctly for axisymmetric potentials
@@ -1038,6 +1048,53 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
+# Test that the virial setup of NFW works
+def test_NFW_virialsetup_wrtmeanmatter():
+    from galpy.util import bovy_conversion
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., False
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    assert numpy.fabs(conc-np.conc(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)\
+                          -np.mvir(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's virial mass does not work"
+    return None
+
+def test_NFW_virialsetup_wrtcrit():
+    from galpy.util import bovy_conversion
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., True
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    assert numpy.fabs(conc-np.conc(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)\
+                          -np.mvir(vo,ro,H=H,Om=Om,overdens=overdens,
+                                   wrtcrit=wrtcrit)) < 10.**-6., "NFWPotential virial setup's virial mass does not work"
+    return None
+
+def test_conc_attributeerror():
+    pp= potential.PowerSphericalPotential(normalize=1.)
+    #This potential doesn't have a scale, so we cannot calculate the concentration
+    try: pp.conc(220.,8.)
+    except AttributeError: pass
+    else: raise AssertionError('conc function for potential w/o scale did not raise AttributeError')
+    return None
+
+def test_mvir_attributeerror():
+    mp= potential.MiyamotoNagaiPotential(normalize=1.)
+    #Don't think I will ever implement the virial radius for this
+    try: mp.mvir(220.,8.)
+    except AttributeError: pass
+    else: raise AssertionError('mvir function for potential w/o rvir did not raise AttributeError')
+    return None
+
 def test_LinShuReductionFactor():
     #Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import LinShuReductionFactor, \
@@ -1320,19 +1377,19 @@ class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=1.,tsteady=2.,
+                                    tform=1.,tsteady=1.,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-1.,tsteady=1.,
+                                    tform=-1.,tsteady=2.,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm5(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-5.,tsteady=-1.,
+                                    tform=-5.,tsteady=4.,
                                     alpha=0.01,Af=0.04)
 class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
     def __init__(self):

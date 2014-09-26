@@ -395,6 +395,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
+        self.hasC_dxdv= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -554,6 +555,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
+        self.hasC_dxdv= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -751,6 +753,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
         self._scale= self.a
         self.hasC= True
+        self.hasC_dxdv= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -874,11 +877,11 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    def _rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+    def rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
 
-           _rvir
+           rvir
 
         PURPOSE:
 

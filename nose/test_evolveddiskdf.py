@@ -402,7 +402,133 @@ def test_mildnonaxi_meanvt_direct_tlist():
     except IOError: pass
     else: raise AssertionError('direct evolveddiskdf calculation of meanvT w/ list of times did not raise IOError')
     return None
-                       
+         
+# Tests with significant nonaxi, but cold
+              
+def test_elliptical_cold_vr():
+    # Test that the radial velocity for the elliptical disk behaves as analytically expected
+    idf= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+    cp= 0.05
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(cp=cp,sp=0.,p=0.,tform=-150.,tsteady=125.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-150.)
+    #Should be cp
+    mvr, grid= edf.meanvR(0.9,phi=-numpy.pi/4.,
+                          integrate_method='rk6_c',grid=True,nsigma=7.,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvr-cp) < 10.**-4., 'Cold elliptical disk does not agree with analytical calculation for vr'
+    #Should be 0
+    mvr, grid= edf.meanvR(0.9,phi=0.,
+                          integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvr) < 10.**-4., 'Cold elliptical disk does not agree with analytical calculation for vr'
+    return None
+
+def test_elliptical_cold_vt():
+    # Test that the rotational velocity for the elliptical disk behaves as analytically expected
+    idf= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+    cp= 0.05
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(cp=cp,sp=0.,p=0.,tform=-150.,tsteady=125.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-150.)
+    #Should be 1.
+    mvt, grid= edf.meanvT(0.9,phi=-numpy.pi/4.,
+                          integrate_method='rk6_c',grid=True,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvt-1.) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for vt'
+    #Should be 1.-cp
+    mvt, grid= edf.meanvT(0.9,phi=0.,
+                          integrate_method='rk6_c',grid=True,nsigma=7.,
+                          returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(mvt-1.+cp) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for vt'
+    return None
+
+def test_elliptical_cold_vertexdev():
+    # Test that the vertex deviations for the elliptical disk behaves as analytically expected
+    idf= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+    cp= 0.05
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(cp=cp,sp=0.,p=0.,tform=-150.,tsteady=125.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-150.)
+    #Should be -2cp in radians
+    vdev, grid= edf.vertexdev(0.9,phi=-numpy.pi/4.,
+                              integrate_method='rk6_c',grid=True,nsigma=7.,
+                              returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(vdev/180.*numpy.pi+2.*cp) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
+    #Should be 0
+    vdev, grid= edf.vertexdev(0.9,phi=0.,
+                              integrate_method='rk6_c',grid=True,nsigma=7.,
+                              returnGrid=True,gridpoints=_GRIDPOINTS)
+    assert numpy.fabs(vdev) < 10.**-2., 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
+    return None
+
+def test_elliptical_cold_oortABCK_position1():
+    # Test that the Oort functions A, B, C, and K for the elliptical disk behaves as analytically expected
+    idf= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+    cp= 0.05
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(cp=cp,sp=0.,p=0.,tform=-150.,tsteady=125.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-150.)
+    #Should be 0.5/0.9
+    oorta, grid, gridr, gridp= edf.oortA(0.9,phi=-numpy.pi/4.,
+                                         integrate_method='rk6_c',grid=True,
+                                         nsigma=7.,
+                                         derivRGrid=True,derivphiGrid=True,
+                                         returnGrids=True,
+                                         gridpoints=51,
+                                         derivGridpoints=51)
+    assert numpy.fabs(oorta-0.5/0.9) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for oortA'
+    #Also check other Oort constants
+    # Should be -0.5/0.9
+    oortb= edf.oortB(0.9,phi=-numpy.pi/4.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortb+0.5/0.9) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for oortB'
+    #Should be cp/2
+    oortc= edf.oortC(0.9,phi=-numpy.pi/4.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortc-cp/2.) < 10.**-2.2, 'Cold elliptical disk does not agree with analytical calculation for oortC'
+    #Should be -cp/2
+    oortk= edf.oortK(0.9,phi=-numpy.pi/4.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortk+cp/2.) < 10.**-2.2, 'Cold elliptical disk does not agree with analytical calculation for oortK'
+    return None
+
+def test_elliptical_cold_oortABCK_position2():
+    # Test that the Oort functions A, B, C, and K for the elliptical disk behaves as analytically expected
+    idf= dehnendf(beta=0.,profileParams=(1./3.,1.,0.0125))
+    cp= 0.05
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          EllipticalDiskPotential(cp=cp,sp=0.,p=0.,tform=-150.,tsteady=125.)]
+    edf= evolveddiskdf(idf,pot=pot,to=-150.)
+    #Should be 0.5/0.9+cp/2
+    oorta, grid, gridr, gridp= edf.oortA(0.9,phi=0.,
+                                         integrate_method='rk6_c',grid=True,
+                                         nsigma=7.,
+                                         derivRGrid=True,derivphiGrid=True,
+                                         returnGrids=True,
+                                         gridpoints=51,
+                                         derivGridpoints=51)
+    assert numpy.fabs(oorta-cp/2.-0.5/0.9) < 10.**-2.2, 'Cold elliptical disk does not agree with analytical calculation for oortA'
+    #Should be -cp/2-0.5/0.9
+    oortb= edf.oortB(0.9,phi=0.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortb+cp/2.+0.5/0.9) < 10.**-2.2, 'Cold elliptical disk does not agree with analytical calculation for oortB'
+    #Should be 0
+    oortc= edf.oortC(0.9,phi=0.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortc) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for oortC'
+    #Should be 0
+    oortk= edf.oortK(0.9,phi=0.,
+                     integrate_method='rk6_c',grid=grid,nsigma=7.,
+                     derivRGrid=gridr,derivphiGrid=gridp)
+    assert numpy.fabs(oortk) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for oortK'
+    return None
+
 def test_call_special():
     from galpy.orbit import Orbit
     idf= dehnendf(beta=0.)

@@ -14,6 +14,7 @@ class planarPotential:
         self.isNonAxi= True #Gets reset by planarAxiPotential
         self.isRZ= False
         self.hasC= False
+        self.hasC_dxdv= False
         return None
 
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
@@ -506,6 +507,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         planarAxiPotential.__init__(self,amp=1.)
         self._RZPot= RZPot
         self.hasC= RZPot.hasC
+        self.hasC_dxdv= RZPot.hasC_dxdv
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):

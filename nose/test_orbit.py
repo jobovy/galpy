@@ -2079,6 +2079,120 @@ def test_interpolation_issue187():
     assert numpy.all(numpy.fabs((postWrapInterpolate(tsPostWrap) % (2.*numpy.pi))-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
     return None
 
+# Test that fitting an orbit works
+def test_orbitfit():
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ts= numpy.linspace(0.,1.,1001)
+    o.integrate(ts,lp)
+    #Create orbit points from this integrated orbit, each 100th point
+    vxvv= o._orb.orbit[::100,:]
+    #now fit, using another orbit instance
+    of= o()
+    of.fit(vxvv,pot=lp,tintJ=1.5)
+    assert numpy.all(comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp) < 10.**-7.), 'Orbit fit in configuration space does not work'
+    return None
+
+def test_orbitfit_potinput():
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ts= numpy.linspace(0.,1.,1001)
+    o.integrate(ts,lp)
+    #Create orbit points from this integrated orbit, each 100th point
+    vxvv= o._orb.orbit[::100,:]
+    #now fit, using another orbit instance, without potential, should error
+    of= o()
+    try:
+        of.fit(vxvv,pot=None,tintJ=1.5)
+    except AttributeError: pass
+    else: raise AssertionError('Orbit fit w/o potential does not raise AttributeError')
+    #Now give a potential to of
+    of._orb._pot= lp
+    of.fit(vxvv,pot=lp,tintJ=1.5)
+    assert numpy.all(comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp) < 10.**-7.), 'Orbit fit in configuration space does not work'
+    return None
+
+# Test orbit fit in observed Galactic coordinates
+def test_orbitfit_lb():
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ts= numpy.linspace(0.,1.,1001)
+    o.integrate(ts,lp)
+    #Create orbit points from this integrated orbit, each 100th point
+    vxvv= []
+    for ii in range(10):
+        vxvv.append([o.ll(ii/10.)[0],o.bb(ii/10.)[0],o.dist(ii/10.)[0],
+                     o.pmll(ii/10.)[0],o.pmbb(ii/10.)[0],o.vlos(ii/10.)[0]])
+    vxvv= numpy.array(vxvv)
+    #now fit, using another orbit instance
+    of= o()
+    of.fit(vxvv,pot=lp,tintJ=1.5,lb=True,vxvv_err=0.01*numpy.ones_like(vxvv))
+    compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=True)
+    assert numpy.all(compf < 10.**-4.), 'Orbit fit in lb space does not work'
+    return None
+
+# Test orbit fit in observed equatorial coordinates
+def test_orbitfit_radec():
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ts= numpy.linspace(0.,1.,1001)
+    o.integrate(ts,lp)
+    #Create orbit points from this integrated orbit, each 100th point
+    vxvv= []
+    ro, vo= 9., 230.
+    for ii in range(10):
+        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo)[0],o.dec(ii/10.,ro=ro,vo=vo)[0],
+                     o.dist(ii/10.,ro=ro,vo=vo)[0],o.pmra(ii/10.,ro=ro,vo=vo)[0],
+                     o.pmdec(ii/10.,ro=ro,vo=vo)[0],o.vlos(ii/10.,ro=ro,vo=vo)[0]])
+    vxvv= numpy.array(vxvv)
+    #now fit, using another orbit instance
+    of= o()
+    of.fit(vxvv,pot=lp,tintJ=1.5,radec=True,ro=ro,vo=vo)
+    compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
+                       ro=ro,vo=vo)
+    assert numpy.all(compf < 10.**-4.), 'Orbit fit in lb space does not work'
+    return None
+
+def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
+    """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
+    of.integrate(ts,pot)
+    off= of.flip()
+    off.integrate(ts,pot)
+    #Flip velocities again
+    off._orb.vxvv[1]*= -1.
+    off._orb.vxvv[2]*= -1.
+    off._orb.vxvv[4]*= -1.
+    if lb:
+        allvxvv= []
+        for ii in range(len(ts)):
+            allvxvv.append([of.ll(ts[ii])[0],of.bb(ts[ii])[0],
+                            of.dist(ts[ii])[0],of.pmll(ts[ii])[0],
+                            of.pmbb(ts[ii])[0],of.vlos(ts[ii])[0]])
+            allvxvv.append([off.ll(ts[ii])[0],off.bb(ts[ii])[0],
+                            off.dist(ts[ii])[0],off.pmll(ts[ii])[0],
+                            off.pmbb(ts[ii])[0],off.vlos(ts[ii])[0]])
+        allvxvv= numpy.array(allvxvv)
+    elif radec:
+        allvxvv= []
+        for ii in range(len(ts)):
+            allvxvv.append([of.ra(ts[ii],ro=ro,vo=vo)[0],of.dec(ts[ii],ro=ro,vo=vo)[0],
+                            of.dist(ts[ii],ro=ro,vo=vo)[0],of.pmra(ts[ii],ro=ro,vo=vo)[0],
+                            of.pmdec(ts[ii],ro=ro,vo=vo)[0],of.vlos(ts[ii],ro=ro,vo=vo)[0]])
+            allvxvv.append([off.ra(ts[ii])[0],off.dec(ts[ii],ro=ro,vo=vo)[0],
+                            off.dist(ts[ii],ro=ro,vo=vo)[0],off.pmra(ts[ii],ro=ro,vo=vo)[0],
+                            off.pmdec(ts[ii],ro=ro,vo=vo)[0],off.vlos(ts[ii],ro=ro,vo=vo)[0]])
+        allvxvv= numpy.array(allvxvv)
+    else:
+        allvxvv= numpy.concatenate((of.getOrbit(),off.getOrbit()),axis=0)
+    out= []
+    for ii in range(vxvv.shape[0]):
+        out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
+    return numpy.array(out)
+
 # Check plotting routines
 def test_linear_plotting():
     from galpy.orbit import Orbit

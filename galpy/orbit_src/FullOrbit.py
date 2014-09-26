@@ -390,7 +390,7 @@ class FullOrbit(OrbitTop):
            condition
         INPUT:
            vxvv - [:,6] array of positions and velocities along the orbit
-           vxvv_err= [:,6] array of errors on positions and velocities along the orbit
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
@@ -398,8 +398,7 @@ class FullOrbit(OrbitTop):
                lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                                       (in kpc and km/s) (default=Object-wide default)
-                                      OR Orbit object that corresponds to the orbit
-                                      of the observer
+                                      Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
                 ro= distance in kpc corresponding to R=1. (default: taken from object)
                 vo= velocity in km/s corresponding to v=1. (default: taken from object)
 
@@ -724,30 +723,17 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
     if radec or lb:
         #Need to transform to ra,dec
         #First transform to X,Y,Z,vX,vY,vZ (Galactic)
-        if isinstance(obs,(nu.ndarray,list)):
-            X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
-                                            iz.flatten(),
-                                            Xsun=obs[0]/ro,
-                                            Ysun=obs[1]/ro,
-                                            Zsun=obs[2]/ro)
-            vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
-                                                  ivz.flatten(),iphi.flatten(),
-                                                  vsun=nu.array(\
-                    obs[3:6])/vo)
-        else: #Orbit instance
-            X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),iz.flatten(),
-                                            Xsun=obs.x(*args,**kwargs),
-                                            Ysun=obs.y(*args,**kwargs),
-                                            Zsun=obs.z(*args,**kwargs))
-            vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
-                                                  ivz.flatten(),iphi.flatten(),
-                                                  vsun=nu.array([\
-                        obs.vx(*args,**kwargs),
-                        obs.vy(*args,**kwargs),
-                        obs.vz(*args,**kwargs)]))
+        X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
+                                        iz.flatten(),
+                                        Xsun=obs[0]/ro,
+                                        Ysun=obs[1]/ro,
+                                        Zsun=obs[2]/ro)
+        vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
+                                              ivz.flatten(),iphi.flatten(),
+                                              vsun=nu.array(\
+                obs[3:6])/vo)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
-        if True in bad_indx:
-            X[bad_indx]+= ro/10000.
+        if True in bad_indx: X[bad_indx]+= ro/10000.
         lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,
                                                   vX*vo,vY*vo,vZ*vo,
                                                   degree=True)
@@ -781,6 +767,8 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
         #print sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))]
         if not vxvv_err is None:
             sub_vxvv/= vxvv_err[ii,:]**2.
+        else:
+            sub_vxvv/= 0.01**2.
         out+= logsumexp(-0.5*nu.sum(sub_vxvv,axis=1))
     return -out
 

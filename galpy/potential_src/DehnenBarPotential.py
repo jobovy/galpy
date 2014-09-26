@@ -18,16 +18,24 @@ class DehnenBarPotential(planarPotential):
 
     .. math::
 
-        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = \\frac{t}{t_\mathrm{steady}-t_\\mathrm{form}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq t \\leq t_\\mathrm{steady}
+        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
     and 
 
     .. math::
 
         A_b(t) = \\begin{cases}
-        0\\,, & t < t_\mathrm{form}\\\\
-        \\frac{\\alpha}{3\\,R_b^3}\\,, & t > t_\mathrm{steady}
+        0\\,, & \\frac{t}{T_b} < t_\mathrm{form}\\\\
+        \\frac{\\alpha}{3\\,R_b^3}\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
         \\end{cases}
+
+    where
+
+    .. math::
+
+       T_b = \\frac{2\pi}{\\Omega_b}
+
+    is the bar period.
 
     """
     def __init__(self,amp=1.,omegab=None,rb=None,chi=0.8,
@@ -52,6 +60,8 @@ class DehnenBarPotential(planarPotential):
            (in rad; default=25 degree)
 
            tform - start of bar growth / bar period (default: -4)
+
+           tsteady - time from tform at which the bar is fully grown / bar period (default: -tform/2, st the perturbation is fully grown at tform/2)
 
            tsteady - time at which the bar is fully grown / bar period
            (default: tform/2)
@@ -85,6 +95,7 @@ class DehnenBarPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         self._barphi= barphi
         if omegab is None:
             self._rolr= rolr
@@ -104,7 +115,7 @@ class DehnenBarPotential(planarPotential):
         if tsteady is None:
             self._tsteady= self._tform/2.
         else:
-            self._tsteady= tsteady*self._tb
+            self._tsteady= self._tform+tsteady*self._tb
 
     def _evaluate(self,R,phi=0.,t=0.):
         """
