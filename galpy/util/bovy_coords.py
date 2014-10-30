@@ -1001,7 +1001,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
 
     PURPOSE:
 
-       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates for velocities
+       transform velocities in XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates for velocities
 
     INPUT:
 
@@ -1032,7 +1032,7 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
 
     PURPOSE:
 
-       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates for velocities
+       transform velocities in XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates for velocities
 
     INPUT:
 
@@ -1042,15 +1042,15 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
 
        vz - W
 
-       X - X
+       X - X in Galactocentric rectangular coordinates
 
-       Y - Y
+       Y - Y in Galactocentric rectangular coordinates
 
-       Z - Z
+       Z - Z in Galactocentric rectangular coordinates
 
        vsun - velocity of the sun in the GC frame ndarray[3]
 
-       galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates
+       galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
 
     OUTPUT:
 
