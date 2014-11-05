@@ -208,7 +208,7 @@ setup(name='galpy',
       install_requires=['numpy>=1.7','scipy','matplotlib','nose'],
       ext_modules=ext_modules,
       classifiers=[
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 6 - Mature",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
