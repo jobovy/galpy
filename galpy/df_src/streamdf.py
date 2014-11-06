@@ -38,6 +38,7 @@ class streamdf:
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
                  deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
+                 progIsTrack=False,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -61,6 +62,8 @@ class streamdf:
                            if False, model the trailing part
 
            progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
+
+           progIsTrack= (False) if True, then the progenitor (x,v) is actually the (x,v) of the stream track at zero angle separation; useful when initializing with an orbit fit; the progenitor's position will be calculated
 
            pot= Potential instance or list thereof
 
@@ -129,14 +132,14 @@ class streamdf:
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
-        self._progenitor= progenitor() #call to get new Orbit
-        # Make sure we do not use physical coordinates
-        self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
             self._multi= multi
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
+        self._progenitor= progenitor() #call to get new Orbit
+        # Make sure we do not use physical coordinates
+        self._progenitor.turn_physical_off()
         acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
         self._progenitor_jr= acfs[0][0]
