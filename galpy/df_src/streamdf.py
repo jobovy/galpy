@@ -138,6 +138,9 @@ class streamdf:
             self._multi= multi
         self._progenitor_setup(progenitor,leading)
         self._offset_setup(sigangle,leading,deltaAngleTrack)
+        # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
+        if progIsTrack:
+            self._setup_progIsTrack()
         self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun)
         #Determine the stream track
         if not nosetup:
@@ -227,7 +230,6 @@ class streamdf:
             fast_cholesky_invert(self._sigomatrix/self._sigomatrixNorm,
                                  tiny=10.**-15.,logdet=True)
         self._sigomatrixinv/= self._sigomatrixNorm
-
         deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
             self._sortedSigOEig[2]) * self._tdisrupt
         if (deltaAngleTrack is None):  
@@ -259,6 +261,43 @@ class streamdf:
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
+        return None
+
+    def _setup_progIsTrack(self):
+        """If progIsTrack, the progenitor orbit that was passed to the 
+        streamdf initialization is the track at zero angle separation;
+        this routine computes an actual progenitor position that gives
+        the desired track given the parameters of the streamdf"""
+        # We need to flip the sign of the offset, to go to the progenitor
+        self._sigMeanSign*= -1.
+        # Use _determine_stream_track_single to calculate the track-progenitor
+        # offset at zero angle separation
+        prog_stream_offset=\
+            _determine_stream_track_single(self._aA,
+                                           self._progenitor,
+                                           0., #time = 0
+                                           self._progenitor_angle,
+                                           self._sigMeanSign,
+                                           self._dsigomeanProgDirection,
+                                           self.meanOmega,
+                                           0.) #angle = 0
+        # Setup the new progenitor orbit, need to make sure we copy the 
+        # coordinate transformation parameters from the previous progenitor
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._progenitor._orb._zo,
+                         'solarmotion':self._progenitor._orb._solarmotion}
+        if self._progenitor._orb._roSet:
+            orbSetupKwargs['ro']= self._progenitor._orb._ro
+        if self._progenitor._orb._voSet:
+            orbSetupKwargs['vo']= self._progenitor._orb._vo
+        progenitor= Orbit(prog_stream_offset[3],**orbSetupKwargs)
+        # Flip the offset sign again
+        self._sigMeanSign*= -1.
+        # Now re-do the previous setup
+        self._progenitor_setup(progenitor,self._leading)
+        self._offset_setup(self._sigangle,self._leading,
+                           self._deltaAngleTrack)
         return None
 
     def misalignment(self,isotropic=False):
