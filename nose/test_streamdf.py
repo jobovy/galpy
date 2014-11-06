@@ -972,6 +972,33 @@ def test_fardalwmwpot_trackaa():
     assert numpy.all(numpy.fabs((aastream[:,3:]-aastream_expl[:,3:])/2./numpy.pi) < 0.001), 'Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup'
     return None
 
+def test_setup_progIsTrack():
+    #Test that setting up with progIsTrack=True gives a track that is very close to the given progenitor, such that it works as it should
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               ro=8.,vo=220.)
+    sigv= 0.365 #km/s
+    sdfp= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                   leading=True,
+                   nTrackChunks=11,
+                   tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                   progIsTrack=True)
+    assert numpy.all(numpy.fabs(obs._orb.vxvv-sdfp._ObsTrack[0,:]) < 10.**-3.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start'
+    # Integrate the orbit a little bit and test at a further point
+    obs.integrate(numpy.linspace(0.,2.,10001),lp)
+    indx= numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:,0]-1.75))
+    oindx= numpy.argmin(numpy.fabs(obs._orb.orbit[:,0]-1.75))
+    assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs._orb.orbit[oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
+    return None  
+
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     observe= [sdf._R0,0.,sdf._Zsun]
     observe.extend(sdf._vsun)
