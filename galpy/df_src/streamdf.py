@@ -136,6 +136,23 @@ class streamdf:
             self._multi= multiprocessing.cpu_count()
         else:
             self._multi= multi
+        self._progenitor_setup(progenitor,leading)
+        self._offset_setup(sigangle,leading,deltaAngleTrack)
+        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun)
+        #Determine the stream track
+        if not nosetup:
+            self._determine_nTrackIterations(nTrackIterations)
+            self._determine_stream_track(nTrackChunks)
+            self._useInterp= useInterp
+            if interpTrack or self._useInterp:
+                self._interpolate_stream_track()
+                self._interpolate_stream_track_aA()
+            self.calc_stream_lb()
+            self._determine_stream_spread()
+        return None
+
+    def _progenitor_setup(self,progenitor,leading):
+        """The part of the setup relating to the progenitor's orbit"""
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         self._progenitor= progenitor() #call to get new Orbit
         # Make sure we do not use physical coordinates
@@ -158,6 +175,10 @@ class streamdf:
                                self._aA,dxv=None,dOdJ=True,
                                _initacfs=acfs)
         self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
+        return None
+
+    def _offset_setup(self,sigangle,leading,deltaAngleTrack):
+        """The part of the setup related to calculating the stream/progenitor offset"""
         #From the progenitor orbit, determine the sigmas in J and angle
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
         self._siglz= self._progenitor.rperi()*self._sigv
@@ -214,36 +235,30 @@ class streamdf:
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
                 warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
+        self._deltaAngleTrack= deltaAngleTrack
+        return None
+
+    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
-        if progenitor._roSet \
-                and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
-                         or numpy.fabs(R0-progenitor._orb._ro) > 10.**-8.):
+        if self._progenitor._roSet \
+                and (numpy.fabs(Rnorm-self._progenitor._orb._ro) > 10.**-.8 \
+                         or numpy.fabs(R0-self._progenitor._orb._ro) > 10.**-8.):
             warnings.warn("Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if progenitor._voSet \
-                and numpy.fabs(Vnorm-progenitor._orb._vo) > 10.**-8.:
+        if self._progenitor._voSet \
+                and numpy.fabs(Vnorm-self._progenitor._orb._vo) > 10.**-8.:
             warnings.warn("Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if (progenitor._roSet or progenitor._voSet) \
-                and numpy.fabs(Zsun-progenitor._orb._zo) > 10.**-8.:
+        if (self._progenitor._roSet or self._progenitor._voSet) \
+                and numpy.fabs(Zsun-self._progenitor._orb._zo) > 10.**-8.:
             warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if (progenitor._roSet or progenitor._voSet) \
+        if (self._progenitor._roSet or self._progenitor._voSet) \
                 and numpy.any(numpy.fabs(vsun-numpy.array([0.,Vnorm,0.])\
-                                    -progenitor._orb._solarmotion) > 10.**-8.):
+                                             -self._progenitor._orb._solarmotion) > 10.**-8.):
             warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
-        #Determine the stream track
-        if not nosetup:
-            self._determine_nTrackIterations(nTrackIterations)
-            self._determine_stream_track(deltaAngleTrack,nTrackChunks)
-            self._useInterp= useInterp
-            if interpTrack or self._useInterp:
-                self._interpolate_stream_track()
-                self._interpolate_stream_track_aA()
-            self.calc_stream_lb()
-            self._determine_stream_spread()
         return None
 
     def misalignment(self,isotropic=False):
@@ -755,10 +770,9 @@ class streamdf:
             self.nTrackIterations= 2
         return None
 
-    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
+    def _determine_stream_track(self,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
-        self._deltaAngleTrack= deltaAngleTrack
         if nTrackChunks is None:
             #default is floor(self._deltaAngleTrack/0.15)+1
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
