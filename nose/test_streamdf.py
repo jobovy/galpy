@@ -24,6 +24,7 @@ def test_progenitor_coordtransformparams():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import galpyWarning
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     #odeint to make sure that the C integration warning isn't thrown
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8,integrate_method='odeint')
@@ -33,7 +34,7 @@ def test_progenitor_coordtransformparams():
     sigv= 0.365 #km/s
     #Turn warnings into errors to test for them
     import warnings
-    warnings.simplefilter("error")
+    warnings.simplefilter("error",galpyWarning)
     #Test w/ diff Rnorm
     try:
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
@@ -86,7 +87,7 @@ def test_progenitor_coordtransformparams():
     except: pass
     else: raise AssertionError("streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun")
     #Turn warnings back into warnings
-    warnings.simplefilter("default")
+    warnings.simplefilter("default",galpyWarning)
     return None
 
 #Exact setup from Bovy (2014); should reproduce those results (which have been
