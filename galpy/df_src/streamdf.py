@@ -141,7 +141,7 @@ class streamdf:
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun)
+        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor)
         #Determine the stream track
         if not nosetup:
             self._determine_nTrackIterations(nTrackIterations)
@@ -240,21 +240,21 @@ class streamdf:
         self._deltaAngleTrack= deltaAngleTrack
         return None
 
-    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun):
+    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
-        if self._progenitor._roSet \
-                and (numpy.fabs(Rnorm-self._progenitor._orb._ro) > 10.**-.8 \
-                         or numpy.fabs(R0-self._progenitor._orb._ro) > 10.**-8.):
+        if progenitor._roSet \
+                and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
+                         or numpy.fabs(R0-progenitor._orb._ro) > 10.**-8.):
             warnings.warn("Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if self._progenitor._voSet \
-                and numpy.fabs(Vnorm-self._progenitor._orb._vo) > 10.**-8.:
+        if progenitor._voSet \
+                and numpy.fabs(Vnorm-progenitor._orb._vo) > 10.**-8.:
             warnings.warn("Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if (self._progenitor._roSet or self._progenitor._voSet) \
-                and numpy.fabs(Zsun-self._progenitor._orb._zo) > 10.**-8.:
+        if (progenitor._roSet or progenitor._voSet) \
+                and numpy.fabs(Zsun-progenitor._orb._zo) > 10.**-8.:
             warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
-        if (self._progenitor._roSet or self._progenitor._voSet) \
+        if (progenitor._roSet or progenitor._voSet) \
                 and numpy.any(numpy.fabs(vsun-numpy.array([0.,Vnorm,0.])\
-                                             -self._progenitor._orb._solarmotion) > 10.**-8.):
+                                             -progenitor._orb._solarmotion) > 10.**-8.):
             warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
