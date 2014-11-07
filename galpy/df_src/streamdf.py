@@ -281,17 +281,8 @@ class streamdf:
                                            self._dsigomeanProgDirection,
                                            self.meanOmega,
                                            0.) #angle = 0
-        # Setup the new progenitor orbit, need to make sure we copy the 
-        # coordinate transformation parameters from the previous progenitor
-        orbSetupKwargs= {'ro':None,
-                         'vo':None,
-                         'zo':self._progenitor._orb._zo,
-                         'solarmotion':self._progenitor._orb._solarmotion}
-        if self._progenitor._orb._roSet:
-            orbSetupKwargs['ro']= self._progenitor._orb._ro
-        if self._progenitor._orb._voSet:
-            orbSetupKwargs['vo']= self._progenitor._orb._vo
-        progenitor= Orbit(prog_stream_offset[3],**orbSetupKwargs)
+        # Setup the new progenitor orbit
+        progenitor= Orbit(prog_stream_offset[3])
         # Flip the offset sign again
         self._sigMeanSign*= -1.
         # Now re-do the previous setup
