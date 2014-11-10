@@ -920,7 +920,7 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
     """
     fig_size =  [fig_width,fig_height]
     params = {'axes.labelsize': axes_labelsize,
-              'text.fontsize': text_fontsize,
+              'font.size': text_fontsize,
               'legend.fontsize': legend_fontsize,
               'xtick.labelsize':xtick_labelsize,
               'ytick.labelsize':ytick_labelsize,
