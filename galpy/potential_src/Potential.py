@@ -1587,6 +1587,9 @@ def epifreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS)
     
     """
+    from galpy.potential_src.planarPotential import planarPotential
+    if isinstance(Pot,(Potential,planarPotential)):
+        return Pot.epifreq(R)
     from planarPotential import evaluateplanarRforces, evaluateplanarR2derivs
     from Potential import PotentialError
     try:
@@ -1622,6 +1625,9 @@ def verticalfreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS@MPIA)
     
     """
+    from galpy.potential_src.planarPotential import planarPotential
+    if isinstance(Pot,(Potential,planarPotential)):
+        return Pot.verticalfreq(R)
     return nu.sqrt(evaluatez2derivs(R,0.,Pot))
 
 def flattening(Pot,R,z):
