@@ -1622,13 +1622,7 @@ def verticalfreq(Pot,R):
         2012-07-25 - Written - Bovy (IAS@MPIA)
     
     """
-    if isinstance(Pot,list):
-        sum= 0.
-        for pot in Pot:
-            sum+= pot.verticalfreq(R)**2.
-        return nu.sqrt(sum)
-    elif isinstance(Pot,Potential):
-        return Pot.verticalfreq(R)
+    return nu.sqrt(evaluatez2derivs(R,0.,Pot))
 
 def flattening(Pot,R,z):
     """
