@@ -617,6 +617,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                      self._vx,self._sinvx**2.,
                                      self._potu0v0,self._pot,
                                      umax=True)
+            print rend/1.1, rend
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                   rend/1.1,rend,
                                   (E,L,self._I3U,self._delta,
