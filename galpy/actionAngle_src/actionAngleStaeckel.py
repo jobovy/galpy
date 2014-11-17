@@ -556,7 +556,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                               self._potu0v0,self._pot)
             if peps < 0. and meps > 0.: #we are at umax
                 umax= self._ux
-                rstart,fac= _uminUmaxFindStart(self._ux,
+                rstart,prevr= _uminUmaxFindStart(self._ux,
                                                E,L,self._I3U,self._delta,
                                                self._u0,self._sinhu0**2.,
                                                self._vx,self._sinvx**2.,
@@ -575,12 +575,12 @@ class actionAngleStaeckelSingle(actionAngle):
                         raise UnboundError("Orbit seems to be unbound")
             elif peps > 0. and meps < 0.: #we are at umin
                 umin= self._ux
-                rend,fac= _uminUmaxFindStart(self._ux,
-                                             E,L,self._I3U,self._delta,
-                                             self._u0,self._sinhu0**2.,
-                                             self._vx,self._sinvx**2.,
-                                             self._potu0v0,self._pot,
-                                             umax=True)
+                rend,prevr= _uminUmaxFindStart(self._ux,
+                                               E,L,self._I3U,self._delta,
+                                               self._u0,self._sinhu0**2.,
+                                               self._vx,self._sinvx**2.,
+                                               self._potu0v0,self._pot,
+                                               umax=True)
                 umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                       self._ux+eps,rend,
                                       (E,L,self._I3U,self._delta,
@@ -592,15 +592,15 @@ class actionAngleStaeckelSingle(actionAngle):
                 umin= self._ux
                 umax= self._ux
         else:
-            rstart,fac= _uminUmaxFindStart(self._ux,
-                                           E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhu0**2.,
-                                           self._vx,self._sinvx**2.,
-                                           self._potu0v0,self._pot)
+            rstart,prevr= _uminUmaxFindStart(self._ux,
+                                             E,L,self._I3U,self._delta,
+                                             self._u0,self._sinhu0**2.,
+                                             self._vx,self._sinvx**2.,
+                                             self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
-                if nu.fabs(rstart/fac-self._ux) < 10.**-2.: rup= self._ux
-                else: rup= rstart/fac
+                if nu.fabs(prevr-self._ux) < 10.**-2.: rup= self._ux
+                else: rup= prevr
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
                                           rstart,rup,
@@ -611,20 +611,20 @@ class actionAngleStaeckelSingle(actionAngle):
                                            maxiter=200)
                 except RuntimeError: #pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
-            rend,fac= _uminUmaxFindStart(self._ux,
-                                         E,L,self._I3U,self._delta,
-                                         self._u0,self._sinhu0**2.,
-                                         self._vx,self._sinvx**2.,
-                                         self._potu0v0,self._pot,
-                                         umax=True)
+            rend,prevr= _uminUmaxFindStart(self._ux,
+                                           E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhu0**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot,
+                                           umax=True)
             args= (E,L,self._I3U,self._delta,
                    self._u0,self._sinhu0**2.,
                    self._vx,self._sinvx**2.,
                    self._potu0v0,self._pot)
-            print _JRStaeckelIntegrandSquared(rend/fac,*args), \
+            print _JRStaeckelIntegrandSquared(prevr,*args), \
                 _JRStaeckelIntegrandSquared(rend,*args)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                  rend/fac,rend,
+                                  prevr,rend,
                                   (E,L,self._I3U,self._delta,
                                    self._u0,self._sinhu0**2.,
                                    self._vx,self._sinvx**2.,
@@ -825,29 +825,23 @@ def _uminUmaxFindStart(u,
        2012-11-30 - Written - Bovy (IAS)
     """
     if umax:
-        trythis= u*1.1
-        fac= trythis/u #exactly representable number
-        utry= fac*u
+        utry= u*1.1
     else:
-        trythis= u*0.9
-        fac= trythis/u #exactly representable number
-        utry= fac*u
+        utry= u*0.9
+    prevu= u
     while _JRStaeckelIntegrandSquared(utry,
                                       E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                       potu0v0,pot) >= 0. \
                                       and utry > 0.000000001:
+        prevu= utry
         if umax:
             if utry > 100.:
                 raise UnboundError("Orbit seems to be unbound")
-            trythis= utry*1.1
-            fac= trythis/utry #exactly representable number
-            utry*= fac
+            utry*= 1.1
         else:
-            trythis= utry*0.9
-            fac= trythis/utry #exactly representable number
-            utry*= fac
-    if utry < 0.000000001: return (0.,fac)
-    return (utry,fac)
+            utry*= 0.9
+    if utry < 0.000000001: return (0.,prevu)
+    return (utry,prevu)
 
 def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                                 potu0pi2,pot):
