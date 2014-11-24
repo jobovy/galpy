@@ -191,7 +191,7 @@ else:
     interppotential_c_incl= False
 
 setup(name='galpy',
-      version='0.2.alpha',
+      version='1.1.alpha',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@ias.edu',
