@@ -1,12 +1,10 @@
 try: 
-    from pynbody import grav_omp
+    import pynbody
+    from pynbody import gravity
+    from pynbody.units import NoUnit
 except ImportError: #pragma: no cover
-    raise
     raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
 
-import pynbody
-from pynbody import grav_omp
-from pynbody.units import NoUnit
 import numpy as np
 from Potential import Potential
 import hashlib
@@ -86,7 +84,7 @@ class SnapshotPotential(Potential):
                                    (0,-R[i],z[j])]
 
             points_new = points.reshape(points.size/3,3)
-            pot, acc = grav_omp.direct(self._s,points_new,num_threads=self._num_threads)
+            pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R)*len(z),4)
             acc = acc.reshape(len(R)*len(z),4,3)
@@ -307,7 +305,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         else : 
             
             if self._interpPot: 
-                pot, acc = grav_omp.direct(self._s,points_new,num_threads=self._numcores)
+                pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._numcores)
 
                 pot = pot.reshape(len(R)*len(z),4)
                 acc = acc.reshape(len(R)*len(z),4,3)
@@ -345,7 +343,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
 
             # first get the accelerations
             if self._interpverticalfreq : 
-                zgrad_pot, zgrad_acc = grav_omp.direct(self._s,zgrad_points,num_threads=self._numcores)
+                zgrad_pot, zgrad_acc = gravity.calc.direct(self._s,zgrad_points,num_threads=self._numcores)
                 # each point from the points used above for pot and acc is straddled by 
                 # two points to get the gradient across it. Compute the gradient by 
                 # using a finite difference 
@@ -363,7 +361,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
 
             # do the same for the radial component
             if self._interpepifreq:
-                rgrad_pot, rgrad_acc = grav_omp.direct(self._s,rgrad_points,num_threads=self._numcores)
+                rgrad_pot, rgrad_acc = gravity.calc.direct(self._s,rgrad_points,num_threads=self._numcores)
                 rgrad = np.zeros(len(points_new))
 
                 for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
