@@ -72,8 +72,8 @@ def test_interpsnapshotKeplerPotential_eval():
     s['mass']= 1.
     s['eps']= 0.
     sp= potential.InterpSnapshotPotential(s,
-                                          rgrid=(0.01,2.,101),
-                                          zgrid=(0.,0.2,101),
+                                          rgrid=(0.01,2.,201),
+                                          zgrid=(0.,0.2,201),
                                           logR=False,
                                           interpPot=True,
                                           zsym=True)
@@ -84,5 +84,16 @@ def test_interpsnapshotKeplerPotential_eval():
     for r in rs:
         for z in zs:
             assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g)' % (r,z)
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,10)
+    zs= numpy.linspace(-0.2,0.2,20)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-5., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)))           
+    #Test all at the same time to use vector evaluation
+    mr,mz= numpy.meshgrid(rs,zs)
+    mr= mr.flatten()
+    mz= mz.flatten()
+    assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input'
     return None
 
