@@ -54,6 +54,32 @@ ISSUES
 
 If you find *any* bug in the code, please report these using the `Issue Tracker <http://github.com/jobovy/galpy/issues>`__ or by emailing the maintainer of the code.
 
+
+DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
+---------------------------------------------------
+
+**master**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
+   :target: http://travis-ci.org/jobovy/galpy
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
+  :target: https://coveralls.io/r/jobovy/galpy?branch=master
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/master/
+
+**development branch**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev-v1.1
+   :target: http://travis-ci.org/jobovy/galpy/branches
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
+  :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/dev-v1.1/
+
 CONTRIBUTING TO GALPY
 ----------------------
 
