@@ -1,6 +1,6 @@
 try: 
     from pynbody import grav_omp
-except ImportError: 
+except ImportError: #pragma: no cover
     raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
 
 import pynbody
@@ -281,7 +281,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
             rgrad_points[i*2+1][:2] += p[:2]/np.sqrt(np.dot(p[:2],p[:2]))*dr
                         
 
-        if use_pkdgrav :
+        if use_pkdgrav : #pragma: no cover
             raise RuntimeError("using pkdgrav not currently implemented")
             sn = pynbody.snapshot._new(len(self._s.d)+len(self._s.g)+len(self._s.s)+len(points_new))
             print "setting up %d grid points"%(len(points_new))
