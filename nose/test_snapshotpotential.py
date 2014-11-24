@@ -140,3 +140,87 @@ def test_interpsnapshotKeplerPotential_noc_eval():
     assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, without enable_c'
     return None
 
+def test_interpsnapshotKeplerPotential_normalize():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 4.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotPotential(s,
+                                          rgrid=(0.01,3.,201),
+                                          zgrid=(0.,0.2,201),
+                                          logR=False,
+                                          interpPot=True,
+                                          zsym=True)
+    #Currently unnormalized
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    # Normalize
+    sp.normalize(R0=1.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # Also test when R0 =/= 1
+    sp.normalize(R0=2.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    return None
+
+def test_interpsnapshotKeplerPotential_noc_normalize():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 4.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotPotential(s,
+                                          rgrid=(numpy.log(0.01),numpy.log(3.),201),
+                                          zgrid=(0.,0.2,201),
+                                          logR=True,
+                                          interpPot=True,
+                                          enable_c=False,
+                                          zsym=True)
+    #Currently unnormalized
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-6., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    # Normalize
+    sp.normalize(R0=1.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-6., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-6., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # Also test when R0 =/= 1
+    sp.normalize(R0=2.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-6., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-6., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    return None
+
+def test_interpsnapshotKeplerPotential_normalize_units():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 4.
+    s['eps']= 0.
+    s['pos'].units= 'kpc'
+    s['vel'].units= 'km s**-1'
+    sp= potential.InterpSnapshotPotential(s,
+                                          rgrid=(0.01,3.,201),
+                                          zgrid=(0.,0.2,201),
+                                          logR=False,
+                                          interpPot=True,
+                                          zsym=True)
+    #Currently unnormalized
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    # Normalize
+    sp.normalize(R0=1.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # Also test when R0 =/= 1
+    sp.normalize(R0=2.)
+    assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    # De normalize
+    sp.denormalize()
+    assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    return None
+
