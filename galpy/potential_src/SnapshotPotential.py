@@ -1,7 +1,6 @@
 try: 
     from pynbody import grav_omp
 except ImportError: #pragma: no cover
-    raise
     raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
 
 import pynbody
