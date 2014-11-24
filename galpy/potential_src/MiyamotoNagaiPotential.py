@@ -9,9 +9,11 @@ import numpy as nu
 from Potential import Potential
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
-                                 amp
-    phi(R,z) = -  ---------------------------------
-                   \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
+
+    .. math::
+
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+(a+\\sqrt{z^2+b^2})^2}}
+
     """
     def __init__(self,amp=1.,a=1.,b=0.1,normalize=False):
         """
@@ -52,8 +54,9 @@ class MiyamotoNagaiPotential(Potential):
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC= True
+        self.hasC_dxdv= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -64,18 +67,12 @@ class MiyamotoNagaiPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            return -1./nu.sqrt(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        return -1./nu.sqrt(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

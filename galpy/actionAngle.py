@@ -1,6 +1,4 @@
 from galpy.actionAngle_src import actionAngle
-from galpy.actionAngle_src import actionAngleFlat
-from galpy.actionAngle_src import actionAnglePower
 from galpy.actionAngle_src import actionAngleAxi
 from galpy.actionAngle_src import actionAngleAdiabatic
 from galpy.actionAngle_src import actionAngleAdiabaticGrid
@@ -20,12 +18,11 @@ UnboundError= actionAngle.UnboundError
 #
 estimateDeltaStaeckel= actionAngleStaeckel.estimateDeltaStaeckel
 estimateBIsochrone= actionAngleIsochroneApprox.estimateBIsochrone
+dePeriod= actionAngleIsochroneApprox.dePeriod
 #
 # Classes
 #
 actionAngle= actionAngle.actionAngle
-actionAngleFlat= actionAngleFlat.actionAngleFlat
-actionAnglePower= actionAnglePower.actionAnglePower
 actionAngleAxi= actionAngleAxi.actionAngleAxi
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid

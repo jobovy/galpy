@@ -14,12 +14,12 @@ Use as ``Potential-instance.method(...)``
    :maxdepth: 2
 
    __call__ <potentialcall.rst>
-   conc <potentialconc.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
    flattening <potentialflattening.rst>
    lindbladR <potentiallindbladR.rst>
+   mass <potentialmass.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    phi2deriv <potentialphi2deriv.rst>
@@ -28,7 +28,7 @@ Use as ``Potential-instance.method(...)``
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
-   Rzderiv <potentialr2deriv.rst>
+   Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
@@ -40,6 +40,14 @@ Use as ``Potential-instance.method(...)``
    z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
 
+In addition to these, the ``NFWPotential`` also has methods to calculate virial quantities
+
+.. toctree::
+   :maxdepth: 2
+
+   conc <potentialconc.rst>
+   mvir <potentialmvir.rst>
+   rvir <potentialrvir.rst>
 
 General 3D potential routines
 +++++++++++++++++++++++++++++
@@ -78,27 +86,55 @@ Specific potentials
 .. toctree::
    :maxdepth: 2
 
+   potentialburkert.rst
    potentialdoubleexp.rst
    potentialdoublepowerspher.rst
    potentialjaffe.rst
    potentialflattenedpower.rst
    potentialhernquist.rst
+   potentialinterprz.rst
+   potentialisochrone.rst
    potentialkepler.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
+   potentialmovingobj.rst
    potentialnfw.rst
    potentialpowerspher.rst
+   potentialpowerspherwcut.rst
    potentialrazorexp.rst
 
-In addition to these classes, a Milky-Way-like potential is defined as ``galpy.potential.MWPotential``. This potential is defined as
+.. _potential-mw:
+
+In addition to these classes, a simple Milky-Way-like potential fit to
+data on the Milky Way is included as
+``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
+details). This potential is defined as
+
+>>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
+>>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
+>>> np= NFWPotential(a=16/8.,normalize=.35)
+>>> MWPotential2014= [bp,mp,np]
+
+and can thus be used like any list of ``Potentials``. If one wants to
+add the supermassive black hole at the Galactic center, this can be
+done by
+
+>>> from galpy.potential import KeplerPotential
+>>> from galpy.util import bovy_conversion
+>>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
+
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+
+An older version ``galpy.potential.MWPotential`` of a similar
+potential that was *not* fit to data on the Milky Way is defined as
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> MWPotential= [mp,np,hp]
 
-and can thus be used like any list of ``Potentials``.
-
+``galpy.potential.MWPotential2014`` supersedes
+``galpy.potential.MWPotential``.
 
 2D potentials
 -------------
@@ -144,6 +180,8 @@ Use as ``method(...)``
    evaluateplanarphiforces <potential2dphiforces.rst>
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
+   evaluateplanarR2derivs <potential2dr2derivs.rst>
+   LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>

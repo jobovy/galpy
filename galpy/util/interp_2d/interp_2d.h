@@ -31,9 +31,9 @@ void interp_2d_free(interp_2d * i2d);
 
 void interp_2d_init(interp_2d * i2d, const double * xa, const double * ya, const double * za, int type);
 
-double interp_2d_eval(interp_2d  * i2d, double x, double y, gsl_interp_accel * acc);
-void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * acc);
-double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_interp_accel * acc);
+double interp_2d_eval(interp_2d  * i2d, double x, double y, gsl_interp_accel * accx, gsl_interp_accel * accy);
+void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * accx, gsl_interp_accel * accy);
+double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_interp_accel * accx,gsl_interp_accel * accy);
 
 #endif
 

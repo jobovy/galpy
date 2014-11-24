@@ -15,17 +15,13 @@ import warnings
 import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
-    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs
+    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
+    epifreq, omegac, verticalfreq
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from actionAngle import actionAngle, UnboundError
-try:
-    import actionAngleStaeckel_c
-except IOError:
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+import actionAngleStaeckel_c
+from actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -47,16 +43,16 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'):
+        if not kwargs.has_key('delta'): #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
                            or not kwargs.has_key('c')):           
             self._c= _check_c(self._pot)
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
         if kwargs.has_key('useu0') and kwargs['useu0']:
@@ -108,7 +104,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
@@ -121,10 +117,10 @@ class actionAngleStaeckel():
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (jr,Lz,jz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
@@ -193,7 +189,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
@@ -204,12 +200,18 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
@@ -234,7 +236,7 @@ class actionAngleStaeckel():
         if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
                 or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
+            if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
                 raise IOError("Must specify phi")
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
@@ -257,7 +259,7 @@ class actionAngleStaeckel():
             if self._useu0:
                 #First calculate u0
                 if kwargs.has_key('u0'):
-                    u0= kwargs['u0']
+                    u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
@@ -268,58 +270,20 @@ class actionAngleStaeckel():
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
                 self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+            # Adjustements for close-to-circular orbits
+            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if nu.sum(indx) > 0:
+                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
-                raise RuntimeError("C-code for calculation actions failed; try with c=False")
-        else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+                raise RuntimeError("C-code for calculation actions failed; try with c=False") #pragma: no cover
+        else: #pragma: no cover
+            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
-
-    def JR(self,*args,**kwargs):
-        """
-        NAME:
-           JR
-        PURPOSE:
-           evaluate the action jr
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           Jr
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
-        #Set up the actionAngleStaeckelSingle object
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                             delta=self._delta)
-        return aASingle.JR(**kwargs)
-
-    def Jz(self,*args,**kwargs):
-        """
-        NAME:
-           Jz
-        PURPOSE:
-           evaluate the action jz
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jz,jzerr
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
-        #Set up the actionAngleStaeckelSingle object
-        aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                             delta=self._delta)
-        return aASingle.Jz(**kwargs)
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -340,10 +304,10 @@ class actionAngleStaeckelSingle(actionAngle):
            2012-11-27 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'):
+        if not kwargs.has_key('delta'): #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         self._delta= kwargs['delta']
         #Pre-calculate everything
@@ -442,7 +406,7 @@ class actionAngleStaeckelSingle(actionAngle):
         """
         raise NotImplementedError("'I' not implemented yet for Staeckel approxximation")
 
-    def Jphi(self):
+    def Jphi(self): #pragma: no cover
         """
         NAME:
            Jphi
@@ -470,11 +434,11 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_JR'):
+        if hasattr(self,'_JR'): #pragma: no cover
             return self._JR
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
-        if (umax-umin)/umax < 10.**-6: return nu.array([0.,0.])
+        if (umax-umin)/umax < 10.**-6: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
@@ -515,10 +479,10 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_JZ'):
+        if hasattr(self,'_JZ'): #pragma: no cover
             return self._JZ
         vmin= self.calcVmin()
-        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.,0.])
+        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
         if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
             kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
@@ -575,7 +539,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_uminumax'):
+        if hasattr(self,'_uminumax'): #pragma: no cover
             return self._uminumax
         E, L= self._E, self._Lz
         if nu.fabs(self._pux) < 10.**-7.: #We are at umin or umax
@@ -592,11 +556,11 @@ class actionAngleStaeckelSingle(actionAngle):
                                               self._potu0v0,self._pot)
             if peps < 0. and meps > 0.: #we are at umax
                 umax= self._ux
-                rstart= _uminUmaxFindStart(self._ux,
-                                           E,L,self._I3U,self._delta,
-                                           self._u0,self._sinhu0**2.,
-                                           self._vx,self._sinvx**2.,
-                                           self._potu0v0,self._pot)
+                rstart,prevr= _uminUmaxFindStart(self._ux,
+                                               E,L,self._I3U,self._delta,
+                                               self._u0,self._sinhu0**2.,
+                                               self._vx,self._sinvx**2.,
+                                               self._potu0v0,self._pot)
                 if rstart == 0.: umin= 0.
                 else: 
                     try:
@@ -607,16 +571,16 @@ class actionAngleStaeckelSingle(actionAngle):
                                                self._vx,self._sinvx**2.,
                                                self._potu0v0,self._pot),
                                               maxiter=200)
-                    except RuntimeError:
+                    except RuntimeError: #pragma: no cover
                         raise UnboundError("Orbit seems to be unbound")
             elif peps > 0. and meps < 0.: #we are at umin
                 umin= self._ux
-                rend= _uminUmaxFindStart(self._ux,
-                                         E,L,self._I3U,self._delta,
-                                         self._u0,self._sinhu0**2.,
-                                         self._vx,self._sinvx**2.,
-                                         self._potu0v0,self._pot,
-                                         umax=True)
+                rend,prevr= _uminUmaxFindStart(self._ux,
+                                               E,L,self._I3U,self._delta,
+                                               self._u0,self._sinhu0**2.,
+                                               self._vx,self._sinvx**2.,
+                                               self._potu0v0,self._pot,
+                                               umax=True)
                 umax= optimize.brentq(_JRStaeckelIntegrandSquared,
                                       self._ux+eps,rend,
                                       (E,L,self._I3U,self._delta,
@@ -628,31 +592,33 @@ class actionAngleStaeckelSingle(actionAngle):
                 umin= self._ux
                 umax= self._ux
         else:
-            rstart= _uminUmaxFindStart(self._ux,
-                                       E,L,self._I3U,self._delta,
-                                       self._u0,self._sinhu0**2.,
-                                       self._vx,self._sinvx**2.,
-                                       self._potu0v0,self._pot)
+            rstart,prevr= _uminUmaxFindStart(self._ux,
+                                             E,L,self._I3U,self._delta,
+                                             self._u0,self._sinhu0**2.,
+                                             self._vx,self._sinvx**2.,
+                                             self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
+                if nu.fabs(prevr-self._ux) < 10.**-2.: rup= self._ux
+                else: rup= prevr
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                          rstart,rstart/0.9,
+                                          rstart,rup,
                                           (E,L,self._I3U,self._delta,
                                            self._u0,self._sinhu0**2.,
                                            self._vx,self._sinvx**2.,
                                            self._potu0v0,self._pot),
                                            maxiter=200)
-                except RuntimeError:
+                except RuntimeError: #pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
-            rend= _uminUmaxFindStart(self._ux,
-                                     E,L,self._I3U,self._delta,
-                                     self._u0,self._sinhu0**2.,
-                                     self._vx,self._sinvx**2.,
-                                     self._potu0v0,self._pot,
-                                     umax=True)
+            rend,prevr= _uminUmaxFindStart(self._ux,
+                                           E,L,self._I3U,self._delta,
+                                           self._u0,self._sinhu0**2.,
+                                           self._vx,self._sinvx**2.,
+                                           self._potu0v0,self._pot,
+                                           umax=True)
             umax= optimize.brentq(_JRStaeckelIntegrandSquared,
-                                  rend/1.1,rend,
+                                  prevr,rend,
                                   (E,L,self._I3U,self._delta,
                                    self._u0,self._sinhu0**2.,
                                    self._vx,self._sinvx**2.,
@@ -673,7 +639,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-28 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_vmin'):
+        if hasattr(self,'_vmin'): #pragma: no cover
             return self._vmin
         E, L= self._E, self._Lz
         if nu.fabs(self._pvx) < 10.**-7.: #We are at vmin or vmax
@@ -688,7 +654,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                               self._ux,self._coshux**2.,
                                               self._sinhux**2.,
                                               self._potupi2,self._pot)
-            if peps < 0. and meps > 0.: #we are at vmax
+            if peps < 0. and meps > 0.: #we are at vmax, which cannot happen
                 rstart= _vminFindStart(self._vx,
                                        E,L,self._I3V,self._delta,
                                        self._ux,self._coshux**2.,
@@ -704,7 +670,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                                self._sinhux**2.,
                                                self._potupi2,self._pot),
                                               maxiter=200)
-                    except RuntimeError:
+                    except RuntimeError: #pragma: no cover
                         raise UnboundError("Orbit seems to be unbound")
             elif peps > 0. and meps < 0.: #we are at vmin
                 vmin= self._vx
@@ -726,7 +692,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                            self._sinhux**2.,
                                            self._potupi2,self._pot),
                                           maxiter=200)
-                except RuntimeError:
+                except RuntimeError: #pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
         self._vmin= vmin
         return self._vmin
@@ -769,7 +735,7 @@ def potentialStaeckel(u,v,pot,delta):
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
     return evaluatePotentials(R,z,pot)
 
-def FRStaeckel(u,v,pot,delta):
+def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
     NAME:
        FRStaeckel
@@ -788,7 +754,7 @@ def FRStaeckel(u,v,pot,delta):
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
     return evaluateRforces(R,z,pot)
 
-def FZStaeckel(u,v,pot,delta):
+def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
     NAME:
        FZStaeckel
@@ -853,21 +819,23 @@ def _uminUmaxFindStart(u,
        2012-11-30 - Written - Bovy (IAS)
     """
     if umax:
-        utry= 1.1*u
+        utry= u*1.1
     else:
-        utry= 0.9*u
+        utry= u*0.9
+    prevu= u
     while _JRStaeckelIntegrandSquared(utry,
                                       E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                       potu0v0,pot) >= 0. \
                                       and utry > 0.000000001:
+        prevu= utry
         if umax:
             if utry > 100.:
                 raise UnboundError("Orbit seems to be unbound")
             utry*= 1.1
         else:
             utry*= 0.9
-    if utry < 0.000000001: return 0.
-    return utry
+    if utry < 0.000000001: return (0.,prevu)
+    return (utry,prevu)
 
 def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                                 potu0pi2,pot):
@@ -906,7 +874,7 @@ def estimateDeltaStaeckel(R,z,pot=None):
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
     """
-    if pot is None:
+    if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error

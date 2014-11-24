@@ -34,9 +34,9 @@ double calcPlanarRphideriv(double, double, double,
 /*
   Actual functions
 */
-inline void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
-			       int * pot_type,
-			       double * pot_args){
+void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
+			int * pot_type,
+			double * pot_args){
   int ii,jj;
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
@@ -146,6 +146,14 @@ inline void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
+      break;
+    case 15: //PowerSphericalPotentialwCutoff, 3 arguments
+      potentialArgs->planarRforce= &PowerSphericalPotentialwCutoffPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &PowerSphericalPotentialwCutoffPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 3;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -257,11 +265,6 @@ void integratePlanarOrbit_dxdv(double *yo,
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
   switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
-    break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
@@ -271,16 +274,6 @@ void integratePlanarOrbit_dxdv(double *yo,
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
     dim= 8;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalPlanarRectForce;
-    dim= 4;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;

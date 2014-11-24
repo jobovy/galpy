@@ -3,10 +3,10 @@
 ###############################################################################
 class ForceSoftening:
     """class representing a force softening kernel"""
-    def __init__(self):
+    def __init__(self): #pragma: no cover
         pass
 
-    def __call__(self,d):
+    def __call__(self,d): #pragma: no cover
         """
         NAME:
            __call__
@@ -21,7 +21,7 @@ class ForceSoftening:
         """
         raise AttributeError("'__call__' not implemented for this softening kernel")
 
-    def potential(self,d):
+    def potential(self,d): #pragma: no cover
         """
         NAME:
            potential
@@ -36,7 +36,7 @@ class ForceSoftening:
         """
         raise AttributeError("'potential' not implemented for this softening kernel")
 
-    def density(self,d):
+    def density(self,d): #pragma: no cover
         """
         NAME:
            density

@@ -13,6 +13,7 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
+from galpy.potential import evaluatePotentials, epifreq, omegac
 from actionAngle import *
 from actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
@@ -29,7 +30,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= kwargs['pot']
         #Also store a 'planar' (2D) version of the potential
@@ -42,7 +43,7 @@ class actionAngleSpherical(actionAngle):
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
                            or not kwargs.has_key('c')):
-            self._c= True
+            self._c= True #pragma: no cover
         else:
             self._c= False
         return None
@@ -87,14 +88,14 @@ class actionAngleSpherical(actionAngle):
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -154,14 +155,14 @@ class actionAngleSpherical(actionAngle):
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -183,8 +184,8 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(self._pot.epifreq(axiR))
-                    Op.append(self._pot.omegac(axiR))
+                    Or.append(epifreq(self._pot,axiR[ii]))
+                    Op.append(omegac(self._pot,axiR[ii]))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
@@ -218,7 +219,7 @@ class actionAngleSpherical(actionAngle):
             kwargs.pop('fixed_quad')
         else:
             fixed_quad= False
-        if len(args) == 5: #R,vR.vT, z, vz
+        if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
             raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
@@ -237,14 +238,14 @@ class actionAngleSpherical(actionAngle):
             z= nu.array([z])
             vz= nu.array([vz])
             phi= nu.array([phi])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= self._pot(R,z)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -270,13 +271,13 @@ class actionAngleSpherical(actionAngle):
                 E, L= EL
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
-                if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(self._pot.epifreq(axiR))
-                    Op.append(self._pot.omegac(axiR))
-                    continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-                Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
-                Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                if Jr[-1] < 10.**-9.: #Circular orbit
+                    Or.append(epifreq(self._pot,axiR[ii]))
+                    Op.append(omegac(self._pot,axiR[ii]))
+                else:
+                    Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
+                    Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 #Angles
                 ar.append(self._calc_angler(Or[-1],axiR[ii],Rmean,rperi,rap,
                                             E,L,axivR[ii],fixed_quad,**kwargs))

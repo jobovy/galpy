@@ -3,12 +3,30 @@
 galpy.util.bovy_conversion
 ===========================
 
-Conversion between galpy's *natural* units and *physical* units
+Utility functions that provide conversions between galpy's *natural*
+units and *physical* units. These can be used to translate galpy
+outputs in natural coordinates to physical units by multiplying with
+the appropriate function. 
+
+These could also be used to figure out the conversion between
+different units. For example, if you want to know how many
+:math:`\mathrm{GeV\,cm}^{-3}` correspond to
+:math:`1\,M_\odot\,\mathrm{pc}^{-3}`, you can calculate
+
+>>> from galpy.util import bovy_conversion
+>>> bovy_conversion.dens_in_gevcc(1.,1.)/bovy_conversion.dens_in_msolpc3(1.,1.)
+37.978342941703616
+
+or :math:`1\,M_\odot\,\mathrm{pc}^{-3} \approx 40\,\mathrm{GeV\,cm}^{-3}`.
+
+Functions:
+----------
 
 .. toctree::
    :maxdepth: 2
 
    dens_in_criticaldens <conversiondens_in_criticaldens.rst>
+   dens_in_gevcc <conversiondens_in_gevcc.rst>
    dens_in_meanmatterdens <conversiondens_in_meanmatterdens.rst>
    dens_in_msolpc3 <conversiondens_in_msolpc3.rst>
    force_in_2piGmsolpc2 <conversionforce_in_2piGmsolpc2.rst>

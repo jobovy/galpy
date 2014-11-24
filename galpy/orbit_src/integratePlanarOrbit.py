@@ -1,25 +1,34 @@
+import sys
+import warnings
 import numpy as nu
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential, potential_src
+from galpy.util import galpyWarning
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_integrate_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname)
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-        except OSError:
-            _lib = None
-        else:
-            break
-if _lib is None:
-    raise IOError('galpy integration module not found')
+_lib= None
+outerr= None
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
+    except OSError, e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+            outerr= e
+        _lib = None
+    else:
+        break
+if _lib is None: #pragma: no cover
+    if not outerr is None:
+        warnings.warn("integratePlanarOrbit_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("integratePlanarOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+                      galpyWarning)
+    _ext_loaded= False
+else:
+    _ext_loaded= True
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
@@ -31,10 +40,7 @@ def _parse_pot(pot):
     pot_args= []
     npot= len(pot)
     for p in pot:
-        if isinstance(p,potential.LogarithmicHaloPotential):
-            pot_type.append(0)
-            pot_args.extend([p._amp,p._core2])
-        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+        if isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
             pot_args.extend([p._RZPot._amp,p._RZPot._core2])
@@ -63,9 +69,6 @@ def _parse_pot(pot):
             else:
                 pot_args.extend([p._amp,p._tform,p._tsteady,
                                  p._twophio,p._p,p._phib])
-        elif isinstance(p,potential.MiyamotoNagaiPotential):
-            pot_type.append(5)
-            pot_args.extend([p._amp,p._a,p._b])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.MiyamotoNagaiPotential):
             pot_type.append(5)
@@ -78,45 +81,22 @@ def _parse_pot(pot):
             else:
                 pot_args.extend([p._amp,p._tform,p._tsteady,
                                  p._mphio,p._p,p._phib])
-        elif isinstance(p,potential.PowerSphericalPotential):
-            pot_type.append(7)
-            pot_args.extend([p._amp,p.alpha])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.PowerSphericalPotential):
             pot_type.append(7)
             pot_args.extend([p._RZPot._amp,p._RZPot.alpha])
-        elif isinstance(p,potential.HernquistPotential):
-            pot_type.append(8)
-            pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.HernquistPotential):
             pot_type.append(8)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
-        elif isinstance(p,potential.NFWPotential):
-            pot_type.append(9)
-            pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.NFWPotential):
             pot_type.append(9)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
-        elif isinstance(p,potential.JaffePotential):
-            pot_type.append(10)
-            pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
-        elif isinstance(p,potential.DoubleExponentialDiskPotential):
-            pot_type.append(11)
-            pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,
-                             p._nzeros,p._glorder])
-            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._j0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._j1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._kp._amp,p._kp.alpha])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                 and isinstance(p._RZPot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
@@ -130,20 +110,18 @@ def _parse_pot(pot):
             pot_args.extend([p._RZPot._j1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
             pot_args.extend([p._RZPot._dj1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
             pot_args.extend([p._RZPot._kp._amp,p._RZPot._kp.alpha])
-        elif isinstance(p,potential.FlattenedPowerPotential):
-            pot_type.append(12)
-            pot_args.extend([p._amp,p.alpha,p.core2])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                 and isinstance(p._RZPot,potential.FlattenedPowerPotential):
             pot_type.append(12)
             pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.core2])
-        elif isinstance(p,potential.IsochronePotential):
-            pot_type.append(14)
-            pot_args.extend([p._amp,p.b])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.IsochronePotential):
             pot_type.append(14)
             pot_args.extend([p._RZPot._amp,p._RZPot.b])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.PowerSphericalPotentialwCutoff):
+            pot_type.append(15)
+            pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.rc])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -170,11 +148,11 @@ def _parse_tol(rtol,atol):
     #Process atol and rtol
     if rtol is None:
         rtol= -12.*nu.log(10.)
-    else:
+    else: #pragma: no cover
         rtol= nu.log(rtol)
     if atol is None:
         atol= -12.*nu.log(10.)
-    else:
+    else: #pragma: no cover
         atol= nu.log(atol)
     return (rtol,atol)
 

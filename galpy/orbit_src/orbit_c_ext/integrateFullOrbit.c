@@ -40,14 +40,16 @@ void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int * pot_type,
 			     double * pot_args){
-  int ii,jj,kk,ll;
+  int ii,jj,kk;
   int nR, nz;
-  double * Rgrid, * zgrid, * potGrid_splinecoeffs, * row;
+  double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   for (ii=0; ii < npot; ii++){
     potentialArgs->i2drforce= NULL;
-    potentialArgs->accrforce= NULL;
+    potentialArgs->accxrforce= NULL;
+    potentialArgs->accyrforce= NULL;
     potentialArgs->i2dzforce= NULL;
-    potentialArgs->acczforce= NULL;
+    potentialArgs->accxzforce= NULL;
+    potentialArgs->accyzforce= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -122,30 +124,27 @@ void parse_leapFuncArgs_Full(int npot,
       nz= (int) *pot_args++;
       Rgrid= (double *) malloc ( nR * sizeof ( double ) );
       zgrid= (double *) malloc ( nz * sizeof ( double ) );
-      row= (double *) malloc ( nz * sizeof ( double ) );
       potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
       for (kk=0; kk < nR; kk++)
 	*(Rgrid+kk)= *pot_args++;
       for (kk=0; kk < nz; kk++)
 	*(zgrid+kk)= *pot_args++;
-      for (kk=0; kk < nR; kk++){
-	for (ll=0; ll < nz; ll++)
-	  *(row+ll)= *pot_args++;
-	put_row(potGrid_splinecoeffs,kk,row,nz); 
-      }
+      for (kk=0; kk < nR; kk++)
+	put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz); 
+      pot_args+= nR*nz;
       potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2drforce,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
-      potentialArgs->accrforce= gsl_interp_accel_alloc ();
-      for (kk=0; kk < nR; kk++){
-	for (ll=0; ll < nz; ll++)
-	  *(row+ll)= *pot_args++;
-	put_row(potGrid_splinecoeffs,kk,row,nz); 
-      }
+      potentialArgs->accxrforce= gsl_interp_accel_alloc ();
+      potentialArgs->accyrforce= gsl_interp_accel_alloc ();
+      for (kk=0; kk < nR; kk++)
+	put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz); 
+      pot_args+= nR*nz;    
       potentialArgs->i2dzforce= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2dzforce,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
-      potentialArgs->acczforce= gsl_interp_accel_alloc ();
+      potentialArgs->accxzforce= gsl_interp_accel_alloc ();
+      potentialArgs->accyzforce= gsl_interp_accel_alloc ();
       potentialArgs->Rforce= &interpRZPotentialRforce;
       potentialArgs->zforce= &interpRZPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -153,7 +152,6 @@ void parse_leapFuncArgs_Full(int npot,
       //clean up
       free(Rgrid);
       free(zgrid);
-      free(row);
       free(potGrid_splinecoeffs);
       break;
     case 14: //IsochronePotential, 2 arguments
@@ -161,6 +159,15 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
+      break;
+    case 15: //PowerSphericalwCutoffPotential, 3 arguments
+      potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
+      potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 3;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -243,7 +250,7 @@ void integrateFullOrbit(double *yo,
   free(potentialArgs);
   //Done!
 }
-
+// LCOV_EXCL_START
 void integrateOrbit_dxdv(double *yo,
 			 int nt, 
 			 double *t,
@@ -314,7 +321,7 @@ void integrateOrbit_dxdv(double *yo,
   free(potentialArgs);
   //Done!
 }
-
+// LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce, z, zforce;
@@ -397,7 +404,7 @@ double calcPhiforce(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return phiforce;
 }
-
+// LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
@@ -494,3 +501,4 @@ double calcRphideriv(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return Rphideriv;
 }
+// LCOV_EXCL_STOP

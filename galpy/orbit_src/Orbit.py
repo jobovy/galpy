@@ -1,31 +1,15 @@
 import numpy as nu
 import galpy.util.bovy_coords as coords
+from galpy.util.bovy_conversion import physical_conversion
 from FullOrbit import FullOrbit
 from RZOrbit import RZOrbit
-from planarOrbit import planarOrbit, planarROrbit
+from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
 from linearOrbit import linearOrbit
 _K=4.74047
-def _zEqZeroBC(ar):
-    return ar[3]
-def _vzEqZeroBC(ar):
-    return ar[4]
-def _REqZeroBC(ar):
-    return ar[0]
-def _REqOneBC(ar):
-    return ar[0]-1.
-def _vREqZeroBC(ar):
-    return ar[1]
-def _vTEqZeroBC(ar):
-    return ar[2]
-def _vTEqOneBC(ar):
-    return ar[2]-1.
-def _phiEqZeroBC(ar):
-    if len(ar) > 4: return ar[5]
-    else: return ar[3]
 class Orbit:
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
-                 radec=False,vo=235.,ro=8.5,zo=0.025,
+                 radec=False,vo=None,ro=None,zo=0.025,
                  solarmotion='hogg'):
         """
         NAME:
@@ -61,7 +45,7 @@ class Orbit:
 
            lb - if True, input is 4) or 5) above
 
-           vo - circular velocity at ro
+           vo - circular velocity at ro (km/s)
 
            ro - distance from vantage point to GC (kpc)
 
@@ -69,6 +53,8 @@ class Orbit:
 
            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
            [-U,V,W]
+
+        If ro and/or vo are specified, outputs involving distances or velocities (whether as instance methods or in plots) will by default be displayed in the physical coordinates implied by these scales. This can be overwritten for each individual method by using use_physical=False as a keyword for the method.
 
         OUTPUT:
 
@@ -79,15 +65,22 @@ class Orbit:
            2010-07-20 - Written - Bovy (NYU)
 
         """
+        # If you change the way an Orbit object is setup, also change each of
+        # the methods that return Orbits
+        if radec or lb:
+            if ro is None:
+                ro= 8.
+            if vo is None:
+                vo= 220.
         if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
-            vsolar= nu.array([-10.1,4.0,6.7])/vo
+            vsolar= nu.array([-10.1,4.0,6.7])
         elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
-            vsolar= nu.array([-10.,5.25,7.17])/vo
+            vsolar= nu.array([-10.,5.25,7.17])
         elif isinstance(solarmotion,str) \
                 and solarmotion.lower() == 'schoenrich':
-            vsolar= nu.array([-11.1,12.24,7.25])/vo
+            vsolar= nu.array([-11.1,12.24,7.25])
         else:
-            vsolar= nu.array(solarmotion)/vo           
+            vsolar= nu.array(solarmotion)
         if radec or lb:
             if radec:
                 l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
@@ -121,24 +114,42 @@ class Orbit:
             vx/= vo
             vy/= vo
             vz/= vo
-            vsun= nu.array([0.,1.,0.,])+vsolar
+            vsun= nu.array([0.,1.,0.,])+vsolar/vo
             R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,galcen=True)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
-        self.vxvv= vxvv
         if len(vxvv) == 2:
-            self._orb= linearOrbit(vxvv=vxvv)
+            self._orb= linearOrbit(vxvv=vxvv,
+                                   ro=ro,vo=vo)
         elif len(vxvv) == 3:
-            self._orb= planarROrbit(vxvv=vxvv)
+            self._orb= planarROrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 4:
-            self._orb= planarOrbit(vxvv=vxvv)
+            self._orb= planarOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 5:
-            self._orb= RZOrbit(vxvv=vxvv)
+            self._orb= RZOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         elif len(vxvv) == 6:
-            self._orb= FullOrbit(vxvv=vxvv)
+            self._orb= FullOrbit(vxvv=vxvv,
+                                    ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
+        #Store for actionAngle conversions
+        if vo is None:
+            self._vo= None
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
+        if ro is None:
+            self._ro= None
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        return None
 
     def setphi(self,phi):
         """
@@ -168,24 +179,20 @@ class Orbit:
            Should perform check that this orbit has phi
 
         """
-        if len(self.vxvv) == 2:
+        if len(self._orb.vxvv) == 2:
             raise AttributeError("One-dimensional orbit has no azimuth")
-        elif len(self.vxvv) == 3:
+        elif len(self._orb.vxvv) == 3:
             #Upgrade
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],phi]
-            self.vxvv= vxvv
-            self._orb= planarROrbit(vxvv=vxvv)
-        elif len(self.vxvv) == 4:
-            self.vxvv[-1]= phi
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2],phi]
+            self._orb= planarOrbit(vxvv=vxvv)
+        elif len(self._orb.vxvv) == 4:
             self._orb.vxvv[-1]= phi
-        elif len(self.vxvv) == 5:
+        elif len(self._orb.vxvv) == 5:
             #Upgrade
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[3],
-                   self.vxvv[4],phi]
-            self.vxvv= vxvv
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2],
+                   self._orb.vxvv[3],self._orb.vxvv[4],phi]
             self._orb= FullOrbit(vxvv=vxvv)
-        elif len(self.vxvv) == 6:
-            self.vxvv[-1]= phi
+        elif len(self._orb.vxvv) == 6:
             self._orb.vxvv[-1]= phi
 
     def dim(self):
@@ -211,14 +218,39 @@ class Orbit:
            2011-02-03 - Written - Bovy (NYU)
 
         """
-        if len(self.vxvv) == 2:
+        if len(self._orb.vxvv) == 2:
             return 1
-        elif len(self.vxvv) == 3 or len(self.vxvv) == 4:
+        elif len(self._orb.vxvv) == 3 or len(self._orb.vxvv) == 4:
             return 2
-        elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
+        elif len(self._orb.vxvv) == 5 or len(self._orb.vxvv) == 6:
             return 3
 
-    def integrate(self,t,pot,method='leapfrog_c'):
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        self._orb.turn_physical_off()
+
+    def integrate(self,t,pot,method='symplec4_c'):
         """
         NAME:
 
@@ -234,7 +266,14 @@ class Orbit:
 
            pot - potential instance or list of instances
 
-           method= 'odeint' for scipy's odeint or 'leapfrog' for a simple leapfrog implementation
+           method= 'odeint' for scipy's odeint
+                   'leapfrog' for a simple leapfrog implementation
+                   'leapfrog_c' for a simple leapfrog implementation in C
+                   'symplec4_c' for a 4th order symplectic integrator in C
+                   'symplec6_c' for a 6th order symplectic integrator in C
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
         OUTPUT:
 
@@ -247,36 +286,53 @@ class Orbit:
         """
         self._orb.integrate(t,pot,method=method)
 
-    def integrateBC(self,pot,bc=_zEqZeroBC,method='odeint'):
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       rectIn=False,rectOut=False):
         """
         NAME:
 
-           integrateBC
+           integrate_dxdv
 
         PURPOSE:
 
-           integrate the orbit subject to a final boundary condition
+           integrate the orbit and a small area of phase space
 
         INPUT:
 
+           dxdv - [dR,dvR,dvT,dphi]
+
+           t - list of times at which to output (0 has to be in this!)
+
            pot - potential instance or list of instances
 
-           bc= boundary condition, takes array of phase-space position (in the manner that is relevant to the type of Orbit) and outputs the condition that should be zero; default: z=0
+           method= 'odeint' for scipy's odeint
 
-           method= 'odeint' for scipy's odeint integrator, 'leapfrog' for
-                   a simple symplectic integrator
+                   'rk4_c' for a 4th-order Runge-Kutta integrator in C
+
+                   'rk6_c' for a 6-th order Runge-Kutta integrator in C
+
+                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+
+                   'dopr54_c' is recommended, odeint is *not* recommended
+
+
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
 
         OUTPUT:
-        
-           (Another Orbit instance,time at which BC is reached)
+
+           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!)
 
         HISTORY:
 
-           2011-09-30
+           2010-10-17 - Written - Bovy (IAS)
+
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
 
         """
-        o,tout= self._orb.integrateBC(pot,bc=bc,method=method)
-        return (Orbit(vxvv=o[1,:]),tout)
+        self._orb.integrate_dxdv(dxdv,t,pot,method=method,
+                                 rectIn=rectIn,rectOut=rectOut)
 
     def reverse(self):
         """
@@ -308,6 +364,57 @@ class Orbit:
             self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
         return None
 
+    def flip(self):
+        """
+        NAME:
+
+           flip
+
+        PURPOSE:
+
+           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration; returns a new Orbit instance
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           Orbit instance that has the velocities of the current orbit flipped
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
+        if len(self._orb.vxvv) == 2:
+            return Orbit(vxvv= [self._orb.vxvv[0],-self._orb.vxvv[1]],
+                         **orbSetupKwargs)
+        elif len(self._orb.vxvv) == 3:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2]],**orbSetupKwargs)
+        elif len(self._orb.vxvv) == 4:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2],self._orb.vxvv[3]],
+                         **orbSetupKwargs)
+        elif len(self._orb.vxvv) == 5:
+            return Orbit(vxvv=[self._orb.vxvv[0],-self._orb.vxvv[1],
+                               -self._orb.vxvv[2],self._orb.vxvv[3],
+                               -self._orb.vxvv[4]],**orbSetupKwargs)
+        elif len(self._orb.vxvv) == 6:
+            return Orbit(vxvv= [self._orb.vxvv[0],-self._orb.vxvv[1],
+                                -self._orb.vxvv[2],self._orb.vxvv[3],
+                                -self._orb.vxvv[4],self._orb.vxvv[5]],
+                         **orbSetupKwargs)
+        
     def getOrbit(self):
         """
 
@@ -334,6 +441,89 @@ class Orbit:
         """
         return self._orb.getOrbit()
 
+    def getOrbit_dxdv(self):
+        """
+
+        NAME:
+
+           getOrbit_dxdv
+
+        PURPOSE:
+
+           return a previously calculated integration of a small phase-space volume (with integrate_dxdv)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           array orbit[nt,nd*2] with for each t the dxdv vector
+
+        HISTORY:
+
+           2010-07-10 - Written - Bovy (NYU)
+
+        """
+        return self._orb.getOrbit_dxdv()
+
+    def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+            **kwargs):
+        """
+        NAME:
+
+           fit
+
+        PURPOSE:
+
+           fit an Orbit to data using the current orbit as the initial condition
+
+        INPUT:
+
+           vxvv - [:,6] array of positions and velocities along the orbit
+
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
+
+           pot= Potential to fit the orbit in
+
+           Keywords related to the input data:
+
+               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                                      (in kpc and km/s) (default=Object-wide default)
+                                      Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
+
+                ro= distance in kpc corresponding to R=1. (default: taken from object)
+
+                vo= velocity in km/s corresponding to v=1. (default: taken from object)
+
+           Keywords related to the orbit integrations:
+
+               tintJ= (default: 10) time to integrate orbits for fitting the orbit
+
+               ntintJ= (default: 1000) number of time-integration points
+
+               integrate_method= (default: 'dopr54_c') integration method to use
+
+        OUTPUT:
+
+           max of log likelihood
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+        """
+        return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
+                             radec=radec,lb=lb,
+                             tintJ=tintJ,ntintJ=ntintJ,
+                             integrate_method=integrate_method,
+                             **kwargs)
+
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -349,6 +539,10 @@ class Orbit:
            t - (optional) time at which to get the energy
 
            pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -374,6 +568,12 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the angular momentum
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -402,6 +602,10 @@ class Orbit:
 
            pot= Potential instance or list of such instances
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            radial energy
@@ -428,6 +632,10 @@ class Orbit:
            t - (optional) time at which to get the vertical energy
 
            pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -457,6 +665,10 @@ class Orbit:
            OmegaP= pattern speed
            
            pot= potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -496,7 +708,7 @@ class Orbit:
         """
         return self._orb.e(analytic=analytic,pot=pot)
 
-    def rap(self,analytic=False,pot=None):
+    def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -512,6 +724,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            R_ap
@@ -521,9 +737,9 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.rap(analytic=analytic,pot=pot)
+        return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
 
-    def rperi(self,analytic=False,pot=None):
+    def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -539,6 +755,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            R_peri
@@ -548,9 +768,9 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.rperi(analytic=analytic,pot=pot)
+        return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
 
-    def zmax(self,analytic=False,pot=None):
+    def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -566,6 +786,10 @@ class Orbit:
 
            pot - potential to use for analytical calculation
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Z_max
@@ -575,7 +799,7 @@ class Orbit:
            2010-09-20 - Written - Bovy (NYU)
 
         """
-        return self._orb.zmax(analytic=analytic,pot=pot)
+        return self._orb.zmax(analytic=analytic,pot=pot,**kwargs)
 
     def resetaA(self,pot=None,type=None):
         """
@@ -607,6 +831,7 @@ class Orbit:
         else:
             return True
 
+    @physical_conversion('action')
     def jr(self,pot=None,**kwargs):
         """
         NAME:
@@ -633,6 +858,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            jr
@@ -645,8 +876,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA(self())[0]
+        else:
+            return self._orb._aA(self)[0]
 
+    @physical_conversion('action')
     def jp(self,pot=None,**kwargs):
         """
         NAME:
@@ -673,6 +908,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            jp
@@ -685,8 +926,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[1]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA(self())[1]
+        else:
+            return self._orb._aA(self)[1]
 
+    @physical_conversion('action')
     def jz(self,pot=None,**kwargs):
         """
         NAME:
@@ -713,6 +958,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            jz
@@ -725,7 +976,10 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA(self)[2]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA(self())[2]
+        else:
+            return self._orb._aA(self)[2]
 
     def wr(self,pot=None,**kwargs):
         """
@@ -765,7 +1019,10 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqsAngles(self)[6][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqsAngles(self())[6][0]
+        else:
+            return self._orb._aA.actionsFreqsAngles(self)[6][0]
 
     def wp(self,pot=None,**kwargs):
         """
@@ -805,7 +1062,10 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqsAngles(self)[7][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqsAngles(self())[7][0]
+        else:
+            return self._orb._aA.actionsFreqsAngles(self)[7][0]
 
     def wz(self,pot=None,**kwargs):
         """
@@ -845,8 +1105,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqsAngles(self)[8][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqsAngles(self())[8][0]
+        else:
+            return self._orb._aA.actionsFreqsAngles(self)[8][0]
 
+    @physical_conversion('time')
     def Tr(self,pot=None,**kwargs):
         """
         NAME:
@@ -873,6 +1137,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Tr
@@ -885,8 +1155,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[3][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[3][0]
+        else:
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[3][0]
 
+    @physical_conversion('time')
     def Tp(self,pot=None,**kwargs):
         """
         NAME:
@@ -913,6 +1187,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Tp
@@ -925,7 +1205,10 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[4][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[4][0]
+        else:
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[4][0]
 
     def TrTp(self,pot=None,**kwargs):
         """
@@ -965,8 +1248,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqs(self())[4][0]/self._orb._aA.actionsFreqs(self())[3][0]*nu.pi
+        else:
+            return self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi
  
+    @physical_conversion('time')
     def Tz(self,pot=None,**kwargs):
         """
         NAME:
@@ -993,6 +1280,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Tz
@@ -1005,8 +1298,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[5][0]
+        else:
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
 
+    @physical_conversion('frequency')
     def Or(self,pot=None,**kwargs):
         """
         NAME:
@@ -1033,6 +1330,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Or
@@ -1043,8 +1346,12 @@ class Orbit:
 
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqs(self)[3][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqs(self())[3][0]
+        else:
+            return self._orb._aA.actionsFreqs(self)[3][0]
 
+    @physical_conversion('frequency')
     def Op(self,pot=None,**kwargs):
         """
         NAME:
@@ -1071,6 +1378,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Op
@@ -1080,8 +1393,12 @@ class Orbit:
            2013-11-27 - Written - Bovy (IAS)
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqs(self)[4][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqs(self())[4][0]
+        else:
+            return self._orb._aA.actionsFreqs(self)[4][0]
 
+    @physical_conversion('frequency')
     def Oz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1108,6 +1425,12 @@ class Orbit:
               
            +actionAngle module setup kwargs
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            Oz
@@ -1117,7 +1440,41 @@ class Orbit:
            2013-11-27 - Written - Bovy (IAS)
         """
         self._orb._setupaA(pot=pot,**kwargs)
-        return self._orb._aA.actionsFreqs(self)[5][0]
+        if self._orb._aAType.lower() == 'isochroneapprox':
+            return self._orb._aA.actionsFreqs(self())[5][0]
+        else:
+            return self._orb._aA.actionsFreqs(self)[5][0]
+
+    def time(self,*args,**kwargs):
+        """
+        NAME:
+
+           t
+
+        PURPOSE:
+
+           return the times at which the orbit is sampled
+
+        INPUT:
+
+           t - (optional) time at which to get the time (for consistency reasons)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           t(t)
+
+        HISTORY:
+
+           2014-06-11 - Written - Bovy (IAS)
+
+        """
+        return self._orb.time(*args,**kwargs)
 
     def R(self,*args,**kwargs):
         """
@@ -1132,6 +1489,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the radius
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1153,6 +1514,10 @@ class Orbit:
         PURPOSE:
 
            return radial velocity at time t
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         INPUT:
 
@@ -1184,6 +1549,10 @@ class Orbit:
 
            t - (optional) time at which to get the tangential velocity
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            vT(t)
@@ -1208,6 +1577,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the vertical height
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1237,6 +1610,10 @@ class Orbit:
         OUTPUT:
 
            vz(t)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         HISTORY:
 
@@ -1284,6 +1661,10 @@ class Orbit:
 
            t - (optional) time at which to get the angular velocity
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            vphi(t)
@@ -1308,6 +1689,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get x
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1334,6 +1719,10 @@ class Orbit:
 
            t - (optional) time at which to get y
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            y(t)
@@ -1358,6 +1747,10 @@ class Orbit:
         INPUT:
 
            t - (optional) time at which to get the velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1385,6 +1778,10 @@ class Orbit:
 
            t - (optional) time at which to get the velocity
 
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
         OUTPUT:
 
            vy(t)
@@ -1411,9 +1808,9 @@ class Orbit:
            t - (optional) time at which to get ra
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
 
         OUTPUT:
 
@@ -1441,9 +1838,9 @@ class Orbit:
            t - (optional) time at which to get dec
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)
+           ro= distance in kpc corresponding to R=1. (default: 8.0)
 
         OUTPUT:
 
@@ -1471,9 +1868,9 @@ class Orbit:
            t - (optional) time at which to get ll
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1501,9 +1898,9 @@ class Orbit:
            t - (optional) time at which to get bb
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1531,9 +1928,9 @@ class Orbit:
            t - (optional) time at which to get dist
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
-           (default=[8.5,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1561,13 +1958,13 @@ class Orbit:
            t - (optional) time at which to get pmra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1595,13 +1992,13 @@ class Orbit:
            t - (optional) time at which to get pmdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1628,14 +2025,14 @@ class Orbit:
 
            t - (optional) time at which to get pmll
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1663,13 +2060,13 @@ class Orbit:
            t - (optional) time at which to get pmbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1697,13 +2094,13 @@ class Orbit:
            t - (optional) time at which to get vlos
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1731,13 +2128,13 @@ class Orbit:
            t - (optional) time at which to get vra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1766,13 +2163,13 @@ class Orbit:
            t - (optional) time at which to get vdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1801,13 +2198,13 @@ class Orbit:
            t - (optional) time at which to get vll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1836,13 +2233,13 @@ class Orbit:
            t - (optional) time at which to get vbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -1871,11 +2268,11 @@ class Orbit:
            t - (optional) time at which to get X
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1903,11 +2300,11 @@ class Orbit:
            t - (optional) time at which to get Y
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1935,11 +2332,11 @@ class Orbit:
            t - (optional) time at which to get Z
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
         OUTPUT:
 
@@ -1967,13 +2364,13 @@ class Orbit:
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -2001,13 +2398,13 @@ class Orbit:
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -2035,13 +2432,13 @@ class Orbit:
            t - (optional) time at which to get W
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                         (in kpc and km/s) (default=[8.5,0.,0.,0.,235.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.5)         
+           ro= distance in kpc corresponding to R=1. (default: 8.0)         
 
-           vo= velocity in km/s corresponding to v=1. (default: 235.)
+           vo= velocity in km/s corresponding to v=1. (default: 220.)
 
         OUTPUT:
 
@@ -2081,9 +2478,18 @@ class Orbit:
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
         thiso= self._orb(*args,**kwargs)
-        if len(thiso.shape) == 1: return Orbit(vxvv=thiso)
-        else: return [Orbit(vxvv=thiso[:,ii]) for ii in range(thiso.shape[1])]
+        if len(thiso.shape) == 1: return Orbit(vxvv=thiso,**orbSetupKwargs)
+        else: return [Orbit(vxvv=thiso[:,ii],
+                            **orbSetupKwargs) for ii in range(thiso.shape[1])]
 
     def plot(self,*args,**kwargs):
         """
@@ -2100,6 +2506,12 @@ class Orbit:
            d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
 
            d2= second dimension to plot
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            matplotlib.plot inputs+bovy_plot.plot inputs
 
@@ -2125,6 +2537,18 @@ class Orbit:
            plot 3D aspects of an Orbit
 
         INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
+           d3= third dimension to plot
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot3d args and kwargs
 
@@ -2158,6 +2582,14 @@ class Orbit:
 
            d1= plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
 
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2167,6 +2599,8 @@ class Orbit:
         HISTORY:
 
            2010-07-10 - Written - Bovy (NYU)
+
+           2014-06-16 - Changed to actually plot E rather than E/E0 - Bovy (IAS)
 
         """
         self._orb.plotE(*args,**kwargs)
@@ -2187,6 +2621,14 @@ class Orbit:
 
            d1= plot Ez vs d1: e.g., 't', 'z', 'R'
 
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2200,6 +2642,43 @@ class Orbit:
         """
         self._orb.plotEz(*args,**kwargs)
 
+    def plotER(self,*args,**kwargs):
+        """
+        NAME:
+
+           plotER
+
+        PURPOSE:
+
+           plot E_R(.) along the orbit
+
+        INPUT:
+
+           pot=  Potential instance or list of instances in which the orbit was integrated
+
+           d1= plot ER vs d1: e.g., 't', 'z', 'R'
+
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           +bovy_plot.bovy_plot inputs
+
+        OUTPUT:
+
+           figure to output device
+
+        HISTORY:
+
+           2010-07-10 - Written - Bovy (NYU)
+
+        """
+        self._orb.plotER(*args,**kwargs)
+
     def plotEzJz(self,*args,**kwargs):
         """
         NAME:
@@ -2208,7 +2687,7 @@ class Orbit:
 
         PURPOSE:
 
-           plot E_z(t)/sqrt(dens(R)) along the orbit (an approximation to the vertical action)
+           plot E_z(t)/sqrt(dens(R)) / (E_z(0)/sqrt(dens(R(0)))) along the orbit (an approximation to the vertical action)
 
         INPUT:
 
@@ -2248,6 +2727,14 @@ class Orbit:
 
            d1= - plot Ez vs d1: e.g., 't', 'z', 'R', 'vR', 'vT', 'vz'      
 
+           normed= if set, plot E(t)/E(0) rather than E(t)
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            +bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2275,6 +2762,10 @@ class Orbit:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2301,6 +2792,10 @@ class Orbit:
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot.bovy_plot inputs
 
@@ -2436,6 +2931,10 @@ class Orbit:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -2489,6 +2988,10 @@ class Orbit:
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
            bovy_plot.bovy_plot inputs
 
@@ -2553,13 +3056,22 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if len(self.vxvv) == 6:
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2],self.vxvv[5]]
-        elif len(self.vxvv) == 5:
-            vxvv= [self.vxvv[0],self.vxvv[1],self.vxvv[2]]
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
+        if len(self._orb.vxvv) == 6:
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],
+                   self._orb.vxvv[2],self._orb.vxvv[5]]
+        elif len(self._orb.vxvv) == 5:
+            vxvv= [self._orb.vxvv[0],self._orb.vxvv[1],self._orb.vxvv[2]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        return Orbit(vxvv=vxvv)
+        return Orbit(vxvv=vxvv,**orbSetupKwargs)
 
     def toLinear(self):
         """
@@ -2584,11 +3096,19 @@ class Orbit:
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        if len(self.vxvv) == 6 or len(self.vxvv) == 5:
-            vxvv= [self.vxvv[3],self.vxvv[4]]
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
+        if len(self._orb.vxvv) == 6 or len(self._orb.vxvv) == 5:
+            vxvv= [self._orb.vxvv[3],self._orb.vxvv[4]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        return Orbit(vxvv=vxvv)
+        return Orbit(vxvv=vxvv,**orbSetupKwargs)
 
     def __add__(self,linOrb):
         """
@@ -2613,26 +3133,51 @@ class Orbit:
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        if (not (isinstance(self._orb,planarROrbit) and 
+        orbSetupKwargs= {'ro':None,
+                         'vo':None,
+                         'zo':self._orb._zo,
+                         'solarmotion':self._orb._solarmotion}
+        if self._orb._roSet:
+            orbSetupKwargs['ro']= self._orb._ro
+        if self._orb._voSet:
+            orbSetupKwargs['vo']= self._orb._vo
+        if (not (isinstance(self._orb,planarOrbitTop) and 
                 isinstance(linOrb._orb,linearOrbit)) and
             not (isinstance(self._orb,linearOrbit) and 
-                 isinstance(linOrb._orb,planarROrbit))):
-            raise AttributeError("Only planarROrbit+linearOrbit is supported")
+                 isinstance(linOrb._orb,planarOrbitTop))):
+            raise AttributeError("Only planarOrbit+linearOrbit is supported")
         if isinstance(self._orb,planarROrbit):
             return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
                                self._orb.vxvv[2],
-                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]])
-        else:
+                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1]],
+                         **orbSetupKwargs)
+        elif isinstance(self._orb,planarOrbit):
+            return Orbit(vxvv=[self._orb.vxvv[0],self._orb.vxvv[1],
+                               self._orb.vxvv[2],
+                               linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
+                               self._orb.vxvv[3]],
+                         **orbSetupKwargs)
+        elif isinstance(linOrb._orb,planarROrbit):
             return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
                                linOrb._orb.vxvv[2],
-                               self._orb.vxvv[0],self._orb.vxvv[1]])
+                               self._orb.vxvv[0],self._orb.vxvv[1]],
+                         **orbSetupKwargs)
+        elif isinstance(linOrb._orb,planarOrbit):
+            return Orbit(vxvv=[linOrb._orb.vxvv[0],linOrb._orb.vxvv[1],
+                               linOrb._orb.vxvv[2],
+                               self._orb.vxvv[0],self._orb.vxvv[1],
+                               linOrb._orb.vxvv[3]],
+                         **orbSetupKwargs)
 
     #4 pickling
     def __getinitargs__(self):
-        return (self.vxvv,)
-
-    def __getstate__(self):
-        return self.vxvv
-    
-    def __setstate__(self,state):
-        self.vxvv= state
+        if self._orb._roSet:
+            iro= self._orb._ro
+        else:
+            iro= None
+        if self._orb._voSet:
+            ivo= self._orb._vo
+        else:
+            ivo= None
+        return (self._orb.vxvv,False,False,False,ivo,iro,
+                self._orb._zo,self._orb._solarmotion)

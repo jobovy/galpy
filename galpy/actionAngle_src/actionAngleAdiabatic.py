@@ -15,15 +15,11 @@ import warnings
 import math as m
 import numpy as nu
 from galpy.util import galpyWarning
+from galpy.potential import planarPotential
 from actionAngleAxi import actionAngleAxi
 from actionAngle import actionAngle
-try:
-    import actionAngleAdiabatic_c
-except IOError:
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+import actionAngleAdiabatic_c
+from actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleAdiabatic():
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
@@ -42,13 +38,13 @@ class actionAngleAdiabatic():
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
         if ext_loaded and kwargs.has_key('c') and kwargs['c']:
             self._c= _check_c(self._pot)
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
         if kwargs.has_key('gamma'):
@@ -69,6 +65,7 @@ class actionAngleAdiabatic():
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
            scipy.integrate.quadrature keywords
+           _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
         OUTPUT:
            (jr,lz,jz), where jr=[jr,jrerr], and jz=[jz,jzerr]
         HISTORY:
@@ -99,11 +96,11 @@ class actionAngleAdiabatic():
                 self._pot,self._gamma,R,vR,vT,z,vz)
             if err == 0:
                 return (jr,Lz,jz)
-            else:
+            else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
             if kwargs.has_key('c') and kwargs['c'] and not self._c:
-                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             if kwargs.has_key('c'): kwargs.pop('c')
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
@@ -136,65 +133,14 @@ class actionAngleAdiabatic():
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
-                return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
-
-    def JR(self,*args,**kwargs):
-        """
-        NAME:
-           JR
-        PURPOSE:
-           evaluate the action jr
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           Jr
-        HISTORY:
-           2012-07-30 - Written - Bovy (IAS@MPIA)
-        """
-        #Set up the actionAngleAxi object
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
-            thispot= self._pot.toPlanar()
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               gamma=self._gamma)
-        return aAAxi.JR(**kwargs)
-
-    def Jz(self,*args,**kwargs):
-        """
-        NAME:
-           Jz
-        PURPOSE:
-           evaluate the action jz
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jz,jzerr
-        HISTORY:
-           2012-07-27 - Written - Bovy (IAS@MPIA)
-        """
-        #Set up the actionAngleAxi object
-        meta= actionAngle(*args)
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
-            thispot= self._pot.toPlanar()
-        if isinstance(self._pot,list):
-            thisverticalpot= [p.toVertical(meta._R) for p in self._pot]
-        else:
-            thisverticalpot= self._pot.toVertical(meta._R)
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               verticalPot=thisverticalpot,
-                               gamma=self._gamma)
-        return aAAxi.Jz(**kwargs)
+                if kwargs.get('_justjr',False):
+                    kwargs.pop('_justjr')
+                    return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
+                elif kwargs.get('_justjz',False):
+                    kwargs.pop('_justjz')
+                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                else:
+                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
 
     def calcRapRperi(self,*args,**kwargs):
         """
@@ -214,13 +160,16 @@ class actionAngleAdiabatic():
         """
         #Set up the actionAngleAxi object
         if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
+            thispot= [p.toPlanar() for p in self._pot if not isinstance(p,planarPotential)]
+            thispot.extend([p for p in self._pot if isinstance(p,planarPotential)])
+        elif not isinstance(self._pot,planarPotential):
             thispot= self._pot.toPlanar()
+        else:
+            thispot= self._pot
         aAAxi= actionAngleAxi(*args,pot=thispot,
                                gamma=self._gamma)
         return aAAxi.calcRapRperi(**kwargs)
-        
+
     def calczmax(self,*args,**kwargs):
         """
         NAME:

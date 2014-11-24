@@ -270,8 +270,10 @@ void calcu0(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -317,7 +319,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -368,8 +370,10 @@ void actionAngleStaeckel_actions(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -426,7 +430,7 @@ void calcJRStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jr,umin,umax,JRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
@@ -492,7 +496,7 @@ void calcJzStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jz,vmin,JzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
@@ -571,7 +575,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -639,8 +643,10 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -719,7 +725,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(coshux+ii)= cosh(*(ux+ii));
@@ -801,8 +807,10 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -849,17 +857,23 @@ void calcFreqsFromDerivsStaeckel(int ndata,
 				 double * djzdLz,
 				 double * djzdI3){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
   private(ii)							\
   shared(Omegar,Omegaphi,Omegaz,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3,detA)
   for (ii=0; ii < ndata; ii++){
-    //First calculate the determinant of the relevant matrix
-    *(detA+ii)= *(djrdE+ii) * *(djzdI3+ii) - *(djzdE+ii) * *(djrdI3+ii);
-    //Then calculate the frequencies
-    *(Omegar+ii)= *(djzdI3+ii) / *(detA+ii);
-    *(Omegaz+ii)= - *(djrdI3+ii) / *(detA+ii);
-    *(Omegaphi+ii)= ( *(djrdI3+ii) * *(djzdLz+ii) - *(djzdI3+ii) * *(djrdLz+ii)) / *(detA+ii);
+    if ( *(djrdE+ii) == 9999.99 || *(djzdE+ii) == 9999.99 ) {
+      *(Omegar+ii)= 9999.99;
+      *(Omegaz+ii)= 9999.99;
+      *(Omegaphi+ii)= 9999.99;
+    } else {
+      //First calculate the determinant of the relevant matrix
+      *(detA+ii)= *(djrdE+ii) * *(djzdI3+ii) - *(djzdE+ii) * *(djrdI3+ii);
+      //Then calculate the frequencies
+      *(Omegar+ii)= *(djzdI3+ii) / *(detA+ii);
+      *(Omegaz+ii)= - *(djrdI3+ii) / *(detA+ii);
+      *(Omegaphi+ii)= ( *(djrdI3+ii) * *(djzdLz+ii) - *(djzdI3+ii) * *(djrdLz+ii)) / *(detA+ii);
+    }
   }
 }		 
 void calcdI3dJFromDerivsStaeckel(int ndata,
@@ -872,7 +886,7 @@ void calcdI3dJFromDerivsStaeckel(int ndata,
 				 double * djrdLz,
 				 double * djzdLz){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)			\
   private(ii)							\
   shared(djrdE,djzdE,djrdLz,djzdLz,dI3dJR,dI3dJz,dI3dLz,detA)
@@ -916,7 +930,7 @@ void calcdJRStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid)							\
   shared(djrdE,djrdLz,djrdI3,umin,umax,dJRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
@@ -1006,7 +1020,7 @@ void calcdJzStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid)							\
   shared(djzdE,djzdLz,djzdI3,vmin,dJzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
@@ -1126,7 +1140,7 @@ void calcAnglesStaeckel(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,mid,midpoint,Or1,Or2,I3r1,I3r2,phitmp)			\
   shared(Angler,Anglephi,Anglez,Omegar,Omegaz,dI3dJR,dI3dJz,umin,umax,AngleuInt,AnglevInt,paramsu,paramsv,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0,vmin,I3V,cosh2u0,potupi2)
@@ -1315,8 +1329,10 @@ void calcAnglesStaeckel(int ndata,
     }
     *(Angler+ii)= *(Omegar+ii) * ( Or1 + Or2 ) 
       + *(dI3dJR+ii) * ( I3r1 + I3r2 );
+    // In Binney (2012) Anglez starts at zmax/vmin and v_z < 0 / v_v > 0; 
+    // Put this on the same system as Isochrone and Spherical angles +pi/2
     *(Anglez+ii)= *(Omegaz+ii) * ( Or1 + Or2 ) 
-      + *(dI3dJz+ii) * ( I3r1 + I3r2 );
+      + *(dI3dJz+ii) * ( I3r1 + I3r2 ) + 0.5 * M_PI;
     *(Anglephi+ii)+= phitmp;
     *(Anglephi+ii)+= *(Omegaphi+ii) * ( Or1 + Or2 ) 
       + *(dI3dLz+ii) * ( I3r1 + I3r2 );
@@ -1375,7 +1391,7 @@ void calcUminUmax(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,u_lo,u_hi,meps,peps)				\
@@ -1416,28 +1432,29 @@ void calcUminUmax(int ndata,
 	//Find root
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
 	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
-	  continue;
-	}
-	iter= 0;
-	do
-	  {
-	    iter++;
-	    status = gsl_root_fsolver_iterate ((s+tid)->s);
-	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
-	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
-	    status = gsl_root_test_interval (u_lo, u_hi,
-					     9.9999999999999998e-13,
-					     4.4408920985006262e-16);
+	  *(umin+ii) = 0.;//Assume zero if below 0.000000001
+	} else {
+	  iter= 0;
+	  do
+	    {
+	      iter++;
+	      status = gsl_root_fsolver_iterate ((s+tid)->s);
+	      u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	      u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	      status = gsl_root_test_interval (u_lo, u_hi,
+					       9.9999999999999998e-13,
+					       4.4408920985006262e-16);
+	    }
+	  while (status == GSL_CONTINUE && iter < max_iter);
+	  // LCOV_EXCL_START
+	  if (status == GSL_EINVAL) {//Shouldn't ever get here
+	    *(umin+ii) = -9999.99;
+	    *(umax+ii) = -9999.99;
+	    continue;
 	  }
-	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
-	  *(umin+ii) = -9999.99;
-	  *(umax+ii) = -9999.99;
-	  continue;
+	  // LCOV_EXCL_STOP
+	  *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
 	}
-	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
@@ -1466,11 +1483,13 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
+	// LCOV_EXCL_STOP
 	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -1485,28 +1504,29 @@ void calcUminUmax(int ndata,
       //Find root
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, u_lo, u_hi);
       if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
-	continue;
-      }
-      iter= 0;
-      do
-	{
-	  iter++;
-	  status = gsl_root_fsolver_iterate ((s+tid)->s);
-	  u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
-	  u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
-	  status = gsl_root_test_interval (u_lo, u_hi,
-					   9.9999999999999998e-13,
-					   4.4408920985006262e-16);
+	*(umin+ii) = 0.;//Assume zero if below 0.000000001
+      } else {
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    u_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    u_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	    status = gsl_root_test_interval (u_lo, u_hi,
+					     9.9999999999999998e-13,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
+	  *(umin+ii) = -9999.99;
+	  *(umax+ii) = -9999.99;
+	  continue;
 	}
-      while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
-	*(umin+ii) = -9999.99;
-	*(umax+ii) = -9999.99;
-	continue;
+	// LCOV_EXCL_STOP
+	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
-      *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       u_lo= *(ux+ii);
       u_hi= 1.1 * *(ux+ii);
@@ -1534,11 +1554,13 @@ void calcUminUmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(umin+ii) = -9999.99;
 	*(umax+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
@@ -1584,7 +1606,7 @@ void calcVmin(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,v_lo,v_hi)				\
@@ -1639,11 +1661,14 @@ void calcVmin(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(vmin+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(vmin+ii) = gsl_root_fsolver_root ((s+tid)->s);
+      fflush(stdout);
     }
   }
   gsl_set_error_handler (NULL);

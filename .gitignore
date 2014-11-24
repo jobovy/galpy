@@ -36,6 +36,8 @@ Thumbs.db
 
 #
 *~
+.coverage
+coverage_html_report
 
 # galpy #
 #########

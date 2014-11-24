@@ -69,7 +69,7 @@ inline void calcEREzL(int ndata,
 		      int nargs,
 		      struct potentialArg * actionAngleArgs){
   int ii;
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(ER+ii)= evaluatePotentials(*(R+ii),0.,
@@ -114,7 +114,7 @@ void actionAngleAdiabatic_actions(int ndata,
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
   calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
   //Adjust planar effective potential for gamma
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
@@ -126,8 +126,10 @@ void actionAngleAdiabatic_actions(int ndata,
   for (ii=0; ii < npot; ii++) {
     if ( (actionAngleArgs+ii)->i2d )
       interp_2d_free((actionAngleArgs+ii)->i2d) ;
-    if ((actionAngleArgs+ii)->acc )
-      gsl_interp_accel_free ((actionAngleArgs+ii)->acc);
+    if ((actionAngleArgs+ii)->accx )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
+    if ((actionAngleArgs+ii)->accy )
+      gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
     free((actionAngleArgs+ii)->args);
   }
   free(actionAngleArgs);
@@ -161,7 +163,7 @@ void calcJRAdiabatic(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jr,rperi,rap,JRInt,params,T,ER,Lz)
@@ -214,7 +216,7 @@ void calcJzAdiabatic(int ndata,
   }
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii)							\
   shared(jz,zmax,JzInt,params,T,Ez,R)
@@ -274,7 +276,7 @@ void calcRapRperi(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,R_lo,R_hi,meps,peps)			\
@@ -309,8 +311,7 @@ void calcRapRperi(int ndata,
 	//Find root
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
 	if (status == GSL_EINVAL) {
-	  *(rperi+ii) = -9999.99;
-	  *(rap+ii) = -9999.99;
+	  *(rperi+ii) = 0.;//Assume zero if below 0.000000001
 	  continue;
 	}
 	iter= 0;
@@ -325,11 +326,13 @@ void calcRapRperi(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(rperi+ii) = -9999.99;
 	  *(rap+ii) = -9999.99;
 	  continue;
 	}
+	// LCOV_EXCL_STOP
 	*(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       else if ( peps > 0. && meps < 0. ){//umin
@@ -339,10 +342,6 @@ void calcRapRperi(int ndata,
 	while ( GSL_FN_EVAL(JRRoot+tid,R_hi) >= 0. && R_hi < 37.5) {
 	  R_lo= R_hi; //this makes sure that brent evaluates using previous
 	  R_hi*= 1.1;
-	  if ( R_hi > 100. ) {
-	    status= GSL_EINVAL;
-	    break;
-	  }
 	}
 	//Find root
 	status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
@@ -363,11 +362,13 @@ void calcRapRperi(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	if (status == GSL_EINVAL) {
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here 
 	  *(rperi+ii) = -9999.99;
 	  *(rap+ii) = -9999.99;
 	  continue;
 	}
+	// LCOV_EXCL_STOP
 	*(rap+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -382,38 +383,35 @@ void calcRapRperi(int ndata,
       //Find root
       status = gsl_root_fsolver_set ((s+tid)->s, JRRoot+tid, R_lo, R_hi);
       if (status == GSL_EINVAL) {
-	*(rperi+ii) = -9999.99;
-	*(rap+ii) = -9999.99;
-	continue;
-      }
-      iter= 0;
-      do
-	{
-	  iter++;
-	  status = gsl_root_fsolver_iterate ((s+tid)->s);
-	  R_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
-	  R_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
-	  status = gsl_root_test_interval (R_lo, R_hi,
-					   9.9999999999999998e-13,
-					   4.4408920985006262e-16);
+	*(rperi+ii) = 0.;//Assume zero if below 0.000000001
+      } else {
+	iter= 0;
+	do
+	  {
+	    iter++;
+	    status = gsl_root_fsolver_iterate ((s+tid)->s);
+	    R_lo = gsl_root_fsolver_x_lower ((s+tid)->s);
+	    R_hi = gsl_root_fsolver_x_upper ((s+tid)->s);
+	    status = gsl_root_test_interval (R_lo, R_hi,
+					     9.9999999999999998e-13,
+					     4.4408920985006262e-16);
+	  }
+	while (status == GSL_CONTINUE && iter < max_iter);
+	// LCOV_EXCL_START
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
+	  *(rperi+ii) = -9999.99;
+	  *(rap+ii) = -9999.99;
+	  continue;
 	}
-      while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
-	*(rperi+ii) = -9999.99;
-	*(rap+ii) = -9999.99;
-	continue;
+	// LCOV_EXCL_STOP
+	*(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
-      *(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       //Find starting points for maximum
       R_lo= *(R+ii);
       R_hi= 1.1 * *(R+ii);
       while ( GSL_FN_EVAL(JRRoot+tid,R_hi) > 0. && R_hi < 37.5) {
 	R_lo= R_hi; //this makes sure that brent evaluates using previous
 	R_hi*= 1.1;
-	if ( R_hi > 100. ) {
-	  status= GSL_EINVAL;
-	  break;
-	}
       }
       R_lo= (R_hi > 1.1 * *(R+ii)) ? R_hi / 1.1 / 1.1: *(R+ii);
       //Find root
@@ -435,11 +433,13 @@ void calcRapRperi(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here 
 	*(rperi+ii) = -9999.99;
 	*(rap+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(rap+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
@@ -477,7 +477,7 @@ void calcZmax(int ndata,
     (params+tid)->actionAngleArgs= actionAngleArgs;
     (s+tid)->s= gsl_root_fsolver_alloc (T);
   }
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
   gsl_set_error_handler_off();
 #pragma omp parallel for schedule(static,chunk)				\
   private(tid,ii,iter,status,z_lo,z_hi)				\
@@ -522,10 +522,12 @@ void calcZmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      if (status == GSL_EINVAL) {
+      // LCOV_EXCL_START
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(zmax+ii) = -9999.99;
 	continue;
       }
+      // LCOV_EXCL_STOP
       *(zmax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }

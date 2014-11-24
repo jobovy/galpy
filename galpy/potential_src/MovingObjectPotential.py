@@ -7,15 +7,24 @@
 ###############################################################################
 import numpy as nu
 from Potential import Potential
-from galpy.snapshot_src.directnbody import _plummer_soft
 from galpy.potential_src.ForceSoftening import PlummerSoftening
 class MovingObjectPotential(Potential):
     """Class that implements the potential coming from a moving object
-                                 GM
-    phi(R,z) = -  ---------------------------------
-                               distance
+
+    .. math::
+
+        \\Phi(R,z,\\phi,t) = -\\mathrm{amp}\\,GM\\,S(d)
+
+    where :math:`d` is the distance between :math:`(R,z,\\phi)` and the moving object at time :math:`t` and :math:`S(\\cdot)` is a softening kernel. In the case of Plummer softening, this kernel is
+
+    .. math::
+
+        S(d) = \\frac{1}{\\sqrt{d^2+\\mathrm{softening\_length}^2}}
+
+    Plummer is currently the only implemented softening.
+
     """
-    def __init__(self,orbit,amp=1.,GM=.06,normalize=False,
+    def __init__(self,orbit,amp=1.,GM=.06,
                  softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
@@ -34,10 +43,6 @@ class MovingObjectPotential(Potential):
            amp= - amplitude to be applied to the potential (default: 1)
 
            GM - 'mass' of the object (degenerate with amp)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1. (at t=0)
 
            Softening: either provide
 
@@ -64,13 +69,10 @@ class MovingObjectPotential(Potential):
                 self._softening= PlummerSoftening(softening_length=softening_length)
         else:
             self._softening= softening
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
-            self.normalize(normalize)
+        self.isNonAxi= True
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -86,16 +88,11 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010104-10 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            #Calculate distance
-            dist= _cyldist(R,phi,z,
-                           self._orb.R(t),self._orb.phi(t),self._orb.z(t))
-            #Evaluate potential
-            return -self._gm*self._softening.potential(dist)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        #Calculate distance
+        dist= _cyldist(R,phi,z,
+                       self._orb.R(t),self._orb.phi(t),self._orb.z(t))
+        #Evaluate potential
+        return -self._gm*self._softening.potential(dist)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

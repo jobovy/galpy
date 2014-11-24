@@ -31,3 +31,7 @@ parse the new potential
 potential in question (after the initialization of the super class)
 
 9) It should work now!
+
+10) If you implement the second derivatives of the potential necessary
+to integrate phase-space volumes, also set self.hasC_dxdv=True to the
+initialization of the potential in question.

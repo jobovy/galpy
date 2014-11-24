@@ -1,26 +1,35 @@
+import sys
+import warnings
 import numpy as nu
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
-from galpy import potential, potential_src
+from galpy import potential
+from galpy.util import galpyWarning
 from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
-_lib = None
-_libname = ctypes.util.find_library('galpy_integrate_c')
-if _libname:
-    _lib = ctypes.CDLL(_libname)
-if _lib is None:
-    import sys
-    for path in sys.path:
-        try:
-            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-        except OSError:
-            _lib = None
-        else:
-            break
-if _lib is None:
-    raise IOError('galpy integration module not found')
+_lib= None
+outerr= None
+for path in sys.path:
+    try:
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
+    except OSError, e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+            outerr= e
+        _lib = None
+    else:
+        break
+if _lib is None: #pragma: no cover
+    if not outerr is None:
+        warnings.warn("integrateFullOrbit_c extension module not loaded, because of error '%s' " % outerr,
+                      galpyWarning)
+    else:
+        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+                      galpyWarning)
+    _ext_loaded= False
+else:
+    _ext_loaded= True
 
 def _parse_pot(pot,potforactions=False):
     """Parse the potential so it can be fed to C"""
@@ -81,6 +90,9 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)
             pot_args.extend([p._amp,p.b])
+        elif isinstance(p,potential.PowerSphericalPotentialwCutoff):
+            pot_type.append(15)
+            pot_args.extend([p._amp,p.alpha,p.rc])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -154,7 +166,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
 
     return (result,err.value)
 
-def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
+def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pragma: no cover because not included in v1, uncover when included
     """
     NAME:
        integrateFullOrbit_dxdv_c

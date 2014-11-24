@@ -7,7 +7,12 @@ _degtorad= math.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
+    .. math::
+
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
+
+
+    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\pi/\Omega_s` to normalize :math:`t_{\mathrm{form}}` and :math:`T_{\mathrm{steady}}`.
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
@@ -43,7 +48,7 @@ class SteadyLogSpiralPotential(planarPotential):
               
            tform - start of spiral growth / spiral period (default: -Infinity)
 
-           tsteady - time from tform at which the spiral is fully grown / spiral period (default: tform+2 periods)
+           tsteady - time from tform at which the spiral is fully grown / spiral period (default: 2 periods)
 
         OUTPUT:
 
@@ -75,7 +80,7 @@ class SteadyLogSpiralPotential(planarPotential):
             else: self._tsteady= self._tform+2.*self._ts
         self.hasC= True
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -90,25 +95,20 @@ class SteadyLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            if not self._tform is None:
-                if t < self._tform:
-                    smooth= 0.
-                elif t < self._tsteady:
-                    deltat= t-self._tform
-                    xi= 2.*deltat/(self._tsteady-self._tform)-1.
-                    smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-                else: #spiral is fully on
-                    smooth= 1.
-            else:
+        if not self._tform is None:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #spiral is fully on
                 smooth= 1.
-            return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
+        else:
+            smooth= 1.
+        return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
                                                    -self._m*(phi-self._omegas*t
                                                              -self._gamma))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
 
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -171,6 +171,32 @@ class SteadyLogSpiralPotential(planarPotential):
                                                                      -self._omegas*t
                                                                      -self._gamma))
     
+    def wavenumber(self,R):
+        """
+        NAME:
+
+
+           wavenumber
+
+        PURPOSE:
+
+           return the wavenumber at radius R (d f(R)/ d R in Phi_a(R) = F(R) e^[i f(R)]; see Binney & Tremaine 2008)
+
+        INPUT:
+
+           R - Cylindrical radius
+
+        OUTPUT:
+
+           wavenumber at R
+
+        HISTORY:
+
+           2014-08-23 - Written - Bovy (IAS)
+
+        """
+        return self._alpha/R
+
     def OmegaP(self):
         """
         NAME:
@@ -197,7 +223,33 @@ class SteadyLogSpiralPotential(planarPotential):
         """
         return self._omegas
 
-    def tform(self):
+    def m(self):
+        """
+        NAME:
+
+
+           m
+
+        PURPOSE:
+
+           return the number of arms
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           number of arms
+
+        HISTORY:
+
+           2014-08-23 - Written - Bovy (IAS)
+
+        """
+        return self._m
+
+    def tform(self): #pragma: no cover
         """
         NAME:
 

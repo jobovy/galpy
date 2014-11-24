@@ -13,11 +13,17 @@ from galpy.potential import LogarithmicHaloPotential
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)
-                                             amp
-                          phi(R,z)=-  ---------------- ; m^2 = R^2 + z^2/q^2
-                                       alpha m^\alpha
+
+    .. math::
+
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^{\\alpha/2}}
+
+    and the same as LogarithmicHaloPotential for :math:`\\alpha=0`
+
+    See Figure 1 in `Evans (1994) <http://adsabs.harvard.edu/abs/1994MNRAS.267..333E>`_ for combinations of alpha and q that correspond to positive densities
+
     """
-    def __init__(self,amp=1.,alpha=2.,q=0.9,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False):
         """
         NAME:
 
@@ -54,11 +60,12 @@ class FlattenedPowerPotential(Potential):
         self.core2= core**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        self.hasC= False
+        self.hasC= True
+        self.hasC_dxdv= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -69,22 +76,16 @@ class FlattenedPowerPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-01-09 - Started - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            if self.alpha == 0.:
-                return 1./2.*nu.log(R**2.+z**2./self.q2+self.core2)
-            else:
-                m2= self.core2+R**2.+z**2./self.q2
-                return -m2**(-self.alpha/2.)/self.alpha
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        if self.alpha == 0.:
+            return 1./2.*nu.log(R**2.+z**2./self.q2+self.core2)
+        else:
+            m2= self.core2+R**2.+z**2./self.q2
+            return -m2**(-self.alpha/2.)/self.alpha
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -193,7 +194,7 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
         """
         if self.alpha == 0.:
-            return 1./self.q2*((2.*self.q2+1.)*self.core2+R**2.\
+            return 1./4./nu.pi/self.q2*((2.*self.q2+1.)*self.core2+R**2.\
                                        +(2.-1./self.q2)*z**2.)/\
                                        (R**2.+z**2./self.q2+self.core2)**2.
         else:

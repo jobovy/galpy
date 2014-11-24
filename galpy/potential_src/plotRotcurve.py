@@ -1,5 +1,6 @@
+import os
+import pickle
 import numpy as nu
-from scipy import optimize
 import galpy.util.bovy_plot as plot
 def plotRotcurve(Pot,*args,**kwargs):
     """
@@ -18,9 +19,9 @@ def plotRotcurve(Pot,*args,**kwargs):
 
        Rrange - Range in R to consider
 
-       grid - grid in R
+       grid= grid in R
 
-       savefilename - save to or restore from this savefile (pickle)
+       savefilename= save to or restore from this savefile (pickle)
 
        +bovy_plot.bovy_plot args and kwargs
 
@@ -48,7 +49,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         kwargs.pop('savefilename')
     else:
         savefilename= None
-    if not savefilename == None and os.path.exists(savefilename):
+    if not savefilename is None and os.path.exists(savefilename):
         print "Restoring savefile "+savefilename+" ..."
         savefile= open(savefilename,'rb')
         rotcurve= pickle.load(savefile)
@@ -130,15 +131,14 @@ def vcirc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from Potential import Potential
-    from planarPotential import planarPotential
-    if isinstance(Pot,list):
-        sum= 0.
-        for pot in Pot:
-            sum+= pot.vcirc(R)**2.
-        return nu.sqrt(sum)
-    elif isinstance(Pot,(Potential,planarPotential)):
-        return Pot.vcirc(R)
+    from planarPotential import evaluateplanarRforces
+    from Potential import PotentialError
+    try:
+        return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
+    except PotentialError:
+        from planarPotential import RZToplanarPotential
+        Pot= RZToplanarPotential(Pot)
+        return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
 
 def dvcircdR(Pot,R):
     """
@@ -168,10 +168,11 @@ def dvcircdR(Pot,R):
     """
     from planarPotential import evaluateplanarRforces
     from planarPotential import evaluateplanarR2derivs
+    from Potential import PotentialError
     tvc= vcirc(Pot,R)
     try:
         return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
-    except TypeError:
+    except PotentialError:
         from planarPotential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc

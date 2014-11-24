@@ -7,7 +7,13 @@ from planarPotential import planarPotential
 _degtorad= m.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
-           phi(R,phi) = phio (R/Ro)^p cos[2(phi-phib)]
+
+    .. math::
+
+        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
+
+    This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
+
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,twophio=0.01,
@@ -54,6 +60,7 @@ class EllipticalDiskPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         if cp is None or sp is None:
             self._phib= phib
             self._twophio= twophio
@@ -71,7 +78,7 @@ class EllipticalDiskPotential(planarPotential):
             if self._tform is None: self._tsteady= None
             else: self._tsteady= self._tform+2.
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -98,19 +105,8 @@ class EllipticalDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        if dR == 0 and dphi == 0:
-            return smooth*self._twophio/2.*R**self._p\
-                *m.cos(2.*(phi-self._phib))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return self._phi2deriv(R,phi=phi,t=t)
-        elif dR == 1 and dphi == 1:
-            return self._Rphideriv(R,phi=phi,t=t)
+        return smooth*self._twophio/2.*R**self._p\
+            *m.cos(2.*(phi-self._phib))
         
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -217,7 +213,7 @@ class EllipticalDiskPotential(planarPotential):
             smooth= 1.
         return -smooth*self._p*self._twophio*R**(self._p-1.)*m.sin(2.*(phi-self._phib))
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 

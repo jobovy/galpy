@@ -10,26 +10,37 @@ from Potential import Potential
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
-                - amp
-    Phi(r)= ---------------- ---
-             b + sqrt{b^2+r^2}
+    .. math::
+
+        \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
+
     """
     def __init__(self,amp=1.,b=1.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an isochrone potential
+
         INPUT:
+
            amp= amplitude to be applied to the potential (default: 1)
+
            b= scale radius of the isochrone potential
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
-                       of the force necessary to make vc(1.,0.)=1.
+
+           normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-09-08 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.b= b
@@ -37,11 +48,12 @@ class IsochronePotential(Potential):
         self.b2= self.b**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
+        self.hasC_dxdv= True
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -52,20 +64,14 @@ class IsochronePotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            r2= R**2.+z**2.
-            rb= nu.sqrt(r2+self.b2)
-            return -1./(self.b+rb)
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        r2= R**2.+z**2.
+        rb= nu.sqrt(r2+self.b2)
+        return -1./(self.b+rb)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

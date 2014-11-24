@@ -30,22 +30,22 @@ the radial and vertical velocity dispersion as a function of
 radius. In addition, we have to provide an instance of a
 ``galpy.actionAngle`` class to calculate the actions for a given
 position and velocity. For example, for a
-``galpy.potential.MWPotential`` potential using the adiabatic
+``galpy.potential.MWPotential2014`` potential using the adiabatic
 approximation for the actions, we import and define the following
 
->>> from galpy.potential import MWPotential
+>>> from galpy.potential import MWPotential2014
 >>> from galpy.actionAngle import actionAngleAdiabatic
 >>> from galpy.df import quasiisothermaldf
->>> aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+>>> aA= actionAngleAdiabatic(pot=MWPotential2014,c=True)
 
 and then setup the ``quasiisothermaldf`` instance
 
->>> qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,cutcounter=True)
+>>> qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential2014,aA=aA,cutcounter=True)
 
 which sets up a DF instance with a radial scale length of
 :math:`R_0/3`, a local radial and vertical velocity dispersion of
 :math:`0.2\,V_c(R_0)` and :math:`0.1\,V_c(R_0)`, respectively, and a
-radial scale lengths of the velocity dispersions squared of
+radial scale lengths of the velocity dispersions of
 :math:`R_0`. ``cutcounter=True`` specifies that counter-rotating stars
 are explicitly excluded (normally these are just exponentially
 suppressed). As for the two-dimensional disk DFs, these parameters are
@@ -57,15 +57,15 @@ parameters. We can estimate the DF's actual radial scale length near
 :math:`R_0` as
 
 >>> qdf.estimate_hr(1.)
-0.33843243662586048
+0.32908034635647182
 
 which is quite close to the input value of 1/3. Similarly, we can
-estimate the scale lengths of the dispersions squared
+estimate the scale lengths of the dispersions
 
 >>> qdf.estimate_hsr(1.)
-1.1527209864858059
+1.1913935820372923
 >>> qdf.estimate_hsz(1.)
-1.0441867587783933
+1.0506918075359255
 
 The vertical profile is fully specified by the velocity dispersions
 and radial density / dispersion profiles under the assumption of
@@ -73,18 +73,18 @@ dynamical equilibrium. We can estimate the scale height of this DF at
 a given radius and height as follows
 
 >>> qdf.estimate_hz(1.,0.125)
-0.018715154050080292
+0.021389597757156088
 
 Near the mid-plane this vertical scale height becomes very large
 because the vertical profile flattens, e.g., 
 
 >>> qdf.estimate_hz(1.,0.125/100.)
-0.85435378664432149
+1.006386030587223
 
 or even
 
 >>> qdf.estimate_hz(1.,0.)
-128674.27506772846
+187649.98447377066
 
 which is basically infinity.
 
@@ -108,7 +108,7 @@ The mean rotational velocity has a more interesting dependence on
 position. Near the plane, this is the same as that calculated for a similar two-dimensional disk DF (see :ref:`dftwod-moments`)
 
 >>> qdf.meanvT(1.,0.)
-0.9150884078276913
+0.91988346380781227
 
 However, this value decreases as one moves further from the plane. The
 ``quasiisothermaldf`` allows us to calculate the average rotational
@@ -128,9 +128,9 @@ whether the radial and velocity dispersions at :math:`R_0` are close
 to their input values
 
 >>> numpy.sqrt(qdf.sigmaR2(1.,0.))
-0.20918647082092351
+0.20807112565801389
 >>> numpy.sqrt(qdf.sigmaz2(1.,0.))
-0.092564222527283468
+0.090453510526130904
 
 and they are pretty close. We can also calculate the mixed *R* and *z*
 moment, for example,
@@ -152,13 +152,13 @@ we can model this coupling better. Setting up a ``quasiisothermaldf``
 instance with the Staeckel approximation
 
 >>> from galpy.actionAngle import actionAngleStaeckel
->>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
->>> qdfS= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aAS,cutcounter=True)
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45,c=True)
+>>> qdfS= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential2014,aA=aAS,cutcounter=True)
 
 we can similarly calculate the tilt
 
 >>> qdfS.tilt(1.,0.125)
-5.4669442080366721
+5.9096430410862419
 
 or about 5 degrees. As a function of height, we find
 
@@ -217,7 +217,7 @@ Evaluating and sampling the full probability distribution function
 We can evaluate the distribution itself by calling the object, e.g.,
 
 >>> qdf(1.,0.1,1.1,0.1,0.) #input: R,vR,vT,z,vz
-array([ 10.16445158])
+array([ 16.86790643])
 
 or as a function of rotational velocity, for example in the mid-plane
 
@@ -235,13 +235,15 @@ vertical velocities. We can calculate the distribution of rotational
 velocities marginalized over the radial and vertical velocities as
 
 >>> qdfS.pvT(1.,1.,0.) #input vT,R,z
-15.464330302557528
+14.677231196899195
 
 or as a function of rotational velocity
 
 >>> pvt= numpy.array([qdfS.pvT(vt,1.,0.) for vt in vts])
 
 overplotting this over the previous distribution gives
+
+>>> plot(vts,pvt/numpy.sum(pvt)/(vts[1]-vts[0]))
 
 .. image:: images/qdf-pvt.png
 

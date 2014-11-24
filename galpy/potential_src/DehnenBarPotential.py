@@ -6,6 +6,37 @@ from planarPotential import planarPotential
 _degtorad= m.pi/180.
 class DehnenBarPotential(planarPotential):
     """Class that implements the Dehnen bar potential (Dehnen 2000)
+
+    .. math::
+
+        \\Phi(R,\\phi) = A_b(t)\\,\\cos\\left(2\\,(\\phi-\\Omega_b\\,t)\\right))\\times \\begin{cases}
+        -(R_b/R)^3\\,, & \\text{for}\\ R \\geq R_b\\\\
+        (R/R_b)^3-2\\,, & \\text{for}\\ R\\leq R_b.
+        \\end{cases}
+
+    where
+
+    .. math::
+
+        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
+
+    and 
+
+    .. math::
+
+        A_b(t) = \\begin{cases}
+        0\\,, & \\frac{t}{T_b} < t_\mathrm{form}\\\\
+        \\frac{\\alpha}{3\\,R_b^3}\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
+        \\end{cases}
+
+    where
+
+    .. math::
+
+       T_b = \\frac{2\pi}{\\Omega_b}
+
+    is the bar period.
+
     """
     def __init__(self,amp=1.,omegab=None,rb=None,chi=0.8,
                  rolr=0.9,barphi=25.*_degtorad,
@@ -29,6 +60,8 @@ class DehnenBarPotential(planarPotential):
            (in rad; default=25 degree)
 
            tform - start of bar growth / bar period (default: -4)
+
+           tsteady - time from tform at which the bar is fully grown / bar period (default: -tform/2, st the perturbation is fully grown at tform/2)
 
            tsteady - time at which the bar is fully grown / bar period
            (default: tform/2)
@@ -62,6 +95,7 @@ class DehnenBarPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp)
         self.hasC= True
+        self.hasC_dxdv= True
         self._barphi= barphi
         if omegab is None:
             self._rolr= rolr
@@ -81,9 +115,9 @@ class DehnenBarPotential(planarPotential):
         if tsteady is None:
             self._tsteady= self._tform/2.
         else:
-            self._tsteady= tsteady*self._tb
+            self._tsteady= self._tform+tsteady*self._tb
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -107,25 +141,14 @@ class DehnenBarPotential(planarPotential):
             smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
         else: #bar is fully on
             smooth= 1.
-        if dR == 0 and dphi == 0:
-            if R <= self._rb:
-                return self._af*smooth*m.cos(2.*(phi-self._omegab*t-self._barphi))\
-                       *((R/self._rb)**3.-2.)
-            else:
-                return -self._af*smooth*m.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                                                  *(self._rb/R)**3.
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 2:
-            return self._phi2deriv(R,phi=phi,t=t)
-        elif dR == 1 and dphi == 1:
-            return self._Rphideriv(R,phi=phi,t=t)
-        
+        if R <= self._rb:
+            return self._af*smooth*m.cos(2.*(phi-self._omegab*t-self._barphi))\
+                *((R/self._rb)**3.-2.)
+        else:
+            return -self._af*smooth*m.cos(2.*(phi-self._omegab*t-
+                                              self._barphi))\
+                                              *(self._rb/R)**3.
+
     def _Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -249,7 +272,7 @@ class DehnenBarPotential(planarPotential):
                                               self._barphi))\
                                               *(self._rb/R)**3./R
 
-    def tform(self):
+    def tform(self): #pragma: no cover
         """
         NAME:
 

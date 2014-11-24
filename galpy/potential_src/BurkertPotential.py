@@ -2,42 +2,54 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from scipy import special, integrate
 from Potential import Potential
 class BurkertPotential(Potential):
     """BurkertPotential.py: Potential with a Burkert density
 
-                amp
-    rho(r)= -------------      ; x = r/a
-             (1+x)(1+x^2)
+    .. math::
+
+        \\rho(r) = \\frac{\\mathrm{amp}}{(1+r/a)\\,(1+[r/a]^2)}
+
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=2.,normalize=False):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a Burkert-density potential
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1)
+
            a = scale radius
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2013-04-10 - Written - Bovy (IAS)
+
         """
         Potential.__init__(self,amp=amp)
         self.a=a
         self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         self.hasC= False
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -48,19 +60,13 @@ class BurkertPotential(Potential):
            z - vertical height
            phi - azimuth
            t - time
-           dR, dphi - return dR, dphi-th derivative (only implemented for 0 and 1)
         OUTPUT:
            Phi(R,z)
         HISTORY:
            2013-04-10 - Started - Bovy (IAS)
         """
-        if dR == 0 and dphi == 0:
-            x= numpy.sqrt(R**2.+z**2.)/self.a
-            return -numpy.pi*self.a**2.*(2.*(1+x)/x*numpy.arctan(x)+2.*(1.+x)/x*numpy.log(1.+x)-(x-1.)/x*numpy.log(1.+x**2.))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
+        x= numpy.sqrt(R**2.+z**2.)/self.a
+        return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)+2.*(1.+x)*numpy.log(1.+x)+(1.-x)*numpy.log(1.+x**2.))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -80,7 +86,7 @@ class BurkertPotential(Potential):
         """
         r= numpy.sqrt(R**2.+z**2.)
         x= r/self.a
-        return -numpy.pi*self.a**3./r**2.*(2.*numpy.log(1.+x)+numpy.log(1.+x**2.)-2.*numpy.arctan(x))*R/r
+        return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.))*R/r
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -96,11 +102,11 @@ class BurkertPotential(Potential):
         OUTPUT:
            the vertical force
         HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
+           2013-04-10 - Written - Bovy (IAS)
         """
         r= numpy.sqrt(R**2.+z**2.)
         x= r/self.a
-        return -numpy.pi*self.a**3./r**2.*(2.*numpy.log(1.+x)+numpy.log(1.+x**2.)-2.*numpy.arctan(x))*z/r
+        return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.))*z/r
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -116,12 +122,11 @@ class BurkertPotential(Potential):
         OUTPUT:
            the second radial derivative
         HISTORY:
-           2011-10-09 - Written - Bovy (NYU)
+           2013-04-10 - Written - Bovy (IAS)
         """
         r= numpy.sqrt(R**2.+z**2.)
         x= r/self.a
-        return numpy.pi*((4.*x**3./(1.+x+x**2.+x**3.)+4.*numpy.arctan(x)-4.*numpy.log(1.+x)-2.*numpy.log(1.+x**2.))/x**3.*R**2./r**2.
-                         +z**2./r**2.*self.a*(1./x**2.*(2.*numpy.log(1.+x)+numpy.log(1.+x**2.)-2.*numpy.arctan(x))))
+        return -numpy.pi/x**3./r**2.*(-4.*R**2.*r**3./(self.a**2.+r**2.)/(self.a+r)+(z**2.-2.*R**2.)*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.)))
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """

@@ -38,7 +38,7 @@ void calc_potential(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){
@@ -53,10 +53,6 @@ void calc_potential(int nR,
     put_row(out,ii,row+tid*nz,nz); 
   }
   for (ii=0; ii < npot; ii++) {
-    if ( (potentialArgs+ii)->i2d )
-      interp_2d_free((potentialArgs+ii)->i2d) ;
-    if ((potentialArgs+ii)->acc )
-      gsl_interp_accel_free ((potentialArgs+ii)->acc);
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -82,7 +78,7 @@ void calc_rforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){
@@ -97,14 +93,6 @@ void calc_rforce(int nR,
     put_row(out,ii,row+tid*nz,nz); 
   }
   for (ii=0; ii < npot; ii++) {
-    if ( (potentialArgs+ii)->i2drforce )
-      interp_2d_free((potentialArgs+ii)->i2drforce ) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce );
-    if ( (potentialArgs+ii)->i2dzforce )
-      interp_2d_free((potentialArgs+ii)->i2dzforce ) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -130,7 +118,7 @@ void calc_zforce(int nR,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
   //Run through the grid and calculate
-  int chunk= CHUNKSIZE;
+  UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
   shared(row,npot,potentialArgs,R,z,nR,nz)
   for (ii=0; ii < nR; ii++){
@@ -145,14 +133,6 @@ void calc_zforce(int nR,
     put_row(out,ii,row+tid*nz,nz); 
   }
   for (ii=0; ii < npot; ii++) {
-    if ( (potentialArgs+ii)->i2drforce )
-      interp_2d_free((potentialArgs+ii)->i2drforce ) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce );
-    if ( (potentialArgs+ii)->i2dzforce )
-      interp_2d_free((potentialArgs+ii)->i2dzforce ) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -177,8 +157,10 @@ void eval_potential(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2d )
       interp_2d_free((potentialArgs+ii)->i2d) ;
-    if ((potentialArgs+ii)->acc )
-      gsl_interp_accel_free ((potentialArgs+ii)->acc);
+    if ((potentialArgs+ii)->accx )
+      gsl_interp_accel_free ((potentialArgs+ii)->accx);
+    if ((potentialArgs+ii)->accy )
+      gsl_interp_accel_free ((potentialArgs+ii)->accy);
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -202,12 +184,16 @@ void eval_rforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);
@@ -231,12 +217,16 @@ void eval_zforce(int nR,
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce) ;
-    if ((potentialArgs+ii)->accrforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->accrforce);
+    if ((potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce );
+    if ((potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce );
     if ( (potentialArgs+ii)->i2dzforce )
       interp_2d_free((potentialArgs+ii)->i2dzforce) ;
-    if ((potentialArgs+ii)->acczforce )
-      gsl_interp_accel_free ((potentialArgs+ii)->acczforce);
+    if ((potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce );
+    if ((potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce );
     free((potentialArgs+ii)->args);
   }
   free(potentialArgs);

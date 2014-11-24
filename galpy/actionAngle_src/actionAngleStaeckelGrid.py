@@ -10,28 +10,19 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import math
-import warnings
 import numpy
 from scipy import interpolate, optimize, ndimage
-from galpy.util import galpyWarning
 import actionAngleStaeckel
-from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
-try:
-    import actionAngleStaeckel_c
-except IOError:
-    warnings.warn("actionAngle_c extension module not loaded",galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+from galpy.actionAngle_src.actionAngle import actionAngle
+import actionAngleStaeckel_c
+from actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
 from galpy.util import multi, bovy_coords
-from matplotlib import pyplot
 _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
-                 nE=25,npsi=25,nLz=25,numcores=1,
+                 nE=25,npsi=25,nLz=30,numcores=1,
                  **kwargs):
         """
         NAME:
@@ -81,18 +72,12 @@ class actionAngleStaeckelGrid():
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        try:
-            self._ERL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._RL**2.
-        except TypeError:
-            self._ERL= numpy.array([galpy.potential.evaluatePotentials(self._RL[ii],0.,self._pot) +self._Lzs[ii]**2./2./self._RL[ii]**2. for ii in range(nLz)])
+        self._ERL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._RL**2.
         self._ERLmax= numpy.amax(self._ERL)+1.
         self._ERLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
-        try:
-            self._ERa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
-        except TypeError:
-            self._ERa= numpy.array([galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs[ii]**2./2./self._Ramax**2. for ii in range(nLz)])
+        self._ERa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
@@ -163,16 +148,19 @@ class actionAngleStaeckelGrid():
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         for ii in range(nLz):
-                jrLzE[ii]= numpy.amax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
-                jzLzE[ii]= numpy.amax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
-        jrLzE[(jrLzE == 0.)]= numpy.amin(jrLzE[(jrLzE > 0.)])
-        jzLzE[(jzLzE == 0.)]= numpy.amin(jzLzE[(jzLzE > 0.)])
+            jrLzE[ii]= numpy.nanmax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
+            jzLzE[ii]= numpy.nanmax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
+        jrLzE[(jrLzE == 0.)]= numpy.nanmin(jrLzE[(jrLzE > 0.)])
+        jzLzE[(jzLzE == 0.)]= numpy.nanmin(jzLzE[(jzLzE > 0.)])
         for ii in range(nLz):
             jr[ii,:,:]/= jrLzE[ii]
             jz[ii,:,:]/= jzLzE[ii]
         #Deal w/ 9999.99
         jr[(jr > 1.)]= 1.
         jz[(jz > 1.)]= 1.
+        #Deal w/ NaN
+        jr[numpy.isnan(jr)]= 0.
+        jz[numpy.isnan(jz)]= 0.
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
@@ -222,13 +210,9 @@ class actionAngleStaeckelGrid():
         Lz= R*vT
         Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
-        thisRL= self._RLInterp(Lz)
         thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
         thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
         if isinstance(R,numpy.ndarray):
-            if len(R) == 1 and not isinstance(thisERL,numpy.ndarray):
-                thisERL= numpy.array([thisERL])
-                thisERa= numpy.array([thisERa])
             indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
                 *(((E-thisERa)/(thisERL-thisERa)-1.) < 10.**-2.)
             E[indx]= thisERL[indx]
@@ -245,7 +229,6 @@ class actionAngleStaeckelGrid():
             if numpy.sum(indxc) > 0:
                 u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
                                                    (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
-                #                                                   (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])))
                 sinh2u0= numpy.sinh(u0)**2.
                 thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
                                 E[indxc],Lz[indxc],sinh2u0,u0)
@@ -261,7 +244,6 @@ class actionAngleStaeckelGrid():
                 psi= numpy.arccos(numpy.sqrt(cos2psi[True-indxCos2psi]))
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
-                #coords[1,:]= (E[indxc]-thisERa[indxc])/(thisERL[indxc]-thisERa[indxc])*(self._nE-1.)
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
@@ -321,6 +303,8 @@ class actionAngleStaeckelGrid():
                             numpy.array([vz]),
                             **kwargs)
             return (jr[0],Lz[0],jz[0])
+        jr[jr < 0.]= 0.
+        jz[jz < 0.]= 0.
         return (jr,R*vT,jz)
 
     def Jz(self,*args,**kwargs):
@@ -383,13 +367,8 @@ class actionAngleStaeckelGrid():
                                                          self._delta))
              -Lz**2./R**2.)
         if retv2: return v2
-        if isinstance(E,float) and v2 < 0. and v2 > -10.**-7.: 
-            return 0. #rounding errors
-        elif isinstance(E,float):
-            return numpy.sqrt(v2)
-        elif isinstance(v2,numpy.ndarray):
-            v2[(v2 < 0.)*(v2 > -10.**-7.)]= 0.
-            return numpy.sqrt(v2)
+        v2[(v2 < 0.)*(v2 > -10.**-7.)]= 0.
+        return numpy.sqrt(v2)
     
     def calcu0(self,E,Lz):
         """
@@ -473,7 +452,9 @@ def _u0Eq(logu,delta,pot,E,Lz22):
 
 def _Efunc(E,*args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
-    return ((E-args[0]))**0.5
+#    return ((E-args[0]))**0.5
+    return numpy.log((E-args[0]+10.**-10.))
 def _invEfunc(Ef,*args):
     """Inverse of Efunc"""
-    return Ef**2.+args[0]
+#    return Ef**2.+args[0]
+    return numpy.exp(Ef)+args[0]-10.**-10.

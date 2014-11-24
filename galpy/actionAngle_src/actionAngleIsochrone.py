@@ -33,11 +33,11 @@ class actionAngleIsochrone():
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('b') and not kwargs.has_key('ip'):
+        if not kwargs.has_key('b') and not kwargs.has_key('ip'): #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
         if kwargs.has_key('ip'):
             ip= kwargs['ip']
-            if not isinstance(ip,IsochronePotential):
+            if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self.b= ip.b
             self.amp= ip._amp
@@ -48,12 +48,14 @@ class actionAngleIsochrone():
         self._c= False
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
+                           or not kwargs.has_key('c')): #pragma: no cover
             self._c= True
         else:
             self._c= False
         if not self._c:
             self._ip= IsochronePotential(amp=self.amp,b=self.b)
+        #Define _pot, because some functions that use actionAngle instances need this
+        self._pot= IsochronePotential(amp=self.amp,b=self.b)
         return None
     
     def __call__(self,*args,**kwargs):
@@ -90,7 +92,7 @@ class actionAngleIsochrone():
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -140,7 +142,7 @@ class actionAngleIsochrone():
             vT= nu.array([vT])
             z= nu.array([z])
             vz= nu.array([vz])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT
@@ -180,7 +182,7 @@ class actionAngleIsochrone():
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if len(args) == 5: #R,vR.vT, z, vz
+        if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
             raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
@@ -199,7 +201,7 @@ class actionAngleIsochrone():
             z= nu.array([z])
             vz= nu.array([vz])
             phi= nu.array([phi])
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             Lz= R*vT

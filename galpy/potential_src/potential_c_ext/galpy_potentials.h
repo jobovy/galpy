@@ -33,11 +33,14 @@ struct potentialArg{
   int nargs;
   double * args;
   interp_2d * i2d;
-  gsl_interp_accel * acc;
+  gsl_interp_accel * accx;
+  gsl_interp_accel * accy;
   interp_2d * i2drforce;
-  gsl_interp_accel * accrforce;
+  gsl_interp_accel * accxrforce;
+  gsl_interp_accel * accyrforce;
   interp_2d * i2dzforce;
-  gsl_interp_accel * acczforce;
+  gsl_interp_accel * accxzforce;
+  gsl_interp_accel * accyzforce;
 };
 /*
   Function declarations
@@ -194,4 +197,15 @@ double IsochronePotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double IsochronePotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+//PowerSphericalPotentialwCutoff
+double PowerSphericalPotentialwCutoffEval(double ,double , double, double,
+					  struct potentialArg *);
+double PowerSphericalPotentialwCutoffRforce(double ,double , double, double,
+					    struct potentialArg *);
+double PowerSphericalPotentialwCutoffPlanarRforce(double ,double, double,
+						  struct potentialArg *);
+double PowerSphericalPotentialwCutoffzforce(double,double,double,double,
+					    struct potentialArg *);
+double PowerSphericalPotentialwCutoffPlanarR2deriv(double ,double, double,
+						   struct potentialArg *);
 #endif /* galpy_potentials.h */

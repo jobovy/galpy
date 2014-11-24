@@ -7,11 +7,15 @@ _degtorad= math.pi/180.
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
-    V(r,phi,t) = A(t)/alpha cos(alpha ln(r) - m(phi - Omegas*t-gamma))
+    .. math::
+
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}(t)}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
     where
 
-    A(t) = A_max exp(- [t-to]^2/sigma^2/2.)
+    .. math::
+
+        \\mathrm{amp}(t) = \\mathrm{amp}\\,\\times A\\,\\exp\\left(-\\frac{[t-t_0]^2}{2\\,\\sigma^2}\\right)
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
@@ -72,7 +76,7 @@ class TransientLogSpiralPotential(planarPotential):
             self._alpha= alpha
         self.hasC= True
 
-    def _evaluate(self,R,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -87,14 +91,9 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        if dR == 0 and dphi == 0:
-            return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
-                /self._alpha*math.cos(self._alpha*math.log(R)
-                                      -self._m*(phi-self._omegas*t-self._gamma))
-        elif dR == 1 and dphi == 0:
-            return -self._Rforce(R,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,phi=phi,t=t)
+        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
+            /self._alpha*math.cos(self._alpha*math.log(R)
+                                  -self._m*(phi-self._omegas*t-self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
         """

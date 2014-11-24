@@ -1,6 +1,9 @@
 Orbit
 =====
 
+See :ref:`Orbit initialization <orbinit>` for a detailed explanation
+on how to set up Orbit instances.
+
 Class
 -----
 
@@ -24,8 +27,12 @@ Methods
    e <orbitecc.rst>
    ER <orbitER.rst>
    Ez <orbitEz.rst>
+   fit <orbitfit.rst>
+   flip <orbitflip.rst>
    integrate <orbitint.rst>
+   integrate_dxdv <orbitintdxdv.rst>
    getOrbit <orbitgetorbit.rst>
+   getOrbit_dxdv <orbitgetorbitdxdv.rst>
    helioX <orbitheliox.rst>
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>
@@ -42,6 +49,7 @@ Methods
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
    plotE <orbitplote.rst>
+   plotER <orbitplotER.rst>
    plotEz <orbitplotEz.rst>
    plotEzJz <orbitplotEzJz.rst>
    plotphi <orbitplotphi.rst>
@@ -69,6 +77,7 @@ Methods
    Tp <orbittp.rst>
    Tr <orbittr.rst>
    TrTp <orbittrtp.rst>
+   turn_physical_off <orbitturnphysicaloff.rst>
    Tz <orbittz.rst>
    U <orbitu.rst>
    V <orbitv.rst>

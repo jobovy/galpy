@@ -45,7 +45,7 @@ class actionAngleIsochroneApprox():
 
            tintJ= (default: 100) time to integrate orbits for to estimate actions
 
-           ntintJ= (default: 10000) number of time-integration points actions
+           ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
@@ -53,19 +53,19 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'):
-            raise IOError("Must specify pot= for actionAngleStaeckel")
+        if not kwargs.has_key('pot'): #pragma: no cover
+            raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
         if not kwargs.has_key('b') and not kwargs.has_key('ip') \
-                and not kwargs.has_key('aAI'):
+                and not kwargs.has_key('aAI'): #pragma: no cover
             raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
         if kwargs.has_key('aAI'):
-            if not isinstance(kwargs['aAI'],actionAngleIsochrone):
+            if not isinstance(kwargs['aAI'],actionAngleIsochrone): #pragma: no cover
                 raise IOError("'Provided aAI= does not appear to be an instance of an actionAngleIsochrone")
             self._aAI= kwargs['aAI']
         elif kwargs.has_key('ip'):
             ip= kwargs['ip']
-            if not isinstance(ip,IsochronePotential):
+            if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
@@ -87,7 +87,7 @@ class actionAngleIsochroneApprox():
         self._c= False
         ext_loaded= False
         if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
+                           or not kwargs.has_key('c')): #pragma: no cover
             self._c= True
         else:
             self._c= False
@@ -117,7 +117,7 @@ class actionAngleIsochroneApprox():
            2013-09-10 - Written - Bovy (IAS)
         """
         R,vR,vT,z,vz,phi= self._parse_args(False,False,*args)
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
@@ -132,10 +132,10 @@ class actionAngleIsochroneApprox():
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
             if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
@@ -150,7 +150,7 @@ class actionAngleIsochroneApprox():
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
@@ -206,12 +206,21 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        from galpy.orbit import Orbit
         if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
-            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
+            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         if kwargs.has_key('_firstFlip'):
             _firstFlip= kwargs['_firstFlip']
         else:
             _firstFlip= False
+        #If the orbit was already integrated, set ts to the integration times
+        if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0]._orb.t
+        elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
+                and hasattr(args[0][0]._orb,'orbit')  \
+                and not kwargs.has_key('ts'):
+            kwargs['ts']= args[0][0]._orb.t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if kwargs.has_key('ts') and not kwargs['ts'] is None:
             ts= kwargs['ts']
@@ -223,7 +232,7 @@ class actionAngleIsochroneApprox():
             maxn= kwargs['maxn']
         else:
             maxn= 3
-        if self._c:
+        if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
@@ -240,27 +249,23 @@ class actionAngleIsochroneApprox():
             anglerI= nu.reshape(acfs[6],R.shape)
             anglezI= nu.reshape(acfs[8],R.shape)
             if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)):
+                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
-            if kwargs.has_key('cumul') and kwargs['cumul']:
-                sumFunc= nu.cumsum
-            else:
-                sumFunc= nu.sum
-            jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
-            jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
+            jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
+            if kwargs.has_key('nonaxi') and kwargs['nonaxi']: #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)):
+                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
-                lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
+                lz= nu.sum(lzI*danglephiI,axis=1)/nu.sum(danglephiI,axis=1)
             else:
                 lz= R[:,len(ts)/2]*vT[:,len(ts)/2]
             #Now do an 'angle-fit'
@@ -315,7 +320,7 @@ class actionAngleIsochroneApprox():
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
             if kwargs.has_key('_retacfs') and kwargs['_retacfs']:
-                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ,
+                return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ, #pragma: no cover
                         angleR % _TWOPI,
                         anglephi % _TWOPI,
                         angleZ % _TWOPI,acfs)
@@ -392,7 +397,11 @@ class actionAngleIsochroneApprox():
             anglephiI= nu.reshape(acfs[7],R.shape)
             danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
-            ts= self._tsJ[:-1]
+            from galpy.orbit import Orbit
+            if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'t'):
+                ts= args[0]._orb.t[:-1]
+            else:
+                ts= self._tsJ[:-1]
             if type == 'jr':
                 if downsample:
                     plotx= ts[::int(round(self._ntintJ/400))]
@@ -408,8 +417,8 @@ class actionAngleIsochroneApprox():
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_R / \langle J_R \rangle$',
-                                    clabel=r'$\theta_R$',
+                                    ylabel=r'$J^A_R / \langle J^A_R \rangle$',
+                                    clabel=r'$\theta^A_R$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
@@ -427,8 +436,8 @@ class actionAngleIsochroneApprox():
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$L_Z / \langle L_Z \rangle$',
-                                    clabel=r'$\theta_\phi$',
+                                    ylabel=r'$L^A_Z / \langle L^A_Z \rangle$',
+                                    clabel=r'$\theta^A_\phi$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
@@ -446,8 +455,8 @@ class actionAngleIsochroneApprox():
                                     scatter=True,
                                     edgecolor='none',
                                     xlabel=r'$t$',
-                                    ylabel=r'$J_Z / \langle J_Z \rangle$',
-                                    clabel=r'$\theta_Z$',
+                                    ylabel=r'$J^A_Z / \langle J^A_Z \rangle$',
+                                    clabel=r'$\theta^A_Z$',
                                     vmin=0.,vmax=2.*nu.pi,
                                     crange=[0.,2.*nu.pi],
                                     colorbar=True,
@@ -496,9 +505,9 @@ class actionAngleIsochroneApprox():
                 bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
-                                    xlabel=r'$\theta_R$',
-                                    ylabel=r'$\theta_Z$',
-                                    clabel=r'$\theta_\phi$',
+                                    xlabel=r'$\theta^A_R$',
+                                    ylabel=r'$\theta^A_Z$',
+                                    clabel=r'$\theta^A_\phi$',
                                     xrange=xrange,yrange=yrange,
                                     vmin=vmin,vmax=vmax,
                                     crange=crange,
@@ -513,12 +522,12 @@ class actionAngleIsochroneApprox():
                     plotx= angleRT[0,:]
                     ploty= anglephiT[0,:]
                     plotz= angleZT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,ms=20.,
+                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
-                                    xlabel=r'$\theta_R$',
-                                    clabel=r'$\theta_Z$',
-                                    ylabel=r'$\theta_\phi$',
+                                    xlabel=r'$\theta^A_R$',
+                                    clabel=r'$\theta^A_Z$',
+                                    ylabel=r'$\theta^A_\phi$',
                                     xrange=xrange,yrange=yrange,
                                     vmin=vmin,vmax=vmax,
                                     crange=crange,
@@ -536,9 +545,9 @@ class actionAngleIsochroneApprox():
                 bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
                                     scatter=True,
                                     edgecolor='none',
-                                    clabel=r'$\theta_R$',
-                                    xlabel=r'$\theta_Z$',
-                                    ylabel=r'$\theta_\phi$',
+                                    clabel=r'$\theta^A_R$',
+                                    xlabel=r'$\theta^A_Z$',
+                                    ylabel=r'$\theta^A_\phi$',
                                     xrange=xrange,yrange=yrange,
                                     vmin=vmin,vmax=vmax,
                                     crange=crange,
@@ -551,7 +560,7 @@ class actionAngleIsochroneApprox():
         from galpy.orbit import Orbit
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
-        if len(args) == 5 or len(args) == 3:
+        if len(args) == 5 or len(args) == 3: #pragma: no cover
             raise IOError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6 or len(args) == 4:
             if len(args) == 6:
@@ -560,17 +569,10 @@ class actionAngleIsochroneApprox():
                 R,vR,vT, phi= args
                 z, vz= 0., 0.
             if isinstance(R,float):
-                o= Orbit([R,vR,vT,z,vz,phi])
-                o.integrate(self._tsJ,pot=self._pot,method=self._integrate_method)
-                this_orbit= o.getOrbit()
-                R= nu.reshape(this_orbit[:,0],(1,self._ntintJ))
-                vR= nu.reshape(this_orbit[:,1],(1,self._ntintJ))
-                vT= nu.reshape(this_orbit[:,2],(1,self._ntintJ))
-                z= nu.reshape(this_orbit[:,3],(1,self._ntintJ))
-                vz= nu.reshape(this_orbit[:,4],(1,self._ntintJ))           
-                phi= nu.reshape(this_orbit[:,5],(1,self._ntintJ))           
+                os= [Orbit([R,vR,vT,z,vz,phi])]
+                RasOrbit= True
                 integrated= False
-            if len(R.shape) == 1: #not integrated yet
+            elif len(R.shape) == 1: #not integrated yet
                 os= [Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii],phi[ii]]) for ii in range(R.shape[0])]
                 RasOrbit= True
                 integrated= False
@@ -581,13 +583,13 @@ class actionAngleIsochroneApprox():
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5:
+                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
-            if not hasattr(os[0],'orbit'): #not integrated yet
+            if not hasattr(os[0]._orb,'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
                         o._orb.vxvv[1]= -o._orb.vxvv[1]
@@ -693,7 +695,7 @@ def estimateBIsochrone(R,z,pot=None):
     HISTORY:
        2013-09-12 - Written - Bovy (IAS)
     """
-    if pot is None:
+    if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
@@ -707,7 +709,7 @@ def estimateBIsochrone(R,z,pot=None):
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)
-        except:
+        except: #pragma: no cover
             b= nu.nan
         return b
 

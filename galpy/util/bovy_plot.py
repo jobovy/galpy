@@ -88,9 +88,9 @@ def bovy_end_print(filename,**kwargs):
 
     """
     if kwargs.has_key('format'):
-        pyplot.savefig(filename,format=kwags['format'])
+        pyplot.savefig(filename,**kwargs)
     else:
-        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1])
+        pyplot.savefig(filename,format=re.split(r'\.',filename)[-1],**kwargs)
     pyplot.close()
 
 def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
@@ -189,7 +189,9 @@ def bovy_plot(*args,**kwargs):
 
        clabel= label for colorbar
 
-       overplot=True does not start a new figure
+       overplot=True does not start a new figure and does not change the ranges and labels
+
+       gcf=True does not start a new figure (does change the ranges and labels)
 
        onedhists - if True, make one-d histograms on the sides
 
@@ -220,6 +222,14 @@ def bovy_plot(*args,**kwargs):
         overplot=False
     else:
         overplot=False
+    if kwargs.has_key('gcf') and kwargs['gcf']:
+        kwargs.pop('gcf')
+        gcf=True
+    elif kwargs.has_key('gcf'):
+        kwargs.pop('gcf')
+        gcf=False
+    else:
+        gcf=False
     if kwargs.has_key('onedhists'):
         onedhists= kwargs['onedhists']
         kwargs.pop('onedhists')
@@ -301,7 +311,7 @@ def bovy_plot(*args,**kwargs):
         else:
             bins= 30
     if onedhists:
-        if overplot: fig= pyplot.gcf()
+        if overplot or gcf: fig= pyplot.gcf()
         else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
         # definitions for the axes
@@ -320,7 +330,7 @@ def bovy_plot(*args,**kwargs):
         axHisty.xaxis.set_major_formatter(nullfmt)
         axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
-    elif not overplot: pyplot.figure()
+    elif not overplot and not gcf: pyplot.figure()
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
     if kwargs.has_key('xlabel'):
@@ -910,7 +920,7 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
     """
     fig_size =  [fig_width,fig_height]
     params = {'axes.labelsize': axes_labelsize,
-              'text.fontsize': text_fontsize,
+              'font.size': text_fontsize,
               'legend.fontsize': legend_fontsize,
               'xtick.labelsize':xtick_labelsize,
               'ytick.labelsize':ytick_labelsize,
@@ -1023,6 +1033,8 @@ def scatterplot(x,y,*args,**kwargs):
        cntrlw, cntrls - linewidths and linestyles for contour
 
        cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
+
+       levels - contour-levels
 
        onedhists - if True, make one-d histograms on the sides
 

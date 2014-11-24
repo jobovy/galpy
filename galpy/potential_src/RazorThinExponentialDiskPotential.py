@@ -5,13 +5,20 @@
 #                                      rho(R,z) = rho_0 e^-R/h_R delta(z)
 ###############################################################################
 import numpy as nu
+import warnings
 from scipy import special, integrate
+from galpy.util import galpyWarning
 from Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class RazorThinExponentialDiskPotential(Potential):
     """Class that implements the razor-thin exponential disk potential
-    rho(R,z) = rho_0 e^-R/h_R delta(z)"""
+
+    .. math::
+
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
+
+    """
     def __init__(self,amp=1.,ro=1.,hr=1./3.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  new=True,glorder=100):
@@ -57,12 +64,12 @@ class RazorThinExponentialDiskPotential(Potential):
         self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         #Load Kepler potential for large R
         #self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)
 
-    def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -78,14 +85,6 @@ class RazorThinExponentialDiskPotential(Potential):
         HISTORY:
            2012-12-26 - Written - Bovy (IAS)
         """
-        if dR == 1 and dphi == 0:
-            return -self._Rforce(R,z,phi=phi,t=t)
-        elif dR == 0 and dphi == 1:
-            return -self._phiforce(R,z,phi=phi,t=t)
-        elif dR == 2 and dphi == 0:
-            return self._R2deriv(R,z,phi=phi,t=t)
-        elif dR != 0 and dphi != 0:
-            raise NotImplementedWarning("High-order derivatives for RazorThinExponentialDiskPotential not implemented")
         if self._new:
             #if R > 6.: return self._kp(R,z)
             if nu.fabs(z) < 10.**-6.:
@@ -201,9 +200,9 @@ class RazorThinExponentialDiskPotential(Potential):
                 y= 0.5*self._alpha*R
                 return nu.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
                     +nu.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
-            raise NotImplementedError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
+            raise AttributeError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            z2deriv

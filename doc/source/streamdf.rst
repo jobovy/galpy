@@ -1,3 +1,5 @@
+.. _stream-tutorial:
+
 Dynamical modeling of tidal streams
 ++++++++++++++++++++++++++++++++++++
 
@@ -241,7 +243,7 @@ which returns a tuple with three components: an array with shape [3,N]
 of frequency vectors :math:`(\Omega_R,\Omega_\phi,\Omega_Z)`, an array
 with shape [3,N] of angle vectors
 :math:`(\theta_R,\theta_\phi,\theta_Z)` and :math:`t_s`, the stripping
-time. We can plot the vertical versus the radial angle
+time. We can plot the vertical versus the radial frequency
 
 >>> plot(mockaA[0][0],mockaA[0][2],'k.',ms=2.)
 
@@ -279,7 +281,7 @@ evaluate the PDF :math:`p(X|Z)` near a point on the track, say near
 Gaussian PDF near this point, calculated from the stream track and
 dispersion (see above)
 
->>> meanp, varp= meanp, varp= sdf.gaussApprox([None,None,2./8.,None,None,None])
+>>> meanp, varp= sdf.gaussApprox([None,None,2./8.,None,None,None])
 
 where the input is a array with entries [X,Y,Z,vX,vY,vZ] and we
 substitute None for directions that we want to establish the

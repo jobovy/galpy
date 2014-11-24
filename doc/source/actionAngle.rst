@@ -28,7 +28,8 @@ typically be calculated using these three methods:
 These are not all implemented for each of the cases above yet.
 
 The adiabatic and Staeckel approximation have also been implemented in
-C, for extremely fast action-angle calculations (see below).
+C and using grid-based interpolation, for extremely fast action-angle
+calculations (see below).
 
 Action-angle coordinates for the isochrone potential
 -----------------------------------------------------
@@ -238,46 +239,46 @@ the vertical motion is decoupled from that in the plane (e.g.,
 
 Setup is similar as for other actionAngle objects
 
->>> from galpy.potential import MWPotential
+>>> from galpy.potential import MWPotential2014
 >>> from galpy.actionAngle import actionAngleAdiabatic
->>> aAA= actionAngleAdiabatic(pot=MWPotential)
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014)
 
 and evaluation then proceeds similarly as before
 
 >>> aAA(1.,0.1,1.1,0.,0.05)
-(0.011551694768963469, 1.1, 0.00042376727426256727)
+(0.01351896260559274, 1.1, 0.0004690133479435352)
 
 We can again check that the actions are conserved along the orbit
 
 >>> from galpy.orbit import Orbit
 >>> ts=numpy.linspace(0.,100.,1001)
 >>> o= Orbit([1.,0.1,1.1,0.,0.05])
->>> o.integrate(ts,MWPotential)
+>>> o.integrate(ts,MWPotential2014)
 >>> js= aAA(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
 
 This takes a while. The adiabatic approximation is also implemented in
 C, which leads to great speed-ups. Here is how to use it
 
 >>> timeit(aAA(1.,0.1,1.1,0.,0.05))
-10 loops, best of 3: 48.7 ms per loop
->>> aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+10 loops, best of 3: 73.7 ms per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=True)
 >>> timeit(aAA(1.,0.1,1.1,0.,0.05))
-1000 loops, best of 3: 1.2 ms per loop
+1000 loops, best of 3: 1.3 ms per loop
 
-or about a *40 times* speed-up. For arrays the speed-up is even more
+or about a *50 times* speed-up. For arrays the speed-up is even more
 impressive
 
 >>> s= numpy.ones(100)
 >>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
-1000 loops, best of 3: 1.8 ms per loop
->>> aAA= actionAngleAdiabatic(pot=MWPotential) #back to no C
+10 loops, best of 3: 37.8 ms per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014) #back to no C
 >>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
-1 loops, best of 3: 4.94 s per loop
+1 loops, best of 3: 7.71 s per loop
 
-or a speed-up of 2700! Back to the previous example, you can run it
+or a speed-up of 200! Back to the previous example, you can run it
 with ``c=True`` to speed up the computation
 
->>> aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=True)
 >>> js= aAA(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
 
 We can plot the radial- and vertical-action fluctuation as a function
@@ -293,21 +294,66 @@ which gives
 The radial action is conserved to about half a percent, the vertical
 action to two percent.
 
+Another way to speed up the calculation of actions using the adiabatic
+approximation is to tabulate the actions on a grid in (approximate)
+integrals of the motion and evaluating new actions by interpolating on
+this grid. How this is done in practice is described in detail in the
+galpy paper. To setup this grid-based interpolation method, which is
+contained in ``actionAngleAdiabaticGrid``, do
+
+>>> from galpy.actionAngle import actionAngleAdiabaticGrid
+>>> aAG= actionAngleAdiabaticGrid(pot=MWPotential2014,nR=31,nEz=31,nEr=51,nLz=51,c=True)
+
+where ``c=True`` specifies that we use the C implementation of
+``actionAngleAdiabatic`` for speed. We can now evaluate in the same
+was as before, for example
+
+>>> aAA(1.,0.1,1.1,0.,0.05), aAG(1.,0.1,1.1,0.,0.05)
+((array([ 0.01352523]), array([ 1.1]), array([ 0.00046909])),
+ (0.013527010324238781, 1.1, 0.00047747359874375148))
+
+which agree very well. To look at the timings, we first switch back to
+not using C and then list all of the relevant timings:
+
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=False)
+# Not using C, direct calculation
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1 loops, best of 3: 9.05 s per loop
+>>> aAA= actionAngleAdiabatic(pot=MWPotential2014,c=True)
+# Using C, direct calculation
+>>> timeit(aAA(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+10 loops, best of 3: 39.7 ms per loop
+# Grid-based calculation
+>>> timeit(aAG(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+1000 loops, best of 3: 1.09 ms per loop
+
+Thus, in this example (and more generally) the grid-based calculation
+is significantly faster than even the direct implementation in C. The
+overall speed up between the direct Python version and the grid-based
+version is larger than 8,000; the speed up between the direct C
+version and the grid-based version is 36. For larger arrays of input
+phase-space positions, the latter speed up can increase to 150.  For
+simpler, fully analytical potentials the speed up will be slightly
+less, but for ``MWPotential2014`` and other more complicated
+potentials (such as those involving a double-exponential disk), the
+overhead of setting up the grid is worth it when evaluating more than
+a few thousand actions.
+
 The adiabatic approximation works well for orbits that stay close to
 the plane. The orbit we have been considering so far only reaches a
 height two percent of :math:`R_0`, or about 150 pc for :math:`R_0 = 8`
 kpc.
 
 >>> o.zmax()*8.
-0.1561562486879895
+0.17903686455491979
 
 For orbits that reach distances of a kpc and more from the plane, the
 adiabatic approximation does not work as well. For example,
 
 >>> o= Orbit([1.,0.1,1.1,0.,0.25])
->>> o.integrate(ts,MWPotential)
+>>> o.integrate(ts,MWPotential2014)
 >>> o.zmax()*8.
-1.1288142099238863
+1.3506059038621048
 
 and we can again calculate the actions along the orbit
 
@@ -347,62 +393,104 @@ the second derivatives of the potential (see Sanders 2012;
 <http://adsabs.harvard.edu/abs/2012MNRAS.426..128S>`_).
 
 Starting from the second orbit example in the adiabatic section above,
-we first estimate a good focal length of the ``MWPotential`` to use in
-the Staeckel approximation. We do this by averaging (through the
-median) estimates at positions around the orbit (which we integrated
-in the example above)
+we first estimate a good focal length of the ``MWPotential2014`` to
+use in the Staeckel approximation. We do this by averaging (through
+the median) estimates at positions around the orbit (which we
+integrated in the example above)
 
 >>> from galpy.actionAngle import estimateDeltaStaeckel
->>> estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=MWPotential)
-0.54421090762027347
+>>> estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=MWPotential2014)
+0.40272708556203662
 
-We will use :math:`\Delta = 0.55` in what follows. We set up the
+We will use :math:`\Delta = 0.4` in what follows. We set up the
 ``actionAngleStaeckel`` object
 
 >>> from galpy.actionAngle import actionAngleStaeckel
->>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=False) #c=True is the default
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=False) #c=True is the default
 
 and calculate the actions
 
 >>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz())
-(0.015760720988339319, 1.1000000000000001, 0.013466290557851267)
+(0.019212848866725911, 1.1000000000000001, 0.015274597971510892)
 
 The adiabatic approximation from above gives
 
 >>> aAA(o.R(),o.vR(),o.vT(),o.z(),o.vz())
-(0.0138915441284973, 1.1000000000000001, 0.01383357354294852)
+(array([ 0.01686478]), array([ 1.1]), array([ 0.01590001]))
 
 The actionAngleStaeckel calculations are sped up in two ways. First,
 the action integrals can be calculated using Gaussian quadrature by
 specifying ``fixed_quad=True``
 
 >>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=True)
-(0.015767954890517084, 1.1000000000000001, 0.013468235165983522)
+(0.01922167296633687, 1.1000000000000001, 0.015276825017286706)
 
 which in itself leads to a ten times speed up
 
 >>> timeit(aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=False))
-10 loops, best of 3: 43.9 ms per loop
+10 loops, best of 3: 129 ms per loop
 >>> timeit(aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz(),fixed_quad=True))
-100 loops, best of 3: 3.87 ms per loop
+100 loops, best of 3: 10.3 ms per loop
 
 Second, the actionAngleStaeckel calculations have also been
 implemented in C, which leads to even greater speed-ups, especially
 for arrays
 
->>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=True)
 >>> s= numpy.ones(100)
 >>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
-100 loops, best of 3: 2.37 ms per loop
->>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=False) #back to no C
+10 loops, best of 3: 35.1 ms per loop
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=False) #back to no C
 >>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s,fixed_quad=True))
-1 loops, best of 3: 410 ms per loop
+1 loops, best of 3: 496 ms per loop
 
-or a *two hundred times* speed up.
+or a fifteen times speed up. The speed up is not that large because
+the bulge model in ``MWPotential2014`` requires expensive special
+functions to be evaluated. Computations could be sped up ten times
+more when using a simpler bulge model.
+
+Similar to ``actionAngleAdiabaticGrid``, we can also tabulate the
+actions on a grid of (approximate) integrals of the motion and
+interpolate over this look-up table when evaluating new actions. The
+details of how this look-up table is setup and used are again fully
+explained in the galpy paper. To use this grid-based Staeckel
+approximation, contained in ``actionAngleStaeckelGrid``, do
+
+>>> from galpy.actionAngle import actionAngleStaeckelGrid
+>>> aASG= actionAngleStaeckelGrid(pot=MWPotential2014,delta=0.4,nE=51,npsi=51,nLz=61,c=True)
+
+where ``c=True`` makes sure that we use the C implementation of the
+Staeckel method to calculate the grid. Because this is a fully
+three-dimensional grid, setting up the grid takes longer than it does
+for the adiabatic method (which only uses two two-dimensional
+grids). We can then evaluate actions as before
+
+>>> aAS(o.R(),o.vR(),o.vT(),o.z(),o.vz()), aASG(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+((0.019212848866725911, 1.1000000000000001, 0.015274597971510892),
+ (0.019221119033345408, 1.1000000000000001, 0.015022528662310393))
+
+These actions agree very well. We can compare the timings of these
+methods as above
+
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s,fixed_quad=True))
+1 loops, best of 3: 576 ms per loop # Not using C, direct calculation
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=True)
+>>> timeit(aAS(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+100 loops, best of 3: 17.8 ms per loop # Using C, direct calculation
+>>> timeit(aASG(1.*s,0.1*s,1.1*s,0.*s,0.05*s))
+100 loops, best of 3: 3.45 ms per loop # Grid-based calculation
+
+This demonstrates that the grid-based interpolation again leeds to a
+significant speed up, even over the C implementation of the direct
+calculation. This speed up becomes more significant for larger array
+input, although it saturates at about 25 times (at least for
+``MWPotential2014``).
 
 We can now go back to checking that the actions are conserved along
-the orbit
+the orbit (going back to the ``c=False`` version of
+``actionAngleStaeckel``)
 
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=False)
 >>> js= aAS(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),fixed_quad=True)
 >>> plot(ts,numpy.log10(numpy.fabs((js[0]-numpy.mean(js[0]))/numpy.mean(js[0]))))
 >>> plot(ts,numpy.log10(numpy.fabs((js[2]-numpy.mean(js[2]))/numpy.mean(js[2]))))
@@ -424,22 +512,30 @@ methods.
    are *only* implemented in C. So use ``c=True`` in the setup of the
    actionAngleStaeckel object.
 
->>> aAS= actionAngleStaeckel(pot=MWPotential,delta=0.55,c=True)
+.. WARNING:: Angles using the Staeckel approximation in galpy are such
+   that (a) the radial angle starts at zero at pericenter and
+   increases then going toward apocenter; (b) the vertical angle
+   starts at zero at *z=0* and increases toward positive zmax. The
+   latter is a different convention from that in Binney (2012), but is
+   consistent with that in actionAngleIsochrone and
+   actionAngleSpherical.
+
+>>> aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.4,c=True)
 >>> o= Orbit([1.,0.1,1.1,0.,0.25,0.]) #need to specify phi for angles
 >>> aAS.actionsFreqsAngles(o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi())
-(array([ 0.01576795]),
+(array([ 0.01922167]),
  array([ 1.1]),
- array([ 0.01346824]),
- array([ 1.22171491]),
- array([ 0.85773142]),
- array([ 1.60476805]),
- array([ 0.41881231]),
- array([ 6.18908605]),
- array([ 4.57359281]))
+ array([ 0.01527683]),
+ array([ 1.11317796]),
+ array([ 0.82538032]),
+ array([ 1.34126138]),
+ array([ 0.37758087]),
+ array([ 6.17833493]),
+ array([ 6.13368239]))
 
 and we can check that the angles increase linearly along the orbit
 
->>> o.integrate(ts,MWPotential)
+>>> o.integrate(ts,MWPotential2014)
 >>> jfa= aAS.actionsFreqsAngles(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts),o.phi(ts))
 >>> plot(ts,jfa[6],'b.')
 >>> plot(ts,jfa[7],'g.')
@@ -648,32 +744,32 @@ instances. This is illustrated here briefly. We initialize an Orbit
 instance
 
 >>> from galpy.orbit import Orbit
->>> from galpy.potential import MWPotential
+>>> from galpy.potential import MWPotential2014
 >>> o= Orbit([1.,0.1,1.1,0.,0.25,0.])
 
 and we can then calculate the actions (default is to use the adiabatic
 approximation)
 
->>> o.jr(MWPotential), o.jp(MWPotential), o.jz(MWPotential)
-(0.0138915441284973, 1.1, 0.01383357354294852)
+>>> o.jr(MWPotential2014), o.jp(MWPotential2014), o.jz(MWPotential2014)
+(0.01685643005901713, 1.1, 0.015897730620467752)
 
 ``o.jp`` here gives the azimuthal action (which is the *z* component
 of the angular momentum for axisymmetric potentials). We can also use
 the other methods described above, but note that these require extra
 parameters related to the approximation to be specified (see above):
 
->>> o.jr(MWPotential,type='staeckel',delta=0.55), o.jp(MWPotential,type='staeckel',delta=0.55), o.jz(MWPotential,type='staeckel',delta=0.55)
-(array([ 0.01576795]), array([ 1.1]), array([ 0.01346824]))
->>> o.jr(MWPotential,type='isochroneApprox',b=0.8), o.jp(MWPotential,type='isochroneApprox',b=0.8), o.jz(MWPotential,type='isochroneApprox',b=0.8)
-(array([ 0.0155484]), array([ 1.1]), array([ 0.01350128]))
+>>> o.jr(MWPotential2014,type='staeckel',delta=0.4), o.jp(MWPotential2014,type='staeckel',delta=0.4), o.jz(MWPotential2014,type='staeckel',delta=0.4)
+(array([ 0.01922167]), array([ 1.1]), array([ 0.01527683]))
+>>> o.jr(MWPotential2014,type='isochroneApprox',b=0.8), o.jp(MWPotential2014,type='isochroneApprox',b=0.8), o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
+(array([ 0.01906609]), array([ 1.1]), array([ 0.01528049]))
 
 These two methods give very precise actions for this orbit (both are
 converged to about 1%) and they agree very well
 
->>> (o.jr(MWPotential,type='staeckel',delta=0.55)-o.jr(MWPotential,type='isochroneApprox',b=0.8))/o.jr(MWPotential,type='isochroneApprox',b=0.8)
-array([ 0.01412076])
->>>  (o.jz(MWPotential,type='staeckel',delta=0.55)-o.jz(MWPotential,type='isochroneApprox',b=0.8))/o.jz(MWPotential,type='isochroneApprox',b=0.8)
-array([-0.00244754])
+>>> (o.jr(MWPotential2014,type='staeckel',delta=0.4)-o.jr(MWPotential2014,type='isochroneApprox',b=0.8))/o.jr(MWPotential2014,type='isochroneApprox',b=0.8)
+array([ 0.00816012])
+>>>  (o.jz(MWPotential2014,type='staeckel',delta=0.4)-o.jz(MWPotential2014,type='isochroneApprox',b=0.8))/o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
+array([-0.00024])
 
 .. WARNING:: Once an action, frequency, or angle is calculated for a given type of calculation (e.g., staeckel), the parameters for that type are fixed in the Orbit instance. Call o.resetaA() to reset the action-angle instance used when using different parameters (i.e., different ``delta=`` for staeckel or different ``b=`` for isochroneApprox.
 
@@ -682,17 +778,17 @@ using the Staeckel or Isochrone approximations, because frequencies
 and angles are currently not supported for the adiabatic
 approximation. For example, the radial frequency
 
->>> o.Or(MWPotential,type='staeckel',delta=0.55)
-1.2217149111363643
->>> o.Or(MWPotential,type='isochroneApprox',b=0.8)
-1.222457055706389
+>>> o.Or(MWPotential2014,type='staeckel',delta=0.4)
+1.1131779637307115
+>>> o.Or(MWPotential2014,type='isochroneApprox',b=0.8)
+1.1134635974560649
 
 and the radial angle
 
->>> o.wr(MWPotential,type='staeckel',delta=0.55)
-0.4188123062144965
->>> o.wr(MWPotential,type='isochroneApprox',b=0.8)
-0.42281897179881867
+>>> o.wr(MWPotential2014,type='staeckel',delta=0.4)
+0.37758086786371969
+>>> o.wr(MWPotential2014,type='isochroneApprox',b=0.8)
+0.38159809018175395
 
 which again agree to 1%. We can also calculate the other frequencies,
 angles, as well as periods using the functions ``o.Op``, ``o.oz``,

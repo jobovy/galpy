@@ -35,7 +35,7 @@ class actionAngleVertical(actionAngle):
            2012-06-01 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'):
+        if not kwargs.has_key('pot'): #pragma: no cover
             raise IOError("Must specify pot= for actionAngleVertical")
         self._verticalpot= kwargs['pot']
         return None
@@ -63,7 +63,7 @@ class actionAngleVertical(actionAngle):
                                     **kwargs)[0]/nu.pi
         return self._Jz
 
-    def Tz(self,**kwargs):
+    def Tz(self,**kwargs): #pragma: no cover
         """
         NAME:
            Tz
@@ -85,7 +85,7 @@ class actionAngleVertical(actionAngle):
                                     **kwargs)[0]
         return self._Tz
 
-    def anglez(self,**kwargs):
+    def anglez(self,**kwargs): #pragma: no cover
         """
         NAME:
            anglez
@@ -128,7 +128,7 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
         """
-        if hasattr(self,'_zmax'):
+        if hasattr(self,'_zmax'): #pragma: no cover
             return self._zmax
         Ez= calcEz(self._z,self._vz,self._verticalpot)
         if self._vz == 0.: #We are exactly at the maximum height
@@ -137,7 +137,7 @@ class actionAngleVertical(actionAngle):
             zstart= self._z
             try:
                 zend= _zmaxFindStart(self._z,Ez,self._verticalpot)
-            except OverflowError:
+            except OverflowError: #pragma: no cover
                 zmax= -9999.99
             else:
                 zmax= optimize.brentq(_zmaxEq,zstart,zend,
@@ -186,7 +186,7 @@ def _JzIntegrand(z,Ez,pot):
     """The J_z integrand"""
     return nu.sqrt(2.*(Ez-potentialVertical(z,pot)))
 
-def _TzIntegrand(z,Ez,pot):
+def _TzIntegrand(z,Ez,pot): #pragma: no cover
     """The T_z integrand"""
     return 1./_JzIntegrand(z,Ez,pot)
 
@@ -209,7 +209,7 @@ def _zmaxFindStart(z,Ez,pot):
     else: ztry= 2.*nu.fabs(z)
     while (Ez-potentialVertical(ztry,pot)) > 0.:
         ztry*= 2.
-        if ztry > 100.:
+        if ztry > 100.: #pragma: no cover
             raise OverflowError
     return ztry
 
