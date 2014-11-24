@@ -1,19 +1,20 @@
+from os import system
+import hashlib
+import warnings
+import numpy as np
+from scipy.misc import derivative
+from scipy import interpolate 
+from Potential import Potential
+import interpRZPotential
+from galpy.util import multi, galpyWarning
 try: 
     import pynbody
     from pynbody import gravity
     from pynbody.units import NoUnit
 except ImportError: #pragma: no cover
-    raise ImportError("This class is designed to work with pynbody snapshots -- obtain from pynbody.github.io")
-
-import numpy as np
-from Potential import Potential
-import hashlib
-from scipy.misc import derivative
-import interpRZPotential
-from scipy import interpolate 
-from os import system
-from galpy.util import multi
-
+    _PYNBODY_LOADED= False
+else:
+    _PYNBODY_LOADED= True    
 class SnapshotPotential(Potential):
     """Create a snapshot potential object. The potential and forces are 
     calculated as needed through the _evaluate, _Rforce, and _zforce methods. 
@@ -35,12 +36,16 @@ class SnapshotPotential(Potential):
 
     """
 
-    def __init__(self, s, num_threads=pynbody.config['number_of_threads']) : 
+    def __init__(self, s, num_threads=None):
+        if not _PYNBODY_LOADED:
+            raise ImportError("The SnapShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         Potential.__init__(self,amp=1.0)
-
         self._s = s
         self._point_hash = {}
-        self._num_threads = num_threads
+        if num_threads is None:
+            self._num_threads= pynbody.config['number_of_threads']
+        else:
+            self._num_threads = num_threads
     
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
@@ -130,13 +135,18 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
                  interpepifreq = False, interpverticalfreq = False, 
                  interpPot = True,
                  enable_c = True, logR = True, zsym = True, 
-                 numcores=pynbody.config['number_of_threads'], use_pkdgrav = False) : 
+                 numcores=None,use_pkdgrav = False) : 
+        if not _PYNBODY_LOADED:
+            raise ImportError("The InterpSnapShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         
         # inititalize using the base class
         Potential.__init__(self,amp=1.0)
 
         # other properties
-        self._numcores = numcores
+        if numcores is None:
+            self._numcores= pynbody.config['number_of_threads']
+        else:
+            self._numcores = numcores
         self._s = s 
 
         # the interpRZPotential class sets these flags
