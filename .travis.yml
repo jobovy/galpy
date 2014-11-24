@@ -45,6 +45,7 @@ install:
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
+ - pip install pynbody
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
