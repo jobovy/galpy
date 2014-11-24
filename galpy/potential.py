@@ -92,11 +92,11 @@ LopsidedDiskPotential= CosmphiDiskPotential.LopsidedDiskPotential
 CosmphiDiskPotential= CosmphiDiskPotential.CosmphiDiskPotential
 RazorThinExponentialDiskPotential= RazorThinExponentialDiskPotential.RazorThinExponentialDiskPotential
 FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
+InterpSnapshotPotential = SnapshotPotential.InterpSnapshotPotential
+SnapshotPotential = SnapshotPotential.SnapshotPotential
 BurkertPotential= BurkertPotential.BurkertPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
-InterpSnapshotPotential = SnapshotPotential.InterpSnapshotPotential
-SnapshotPotential = SnapshotPotential.SnapshotPotential
 
 #
 # Constants
