@@ -5,6 +5,7 @@ except ImportError: #pragma: no cover
 
 import pynbody
 from pynbody import grav_omp
+from pynbody.units import NoUnit
 import numpy as np
 from Potential import Potential
 import hashlib
@@ -411,12 +412,17 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         self._normPhi0 = Phi0
 
         # rescale the simulation 
-        self._posunit = self._s['pos'].units
-        self._velunit = self._s['vel'].units
-        self._s['pos'].convert_units('%s kpc'%R0)
-        self._s['vel'].convert_units('%s km s**-1'%Vc0)
-        
-        
+        if not isinstance(self._s['pos'].units,NoUnit):
+            self._posunit = self._s['pos'].units
+            self._s['pos'].convert_units('%s kpc'%R0)
+        else:
+            self._posunit = None
+        if not isinstance(self._s['vel'].units,NoUnit):
+            self._velunit = self._s['vel'].units
+            self._s['vel'].convert_units('%s km s**-1'%Vc0)
+        else:
+            self._velunit = None
+                           
         # rescale the grid
         self._rgrid /= R0
         if self._logR: 
@@ -475,8 +481,10 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         Phi0 = self._normPhi0
         
         # rescale the simulation
-        self._s['pos'].convert_units(self._posunit)
-        self._s['vel'].convert_units(self._velunit)
+        if not self._posunit is None:
+            self._s['pos'].convert_units(self._posunit)
+        if not self._velunit is None:
+            self._s['vel'].convert_units(self._velunit)
         
         # rescale the grid
         self._rgrid *= R0
@@ -493,9 +501,9 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         
         # restore the splines
         if not self._enable_c and self._interpPot : 
-            for spline,name in zip([self._potInterp, self._rforceInterp, self._zforceInterp],
-                                    ["pot", "rforce", "zforce"]): 
-                spline = self._savedsplines[name] 
+            self._potInterp= self._savedsplines['pot']
+            self._rforceInterp= self._savedsplines['rforce']
+            self._zforceInterp= self._savedsplines['zforce']
 
         if self._interpPot : self._vcircInterp = self._savedsplines['vcirc']
         
