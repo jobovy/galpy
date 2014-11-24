@@ -16,14 +16,14 @@ from galpy.util import multi
 
 class SnapshotPotential(Potential):
     """Create a snapshot potential object. The potential and forces are 
-    calculated as needed through the _evaluate and _Rforce methods. 
+    calculated as needed through the _evaluate, _Rforce, and _zforce methods. 
     Requires an installation of [pynbody](http://pynbody.github.io).
     
-    `_evaluate` and `_Rforce` calculate a hash for the array of points
-    that is passed in by the user. The hash and corresponding
-    potential/force arrays are stored -- if a subsequent request
-    matches a previously computed hash, the previous results are
-    returned and note recalculated.
+    `_evaluate`, `_Rforce`, and `_zforce` calculate a hash for the
+    array of points that is passed in by the user. The hash and
+    corresponding potential/force arrays are stored -- if a subsequent
+    request matches a previously computed hash, the previous results
+    are returned and note recalculated.
     
     **Input**:
     
@@ -50,6 +50,10 @@ class SnapshotPotential(Potential):
         pot, acc = self._setup_potential(R,z)
         return acc[:,0]
 
+    def _zforce(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
+        pot, acc = self._setup_potential(R,z)
+        return acc[:,1]
+
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
         from galpy.potential import vcirc
         # cast the points into arrays for compatibility
@@ -63,7 +67,7 @@ class SnapshotPotential(Potential):
 
         # if we computed for these points before, return; otherwise compute
         if new_hash in self._point_hash : 
-            pot, r_acc = self._point_hash[new_hash]
+            pot, rz_acc = self._point_hash[new_hash]
 
 #        if use_pkdgrav :
             
@@ -93,7 +97,7 @@ class SnapshotPotential(Potential):
 
 
             # get the radial accelerations
-            r_acc = np.zeros((len(R)*len(z),2))
+            rz_acc = np.zeros((len(R)*len(z),2))
             rvecs = [(1.0,0.0,0.0),
                      (0.0,1.0,0.0),
                      (-1.0,0.0,0.0),
@@ -102,18 +106,18 @@ class SnapshotPotential(Potential):
             # reshape the acc to make sure we have a leading index even
             # if we are only evaluating a single point, i.e. we have
             # shape = (1,4,3) not (4,3)
-            acc = acc.reshape((len(r_acc),4,3))
+            acc = acc.reshape((len(rz_acc),4,3))
 
             for i in xrange(len(R)) : 
                 for j,rvec in enumerate(rvecs) : 
-                    r_acc[i,0] += acc[i,j].dot(rvec)
-                    r_acc[i,1] += acc[i,j,2]
-            r_acc /= 4.0
+                    rz_acc[i,0] += acc[i,j].dot(rvec)
+                    rz_acc[i,1] += acc[i,j,2]
+            rz_acc /= 4.0
             
             # store the computed values for reuse
-            self._point_hash[new_hash] = [pot,r_acc]
+            self._point_hash[new_hash] = [pot,rz_acc]
 
-        return pot, r_acc
+        return pot, rz_acc
 
 
 class InterpSnapshotPotential(interpRZPotential.interpRZPotential) : 
