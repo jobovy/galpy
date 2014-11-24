@@ -65,6 +65,32 @@ well as a longer-term roadmap `here
 <http://github.com/jobovy/galpy/wiki/Roadmap>`__. Please let the main
 developer know if you need any help contributing!
 
+DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
+---------------------------------------------------
+
+**master**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
+   :target: http://travis-ci.org/jobovy/galpy
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
+  :target: https://coveralls.io/r/jobovy/galpy?branch=master
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/master/
+
+
+**development branch**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev-v1.1
+   :target: http://travis-ci.org/jobovy/galpy/branches
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
+  :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/dev-v1.1/
+
 DISK DF CORRECTIONS
 --------------------
 
