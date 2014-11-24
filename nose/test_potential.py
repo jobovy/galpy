@@ -22,7 +22,8 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -85,7 +86,8 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -217,7 +219,8 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -406,7 +409,8 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -487,7 +491,8 @@ def test_evaluateAndDerivs_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -720,7 +725,8 @@ def test_toVertical_toPlanar():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotPotential','InterpSnapshotPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
