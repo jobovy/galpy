@@ -118,3 +118,25 @@ def test_interpsnapshotKeplerPotential_logR_eval():
     assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR at (R,z) = (%f,%f) by %g' % (mr[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],mz[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],numpy.amax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz))))
     return None
 
+def test_interpsnapshotKeplerPotential_noc_eval():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotPotential(s,
+                                          rgrid=(0.01,2.,201),
+                                          zgrid=(0.,0.2,201),
+                                          logR=False,
+                                          interpPot=True,
+                                          zsym=True,
+                                          enable_c=False)
+    kp= potential.KeplerPotential(amp=1.) #should be the same
+    #Test all at the same time to use vector evaluation
+    rs= numpy.linspace(0.01,2.,10)
+    zs= numpy.linspace(-0.2,0.2,20)
+    mr,mz= numpy.meshgrid(rs,zs)
+    mr= mr.flatten()
+    mz= mz.flatten()
+    assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, without enable_c'
+    return None
+
