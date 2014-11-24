@@ -53,3 +53,16 @@ def test_snapshotKeplerPotential_hash():
     assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
+def test_snapshotKeplerPotential_grid():
+    # Test that evaluating on a grid works
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 2.
+    s['eps']= 0.
+    sp= potential.SnapshotPotential(s)
+    kp= potential.KeplerPotential(amp=2.) #should be the same
+    rs= numpy.arange(3)+1
+    zs= 0.1
+    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    return None
+
