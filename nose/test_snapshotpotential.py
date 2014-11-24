@@ -66,3 +66,23 @@ def test_snapshotKeplerPotential_grid():
     assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
+def test_interpsnapshotKeplerPotential_eval():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotPotential(s,
+                                          rgrid=(0.01,2.,101),
+                                          zgrid=(0.,0.2,101),
+                                          logR=False,
+                                          interpPot=True,
+                                          zsym=True)
+    kp= potential.KeplerPotential(amp=1.) #should be the same
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)
+    zs= numpy.linspace(-0.2,0.2,41)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g)' % (r,z)
+    return None
+

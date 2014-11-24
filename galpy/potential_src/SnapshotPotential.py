@@ -122,17 +122,14 @@ class SnapshotPotential(Potential):
 
 class InterpSnapshotPotential(interpRZPotential.interpRZPotential) : 
     """
-    Interpolated potential extracted from a simulation output. 
-
-    
-    
-    """
-
-    
+    Interpolated potential extracted from a simulation output.     
+    """   
     def __init__(self, s, 
-                 rgrid=(0.01,2.,101), zgrid=(0.,0.2,101), 
-                 interpepifreq = False, interpverticalfreq = False, interpPot = True,
-                 enable_c = True, logR = False, zsym = True, 
+                 rgrid=(np.log(0.01),np.log(20.),101),
+                 zgrid=(0.,1.,101),
+                 interpepifreq = False, interpverticalfreq = False, 
+                 interpPot = True,
+                 enable_c = True, logR = True, zsym = True, 
                  numcores=pynbody.config['number_of_threads'], use_pkdgrav = False) : 
         
         # inititalize using the base class
