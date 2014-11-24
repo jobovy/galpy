@@ -46,7 +46,6 @@ install:
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
  - pip install git+git://github.com/pynbody/pynbody.git
-# - pip install --allow-all-external --allow-unverified pynbody pynbody
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
