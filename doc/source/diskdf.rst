@@ -45,7 +45,7 @@ and then setup the ``quasiisothermaldf`` instance
 which sets up a DF instance with a radial scale length of
 :math:`R_0/3`, a local radial and vertical velocity dispersion of
 :math:`0.2\,V_c(R_0)` and :math:`0.1\,V_c(R_0)`, respectively, and a
-radial scale lengths of the velocity dispersions squared of
+radial scale lengths of the velocity dispersions of
 :math:`R_0`. ``cutcounter=True`` specifies that counter-rotating stars
 are explicitly excluded (normally these are just exponentially
 suppressed). As for the two-dimensional disk DFs, these parameters are
@@ -60,7 +60,7 @@ parameters. We can estimate the DF's actual radial scale length near
 0.32908034635647182
 
 which is quite close to the input value of 1/3. Similarly, we can
-estimate the scale lengths of the dispersions squared
+estimate the scale lengths of the dispersions
 
 >>> qdf.estimate_hsr(1.)
 1.1913935820372923
