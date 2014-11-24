@@ -5,13 +5,16 @@ python:
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
 env: #split tests
-   - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf'
-   - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
+  global:
+    - REQUIRES_PYNBODY=false
+  matrix:
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
 virtualenv:
   system_site_packages: true
 before_install:
@@ -45,7 +48,7 @@ install:
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
- - pip install git+git://github.com/pynbody/pynbody.git
+ - if [[ $REQUIRES_PYNBODY ]]; then pip install git+git://github.com/pynbody/pynbody.git; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
