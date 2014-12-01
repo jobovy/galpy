@@ -2,6 +2,7 @@
 import numpy
 import pynbody
 from galpy import potential
+from test_streamdf import expected_failure
 def test_snapshotKeplerPotential_eval():
     # Set up a snapshot with just one unit mass at the origin
     s= pynbody.new(star=1)
@@ -64,6 +65,48 @@ def test_snapshotKeplerPotential_grid():
     rs= numpy.arange(3)+1
     zs= 0.1
     assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    return None
+
+@expected_failure
+def test_snapshotKeplerPotential_eval_array():
+    # Test evaluating the snapshotPotential with array input
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotPotential(s)
+    kp= potential.KeplerPotential(amp=1.) #should be the same
+    rs= numpy.ones(3)*0.5+0.5
+    zs= (numpy.zeros(3)-1.)/2.
+    assert numpy.fabs(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    return None
+
+@expected_failure
+def test_snapshotKeplerPotential_Rforce_array():
+    # Test evaluating the snapshotPotential with array input
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotPotential(s)
+    kp= potential.KeplerPotential(amp=1.) #should be the same
+    rs= numpy.ones(3)*0.5+0.5
+    zs= (numpy.zeros(3)-1.)/2.
+    assert numpy.all(numpy.fabs(sp.Rforce(rs,zs)-kp.Rforce(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    return None
+
+@expected_failure
+def test_snapshotKeplerPotential_zforce_array():
+    # Test evaluating the snapshotPotential with array input
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotPotential(s)
+    kp= potential.KeplerPotential(amp=1.) #should be the same
+    rs= numpy.ones(3)*0.5+0.5
+    zs= (numpy.zeros(3)-1.)/2.
+    assert numpy.all(numpy.fabs(sp.zforce(rs,zs)-kp.zforce(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_interpsnapshotKeplerPotential_eval():
