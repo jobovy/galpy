@@ -2,7 +2,6 @@
 import numpy
 import pynbody
 from galpy import potential
-from test_streamdf import expected_failure
 def test_snapshotKeplerPotential_eval():
     # Set up a snapshot with just one unit mass at the origin
     s= pynbody.new(star=1)
