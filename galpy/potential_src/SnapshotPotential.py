@@ -4,6 +4,7 @@ import numpy as np
 from scipy import interpolate 
 from Potential import Potential
 import interpRZPotential
+from interpRZPotential import scalarVectorDecorator
 try: 
     import pynbody
     from pynbody import gravity
@@ -44,25 +45,22 @@ class SnapshotPotential(Potential):
         else:
             self._num_threads = num_threads
     
+    @scalarVectorDecorator
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
         return pot
         
+    @scalarVectorDecorator
     def _Rforce(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
         return acc[:,0]
 
+    @scalarVectorDecorator
     def _zforce(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
         pot, acc = self._setup_potential(R,z)
         return acc[:,1]
 
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
-        # cast the points into arrays for compatibility
-        if isinstance(R,float) : 
-            R = np.array([R])
-        if isinstance(z, float) : 
-            z = np.array([z])
-
         # compute the hash for the requested grid
         new_hash = hashlib.md5(np.array([R,z])).hexdigest()
 
@@ -75,40 +73,31 @@ class SnapshotPotential(Potential):
 
         else : 
             # set up the four points per R,z pair to mimic axisymmetry
-            points = np.zeros((len(R),len(z),4,3))
+            points = np.zeros((len(R),4,3))
         
             for i in xrange(len(R)) :
-                for j in xrange(len(z)) : 
-                    points[i,j] = [(R[i],0,z[j]),
-                                   (0,R[i],z[j]),
-                                   (-R[i],0,z[j]),
-                                   (0,-R[i],z[j])]
+                points[i] = [(R[i],0,z[i]),
+                             (0,R[i],z[i]),
+                             (-R[i],0,z[i]),
+                             (0,-R[i],z[i])]
 
             points_new = points.reshape(points.size/3,3)
             pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._num_threads)
 
-            pot = pot.reshape(len(R)*len(z),4)
-            acc = acc.reshape(len(R)*len(z),4,3)
+            pot = pot.reshape(len(R),4)
+            acc = acc.reshape(len(R),4,3)
 
             # need to average the potentials
-            if len(pot) > 1:
-                pot = pot.mean(axis=1)
-            else : 
-                pot = pot.mean()
+            pot = pot.mean(axis=1)
 
 
             # get the radial accelerations
-            rz_acc = np.zeros((len(R)*len(z),2))
+            rz_acc = np.zeros((len(R),2))
             rvecs = [(1.0,0.0,0.0),
                      (0.0,1.0,0.0),
                      (-1.0,0.0,0.0),
                      (0.0,-1.0,0.0)]
         
-            # reshape the acc to make sure we have a leading index even
-            # if we are only evaluating a single point, i.e. we have
-            # shape = (1,4,3) not (4,3)
-            acc = acc.reshape((len(rz_acc),4,3))
-
             for i in xrange(len(R)) : 
                 for j,rvec in enumerate(rvecs) : 
                     rz_acc[i,0] += acc[i,j].dot(rvec)

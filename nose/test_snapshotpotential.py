@@ -67,7 +67,6 @@ def test_snapshotKeplerPotential_grid():
     assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
-@expected_failure
 def test_snapshotKeplerPotential_eval_array():
     # Test evaluating the snapshotPotential with array input
     # Set up a snapshot with just one unit mass at the origin
@@ -78,10 +77,9 @@ def test_snapshotKeplerPotential_eval_array():
     kp= potential.KeplerPotential(amp=1.) #should be the same
     rs= numpy.ones(3)*0.5+0.5
     zs= (numpy.zeros(3)-1.)/2.
-    assert numpy.fabs(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
-@expected_failure
 def test_snapshotKeplerPotential_Rforce_array():
     # Test evaluating the snapshotPotential with array input
     # Set up a snapshot with just one unit mass at the origin
@@ -95,7 +93,6 @@ def test_snapshotKeplerPotential_Rforce_array():
     assert numpy.all(numpy.fabs(sp.Rforce(rs,zs)-kp.Rforce(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
-@expected_failure
 def test_snapshotKeplerPotential_zforce_array():
     # Test evaluating the snapshotPotential with array input
     # Set up a snapshot with just one unit mass at the origin
