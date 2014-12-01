@@ -1,7 +1,8 @@
 ############################TESTS ON POTENTIALS################################
+import os
 import sys
 import numpy
-import os
+import pynbody
 from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
@@ -67,6 +68,7 @@ def test_forceAsDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
+    pots.append('mockSnapshotPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
     pots.append('mockCosmphiDiskPotentialTm5')
@@ -1356,6 +1358,14 @@ class mockInterpRZPotential(interpRZPotential):
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
+class mockSnapshotPotential(potential.SnapshotPotential):
+    def __init__(self):
+        # Test w/ equivalent of KeplerPotential: one mass
+        kp= potential.KeplerPotential(amp=1.)
+        s= pynbody.new(star=1)
+        s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
+        s['eps']= 0.
+        potential.SnapshotPotential.__init__(self,s)
 # Some special cases of 2D, non-axisymmetric potentials, to make sure they
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import CosmphiDiskPotential, DehnenBarPotential, \
