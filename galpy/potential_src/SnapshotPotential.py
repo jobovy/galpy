@@ -1,12 +1,9 @@
 from os import system
 import hashlib
-import warnings
 import numpy as np
-from scipy.misc import derivative
 from scipy import interpolate 
 from Potential import Potential
 import interpRZPotential
-from galpy.util import multi, galpyWarning
 try: 
     import pynbody
     from pynbody import gravity
@@ -60,7 +57,6 @@ class SnapshotPotential(Potential):
         return acc[:,1]
 
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
-        from galpy.potential import vcirc
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
@@ -251,9 +247,6 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
          points are positioned at +/- dr from the central point
          
         """
-
-        from galpy.potential import vcirc
-
         # cast the points into arrays for compatibility
         if isinstance(R,float) : 
             R = np.array([R])
