@@ -263,3 +263,26 @@ def test_interpsnapshotKeplerPotential_normalize_units():
     assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
     return None
 
+def test_interpsnapshotKeplerPotential_epifreq():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 2.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotRZPotential(s,
+                                            rgrid=(0.01,2.,101),
+                                            zgrid=(0.,0.2,101),
+                                            logR=False,
+                                            interpPot=True,
+                                            interpepifreq=True,
+                                            zsym=True)
+    kp= potential.KeplerPotential(normalize=2.) #should be the same
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)[1:]
+    for r in rs:
+        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,10)[1:]
+    for r in rs:
+        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
+    return None
+
