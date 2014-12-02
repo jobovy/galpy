@@ -7,7 +7,7 @@ def test_snapshotKeplerPotential_eval():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotRZPotential(s)
+    sp= potential.SnapshotRZPotential(s,num_threads=1)
     kp= potential.KeplerPotential(amp=1.) #should be the same
     assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     assert numpy.fabs(sp(0.5,0.)-kp(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
@@ -111,11 +111,12 @@ def test_interpsnapshotKeplerPotential_eval():
     s['mass']= 1.
     s['eps']= 0.
     sp= potential.InterpSnapshotRZPotential(s,
-                                          rgrid=(0.01,2.,201),
-                                          zgrid=(0.,0.2,201),
-                                          logR=False,
-                                          interpPot=True,
-                                          zsym=True)
+                                            rgrid=(0.01,2.,201),
+                                            zgrid=(0.,0.2,201),
+                                            logR=False,
+                                            interpPot=True,
+                                            zsym=True,
+                                            numcores=1)
     kp= potential.KeplerPotential(amp=1.) #should be the same
     #This just tests on the grid
     rs= numpy.linspace(0.01,2.,21)
@@ -328,3 +329,24 @@ def test_interpsnapshotKeplerPotential_verticalfreq():
         assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
     return None
 
+def test_snapshotrzpotential_nopynbody():
+    # Test that if we cannot load pynbody, we get an ImportError
+    from galpy.potential_src import SnapshotRZPotential
+    SnapshotRZPotential._PYNBODY_LOADED= False
+    try:
+        sp= potential.SnapshotRZPotential(1.) #1. doesn't matter
+    except ImportError: pass
+    else:
+        raise AssertionError("SnapshotRZPotential w/o pynbody should have raised an error, but didn't")
+    return None
+
+def test_interpsnapshotrzpotential_nopynbody():
+    # Test that if we cannot load pynbody, we get an ImportError
+    from galpy.potential_src import SnapshotRZPotential
+    SnapshotRZPotential._PYNBODY_LOADED= False
+    try:
+        sp= potential.InterpSnapshotRZPotential(1.) #1. doesn't matter
+    except ImportError: pass
+    else:
+        raise AssertionError("InterpSnapshotRZPotential w/o pynbody should have raised an error, but didn't")
+    return None
