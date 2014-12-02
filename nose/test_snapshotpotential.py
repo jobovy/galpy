@@ -329,6 +329,60 @@ def test_interpsnapshotKeplerPotential_verticalfreq():
         assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
     return None
 
+def test_interpsnapshotKeplerPotential_R2deriv():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 2.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotRZPotential(s,
+                                            rgrid=(0.01,2.,101),
+                                            zgrid=(0.,0.2,101),
+                                            logR=False,
+                                            interpPot=True,
+                                            interpepifreq=True,
+                                            zsym=True)
+    kp= potential.KeplerPotential(amp=2.) #should be the same
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)[1:]
+    zs= numpy.linspace(-0.2,0.2,41)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,10)[1:]
+    zs= numpy.linspace(-0.2,0.2,20)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
+    return None
+
+def test_interpsnapshotKeplerPotential_z2deriv():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 2.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotRZPotential(s,
+                                            rgrid=(0.01,2.,101),
+                                            zgrid=(0.,0.2,101),
+                                            logR=False,
+                                            interpPot=True,
+                                            interpverticalfreq=True,
+                                            zsym=True)
+    kp= potential.KeplerPotential(amp=2.) #should be the same
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)[1:]
+    zs= numpy.linspace(-0.2,0.2,41)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,10)[1:]
+    zs= numpy.linspace(-0.2,0.2,20)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 2.*10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
+    return None
+
 def test_snapshotrzpotential_nopynbody():
     # Test that if we cannot load pynbody, we get an ImportError
     from galpy.potential_src import SnapshotRZPotential
