@@ -185,25 +185,44 @@ def test_interpsnapshotKeplerPotential_normalize():
     s['mass']= 4.
     s['eps']= 0.
     sp= potential.InterpSnapshotRZPotential(s,
-                                          rgrid=(0.01,3.,201),
-                                          zgrid=(0.,0.2,201),
-                                          logR=False,
-                                          interpPot=True,
-                                          zsym=True)
+                                            rgrid=(0.01,3.,201),
+                                            zgrid=(0.,0.2,201),
+                                            logR=False,
+                                            interpPot=True,
+                                            interpepifreq=True,
+                                            interpverticalfreq=True,
+                                            zsym=True)
+    nkp= potential.KeplerPotential(normalize=1.) # normalized Kepler
+    ukp= potential.KeplerPotential(amp=4.) # Un-normalized Kepler
     #Currently unnormalized
     assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp(1.,0.1)-ukp(1.,0.1)) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.epifreq(1.)-ukp.epifreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.verticalfreq(1.)-ukp.verticalfreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
     # Normalize
     sp.normalize(R0=1.)
     assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    assert numpy.fabs(sp(1.,0.1)-nkp(1.,0.1)) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.epifreq(1.)-nkp.epifreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.verticalfreq(1.)-nkp.verticalfreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
     # De normalize
     sp.denormalize()
     assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    assert numpy.fabs(sp(1.,0.1)-ukp(1.,0.1)) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.epifreq(1.)-ukp.epifreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.verticalfreq(1.)-ukp.verticalfreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
     # Also test when R0 =/= 1
     sp.normalize(R0=2.)
     assert numpy.fabs(sp.Rforce(1.,0.)+1.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    assert numpy.fabs(sp(1.,0.1)-nkp(1.,0.1)) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.epifreq(1.)-nkp.epifreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.verticalfreq(1.)-nkp.verticalfreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
     # De normalize
     sp.denormalize()
     assert numpy.fabs(sp.Rforce(1.,0.)+4.) < 10.**-7., "InterpSnapShotPotential that is assumed to be normalized doesn't behave as expected"
+    assert numpy.fabs(sp(1.,0.1)-ukp(1.,0.1)) < 10.**-7., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.epifreq(1.)-ukp.epifreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
+    assert numpy.fabs(sp.verticalfreq(1.)-ukp.verticalfreq(1.)) < 10.**-4., "InterpSnapShotPotential that is assumed to be unnormalized doesn't behave as expected"
     return None
 
 def test_interpsnapshotKeplerPotential_noc_normalize():
