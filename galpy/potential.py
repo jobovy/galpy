@@ -22,7 +22,7 @@ from galpy.potential_src import EllipticalDiskPotential
 from galpy.potential_src import CosmphiDiskPotential
 from galpy.potential_src import RazorThinExponentialDiskPotential
 from galpy.potential_src import FlattenedPowerPotential
-from galpy.potential_src import SnapshotPotential
+from galpy.potential_src import SnapshotRZPotential
 from galpy.potential_src import BurkertPotential
 #
 # Functions
@@ -92,8 +92,8 @@ LopsidedDiskPotential= CosmphiDiskPotential.LopsidedDiskPotential
 CosmphiDiskPotential= CosmphiDiskPotential.CosmphiDiskPotential
 RazorThinExponentialDiskPotential= RazorThinExponentialDiskPotential.RazorThinExponentialDiskPotential
 FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
-InterpSnapshotPotential = SnapshotPotential.InterpSnapshotPotential
-SnapshotPotential = SnapshotPotential.SnapshotPotential
+InterpSnapshotRZPotential = SnapshotRZPotential.InterpSnapshotRZPotential
+SnapshotRZPotential = SnapshotRZPotential.SnapshotRZPotential
 BurkertPotential= BurkertPotential.BurkertPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
