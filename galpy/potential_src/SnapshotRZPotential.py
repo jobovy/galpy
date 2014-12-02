@@ -13,7 +13,7 @@ except ImportError: #pragma: no cover
     _PYNBODY_LOADED= False
 else:
     _PYNBODY_LOADED= True    
-class SnapshotPotential(Potential):
+class SnapshotRZPotential(Potential):
     """Create a snapshot potential object. The potential and forces are 
     calculated as needed through the _evaluate, _Rforce, and _zforce methods. 
     Requires an installation of [pynbody](http://pynbody.github.io).
@@ -36,7 +36,7 @@ class SnapshotPotential(Potential):
 
     def __init__(self, s, num_threads=None):
         if not _PYNBODY_LOADED:
-            raise ImportError("The SnapShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
+            raise ImportError("The SnapShotRZPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         Potential.__init__(self,amp=1.0)
         self._s = s
         self._point_hash = {}
@@ -110,7 +110,7 @@ class SnapshotPotential(Potential):
         return pot, rz_acc
 
 
-class InterpSnapshotPotential(interpRZPotential.interpRZPotential) : 
+class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) : 
     """
     Interpolated potential extracted from a simulation output.     
     """   
@@ -122,7 +122,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
                  enable_c = True, logR = True, zsym = True, 
                  numcores=None,use_pkdgrav = False) : 
         if not _PYNBODY_LOADED:
-            raise ImportError("The InterpSnapShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
+            raise ImportError("The InterpSnapRZShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         
         # inititalize using the base class
         Potential.__init__(self,amp=1.0)
@@ -142,7 +142,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         # since the potential and force are always calculated together, 
         # set the force interpolations to true if potential is true and 
         # vice versa
-        self._interpPot = interpPot or interpRforce or interpzforce
+        self._interpPot = interpPot
         self._interpRforce = self._interpPot
         self._interpzforce = self._interpPot
         self._interpvcirc = self._interpPot
@@ -152,7 +152,7 @@ class InterpSnapshotPotential(interpRZPotential.interpRZPotential) :
         self._interpverticalfreq = interpverticalfreq
 
         # make the potential accessible at points beyond the grid
-        self._origPot = SnapshotPotential(s, numcores)
+        self._origPot = SnapshotRZPotential(s, numcores)
 
         # setup the grid
         self._zsym = zsym
