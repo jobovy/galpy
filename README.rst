@@ -47,7 +47,14 @@ The latest documentation can be found `here <http://galpy.readthedocs.org/en/lat
 DEPENDENCIES
 -------------
 
-This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy <http://www.scipy.org/>`__, and `Matplotlib <http://matplotlib.sourceforge.net/>`__. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`__)
+This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
+<http://www.scipy.org/>`__, and `Matplotlib
+<http://matplotlib.sourceforge.net/>`__. Certain advanced features
+require the GNU Scientific Library (`GSL
+<http://www.gnu.org/software/gsl/>`__), with action calculations
+requiring version 1.14 or higher. Use of ``SnapshotPotential`` and
+``InterpSnapshotPotential`` requires `pynbody
+<https://github.com/pynbody/pynbody>`__.
 
 ISSUES
 -------
