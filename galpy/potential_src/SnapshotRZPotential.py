@@ -14,27 +14,42 @@ except ImportError: #pragma: no cover
 else:
     _PYNBODY_LOADED= True    
 class SnapshotRZPotential(Potential):
-    """Create a snapshot potential object. The potential and forces are 
-    calculated as needed through the _evaluate, _Rforce, and _zforce methods. 
-    Requires an installation of [pynbody](http://pynbody.github.io).
-    
+    """Class that implements an axisymmetrized version of the potential of an N-body snapshot (requires `pynbody <http://pynbody.github.io>`__)
+
     `_evaluate`, `_Rforce`, and `_zforce` calculate a hash for the
     array of points that is passed in by the user. The hash and
     corresponding potential/force arrays are stored -- if a subsequent
     request matches a previously computed hash, the previous results
-    are returned and note recalculated.
-    
-    **Input**:
-    
-    *s* : a simulation snapshot loaded with pynbody
-
-    **Optional Keywords**:
-    
-    *num_threads* (4): number of threads to use for calculation
-
+    are returned and not recalculated.
     """
-
     def __init__(self, s, num_threads=None):
+        """
+        NAME:
+
+
+           __init__
+
+        PURPOSE:
+
+           Initialize a SnapshotRZ potential object
+
+        INPUT:
+
+           s - a simulation snapshot loaded with pynbody
+
+           num_threads= (4) number of threads to use for calculation
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+           2013 - Written - Rok Roskar (ETH)
+
+           2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
+
+        """
         if not _PYNBODY_LOADED:
             raise ImportError("The SnapShotRZPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         Potential.__init__(self,amp=1.0)
@@ -112,7 +127,7 @@ class SnapshotRZPotential(Potential):
 
 class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) : 
     """
-    Interpolated potential extracted from a simulation output.     
+    Interpolated axisymmetrized potential extracted from a simulation output (see ``interpRZPotential`` and ``SnapshotRZPotential``)
     """   
     def __init__(self, s, 
                  rgrid=(np.log(0.01),np.log(20.),101),
@@ -121,6 +136,46 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                  interpPot = True,
                  enable_c = True, logR = True, zsym = True, 
                  numcores=None,use_pkdgrav = False) : 
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           Initialize an InterpSnapshotRZPotential instance
+
+        INPUT:
+
+           s - a simulation snapshot loaded with pynbody
+
+           rgrid - R grid to be given to linspace as in rs= linspace(*rgrid)
+
+           zgrid - z grid to be given to linspace as in zs= linspace(*zgrid)
+
+           logR - if True, rgrid is in the log of R so logrs= linspace(*rgrid)
+
+           interpPot, interpepifreq, interpverticalfreq= if True, interpolate these functions (interpPot=True also interpolates the R and zforce)
+
+           enable_c= enable use of C for interpolations
+
+           zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+
+           numcores= if set to an integer, use this many cores
+
+           use_pkdgrav= (False) use PKDGRAV to calculate the snapshot's potential and forces (CURRENTLY NOT IMPLEMENTED)
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+           2013 - Written - Rok Roskar (ETH)
+
+           2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
+
+        """
         if not _PYNBODY_LOADED:
             raise ImportError("The InterpSnapRZShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         
