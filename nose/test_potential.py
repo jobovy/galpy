@@ -24,7 +24,7 @@ def test_normalize_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -68,8 +68,8 @@ def test_forceAsDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
-    pots.append('mockSnapshotPotential')
-    pots.append('mockInterpSnapshotPotential')
+    pots.append('mockSnapshotRZPotential')
+    pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
     pots.append('mockCosmphiDiskPotentialTm5')
@@ -90,7 +90,7 @@ def test_forceAsDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -223,7 +223,7 @@ def test_2ndDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -413,7 +413,7 @@ def test_poisson_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -495,7 +495,7 @@ def test_evaluateAndDerivs_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -729,7 +729,7 @@ def test_toVertical_toPlanar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotPotential','InterpSnapshotPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1359,22 +1359,22 @@ class mockInterpRZPotential(interpRZPotential):
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
-class mockSnapshotPotential(potential.SnapshotPotential):
+class mockSnapshotRZPotential(potential.SnapshotRZPotential):
     def __init__(self):
         # Test w/ equivalent of KeplerPotential: one mass
         kp= potential.KeplerPotential(amp=1.)
         s= pynbody.new(star=1)
         s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
         s['eps']= 0.
-        potential.SnapshotPotential.__init__(self,s)
-class mockInterpSnapshotPotential(potential.InterpSnapshotPotential):
+        potential.SnapshotRZPotential.__init__(self,s)
+class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
     def __init__(self):
         # Test w/ equivalent of KeplerPotential: one mass
         kp= potential.KeplerPotential(amp=1.)
         s= pynbody.new(star=1)
         s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
         s['eps']= 0.
-        potential.InterpSnapshotPotential.__init__(self,s,
+        potential.InterpSnapshotRZPotential.__init__(self,s,
                                                    rgrid=(0.01,2.,101),
                                                    zgrid=(0.,0.3,101),
                                                    logR=False,

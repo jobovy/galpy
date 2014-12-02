@@ -7,12 +7,12 @@ def test_snapshotKeplerPotential_eval():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
-    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp(0.5,0.)-kp(0.5,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp(1.,0.5)-kp(1.,0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp(1.,-0.5)-kp(1.,-0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(0.5,0.)-kp(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(1.,0.5)-kp(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(1.,-0.5)-kp(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_Rforce():
@@ -20,12 +20,12 @@ def test_snapshotKeplerPotential_Rforce():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
-    assert numpy.fabs(sp.Rforce(1.,0.)-kp.Rforce(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.Rforce(0.5,0.)-kp.Rforce(0.5,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.Rforce(1.,0.5)-kp.Rforce(1.,0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.Rforce(1.,-0.5)-kp.Rforce(1.,-0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.Rforce(1.,0.)-kp.Rforce(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.Rforce(0.5,0.)-kp.Rforce(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.Rforce(1.,0.5)-kp.Rforce(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.Rforce(1.,-0.5)-kp.Rforce(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_zforce():
@@ -33,12 +33,12 @@ def test_snapshotKeplerPotential_zforce():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
-    assert numpy.fabs(sp.zforce(1.,0.)-kp.zforce(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.zforce(0.5,0.)-kp.zforce(0.5,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.zforce(1.,0.5)-kp.zforce(1.,0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp.zforce(1.,-0.5)-kp.zforce(1.,-0.5)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.zforce(1.,0.)-kp.zforce(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.zforce(0.5,0.)-kp.zforce(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.zforce(1.,0.5)-kp.zforce(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp.zforce(1.,-0.5)-kp.zforce(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_hash():
@@ -47,10 +47,10 @@ def test_snapshotKeplerPotential_hash():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
-    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
-    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.fabs(sp(1.,0.)-kp(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_grid():
@@ -59,11 +59,11 @@ def test_snapshotKeplerPotential_grid():
     s= pynbody.new(star=1)
     s['mass']= 2.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=2.) #should be the same
     rs= numpy.arange(3)+1
     zs= 0.1
-    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_eval_array():
@@ -72,11 +72,11 @@ def test_snapshotKeplerPotential_eval_array():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
     rs= numpy.ones(3)*0.5+0.5
     zs= (numpy.zeros(3)-1.)/2.
-    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.all(numpy.fabs(sp(rs,zs)-kp(rs,zs)) < 10.**-8.), 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_Rforce_array():
@@ -85,11 +85,11 @@ def test_snapshotKeplerPotential_Rforce_array():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
     rs= numpy.ones(3)*0.5+0.5
     zs= (numpy.zeros(3)-1.)/2.
-    assert numpy.all(numpy.fabs(sp.Rforce(rs,zs)-kp.Rforce(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.all(numpy.fabs(sp.Rforce(rs,zs)-kp.Rforce(rs,zs)) < 10.**-8.), 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_snapshotKeplerPotential_zforce_array():
@@ -98,11 +98,11 @@ def test_snapshotKeplerPotential_zforce_array():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.SnapshotPotential(s)
+    sp= potential.SnapshotRZPotential(s)
     kp= potential.KeplerPotential(amp=1.) #should be the same
     rs= numpy.ones(3)*0.5+0.5
     zs= (numpy.zeros(3)-1.)/2.
-    assert numpy.all(numpy.fabs(sp.zforce(rs,zs)-kp.zforce(rs,zs)) < 10.**-8.), 'SnapshotPotential with single unit mass does not correspond to KeplerPotential'
+    assert numpy.all(numpy.fabs(sp.zforce(rs,zs)-kp.zforce(rs,zs)) < 10.**-8.), 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
 def test_interpsnapshotKeplerPotential_eval():
@@ -110,7 +110,7 @@ def test_interpsnapshotKeplerPotential_eval():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(0.01,2.,201),
                                           zgrid=(0.,0.2,201),
                                           logR=False,
@@ -141,7 +141,7 @@ def test_interpsnapshotKeplerPotential_logR_eval():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(numpy.log(0.01),numpy.log(20.),
                                                  251),
                                           logR=True,
@@ -162,7 +162,7 @@ def test_interpsnapshotKeplerPotential_noc_eval():
     s= pynbody.new(star=1)
     s['mass']= 1.
     s['eps']= 0.
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(0.01,2.,201),
                                           zgrid=(0.,0.2,201),
                                           logR=False,
@@ -184,7 +184,7 @@ def test_interpsnapshotKeplerPotential_normalize():
     s= pynbody.new(star=1)
     s['mass']= 4.
     s['eps']= 0.
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(0.01,3.,201),
                                           zgrid=(0.,0.2,201),
                                           logR=False,
@@ -211,7 +211,7 @@ def test_interpsnapshotKeplerPotential_noc_normalize():
     s= pynbody.new(star=1)
     s['mass']= 4.
     s['eps']= 0.
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(numpy.log(0.01),numpy.log(3.),201),
                                           zgrid=(0.,0.2,201),
                                           logR=True,
@@ -241,7 +241,7 @@ def test_interpsnapshotKeplerPotential_normalize_units():
     s['eps']= 0.
     s['pos'].units= 'kpc'
     s['vel'].units= 'km s**-1'
-    sp= potential.InterpSnapshotPotential(s,
+    sp= potential.InterpSnapshotRZPotential(s,
                                           rgrid=(0.01,3.,201),
                                           zgrid=(0.,0.2,201),
                                           logR=False,
