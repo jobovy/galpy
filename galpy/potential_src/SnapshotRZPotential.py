@@ -263,14 +263,18 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         
         if interpepifreq: 
             self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0] - 3./self._rgrid*self._rforceGrid[:,0])
-            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._epifreqGrid, k=3)
+            goodindx= True-np.isnan(self._epifreqGrid)
+            self._epifreqInterp=\
+                interpolate.InterpolatedUnivariateSpline(rs[goodindx],
+                                                         self._epifreqGrid[goodindx],
+                                                         k=3)
             
         if interpverticalfreq:
             self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
             self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs, self._verticalfreqGrid, k=3)
 
         
-    def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.01) : 
+    def _setup_potential(self, R, z, use_pkdgrav = False, dr = 0.0001) : 
         """
         
         Calculates the potential and force grids for the snapshot for
@@ -404,7 +408,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                     zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
                 
                 # reshape the arrays
-                self._z2derivGrid = zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
+                self._z2derivGrid = -zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
 
             # do the same for the radial component
             if self._interpepifreq:
@@ -419,11 +423,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                                  np.dot(racc[0],rvec)) / (dr*2.0)
                     rgrad[i] = rgrad_vec
                 
-                self._R2derivGrid = rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
-
-
-    
-    
+                self._R2derivGrid = -rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
+       
     def _R2deriv(self,R,Z,phi=0.,t=0.): 
         if not phi == 0.0 or not t == 0.0 : 
             raise RuntimeError("Only axisymmetric potentials are supported")
