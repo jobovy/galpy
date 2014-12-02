@@ -420,14 +420,10 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 self._R2derivGrid = -rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
        
     def _R2deriv(self,R,Z,phi=0.,t=0.): 
-        if not phi == 0.0 or not t == 0.0 : 
-            raise RuntimeError("Only axisymmetric potentials are supported")
         if self._zsym: Z = np.abs(Z)
         return self._R2interp(R,Z)
 
     def _z2deriv(self,R,Z,phi=None,t=None):
-        if not phi == 0.0 or not t == 0.0 : 
-            raise RuntimeError("Only axisymmetric potentials are supported")
         if self._zsym: Z = np.abs(Z)
         return self._z2interp(R,Z)
 
