@@ -286,9 +286,9 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         
         **Input**:
 
-        *R*: R grid coordinates 
+        *R*: R grid coordinates (numpy array)
         
-        *z*: z grid coordinates
+        *z*: z grid coordinates (numpy array)
 
         **Optional Keywords**: 
         
@@ -299,12 +299,6 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
          points are positioned at +/- dr from the central point
          
         """
-        # cast the points into arrays for compatibility
-        if isinstance(R,float) : 
-            R = np.array([R])
-        if isinstance(z, float) : 
-            z = np.array([z])
-
         # set up the four points per R,z pair to mimic axisymmetry
         points = np.zeros((len(R),len(z),4,3))
         
@@ -366,11 +360,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 acc = acc.reshape(len(R)*len(z),4,3)
 
                 # need to average the potentials
-                if len(pot) > 1:
-                    pot = pot.mean(axis=1)
-                else : 
-                    pot = pot.mean()
-
+                pot = pot.mean(axis=1)
 
                 # get the radial accelerations
                 rz_acc = np.zeros((len(R)*len(z),2))
