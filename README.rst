@@ -31,7 +31,7 @@ See `AUTHORS.txt
 full list of contributors.
 
 If you find this code useful in your research, please let me
-know. **If you use galpy in a publication, please cite*** `Bovy (2015)
+know. **If you use galpy in a publication, please cite** `Bovy (2015)
 <http://sns.ias.edu/~bovy/galpy-paper.html>`__ **and link to
 http://github.com/jobovy/galpy**. Please also send me a reference to
 the paper or send a pull request including your paper in the list of
