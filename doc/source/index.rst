@@ -84,10 +84,11 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 Acknowledging galpy
 --------------------
 
-If you use galpy in a publication, please cite Bovy (2015, in
-preparation) and link ``to http://github.com/jobovy/galpy``. Please
-also send me a reference to the paper or send a pull request including
-your paper in the list of galpy papers on this page (this page is at
+If you use galpy in a publication, please cite `Bovy (2015)
+<http://sns.ias.edu/~bovy/galpy-paper.html>`_ and link to
+``http://github.com/jobovy/galpy``. Please also send me a reference to
+the paper or send a pull request including your paper in the list of
+galpy papers on this page (this page is at
 doc/source/index.rst). Thanks!
 
 When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_, which introduced this technique.

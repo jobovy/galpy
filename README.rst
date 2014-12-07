@@ -30,11 +30,12 @@ See `AUTHORS.txt
 <https://github.com/jobovy/galpy/blob/master/AUTHORS.txt>`__ for a
 full list of contributors.
 
-If you find this code useful in your research, please let me know. **If
-you use galpy in a publication, please cite Bovy (2015, in
-preparation) and link to http://github.com/jobovy/galpy**. Please also
-send me a reference to the paper or send a pull request including your
-paper in the list of galpy papers on `this page
+If you find this code useful in your research, please let me
+know. **If you use galpy in a publication, please cite*** `Bovy (2015)
+<http://sns.ias.edu/~bovy/galpy-paper.html>`__ **and link to
+http://github.com/jobovy/galpy**. Please also send me a reference to
+the paper or send a pull request including your paper in the list of
+galpy papers on `this page
 <http://galpy.readthedocs.org/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 
