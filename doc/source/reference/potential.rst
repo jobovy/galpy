@@ -20,6 +20,8 @@ Use as ``Potential-instance.method(...)``
    flattening <potentialflattening.rst>
    lindbladR <potentiallindbladR.rst>
    mass <potentialmass.rst>
+   nemo_accname <potentialnemoaccname.rst>
+   nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    phi2deriv <potentialphi2deriv.rst>
@@ -69,6 +71,8 @@ Use as ``method(...)``
    evaluatezforces <potentialzforces.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
+   nemo_accname <potentialnemoaccnames.rst>
+   nemo_accpars <potentialnemoaccparss.rst>
    omegac <potentialomegacs.rst>
    plotDensities <potentialplotdensities.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
