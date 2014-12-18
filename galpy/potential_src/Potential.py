@@ -1909,6 +1909,78 @@ def omegac(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
+def nemo_accname(Pot):
+    """
+    NAME:
+    
+       nemo_accname
+    
+    PURPOSE:
+    
+       return the accname potential name for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+       
+    OUTPUT:
+    
+       Acceleration name in the correct format to give to accname=
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '+'
+            out+= pot.nemo_accname()
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accname()
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accname' is neither a Potential-instance or a list of such instances")
+    
+def nemo_accpars(Pot,vo,ro):
+    """
+    NAME:
+    
+       nemo_accpars
+    
+    PURPOSE:
+    
+       return the accpars potential parameters for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+
+       vo - velocity unit in km/s
+    
+       ro - length unit in kpc
+    
+    OUTPUT:
+    
+       accpars string in the corrct format to give to accpars
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '#'
+            out+= pot.nemo_accpars(vo,ro)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accpars(vo,ro)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
+    
 def _check_c(Pot):
     """
 
