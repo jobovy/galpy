@@ -754,6 +754,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= True
+        self._nemo_accname= 'NFW'
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):

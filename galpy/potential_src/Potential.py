@@ -1119,6 +1119,34 @@ class Potential:
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
 
+    def nemo_accname(self):
+        """
+        NAME:
+
+           nemo_accname
+
+        PURPOSE:
+
+           return the accname potential name for use of this potential with NEMO
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           Acceleration name
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accname
+        except AttributeError:
+            raise AttributeError('NEMO acceleration name not supported for %s' % self.__class__.__name__)
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
