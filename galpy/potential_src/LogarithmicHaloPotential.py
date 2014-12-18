@@ -211,6 +211,6 @@ class LogarithmicHaloPotential(Potential):
         """
         warnings.warn("NEMO's LogPot does not allow flattening in z (for some reason); therefore, flip y and z in NEMO wrt galpy",galpyWarning)
         ampl= self._amp*vo**2.
-        return "0,%s,%s,1.,%s" % (ampl,
+        return "0,%s,%s,1.0,%s" % (ampl,
                                   self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
                                   self._q)
