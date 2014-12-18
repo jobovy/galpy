@@ -1122,6 +1122,76 @@ def test_LinShuReductionFactor():
     else: raise AssertionError("LinShuReductionFactor w/o nonaxiPot set or k=,m=,OmegaP= set did not raise IOError")
     return None
 
+def test_nemoaccname():
+    #There is no real good way to test this (I think), so I'm just testing to
+    #what I think is the correct output now to make sure this isn't 
+    #accidentally changed
+    # Log
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    assert lp.nemo_accname() == 'LogPot', "Logarithmic potential's NEMO name incorrect"
+    # NFW
+    np= potential.NFWPotential(normalize=1.)
+    assert np.nemo_accname() == 'NFW', "NFW's NEMO name incorrect"
+    # Miyamoto-Nagai
+    mp= potential.MiyamotoNagaiPotential(normalize=1.)
+    assert mp.nemo_accname() == 'MiyamotoNagai', "MiyamotoNagai's NEMO name incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(normalize=1.)
+    assert pp.nemo_accname() == 'PowSphwCut', "Power-spherical potential w/ cuto-ff's NEMO name incorrect"
+    return None
+
+def test_nemoaccnamepars_attributeerror():
+    # Use BurkertPotential (unlikely that I would implement that one in NEMO soon)
+    bp= potential.BurkertPotential(normalize=1.)
+    try: bp.nemo_accname()
+    except AttributeError: pass
+    else:
+        raise AssertionError('nemo_accname for potential w/o accname does not raise AttributeError')
+    try: bp.nemo_accpars(220.,8.)
+    except AttributeError: pass
+    else:
+        raise AssertionError('nemo_accpars for potential w/o accname does not raise AttributeError')
+    return None
+
+def test_nemoaccnames():
+    # Just test MWPotential2014 and a single potential
+    # MWPotential2014
+    assert potential.nemo_accname(potential.MWPotential2014) == 'PowSphwCut+MiyamotoNagai+NFW', "MWPotential2014's NEMO name is incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(normalize=1.)
+    assert potential.nemo_accname(pp) == 'PowSphwCut', "Power-spherical potential w/ cut-off's NEMO name incorrect"
+    return None
+
+def test_nemoaccpars():
+    # Log
+    lp= potential.LogarithmicHaloPotential(amp=2.,core=3.,q=27.) #completely ridiculous, but tests scalings
+    vo, ro= 2., 3.
+    assert lp.nemo_accpars(vo,ro) == '0,8.0,729.0,1.0,27.0', "Logarithmic potential's NEMO accpars incorrect"
+    # Miyamoto-Nagai
+    mp= potential.MiyamotoNagaiPotential(amp=3.,a=2.,b=5.)
+    vo, ro= 7., 9.
+    assert mp.nemo_accpars(vo,ro) == '0,1323.0,18.0,45.0', "MiyamotoNagai's NEMO accpars incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(amp=3.,alpha=4.,rc=5.)
+    vo, ro= 7., 9.
+    assert pp.nemo_accpars(vo,ro) == '0,11907.0,4.0,45.0', "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    # NFW
+    np= potential.NFWPotential(amp=1./0.2162165954,a=1./16)
+    vo, ro= 3., 4.
+    assert np.nemo_accpars(vo,ro) == '0,0.25,12.0', "NFW's NEMO accpars incorrect"
+    return None
+
+def test_nemoaccparss():
+    # Just combine a few of the above ones
+    # Miyamoto + PowerSpherwCut
+    mp= potential.MiyamotoNagaiPotential(amp=3.,a=2.,b=5.)
+    pp= potential.PowerSphericalPotentialwCutoff(amp=3.,alpha=4.,rc=5.)
+    vo, ro= 7., 9.
+    assert potential.nemo_accpars(mp,vo,ro) == '0,1323.0,18.0,45.0', "MiyamotoNagai's NEMO accpars incorrect"
+    assert potential.nemo_accpars(pp,vo,ro) == '0,11907.0,4.0,45.0', "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert potential.nemo_accpars([mp,pp],vo,ro) == '0,1323.0,18.0,45.0#0,11907.0,4.0,45.0', "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
