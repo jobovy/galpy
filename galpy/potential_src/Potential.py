@@ -1147,6 +1147,36 @@ class Potential:
         except AttributeError:
             raise AttributeError('NEMO acceleration name not supported for %s' % self.__class__.__name__)
 
+    def nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accpars(vo,ro)
+        except AttributeError:
+            raise AttributeError('NEMO acceleration parameters not supported for %s' % self.__class__.__name__)
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value

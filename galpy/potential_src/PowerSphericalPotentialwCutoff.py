@@ -212,3 +212,31 @@ class PowerSphericalPotentialwCutoff(Potential):
         if z is None: r= R
         else: r= nu.sqrt(R**2.+z**2.)
         return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        ampl= self._amp*vo**2.*ro**(self.alpha-2.)
+        return "0,%s,%s,%s" % (ampl,self.alpha,self.rc*ro)

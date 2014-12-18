@@ -213,3 +213,31 @@ class MiyamotoNagaiPotential(Potential):
         else:
             return -(3.*R*z*asqrtbz
                      /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
+
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        ampl= self._amp*vo**2.*ro
+        return "0,%s,%s,%s" % (ampl,self._a*8.,self._b*ro)
