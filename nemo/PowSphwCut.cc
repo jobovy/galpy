@@ -35,12 +35,14 @@
 //WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 //POSSIBILITY OF SUCH DAMAGE.
 //#############################################################################
+#include <iostream>
 #include <cmath>
 #define POT_DEF
-#include <defacc.h>
+#include <defacc.h> // from NEMOINC
 #include <gsl/gsl_sf_gamma.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
 ////////////////////////////////////////////////////////////////////////////////
 using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,8 +50,7 @@ namespace {
   //////////////////////////////////////////////////////////////////////////////
   // Function that gives the mass
   double mass(double r2,double alpha, double rc){
-    return 2. * M_PI * pow ( rc , 3. - alpha ) * ( gsl_sf_gamma ( 1.5 - 0.5 * alph
-								  a ) - gsl_sf_gamma_inc ( 1.5 - 0.5 * alpha , r2 / rc / rc ) );
+    return 2. * M_PI * pow ( rc , 3. - alpha ) * ( gsl_sf_gamma ( 1.5 - 0.5 * alpha ) - gsl_sf_gamma_inc ( 1.5 - 0.5 * alpha , r2 / rc / rc ) );
   }
   class PowSphwCut
   {
