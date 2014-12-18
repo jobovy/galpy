@@ -38,6 +38,7 @@ class streamdf:
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
                  deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
+                 progIsTrack=False,
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -61,6 +62,8 @@ class streamdf:
                            if False, model the trailing part
 
            progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
+
+           progIsTrack= (False) if True, then the progenitor (x,v) is actually the (x,v) of the stream track at zero angle separation; useful when initializing with an orbit fit; the progenitor's position will be calculated
 
            pot= Potential instance or list thereof
 
@@ -129,14 +132,34 @@ class streamdf:
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
-        self._progenitor= progenitor() #call to get new Orbit
-        # Make sure we do not use physical coordinates
-        self._progenitor.turn_physical_off()
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
             self._multi= multi
+        self._progenitor_setup(progenitor,leading)
+        self._offset_setup(sigangle,leading,deltaAngleTrack)
+        # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
+        if progIsTrack:
+            self._setup_progIsTrack()
+        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor)
+        #Determine the stream track
+        if not nosetup:
+            self._determine_nTrackIterations(nTrackIterations)
+            self._determine_stream_track(nTrackChunks)
+            self._useInterp= useInterp
+            if interpTrack or self._useInterp:
+                self._interpolate_stream_track()
+                self._interpolate_stream_track_aA()
+            self.calc_stream_lb()
+            self._determine_stream_spread()
+        return None
+
+    def _progenitor_setup(self,progenitor,leading):
+        """The part of the setup relating to the progenitor's orbit"""
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
+        self._progenitor= progenitor() #call to get new Orbit
+        # Make sure we do not use physical coordinates
+        self._progenitor.turn_physical_off()
         acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
                                     _firstFlip=(not leading))
         self._progenitor_jr= acfs[0][0]
@@ -155,6 +178,10 @@ class streamdf:
                                self._aA,dxv=None,dOdJ=True,
                                _initacfs=acfs)
         self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
+        return None
+
+    def _offset_setup(self,sigangle,leading,deltaAngleTrack):
+        """The part of the setup related to calculating the stream/progenitor offset"""
         #From the progenitor orbit, determine the sigmas in J and angle
         self._sigjr= (self._progenitor.rap()-self._progenitor.rperi())/numpy.pi*self._sigv
         self._siglz= self._progenitor.rperi()*self._sigv
@@ -203,7 +230,6 @@ class streamdf:
             fast_cholesky_invert(self._sigomatrix/self._sigomatrixNorm,
                                  tiny=10.**-15.,logdet=True)
         self._sigomatrixinv/= self._sigomatrixNorm
-
         deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
             self._sortedSigOEig[2]) * self._tdisrupt
         if (deltaAngleTrack is None):  
@@ -211,6 +237,10 @@ class streamdf:
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
                 warnings.warn("WARNING: angle range large compared to plausible value.", galpyWarning)
+        self._deltaAngleTrack= deltaAngleTrack
+        return None
+
+    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet \
                 and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
@@ -224,23 +254,41 @@ class streamdf:
             warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
         if (progenitor._roSet or progenitor._voSet) \
                 and numpy.any(numpy.fabs(vsun-numpy.array([0.,Vnorm,0.])\
-                                    -progenitor._orb._solarmotion) > 10.**-8.):
+                                             -progenitor._orb._solarmotion) > 10.**-8.):
             warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._Vnorm= Vnorm
         self._Rnorm= Rnorm
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
-        #Determine the stream track
-        if not nosetup:
-            self._determine_nTrackIterations(nTrackIterations)
-            self._determine_stream_track(deltaAngleTrack,nTrackChunks)
-            self._useInterp= useInterp
-            if interpTrack or self._useInterp:
-                self._interpolate_stream_track()
-                self._interpolate_stream_track_aA()
-            self.calc_stream_lb()
-            self._determine_stream_spread()
+        return None
+
+    def _setup_progIsTrack(self):
+        """If progIsTrack, the progenitor orbit that was passed to the 
+        streamdf initialization is the track at zero angle separation;
+        this routine computes an actual progenitor position that gives
+        the desired track given the parameters of the streamdf"""
+        # We need to flip the sign of the offset, to go to the progenitor
+        self._sigMeanSign*= -1.
+        # Use _determine_stream_track_single to calculate the track-progenitor
+        # offset at zero angle separation
+        prog_stream_offset=\
+            _determine_stream_track_single(self._aA,
+                                           self._progenitor,
+                                           0., #time = 0
+                                           self._progenitor_angle,
+                                           self._sigMeanSign,
+                                           self._dsigomeanProgDirection,
+                                           self.meanOmega,
+                                           0.) #angle = 0
+        # Setup the new progenitor orbit
+        progenitor= Orbit(prog_stream_offset[3])
+        # Flip the offset sign again
+        self._sigMeanSign*= -1.
+        # Now re-do the previous setup
+        self._progenitor_setup(progenitor,self._leading)
+        self._offset_setup(self._sigangle,self._leading,
+                           self._deltaAngleTrack)
         return None
 
     def misalignment(self,isotropic=False):
@@ -752,10 +800,9 @@ class streamdf:
             self.nTrackIterations= 2
         return None
 
-    def _determine_stream_track(self,deltaAngleTrack,nTrackChunks):
+    def _determine_stream_track(self,nTrackChunks):
         """Determine the track of the stream in real space"""
         #Determine how much orbital time is necessary for the progenitor's orbit to cover the stream
-        self._deltaAngleTrack= deltaAngleTrack
         if nTrackChunks is None:
             #default is floor(self._deltaAngleTrack/0.15)+1
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1

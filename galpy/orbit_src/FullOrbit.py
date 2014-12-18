@@ -380,7 +380,9 @@ class FullOrbit(OrbitTop):
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
     def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            customsky=False,lb_to_customsky=None,pmllpmbb_to_customsky=None,
             tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+            disp=False,
             **kwargs):
         """
         NAME:
@@ -394,18 +396,24 @@ class FullOrbit(OrbitTop):
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
-               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               lb= if True, input vxvv and vxvv_err are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                                       (in kpc and km/s) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
                 ro= distance in kpc corresponding to R=1. (default: taken from object)
                 vo= velocity in km/s corresponding to v=1. (default: taken from object)
 
+                lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
+
+                pmllpmbb_to_customsky= function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True
+
            Keywords related to the orbit integrations:
                tintJ= (default: 10) time to integrate orbits for fitting the orbit
                ntintJ= (default: 1000) number of time-integration points
                integrate_method= (default: 'dopr54_c') integration method to use
+           disp= (False) display the optimizer's convergence message
 
         OUTPUT:
            max of log likelihood
@@ -421,14 +429,20 @@ class FullOrbit(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
-        if radec or lb:
+        if radec or lb or customsky:
             obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True,dontpop=True)
         else:
             obs, ro, vo= None, None, None
+        if customsky \
+                and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
+            raise IOError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
         new_vxvv, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec=radec,lb=lb,
+                                      customsky=customsky,
+                                      lb_to_customsky=lb_to_customsky,
+                                      pmllpmbb_to_customsky=pmllpmbb_to_customsky,
                                       tintJ=tintJ,ntintJ=ntintJ,
                                       integrate_method=integrate_method,
-                                      ro=ro,vo=vo,obs=obs)
+                                      ro=ro,vo=vo,obs=obs,disp=disp)
         #Setup with these new initial conditions
         self.vxvv= new_vxvv
         return maxLogL
@@ -686,8 +700,10 @@ def _rectForce(x,pot,t=0.):
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
+               customsky=False,lb_to_customsky=None,
+               pmllpmbb_to_customsky=None,
                tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
-               ro=None,vo=None,obs=None):
+               ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -703,13 +719,21 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
     tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
                                             integrate_method=integrate_method)
     opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
-                                   args=(vxvv,vxvv_err,pot,radec,lb,tmockAA,
-                                         ro,vo,obs))
-    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+                                   args=(vxvv,vxvv_err,pot,radec,lb,
+                                         customsky,lb_to_customsky,
+                                         pmllpmbb_to_customsky,
+                                         tmockAA,
+                                         ro,vo,obs),
+                                   disp=disp)
+    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                               customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                               tmockAA,
                                ro,vo,obs)
     return (opt_vxvv,maxLogL)
 
-def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                     customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                     tmockAA,
                      ro,vo,obs):
     """The log likelihood for fitting an orbit"""
     #Use this _parse_args routine, which does forward and backward integration
@@ -720,8 +744,8 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
                                                 new_vxvv[3],
                                                 new_vxvv[4],
                                                 new_vxvv[5])
-    if radec or lb:
-        #Need to transform to ra,dec
+    if radec or lb or customsky:
+        #Need to transform to (l,b), (ra,dec), or a custom set
         #First transform to X,Y,Z,vX,vY,vZ (Galactic)
         X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
                                         iz.flatten(),
@@ -744,7 +768,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
                                 lbdvrpmllpmbb[:,4],
                                 lbdvrpmllpmbb[:,5],
                                 lbdvrpmllpmbb[:,3]]).T
-        else:
+        elif radec:
             #Further transform to ra,dec,pmra,pmdec
             radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
                                       lbdvrpmllpmbb[:,1],degree=True)
@@ -756,6 +780,19 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
             orb_vxvv= nu.array([radec[:,0],radec[:,1],
                                 lbdvrpmllpmbb[:,2],
                                 pmrapmdec[:,0],pmrapmdec[:,1],
+                                lbdvrpmllpmbb[:,3]]).T
+        elif customsky:
+            #Further transform to ra,dec,pmra,pmdec
+            customradec= lb_to_customsky(lbdvrpmllpmbb[:,0],
+                                              lbdvrpmllpmbb[:,1],degree=True)
+            custompmrapmdec= pmllpmbb_to_customsky(lbdvrpmllpmbb[:,4],
+                                                   lbdvrpmllpmbb[:,5],
+                                                   lbdvrpmllpmbb[:,0],
+                                                   lbdvrpmllpmbb[:,1],
+                                                   degree=True)
+            orb_vxvv= nu.array([customradec[:,0],customradec[:,1],
+                                lbdvrpmllpmbb[:,2],
+                                custompmrapmdec[:,0],custompmrapmdec[:,1],
                                 lbdvrpmllpmbb[:,3]]).T
     else:
         #shape=(2tintJ-1,6)

@@ -2154,7 +2154,39 @@ def test_orbitfit_radec():
     of.fit(vxvv,pot=lp,tintJ=1.5,radec=True,ro=ro,vo=vo)
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
                        ro=ro,vo=vo)
-    assert numpy.all(compf < 10.**-4.), 'Orbit fit in lb space does not work'
+    assert numpy.all(compf < 10.**-4.), 'Orbit fit in radec space does not work'
+    return None
+
+# Test orbit fit in custom coordinates (using Equatorial for testing)
+def test_orbitfit_custom():
+    from galpy.orbit import Orbit
+    from galpy.util import bovy_coords
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ts= numpy.linspace(0.,1.,1001)
+    o.integrate(ts,lp)
+    #Create orbit points from this integrated orbit, each 100th point
+    vxvv= []
+    ro, vo= 9., 230.
+    for ii in range(10):
+        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo)[0],o.dec(ii/10.,ro=ro,vo=vo)[0],
+                     o.dist(ii/10.,ro=ro,vo=vo)[0],o.pmra(ii/10.,ro=ro,vo=vo)[0],
+                     o.pmdec(ii/10.,ro=ro,vo=vo)[0],o.vlos(ii/10.,ro=ro,vo=vo)[0]])
+    vxvv= numpy.array(vxvv)
+    #now fit, using another orbit instance
+    of= o()
+    #First test the exception
+    try:
+        of.fit(vxvv,pot=lp,tintJ=1.5,customsky=True,
+               ro=ro,vo=vo)
+    except IOError: pass
+    else: raise AssertionError('Orbit fit with custom sky coordinates but without the necessary coordinate-transformation functions did not raise an exception')
+    of.fit(vxvv,pot=lp,tintJ=1.5,customsky=True,
+           lb_to_customsky=bovy_coords.lb_to_radec,
+           pmllpmbb_to_customsky=bovy_coords.pmllpmbb_to_pmrapmdec,ro=ro,vo=vo)
+    compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
+                       ro=ro,vo=vo)
+    assert numpy.all(compf < 10.**-4.), 'Orbit fit in radec space does not work'
     return None
 
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
