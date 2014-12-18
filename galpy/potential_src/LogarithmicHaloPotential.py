@@ -2,8 +2,10 @@
 #   LogarithmicHaloPotential.py: class that implements the logarithmic halo
 #                                halo potential Phi(r) = vc**2 ln(r)
 ###############################################################################
+import warnings
 import numpy as nu
 from Potential import Potential
+from galpy.util import galpyWarning
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic halo potential
@@ -51,6 +53,7 @@ class LogarithmicHaloPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
+        self._nemo_accname= 'LogPot'
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -181,3 +184,33 @@ class LogarithmicHaloPotential(Potential):
         """
         return -2.*R*z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)**2.
 
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        warnings.warn("NEMO's LogPot does not allow flattening in z (for some reason); therefore, flip y and z in NEMO wrt galpy",galpyWarning)
+        ampl= self._amp*vo**2.
+        return "0,%s,%s,1.,%s" % (ampl,
+                                  self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
+                                  self._q)
