@@ -270,6 +270,8 @@ be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
 
+.. _nemopot:
+
 Conversion to NEMO potentials
 ------------------------------
 

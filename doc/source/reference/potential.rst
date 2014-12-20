@@ -129,6 +129,11 @@ done by
 
 for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
 
+As explained in :ref:`this section <nemopot>`, *without* this black
+hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
+using ``accname=PowSphwCut+MiyamotoNagai+NFW`` and
+``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
+
 An older version ``galpy.potential.MWPotential`` of a similar
 potential that was *not* fit to data on the Milky Way is defined as
 
