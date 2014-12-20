@@ -15,10 +15,12 @@
 ###############################################################################
 import os, os.path
 import cPickle as pickle
+from functools import wraps
 import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
+from galpy.util.bovy_conversion import velocity_in_kpcGyr
 from plotRotcurve import plotRotcurve, vcirc
 from plotEscapecurve import plotEscapecurve, _INF
 class Potential:
@@ -2009,3 +2011,10 @@ def _check_c(Pot):
         return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
     elif isinstance(Pot,Potential):
         return Pot.hasC
+
+def kms_to_kpcGyrDecorator(func):
+    """Decorator to convert velocities from km/s to kpc/Gyr"""
+    @wraps(func)
+    def kms_to_kpcGyr_wrapper(*args,**kwargs):
+        return func(args[0],velocity_in_kpcGyr(args[1],1.),args[2],**kwargs)
+    return kms_to_kpcGyr_wrapper

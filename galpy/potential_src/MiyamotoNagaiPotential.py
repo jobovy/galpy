@@ -6,7 +6,7 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy as nu
-from Potential import Potential
+from Potential import kms_to_kpcGyrDecorator, Potential
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 
@@ -214,6 +214,7 @@ class MiyamotoNagaiPotential(Potential):
             return -(3.*R*z*asqrtbz
                      /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
 
+    @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """
         NAME:
