@@ -1,5 +1,4 @@
 # Test consistency between galpy and NEMO
-# Currently named nemo_test s.t. it is not automatically run by nosetests
 import os
 import numpy
 import subprocess
