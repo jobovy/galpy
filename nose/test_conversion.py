@@ -102,7 +102,7 @@ def test_time_in_Gyr():
 def test_velocity_in_kpcGyr():
     #Test the scaling, should scale as velocity
     vofid, rofid= 200., 8.
-    assert numpy.fabs(0.5*bovy_conversion.velocity_in_kpcGyr(vofid,rofid)/bovy_conversion.velocity_in_kpcGyr(2.*vofid,rofid)-1.) < 10.**-10., 'velocity_in_kpcGyr did not work as expected'
-    assert numpy.fabs(bovy_conversion.velocity_in_kpcGyr(vofid,rofid)/bovy_conversion.velocity_in_kpcGyr(vofid,2*rofid)-1.) < 10.**-10., 'velocity_in_kpcGyr did not work as expected'
+    assert numpy.fabs(0.5*bovy_conversion.velocity_in_kpcGyr(vofid,rofid)/bovy_conversion.velocity_in_kpcGyr(2.*vofid,rofid)-1.) < 10.**-8., 'velocity_in_kpcGyr did not work as expected'
+    assert numpy.fabs(bovy_conversion.velocity_in_kpcGyr(vofid,rofid)/bovy_conversion.velocity_in_kpcGyr(vofid,2*rofid)-1.) < 10.**-8., 'velocity_in_kpcGyr did not work as expected'
     return None
     
