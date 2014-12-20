@@ -1,3 +1,36 @@
+v1.1 (XXXX-XX-XX)
+==================
+
+Current development version, last updated 12/20/2014:
+
+- Add support for converting potential parameters to NEMO format and
+  units: nemo_accname and nemo_accpars (both instance and general
+  Potential method).
+
+- Added nemo/ directory for C++ implementations of additional NEMO
+  potentials (not included in the NEMO release); add PowSphwCut.cc for
+  PowerSphericalPotential2Cutoff and Makefile to compile and install
+  it. This allows gyrfalcON simulations with MWPotential2014.
+
+- Better implementations of vcirc, eipfreq, and verticalfreq for lists
+  of potentials that allows for negative amplitude components.
+
+- Improvements to streamdf: add progIsTrack keyword to specify that
+  the progenitor= keyword actually specifies the desired starting
+  phase-space point of the track; the phase-space point of the
+  progenitor is calculated. Refactored streamdf setup to make this
+  easy to implement.
+
+- Orbit fitting can now be performed in custom sky coordinates
+  (requires one to specify customsky=True and to implement and pass
+  the functions (a) lb_to_customsky= and (b) pmllpmbb_to_customsky=,
+  similar to lb_to_radec and pmllpmbb_to_pmradec). For example, this
+  allows one to do an orbit fit in the GD-1 frame of Koposov et
+  al. (2010).
+
+- Slightly improved implementation of actionAngleStaeckel.py (more
+  robust umin/umax finding).
+
 v1.0 (2014-12-10)
 ==================
 
