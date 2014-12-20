@@ -401,6 +401,33 @@ def time_in_Gyr(vo,ro):
     """
     return ro/vo/_kmsInPcMyr
 
+def velocity_in_kpcGyr(vo,ro):
+    """
+    NAME:
+
+       velocity_in_kpcGyr
+
+    PURPOSE:
+
+       convert a velocity to kpc/Gyr
+
+    INPUT:
+
+       vo - velocity unit in km/s
+
+       ro - length unit in kpc
+
+    OUTPUT:
+
+       conversion from units where vo=1. at ro=1.
+
+    HISTORY:
+
+       2014-12-19 - Written - Bovy (IAS)
+
+    """
+    return vo*_kmsInPcMyr
+
 #Decorator to apply these transformations
 def print_physical_warning():
     warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, energies and the Jacobi integral in (km/s)^2, the angular momentum o.L() and actions in km/s kpc, frequencies in 1/Gyr, and times and periods in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",

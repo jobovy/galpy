@@ -1,0 +1,30 @@
+Adding potentials in NEMO format
+=================================
+
+NEMO (http://bima.astro.umd.edu/nemo/) uses potentials by compiling
+each potential into a shared-object library (*.so) that can then be
+dynamically loaded at runtime. Therefore, adding a potential just
+requires one to compile a new library for the potential in a way that
+NEMO can pass parameters to it.
+
+The directory nemo/ contains C++ implementations of additional
+potentials that are not included in the NEMO release. To add a new
+potential to this, do:
+
+1) Use nemo/PowSphwCut.cc as a template and implement your new
+potential based on this and store it in the nemo/ directory;
+
+2) Add the new potential to nemo/Makefile in a similar manner as the
+PowSphwCut.so target (if you need additional libraries, make sure to
+link to these). Also add this target to the 'all' target near the top.
+
+3) With NEMO running (having sourced nemo_start), such that the NEMO
+environment variables are defined, you can then install the new
+potential by running
+
+make
+
+in the nemo directory.
+
+4) If it works, consider contributing this potential to the galpy
+codebase by adding it to a fork and opening a pull request!

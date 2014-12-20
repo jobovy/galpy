@@ -5,8 +5,11 @@ import os, os.path
 import subprocess
 import glob
 
+long_description= ''
 with open('README.rst') as dfile:
-    long_description = dfile.read()
+    for line in dfile:
+        if not 'image' in line and not 'target' in line:
+            long_description+= line
 
 # Parse options; current options
 # --no-openmp: compile without OpenMP support

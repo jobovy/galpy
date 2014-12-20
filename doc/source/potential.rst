@@ -269,6 +269,94 @@ be used anywhere that general three-dimensional galpy potentials can
 be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
+
+.. _nemopot:
+
+Conversion to NEMO potentials
+------------------------------
+
+`NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
+studying stellar dynamics. Some of its functionality overlaps with
+that of ``galpy``, but many of its programs are very complementary to
+``galpy``. In particular, it has the ability to perform N-body
+simulations with a variety of poisson solvers, which is currently not
+supported by ``galpy`` (and likely will never be directly
+supported). To encourage interaction between ``galpy`` and NEMO it
+is quite useful to be able to convert potentials between these two
+frameworks, which is not completely trivial. In particular, NEMO
+contains Walter Dehnen's fast collisionless ``gyrfalcON`` code (see
+`2000ApJ...536L..39D
+<http://adsabs.harvard.edu/abs/2000ApJ...536L..39D>`_ and
+`2002JCoPh.179...27D
+<http://adsabs.harvard.edu/abs/2002JCoPh.179...27D>`_) and the
+discussion here focuses on how to run N-body simulations using
+external potentials defined in ``galpy``.
+
+Some ``galpy`` potential instances support the functions
+``nemo_accname`` and ``nemo_accpars`` that return the name of the
+NEMO potential corresponding to this ``galpy`` Potential and its
+parameters in NEMO units. These functions assume that you use NEMO
+with WD_units, that is, positions are specified in kpc, velocities in
+kpc/Gyr, times in Gyr, and G=1. For the Miyamoto-Nagai potential
+above, you can get its name in the NEMO framework as
+
+>>> mp.nemo_accname()
+'MiyamotoNagai'
+
+and its parameters as
+
+>>> mp.nemo_accpars(220.,8.)
+'0,592617.11132,4.0,0.3'
+
+assuming that we scale velocities by ``vo=220`` km/s and positions by
+``ro=8`` kpc in galpy. These two strings can then be given to the
+``gyrfalcON`` ``accname=`` and ``accpars=`` keywords.
+
+We can do the same for lists of potentials. For example, for
+``MWPotential2014`` we do
+
+>>> from galpy.potential import nemo_accname, nemo_accpars
+>>> nemo_accname(MWPotential2014)
+'PowSphwCut+MiyamotoNagai+NFW'
+>>> nemo_accpars(MWPotential2014,220.,8.)
+'0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887'
+
+Therefore, these are the ``accname=`` and ``accpars=`` that one needs
+to provide to ``gyrfalcON`` to run a simulation in
+``MWPotential2014``.
+
+Note that the NEMO potential ``PowSphwCut`` is *not* a standard
+NEMO potential. This potential can be found in the nemo/ directory of
+the ``galpy`` source code; this directory also contains a Makefile that
+can be used to compile the extra NEMO potential and install it in
+the correct NEMO directory (this requires one to have NEMO
+running, i.e., having sourced nemo_start).
+
+You can use the ``PowSphwCut.cc`` file in the nemo/ directory as a
+template for adding additional potentials in ``galpy`` to the NEMO
+framework. To figure out how to convert the normalized ``galpy``
+potential to an amplitude when scaling to physical coordinates (like
+kpc and kpc/Gyr), one needs to look at the scaling of the radial force
+with R. For example, from the definition of MiyamotoNagaiPotential, we
+see that the radial force scales as :math:`R^{-2}`. For a general
+scaling :math:`R^{-\alpha}`, the amplitude will scale as
+:math:`V_0^2\,R_0^{\alpha-1}` with the velocity :math:`V_0` and
+position :math:`R_0` of the ``v=1`` at ``R=1``
+normalization. Therefore, for the MiyamotoNagaiPotential, the physical
+amplitude scales as :math:`V_0^2\,R_0`. For the
+LogarithmicHaloPotential, the radial force scales as :math:`R^{-1}`,
+so the amplitude scales as :math:`V_0^2`.
+
+Currently, only the ``MiyamotoNagaiPotential``, ``NFWPotential``,
+``PowerSphericalPotentialwCutoff``, and the
+``LogarithmicHaloPotential`` have this NEMO support. Combinations of
+the first three are also supported (e.g., ``MWPotential2014``); they
+can also be combined with spherical
+``LogarithmicHaloPotentials``. Because of the definition of the
+logarithmic potential in NEMO, it cannot be flattened in ``z``, so to
+use a flattened logarithmic potential, one has to flip ``y`` and ``z``
+between ``galpy`` and NEMO (one can flatten in ``y``).
+
 Adding potentials to the galpy framework
 -----------------------------------------
 

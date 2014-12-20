@@ -20,6 +20,8 @@ Use as ``Potential-instance.method(...)``
    flattening <potentialflattening.rst>
    lindbladR <potentiallindbladR.rst>
    mass <potentialmass.rst>
+   nemo_accname <potentialnemoaccname.rst>
+   nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
    phi2deriv <potentialphi2deriv.rst>
@@ -69,6 +71,8 @@ Use as ``method(...)``
    evaluatezforces <potentialzforces.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
+   nemo_accname <potentialnemoaccnames.rst>
+   nemo_accpars <potentialnemoaccparss.rst>
    omegac <potentialomegacs.rst>
    plotDensities <potentialplotdensities.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
@@ -124,6 +128,11 @@ done by
 >>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
 
 for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+
+As explained in :ref:`this section <nemopot>`, *without* this black
+hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
+using ``accname=PowSphwCut+MiyamotoNagai+NFW`` and
+``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
 
 An older version ``galpy.potential.MWPotential`` of a similar
 potential that was *not* fit to data on the Milky Way is defined as

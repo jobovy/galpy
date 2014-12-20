@@ -6,8 +6,10 @@ Dynamical modeling of tidal streams
 galpy contains tools to model the dynamics of tidal streams, making
 extensive use of action-angle variables. As an example, we can model
 the dynamics of the following tidal stream (that of Bovy 2014;
-`arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_). This movie shows
-the disruption of a cluster on a GD-1-like orbit around the Milky Way:
+`2014ApJ...795...95B
+<http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_). This movie
+shows the disruption of a cluster on a GD-1-like orbit around the
+Milky Way:
 
 .. raw:: html
 
@@ -106,6 +108,30 @@ and instantiate the streamdf model
 
 for a leading stream. This runs in about half a minute on a 2011
 Macbook Air. 
+
+Bovy (2014) discusses how the calculation of the track needs to be
+iterated for potentials where there is a large offset between the
+track and a single orbit. One can increase the default number of
+iterations by specifying ``nTrackIterations=`` in the streamdf
+initialization (the default is set based on the angle between the
+track's frequency vector and the progenitor orbit's frequency vector;
+you can access the number of iterations used as
+``sdf.nTrackIterations``). To check whether the track is calculated
+accurately, one can use the following
+
+>>> sdf.plotCompareTrackAAModel()
+
+which in this case gives
+
+.. image:: images/sdf_plotcomparetrackaamodel.png
+
+This displays the stream model's track in frequency offset (y axis)
+versus angle offset (x axis) as the solid line; this is the track that
+the model should have if it is calculated correctly. The points are
+the frequency and angle offset calculated from the calculated track's
+:math:`(\mathbf{x},\mathbf{v})`. For a properly computed track these
+should line up, as they do in this figure. If they do not line up,
+increasing ``nTrackIterations`` is necessary.
 
 We can calculate some simple properties of the stream, such as the
 ratio of the largest and second-to-largest eigenvalue of the Hessian

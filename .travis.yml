@@ -5,7 +5,7 @@ python:
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
 env: #split tests
-   - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf'
+   - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo'
    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
@@ -19,7 +19,7 @@ before_install:
  - sudo apt-get install libgsl0-dev
  - sudo apt-get -qq install lcov
  #Setup conda for faster installs
- - wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh
+ - wget http://repo.continuum.io/miniconda/Miniconda-3.7.3-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
  - export PATH="$HOME/miniconda/bin:$PATH"
  - hash -r

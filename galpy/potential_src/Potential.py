@@ -15,10 +15,12 @@
 ###############################################################################
 import os, os.path
 import cPickle as pickle
+from functools import wraps
 import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
+from galpy.util.bovy_conversion import velocity_in_kpcGyr
 from plotRotcurve import plotRotcurve, vcirc
 from plotEscapecurve import plotEscapecurve, _INF
 class Potential:
@@ -1119,6 +1121,64 @@ class Potential:
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
 
+    def nemo_accname(self):
+        """
+        NAME:
+
+           nemo_accname
+
+        PURPOSE:
+
+           return the accname potential name for use of this potential with NEMO
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           Acceleration name
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accname
+        except AttributeError:
+            raise AttributeError('NEMO acceleration name not supported for %s' % self.__class__.__name__)
+
+    def nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accpars(vo,ro)
+        except AttributeError:
+            raise AttributeError('NEMO acceleration parameters not supported for %s' % self.__class__.__name__)
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -1851,6 +1911,78 @@ def omegac(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
+def nemo_accname(Pot):
+    """
+    NAME:
+    
+       nemo_accname
+    
+    PURPOSE:
+    
+       return the accname potential name for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+       
+    OUTPUT:
+    
+       Acceleration name in the correct format to give to accname=
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '+'
+            out+= pot.nemo_accname()
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accname()
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accname' is neither a Potential-instance or a list of such instances")
+    
+def nemo_accpars(Pot,vo,ro):
+    """
+    NAME:
+    
+       nemo_accpars
+    
+    PURPOSE:
+    
+       return the accpars potential parameters for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+
+       vo - velocity unit in km/s
+    
+       ro - length unit in kpc
+    
+    OUTPUT:
+    
+       accpars string in the corrct format to give to accpars
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '#'
+            out+= pot.nemo_accpars(vo,ro)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accpars(vo,ro)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
+    
 def _check_c(Pot):
     """
 
@@ -1879,3 +2011,10 @@ def _check_c(Pot):
         return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
     elif isinstance(Pot,Potential):
         return Pot.hasC
+
+def kms_to_kpcGyrDecorator(func):
+    """Decorator to convert velocities from km/s to kpc/Gyr"""
+    @wraps(func)
+    def kms_to_kpcGyr_wrapper(*args,**kwargs):
+        return func(args[0],velocity_in_kpcGyr(args[1],1.),args[2],**kwargs)
+    return kms_to_kpcGyr_wrapper

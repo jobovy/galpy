@@ -1,31 +1,77 @@
-v1.0 (XXXX-XX-XX)
+v1.0 (2014-12-10)
 ==================
 
-CURRENT DEVELOPMENT VERSION
+- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of
+  relevant data on the Milky Way; supersedes MWPotential, which is
+  still included; changed many examples to use this new potential;
 
-- Changed default integrator to symplec4_c
-
-- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of relevant data on the Milky Way; supersedes MWPotential, which is still included.
-
-- Add C implementation of PowerSphericalPotentialwCutoff;
-
-- Moved MovingObjectPotential, BurkertPotential, and interpRZPotential to top level; better implementation of interpRZPotential;
-
-- Sped up many of the functions in galpy.util.bovy_coords by removing scipy.frompyfunc dependency.
-
-- Allow Orbit initialization to specify a distance and velocity scale that is then used to output distances and velocities in physical coordinates.
+- Changed default integrator to symplec4_c;
 
 - Changed default vo and ro to 220 km/s and 8 kpc, respectively;
 
-- Better handling of vo,ro, and solarmotion in Orbit instances (Orbit initialization value is now used to generate RA, Dec, etc. outputs);
+- Allow Orbit initialization to specify a distance and velocity scale
+  that is then used to output distances, velocities, energies,
+  actions, etc. in physical coordinates;
 
-- Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass;
+- Added an orbit-fitting routine (Orbit.fit).
 
-- Added potential.mass to return the mass enclosed for individual potential instances; both spherical and axisymmetric potentials are covered.
+- Added virial radius of NFW potential, allow initialization of NFW
+  potential with concentration and mass;
 
-- Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP);
+- Added potential.mass to return the mass enclosed for individual
+  potential instances; both spherical and axisymmetric potentials are
+  covered.
 
-- Added galpy.util.bovy_conversion.dens_in_gevcc, galpy.util.bovy_conversion.force_in_10m13kms2, galpy.util.bovy_conversion.dens_in_criticaldens, galpy.util.bovy_conversion.dens_in_meanmatterdens.
+- Sped up many of the functions in galpy.util.bovy_coords by removing
+  scipy.frompyfunc dependency;
+
+- Added galpy.util.bovy_conversion.dens_in_gevcc,
+  galpy.util.bovy_conversion.force_in_10m13kms2,
+  galpy.util.bovy_conversion.dens_in_criticaldens,
+  galpy.util.bovy_conversion.dens_in_meanmatterdens.
+
+- Much improved test coverage.
+
+- Added planarPotential.LinShuReductionFactor to calculate the
+  reduction factor for the response of a kinematically warm population
+  to a spiral perturbation.
+
+- Added non-axisymmetric DFs to the top-level and the documentation.
+
+- New streamdf track calculation (see arXiv_v2/published version of
+  Bovy 2014); better handdling of coordinate-transformation
+  parameters in streamdf.
+
+- Installation now prints informative message about whether or not the
+  C extensions were installed.
+
+- More informative warning messages when C functions are not used.
+
+- Fix issues with non-square grids in the C implementation of
+  interpRZPotential.
+
+- Added Orbit.flip to generate new Orbit instances with flipped
+  velocities.
+
+- Improved actionAngle frequencies for circular orbits.
+
+- Removed actionAngleFlat and actionAnglePower, because they are
+  superseded.
+
+- Added hasC_dxdv member to Potential instances to indicate whether or
+  not they can be used with integrate_dxdv
+
+- Add C implementation of PowerSphericalPotentialwCutoff;
+
+- Moved MovingObjectPotential, BurkertPotential, and interpRZPotential
+  to top level; better implementation of interpRZPotential;
+
+- Better handling of vo,ro, and solarmotion in Orbit instances (Orbit
+  initialization value is now used to generate RA, Dec, etc. outputs);
+
+- Added --no-openmp installation option to allow installation without
+  OpenMP support (workaround for clang not supporting OpenMP; not
+  necessary anymore);
 
 
 v0.1 (2014-01-09)
