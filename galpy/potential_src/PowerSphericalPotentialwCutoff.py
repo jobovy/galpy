@@ -7,7 +7,7 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from Potential import Potential
+from Potential import kms_to_kpcGyrDecorator, Potential
 class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
@@ -213,6 +213,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         else: r= nu.sqrt(R**2.+z**2.)
         return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
 
+    @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """
         NAME:

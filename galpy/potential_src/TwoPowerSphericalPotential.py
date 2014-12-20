@@ -10,7 +10,7 @@ import math as m
 import numpy
 from scipy import special, optimize
 from galpy.util import bovy_conversion
-from Potential import Potential
+from Potential import kms_to_kpcGyrDecorator, Potential
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
@@ -920,6 +920,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
                            0.01,100.)
         return x*self.a
 
+    @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """
         NAME:

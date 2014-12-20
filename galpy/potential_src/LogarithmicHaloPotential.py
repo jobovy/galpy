@@ -4,7 +4,7 @@
 ###############################################################################
 import warnings
 import numpy as nu
-from Potential import Potential
+from Potential import kms_to_kpcGyrDecorator, Potential
 from galpy.util import galpyWarning
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
@@ -184,6 +184,7 @@ class LogarithmicHaloPotential(Potential):
         """
         return -2.*R*z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)**2.
 
+    @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """
         NAME:
