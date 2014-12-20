@@ -269,6 +269,32 @@ be used anywhere that general three-dimensional galpy potentials can
 be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
+
+Conversion to NEMO potentials
+------------------------------
+
+`NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
+studying stellar dynamics. Some of its functionality overlaps with
+that of ``galpy``, but many of its programs are very complementary to
+``galpy``. In particular, it has the ability to perform N-body
+simulations with a variety of poisson solvers, which is currently not
+supported by ``galpy`` (and likely will never be directly
+supported). To encourage interaction between ``galpy`` and ``NEMO`` it
+is quite useful to be able to convert potentials between these two
+frameworks, which is not completely trivial. In particular, NEMO
+contains Walter Dehnen's fast collisionless gyrfalcON code (see
+`2000ApJ...536L..39D
+<http://adsabs.harvard.edu/abs/2000ApJ...536L..39D>`_ and
+`2002JCoPh.179...27D
+<http://adsabs.harvard.edu/abs/2002JCoPh.179...27D>`_) and the
+discussion here focuses on how to run N-body simulations using
+external potentials defined in ``galpy``.
+
+Some ``galpy`` potential instances support the functions
+``nemo_accname`` and ``nemo_accpars`` that return the name of the
+``NEMO`` potential corresponding to this ``galpy`` Potential and its
+parameters in ``NEMO`` units. 
+
 Adding potentials to the galpy framework
 -----------------------------------------
 
