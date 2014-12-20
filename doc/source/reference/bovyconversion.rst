@@ -39,4 +39,4 @@ Functions:
    mass_in_msol <conversionmass_in_msol.rst>
    mass_in_1010msol <conversionmass_in_1010msol.rst>
    time_in_Gyr <conversiontime_in_Gyr.rst>
-   velocity_in_kpcGyr <converstionvelocity_in_kpcGyr.rst>   
+   velocity_in_kpcGyr <conversionvelocity_in_kpcGyr.rst>   
