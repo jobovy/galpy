@@ -1,4 +1,4 @@
-
+from __future__ import print_function, division
 import numpy
 from galpy import potential
 

@@ -1,5 +1,5 @@
 ############################TESTS ON POTENTIALS################################
-
+from __future__ import print_function, division
 import os
 import sys
 import numpy

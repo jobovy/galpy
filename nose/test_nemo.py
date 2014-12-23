@@ -1,5 +1,5 @@
 # Test consistency between galpy and NEMO
-
+from __future__ import print_function, division
 import os
 import numpy
 import subprocess
