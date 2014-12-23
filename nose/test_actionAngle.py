@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+
 import os
 import numpy
 from test_streamdf import expected_failure
