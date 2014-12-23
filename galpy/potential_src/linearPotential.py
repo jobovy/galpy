@@ -1,8 +1,10 @@
+from __future__ import division, print_function
+
 import os, os.path
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from Potential import PotentialError, Potential
+from galpy.potential_src.Potential import PotentialError
 class linearPotential:
     """Class representing 1D potentials"""
     def __init__(self,amp=1.):
@@ -102,7 +104,7 @@ class linearPotential:
 
         """
         if not savefilename == None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potx= pickle.load(savefile)
             xs= pickle.load(savefile)
@@ -113,7 +115,7 @@ class linearPotential:
             for ii in range(ns):
                 potx[ii]= self._evaluate(xs[ii],t=t)
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potx,savefile)
                 pickle.dump(xs,savefile)
@@ -228,7 +230,7 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
 
     """
     if not savefilename == None and os.path.exists(savefilename):
-        print "Restoring savefile "+savefilename+" ..."
+        print("Restoring savefile "+savefilename+" ...")
         savefile= open(savefilename,'rb')
         potx= pickle.load(savefile)
         xs= pickle.load(savefile)
@@ -239,7 +241,7 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         for ii in range(ns):
             potx[ii]= evaluatelinearPotentials(xs[ii],Pot,t=t)
         if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
+            print("Writing savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')
             pickle.dump(potx,savefile)
             pickle.dump(xs,savefile)

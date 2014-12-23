@@ -1,11 +1,13 @@
+from __future__ import division, print_function
+
 import os
 import pickle
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
-from Potential import PotentialError, Potential, lindbladR
-from plotRotcurve import plotRotcurve
-from plotEscapecurve import plotEscapecurve, _INF
+from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
+from galpy.potential_src.plotRotcurve import plotRotcurve
+from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 class planarPotential:
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
@@ -903,45 +905,17 @@ def plotplanarPotentials(Pot,*args,**kwargs):
        2010-07-13 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('Rrange'):
-        Rrange= kwargs['Rrange']
-        kwargs.pop('Rrange')
-    else:
-        Rrange= [0.01,5.]
-    if kwargs.has_key('xrange'):
-        xrange= kwargs['xrange']
-        kwargs.pop('xrange')
-    else:
-        xrange= [-5.,5.]
-    if kwargs.has_key('yrange'):
-        yrange= kwargs['yrange']
-        kwargs.pop('yrange')
-    else:
-        yrange= [-5.,5.]
-    if kwargs.has_key('grid'):
-        grid= kwargs['grid']
-        kwargs.pop('grid')
-    else:
-        grid= 100 #avoid zero
-    if kwargs.has_key('gridx'):
-        gridx= kwargs['gridx']
-        kwargs.pop('gridx')
-    else:
-        gridx= 100 #avoid zero
-    if kwargs.has_key('gridy'):
-        gridy= kwargs['gridy']
-        kwargs.pop('gridy')
-    else:
-        gridy= gridx
-    if kwargs.has_key('savefilename'):
-        savefilename= kwargs['savefilename']
-        kwargs.pop('savefilename')
-    else:
-        savefilename= None
+    Rrange= kwargs.pop('Rrange',[0.01,5.])
+    xrange= kwargs.pop('xrange',[-5.,5.])
+    yrange= kwargs.pop('yrange',[-5.,5.])
+    grid= kwargs.pop('grid',100)
+    gridx= kwargs.pop('gridx',100)
+    gridy= kwargs.pop('gridy',gridx)
+    savefilename= kwargs.pop('savefilename',None)
     isList= isinstance(Pot,list)
     nonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
     if not savefilename is None and os.path.exists(savefilename):
-        print "Restoring savefile "+savefilename+" ..."
+        print("Restoring savefile "+savefilename+" ...")
         savefile= open(savefilename,'rb')
         potR= pickle.load(savefile)
         if nonAxi:
@@ -970,7 +944,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
             for ii in range(grid):
                 potR[ii]= evaluateplanarPotentials(Rs[ii],Pot)
         if not savefilename is None:
-            print "Writing planar savefile "+savefilename+" ..."
+            print("Writing planar savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')
             pickle.dump(potR,savefile)
             if nonAxi:
@@ -980,26 +954,22 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                 pickle.dump(Rs,savefile)
             savefile.close()
     if nonAxi:
-        if not kwargs.has_key('origin'):
+        if not 'orogin' in kwargs:
             kwargs['origin']= 'lower'
-        if not kwargs.has_key('cmap'):
+        if not 'cmap' in kwargs:
             kwargs['cmap']= 'gist_yarg'
-        if not kwargs.has_key('contours'):
+        if not 'contours' in kwargs:
             kwargs['contours']= True
-        if not kwargs.has_key('xlabel'):
+        if not 'xlabel' in kwargs:
             kwargs['xlabel']= r"$x / R_0$"
-        if not kwargs.has_key('ylabel'):
+        if not 'ylabel' in kwargs:
             kwargs['ylabel']= "$y / R_0$"
-        if not kwargs.has_key('aspect'):
+        if not 'aspect' in kwargs:
             kwargs['aspect']= 1.
-        if not kwargs.has_key('cntrls'):
+        if not 'cntrls' in kwargs:
             kwargs['cntrls']= '-'
-        if kwargs.has_key('ncontours'):
-            ncontours= kwargs['ncontours']
-            kwargs.pop('ncontours')
-        else:
-            ncontours=10
-        if not kwargs.has_key('levels'):
+        ncontours= kwargs.pop('ncontours',10)
+        if not 'levels' in kwargs:
             kwargs['levels']= nu.linspace(nu.nanmin(potR),nu.nanmax(potR),ncontours)
         return plot.bovy_dens2d(potR.T,
                                 xrange=xrange,

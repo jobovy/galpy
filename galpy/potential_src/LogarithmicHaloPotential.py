@@ -4,7 +4,7 @@
 ###############################################################################
 import warnings
 import numpy as nu
-from Potential import kms_to_kpcGyrDecorator, Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 from galpy.util import galpyWarning
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):

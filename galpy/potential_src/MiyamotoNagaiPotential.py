@@ -6,7 +6,7 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy as nu
-from Potential import kms_to_kpcGyrDecorator, Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 

@@ -9,7 +9,7 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 from galpy.util import multi, galpyWarning
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 _DEBUG= False
 #Find and load the library
 _lib= None
@@ -17,7 +17,7 @@ outerr= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
-    except OSError,e:
+    except OSError as e:
         if os.path.exists(os.path.join(path,'galpy_interppotential_c.so')): #pragma: no cover
             outerr= e
         _lib = None
@@ -252,7 +252,7 @@ class interpRZPotential(Potential):
             from galpy.potential import vcirc
             if not numcores is None:
                 self._vcircGrid= multi.parallel_map((lambda x: vcirc(self._origPot,self._rgrid[x])),
-                                                    range(len(self._rgrid)),numcores=numcores)
+                                                    list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._vcircGrid= numpy.array([vcirc(self._origPot,r) for r in self._rgrid])
             if self._logR:
@@ -263,7 +263,7 @@ class interpRZPotential(Potential):
             from galpy.potential import dvcircdR
             if not numcores is None:
                 self._dvcircdrGrid= multi.parallel_map((lambda x: dvcircdR(self._origPot,self._rgrid[x])),
-                                                       range(len(self._rgrid)),numcores=numcores)
+                                                       list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._dvcircdrGrid= numpy.array([dvcircdR(self._origPot,r) for r in self._rgrid])
             if self._logR:
@@ -274,7 +274,7 @@ class interpRZPotential(Potential):
             from galpy.potential import epifreq
             if not numcores is None:
                 self._epifreqGrid= numpy.array(multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
-                                                      range(len(self._rgrid)),numcores=numcores))
+                                                      list(range(len(self._rgrid))),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             indx= True-numpy.isnan(self._epifreqGrid)
@@ -292,7 +292,7 @@ class interpRZPotential(Potential):
             from galpy.potential import verticalfreq
             if not numcores is None:
                 self._verticalfreqGrid= multi.parallel_map((lambda x: verticalfreq(self._origPot,self._rgrid[x])),
-                                                       range(len(self._rgrid)),numcores=numcores)
+                                                       list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._verticalfreqGrid= numpy.array([verticalfreq(self._origPot,r) for r in self._rgrid])
             if self._logR:

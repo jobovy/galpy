@@ -8,7 +8,8 @@ import numpy as nu
 import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
-from galpy.potential import Potential, KeplerPotential
+from galpy.potential_src.PowerSphericalPotential import KeplerPotential
+from galpy.potential_src.Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
