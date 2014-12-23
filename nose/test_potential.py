@@ -1,7 +1,7 @@
 ############################TESTS ON POTENTIALS################################
+from __future__ import print_function, division
 import os
 import sys
-from __future__ import print_function, division
 import numpy
 from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))

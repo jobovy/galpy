@@ -1,6 +1,6 @@
+from __future__ import print_function, division
 import functools
 import nose
-from __future__ import print_function, division
 import numpy
 from scipy import interpolate
 sdf_bovy14= None #so we can set this up and then use in other tests

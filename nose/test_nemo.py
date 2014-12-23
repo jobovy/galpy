@@ -1,11 +1,11 @@
 # Test consistency between galpy and NEMO
+from __future__ import print_function, division
 import os
 import numpy
 import subprocess
 from galpy.orbit import Orbit
 from galpy import potential
 from galpy.util import bovy_conversion
-from __future__ import print_function, division
 def test_nemo_MiyamotoNagaiPotential():
     mp= potential.MiyamotoNagaiPotential(normalize=1.,a=0.5,b=0.1)
     tmax= 4.

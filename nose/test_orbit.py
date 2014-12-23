@@ -1,7 +1,7 @@
 ##############################TESTS ON ORBITS##################################
+from __future__ import print_function, division
 import os
 import sys
-from __future__ import print_function, division
 import numpy
 from galpy import potential
 from test_potential import testplanarMWPotential, testMWPotential, \
