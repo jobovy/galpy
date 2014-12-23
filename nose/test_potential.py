@@ -1,7 +1,8 @@
 ############################TESTS ON POTENTIALS################################
-import sys
-import numpy
 import os
+import sys
+from __future__ import print_function, division
+import numpy
 from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
@@ -112,7 +113,7 @@ def test_forceAsDeriv_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #Radial force
         for ii in range(len(Rs)):
@@ -244,7 +245,7 @@ def test_2ndDeriv_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #2nd radial
         if hasattr(tp,'_R2deriv'):
@@ -433,7 +434,7 @@ def test_poisson_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #2nd radial
         if not hasattr(tp,'_dens') or not hasattr(tp,'_R2deriv') \
@@ -508,7 +509,7 @@ def test_evaluateAndDerivs_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #1st radial
         if isinstance(tp,potential.linearPotential): 

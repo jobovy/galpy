@@ -1,4 +1,5 @@
 # Tests of the quasiisothermaldf module
+from __future__ import print_function, division
 import numpy
 #fiducial setup uses these
 from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
@@ -647,7 +648,7 @@ def test_call_diffinoutputs():
     try: acs= taAS(0.9,10.,-20.,0.1,10.)
     except UnboundError: pass
     else: 
-        print acs
+        print(acs)
         raise AssertionError('Test orbit in qdf that is supposed to be unbound is not')
     assert qdfnc(0.9,10.,-20.,0.1,10.) < 10.**-10., 'unbound orbit does not return qdf equal to zero'
     #Test negative lz
