@@ -21,6 +21,9 @@ galpy
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
 
+.. image:: https://caniusepython3.com/project/galpy.svg
+   :target: https://caniusepython3.com/project/galpy
+
 AUTHOR
 -------
 
