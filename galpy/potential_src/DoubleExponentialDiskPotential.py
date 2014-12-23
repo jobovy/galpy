@@ -8,8 +8,7 @@ import numpy as nu
 import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
-from Potential import Potential
-from PowerSphericalPotential import KeplerPotential
+from galpy.potential import Potential, KeplerPotential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
@@ -326,36 +325,3 @@ class DoubleExponentialDiskPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         return nu.exp(-self._alpha*R-self._beta*nu.fabs(z))
-
-if __name__ == '__main__':
-    print "doctesting ..."
-    import doctest
-    doctest.testmod(verbose=True)
-        
-    import time, sys
-    import numpy as nu
-    nTrials = 100
-    doubleExpPot= DoubleExponentialDiskPotential()
-    print "Timing ..."
-    start= time.time()
-    for ii in range(nTrials):
-        doubleExpPot(nu.random.random()*2./3.+2./3.,
-                     nu.random.random()*1./4.-1./8.)
-    deltatpot= time.time()-start
-    print "Potential evaluation @ %.3f s per evaluation" % (deltatpot/nTrials)
-    #sys.exit(-1)
-    start= time.time()
-    for ii in range(nTrials):
-        doubleExpPot.Rforce(nu.random.random()*2./3.+2./3.,
-                            nu.random.random()*1./4.-1./8.)
-    deltatRforce= time.time()-start
-
-    #doubleExpPot._zforceNotSetUp= False
-    start= time.time()
-    for ii in range(nTrials):
-        doubleExpPot.zforce(nu.random.random()*2./3.+2./3.,
-                            nu.random.random()*1./4.-1./8.)
-    deltatzforce= time.time()-start
-    print "Potential evaluation @ %.3f s per evaluation" % (deltatpot/nTrials)
-    print "Radial force evaluation @ %.3f s per evaluation" % (deltatRforce/nTrials)
-    print "Vertical force evaluation @ %.3f s per evaluation" % (deltatzforce/nTrials)
