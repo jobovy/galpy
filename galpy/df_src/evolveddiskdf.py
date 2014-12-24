@@ -98,14 +98,8 @@ class evolveddiskdf:
            2011-04-15 - Added list of times option - Bovy (NYU)
 
         """
-        if kwargs.has_key('integrate_method'):
-            integrate_method= kwargs.pop('integrate_method')
-        else:
-            integrate_method= 'dopr54_c'
-        if kwargs.has_key('deriv'):
-            deriv= kwargs['deriv']
-        else:
-            deriv= None
+        integrate_method= kwargs.pop('integrate_method','dopr54_c')
+        deriv= kwargs.get('deriv',None)
         if isinstance(args[0],Orbit):
             if len(args) == 1:
                 t= 0.
@@ -118,17 +112,13 @@ class evolveddiskdf:
             tlist= True
         elif isinstance(t,nu.ndarray): tlist= True
         else: tlist= False
-        if kwargs.has_key('marginalizeVperp') and \
-                kwargs['marginalizeVperp']:
-            kwargs.pop('marginalizeVperp')
+        if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
-        elif kwargs.has_key('marginalizeVlos') and \
-                kwargs['marginalizeVlos']:
-            kwargs.pop('marginalizeVlos') 
+        elif kwargs.pop('marginalizeVlos',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
             if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
@@ -137,7 +127,7 @@ class evolveddiskdf:
         #Integrate back
         if tlist:
             if self._to == t[0]:
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return nu.log([self._initdf(args[0])])
                 else:
                     return [self._initdf(args[0])]
@@ -160,7 +150,7 @@ class evolveddiskdf:
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if msg > 0.: # pragma: no cover
                     print "Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ..."
-                    if kwargs.has_key('log') and kwargs['log'] and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
+                    if kwargs.get('log',False) and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
                     else: return nu.zeros(len(t))
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
@@ -246,7 +236,7 @@ class evolveddiskdf:
                     retval*= dlnfderiv
         else:
             if self._to == t and deriv is None:
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return nu.log(self._initdf(args[0]))
                 else:
                     return self._initdf(args[0])
@@ -282,7 +272,7 @@ class evolveddiskdf:
             #int_time= (time.time()-start)
             #Now evaluate the DF
             if o.R(self._to-t) <= 0.: 
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return -nu.finfo(nu.dtype(nu.float64)).max
                 else:
                     return nu.finfo(nu.dtype(nu.float64)).eps
@@ -307,7 +297,7 @@ class evolveddiskdf:
                 dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
-        if kwargs.has_key('log') and kwargs['log'] and deriv is None:
+        if kwargs.get('log',False) and deriv is None:
             if tlist:
                 out= nu.log(retval)
                 out[retval == 0.]= -nu.finfo(nu.dtype(nu.float64)).max
@@ -1870,12 +1860,12 @@ class evolveddiskdf:
         vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
         alphalos= phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
         if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
@@ -1913,12 +1903,12 @@ class evolveddiskdf:
         vcircperp= vcirc*math.cos(phi+l) 
         #Marginalize
         alphaperp= math.pi/2.+phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
             va= vcirc-self._initdf.meanvT(R,phi=phi)
