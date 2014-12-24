@@ -53,17 +53,17 @@ class actionAngleIsochroneApprox():
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('b') and not kwargs.has_key('ip') \
-                and not kwargs.has_key('aAI'): #pragma: no cover
+        if not 'b' in kwargs and not 'ip' in kwargs \
+                and not 'aAI' in kwargs: #pragma: no cover
             raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
-        if kwargs.has_key('aAI'):
+        if 'aAI' in kwargs:
             if not isinstance(kwargs['aAI'],actionAngleIsochrone): #pragma: no cover
                 raise IOError("'Provided aAI= does not appear to be an instance of an actionAngleIsochrone")
             self._aAI= kwargs['aAI']
-        elif kwargs.has_key('ip'):
+        elif 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
@@ -71,23 +71,14 @@ class actionAngleIsochroneApprox():
         else:
             self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=kwargs['b'],
                                                                   normalize=1.))
-        if kwargs.has_key('tintJ'):
-            self._tintJ= kwargs['tintJ']
-        else:
-            self._tintJ= 100.
-        if kwargs.has_key('ntintJ'):
-            self._ntintJ= kwargs['ntintJ']
-        else:
-            self._ntintJ= 10000
+        self._tintJ= kwargs.get('tintJ',100.)
+        self._ntintJ= kwargs.get('ntintJ',10000)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
-        if kwargs.has_key('integrate_method'):
-            self._integrate_method= kwargs['integrate_method']
-        else:
-            self._integrate_method= 'dopr54_c'
+        self._integrate_method= kwargs.get('integrate_method','dopr54_c')
         self._c= False
         ext_loaded= False
-        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')): #pragma: no cover
+        if ext_loaded and (('c' in kwargs and kwargs['c'])
+                           or not 'c' in kwargs): #pragma: no cover
             self._c= True
         else:
             self._c= False
@@ -139,13 +130,13 @@ class actionAngleIsochroneApprox():
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
             danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
-            if kwargs.has_key('cumul') and kwargs['cumul']:
+            if kwargs.get('cumul',False):
                 sumFunc= nu.cumsum
             else:
                 sumFunc= nu.sum
             jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
             jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            if kwargs.get('nonaxi',False):
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
@@ -207,36 +198,30 @@ class actionAngleIsochroneApprox():
            2013-09-10 - Written - Bovy (IAS)
         """
         from galpy.orbit import Orbit
-        if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+        if kwargs.get('nonaxi',False):
             raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
-        if kwargs.has_key('_firstFlip'):
-            _firstFlip= kwargs['_firstFlip']
-        else:
-            _firstFlip= False
+        _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
         if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
-                and not kwargs.has_key('ts'):
+                and not 'ts' in kwargs:
             kwargs['ts']= args[0]._orb.t
         elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
                 and hasattr(args[0][0]._orb,'orbit')  \
-                and not kwargs.has_key('ts'):
+                and not 'ts' in kwargs:
             kwargs['ts']= args[0][0]._orb.t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
-        if kwargs.has_key('ts') and not kwargs['ts'] is None:
+        if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
         else:
             ts= nu.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
             ts[:self._ntintJ-1]= -self._tsJ[1:][::-1]
-        if kwargs.has_key('maxn'):
-            maxn= kwargs['maxn']
-        else:
-            maxn= 3
+        maxn= kwargs.get('maxn',3)
         if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            if kwargs.has_key('_acfs'): acfs= kwargs['_acfs']
+            if '_acfs' in kwargs: acfs= kwargs['_acfs']
             else:
                 acfs= self._aAI.actionsFreqsAngles(R.flatten(),
                                                    vR.flatten(),
@@ -258,7 +243,7 @@ class actionAngleIsochroneApprox():
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
             jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']: #pragma: no cover
+            if kwargs.get('nonaxi',False): #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
@@ -319,7 +304,7 @@ class actionAngleIsochroneApprox():
             OmegaZ= nu.sum(atainv[:,1,:]*ATAZ,axis=1)
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
-            if kwargs.has_key('_retacfs') and kwargs['_retacfs']:
+            if kwargs.get('_retacfs',False):
                 return (jr,lz,jz,OmegaR,Omegaphi,OmegaZ, #pragma: no cover
                         angleR % _TWOPI,
                         anglephi % _TWOPI,
@@ -358,21 +343,9 @@ class actionAngleIsochroneApprox():
            2013-09-10 - Written - Bovy (IAS)
         """
         #Kwargs
-        if not kwargs.has_key('type'):
-            type= 'araz'
-        else:
-            type= kwargs['type']
-            kwargs.pop('type')
-        if not kwargs.has_key('deperiod'):
-            deperiod= False
-        else:
-            deperiod= kwargs['deperiod']
-            kwargs.pop('deperiod')
-        if not kwargs.has_key('downsample'):
-            downsample= False
-        else:
-            downsample= kwargs['downsample']
-            kwargs.pop('downsample')
+        type= kwargs.pop('type','araz')
+        deperiod= kwargs.pop('deperiod',False)
+        downsample= kwargs.pop('downsample',False)
         #Parse input
         R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
@@ -462,7 +435,7 @@ class actionAngleIsochroneApprox():
                                     colorbar=True,
                                     **kwargs)
         else:
-            if kwargs.has_key('nonaxi') and kwargs['nonaxi']:
+            if kwargs.get('nonaxi',False):
                 raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
                 if 'ar' in type:
