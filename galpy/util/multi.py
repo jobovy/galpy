@@ -68,7 +68,7 @@ def worker(f, ii, chunk, out_q, err_q, lock):
   for val in chunk:
     try:
       result = f(val)
-    except Exception, e:
+    except Exception as e:
       err_q.put(e)
       return
 
@@ -100,7 +100,7 @@ def run_tasks(procs, err_q, out_q, num):
     for proc in procs:
       proc.join()
 
-  except Exception, e:
+  except Exception as e:
     # kill all slave processes on ctrl-C
     try:
       die(procs)
