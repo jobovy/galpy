@@ -161,30 +161,14 @@ class quasiisothermaldf:
            up to 200x faster when called with vector R,vR,vT,z,vz
         """
         #First parse log
-        if kwargs.has_key('log'):
-            log= kwargs['log']
-            kwargs.pop('log')
-        else:
-            log= False
-        if kwargs.has_key('_return_actions'):
-            _return_actions= kwargs['_return_actions']
-            kwargs.pop('_return_actions')
-        else:
-            _return_actions= False
-        if kwargs.has_key('_return_freqs'):
-            _return_freqs= kwargs['_return_freqs']
-            kwargs.pop('_return_freqs')
-        else:
-            _return_freqs= False
-        if kwargs.has_key('rg'):
-            thisrg= kwargs['rg']
-            kwargs.pop('rg')
-            kappa= kwargs['kappa']
-            kwargs.pop('kappa')
-            nu= kwargs['nu']
-            kwargs.pop('nu')
-            Omega= kwargs['Omega']
-            kwargs.pop('Omega')
+        log= kwargs.pop('log',False)
+        _return_actions= kwargs.pop('_return_actions',False)
+        _return_freqs= kwargs.pop('_return_freqs',False)
+        if 'rg' in kwargs:
+            thisrg= kwargs.pop('rg')
+            kappa= kwargs.pop('kappa')
+            nu= kwargs.pop('nu')
+            Omega= kwargs.pop('Omega')
         else:
             thisrg= None
             kappa= None
@@ -216,7 +200,7 @@ class quasiisothermaldf:
         lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
         lnsz= self._lnsz+(self._ro-thisrg)/self._hsz
         #Calculate func
-        if kwargs.has_key('func'):
+        if 'func' in kwargs:
             if log:
                 funcTerm= numpy.log(kwargs['func'](jr,lz,jz))
             else:
