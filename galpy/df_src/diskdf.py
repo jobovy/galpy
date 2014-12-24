@@ -79,7 +79,8 @@ class diskdf:
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
         self._gamma= sc.sqrt(2./(1.+self._beta))
-        if correct or kwargs.has_key('corrections') or kwargs.has_key('rmax') or kwargs.has_key('niter') or kwargs.has_key('npoints'):
+        if correct or 'corrections' in kwargs or 'rmax' in kwargs \
+                or 'niter' in kwargs or 'npoints' in kwargs:
             self._correct= True
             #Load corrections
             self._corr= DFcorrection(dftype=self.__class__,
@@ -138,13 +139,9 @@ class diskdf:
         """
         if isinstance(args[0],Orbit):
             if len(args) == 1:
-                if kwargs.has_key('marginalizeVperp') and \
-                        kwargs['marginalizeVperp']:
-                    kwargs.pop('marginalizeVperp')
+                if kwargs.pop('marginalizeVperp',False):
                     return self._call_marginalizevperp(args[0],**kwargs)
-                elif kwargs.has_key('marginalizeVlos') and \
-                        kwargs['marginalizeVlos']:
-                    kwargs.pop('marginalizeVlos')
+                elif kwargs.pop('marginalizeVlos',False):
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
                     return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
@@ -185,12 +182,12 @@ class diskdf:
         vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
         alphalos= phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                      kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         sigmaR2= self.targetSigma2(R)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
@@ -231,12 +228,12 @@ class diskdf:
         vcircperp= vcirc*math.cos(phi+l)
         #Marginalize
         alphaperp= math.pi/2.+phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         sigmaR2= self.targetSigma2(R)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
@@ -2040,47 +2037,29 @@ class DFcorrection:
         HISTORY:
            2010-03-10 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('surfaceSigmaProfile'):
+        if not 'surfaceSigmaProfile' in kwargs:
             raise DFcorrectionError("surfaceSigmaProfile not given")
         else:
             self._surfaceSigmaProfile= kwargs['surfaceSigmaProfile']
-        if not kwargs.has_key('rmax'):
-            self._rmax= 5.
-        else:
-            self._rmax= kwargs['rmax']
-        if not kwargs.has_key('niter'):
-            self._niter= 20
-        else:
-            self._niter= kwargs['niter']
-        if not kwargs.has_key('npoints'):
-            if kwargs.has_key('corrections'):
+        self._rmax= kwargs.get('rmax',5.)
+        self._niter= kwargs.get('niter',20)
+        if not 'npoints' in kwargs:
+            if 'corrections' in kwargs:
                 self._npoints= kwargs['corrections'].shape[0]
             else: #pragma: no cover
                 self._npoints= 151 #would take too long to cover
         else:
             self._npoints= kwargs['npoints']
-        if kwargs.has_key('dftype'):
-            self._dftype= kwargs['dftype']
-        else:
-            self._dftype= dehnendf
-        if kwargs.has_key('beta'):
-            self._beta= kwargs['beta']
-        else:
-            self._beta= 0.
+        self._dftype= kwargs.get('dftype',dehnendf)
+        self._beta= kwargs.get('beta',0.)
         self._rs= sc.linspace(_RMIN,self._rmax,self._npoints)
-        if kwargs.has_key('interp_k'):
-            self._interp_k= kwargs['interp_k']
-        else:
-            self._interp_k= _INTERPDEGREE
-        if kwargs.has_key('corrections'):
+        self._interp_k= kwargs.get('interp_k',_INTERPDEGREE)
+        if 'corrections' in kwargs:
             self._corrections= kwargs['corrections']
             if not len(self._corrections) == self._npoints:
                 raise DFcorrectionError("Number of corrections has to be equal to the number of points npoints")
         else:
-            if kwargs.has_key('savedir'):
-                self._savedir= kwargs['savedir']
-            else:
-                self._savedir= _CORRECTIONSDIR
+            self._savedir= kwargs.get('savedir',_CORRECTIONSDIR)
             self._savefilename= self._createSavefilename(self._niter)
             if os.path.exists(self._savefilename):
                 savefile= open(self._savefilename,'rb')
