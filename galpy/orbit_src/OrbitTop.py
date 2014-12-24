@@ -6,7 +6,7 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
-class OrbitTop:
+class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
@@ -1887,7 +1887,7 @@ class OrbitTop:
         return None
 
 
-class _fakeInterp: 
+class _fakeInterp(object): 
     """Fake class to simulate interpolation when orbit was not integrated"""
     def __init__(self,x):
         self.x= x

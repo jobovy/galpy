@@ -7,7 +7,7 @@ from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
     planarOrbitTop
 from galpy.orbit_src.linearOrbit import linearOrbit
 _K=4.74047
-class Orbit:
+class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
                  radec=False,vo=None,ro=None,zo=0.025,
