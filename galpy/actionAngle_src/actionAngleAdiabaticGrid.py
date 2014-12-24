@@ -51,12 +51,7 @@ class actionAngleAdiabaticGrid():
         """
         if pot is None: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
-        if kwargs.has_key('c') and kwargs['c']:
-            self._c= True
-            kwargs.pop('c')
-        else:
-            self._c= False
-            if kwargs.has_key('c'): kwargs.pop('c')
+        self._c= kwargs.pop('c',False)
         self._gamma= gamma
         self._pot= pot
         self._zmax= zmax
