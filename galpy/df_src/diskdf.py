@@ -10,6 +10,7 @@
 #      DFcorrection - class that represents corrections to the input Sigma(R)
 #                     and sigma_R(R) to get closer to the targets
 ###############################################################################
+from __future__ import print_function
 _EPSREL=10.**-14.
 _NSIGMA= 4.
 _INTERPDEGREE= 3
@@ -1651,7 +1652,7 @@ class dehnendf(diskdf):
             out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
             out_time= (time.time()-start)
             tot_time= one_time+corr_time+targSigma_time+out_time
-            print one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time
+            print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
             return out
         else:
             return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
@@ -1766,7 +1767,7 @@ class dehnendf(diskdf):
                                    returnOrbit=returnOrbit,nphi=int(nphi),
                                    los=los,losdeg=losdeg))
         if len(out) > n*nphi:
-            print n, nphi, n*nphi
+            print(n, nphi, n*nphi)
             out= out[0:int(n*nphi)]
         return out
 
@@ -2207,7 +2208,7 @@ class DFcorrection:
                 thisSurface= currentDF.surfacemass(self._rs[jj])
                 newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj])/thisSurface
                 newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj])*thisSurface/currentDF.sigma2surfacemass(self._rs[jj])
-                #print jj, newcorrections[jj,:]
+                #print(jj, newcorrections[jj,:])
             corrections*= newcorrections
         #Save
         savefile= open(self._savefilename,'w')

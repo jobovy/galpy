@@ -1,4 +1,5 @@
 #Functions to turn snapshots into movies
+from __future__ import print_function
 import re
 import os, os.path
 import tempfile
@@ -106,7 +107,7 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
                                    tmpfiles[ii]+'.pdf',
                                    tmpfiles[ii]+'.jpg'])
         except subprocess.CalledProcessError:
-            print "'convert' failed"
+            print("'convert' failed")
             raise subprocess.CalledProcessError
     #turn them into a movie
     try:
@@ -137,7 +138,7 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
                                    '-s', '%ix%i' % (thumbsize,thumbsize),
                                    thumbname])
     except subprocess.CalledProcessError:
-        print "'ffmpeg' failed"
+        print("'ffmpeg' failed")
         _cleanupMovieTempdir(tempdir)
         raise subprocess.CalledProcessError
     finally:

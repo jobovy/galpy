@@ -6,6 +6,7 @@
 #
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
+from __future__ import print_function
 _NSIGMA= 4.
 _NTS= 1000
 _PROFILE= False
@@ -149,7 +150,7 @@ class evolveddiskdf:
                     dderiv= tmp-o.phi()
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if msg > 0.: # pragma: no cover
-                    print "Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ..."
+                    print("Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ...")
                     if kwargs.get('log',False) and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
                     else: return nu.zeros(len(t))
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
@@ -180,7 +181,7 @@ class evolveddiskdf:
             if _PROFILE: #pragma: no cover
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
-                print int_time/tot_time, df_time/tot_time, tot_time
+                print(int_time/tot_time, df_time/tot_time, tot_time)
             if not deriv is None:
                 if integrate_method == 'odeint':
                     dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti),
@@ -198,7 +199,7 @@ class evolveddiskdf:
                     dRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),4] for ti in t])/dderiv
                     dvRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),5] for ti in t])/dderiv
                     dvTo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),6] for ti in t])/dderiv
-                    #print dRo, dvRo, dvTo
+                    #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     retval*= dlnfderiv
                 else:
@@ -230,7 +231,7 @@ class evolveddiskdf:
                     dRo= dorb_array[4]/dderiv
                     dvRo= dorb_array[5]/dderiv
                     dvTo= dorb_array[6]/dderiv
-                    #print dRo, dvRo, dvTo
+                    #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
                     retval*= dlnfderiv
@@ -278,8 +279,8 @@ class evolveddiskdf:
                     return nu.finfo(nu.dtype(nu.float64)).eps
             #start= time.time()
             retval= self._initdf(o(self._to-t))
-            #print int_time/(time.time()-start)
-            if nu.isnan(retval): print retval, o._orb.vxvv, o(self._to-t)._orb.vxvv
+            #print( int_time/(time.time()-start))
+            if nu.isnan(retval): print(retval, o._orb.vxvv, o(self._to-t)._orb.vxvv)
             if not deriv is None:
                 thisorbit= o(self._to-t)._orb.vxvv
                 dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
@@ -417,9 +418,9 @@ class evolveddiskdf:
                                         integrate_method,deriv)
                 if _PROFILE: #pragma: no cover
                     grid_time= (time_module.time()-start)
-                    print setup_time/(setup_time+grid_time), \
+                    print(setup_time/(setup_time+grid_time), \
                           grid_time/(setup_time+grid_time), \
-                          setup_time+grid_time
+                          setup_time+grid_time)
                 if returnGrid:
                     return (self._vmomentsurfacemassGrid(n,m,grido),grido)
                 else:

@@ -10,6 +10,7 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
+from __future__ import print_function
 import math
 import numpy
 from scipy import interpolate
@@ -241,7 +242,7 @@ class actionAngleAdiabaticGrid():
         else:
             if R > self._Rmax or R < self._Rmin or (Ez != 0 and numpy.log(Ez) > thisEzZmax): #Outside of the grid
                 if _PRINTOUTSIDEGRID: #pragma: no cover
-                    print "Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax)
+                    print("Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax))
                 jz= self._aA(R,0.,1.,#these two r dummies
                              0.,math.sqrt(2.*Ez),
                              _justjz=True,
@@ -292,9 +293,9 @@ class actionAngleAdiabaticGrid():
                     or (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     or (ER-thisERRa)/(thisERRL-thisERRa) < 0.:
                 if _PRINTOUTSIDEGRID: #pragma: no cover
-                    print "Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
+                    print("Outside of grid in ER/Lz", ERLz < self._Lzmin , ERLz > self._Lzmax \
                         , (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
-                        , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa)
+                        , (ER-thisERRa)/(thisERRL-thisERRa) < 0., ER, thisERRL, thisERRa, (ER-thisERRa)/(thisERRL-thisERRa))
                 jr= self._aA(thisRL[0],
                              numpy.sqrt(2.*(ER-galpy.potential.evaluatePotentials(thisRL,0.,self._pot))-ERLz**2./thisRL**2.)[0],
                              (ERLz/thisRL)[0],
@@ -332,7 +333,7 @@ class actionAngleAdiabaticGrid():
         thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
         if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
             if _PRINTOUTSIDEGRID: #pragma: no cover
-                print "Outside of grid in Ez"
+                print("Outside of grid in Ez")
             jz= self._aA(meta._R,0.,1.,#these two r dummies
                          0.,math.sqrt(2.*Ez),
                          _justjz=True,

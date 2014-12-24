@@ -789,7 +789,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
     out= 0.
     for ii in range(vxvv.shape[0]):
         sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
-        #print sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))]
+        #print(sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))])
         if not vxvv_err is None:
             sub_vxvv/= vxvv_err[ii,:]**2.
         else:
