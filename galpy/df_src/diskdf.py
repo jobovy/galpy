@@ -182,8 +182,8 @@ class diskdf:
         vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
         alphalos= phi+l
-        if 'nsigma' in kwargs or ('nsigma' in kwargs and \
-                                      kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
