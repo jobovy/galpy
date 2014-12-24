@@ -2024,8 +2024,8 @@ class evolveddiskdfHierarchicalGrid:
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
-                xsubmin= int(gridpoints)/4
-                xsubmax= gridpoints-int(gridpoints)/4
+                xsubmin= int(gridpoints)//4
+                xsubmax= gridpoints-int(gridpoints)//4
             else:
                 xsubmin= gridpoints
                 xsubmax= 0
@@ -2063,8 +2063,8 @@ class evolveddiskdfHierarchicalGrid:
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
-                xsubmin= int(gridpoints)/4
-                xsubmax= gridpoints-int(gridpoints)/4
+                xsubmin= int(gridpoints)//4
+                xsubmax= gridpoints-int(gridpoints)//4
             else:
                 xsubmin= gridpoints
                 xsubmax= 0
@@ -2166,10 +2166,10 @@ class evolveddiskdfHierarchicalGrid:
         plotdf[(plotdf == 0.)]= _NAN
         #Fill up the grid
         if nUpperLevels > 0:
-            xsubmin= nvRTot/2-nvR/2-1
-            xsubmax= nvRTot/2+nvR/2
-            ysubmin= nvTTot/2-nvT/2-1
-            ysubmax= nvTTot/2+nvT/2
+            xsubmin= nvRTot//2-nvR//2-1
+            xsubmax= nvRTot//2+nvR//2
+            ysubmin= nvTTot//2-nvT//2-1
+            ysubmax= nvTTot//2+nvT//2
             #Set outside this subgrid to NaN
             plotthis[:,:]= _NAN #within the grid gets filled in below
         else:
