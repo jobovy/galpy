@@ -20,7 +20,7 @@ _PROFILE= False
 import copy
 import re
 import os, os.path
-import cPickle as pickle
+import pickle
 import math
 import numpy as nu
 import scipy as sc
