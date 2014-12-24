@@ -106,9 +106,9 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
             OmegaP= 1.
-            if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
                     pot= self._pot
                 except AttributeError:
@@ -123,11 +123,9 @@ class FullOrbit(OrbitTop):
             else:
                 if hasattr(pot,'OmegaP'):
                     OmegaP= pot.OmegaP()
-            if kwargs.has_key('OmegaP'):
-                kwargs.pop('OmegaP')         
+            kwargs.pop('OmegaP',None)
         else:
-            OmegaP= kwargs['OmegaP']
-            kwargs.pop('OmegaP')
+            OmegaP= kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -159,16 +157,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -205,16 +202,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2013-11-30 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -249,16 +245,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2013-11-30 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -460,11 +455,10 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'Eznorm'
         else:
             kwargs['d2']= 'Ez'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def plotER(self,*args,**kwargs):
@@ -480,11 +474,10 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'ERnorm'
         else:
             kwargs['d2']= 'ER'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def plotEzJz(self,*args,**kwargs):
@@ -506,19 +499,14 @@ class FullOrbit(OrbitTop):
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                     'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
+        if not 'pot' in kwargs:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
+            pot= kwargs.pop('pot')
+        d1= kwargs.pop('d1','t')
         self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                         pot,t=self.t[ii])-
                      evaluatePotentials(self.orbit[ii,0],0.,pot,
@@ -526,9 +514,9 @@ class FullOrbit(OrbitTop):
                      self.orbit[ii,4]**2./2.)/\
                         nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5],t=self.t[ii]))\
                         for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
+        if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
+        if not 'ylabel' in kwargs:
             kwargs['ylabel']= r'$E_z/\sqrt{\rho}$'
         if d1 == 't':
             plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
