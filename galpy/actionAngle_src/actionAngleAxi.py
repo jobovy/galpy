@@ -44,17 +44,14 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
            2010-12-01 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
-        if kwargs.has_key('verticalPot'):
+        if 'verticalPot' in kwargs:
             kwargs.pop('pot')
             actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
                                          **kwargs)
-            if kwargs.has_key('gamma'):
-                self._gamma= kwargs['gamma']
-            else:
-                self._gamma= 1.
+            self._gamma= kwargs.get('gamma',1.)
         else:
             self._gamma= 0.
         return None
