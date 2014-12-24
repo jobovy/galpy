@@ -7,7 +7,7 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
     in the (R,z) plane"""

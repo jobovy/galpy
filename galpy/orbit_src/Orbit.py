@@ -1,10 +1,11 @@
 import numpy as nu
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from FullOrbit import FullOrbit
-from RZOrbit import RZOrbit
-from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
-from linearOrbit import linearOrbit
+from galpy.orbit_src.FullOrbit import FullOrbit
+from galpy.orbit_src.RZOrbit import RZOrbit
+from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
+    planarOrbitTop
+from galpy.orbit_src.linearOrbit import linearOrbit
 _K=4.74047
 class Orbit:
     """General orbit class representing an orbit"""

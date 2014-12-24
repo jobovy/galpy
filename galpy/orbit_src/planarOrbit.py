@@ -5,7 +5,7 @@ from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials

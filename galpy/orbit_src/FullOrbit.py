@@ -18,7 +18,7 @@ import galpy.util.bovy_coords as coords
 from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 _ORBFITNORMRADEC= 360.
 _ORBFITNORMDIST= 10.
 _ORBFITNORMPMRADEC= 4.
