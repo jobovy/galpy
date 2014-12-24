@@ -13,7 +13,7 @@ outerr= None
 for path in sys.path:
     try:
         _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError, e:
+    except OSError as e:
         if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
             outerr= e
         _lib = None
