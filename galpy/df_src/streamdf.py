@@ -426,11 +426,7 @@ class streamdf:
                  or d2.lower() == 'dist' or d2.lower() == 'pmll' 
                  or d2.lower() == 'pmbb' or d2.lower() == 'vlos'):
             self.calc_stream_lb()
-        if kwargs.has_key('scaleToPhysical'):
-            phys= kwargs['scaleToPhysical']
-            kwargs.pop('scaleToPhysical')
-        else:
-            phys= False
+        phys= kwargs.pop('scaleToPhysical',False)
         tx= self._parse_track_dim(d1,interp=interp,phys=phys)
         ty= self._parse_track_dim(d2,interp=interp,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
@@ -440,27 +436,17 @@ class streamdf:
         if spread:
             addx, addy= self._parse_track_spread(d1,d2,interp=interp,phys=phys,
                                                  simple=simple)
-            if (kwargs.has_key('ls') and kwargs['ls'] == 'none') \
-                    or (kwargs.has_key('linestyle') \
+            if ('ls' in kwargs and kwargs['ls'] == 'none') \
+                    or ('linestyle' in kwargs \
                             and kwargs['linestyle'] == 'none'):
-                if kwargs.has_key('ls'): kwargs.pop('ls')
-                if kwargs.has_key('linestyle'): kwargs.pop('linestyle')
+                kwargs.pop('ls',None)
+                kwargs.pop('linestyle',None)
                 spreadls= 'none'
             else:
                 spreadls= '-.'
-            if kwargs.has_key('marker'):
-                spreadmarker= kwargs['marker']
-                kwargs.pop('marker')
-            else:
-                spreadmarker= None
-            if kwargs.has_key('color'):
-                spreadcolor= kwargs['color']
-            else:
-                spreadcolor= None
-            if kwargs.has_key('lw'):
-                spreadlw= kwargs['lw']
-            else:
-                spreadlw= 1.
+            spreadmarker= kwargs.pop('marker',None)
+            spreadcolor= kwargs.pop('color',None)
+            spreadlw= kwargs.pop('lw',1.)
             bovy_plot.bovy_plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
                                 marker=spreadmarker,color=spreadcolor,
                                 lw=spreadlw,
@@ -504,11 +490,7 @@ class streamdf:
                                           < self._trackts[self._nTrackChunks-1]]
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
-        if kwargs.has_key('scaleToPhysical'):
-            phys= kwargs['scaleToPhysical']
-            kwargs.pop('scaleToPhysical')
-        else:
-            phys= False
+        phys= kwargs.pop('scaleToPhysical',False)
         tx= self._parse_progenitor_dim(d1,tts,ro=self._Rnorm,vo=self._Vnorm,
                                        obs=obs,phys=phys)
         ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
@@ -2032,11 +2014,7 @@ class streamdf:
 
         """
         #First parse log
-        if kwargs.has_key('log'):
-            log= kwargs['log']
-            kwargs.pop('log')
-        else:
-            log= True
+        log= kwargs.pop('log',True)
         dOmega, dangle= self.prepData4Call(*args,**kwargs)
         #Omega part
         dOmega4dfOmega= dOmega\
@@ -2091,14 +2069,11 @@ class streamdf:
     def _parse_call_args(self,*args,**kwargs):
         """Helper function to parse the arguments to the __call__ and related functions,
         return [6,nobj] array of frequencies (:3) and angles (3:)"""
-        if kwargs.has_key('interp'):
-            interp= kwargs['interp']
-        else:
-            interp= self._useInterp
+        interp= kwargs.get('interp',self._useInterp)
         if len(args) == 5:
             raise IOError("Must specify phi for streamdf")
         elif len(args) == 6:
-            if kwargs.has_key('aAInput') and kwargs['aAInput']:
+            if kwargs.get('aAInput',False):
                 if isinstance(args[0],(int,float,numpy.float32,numpy.float64)):
                     out= numpy.empty((6,1))
                 else:
@@ -2174,14 +2149,8 @@ class streamdf:
         gaussmean, gaussvar= self.gaussApprox(xy,**kwargs)
         cholvar, chollower= stable_cho_factor(gaussvar)
         #Now Gauss-legendre integrate over missing directions
-        if kwargs.has_key('ngl'):
-            ngl= kwargs['ngl']
-        else:
-            ngl= 5
-        if kwargs.has_key('nsigma'):
-            nsigma= kwargs['nsigma']
-        else:
-            nsigma= 3
+        ngl= kwargs.get('ngl',5)
+        nsigma= kwargs.get('nsigma',3)
         glx, glw= numpy.polynomial.legendre.leggauss(ngl)
         coordEval= []
         weightEval= []
@@ -2233,28 +2202,13 @@ class streamdf:
             jj+= 1
         iXw, iYw, iZw, ivXw, ivYw, ivZw=\
             numpy.meshgrid(*weightEval,indexing='ij')
-        if kwargs.has_key('lb') and kwargs['lb']: #Convert to Galactocentric cylindrical coordinates
+        if kwargs.get('lb',False): #Convert to Galactocentric cylindrical coordinates
             #Setup coordinate transformation kwargs
-            if not kwargs.has_key('Vnorm'):
-                Vnorm= self._Vnorm
-            else:
-                Vnorm= kwargs['Vnorm']
-            if not kwargs.has_key('Rnorm'):
-                Rnorm= self._Rnorm
-            else:
-                Rnorm= kwargs['Rnorm']
-            if not kwargs.has_key('R0'):
-                R0= self._R0
-            else:
-                R0= kwargs['R0']
-            if not kwargs.has_key('Zsun'):
-                Zsun= self._Zsun
-            else:
-                Zsun= kwargs['Zsun']
-            if not kwargs.has_key('vsun'):
-                vsun= self._vsun
-            else:
-                vsun= kwargs['vsun']
+            Vnorm= kwargs.get('Vnorm',self._Vnorm)
+            Rnorm= kwargs.get('Rnorm',self._Rnorm)
+            R0= kwargs.get('R0',self._R0)
+            Zsun= kwargs.get('Zsun',self._Zsun)
+            vsun= kwargs.get('vsun',self._vsun)
             tXYZ= bovy_coords.lbd_to_XYZ(iX.flatten(),iY.flatten(),
                                          iZ.flatten(),
                                          degree=True)
@@ -2286,13 +2240,10 @@ class streamdf:
                                             ivZ.flatten(),
                                             iR,iphi,iZ,cyl=True)
         #Add the additional Jacobian dXdY/dldb... if necessary
-        if kwargs.has_key('lb') and kwargs['lb']:
+        if kwargs.get('lb',False):
             #Find the nearest track point
-            if kwargs.has_key('interp'):
-                interp= kwargs['interp']
-            else:
-                interp= self._useInterp
-            if not kwargs.has_key('cindx'):
+            interp= kwargs.get('interp',self._useInterp)
+            if not 'cindx' in kwargs:
                 cindx= self._find_closest_trackpointLB(*xy,interp=interp,
                                                         usev=True)
             else:
@@ -2345,22 +2296,16 @@ class streamdf:
            2013-12-12 - Written - Bovy (IAS)
 
         """
-        if kwargs.has_key('interp'):
-            interp= kwargs['interp']
-        else:
-            interp= self._useInterp
-        if kwargs.has_key('lb'):
-            lb= kwargs['lb']
-        else:
-            lb= False
+        interp= kwargs.get('interp',self._useInterp)
+        lb= kwargs.get('lb',False)
         #What are we looking for
         coordGiven= numpy.array([not x is None for x in xy],dtype='bool')
         nGiven= numpy.sum(coordGiven)
         #First find the nearest track point
-        if not kwargs.has_key('cindx') and lb:
+        if not 'cindx' in kwargs and lb:
             cindx= self._find_closest_trackpointLB(*xy,interp=interp,
                                                   usev=True)
-        elif not kwargs.has_key('cindx') and not lb:
+        elif not 'cindx' in kwargs and not lb:
             cindx= self._find_closest_trackpoint(*xy,xy=True,interp=interp,
                                                   usev=True)
         else:
