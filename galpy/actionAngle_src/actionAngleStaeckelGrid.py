@@ -50,7 +50,7 @@ class actionAngleStaeckelGrid():
         self._pot= pot
         if delta is None:
             raise IOError("Must specify delta= for actionAngleStaeckelGrid")
-        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
+        if ext_loaded and 'c' in kwargs and kwargs['c']:
             self._c= True
         else:
             self._c= False
