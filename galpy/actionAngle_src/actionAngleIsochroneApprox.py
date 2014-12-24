@@ -252,7 +252,7 @@ class actionAngleIsochroneApprox():
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
                 lz= nu.sum(lzI*danglephiI,axis=1)/nu.sum(danglephiI,axis=1)
             else:
-                lz= R[:,len(ts)/2]*vT[:,len(ts)/2]
+                lz= R[:,len(ts)//2]*vT[:,len(ts)//2]
             #Now do an 'angle-fit'
             angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
             acfs7= nu.reshape(acfs[7],R.shape)
@@ -377,9 +377,9 @@ class actionAngleIsochroneApprox():
                 ts= self._tsJ[:-1]
             if type == 'jr':
                 if downsample:
-                    plotx= ts[::int(round(self._ntintJ/400))]
-                    ploty= jr[0,::int(round(self._ntintJ/400))]/jr[0,-1]
-                    plotz= anglerI[0,:-1:int(round(self._ntintJ/400))]
+                    plotx= ts[::int(round(self._ntintJ//400))]
+                    ploty= jr[0,::int(round(self._ntintJ//400))]/jr[0,-1]
+                    plotz= anglerI[0,:-1:int(round(self._ntintJ//400))]
                 else:
                     plotx= ts
                     ploty= jr[0,:]/jr[0,-1]
@@ -398,9 +398,9 @@ class actionAngleIsochroneApprox():
                                     **kwargs)
             elif type == 'lz':
                 if downsample:
-                    plotx= ts[::int(round(self._ntintJ/400))]
-                    ploty= lz[0,::int(round(self._ntintJ/400))]/lz[0,-1]
-                    plotz= anglephiI[0,:-1:int(round(self._ntintJ/400))]
+                    plotx= ts[::int(round(self._ntintJ//400))]
+                    ploty= lz[0,::int(round(self._ntintJ//400))]/lz[0,-1]
+                    plotz= anglephiI[0,:-1:int(round(self._ntintJ//400))]
                 else:
                     plotx= ts
                     ploty= lz[0,:]/lz[0,-1]
@@ -417,9 +417,9 @@ class actionAngleIsochroneApprox():
                                     **kwargs)
             elif type == 'jz':
                 if downsample:
-                    plotx= ts[::int(round(self._ntintJ/400))]
-                    ploty= jz[0,::int(round(self._ntintJ/400))]/jz[0,-1]
-                    plotz= anglezI[0,:-1:int(round(self._ntintJ/400))]
+                    plotx= ts[::int(round(self._ntintJ//400))]
+                    ploty= jz[0,::int(round(self._ntintJ//400))]/jz[0,-1]
+                    plotz= anglezI[0,:-1:int(round(self._ntintJ//400))]
                 else:
                     plotx= ts
                     ploty= jz[0,:]/jz[0,-1]
@@ -468,9 +468,9 @@ class actionAngleIsochroneApprox():
             crange= [vmin,vmax]
             if type == 'araz':
                 if downsample:
-                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
-                    ploty= angleZT[0,::int(round(self._ntintJ/400))]
-                    plotz= anglephiT[0,::int(round(self._ntintJ/400))]
+                    plotx= angleRT[0,::int(round(self._ntintJ//400))]
+                    ploty= angleZT[0,::int(round(self._ntintJ//400))]
+                    plotz= anglephiT[0,::int(round(self._ntintJ//400))]
                 else:
                     plotx= angleRT[0,:]
                     ploty= angleZT[0,:]
@@ -488,9 +488,9 @@ class actionAngleIsochroneApprox():
                                     **kwargs)           
             elif type == 'araphi':
                 if downsample:
-                    plotx= angleRT[0,::int(round(self._ntintJ/400))]
-                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
-                    plotz= angleZT[0,::int(round(self._ntintJ/400))]
+                    plotx= angleRT[0,::int(round(self._ntintJ//400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ//400))]
+                    plotz= angleZT[0,::int(round(self._ntintJ//400))]
                 else:
                     plotx= angleRT[0,:]
                     ploty= anglephiT[0,:]
@@ -508,9 +508,9 @@ class actionAngleIsochroneApprox():
                                     **kwargs)           
             elif type == 'azaphi':
                 if downsample:
-                    plotx= angleZT[0,::int(round(self._ntintJ/400))]
-                    ploty= anglephiT[0,::int(round(self._ntintJ/400))]
-                    plotz= angleRT[0,::int(round(self._ntintJ/400))]
+                    plotx= angleZT[0,::int(round(self._ntintJ//400))]
+                    ploty= anglephiT[0,::int(round(self._ntintJ//400))]
+                    plotz= angleRT[0,::int(round(self._ntintJ//400))]
                 else:
                     plotx= angleZT[0,:]
                     ploty= anglephiT[0,:]
