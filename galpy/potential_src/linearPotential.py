@@ -5,7 +5,7 @@ import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.potential_src.Potential import PotentialError
-class linearPotential:
+class linearPotential(object):
     """Class representing 1D potentials"""
     def __init__(self,amp=1.):
         self._amp= amp

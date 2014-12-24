@@ -8,7 +8,7 @@ import galpy.util.bovy_plot as plot
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
-class planarPotential:
+class planarPotential(object):
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.):
         self._amp= 1.

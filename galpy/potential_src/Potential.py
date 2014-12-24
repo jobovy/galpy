@@ -25,7 +25,7 @@ import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
-class Potential:
+class Potential(object):
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
         """
