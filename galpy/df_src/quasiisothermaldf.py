@@ -118,7 +118,7 @@ class quasiisothermaldf:
         self._glxdef2, self._glwdef2= \
             numpy.polynomial.legendre.leggauss(_DEFAULTNGL2)
         self._glxdef12, self._glwdef12= \
-            numpy.polynomial.legendre.leggauss(_DEFAULTNGL/2)
+            numpy.polynomial.legendre.leggauss(_DEFAULTNGL//2)
         return None
 
     def __call__(self,*args,**kwargs):
@@ -484,7 +484,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1411,7 +1411,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1479,7 +1479,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1561,7 +1561,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1695,7 +1695,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1757,7 +1757,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
@@ -1818,7 +1818,7 @@ class quasiisothermaldf:
                 glx12, glw12= self._glxdef, self._glwdef
             else:
                 glx, glw= numpy.polynomial.legendre.leggauss(ngl)
-                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl/2)
+                glx12, glw12= numpy.polynomial.legendre.leggauss(ngl//2)
             #Evaluate everywhere
             vTgl= 1.5/2.*(glx+1.)
             vTglw= glw
