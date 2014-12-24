@@ -33,9 +33,9 @@ class actionAngleIsochrone():
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('b') and not kwargs.has_key('ip'): #pragma: no cover
+        if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
-        if kwargs.has_key('ip'):
+        if 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
@@ -47,8 +47,8 @@ class actionAngleIsochrone():
             self.amp= (self.b+rb)**2.*rb
         self._c= False
         ext_loaded= False
-        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')): #pragma: no cover
+        if ext_loaded and (('c' in kwargs and kwargs['c'])
+                           or not 'c' in kwargs): #pragma: no cover
             self._c= True
         else:
             self._c= False
