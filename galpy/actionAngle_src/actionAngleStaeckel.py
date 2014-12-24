@@ -19,9 +19,9 @@ from galpy.potential import evaluatePotentials, evaluateRforces, \
     epifreq, omegac, verticalfreq
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
-from actionAngle import actionAngle, UnboundError
-import actionAngleStaeckel_c
-from actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
+import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
+from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 class actionAngleStaeckel():
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""

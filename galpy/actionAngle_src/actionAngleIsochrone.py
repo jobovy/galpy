@@ -13,7 +13,7 @@
 ###############################################################################
 import copy
 import numpy as nu
-from actionAngle import actionAngle
+from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential
 class actionAngleIsochrone():
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
