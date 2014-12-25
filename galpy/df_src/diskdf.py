@@ -32,6 +32,7 @@ from scipy import optimize
 from galpy.df_src.surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
+from galpy.util import save_pickles
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
 #scipy version
@@ -2211,12 +2212,10 @@ class DFcorrection(object):
                 #print(jj, newcorrections[jj,:])
             corrections*= newcorrections
         #Save
-        savefile= open(self._savefilename,'w')
         picklethis= []
         for arr in list(corrections):
             picklethis.append([float(a) for a in arr])
-        pickle.dump(picklethis,savefile)#We pickle a list for platform-independence
-        savefile.close()
+        save_pickles(self._savefilename,picklethis) #We pickle a list for platform-independence)
         return corrections
     
 class DFcorrectionError(Exception):
