@@ -1,7 +1,6 @@
 language: python
 python:
   - "2.7"
-  - "3.4"
 #env: #Doesn't seem to work terribly well
 #  - CC=gcc
 #  - CC=clang LDSHARED=clang
@@ -13,8 +12,8 @@ env: #split tests
    - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
-virtualenv:
-  system_site_packages: true
+#virtualenv:
+#  system_site_packages: true
 before_install:
  - sudo apt-get update
  - sudo apt-get install libgsl0-dev
