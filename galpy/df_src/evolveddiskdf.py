@@ -25,7 +25,7 @@ from galpy.util import bovy_plot
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 _NAN= nu.nan
-class evolveddiskdf:
+class evolveddiskdf(object):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
         """
@@ -1940,7 +1940,7 @@ class evolveddiskdf:
         rather unnecessary""" 
         return grid(n,m)       
         
-class evolveddiskdfGrid:
+class evolveddiskdfGrid(object):
     """(not quite) Empty class since it is only used to store some stuff"""
     def __init__(self):
         return None
@@ -1972,7 +1972,7 @@ class evolveddiskdfGrid:
                               xlabel=r'$v_R / v_0$',
                               ylabel=r'$v_T / v_0$')
 
-class evolveddiskdfHierarchicalGrid:
+class evolveddiskdfHierarchicalGrid(object):
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
                  gridpoints,nlevels,deriv,upperdxdy=None,print_progress=False,

@@ -32,7 +32,7 @@ _labelDict= {'x': r'$X$',
              'pmll':r'$\mu_l\,(\mathrm{mas\,yr}^{-1})$',
              'pmbb':r'$\mu_b\,(\mathrm{mas\,yr}^{-1})$',
              'vlos':r'$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$'}
-class streamdf:
+class streamdf(object):
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,

@@ -42,7 +42,7 @@ except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= math.pi/180.
-class diskdf:
+class diskdf(object):
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
                  surfaceSigma=expSurfaceSigmaProfile,
@@ -2013,7 +2013,7 @@ def bovy_dblquad(func, a, b, gfun, hfun, args=(), tol=1.48e-08):
     return integrate.romberg(_oned_intFunc,a,b,args=(func,gfun,hfun,tol,args),tol=tol)
 
 
-class DFcorrection:
+class DFcorrection(object):
     """Class that contains the corrections necessary to reach
     exponential profiles"""
     def __init__(self,**kwargs):

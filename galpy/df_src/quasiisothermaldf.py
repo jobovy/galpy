@@ -12,7 +12,7 @@ from galpy.util import galpyWarning
 _NSIGMA=4
 _DEFAULTNGL=10
 _DEFAULTNGL2=20
-class quasiisothermaldf:
+class quasiisothermaldf(object):
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
                  cutcounter=False,
