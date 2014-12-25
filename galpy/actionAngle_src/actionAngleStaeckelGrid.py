@@ -19,7 +19,7 @@ from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loade
 import galpy.potential
 from galpy.util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
-class actionAngleStaeckelGrid():
+class actionAngleStaeckelGrid(object):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
                  nE=25,npsi=25,nLz=30,numcores=1,

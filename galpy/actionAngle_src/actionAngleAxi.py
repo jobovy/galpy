@@ -23,7 +23,7 @@ from galpy.potential_src.planarPotential import evaluateplanarRforces,\
 from galpy.potential_src.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
-class actionAngleAxi(actionAngle,actionAngleVertical):
+class actionAngleAxi(actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
         """

@@ -19,7 +19,7 @@ from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.potential
 from galpy.util import multi
 _PRINTOUTSIDEGRID= False
-class actionAngleAdiabaticGrid():
+class actionAngleAdiabaticGrid(object):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
     def __init__(self,pot=None,zmax=1.,gamma=1.,Rmax=5.,
                  nR=16,nEz=16,nEr=31,nLz=31,numcores=1,

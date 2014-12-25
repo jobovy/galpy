@@ -23,7 +23,7 @@ from galpy.potential import IsochronePotential
 from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
-class actionAngleIsochroneApprox():
+class actionAngleIsochroneApprox(object):
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
         """
