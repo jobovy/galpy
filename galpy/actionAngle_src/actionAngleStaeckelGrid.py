@@ -112,9 +112,9 @@ class actionAngleStaeckelGrid(object):
                                         range(nE*nLz),
                                         numcores=numcores)
             else:
-                mu0= map((lambda x: self.calcu0(thisE[x],
-                                                thisLzs[x])),
-                         range(nE*nLz))
+                mu0= list(map((lambda x: self.calcu0(thisE[x],
+                                                     thisLzs[x])),
+                              range(nE*nLz)))
         u0= numpy.reshape(mu0,(nLz,nE))
         thisR= self._delta*numpy.sinh(u0)
         thisv= numpy.reshape(self.vatu0(thisE.flatten(),thisLzs.flatten(),
