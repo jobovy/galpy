@@ -358,7 +358,7 @@ class Orbit(object):
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        sortindx = range(len(self._orb.t))
+        sortindx = list(range(len(self._orb.t)))
         sortindx.sort(key=lambda x: self._orb.t[x],reverse=True)
         for ii in range(self._orb.orbit.shape[1]):
             self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
