@@ -1,5 +1,6 @@
 import os
 import sys
+import sysconfig
 import copy
 import ctypes
 import ctypes.util
@@ -14,11 +15,16 @@ _DEBUG= False
 #Find and load the library
 _lib= None
 outerr= None
+PY3= sys.version > '3'
+if PY3:
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix))
     except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_interppotential_c.so')): #pragma: no cover
+        if os.path.exists(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
@@ -28,7 +34,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c.so image was not found",
+        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     ext_loaded= False
 else:
