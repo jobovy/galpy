@@ -1,6 +1,7 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
+import sysconfig
 import os, os.path
 import subprocess
 import glob
@@ -250,9 +251,15 @@ if num_gsl_warn > 0:
 print('\033[1m'+'Finished installing galpy'+'\033[0m')
 print('You can run the test suite using `nosetests -v -w nose/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
 
-#if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so
+#if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so (use EXT_SUFFIX for python3 compatibility)
+if PY3:
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 if single_ext:
-    if not os.path.exists('galpy_actionAngle_c.so'):
-        os.symlink('galpy_integrate_c.so','galpy_actionAngle_c.so')
-    if not os.path.exists('galpy_interppotential_c.so'):
-        os.symlink('galpy_integrate_c.so','galpy_interppotential_c.so')
+    if not os.path.exists('galpy_actionAngle_c%s' % _ext_suffix):
+        os.symlink('galpy_integrate_c%s' % _ext_suffix,
+                   'galpy_actionAngle_c%s' % _ext_suffix)
+    if not os.path.exists('galpy_interppotential_c%s' % _ext_suffix):
+        os.symlink('galpy_integrate_c%s',
+                   'galpy_interppotential_c%s' % _ext_suffix)
