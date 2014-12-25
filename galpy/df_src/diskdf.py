@@ -29,7 +29,7 @@ import scipy.interpolate as interpolate
 from scipy import linalg
 from scipy import stats
 from scipy import optimize
-from surfaceSigmaProfile import *
+from galpy.df_src.surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.potential import PowerSphericalPotential
