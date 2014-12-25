@@ -261,5 +261,5 @@ if single_ext:
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_actionAngle_c%s' % _ext_suffix)
     if not os.path.exists('galpy_interppotential_c%s' % _ext_suffix):
-        os.symlink('galpy_integrate_c%s',
+        os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_interppotential_c%s' % _ext_suffix)
