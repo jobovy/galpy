@@ -10,7 +10,7 @@ import math as m
 import numpy
 from scipy import special, optimize
 from galpy.util import bovy_conversion
-from Potential import kms_to_kpcGyrDecorator, Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models

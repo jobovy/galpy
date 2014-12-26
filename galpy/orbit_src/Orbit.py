@@ -1,12 +1,13 @@
 import numpy as nu
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from FullOrbit import FullOrbit
-from RZOrbit import RZOrbit
-from planarOrbit import planarOrbit, planarROrbit, planarOrbitTop
-from linearOrbit import linearOrbit
+from galpy.orbit_src.FullOrbit import FullOrbit
+from galpy.orbit_src.RZOrbit import RZOrbit
+from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
+    planarOrbitTop
+from galpy.orbit_src.linearOrbit import linearOrbit
 _K=4.74047
-class Orbit:
+class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
                  radec=False,vo=None,ro=None,zo=0.025,
@@ -357,9 +358,8 @@ class Orbit:
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        sortindx = range(len(self._orb.t))
-        sortindx.sort(lambda x,y: cmp(self._orb.t[x],self._orb.t[y]),
-                      reverse=True)
+        sortindx = list(range(len(self._orb.t)))
+        sortindx.sort(key=lambda x: self._orb.t[x],reverse=True)
         for ii in range(self._orb.orbit.shape[1]):
             self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
         return None
@@ -3168,16 +3168,3 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                self._orb.vxvv[0],self._orb.vxvv[1],
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
-
-    #4 pickling
-    def __getinitargs__(self):
-        if self._orb._roSet:
-            iro= self._orb._ro
-        else:
-            iro= None
-        if self._orb._voSet:
-            ivo= self._orb._vo
-        else:
-            ivo= None
-        return (self._orb.vxvv,False,False,False,ivo,iro,
-                self._orb._zo,self._orb._solarmotion)

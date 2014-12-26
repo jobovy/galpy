@@ -1,19 +1,16 @@
 language: python
 python:
   - "2.7"
-#env: #Doesn't seem to work terribly well
-#  - CC=gcc
-#  - CC=clang LDSHARED=clang
+  - "3.4"
+#  - "3.3"
 env: #split tests
    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo'
    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
+   - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
-virtualenv:
-  system_site_packages: true
 before_install:
  - sudo apt-get update
  - sudo apt-get install libgsl0-dev
@@ -27,12 +24,6 @@ before_install:
  - conda update -q conda
  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip
  - source activate test-environment
-# - pip uninstall -y numpy #uninstall numpy from virtualenv
-# - sudo dpkg -r --force-depends python-numpy #because this is 1.6.1
-# - sudo dpkg -r --force-depends python-scipy #because this is old
-# - pip install numpy>=1.7
-# - pip install -v scipy>=0.14
-# - sudo apt-get install -qq python-matplotlib
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 #Download corrections for some tests
@@ -54,8 +45,7 @@ after_success:
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
- - coveralls-merge coverage.c.json
-# - coveralls
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then coveralls-merge coverage.c.json; fi
 notifications:
   email:
     recipients:

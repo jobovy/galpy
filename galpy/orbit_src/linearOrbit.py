@@ -1,6 +1,6 @@
 import numpy as nu
 from scipy import integrate
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.linearPotential import evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
@@ -74,16 +74,15 @@ class linearOrbit(OrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:

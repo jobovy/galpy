@@ -2,7 +2,7 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 class BurkertPotential(Potential):
     """BurkertPotential.py: Potential with a Burkert density
 

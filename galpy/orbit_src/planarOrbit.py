@@ -5,7 +5,7 @@ from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials
@@ -94,9 +94,9 @@ class planarOrbitTop(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
             OmegaP= 1.
-            if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
                     pot= self._pot
                 except AttributeError:
@@ -111,11 +111,9 @@ class planarOrbitTop(OrbitTop):
             else:
                 if hasattr(pot,'OmegaP'):
                     OmegaP= pot.OmegaP()
-            if kwargs.has_key('OmegaP'):
-                kwargs.pop('OmegaP')         
+            kwargs.pop('OmegaP',None)
         else:
-            OmegaP= kwargs['OmegaP']
-            kwargs.pop('OmegaP')
+            OmegaP= kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -264,16 +262,15 @@ class planarROrbit(planarOrbitTop):
            2010-09-15 - Written - Bovy (NYU)
            2011-04-18 - Added t - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):
@@ -418,16 +415,15 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):

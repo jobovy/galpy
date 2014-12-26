@@ -13,17 +13,19 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
+from __future__  import division, print_function
+
 import os, os.path
-import cPickle as pickle
+import pickle
 from functools import wraps
 import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
-from plotRotcurve import plotRotcurve, vcirc
-from plotEscapecurve import plotEscapecurve, _INF
-class Potential:
+from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
+from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
+class Potential(object):
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
         """
@@ -587,7 +589,7 @@ class Potential:
            planarPotential
         HISTORY
         """
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         return RZToplanarPotential(self)
 
     def toVertical(self,R):
@@ -602,7 +604,7 @@ class Potential:
            linear (vertical) potential
         HISTORY
         """
-        from verticalPotential import RZToverticalPotential
+        from galpy.potential import RZToverticalPotential
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -661,7 +663,7 @@ class Potential:
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -684,7 +686,7 @@ class Potential:
             potRz[:,zs < zmin]= nu.nan
             potRz[:,zs > zmax]= nu.nan
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1512,7 +1514,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         if not savefilename == None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -1527,7 +1529,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     potRz[ii,jj]= evaluatePotentials(nu.fabs(Rs[ii]),
                                                      zs[jj],Pot)
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1586,7 +1588,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            2013-07-05 - Written - Bovy (IAS)
         """
         if not savefilename == None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -1601,7 +1603,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     potRz[ii,jj]= evaluateDensities(nu.fabs(Rs[ii]),
                                                     zs[jj],Pot)
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1650,12 +1652,12 @@ def epifreq(Pot,R):
     from galpy.potential_src.planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R)
-    from planarPotential import evaluateplanarRforces, evaluateplanarR2derivs
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from galpy.potential import PotentialError
     try:
         return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
 
@@ -1903,11 +1905,11 @@ def omegac(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarRforces
+    from galpy.potential import evaluateplanarRforces
     try:
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 

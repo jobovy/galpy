@@ -45,8 +45,13 @@ DOCUMENTATION
 
 The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
 
-DEPENDENCIES
--------------
+PYTHON VERSIONS AND DEPENDENCIES
+---------------------------------
+
+``galpy`` supports both Python 2 and 3. Specifically, galpy supports
+Python 2.7 and Python 3.3 and 3.4. It may also work on earlier Python
+3.* versions, but this has not been tested. Travis CI builds regularly
+check support for Python 2.7 and 3.4.
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy <http://www.scipy.org/>`__, and `Matplotlib <http://matplotlib.sourceforge.net/>`__. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`__)
 

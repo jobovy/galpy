@@ -452,25 +452,16 @@ def physical_conversion(quantity,pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
-            if kwargs.has_key('use_physical'):
-                use_physical= kwargs['use_physical']
-            else:
-                use_physical= True
-            if kwargs.has_key('ro'):
-                ro= kwargs['ro']
-            elif hasattr(args[0],'_roSet') and args[0]._roSet:
+            use_physical= kwargs.get('use_physical',True)
+            ro= kwargs.get('ro',None)
+            if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
-            else:
-                ro= None
-            if kwargs.has_key('vo'):
-                vo= kwargs['vo']
-            elif hasattr(args[0],'_voSet') and args[0]._voSet:
+            vo= kwargs.get('vo',None)
+            if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
                 vo= args[0]._vo
-            else:
-                vo= None
             #Remove ro and vo kwargs if necessary
-            if pop and kwargs.has_key('ro'): kwargs.pop('ro')
-            if pop and kwargs.has_key('vo'): kwargs.pop('vo')
+            if pop and 'ro' in kwargs: kwargs.pop('ro')
+            if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and \
                     not (_voNecessary[quantity.lower()] and vo is None) and \
                     not (_roNecessary[quantity.lower()] and ro is None):

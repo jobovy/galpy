@@ -1,6 +1,7 @@
+from __future__ import print_function, division
+import os
 import numpy
 from test_streamdf import expected_failure
-import os
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Basic sanity checking of the actionAngleIsochrone actions

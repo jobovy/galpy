@@ -1,4 +1,5 @@
 import sys
+import sysconfig
 import warnings
 import numpy as nu
 import ctypes
@@ -10,11 +11,16 @@ from galpy.util import galpyWarning
 #Find and load the library
 _lib= None
 outerr= None
+PY3= sys.version > '3'
+if PY3: #pragma: no cover
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError, e:
-        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+    except OSError as e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
@@ -24,7 +30,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("integratePlanarOrbit_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("integratePlanarOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+        warnings.warn("integratePlanarOrbit_c extension module not loaded, because galpy_integrate_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     _ext_loaded= False
 else:

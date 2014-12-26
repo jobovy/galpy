@@ -1,7 +1,8 @@
 ##############################TESTS ON ORBITS##################################
+from __future__ import print_function, division
+import os
 import sys
 import numpy
-import os
 from galpy import potential
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -83,9 +84,9 @@ def test_energy_jacobi_conservation():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
-        if p in jactol.keys(): tjactol= jactol[p]
+        if p in list(jactol.keys()): tjactol= jactol[p]
         else: tjactol= jactol['default']
         try:
             tclass= getattr(potential,p)
@@ -348,7 +349,7 @@ def test_energy_symplec_longterm():
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
         for integrator in integrators:
-            if integrator in tol.keys(): ttol= tol[integrator]
+            if integrator in list(tol.keys()): ttol= tol[integrator]
             else: ttol= tol['default']
             o= setup_orbit_energy(tp)
             o.integrate(times,tp,method=integrator)
@@ -405,7 +406,7 @@ def test_liouville_planar():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -502,7 +503,7 @@ def test_eccentricity():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -617,7 +618,7 @@ def test_pericenter():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -733,7 +734,7 @@ def test_apocenter():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -847,7 +848,7 @@ def test_zmax():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -954,7 +955,7 @@ def test_analytic_ecc_rperi_rap():
     tol['KeplerPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         if p == 'MWPotential':
             tp= potential.MWPotential
@@ -1150,7 +1151,7 @@ def test_analytic_zmax():
     tol['testMWPotential']= -6. #these are more difficult
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         if p == 'MWPotential':
             tp= potential.MWPotential

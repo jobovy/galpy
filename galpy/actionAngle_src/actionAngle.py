@@ -1,5 +1,5 @@
 import math as m
-class actionAngle:
+class actionAngle(object):
     """Top-level class for actionAngle classes"""
     def __init__(self,*args,**kwargs):
         """

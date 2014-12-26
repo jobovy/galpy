@@ -6,7 +6,7 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
-class OrbitTop:
+class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
                  solarmotion=nu.array([-10.1,4.0,6.7])):
@@ -905,7 +905,7 @@ class OrbitTop:
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
     def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
-        if kwargs.has_key('obs'):
+        if 'obs' in kwargs:
             obs= kwargs['obs']
             if not dontpop:
                 kwargs.pop('obs')
@@ -921,13 +921,13 @@ class OrbitTop:
                       self._solarmotion[2]]
             else:
                 obs= [self._ro,0.,self._zo]
-        if kwargs.has_key('ro'):
+        if 'ro' in kwargs:
             ro= kwargs['ro']
             if not dontpop:
                 kwargs.pop('ro')
         else:
             ro= self._ro
-        if kwargs.has_key('vo'):
+        if 'vo' in kwargs:
             vo= kwargs['vo']
             if not dontpop:
                 kwargs.pop('vo')
@@ -969,14 +969,8 @@ class OrbitTop:
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
-        if kwargs.has_key('Omega'):
-            Omega= kwargs['Omega']
-            kwargs.pop('Omega')
-        else:
-            Omega= None
-        if kwargs.has_key('t'):
-            t= kwargs['t']
-            kwargs.pop('t')
+        Omega= kwargs.pop('Omega',None)
+        t= kwargs.pop('t',None)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) < 3:
@@ -1192,7 +1186,7 @@ class OrbitTop:
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
-                (not kwargs.has_key('use_physical') \
+                (not 'use_physical' in kwargs \
                      and kwargs.get('ro',self._roSet)):
             labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
@@ -1236,7 +1230,7 @@ class OrbitTop:
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
         #Defaults
-        if not kwargs.has_key('d1') and not kwargs.has_key('d2'):
+        if not 'd1' in kwargs and not 'd2' in kwargs:
             if len(self.vxvv) == 3:
                 d1= 'R'
                 d2= 'vR'
@@ -1249,19 +1243,15 @@ class OrbitTop:
             elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
                 d1= 'R'
                 d2= 'z'
-        elif not kwargs.has_key('d1'):
-            d2= kwargs['d2']
-            kwargs.pop('d2')
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
             d1= 't'
-        elif not kwargs.has_key('d2'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
             d2= 't'
         else:
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-            d2= kwargs['d2']
-            kwargs.pop('d2')
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
         #Get x and y
         if d1 == 't':
             x= self.time(self.t,**kwargs)
@@ -1403,16 +1393,16 @@ class OrbitTop:
             y= self.Jacobi(self.t,**kwargs)
         elif d2 == 'Jacobinorm':
             y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-        if kwargs.has_key('ro'): kwargs.pop('ro')
-        if kwargs.has_key('vo'): kwargs.pop('vo')
-        if kwargs.has_key('obs'): kwargs.pop('obs')
-        if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
-        if kwargs.has_key('pot'): kwargs.pop('pot')
-        if kwargs.has_key('OmegaP'): kwargs.pop('OmegaP')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
         #Plot
-        if not kwargs.has_key('xlabel'):
+        if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
+        if not 'ylabel' in kwargs:
             kwargs['ylabel']= labeldict[d2]
         plot.bovy_plot(x,y,*args,**kwargs)
 
@@ -1439,7 +1429,7 @@ class OrbitTop:
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
-                (not kwargs.has_key('use_physical') \
+                (not 'use_physical' in kwargs \
                      and kwargs.get('ro',self._roSet)):
             labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
                         'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
@@ -1470,8 +1460,7 @@ class OrbitTop:
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
         #Defaults
-        if not kwargs.has_key('d1') and not kwargs.has_key('d2') \
-                and not kwargs.has_key('d3'):
+        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
             if len(self.vxvv) == 3:
                 d1= 'R'
                 d2= 'vR'
@@ -1490,16 +1479,12 @@ class OrbitTop:
                 d1= 'x'
                 d2= 'y'
                 d3= 'z'
-        elif not (kwargs.has_key('d1') and kwargs.has_key('d2') \
-                      and kwargs.has_key('d3')):
+        elif not ('d1' in kwargs and 'd2' in kwargs and 'd3' in kwargs):
             raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
         else:
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-            d2= kwargs['d2']
-            kwargs.pop('d2')
-            d3= kwargs['d3']
-            kwargs.pop('d3')
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+            d3= kwargs.pop('d3')
         #Get x, y, and z
         if d1 == 't':
             x= self.time(self.t,**kwargs)
@@ -1663,16 +1648,16 @@ class OrbitTop:
             z= self.V(self.t,**kwargs)
         elif d3 == 'W':
             z= self.W(self.t,**kwargs)
-        if kwargs.has_key('ro'): kwargs.pop('ro')
-        if kwargs.has_key('vo'): kwargs.pop('vo')
-        if kwargs.has_key('obs'): kwargs.pop('obs')
-        if kwargs.has_key('use_physical'): kwargs.pop('use_physical')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
         #Plot
-        if not kwargs.has_key('xlabel'):
+        if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
+        if not 'ylabel' in kwargs:
             kwargs['ylabel']= labeldict[d2]
-        if not kwargs.has_key('zlabel'):
+        if not 'zlabel' in kwargs:
             kwargs['zlabel']= labeldict[d3]
         plot.bovy_plot3d(x,y,z,*args,**kwargs)
 
@@ -1849,11 +1834,10 @@ class OrbitTop:
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'Enorm'
         else:
             kwargs['d2']= 'E'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def plotJacobi(self,*args,**kwargs):
@@ -1869,11 +1853,10 @@ class OrbitTop:
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'Jacobinorm'
         else:
             kwargs['d2']= 'Jacobi'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def _setupOrbitInterp(self):
@@ -1904,7 +1887,7 @@ class OrbitTop:
         return None
 
 
-class _fakeInterp: 
+class _fakeInterp(object): 
     """Fake class to simulate interpolation when orbit was not integrated"""
     def __init__(self,x):
         self.x= x

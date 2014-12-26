@@ -1,5 +1,5 @@
 import scipy as sc
-from linearPotential import linearPotential
+from galpy.potential_src.linearPotential import linearPotential
 class KGPotential(linearPotential):
     """Class representing the Kuijken & Gilmore (1989) potential
 

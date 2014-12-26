@@ -16,12 +16,12 @@ import math as m
 import numpy as nu
 from galpy.util import galpyWarning
 from galpy.potential import planarPotential
-from actionAngleAxi import actionAngleAxi
-from actionAngle import actionAngle
-import actionAngleAdiabatic_c
-from actionAngleAdiabatic_c import _ext_loaded as ext_loaded
+from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
+from galpy.actionAngle_src.actionAngle import actionAngle
+import galpy.actionAngle_src.actionAngleAdiabatic_c as actionAngleAdiabatic_c
+from galpy.actionAngle_src.actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
-class actionAngleAdiabatic():
+class actionAngleAdiabatic(object):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
         """
@@ -38,19 +38,16 @@ class actionAngleAdiabatic():
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
-        if ext_loaded and kwargs.has_key('c') and kwargs['c']:
+        if ext_loaded and 'c' in kwargs and kwargs['c']:
             self._c= _check_c(self._pot)
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if 'c' in kwargs and kwargs['c'] and not self._c:
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
-        if kwargs.has_key('gamma'):
-            self._gamma= kwargs['gamma']
-        else:
-            self._gamma= 1.
+        self._gamma= kwargs.get('gamma',1.)
         return None
     
     def __call__(self,*args,**kwargs):
@@ -71,8 +68,8 @@ class actionAngleAdiabatic():
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -99,9 +96,9 @@ class actionAngleAdiabatic():
             else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if 'c' in kwargs and kwargs['c'] and not self._c:
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
-            if kwargs.has_key('c'): kwargs.pop('c')
+            kwargs.pop('c',None)
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
                 ojr= nu.zeros((len(args[0])))

@@ -3,7 +3,7 @@ try:
     _PYNBODYENABLED= True
 except ImportError:
     _PYNBODYENABLED= False
-class GadgetSnapshot:
+class GadgetSnapshot(object):
     """Snapshot coming out of gadget"""
     def __init__(self,*args,**kwargs):
         """

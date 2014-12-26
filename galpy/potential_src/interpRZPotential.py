@@ -1,5 +1,6 @@
 import os
 import sys
+import sysconfig
 import copy
 import ctypes
 import ctypes.util
@@ -9,16 +10,21 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 from galpy.util import multi, galpyWarning
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 _DEBUG= False
 #Find and load the library
 _lib= None
 outerr= None
+PY3= sys.version > '3'
+if PY3: #pragma: no cover
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c.so'))
-    except OSError,e:
-        if os.path.exists(os.path.join(path,'galpy_interppotential_c.so')): #pragma: no cover
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix))
+    except OSError as e:
+        if os.path.exists(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
@@ -28,7 +34,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c.so image was not found",
+        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     ext_loaded= False
 else:
@@ -252,7 +258,7 @@ class interpRZPotential(Potential):
             from galpy.potential import vcirc
             if not numcores is None:
                 self._vcircGrid= multi.parallel_map((lambda x: vcirc(self._origPot,self._rgrid[x])),
-                                                    range(len(self._rgrid)),numcores=numcores)
+                                                    list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._vcircGrid= numpy.array([vcirc(self._origPot,r) for r in self._rgrid])
             if self._logR:
@@ -263,7 +269,7 @@ class interpRZPotential(Potential):
             from galpy.potential import dvcircdR
             if not numcores is None:
                 self._dvcircdrGrid= multi.parallel_map((lambda x: dvcircdR(self._origPot,self._rgrid[x])),
-                                                       range(len(self._rgrid)),numcores=numcores)
+                                                       list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._dvcircdrGrid= numpy.array([dvcircdR(self._origPot,r) for r in self._rgrid])
             if self._logR:
@@ -274,7 +280,7 @@ class interpRZPotential(Potential):
             from galpy.potential import epifreq
             if not numcores is None:
                 self._epifreqGrid= numpy.array(multi.parallel_map((lambda x: epifreq(self._origPot,self._rgrid[x])),
-                                                      range(len(self._rgrid)),numcores=numcores))
+                                                      list(range(len(self._rgrid))),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
             indx= True-numpy.isnan(self._epifreqGrid)
@@ -292,7 +298,7 @@ class interpRZPotential(Potential):
             from galpy.potential import verticalfreq
             if not numcores is None:
                 self._verticalfreqGrid= multi.parallel_map((lambda x: verticalfreq(self._origPot,self._rgrid[x])),
-                                                       range(len(self._rgrid)),numcores=numcores)
+                                                       list(range(len(self._rgrid))),numcores=numcores)
             else:
                 self._verticalfreqGrid= numpy.array([verticalfreq(self._origPot,r) for r in self._rgrid])
             if self._logR:
