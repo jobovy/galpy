@@ -1209,13 +1209,13 @@ def test_nemoaccparss():
     pp= potential.PowerSphericalPotentialwCutoff(amp=3.,alpha=4.,rc=5.)
     vo, ro= 7., 9.
     vo/= 1.0227121655399913
-    ap= mp.nemo_accpars(vo,ro).split(',')
+    ap= potential.nemo_accpars(mp,vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     # PowSpherwCut
-    ap= pp.nemo_accpars(vo,ro).split(',')
+    ap= potential.nemo_accpars(pp,vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
