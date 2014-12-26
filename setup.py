@@ -115,8 +115,9 @@ if single_ext: #add the code and libraries for the other extensions
     orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
     orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
     #libraries
-    orbit_libraries.extend(pot_libraries)
-    orbit_libraries= list(set(orbit_libraries))
+    for lib in pot_libraries:
+        if not lib in orbit_libraries:
+            orbit_libraries.append(lib)
     #includes
     orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
                                'galpy/util/interp_2d',
@@ -128,13 +129,10 @@ if single_ext: #add the code and libraries for the other extensions
                                'galpy/orbit_src/orbit_c_ext',
                                'galpy/potential_src/interppotential_c_ext'])
     orbit_include_dirs= list(set(orbit_include_dirs))
-    #Specify link libraries directly
-    orbit_libraries= list(set(orbit_libraries))
-    for lib in orbit_libraries: extra_link_args.append(' -l%s' % lib)
 
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
-#                       libraries=orbit_libraries,
+                       libraries=orbit_libraries,
                        include_dirs=orbit_include_dirs,
                        extra_compile_args=extra_compile_args,
                        extra_link_args=extra_link_args)
