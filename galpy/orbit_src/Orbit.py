@@ -3168,16 +3168,3 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                self._orb.vxvv[0],self._orb.vxvv[1],
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
-
-    #4 pickling
-    def __getinitargs__(self):
-        if self._orb._roSet:
-            iro= self._orb._ro
-        else:
-            iro= None
-        if self._orb._voSet:
-            ivo= self._orb._vo
-        else:
-            ivo= None
-        return (self._orb.vxvv,False,False,False,ivo,iro,
-                self._orb._zo,self._orb._solarmotion)
