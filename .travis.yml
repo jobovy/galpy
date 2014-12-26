@@ -56,7 +56,7 @@ after_success:
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
- - coveralls-merge coverage.c.json
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then coveralls-merge coverage.c.json; fi
 # - coveralls
 notifications:
   email:
