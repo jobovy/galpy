@@ -322,7 +322,7 @@ class actionAngleStaeckelSingle(actionAngle):
         self._E= EL[0]
         self._Lz= EL[1]
         #Determine umin and umax
-        self._u0= self._ux #u0 as defined by Binney does not matter for a 
+        self._u0= kwargs.pop('u0',self._ux) #u0 as defined by Binney does not matter for a 
         #single action evaluation, so we don't determine it here
         self._sinhu0= nu.sinh(self._u0)
         self._potu0v0= potentialStaeckel(self._u0,self._vx,
