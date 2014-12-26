@@ -221,8 +221,9 @@ setup(name='galpy',
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 2 :: Only",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
