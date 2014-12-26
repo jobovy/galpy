@@ -1,7 +1,11 @@
 v1.1 (XXXX-XX-XX)
 ==================
 
-Current development version, last updated 12/20/2014:
+Current development version, last updated 12/26/2014:
+
+- Added Python 3 support: in particular, Python 3.3 and 3.4 are now
+  supported; earlier 3.* may also work, but haven't been
+  tested. Python 2 and 3 are supported using a single common codebase.
 
 - Add support for converting potential parameters to NEMO format and
   units: nemo_accname and nemo_accpars (both instance and general
