@@ -3,6 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. ifconfig:: not_on_rtd
+
+   .. WARNING:: You are looking at the rarely updated, GitHub version of this documentation, **please go to** `galpy.readthedocs.org <http://galpy.readthedocs.org>`_ **for the latest documentation**.
+
 Welcome to galpy's documentation
 =================================
 
