@@ -1610,7 +1610,7 @@ def test_toLinear():
     from galpy.orbit import Orbit
     obs= Orbit([1.,0.1,1.1,0.3,0.,2.])
     obsl= obs.toLinear()
-    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
     assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
     obs= Orbit([1.,0.1,1.1,0.3,0.])
@@ -2227,6 +2227,22 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     return numpy.array(out)
 
 # Check plotting routines
+def test_MWPotential_warning():
+    # Test that using MWPotential throws a warning, see #229
+    ts= numpy.linspace(0.,100.,1001)
+    o= setup_orbit_energy(potential.MWPotential,axi=False)
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        o.integrate(ts,potential.MWPotential)
+    except: pass
+    else:
+        raise AssertionError("Orbit integration with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential

@@ -1,6 +1,8 @@
+import warnings
 import numpy as nu
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
+from galpy.util import galpyWarning
 from galpy.orbit_src.FullOrbit import FullOrbit
 from galpy.orbit_src.RZOrbit import RZOrbit
 from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
@@ -285,6 +287,10 @@ class Orbit(object):
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        from galpy.potential import MWPotential
+        if pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
         self._orb.integrate(t,pot,method=method)
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
