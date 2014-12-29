@@ -47,7 +47,7 @@ class actionAngleStaeckel(object):
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
         if self._pot == MWPotential:
-            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         if not 'delta' in kwargs: #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")

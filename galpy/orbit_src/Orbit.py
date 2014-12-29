@@ -289,7 +289,7 @@ class Orbit(object):
         """
         from galpy.potential import MWPotential
         if pot == MWPotential:
-            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         self._orb.integrate(t,pot,method=method)
 

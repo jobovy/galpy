@@ -57,7 +57,7 @@ class actionAngleIsochroneApprox(object):
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
         if self._pot == MWPotential:
-            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         if not 'b' in kwargs and not 'ip' in kwargs \
                 and not 'aAI' in kwargs: #pragma: no cover
