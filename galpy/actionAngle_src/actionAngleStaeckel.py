@@ -16,7 +16,7 @@ import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    epifreq, omegac, verticalfreq
+    epifreq, omegac, verticalfreq, MWPotential
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
@@ -46,6 +46,9 @@ class actionAngleStaeckel(object):
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
+        if self._pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
         if not 'delta' in kwargs: #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and (('c' in kwargs and kwargs['c'])

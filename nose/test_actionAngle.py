@@ -1741,6 +1741,69 @@ def test_estimateDeltaStaeckel_spherical():
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
     return None
 
+# Test that setting up the non-spherical actionAngle routines raises a warning when using MWPotential, see #229
+def test_MWPotential_warning_adiabatic():
+    # Test that using MWPotential throws a warning, see #229
+    from galpy.actionAngle import actionAngleAdiabatic, \
+        actionAngleAdiabaticGrid
+    from galpy.potential import MWPotential
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
+    except: pass
+    else:
+        raise AssertionError("actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't")
+    #Grid
+    try:
+        aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.)
+    except: pass
+    else:
+        raise AssertionError("actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
+def test_MWPotential_warning_staeckel():
+    # Test that using MWPotential throws a warning, see #229
+    from galpy.actionAngle import actionAngleStaeckel, \
+        actionAngleStaeckelGrid
+    from galpy.potential import MWPotential
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        aAA= actionAngleStaeckel(pot=MWPotential,delta=0.5)
+    except: pass
+    else:
+        raise AssertionError("actionAngleStaeckel with MWPotential should have thrown a warning, but didn't")
+    #Grid
+    try:
+        aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5)
+    except: pass
+    else:
+        raise AssertionError("actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
+def test_MWPotential_warning_isochroneapprox():
+    # Test that using MWPotential throws a warning, see #229
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.potential import MWPotential
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        aAA= actionAngleIsochroneApprox(pot=MWPotential,b=1.)
+    except: pass
+    else:
+        raise AssertionError("actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
                                         ntimes=1001,fixed_quad=False,

@@ -19,7 +19,7 @@ import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
 from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
-from galpy.potential import IsochronePotential
+from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
@@ -56,6 +56,9 @@ class actionAngleIsochroneApprox(object):
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
+        if self._pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
         if not 'b' in kwargs and not 'ip' in kwargs \
                 and not 'aAI' in kwargs: #pragma: no cover
             raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
