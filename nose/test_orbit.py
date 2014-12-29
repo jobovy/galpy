@@ -1,9 +1,11 @@
 ##############################TESTS ON ORBITS##################################
 from __future__ import print_function, division
+import warnings
 import os
 import sys
 import numpy
 from galpy import potential
+from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
@@ -26,6 +28,8 @@ if not _TRAVIS:
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
 _NOLONGINTEGRATIONS= False
+# Print all galpyWarnings always for tests of warnings
+warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
@@ -2231,8 +2235,6 @@ def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
-    import warnings
-    from galpy.util import galpyWarning
     warnings.simplefilter("error",galpyWarning)
     try:
         o.integrate(ts,potential.MWPotential)
@@ -2240,7 +2242,7 @@ def test_MWPotential_warning():
     else:
         raise AssertionError("Orbit integration with MWPotential should have thrown a warning, but didn't")
     #Turn warnings back into warnings
-    warnings.simplefilter("default",galpyWarning)
+    warnings.simplefilter("always",galpyWarning)
     return None
 
 def test_linear_plotting():
