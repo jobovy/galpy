@@ -8,6 +8,10 @@ Denis Erkal (_mass for TwoPowerSphericalPotential)
 Mark Fardal (streamdf improvements)
 Rok Roskar (first implementation of SnapshotRZPotential and InterpSnapshotRZPotential)
 
+General help:
+
+Greg Stinson (advise on SnapshotRZPotential tests)
+
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
 
