@@ -2,9 +2,9 @@ from os import system
 import hashlib
 import numpy as np
 from scipy import interpolate 
-from Potential import Potential
-import interpRZPotential
-from interpRZPotential import scalarVectorDecorator
+from galpy.potential_src.Potential import Potential
+from galpy.potential_src import interpRZPotential
+from galpy.potential_src.interpRZPotential import scalarVectorDecorator
 try: 
     import pynbody
     from pynbody import gravity
@@ -345,7 +345,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         if use_pkdgrav : #pragma: no cover
             raise RuntimeError("using pkdgrav not currently implemented")
             sn = pynbody.snapshot._new(len(self._s.d)+len(self._s.g)+len(self._s.s)+len(points_new))
-            print "setting up %d grid points"%(len(points_new))
+            print("setting up %d grid points"%(len(points_new)))
             #sn['pos'][0:len(self.s)] = self.s['pos']
             #sn['mass'][0:len(self.s)] = self.s['mass']
             #sn['phi'] = 0.0
@@ -359,7 +359,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 
             sn.write(fmt=pynbody.tipsy.TipsySnap, filename='potgridsnap')
             command = '~/bin/pkdgrav2_pthread -sz %d -n 0 +std -o potgridsnap -I potgridsnap +potout +overwrite %s'%(self._numcores, self._s._paramfile['filename'])
-            print command
+            print(command)
             system(command)
             sn = pynbody.load('potgridsnap')
             acc = sn['accg'][len(self._s):].reshape(len(R)*len(z),self._naz,3)
