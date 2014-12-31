@@ -105,6 +105,46 @@ def test_snapshotKeplerPotential_zforce_array():
     assert numpy.all(numpy.fabs(sp.zforce(rs,zs)-kp.zforce(rs,zs)) < 10.**-8.), 'SnapshotRZPotential with single unit mass does not correspond to KeplerPotential'
     return None
 
+# Test that using different numbers of azimuths to average over gives the same result
+def test_snapshotKeplerPotential_eval_naz():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotRZPotential(s,num_threads=1)
+    spaz= potential.SnapshotRZPotential(s,num_threads=1,nazimuths=12)
+    assert numpy.fabs(sp(1.,0.)-spaz(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp(0.5,0.)-spaz(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp(1.,0.5)-spaz(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp(1.,-0.5)-spaz(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    return None
+
+def test_snapshotKeplerPotential_Rforce_naz():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotRZPotential(s,num_threads=1)
+    spaz= potential.SnapshotRZPotential(s,num_threads=1,nazimuths=12)
+    assert numpy.fabs(sp.Rforce(1.,0.)-spaz.Rforce(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.Rforce(0.5,0.)-spaz.Rforce(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.Rforce(1.,0.5)-spaz.Rforce(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.Rforce(1.,-0.5)-spaz.Rforce(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    return None
+
+def test_snapshotKeplerPotential_zforce_naz():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.SnapshotRZPotential(s,num_threads=1)
+    spaz= potential.SnapshotRZPotential(s,num_threads=1,nazimuths=12)
+    assert numpy.fabs(sp.zforce(1.,0.)-spaz.zforce(1.,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.zforce(0.5,0.)-spaz.zforce(0.5,0.)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.zforce(1.,0.5)-spaz.zforce(1.,0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    assert numpy.fabs(sp.zforce(1.,-0.5)-spaz.zforce(1.,-0.5)) < 10.**-8., 'SnapshotRZPotential with single unit mass for naz=4 does not agree with naz=12'
+    return None
+
 def test_interpsnapshotKeplerPotential_eval():
     # Set up a snapshot with just one unit mass at the origin
     s= pynbody.new(star=1)
