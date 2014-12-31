@@ -220,6 +220,41 @@ def test_interpsnapshotKeplerPotential_noc_eval():
     assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, without enable_c'
     return None
 
+# Test that using different numbers of azimuths to average over gives the same result
+def test_interpsnapshotKeplerPotential_eval_naz():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotRZPotential(s,
+                                            rgrid=(0.01,2.,51),
+                                            zgrid=(0.,0.2,51),
+                                            logR=False,
+                                            interpPot=True,
+                                            zsym=True,
+                                            numcores=1)
+    spaz= potential.InterpSnapshotRZPotential(s,
+                                              rgrid=(0.01,2.,51),
+                                              zgrid=(0.,0.2,51),
+                                              logR=False,
+                                              interpPot=True,
+                                              zsym=True,
+                                              numcores=1,nazimuths=12)
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)
+    zs= numpy.linspace(-0.2,0.2,41)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp(r,z)-spaz(r,z))/sp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential with different nazimuths fails at (R,z) = (%g,%g)' % (r,z)
+    #This tests within the grid, with vector evaluation
+    rs= numpy.linspace(0.01,2.,10)
+    zs= numpy.linspace(-0.2,0.2,20)
+    mr,mz= numpy.meshgrid(rs,zs)
+    mr= mr.flatten()
+    mz= mz.flatten()
+    assert numpy.all(numpy.fabs((sp(mr,mz)-spaz(mr,mz))/sp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential with different nazimimuths fails for vector input'
+    return None
+
 def test_interpsnapshotKeplerPotential_normalize():
     # Set up a snapshot with just one unit mass at the origin
     s= pynbody.new(star=1)
