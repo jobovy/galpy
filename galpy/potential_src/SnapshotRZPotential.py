@@ -114,7 +114,6 @@ class SnapshotRZPotential(Potential):
             # need to average the potentials
             pot = pot.mean(axis=1)
 
-
             # get the radial accelerations
             rz_acc = np.zeros((len(R),2))
             rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
