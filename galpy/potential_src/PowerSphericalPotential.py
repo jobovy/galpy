@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 

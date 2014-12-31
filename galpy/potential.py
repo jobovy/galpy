@@ -63,6 +63,8 @@ evaluatelinearPotentials= linearPotential.evaluatelinearPotentials
 evaluatelinearForces= linearPotential.evaluatelinearForces
 PotentialError= Potential.PotentialError
 LinShuReductionFactor= planarPotential.LinShuReductionFactor
+nemo_accname= Potential.nemo_accname
+nemo_accpars= Potential.nemo_accpars
 #
 # Classes
 #

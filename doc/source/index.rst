@@ -3,11 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. ifconfig:: not_on_rtd
+
+   .. WARNING:: You are looking at the rarely updated, GitHub version of this documentation, **please go to** `galpy.readthedocs.org <http://galpy.readthedocs.org>`_ **for the latest documentation**.
+
 Welcome to galpy's documentation
 =================================
 
-galpy is a python package for galactic dynamics. It supports orbit
-integration in a variety of potentials, evaluating and sampling
+galpy is a Python 2 and 3 package for galactic dynamics. It supports
+orbit integration in a variety of potentials, evaluating and sampling
 various distribution functions, and the calculation of action-angle
 coordinates for all static potentials.
 
@@ -84,10 +88,11 @@ Please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publica
 Acknowledging galpy
 --------------------
 
-If you use galpy in a publication, please cite Bovy (2015, in
-preparation) and link ``to http://github.com/jobovy/galpy``. Please
-also send me a reference to the paper or send a pull request including
-your paper in the list of galpy papers on this page (this page is at
+If you use galpy in a publication, please cite `Bovy (2015)
+<http://sns.ias.edu/~bovy/galpy-paper.html>`_ and link to
+``http://github.com/jobovy/galpy``. Please also send me a reference to
+the paper or send a pull request including your paper in the list of
+galpy papers on this page (this page is at
 doc/source/index.rst). Thanks!
 
 When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `arXiv/1401.2985 <http://arxiv.org/abs/1401.2985>`_, which introduced this technique.

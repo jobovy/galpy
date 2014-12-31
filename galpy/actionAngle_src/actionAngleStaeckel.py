@@ -16,14 +16,14 @@ import numpy as nu
 from scipy import optimize, integrate
 from galpy.potential import evaluatePotentials, evaluateRforces, \
     evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    epifreq, omegac, verticalfreq
+    epifreq, omegac, verticalfreq, MWPotential
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
-from actionAngle import actionAngle, UnboundError
-import actionAngleStaeckel_c
-from actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
+import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
+from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
-class actionAngleStaeckel():
+class actionAngleStaeckel(object):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
         """
@@ -43,22 +43,22 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'): #pragma: no cover
+        if self._pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
+        if not 'delta' in kwargs: #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
-        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):           
+        if ext_loaded and (('c' in kwargs and kwargs['c'])
+                           or not 'c' in kwargs):           
             self._c= _check_c(self._pot)
-            if kwargs.has_key('c') and kwargs['c'] and not self._c:
+            if 'c' in kwargs and kwargs['c'] and not self._c:
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
         else:
             self._c= False
-        if kwargs.has_key('useu0') and kwargs['useu0']:
-            self._useu0= True
-        else:
-            self._useu0= False
+        self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
         return None
     
@@ -80,8 +80,8 @@ class actionAngleStaeckel():
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -103,14 +103,14 @@ class actionAngleStaeckel():
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
-                if kwargs.has_key('u0'):
+                if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
-                if kwargs.has_key('u0'): kwargs.pop('u0')
+                kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
@@ -120,9 +120,9 @@ class actionAngleStaeckel():
             else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
+            if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
-            if kwargs.has_key('c'): kwargs.pop('c')
+            kwargs.pop('c',None)
             if (len(args) == 5 or len(args) == 6) \
                     and isinstance(args[0],nu.ndarray):
                 ojr= nu.zeros((len(args[0])))
@@ -165,8 +165,8 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -188,14 +188,14 @@ class actionAngleStaeckel():
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
-                if kwargs.has_key('u0'):
+                if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
-                if kwargs.has_key('u0'): kwargs.pop('u0')
+                kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
@@ -211,7 +211,7 @@ class actionAngleStaeckel():
             else: #pragma: no cover
                 raise RuntimeError("C-code for calculation actions failed; try with c=False")
         else:
-            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
+            if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
@@ -233,8 +233,8 @@ class actionAngleStaeckel():
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        if ((self._c and not (kwargs.has_key('c') and not kwargs['c']))\
-                or (ext_loaded and ((kwargs.has_key('c') and kwargs['c'])))) \
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
                 raise IOError("Must specify phi")
@@ -258,14 +258,14 @@ class actionAngleStaeckel():
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
-                if kwargs.has_key('u0'):
+                if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
                     E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
-                if kwargs.has_key('u0'): kwargs.pop('u0')
+                kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
@@ -281,7 +281,7 @@ class actionAngleStaeckel():
             else:
                 raise RuntimeError("C-code for calculation actions failed; try with c=False") #pragma: no cover
         else: #pragma: no cover
-            if kwargs.has_key('c') and kwargs['c'] and not self._c: #pragma: no cover
+            if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
@@ -304,10 +304,10 @@ class actionAngleStaeckelSingle(actionAngle):
            2012-11-27 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
-        if not kwargs.has_key('delta'): #pragma: no cover
+        if not 'delta' in kwargs: #pragma: no cover
             raise IOError("Must specify delta= for actionAngleStaeckel")
         self._delta= kwargs['delta']
         #Pre-calculate everything
@@ -325,7 +325,7 @@ class actionAngleStaeckelSingle(actionAngle):
         self._E= EL[0]
         self._Lz= EL[1]
         #Determine umin and umax
-        self._u0= self._ux #u0 as defined by Binney does not matter for a 
+        self._u0= kwargs.pop('u0',self._ux) #u0 as defined by Binney does not matter for a 
         #single action evaluation, so we don't determine it here
         self._sinhu0= nu.sinh(self._u0)
         self._potu0v0= potentialStaeckel(self._u0,self._vx,
@@ -439,8 +439,7 @@ class actionAngleStaeckelSingle(actionAngle):
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
         if (umax-umin)/umax < 10.**-6: return nu.array([0.])
-        if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
-            kwargs.pop('fixed_quad')
+        if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
                 *integrate.fixed_quad(_JRStaeckelIntegrand,
@@ -453,7 +452,6 @@ class actionAngleStaeckelSingle(actionAngle):
                                       n=10,
                                       **kwargs)[0]
         else:
-            if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
                 *integrate.quad(_JRStaeckelIntegrand,
                                 umin,umax,
@@ -483,8 +481,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JZ
         vmin= self.calcVmin()
         if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
-        if kwargs.has_key('fixed_quad') and kwargs['fixed_quad']:
-            kwargs.pop('fixed_quad')
+        if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
                 *integrate.fixed_quad(_JzStaeckelIntegrand,
@@ -497,7 +494,6 @@ class actionAngleStaeckelSingle(actionAngle):
                                       n=10,
                                       **kwargs)[0]
         else:
-            if kwargs.has_key('fixed_quad'): kwargs.pop('fixed_quad')
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
                 *integrate.quad(_JzStaeckelIntegrand,

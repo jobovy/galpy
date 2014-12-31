@@ -1,4 +1,5 @@
 #Direct force summation N-body code
+from __future__ import print_function
 import numpy as nu
 from numpy import linalg
 import galpy.util.bovy_symplecticode as symplecticode
@@ -44,11 +45,11 @@ def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
         softening_length= 0.01
     #Run simulation
     for ii in range(1,len(t)):
-        print ii
+        print(ii)
         for jj in range(ndt): #loop over number of sub-intervals
             (qo,po)= _direct_nbody_step(qo,po,m,to,dt,pot,
                                         softening,(softening_length,))
-            #print qo
+            #print(qo)
             to+= dt
         out.append([qo,po])
     #Return output
@@ -61,7 +62,7 @@ def _direct_nbody_step(q,p,m,t,dt,pot,softening,softening_args):
               for ii in range(len(q))]
     #kick
     force= _direct_nbody_force(q12,m,t+dt/2.,pot,softening,softening_args)
-    #print force
+    #print(force)
     p= [symplecticode.leapfrog_leapp(p[ii],dt,force[ii]) \
             for ii in range(len(p))]
     #drift

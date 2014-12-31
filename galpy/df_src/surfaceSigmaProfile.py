@@ -10,7 +10,7 @@
 #                               profile
 ###############################################################################
 import scipy as sc
-class surfaceSigmaProfile:
+class surfaceSigmaProfile(object):
     """Class that contains the surface density and sigma_R^2 profile"""
     def __init__(self):
         """Place holder for implementations of this class"""

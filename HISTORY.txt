@@ -1,31 +1,114 @@
-v1.0 (XXXX-XX-XX)
+v1.1 (XXXX-XX-XX)
 ==================
 
-CURRENT DEVELOPMENT VERSION
+Current development version, last updated 12/26/2014:
 
-- Changed default integrator to symplec4_c
+- Added Python 3 support: in particular, Python 3.3 and 3.4 are now
+  supported; earlier 3.* may also work, but haven't been
+  tested. Python 2 and 3 are supported using a single common codebase.
 
-- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of relevant data on the Milky Way; supersedes MWPotential, which is still included.
+- Add support for converting potential parameters to NEMO format and
+  units: nemo_accname and nemo_accpars (both instance and general
+  Potential method).
 
-- Add C implementation of PowerSphericalPotentialwCutoff;
+- Added nemo/ directory for C++ implementations of additional NEMO
+  potentials (not included in the NEMO release); add PowSphwCut.cc for
+  PowerSphericalPotential2Cutoff and Makefile to compile and install
+  it. This allows gyrfalcON simulations with MWPotential2014.
 
-- Moved MovingObjectPotential, BurkertPotential, and interpRZPotential to top level; better implementation of interpRZPotential;
+- Better implementations of vcirc, eipfreq, and verticalfreq for lists
+  of potentials that allows for negative amplitude components.
 
-- Sped up many of the functions in galpy.util.bovy_coords by removing scipy.frompyfunc dependency.
+- Improvements to streamdf: add progIsTrack keyword to specify that
+  the progenitor= keyword actually specifies the desired starting
+  phase-space point of the track; the phase-space point of the
+  progenitor is calculated. Refactored streamdf setup to make this
+  easy to implement.
 
-- Allow Orbit initialization to specify a distance and velocity scale that is then used to output distances and velocities in physical coordinates.
+- Orbit fitting can now be performed in custom sky coordinates
+  (requires one to specify customsky=True and to implement and pass
+  the functions (a) lb_to_customsky= and (b) pmllpmbb_to_customsky=,
+  similar to lb_to_radec and pmllpmbb_to_pmradec). For example, this
+  allows one to do an orbit fit in the GD-1 frame of Koposov et
+  al. (2010).
+
+- Slightly improved implementation of actionAngleStaeckel.py (more
+  robust umin/umax finding).
+
+v1.0 (2014-12-10)
+==================
+
+- Added MWPotential2014: a Milky-Way-like potential fit to a bunch of
+  relevant data on the Milky Way; supersedes MWPotential, which is
+  still included; changed many examples to use this new potential;
+
+- Changed default integrator to symplec4_c;
 
 - Changed default vo and ro to 220 km/s and 8 kpc, respectively;
 
-- Better handling of vo,ro, and solarmotion in Orbit instances (Orbit initialization value is now used to generate RA, Dec, etc. outputs);
+- Allow Orbit initialization to specify a distance and velocity scale
+  that is then used to output distances, velocities, energies,
+  actions, etc. in physical coordinates;
 
-- Started on adding virial radius of NFW potential, allow initialization of NFW potential with concentration and mass;
+- Added an orbit-fitting routine (Orbit.fit).
 
-- Added potential.mass to return the mass enclosed for individual potential instances; both spherical and axisymmetric potentials are covered.
+- Added virial radius of NFW potential, allow initialization of NFW
+  potential with concentration and mass;
 
-- Added --no-openmp installation option to allow installation without OpenMP support (workaround for clang not supporting OpenMP);
+- Added potential.mass to return the mass enclosed for individual
+  potential instances; both spherical and axisymmetric potentials are
+  covered.
 
-- Added galpy.util.bovy_conversion.dens_in_gevcc, galpy.util.bovy_conversion.force_in_10m13kms2, galpy.util.bovy_conversion.dens_in_criticaldens, galpy.util.bovy_conversion.dens_in_meanmatterdens.
+- Sped up many of the functions in galpy.util.bovy_coords by removing
+  scipy.frompyfunc dependency;
+
+- Added galpy.util.bovy_conversion.dens_in_gevcc,
+  galpy.util.bovy_conversion.force_in_10m13kms2,
+  galpy.util.bovy_conversion.dens_in_criticaldens,
+  galpy.util.bovy_conversion.dens_in_meanmatterdens.
+
+- Much improved test coverage.
+
+- Added planarPotential.LinShuReductionFactor to calculate the
+  reduction factor for the response of a kinematically warm population
+  to a spiral perturbation.
+
+- Added non-axisymmetric DFs to the top-level and the documentation.
+
+- New streamdf track calculation (see arXiv_v2/published version of
+  Bovy 2014); better handdling of coordinate-transformation
+  parameters in streamdf.
+
+- Installation now prints informative message about whether or not the
+  C extensions were installed.
+
+- More informative warning messages when C functions are not used.
+
+- Fix issues with non-square grids in the C implementation of
+  interpRZPotential.
+
+- Added Orbit.flip to generate new Orbit instances with flipped
+  velocities.
+
+- Improved actionAngle frequencies for circular orbits.
+
+- Removed actionAngleFlat and actionAnglePower, because they are
+  superseded.
+
+- Added hasC_dxdv member to Potential instances to indicate whether or
+  not they can be used with integrate_dxdv
+
+- Add C implementation of PowerSphericalPotentialwCutoff;
+
+- Moved MovingObjectPotential, BurkertPotential, and interpRZPotential
+  to top level; better implementation of interpRZPotential;
+
+- Better handling of vo,ro, and solarmotion in Orbit instances (Orbit
+  initialization value is now used to generate RA, Dec, etc. outputs);
+
+- Added --no-openmp installation option to allow installation without
+  OpenMP support (workaround for clang not supporting OpenMP; not
+  necessary anymore);
 
 
 v0.1 (2014-01-09)

@@ -1,3 +1,4 @@
+from __future__ import print_function, division
 import functools
 import nose
 import numpy
@@ -631,8 +632,8 @@ def test_bovy14_callMargDPMLL():
                       sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True,
                                           cindx=cindx,interp=True)) < 10.**10., 'callMarg with cindx set does not agree with it set to default'
-    if cindx % 100 > 50: cindx= cindx/100+1
-    else: cindx= cindx/100
+    if cindx % 100 > 50: cindx= cindx//100+1
+    else: cindx= cindx//100
     assert numpy.fabs(sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True,interp=False)-
                       sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],

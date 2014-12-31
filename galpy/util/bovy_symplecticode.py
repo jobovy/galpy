@@ -50,8 +50,8 @@ def leapfrog(func,yo,t,args=(),rtol=1.49012e-8,atol=0.):
        2011-02-02 - Written - Bovy (NYU)
     """
     #Initialize
-    qo= yo[0:len(yo)/2]
-    po= yo[len(yo)/2:len(yo)]
+    qo= yo[0:len(yo)//2]
+    po= yo[len(yo)//2:len(yo)]
     out= nu.zeros((len(t),len(yo)))
     out[0,:]= yo
     #Estimate necessary step size
@@ -73,8 +73,8 @@ def leapfrog(func,yo,t,args=(),rtol=1.49012e-8,atol=0.):
             qo= leapfrog_leapq(q12,po,dt/2.)
             #Get ready for next
             to+= dt
-        out[ii,0:len(yo)/2]= qo
-        out[ii,len(yo)/2:len(yo)]= po
+        out[ii,0:len(yo)//2]= qo
+        out[ii,len(yo)//2:len(yo)]= po
     return out
 
 def leapfrog_leapq(q,p,dt):

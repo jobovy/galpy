@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 import os
 import pickle
 import numpy as nu
@@ -35,23 +37,11 @@ def plotEscapecurve(Pot,*args,**kwargs):
        2010-08-08 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('Rrange'):
-        Rrange= kwargs['Rrange']
-        kwargs.pop('Rrange')
-    else:
-        Rrange= [0.01,5.]
-    if kwargs.has_key('grid'):
-        grid= kwargs['grid']
-        kwargs.pop('grid')
-    else:
-        grid= 1001
-    if kwargs.has_key('savefilename'):
-        savefilename= kwargs['savefilename']
-        kwargs.pop('savefilename')
-    else:
-        savefilename= None
+    Rrange= kwargs.pop('Rrange',[0.01,5.])
+    grid= kwargs.pop('grid',1001)
+    savefilename= kwargs.pop('savefilename',None)
     if not savefilename == None and os.path.exists(savefilename):
-        print "Restoring savefile "+savefilename+" ..."
+        print("Restoring savefile "+savefilename+" ...")
         savefile= open(savefilename,'rb')
         esccurve= pickle.load(savefile)
         Rs= pickle.load(savefile)
@@ -60,18 +50,18 @@ def plotEscapecurve(Pot,*args,**kwargs):
         Rs= nu.linspace(Rrange[0],Rrange[1],grid)
         esccurve= calcEscapecurve(Pot,Rs)
         if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
+            print("Writing savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')
             pickle.dump(esccurve,savefile)
             pickle.dump(Rs,savefile)
             savefile.close()
-    if not kwargs.has_key('xlabel'):
+    if not 'xlabel' in kwargs:
         kwargs['xlabel']= r"$R/R_0$"
-    if not kwargs.has_key('ylabel'):
+    if not 'ylabel' in kwargs:
         kwargs['ylabel']= r"$v_e(R)/v_c(R_0)$"
-    if not kwargs.has_key('xrange'):
+    if not 'xrange' in kwargs:
         kwargs['xrange']= Rrange
-    if not kwargs.has_key('yrange'):
+    if not 'yrange' in kwargs:
         kwargs['yrange']= [0.,1.2*nu.amax(esccurve)]
     return plot.bovy_plot(Rs,esccurve,*args,
                           **kwargs)
@@ -102,13 +92,13 @@ def calcEscapecurve(Pot,Rs):
         grid=1
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
-    from planarPotential import evaluateplanarPotentials
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarPotentials
+    from galpy.potential import PotentialError
     for ii in range(grid):
         try:
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
         except PotentialError:
-            from planarPotential import RZToplanarPotential
+            from galpy.potential import RZToplanarPotential
             Pot= RZToplanarPotential(Pot)
             esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
     return esccurve
@@ -139,12 +129,12 @@ def vesc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarPotentials
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarPotentials
+    from galpy.potential import PotentialError
     try:
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
         

@@ -1,4 +1,5 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
+from __future__ import print_function, division
 import os
 import numpy
 from scipy import stats
@@ -1482,7 +1483,7 @@ def test_DFcorrection_setup():
     try:
         dfc= DFcorrection(npoints=2,niter=2,rmax=4.,
                           beta=-0.1,interp_k=3)
-    except DFcorrectionError as e: print e
+    except DFcorrectionError as e: print(e)
     else: raise AssertionError('DFcorrection setup with no surfaceSigmaProfile set did not raise DFcorrectionError')
     #Now w/ surfaceSigmaProfile to test default dftype
     from galpy.df import expSurfaceSigmaProfile 

@@ -1,4 +1,5 @@
 # Test that all of the examples in the galpy paper run
+from __future__ import print_function, division
 import os
 import numpy
 
@@ -30,17 +31,17 @@ def test_import():
 
 def test_units():
     import galpy.util.bovy_conversion as conversion
-    print conversion.force_in_pcMyr2(220.,8.)#pc/Myr^2
+    print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
-    print conversion.dens_in_msolpc3(220.,8.)#Msolar/pc^3
+    print(conversion.dens_in_msolpc3(220.,8.))#Msolar/pc^3
     assert numpy.fabs(conversion.dens_in_msolpc3(220.,8.)-0.175790330079) < 10.**-4., 'unit conversion has changed'
-    print conversion.surfdens_in_msolpc2(220.,8.)#Msolar/pc^2
+    print(conversion.surfdens_in_msolpc2(220.,8.))#Msolar/pc^2
     assert numpy.fabs(conversion.surfdens_in_msolpc2(220.,8.)-1406.32264063) < 10.**-4., 'unit conversion has changed'
-    print conversion.mass_in_1010msol(220.,8.)#10^10 Msolar
+    print(conversion.mass_in_1010msol(220.,8.))#10^10 Msolar
     assert numpy.fabs(conversion.mass_in_1010msol(220.,8.)-9.00046490005) < 10.**-4., 'unit conversion has changed'
-    print conversion.freq_in_Gyr(220.,8.)#1/Gyr
+    print(conversion.freq_in_Gyr(220.,8.))#1/Gyr
     assert numpy.fabs(conversion.freq_in_Gyr(220.,8.)-28.1245845523) < 10.**-4., 'unit conversion has changed'
-    print conversion.time_in_Gyr(220.,8.)#Gyr
+    print(conversion.time_in_Gyr(220.,8.))#Gyr
     assert numpy.fabs(conversion.time_in_Gyr(220.,8.)-0.0355560807712) < 10.**-4., 'unit conversion has changed'
     return None
 
@@ -236,22 +237,22 @@ def test_adinvariance():
     o3.integrate(ts3,tip)
     o3.plot(d1='x',d2='y',overplot=True,color='r')
     # Now we calculate energy, maximum height, and mean radius
-    print o1.E(pot=ip1), (o1.rperi()+o1.rap())/2, o1.zmax()
+    print(o1.E(pot=ip1), (o1.rperi()+o1.rap())/2, o1.zmax())
     assert numpy.fabs(o1.E(pot=ip1)+2.79921356237) < 10.**-4., 'Energy in the adiabatic invariance test is different'
     assert numpy.fabs((o1.rperi()+o1.rap())/2-1.07854158141) < 10.**-4., 'mean radius in the adiabatic invariance test is different'
     assert numpy.fabs(o1.zmax()-0.106331362938) < 10.**-4., 'zmax in the adiabatic invariance test is different'
-    print o3.E(pot=ip2), (o3.rperi()+o3.rap())/2, o3.zmax()
+    print(o3.E(pot=ip2), (o3.rperi()+o3.rap())/2, o3.zmax())
     assert numpy.fabs(o3.E(pot=ip2)+1.19677002624) < 10.**-4., 'Energy in the adiabatic invariance test is different'
     assert numpy.fabs((o3.rperi()+o3.rap())/2-1.39962036137) < 10.**-4., 'mean radius in the adiabatic invariance test is different'
     assert numpy.fabs(o3.zmax()-0.138364269321) < 10.**-4., 'zmax in the adiabatic invariance test is different'
     # The orbit has clearly moved to larger radii,
     # the actions are however conserved from beginning to end
-    aAI1= actionAngleIsochrone(ip=ip1); print aAI1(o1)
+    aAI1= actionAngleIsochrone(ip=ip1); print(aAI1(o1))
     js= aAI1(o1)
     assert numpy.fabs(js[0]-numpy.array([ 0.00773779])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[2]-numpy.array([ 0.0045361])) < 10.**-4., 'action in the adiabatic invariance test is different'
-    aAI2= actionAngleIsochrone(ip=ip2); print aAI2(o3)  
+    aAI2= actionAngleIsochrone(ip=ip2); print(aAI2(o3))  
     js= aAI2(o3)
     assert numpy.fabs(js[0]-numpy.array([ 0.00773812])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'

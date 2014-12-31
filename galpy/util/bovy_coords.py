@@ -1345,7 +1345,7 @@ def lbd_to_XYZ_jac(*args,**kwargs):
         vlos, pmll, pmbb= 0., 0., 0.
     elif len(args) == 6:
         l,b,D,vlos,pmll,pmbb= args
-    if kwargs.has_key('degree') and kwargs['degree']:
+    if kwargs.get('degree',False):
         l*= _DEGTORAD
         b*= _DEGTORAD
     cl= sc.cos(l)
@@ -1361,7 +1361,7 @@ def lbd_to_XYZ_jac(*args,**kwargs):
     out[2,1]= D*cb
     out[2,2]= sb
     if len(args) == 3:
-        if kwargs.has_key('degree') and kwargs['degree']:
+        if kwargs.get('degree',False):
             out[:,0]*= _DEGTORAD
             out[:,1]*= _DEGTORAD
         return out[:3,:3]
@@ -1381,7 +1381,7 @@ def lbd_to_XYZ_jac(*args,**kwargs):
     out[5,2]= cb*_K*pmbb
     out[5,3]= sb
     out[5,5]= cb*_K*D
-    if kwargs.has_key('degree') and kwargs['degree']:
+    if kwargs.get('degree',False):
         out[:,0]*= _DEGTORAD
         out[:,1]*= _DEGTORAD
     return out

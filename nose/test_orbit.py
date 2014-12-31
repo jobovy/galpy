@@ -1,8 +1,11 @@
 ##############################TESTS ON ORBITS##################################
+from __future__ import print_function, division
+import warnings
+import os
 import sys
 import numpy
-import os
 from galpy import potential
+from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
@@ -25,6 +28,8 @@ if not _TRAVIS:
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
 _NOLONGINTEGRATIONS= False
+# Print all galpyWarnings always for tests of warnings
+warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
@@ -84,9 +89,9 @@ def test_energy_jacobi_conservation():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
-        if p in jactol.keys(): tjactol= jactol[p]
+        if p in list(jactol.keys()): tjactol= jactol[p]
         else: tjactol= jactol['default']
         try:
             tclass= getattr(potential,p)
@@ -349,7 +354,7 @@ def test_energy_symplec_longterm():
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
         for integrator in integrators:
-            if integrator in tol.keys(): ttol= tol[integrator]
+            if integrator in list(tol.keys()): ttol= tol[integrator]
             else: ttol= tol['default']
             o= setup_orbit_energy(tp)
             o.integrate(times,tp,method=integrator)
@@ -407,7 +412,7 @@ def test_liouville_planar():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -505,7 +510,7 @@ def test_eccentricity():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -621,7 +626,7 @@ def test_pericenter():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -738,7 +743,7 @@ def test_apocenter():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -853,7 +858,7 @@ def test_zmax():
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
@@ -961,7 +966,7 @@ def test_analytic_ecc_rperi_rap():
     tol['KeplerPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         if p == 'MWPotential':
             tp= potential.MWPotential
@@ -1158,7 +1163,7 @@ def test_analytic_zmax():
     tol['testMWPotential']= -6. #these are more difficult
     for p in pots:
         #Setup instance of potential
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         if p == 'MWPotential':
             tp= potential.MWPotential
@@ -1617,7 +1622,7 @@ def test_toLinear():
     from galpy.orbit import Orbit
     obs= Orbit([1.,0.1,1.1,0.3,0.,2.])
     obsl= obs.toLinear()
-    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
     assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
     obs= Orbit([1.,0.1,1.1,0.3,0.])
@@ -2234,6 +2239,20 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     return numpy.array(out)
 
 # Check plotting routines
+def test_MWPotential_warning():
+    # Test that using MWPotential throws a warning, see #229
+    ts= numpy.linspace(0.,100.,1001)
+    o= setup_orbit_energy(potential.MWPotential,axi=False)
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        o.integrate(ts,potential.MWPotential)
+    except: pass
+    else:
+        raise AssertionError("Orbit integration with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("always",galpyWarning)
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential

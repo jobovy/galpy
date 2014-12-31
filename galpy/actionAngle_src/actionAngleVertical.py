@@ -13,7 +13,7 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from actionAngle import *
+from galpy.actionAngle_src.actionAngle import *
 from galpy.potential_src.linearPotential import linearPotential, \
     evaluatelinearPotentials
 class actionAngleVertical(actionAngle):
@@ -35,7 +35,7 @@ class actionAngleVertical(actionAngle):
            2012-06-01 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleVertical")
         self._verticalpot= kwargs['pot']
         return None

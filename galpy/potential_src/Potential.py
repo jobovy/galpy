@@ -13,15 +13,19 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
+from __future__  import division, print_function
+
 import os, os.path
-import cPickle as pickle
+import pickle
+from functools import wraps
 import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
-from plotRotcurve import plotRotcurve, vcirc
-from plotEscapecurve import plotEscapecurve, _INF
-class Potential:
+from galpy.util.bovy_conversion import velocity_in_kpcGyr
+from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
+from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
+class Potential(object):
     """Top-level class for a potential"""
     def __init__(self,amp=1.):
         """
@@ -585,7 +589,7 @@ class Potential:
            planarPotential
         HISTORY
         """
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         return RZToplanarPotential(self)
 
     def toVertical(self,R):
@@ -600,7 +604,7 @@ class Potential:
            linear (vertical) potential
         HISTORY
         """
-        from verticalPotential import RZToverticalPotential
+        from galpy.potential import RZToverticalPotential
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -659,7 +663,7 @@ class Potential:
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -682,7 +686,7 @@ class Potential:
             potRz[:,zs < zmin]= nu.nan
             potRz[:,zs > zmax]= nu.nan
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1119,6 +1123,64 @@ class Potential:
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
 
+    def nemo_accname(self):
+        """
+        NAME:
+
+           nemo_accname
+
+        PURPOSE:
+
+           return the accname potential name for use of this potential with NEMO
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           Acceleration name
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accname
+        except AttributeError:
+            raise AttributeError('NEMO acceleration name not supported for %s' % self.__class__.__name__)
+
+    def nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._nemo_accpars(vo,ro)
+        except AttributeError:
+            raise AttributeError('NEMO acceleration parameters not supported for %s' % self.__class__.__name__)
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -1452,7 +1514,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         if not savefilename == None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -1467,7 +1529,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     potRz[ii,jj]= evaluatePotentials(nu.fabs(Rs[ii]),
                                                      zs[jj],Pot)
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1526,7 +1588,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            2013-07-05 - Written - Bovy (IAS)
         """
         if not savefilename == None and os.path.exists(savefilename):
-            print "Restoring savefile "+savefilename+" ..."
+            print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
             potRz= pickle.load(savefile)
             Rs= pickle.load(savefile)
@@ -1541,7 +1603,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     potRz[ii,jj]= evaluateDensities(nu.fabs(Rs[ii]),
                                                     zs[jj],Pot)
             if not savefilename == None:
-                print "Writing savefile "+savefilename+" ..."
+                print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
                 pickle.dump(potRz,savefile)
                 pickle.dump(Rs,savefile)
@@ -1590,12 +1652,12 @@ def epifreq(Pot,R):
     from galpy.potential_src.planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R)
-    from planarPotential import evaluateplanarRforces, evaluateplanarR2derivs
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from galpy.potential import PotentialError
     try:
         return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
 
@@ -1843,14 +1905,86 @@ def omegac(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarRforces
+    from galpy.potential import evaluateplanarRforces
     try:
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
 
+def nemo_accname(Pot):
+    """
+    NAME:
+    
+       nemo_accname
+    
+    PURPOSE:
+    
+       return the accname potential name for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+       
+    OUTPUT:
+    
+       Acceleration name in the correct format to give to accname=
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '+'
+            out+= pot.nemo_accname()
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accname()
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accname' is neither a Potential-instance or a list of such instances")
+    
+def nemo_accpars(Pot,vo,ro):
+    """
+    NAME:
+    
+       nemo_accpars
+    
+    PURPOSE:
+    
+       return the accpars potential parameters for use of this potential or list of potentials with NEMO
+    
+    INPUT:
+    
+       Pot - Potential instance or list of such instances
+
+       vo - velocity unit in km/s
+    
+       ro - length unit in kpc
+    
+    OUTPUT:
+    
+       accpars string in the corrct format to give to accpars
+    
+    HISTORY:
+    
+       2014-12-18 - Written - Bovy (IAS)
+    
+    """
+    if isinstance(Pot,list):
+        out= ''
+        for ii,pot in enumerate(Pot):
+            if ii > 0: out+= '#'
+            out+= pot.nemo_accpars(vo,ro)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.nemo_accpars(vo,ro)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
+    
 def _check_c(Pot):
     """
 
@@ -1879,3 +2013,10 @@ def _check_c(Pot):
         return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
     elif isinstance(Pot,Potential):
         return Pot.hasC
+
+def kms_to_kpcGyrDecorator(func):
+    """Decorator to convert velocities from km/s to kpc/Gyr"""
+    @wraps(func)
+    def kms_to_kpcGyr_wrapper(*args,**kwargs):
+        return func(args[0],velocity_in_kpcGyr(args[1],1.),args[2],**kwargs)
+    return kms_to_kpcGyr_wrapper

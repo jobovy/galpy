@@ -6,7 +6,7 @@
 #                                                        distance
 ###############################################################################
 import numpy as nu
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 from galpy.potential_src.ForceSoftening import PlummerSoftening
 class MovingObjectPotential(Potential):
     """Class that implements the potential coming from a moving object

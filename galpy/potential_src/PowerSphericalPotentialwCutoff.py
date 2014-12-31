@@ -7,7 +7,7 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from Potential import Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
@@ -56,6 +56,7 @@ class PowerSphericalPotentialwCutoff(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self._nemo_accname= 'PowSphwCut'
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -211,3 +212,32 @@ class PowerSphericalPotentialwCutoff(Potential):
         if z is None: r= R
         else: r= nu.sqrt(R**2.+z**2.)
         return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+
+    @kms_to_kpcGyrDecorator
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        ampl= self._amp*vo**2.*ro**(self.alpha-2.)
+        return "0,%s,%s,%s" % (ampl,self.alpha,self.rc*ro)
