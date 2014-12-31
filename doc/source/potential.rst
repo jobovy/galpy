@@ -272,6 +272,8 @@ evaluations for functions that use ``C`` to speed up computations.
 The potential of N-body simulations
 ------------------------------------
 
+.. _potnbody:
+
 ``galpy`` can setup and work with the frozen potential of an N-body
 simulation. This allows us to study the properties of such potentials
 in the same way as other potentials in ``galpy``. We can also

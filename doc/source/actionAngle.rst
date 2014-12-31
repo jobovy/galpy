@@ -841,3 +841,83 @@ download of the GCS data set; if you use your own version, you will
 need to modify the part of the code that reads the data). For more
 information see `2010MNRAS.409..145S
 <http://adsabs.harvard.edu/abs/2010MNRAS.409..145S>`_.
+
+
+Example: actions in an N-body simulation
+-----------------------------------------
+
+To illustrate how we can use ``galpy`` to calculate actions in a
+snapshot of an N-body simulation, we again look at the ``g15784``
+snapshot in the ``pynbody`` test suite, discussed in :ref:`The
+potential of N-body simulations <potnbody>`. Please look at that
+section for information on how to setup the potential of this snapshot
+in ``galpy``. One change is that we should set ``enable_c=True`` in
+the instantiation of the ``InterpSnapshotRZPotential`` object
+
+>>> spi= InterpSnapshotRZPotential(h1,rgrid=(numpy.log(0.01),numpy.log(20.),101),logR=True,zgrid=(0.,10.,101),interpPot=True,zsym=True,enable_c=True)
+>>> spi.normalize(R0=10.)
+
+where we again normalize the potential to use galpy's `natural units`.
+
+We first load a pristine copy of the simulation (because the normalization above leads to some inconsistent behavior in pynbody)
+
+>>> sc = pynbody.load('Repos/pynbody-testdata/g15784.lr.01024.gz'); hc = sc.halos(); hc1= hc[1]; pynbody.analysis.halo.center(hc1,mode='hyb'); pynbody.analysis.angmom.faceon(hc1, cen=(0,0,0),mode='ssc'); sc.physical_units()
+
+and then select particles near `R=8` kpc by doing
+
+>>> sn= pynbody.filt.BandPass('rxy','7 kpc','9 kpc')
+>>> R,vR,vT,z,vz = [numpy.ascontiguousarray(hc1.s[sn][x]) for x in ('rxy','vr','vt','z','vz')]
+
+These have physical units, so we normalize them (the velocity
+normalization is the circular velocity at `R=10` kpc, see
+:ref:`here <potnbody>`).
+
+>>> ro, vo= 10., 294.62723076942245
+>>> R/= ro
+>>> z/= ro
+>>> vR/= vo
+>>> vT/= vo
+>>> vz/= vo
+
+We will calculate actions using ``actionAngleStaeckel`` above. We can
+first integrate a random orbit in this potential
+
+>>> from galpy.orbit import Orbit
+>>> numpy.random.seed(1)
+>>> ii= numpy.random.permutation(len(R))[0]
+>>> o= Orbit([R[ii],vR[ii],vT[ii],z[ii],vz[ii]])
+>>> ts= numpy.linspace(0.,100.,1001)
+>>> o.integrate(ts,spi)
+
+This orbit looks like this
+
+>>> o.plot()
+
+.. image:: images/actionAngle-nbody-orbit.png
+
+We can now calculate the actions by doing
+
+>>> from galpy.actionAngle import actionAngleStaeckel
+>>> aAS= actionAngleStaeckel(pot=spi,delta=0.45,c=True)
+>>> jr,lz,jz= aAS(R,vR,vT,z,vz)
+
+These actions are also in `natural units`; you can obtain physical
+units by multiplying with `ro*vo`. We can now plot these actions
+
+>>> from galpy.util import bovy_plot
+>>> bovy_plot.scatterplot(lz,jr,'k.',xlabel=r'$J_\phi$',ylabel=r'$J_R$',xrange=[0.,1.3],yrange=[0.,.6])
+
+which gives
+
+.. image:: images/actionAngle-nbody-jrjphi.png
+
+Note the similarity between this figure and the GCS figure above. The
+curve shape is due to the selection (low angular momentum stars can
+only enter the selected radial ring if they are very elliptical and
+therefore have large radial action) and the density gradient in
+angular momentum is due to the falling surface density of the disk. We
+can also look at the distribution of radial and vertical actions.
+
+>>> bovy_plot.bovy_plot(jr,jz,'k,',xlabel=r'$J_R$',ylabel=r'$J_z$',xrange=[0.,.4],yrange=[0.,0.2],onedhists=True)
+
+.. image:: images/actionAngle-nbody-jrjz.png
