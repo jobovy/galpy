@@ -22,7 +22,7 @@ class SnapshotRZPotential(Potential):
     request matches a previously computed hash, the previous results
     are returned and not recalculated.
     """
-    def __init__(self, s, num_threads=None):
+    def __init__(self, s, num_threads=None,nazimuths=4):
         """
         NAME:
 
@@ -38,6 +38,8 @@ class SnapshotRZPotential(Potential):
            s - a simulation snapshot loaded with pynbody
 
            num_threads= (4) number of threads to use for calculation
+
+           nazimuths= (4) number of azimuths to average over
 
         OUTPUT:
 
@@ -59,6 +61,15 @@ class SnapshotRZPotential(Potential):
             self._num_threads= pynbody.config['number_of_threads']
         else:
             self._num_threads = num_threads
+        # Set up azimuthal averaging
+        self._naz= nazimuths
+        self._cosaz= np.cos(np.arange(self._naz,dtype='float')\
+                                /self._naz*2.*np.pi)
+        self._sinaz= np.sin(np.arange(self._naz,dtype='float')\
+                                /self._naz*2.*np.pi)
+        self._zones= np.ones(self._naz)
+        self._zzeros= np.zeros(self._naz)
+        return None
     
     @scalarVectorDecorator
     def _evaluate(self, R,z,phi=None,t=None,dR=None,dphi=None) : 
@@ -88,19 +99,17 @@ class SnapshotRZPotential(Potential):
 
         else : 
             # set up the four points per R,z pair to mimic axisymmetry
-            points = np.zeros((len(R),4,3))
+            points = np.zeros((len(R),self._naz,3))
         
             for i in xrange(len(R)) :
-                points[i] = [(R[i],0,z[i]),
-                             (0,R[i],z[i]),
-                             (-R[i],0,z[i]),
-                             (0,-R[i],z[i])]
+                points[i] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
+                                      z[i]*self._zones]).T
 
             points_new = points.reshape(points.size/3,3)
             pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._num_threads)
 
-            pot = pot.reshape(len(R),4)
-            acc = acc.reshape(len(R),4,3)
+            pot = pot.reshape(len(R),self._naz)
+            acc = acc.reshape(len(R),self._naz,3)
 
             # need to average the potentials
             pot = pot.mean(axis=1)
@@ -108,16 +117,13 @@ class SnapshotRZPotential(Potential):
 
             # get the radial accelerations
             rz_acc = np.zeros((len(R),2))
-            rvecs = [(1.0,0.0,0.0),
-                     (0.0,1.0,0.0),
-                     (-1.0,0.0,0.0),
-                     (0.0,-1.0,0.0)]
+            rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
         
             for i in xrange(len(R)) : 
                 for j,rvec in enumerate(rvecs) : 
                     rz_acc[i,0] += acc[i,j].dot(rvec)
                     rz_acc[i,1] += acc[i,j,2]
-            rz_acc /= 4.0
+            rz_acc /= self._naz
             
             # store the computed values for reuse
             self._point_hash[new_hash] = [pot,rz_acc]
