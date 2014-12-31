@@ -141,7 +141,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                  interpepifreq = False, interpverticalfreq = False, 
                  interpPot = True,
                  enable_c = True, logR = True, zsym = True, 
-                 numcores=None,use_pkdgrav = False) : 
+                 numcores=None,nazimuths=4,use_pkdgrav = False) : 
         """
         NAME:
 
@@ -169,6 +169,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
 
            numcores= if set to an integer, use this many cores
 
+           nazimuths= (4) number of azimuths to average over
+
            use_pkdgrav= (False) use PKDGRAV to calculate the snapshot's potential and forces (CURRENTLY NOT IMPLEMENTED)
 
         OUTPUT:
@@ -194,6 +196,15 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         else:
             self._numcores = numcores
         self._s = s 
+
+        # Set up azimuthal averaging
+        self._naz= nazimuths
+        self._cosaz= np.cos(np.arange(self._naz,dtype='float')\
+                                /self._naz*2.*np.pi)
+        self._sinaz= np.sin(np.arange(self._naz,dtype='float')\
+                                /self._naz*2.*np.pi)
+        self._zones= np.ones(self._naz)
+        self._zzeros= np.zeros(self._naz)
 
         # the interpRZPotential class sets these flags
         self._enable_c = enable_c
@@ -306,14 +317,12 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
          
         """
         # set up the four points per R,z pair to mimic axisymmetry
-        points = np.zeros((len(R),len(z),4,3))
+        points = np.zeros((len(R),len(z),self._naz,3))
         
         for i in xrange(len(R)) :
             for j in xrange(len(z)) : 
-                points[i,j] = [(R[i],0,z[j]),
-                               (0,R[i],z[j]),
-                               (-R[i],0,z[j]),
-                               (0,-R[i],z[j])]
+                points[i,j] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
+                                        z[j]*self._zones]).T
 
         points_new = points.reshape(points.size/3,3)
         self.points = points_new
@@ -353,8 +362,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
             print command
             system(command)
             sn = pynbody.load('potgridsnap')
-            acc = sn['accg'][len(self._s):].reshape(len(R)*len(z),4,3)
-            pot = sn['pot'][len(self._s):].reshape(len(R)*len(z),4)
+            acc = sn['accg'][len(self._s):].reshape(len(R)*len(z),self._naz,3)
+            pot = sn['pot'][len(self._s):].reshape(len(R)*len(z),self._naz)
             
 
         else : 
@@ -362,29 +371,26 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
             if self._interpPot: 
                 pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._numcores)
 
-                pot = pot.reshape(len(R)*len(z),4)
-                acc = acc.reshape(len(R)*len(z),4,3)
+                pot = pot.reshape(len(R)*len(z),self._naz)
+                acc = acc.reshape(len(R)*len(z),self._naz,3)
 
                 # need to average the potentials
                 pot = pot.mean(axis=1)
 
                 # get the radial accelerations
                 rz_acc = np.zeros((len(R)*len(z),2))
-                rvecs = [(1.0,0.0,0.0),
-                         (0.0,1.0,0.0),
-                         (-1.0,0.0,0.0),
-                         (0.0,-1.0,0.0)]
+                rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
         
                 # reshape the acc to make sure we have a leading index even
                 # if we are only evaluating a single point, i.e. we have
                 # shape = (1,4,3) not (4,3)
-                acc = acc.reshape((len(rz_acc),4,3))
+                acc = acc.reshape((len(rz_acc),self._naz,3))
 
                 for i in xrange(len(R)*len(z)) : 
                     for j,rvec in enumerate(rvecs) : 
                         rz_acc[i,0] += acc[i,j].dot(rvec)
                         rz_acc[i,1] += acc[i,j,2]
-                rz_acc /= 4.0
+                rz_acc /= self._naz
             
                 self._potGrid = pot.reshape((len(R),len(z)))
                 self._rforceGrid = rz_acc[:,0].reshape((len(R),len(z)))
@@ -408,7 +414,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                     zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
                 
                 # reshape the arrays
-                self._z2derivGrid = -zgrad.reshape((len(zgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
+                self._z2derivGrid = -zgrad.reshape((len(zgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
 
             # do the same for the radial component
             if self._interpepifreq:
@@ -423,7 +429,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                                  np.dot(racc[0],rvec)) / (dr*2.0)
                     rgrad[i] = rgrad_vec
                 
-                self._R2derivGrid = -rgrad.reshape((len(rgrad)/4,4)).mean(axis=1).reshape((len(R),len(z)))
+                self._R2derivGrid = -rgrad.reshape((len(rgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
        
     def _R2deriv(self,R,Z,phi=0.,t=0.): 
         if self._zsym: Z = np.abs(Z)
