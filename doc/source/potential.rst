@@ -269,8 +269,8 @@ be used anywhere that general three-dimensional galpy potentials can
 be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
-The potential of N-body simulations
-------------------------------------
+**NEW**: The potential of N-body simulations
+----------------------------------------------
 
 .. _potnbody:
 
@@ -425,8 +425,8 @@ keywords when instantiating the ``InterpSnapshotRZPotential`` object.
 
 .. _nemopot:
 
-Conversion to NEMO potentials
-------------------------------
+**NEW**: Conversion to NEMO potentials
+---------------------------------------
 
 `NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
 studying stellar dynamics. Some of its functionality overlaps with
