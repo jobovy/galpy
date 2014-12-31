@@ -317,7 +317,7 @@ class interpRZPotential(Potential):
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._enable_c:
-                    out[indx]= eval_potential_c(self,R[indx],z[indx])[0]
+                    out[indx]= eval_potential_c(self,R[indx],z[indx])[0]/self._amp
                 else:
                     if self._logR:
                         out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
@@ -341,7 +341,7 @@ class interpRZPotential(Potential):
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
                 if self._enable_c:
-                    out[indx]= eval_force_c(self,R[indx],z[indx])[0]
+                    out[indx]= eval_force_c(self,R[indx],z[indx])[0]/self._amp
                 else:
                     if self._logR:
                         out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),z[indx])
@@ -366,7 +366,7 @@ class interpRZPotential(Potential):
             if numpy.sum(indx) > 0:
                 if self._enable_c:
                     out[indx]= eval_force_c(self,R[indx],z[indx],
-                                            zforce=True)[0]
+                                            zforce=True)[0]/self._amp
                 else:
                     if self._logR:
                         out[indx]= self._zforceInterp.ev(numpy.log(R[indx]),

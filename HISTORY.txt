@@ -7,6 +7,14 @@ Current development version, last updated 12/26/2014:
   supported; earlier 3.* may also work, but haven't been
   tested. Python 2 and 3 are supported using a single common codebase.
 
+- Added SnapshotRZPotential and InterpSnapshotRZPotential potential
+  classes: these can be used to get a frozen snapshot of the potential
+  of an N-body simulation into galpy. SnapshotRZPotential directly
+  calculates the potential and forces using direct summation;
+  InterpSnapshotRZPotential builds an interpolation table (it's a
+  subclass of interpRZPotential and can be used in the same way). This
+  code was mainly written by Rok Roskar.
+
 - Add support for converting potential parameters to NEMO format and
   units: nemo_accname and nemo_accpars (both instance and general
   Potential method).

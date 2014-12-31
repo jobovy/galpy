@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import os
 import sys
 import numpy
+import pynbody
 from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
@@ -23,7 +24,8 @@ def test_normalize_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -67,6 +69,8 @@ def test_forceAsDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
+    pots.append('mockSnapshotRZPotential')
+    pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
     pots.append('mockCosmphiDiskPotentialTm5')
@@ -86,7 +90,8 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -218,7 +223,8 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -407,7 +413,8 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -488,7 +495,8 @@ def test_evaluateAndDerivs_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -721,7 +729,8 @@ def test_toVertical_toPlanar():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1462,6 +1471,27 @@ class mockInterpRZPotential(interpRZPotential):
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
+class mockSnapshotRZPotential(potential.SnapshotRZPotential):
+    def __init__(self):
+        # Test w/ equivalent of KeplerPotential: one mass
+        kp= potential.KeplerPotential(amp=1.)
+        s= pynbody.new(star=1)
+        s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
+        s['eps']= 0.
+        potential.SnapshotRZPotential.__init__(self,s)
+class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
+    def __init__(self):
+        # Test w/ equivalent of KeplerPotential: one mass
+        kp= potential.KeplerPotential(amp=1.)
+        s= pynbody.new(star=1)
+        s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
+        s['eps']= 0.
+        potential.InterpSnapshotRZPotential.__init__(self,s,
+                                                   rgrid=(0.01,2.,101),
+                                                   zgrid=(0.,0.3,101),
+                                                   logR=False,
+                                                   interpPot=True,
+                                                   zsym=True)
 # Some special cases of 2D, non-axisymmetric potentials, to make sure they
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import CosmphiDiskPotential, DehnenBarPotential, \

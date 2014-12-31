@@ -97,6 +97,7 @@ Specific potentials
    potentialflattenedpower.rst
    potentialhernquist.rst
    potentialinterprz.rst
+   potentialinterpsnapshotrzpotential.rst
    potentialisochrone.rst
    potentialkepler.rst
    potentialloghalo.rst
@@ -106,6 +107,7 @@ Specific potentials
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialrazorexp.rst
+   potentialsnapshotrzpotential.rst
 
 .. _potential-mw:
 

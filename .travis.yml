@@ -4,13 +4,16 @@ python:
   - "3.4"
 #  - "3.3"
 env: #split tests
-   - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo'
-   - NOSE_IGNORE_FILES='^((?!test_orbit).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
-   - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
+  global:
+    - REQUIRES_PYNBODY=false
+  matrix:
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
 before_install:
  - sudo apt-get update
  - sudo apt-get install libgsl0-dev
@@ -22,7 +25,7 @@ before_install:
  - hash -r
  - conda config --set always_yes yes --set changeps1 no
  - conda update -q conda
- - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip
+ - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip cython>=0.20
  - source activate test-environment
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
@@ -36,6 +39,7 @@ install:
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
+ - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
