@@ -921,3 +921,6 @@ can also look at the distribution of radial and vertical actions.
 >>> bovy_plot.bovy_plot(jr,jz,'k,',xlabel=r'$J_R$',ylabel=r'$J_z$',xrange=[0.,.4],yrange=[0.,0.2],onedhists=True)
 
 .. image:: images/actionAngle-nbody-jrjz.png
+
+With the other methods in the actionAngle module we can also calculate
+frequencies and angles.
