@@ -7,7 +7,7 @@ env: #split tests
   global:
     - REQUIRES_PYNBODY=false
   matrix:
-    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
     - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
