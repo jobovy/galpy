@@ -101,7 +101,7 @@ class SnapshotRZPotential(Potential):
             # set up the four points per R,z pair to mimic axisymmetry
             points = np.zeros((len(R),self._naz,3))
         
-            for i in xrange(len(R)) :
+            for i in range(len(R)) :
                 points[i] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                       z[i]*self._zones]).T
 
@@ -119,7 +119,7 @@ class SnapshotRZPotential(Potential):
             rz_acc = np.zeros((len(R),2))
             rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
         
-            for i in xrange(len(R)) : 
+            for i in range(len(R)) : 
                 for j,rvec in enumerate(rvecs) : 
                     rz_acc[i,0] += acc[i,j].dot(rvec)
                     rz_acc[i,1] += acc[i,j,2]
@@ -319,8 +319,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         # set up the four points per R,z pair to mimic axisymmetry
         points = np.zeros((len(R),len(z),self._naz,3))
         
-        for i in xrange(len(R)) :
-            for j in xrange(len(z)) : 
+        for i in range(len(R)) :
+            for j in range(len(z)) : 
                 points[i,j] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                         z[j]*self._zones]).T
 
@@ -386,7 +386,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 # shape = (1,4,3) not (4,3)
                 acc = acc.reshape((len(rz_acc),self._naz,3))
 
-                for i in xrange(len(R)*len(z)) : 
+                for i in range(len(R)*len(z)) : 
                     for j,rvec in enumerate(rvecs) : 
                         rz_acc[i,0] += acc[i,j].dot(rvec)
                         rz_acc[i,1] += acc[i,j,2]
