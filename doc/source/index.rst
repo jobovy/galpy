@@ -86,6 +86,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Uses ``galpy.potential`` functions to calculate the acceleration field of the best-fit potential in Bovy & Rix (2013) above.
 #. *The power spectrum of the Milky Way: Velocity fluctuations in the Galactic disk*, Jo Bovy, Jonathan C. Bird, Ana E. Garcia Perez, Steven M. Majewski, David L. Nidever, & Gail Zasowski (2015), *Astrophys. J*, in press (`arXiv/1410.8135 <http://arxiv.org/abs/1410.8135>`_):
     Uses ``galpy.df.evolveddiskdf`` to calculate the mean non-axisymmetric velocity field due to different non-axisymmetric perturbations and compares it to APOGEE data.
+#. *Generation of mock tidal streams*, Mark A. Fardal, Shuiyao Huang, & Martin D. Weinberg (2014), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1410.1861 <http://arxiv.org/abs/1410.1861>`_):
+    Uses ``galpy.potential`` and ``galpy.orbit`` for orbit integration in creating a *particle-spray* model for tidal streams.
 
 Acknowledging galpy
 --------------------
