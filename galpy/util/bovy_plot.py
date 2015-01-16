@@ -798,6 +798,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        contours - if False, don't plot contours
 
+       justcontours - if True, only draw contours, no density
+
        cntrcolors - color of contours (can be array as for bovy_dens2d)
 
        cntrlw, cntrls - linewidths and linestyles for contour
@@ -851,6 +853,7 @@ def scatterplot(x,y,*args,**kwargs):
     levels= kwargs.pop('levels',special.erf(sc.arange(1,4)/sc.sqrt(2.)))
     aspect= kwargs.pop('aspect',(xrange[1]-xrange[0])/(yrange[1]-yrange[0]))
     contours= kwargs.pop('contours',True)
+    justcontours= kwargs.pop('justcontours',False)
     cntrcolors= kwargs.pop('cntrcolors','k')
     cntrlw= kwargs.pop('cntrlw',None)
     cntrls= kwargs.pop('cntrls',None)
@@ -912,6 +915,7 @@ def scatterplot(x,y,*args,**kwargs):
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
+                              justcontours=justcontours,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
