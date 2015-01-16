@@ -806,7 +806,7 @@ def scatterplot(x,y,*args,**kwargs):
 
        cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
 
-       levels - contour-levels
+       levels - contour-levels; data points outside of the last level will be individually shown (so, e.g., if this list is descending, contours and data points will be overplotted)
 
        onedhists - if True, make one-d histograms on the sides
 
@@ -915,7 +915,7 @@ def scatterplot(x,y,*args,**kwargs):
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              justcontours=justcontours,
+                              justcontours=justcontours,zorder=5,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
@@ -956,7 +956,7 @@ def scatterplot(x,y,*args,**kwargs):
                 bovy_plot(plotx[ii],ploty[ii],overplot=True,
                           color='%.2f'%(1.-w8[ii]),*args,**kwargs)
         else:
-            bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
+            bovy_plot(plotx,ploty,overplot=True,zorder=1,*args,**kwargs)
     #Add onedhists
     if not (onedhists or onedhistx or onedhisty):
         if retAxes:
