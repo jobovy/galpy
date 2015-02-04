@@ -65,7 +65,7 @@ Papers using galpy
 
 ``galpy`` is described in detail in this publication:
 
-* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, in press (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
+* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
 
 The following is a list of publications using ``galpy``; please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publication.
 
@@ -102,7 +102,7 @@ Acknowledging galpy
 
 If you use galpy in a publication, please cite the following paper
 
-* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, in press (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
+* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
 
 and link to ``http://github.com/jobovy/galpy``. Please also send me a
 reference to the paper or send a pull request including your paper in
