@@ -94,8 +94,6 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Uses ``galpy.potential`` and ``galpy.orbit`` for orbit integration in creating a *particle-spray* model for tidal streams.
 #. *The nature and orbit of the Ophiuchus stream*, Branimir Sesar, Jo Bovy, Edouard J. Bernard, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1501.00581 <http://arxiv.org/abs/1501.00581>`_):
     Uses the Orbit.fit routine in ``galpy.orbit`` to fit the orbit of the Ophiuchus stream to newly obtained observational data and the routines in ``galpy.df.streamdf`` to model the creation of the stream.
-#. *Simple and accurate modelling of the gravitational potential produced by thick and thin exponential disks*, Rory Smith, Chris Flynn, Graeme N. Candlish, Michael Fellhauer, Bradley K. Gibson (2015), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1502.00627 <http://arxiv.org/abs/1502.00627>`_):
-    Uses the ``galpy.potential.DoubleExponentialDiskPotential`` routines to calculate the potential and forces from a double-exponential disk in deriving an approximation to this potential made up off Miyamoto-Nagai potentials.
 
 Acknowledging galpy
 --------------------
