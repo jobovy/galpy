@@ -108,7 +108,7 @@ class MN3ExponentialDiskPotential(Potential):
         OUTPUT:
            Phi(R,z)
         HISTORY:
-           2010-07-09 - Started - Bovy (NYU)
+           2015-02-07 - Written - Bovy (IAS)
         """
         return self._mn3[0](R,z,phi=phi,t=t)\
             +self._mn3[1](R,z,phi=phi,t=t)\
@@ -128,7 +128,7 @@ class MN3ExponentialDiskPotential(Potential):
         OUTPUT:
            the radial force
         HISTORY:
-           2010-07-09 - Written - Bovy (NYU)
+           2015-02-07 - Written - Bovy (IAS)
         """
         return self._mn3[0].Rforce(R,z,phi=phi,t=t)\
             +self._mn3[1].Rforce(R,z,phi=phi,t=t)\
@@ -148,11 +148,91 @@ class MN3ExponentialDiskPotential(Potential):
         OUTPUT:
            the vertical force
         HISTORY:
-           2010-07-09 - Written - Bovy (NYU)
+           2015-02-07 - Written - Bovy (IAS)
         """
         return self._mn3[0].zforce(R,z,phi=phi,t=t)\
             +self._mn3[1].zforce(R,z,phi=phi,t=t)\
             +self._mn3[2].zforce(R,z,phi=phi,t=t)
+
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2015-02-07 - Written - Bovy (IAS)
+        """
+        return self._mn3[0].dens(R,z,phi=phi,t=t)\
+            +self._mn3[1].dens(R,z,phi=phi,t=t)\
+            +self._mn3[2].dens(R,z,phi=phi,t=t)
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2015-02-07 - Written - Bovy (IAS)
+        """
+        return self._mn3[0].R2deriv(R,z,phi=phi,t=t)\
+            +self._mn3[1].R2deriv(R,z,phi=phi,t=t)\
+            +self._mn3[2].R2deriv(R,z,phi=phi,t=t)
+
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2015-02-07 - Written - Bovy (IAS)
+        """
+        return self._mn3[0].z2deriv(R,z,phi=phi,t=t)\
+            +self._mn3[1].z2deriv(R,z,phi=phi,t=t)\
+            +self._mn3[2].z2deriv(R,z,phi=phi,t=t)
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2015-02-07 - Written - Bovy (IAS)
+        """
+        return self._mn3[0].Rzderiv(R,z,phi=phi,t=t)\
+            +self._mn3[1].Rzderiv(R,z,phi=phi,t=t)\
+            +self._mn3[2].Rzderiv(R,z,phi=phi,t=t)
 
 # Equations from Table 1
 def _mass1_tab1(brd):
