@@ -8,7 +8,7 @@ import numpy
 from galpy.potential_src.Potential import Potential
 from galpy.potential_src.MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
-    """class that implements the three Miyamoto-Nagai approximation to a radially exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
+    """class that implements the three Miyamoto-Nagai approximation to a radially-exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
 
     .. math::
 
@@ -18,7 +18,7 @@ class MN3ExponentialDiskPotential(Potential):
 
     .. math::
 
-        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\sech\\left(-|z|/h_z\\right)
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\mathrm{sech}\\left(-|z|/h_z\\right)
 
     depending on whether sech=True or not. This density is approximated using three Miyamoto-Nagai disks
 
