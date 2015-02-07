@@ -6,6 +6,7 @@
 ###############################################################################
 import numpy
 from galpy.potential_src.Potential import Potential
+from galpy.potential_src.MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
     """class that implements the three Miyamoto-Nagai approximation to a radially exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
 
@@ -57,6 +58,40 @@ class MN3ExponentialDiskPotential(Potential):
            2015-02-07 - Written - Bovy (IAS)
 
         """
+        self._hr= hr
+        self._hz= hz
+        Potential.__init__(self,amp=amp*4.*numpy.pi*self._hr**2.*self._hz)
+        # First determine b/rd
+        if sech:
+            self._brd= _b_sechhz(self._hz/self._hr)
+        else:
+            self._brd= _b_exphz(self._hz/self._hr)
+        self._b= self._brd*self._hr
+        # Now setup the various MN disks
+        if posdens:
+            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab2(self._brd),
+                                               a=_a1_tab2(self._brd)*self._hr,
+                                               b=self._b),
+                        MiyamotoNagaiPotential(amp=_mass2_tab2(self._brd),
+                                               a=_a2_tab2(self._brd)*self._hr,
+                                               b=self._b),
+                        MiyamotoNagaiPotential(amp=_mass3_tab2(self._brd),
+                                               a=_a3_tab2(self._brd)*self._hr,
+                                               b=self._b)]
+        else:
+            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab2(self._brd),
+                                               a=_a1_tab2(self._brd)*self._hr,
+                                               b=self._b),
+                        MiyamotoNagaiPotential(amp=_mass2_tab2(self._brd),
+                                               a=_a2_tab2(self._brd)*self._hr,
+                                               b=self._b),
+                        MiyamotoNagaiPotential(amp=_mass3_tab2(self._brd),
+                                               a=_a3_tab2(self._brd)*self._hr,
+                                               b=self._b)]
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)):
+            self.normalize(normalize)
         return None
 
 # Equations from Table 1
