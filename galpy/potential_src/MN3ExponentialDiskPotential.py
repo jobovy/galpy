@@ -80,19 +80,79 @@ class MN3ExponentialDiskPotential(Potential):
                                                b=self._b)]
         else:
             self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab1(self._brd),
-                                               a=_a1_tab2(self._brd)*self._hr,
+                                               a=_a1_tab1(self._brd)*self._hr,
                                                b=self._b),
                         MiyamotoNagaiPotential(amp=_mass2_tab1(self._brd),
-                                               a=_a2_tab2(self._brd)*self._hr,
+                                               a=_a2_tab1(self._brd)*self._hr,
                                                b=self._b),
                         MiyamotoNagaiPotential(amp=_mass3_tab1(self._brd),
-                                               a=_a3_tab2(self._brd)*self._hr,
+                                               a=_a3_tab1(self._brd)*self._hr,
                                                b=self._b)]
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
         return None
+
+    def _evaluate(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _evaluate
+        PURPOSE:
+           evaluate the potential at R,z
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Phi(R,z)
+        HISTORY:
+           2010-07-09 - Started - Bovy (NYU)
+        """
+        return self._mn3[0](R,z,phi=phi,t=t)\
+            +self._mn3[1](R,z,phi=phi,t=t)\
+            +self._mn3[2](R,z,phi=phi,t=t)
+
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the radial force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2010-07-09 - Written - Bovy (NYU)
+        """
+        return self._mn3[0].Rforce(R,z,phi=phi,t=t)\
+            +self._mn3[1].Rforce(R,z,phi=phi,t=t)\
+            +self._mn3[2].Rforce(R,z,phi=phi,t=t)
+
+    def _zforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _zforce
+        PURPOSE:
+           evaluate the vertical force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the vertical force
+        HISTORY:
+           2010-07-09 - Written - Bovy (NYU)
+        """
+        return self._mn3[0].zforce(R,z,phi=phi,t=t)\
+            +self._mn3[1].zforce(R,z,phi=phi,t=t)\
+            +self._mn3[2].zforce(R,z,phi=phi,t=t)
 
 # Equations from Table 1
 def _mass1_tab1(brd):
