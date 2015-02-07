@@ -85,3 +85,8 @@ def _a2_tab2(brd):
     return -0.0319*brd**4.+0.1514*brd**3.-0.1279*brd**2.-0.9325*brd+2.6836
 def _a3_tab2(brd):
     return -0.0326*brd**4.+0.1816*brd**3.-0.2943*brd**2.-0.6329*brd+2.3193
+# Equations to go from hz to b
+def _b_exphz(hz):
+    return -0.269*hz**3.+1.080*hz**2.+1.092*hz
+def _b_sechhz(hz):
+    return -0.033*hz**3.+0.262*hz**2.+0.659*hz
