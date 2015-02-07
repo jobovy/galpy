@@ -79,13 +79,13 @@ class MN3ExponentialDiskPotential(Potential):
                                                a=_a3_tab2(self._brd)*self._hr,
                                                b=self._b)]
         else:
-            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab2(self._brd),
+            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab1(self._brd),
                                                a=_a1_tab2(self._brd)*self._hr,
                                                b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass2_tab2(self._brd),
+                        MiyamotoNagaiPotential(amp=_mass2_tab1(self._brd),
                                                a=_a2_tab2(self._brd)*self._hr,
                                                b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass3_tab2(self._brd),
+                        MiyamotoNagaiPotential(amp=_mass3_tab1(self._brd),
                                                a=_a3_tab2(self._brd)*self._hr,
                                                b=self._b)]
         if normalize or \
