@@ -60,6 +60,7 @@ class MN3ExponentialDiskPotential(Potential):
         """
         self._hr= hr
         self._hz= hz
+        self._scale= self._hr
         Potential.__init__(self,amp=amp*4.*numpy.pi*self._hr**2.*self._hz)
         # First determine b/rd
         if sech:
