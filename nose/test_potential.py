@@ -1281,6 +1281,20 @@ def test_MN3ExponentialDiskPotential_inputs():
     warnings.simplefilter("default",galpyWarning)
     return None
 
+def test_MN3ExponentialDiskPotential_hz():
+    #Test that we correctly convert from hz/Rd to b/Rd
+    # exp
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=1.,sech=False)
+    assert numpy.fabs(mn._brd-1.875) < 0.05, "b/Rd not computed correctly for exponential profile"
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=2.,hz=1.,sech=False)
+    assert numpy.fabs(mn._brd-0.75) < 0.05, "b/Rd not computed correctly for exponential profile"
+    # sech
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=2.,sech=True)
+    assert numpy.fabs(mn._brd-2.1) < 0.05, "b/Rd not computed correctly for sech^2 profile"
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=2.,hz=2.,sech=True)
+    assert numpy.fabs(mn._brd-0.9) < 0.05, "b/Rd not computed correctly for sech^2 profile"
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
