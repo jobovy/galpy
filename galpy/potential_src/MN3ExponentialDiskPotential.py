@@ -7,7 +7,7 @@
 import numpy
 import warnings
 from galpy.util import galpyWarning
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 from galpy.potential_src.MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
     """class that implements the three Miyamoto-Nagai approximation to a radially-exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
@@ -104,6 +104,7 @@ class MN3ExponentialDiskPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self._nemo_accname= 'MiyamotoNagai+MiyamotoNagai+MiyamotoNagai'
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -245,6 +246,40 @@ class MN3ExponentialDiskPotential(Potential):
         return self._mn3[0].Rzderiv(R,z,phi=phi,t=t)\
             +self._mn3[1].Rzderiv(R,z,phi=phi,t=t)\
             +self._mn3[2].Rzderiv(R,z,phi=phi,t=t)
+
+    @kms_to_kpcGyrDecorator
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2015-02-09 - Written - Bovy (IAS)
+
+        """
+        out= ""
+        # Loop through the self._mn3 MN potentials
+        for ii in range(3):
+            if ii > 0: out+= '#'
+            ampl= self._amp*self._mn3[ii]._amp*vo**2.*ro
+            out+= "0,%s,%s,%s" % (ampl,self._mn3[ii]._a*ro,self._mn3[ii]._b*ro)
+        return out
 
 # Equations from Table 1
 def _mass1_tab1(brd):
