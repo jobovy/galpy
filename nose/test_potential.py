@@ -1504,11 +1504,11 @@ class specialFlattenedPowerPotential(FlattenedPowerPotential):
         return None
 class specialMN3ExponentialDiskPotentialPD(MN3ExponentialDiskPotential):
     def __init__(self):
-        MN3ExponentialDiskPotential.__init__(self,amp=1.,posdens=True)
+        MN3ExponentialDiskPotential.__init__(self,normalize=1.,posdens=True)
         return None
 class specialMN3ExponentialDiskPotentialSECH(MN3ExponentialDiskPotential):
     def __init__(self):
-        MN3ExponentialDiskPotential.__init__(self,amp=1.,sech=True)
+        MN3ExponentialDiskPotential.__init__(self,normalize=1.,sech=True)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
