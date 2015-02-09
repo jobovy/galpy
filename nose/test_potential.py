@@ -21,6 +21,8 @@ def test_normalize_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -63,6 +65,8 @@ def test_forceAsDeriv_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
@@ -200,6 +204,8 @@ def test_2ndDeriv_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
@@ -405,6 +411,8 @@ def test_poisson_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
@@ -476,6 +484,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('mockCosmphiDiskPotentialT1')
@@ -1431,7 +1441,7 @@ def test_plotting():
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
-    MWPotential, FlattenedPowerPotential
+    MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -1463,6 +1473,14 @@ class specialMiyamotoNagaiPotential(MiyamotoNagaiPotential):
 class specialFlattenedPowerPotential(FlattenedPowerPotential):
     def __init__(self):
         FlattenedPowerPotential.__init__(self,alpha=0.)
+        return None
+class specialMN3ExponentialDiskPotentialPD(MN3ExponentialDiskPotential):
+    def __init__(self):
+        MN3ExponentialDiskPotential.__init__(self,amp=1.,posdens=True)
+        return None
+class specialMN3ExponentialDiskPotentialSECH(MN3ExponentialDiskPotential):
+    def __init__(self):
+        MN3ExponentialDiskPotential.__init__(self,amp=1.,sech=True)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
