@@ -1158,6 +1158,9 @@ def test_nemoaccname():
     # Power-spherical w/ cut-off
     pp= potential.PowerSphericalPotentialwCutoff(normalize=1.)
     assert pp.nemo_accname() == 'PowSphwCut', "Power-spherical potential w/ cuto-ff's NEMO name incorrect"
+    # MN3ExponentialDiskPotential
+    mp= potential.MN3ExponentialDiskPotential(normalize=1.)
+    assert mp.nemo_accname() == 'MiyamotoNagai+MiyamotoNagai+MiyamotoNagai', "MN3ExponentialDiskPotential's NEMO name incorrect"
     return None
 
 def test_nemoaccnamepars_attributeerror():
