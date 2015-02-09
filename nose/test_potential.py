@@ -1222,6 +1222,20 @@ def test_nemoaccpars():
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "NFW's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[1])-0.25) < 10.**-8., "NFW's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-12.0) < 10.**-8., "NFW's NEMO accpars incorrect"
+    # MN3ExponentialDiskPotential
+    mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=2.,hz=0.5)
+    vo, ro= 3., 4.
+    ap= mn.nemo_accpars(vo,ro).replace('#',',').split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[4])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[8])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    # Test ratios
+    assert numpy.fabs(float(ap[1])/float(ap[5])-mn._mn3[0]._amp/mn._mn3[1]._amp) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])/float(ap[9])-mn._mn3[0]._amp/mn._mn3[2]._amp) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])/float(ap[6])-mn._mn3[0]._a/mn._mn3[1]._a) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])/float(ap[10])-mn._mn3[0]._a/mn._mn3[2]._a) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])/float(ap[7])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])/float(ap[11])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
     return None
 
 def test_nemoaccparss():
