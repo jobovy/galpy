@@ -102,6 +102,8 @@ class MN3ExponentialDiskPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
+        self.hasC= True
+        self.hasC_dxdv= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
