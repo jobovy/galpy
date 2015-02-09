@@ -1295,6 +1295,59 @@ def test_MN3ExponentialDiskPotential_hz():
     assert numpy.fabs(mn._brd-0.9) < 0.05, "b/Rd not computed correctly for sech^2 profile"
     return None
 
+def test_MN3ExponentialDiskPotential_approx():
+    # Test that the 3MN approximation works to the advertised level
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(4.,5.*.001)
+    assert numpy.fabs(mn.mass(4.,5.*.001)-dpmass)/dpmass < 0.005, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(4.,5.*0.6)
+    assert numpy.fabs(mn.mass(4.,10.*0.6)-dpmass)/dpmass < 0.01, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # At 10 Rd
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(10.,5.*.001)
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass < 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(10.,5.*0.6)
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass < 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # For posdens the deviations are larger
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(4.,5.*.001)
+    assert numpy.fabs(mn.mass(4.,5.*.001)-dpmass)/dpmass < 0.015, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(4.,5.*0.6)
+    assert numpy.fabs(mn.mass(4.,10.*0.6)-dpmass)/dpmass < 0.015, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # At 10 Rd
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(10.,5.*.001)
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass > 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass < 0.07, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(10.,5.*0.6)
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass < 0.08, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass > 0.03, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
