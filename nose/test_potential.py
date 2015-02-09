@@ -1253,6 +1253,34 @@ def test_nemoaccparss():
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     return None
 
+def test_MN3ExponentialDiskPotential_inputs():
+    #Test the inputs of the MN3ExponentialDiskPotential
+    # IOError for hz so large that b is negative
+    try:
+        mn= potential.MN3ExponentialDiskPotential(amp=1.,hz=50.)
+    except IOError: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential with ridiculous hz should have given IOError, but didn't")
+    # Warning when b/Rd > 3 or (b/Rd > 1.35 and posdens)
+    #Turn warnings into errors to test for them
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        mn= MN3ExponentialDiskPotential(normalize=1.,hz=1.438,hr=1.)
+    except: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 3 did not raise galpyWarning")
+    try:
+        mn= MN3ExponentialDiskPotential(normalize=1.,hr=1.,hz=0.7727,
+                                        posdens=True)
+    except: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 1.35 did not raise galpyWarning")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
