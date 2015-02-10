@@ -6,6 +6,14 @@ import subprocess
 from galpy.orbit import Orbit
 from galpy import potential
 from galpy.util import bovy_conversion
+def test_nemo_MN3ExponentialDiskPotential():
+    mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=0.5,hz=0.1)
+    tmax= 3.
+    vo,ro= 215., 8.75
+    o= Orbit([1.,0.1,1.1,0.3,0.1,0.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison(o,mn,tmax,vo,ro)
+    return None
+
 def test_nemo_MiyamotoNagaiPotential():
     mp= potential.MiyamotoNagaiPotential(normalize=1.,a=0.5,b=0.1)
     tmax= 4.
