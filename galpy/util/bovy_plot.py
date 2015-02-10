@@ -915,7 +915,7 @@ def scatterplot(x,y,*args,**kwargs):
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              justcontours=justcontours,zorder=5,
+                              justcontours=justcontours,zorder=5*justcontours,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
