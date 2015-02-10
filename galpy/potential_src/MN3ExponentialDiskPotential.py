@@ -20,7 +20,7 @@ class MN3ExponentialDiskPotential(Potential):
 
     .. math::
 
-        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\mathrm{sech}\\left(-|z|/h_z\\right)
+        \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\mathrm{sech}^2\\left(-|z|/h_z\\right)
 
     depending on whether sech=True or not. This density is approximated using three Miyamoto-Nagai disks
 
