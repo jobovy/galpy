@@ -803,6 +803,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        aspect - aspect ratio
 
+       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
+
        contours - if False, don't plot contours
 
        justcontours - if True, only draw contours, no density
@@ -859,6 +861,7 @@ def scatterplot(x,y,*args,**kwargs):
     weights= kwargs.pop('weights',None)
     levels= kwargs.pop('levels',special.erf(sc.arange(1,4)/sc.sqrt(2.)))
     aspect= kwargs.pop('aspect',(xrange[1]-xrange[0])/(yrange[1]-yrange[0]))
+    conditional= kwargs.pop('conditional',False)
     contours= kwargs.pop('contours',True)
     justcontours= kwargs.pop('justcontours',False)
     cntrcolors= kwargs.pop('cntrcolors','k')
@@ -921,6 +924,7 @@ def scatterplot(x,y,*args,**kwargs):
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
+                              conditional=conditional,
                               cntrlw=cntrlw,cntrls=cntrls,
                               justcontours=justcontours,zorder=5*justcontours,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
@@ -930,6 +934,7 @@ def scatterplot(x,y,*args,**kwargs):
                               cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
+                              conditional=conditional,
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
