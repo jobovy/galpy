@@ -73,7 +73,7 @@ three-dimensional orbit is initialized as ``o=
 Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)`` where RA
 and Dec are expressed in degrees, the distance is expressed in kpc,
 proper motions are expressed in mas/yr (pmra = pmra' * cos[Dec] ), and
-the ``Vlos`` is the heliocentric line-of-sight velocity given in
+``Vlos`` is the heliocentric line-of-sight velocity given in
 km/s. The observed epoch is currently assumed to be J2000.00. These
 observed coordinates are translated to the Galactocentric cylindrical
 coordinate frame by assuming a Solar motion that can be specified as
