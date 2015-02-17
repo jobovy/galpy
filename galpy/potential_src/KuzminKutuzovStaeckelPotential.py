@@ -265,35 +265,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        return -0.5/(nu.sqrt(l) * nu.sqrt(n) * (nu.sqrt(l)+nu.sqrt(n))**3)
-
-        
-    def _ln_to_Rz(self,l,n):
-        """
-        NAME:
-            _ln_to_Rz
-        PURPOSE:
-            convert the prolate spheroidal coordinates (lambda,nu) into
-            galactocentric cylindrical coordinates (R,z)
-            following the conversion eq. (2.2) in Dejonghe & de Zeeuw (1988a)
-        INPUT:
-            l        - prolate spheroidal coordinate lambda
-            n        - prolate spheroidal coordinate nu
-        OUTPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        a = self._alpha
-        g = self._gamma
-        r2 = (l + a) * (n + a) / (a - g)
-        z2 = (l + g) * (n + g) / (g - a)
-        if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:
-            r2 = 0.
-        if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > 1e-10:
-            z2 = 0.
-        return nu.sqrt(r2),nu.sqrt(z2)
+        return -0.5/(nu.sqrt(l) * nu.sqrt(n) * (nu.sqrt(l)+nu.sqrt(n))**3))
 
     def _dldR(self,R,z):
         """

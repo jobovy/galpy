@@ -34,6 +34,8 @@
 #            Rz_to_coshucosv
 #            Rz_to_uv
 #            uv_to_Rz
+#            Rz_to_lambdanu
+#            lambdanu_to_Rz
 #
 ##############################################################################
 #############################################################################
@@ -1683,7 +1685,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
     z2 = (l + g) * (n + g) / (g - a)
     if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:
         r2 = 0.
-    if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > 1e-10:
+    if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > -1e-10:
         z2 = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
     
