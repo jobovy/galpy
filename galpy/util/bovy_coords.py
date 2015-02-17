@@ -1610,7 +1610,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
 
     PURPOSE:
 
-       calculate convert the prolate spheroidal coordinates (lambda,nu) from
+       calculate the prolate spheroidal coordinates (lambda,nu) from
        galactocentric cylindrical coordinates (R,z)            
        by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
             R^2 = (l+a) * (n+a) / (a-g)
@@ -1646,6 +1646,46 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
         l = 0.5 * (term + nu.sqrt(discr))  
         n = 0.5 * (term - nu.sqrt(discr))
     return (l,n)
+
+def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
+        """
+    NAME:
+
+        lambdanu_to_Rz
+
+    PURPOSE:
+
+        calculate galactocentric cylindrical coordinates (R,z)
+        from prolate spheroidal coordinates (lambda,nu),
+        cf. eq. (2.2) in Dejonghe & de Zeeuw (1988a)
+
+    INPUT:
+
+        l     - prolate spheroidal coordinate lambda
+        n     - prolate spheroidal coordinate nu
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+        (R,z)
+
+    HISTORY:
+
+        2015-02-13 - Written - Trick (MPIA)
+
+    """
+    g = Delta**2 / (1.-ac**2)
+    a = gamma - Delta**2
+    r2 = (l + a) * (n + a) / (a - g)
+    z2 = (l + g) * (n + g) / (g - a)
+    if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:
+        r2 = 0.
+    if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > 1e-10:
+        z2 = 0.
+    return (nu.sqrt(r2),nu.sqrt(z2))
     
 
 def get_epoch_angles(epoch=2000.0):
