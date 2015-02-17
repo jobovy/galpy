@@ -1677,15 +1677,16 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
 
     """
     discr =          (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2)
-    dldR = R * (1. + (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
-    dndR = R * (1. - (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
-    dldz = z * (1. + (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
-    dndz = z * (1. - (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
-    out[0,0] = dldR
-    out[0,1] = dldz
-    out[1,0] = dndR
-    out[1,1] = dndz
-    return out
+    dldR  = R * (1. + (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
+    dndR  = R * (1. - (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
+    dldz  = z * (1. + (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
+    dndz  = z * (1. - (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
+    jac      = numpy.zeros((2,2))
+    jac[0,0] = dldR
+    jac[0,1] = dldz
+    jac[1,0] = dndR
+    jac[1,1] = dndz
+    return jac
 
 def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         """

@@ -81,9 +81,12 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
-        return - (self._dldR(R,z) * self._lderiv(l,n) + \
-                  self._dndR(R,z) * self._nderiv(l,n))
+        l,n = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        dldR = jac[0,0]
+        dndR = jac[1,0]
+        return - (dldR * self._lderiv(l,n) + \
+                  dndR * self._nderiv(l,n))
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -101,9 +104,12 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
-        return - (self._dldz(R,z) * self._lderiv(l,n) + \
-                  self._dndz(R,z) * self._nderiv(l,n))
+        l,n = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        dldz = jac[0,1]
+        dndz = jac[1,1]
+        return - (dldz * self._lderiv(l,n) + \
+                  dndz * self._nderiv(l,n))
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -121,9 +127,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        dldR    = self._dldR  (R,z)
-        dndR    = self._dndR  (R,z)
-        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
+        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        dldR = jac[0,0]
+        dndR = jac[1,0]
         return self._d2ldR2(R,z)*self._lderiv(l,n)  + \
                self._d2ndR2(R,z)*self._nderiv(l,n)  + \
                (dldR)**2        *self._l2deriv(l,n) + \
@@ -145,10 +152,11 @@ class KuzminKutuzovStaeckelPotential(Potential):
             the second vertical derivative
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
-        """        
-        dldz    = self._dldz  (R,z)
-        dndz    = self._dndz  (R,z)
-        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
+        """
+        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        dldz = jac[0,1]
+        dndz = jac[1,1]
         return self._d2ldz2(R,z)*self._lderiv(l,n)  + \
                self._d2ndz2(R,z)*self._nderiv(l,n)  + \
                (dldz)**2        *self._l2deriv(l,n) + \
@@ -171,12 +179,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
             d2phi/dR/dz
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
-        """    
-        dldR    = self._dldR(R,z)
-        dldz    = self._dldz(R,z)
-        dndR    = self._dndR(R,z)
-        dndz    = self._dndz(R,z)
-        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
+        """
+        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        dldR = jac[0,0]
+        dndR = jac[1,0]
+        dldz = jac[0,1]
+        dndz = jac[1,1]
         return self._d2ldRdz(R,z)   *self._lderiv(l,n)  + \
                self._d2ndRdz(R,z)   *self._nderiv(l,n)  + \
                dldR*dldz            *self._l2deriv(l,n) + \
