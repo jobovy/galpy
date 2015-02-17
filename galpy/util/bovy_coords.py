@@ -1602,6 +1602,52 @@ def uv_to_Rz(u,v,delta=1.):
     z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
 
+def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu
+
+    PURPOSE:
+
+       calculate convert the prolate spheroidal coordinates (lambda,nu) from
+       galactocentric cylindrical coordinates (R,z)            
+       by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
+            R^2 = (l+a) * (n+a) / (a-g)
+            z^2 = (l+g) * (n+g) / (g-a)
+            Delta^2 = g-a
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       (lambda,nu)
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    g = Delta**2 / (1.-ac**2)
+    a = gamma - Delta**2
+    if z == 0.:
+        l = R**2 - a
+        n = -g
+    else:
+        term  =  R**2 + z**2 - a - g
+        discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+        l = 0.5 * (term + nu.sqrt(discr))  
+        n = 0.5 * (term - nu.sqrt(discr))
+    return l,n
+    
+
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:

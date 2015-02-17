@@ -25,8 +25,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         INPUT:
             amp - amplitude to be applied to the potential (default: 1)
             ac  - axis ratio of the coordinate surfaces 
-                        (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: ???)
-            Delta - focal distance that defines the spheroidal coordinate system (default: ???)
+                        (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
+            Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
                         Delta=sqrt(gamma-alpha)
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
@@ -37,7 +37,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         Potential.__init__(self,amp=amp)
         self._ac    = ac
         self._Delta = Delta
-        self._gamma = self._Delta**2 / (1.-self_ac**2)
+        self._gamma = self._Delta**2 / (1.-self._ac**2)
         self._alpha = self._gamma - self._Delta**2
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -279,10 +279,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         INPUT:
             l        - prolate spheroidal coordinate lambda
             n        - prolate spheroidal coordinate nu
-            for_disk - if set to True (default), use alpha and gamma for the 
-                       disk component. These are the coordinates used in 
-                       Batsleer & Dejonghe (1994).If set to False, use alpha 
-                       and gamma for the halo component.
         OUTPUT:
             R - Galactocentric cylindrical radius
             z - vertical height
@@ -314,10 +310,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         INPUT:
             R        - Galactocentric cylindrical radius
             z        - vertical height
-            for_disk - if set to True (default), use alpha and gamma for the 
-                       disk component. These are the coordinates used in 
-                       Batsleer & Dejonghe (1994).If set to False, use alpha 
-                       and gamma for the halo component.
         OUTPUT:
             l - prolate spheroidal coordinate lambda
             n - prolate spheroidal coordinate nu
