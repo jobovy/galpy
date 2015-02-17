@@ -169,6 +169,11 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
       break;
+    case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
+      potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
+      potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 3;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
