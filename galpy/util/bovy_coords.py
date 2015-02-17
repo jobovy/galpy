@@ -1694,7 +1694,7 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
     """
     NAME:
 
-       Rz_to_lambdanu_jac
+       Rz_to_lambdanu_hess
 
     PURPOSE:
 
@@ -1710,7 +1710,7 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
 
     OUTPUT:
 
-       jacobian d^2((lambda,nu))/d((R,z)^2)
+       hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
 
     HISTORY:
 

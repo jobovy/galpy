@@ -127,15 +127,18 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        dldR = jac[0,0]
-        dndR = jac[1,0]
-        return self._d2ldR2(R,z)*self._lderiv(l,n)  + \
-               self._d2ndR2(R,z)*self._nderiv(l,n)  + \
-               (dldR)**2        *self._l2deriv(l,n) + \
-               (dndR)**2        *self._n2deriv(l,n) + \
-               2.*dldR*dndR     *self._nlderiv(l,n)
+        l,n    = Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
+        hess   = Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
+        dldR   = jac[0,0]
+        dndR   = jac[1,0]
+        d2ldR2 = hess[0,0,0]
+        d2ndR2 = hess[1,0,0]
+        return d2ldR2       * self._lderiv(l,n)  + \
+               d2ndR2       * self._nderiv(l,n)  + \
+               (dldR)**2    * self._l2deriv(l,n) + \
+               (dndR)**2    * self._n2deriv(l,n) + \
+               2.*dldR*dndR * self._nlderiv(l,n)
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -153,15 +156,18 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        l,n    = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        hess   = Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
         dldz = jac[0,1]
         dndz = jac[1,1]
-        return self._d2ldz2(R,z)*self._lderiv(l,n)  + \
-               self._d2ndz2(R,z)*self._nderiv(l,n)  + \
-               (dldz)**2        *self._l2deriv(l,n) + \
-               (dndz)**2        *self._n2deriv(l,n) + \
-               2.*dldz*dndz     *self._nlderiv(l,n)
+        d2ldz2 = hess[0,1,1]
+        d2ndz2 = hess[1,1,1]
+        return d2ldz2       * self._lderiv(l,n)  + \
+               d2ndz2       * self._nderiv(l,n)  + \
+               (dldz)**2    * self._l2deriv(l,n) + \
+               (dndz)**2    * self._n2deriv(l,n) + \
+               2.*dldz*dndz * self._nlderiv(l,n)
 
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
@@ -180,17 +186,20 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n  = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac  = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        l,n    = Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        hess   = Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
         dldR = jac[0,0]
         dndR = jac[1,0]
         dldz = jac[0,1]
         dndz = jac[1,1]
-        return self._d2ldRdz(R,z)   *self._lderiv(l,n)  + \
-               self._d2ndRdz(R,z)   *self._nderiv(l,n)  + \
-               dldR*dldz            *self._l2deriv(l,n) + \
-               dndR*dndz            *self._n2deriv(l,n) + \
-               (dldR*dndz+dldz*dndR)*self._lnderiv(l,n)
+        d2ldRdz = hess[0,0,1]
+        d2ndRdz = hess[1,0,1]
+        return d2ldRdz              * self._lderiv(l,n)  + \
+               d2ndRdz              * self._nderiv(l,n)  + \
+               dldR*dldz            * self._l2deriv(l,n) + \
+               dndR*dndz            * self._n2deriv(l,n) + \
+               (dldR*dndz+dldz*dndR)* self._lnderiv(l,n)
 
     def _lderiv(self,l,n):
         """
@@ -275,123 +284,3 @@ class KuzminKutuzovStaeckelPotential(Potential):
             2015-02-13 - Written - Trick (MPIA)
         """
         return -0.5/(nu.sqrt(l) * nu.sqrt(n) * (nu.sqrt(l)+nu.sqrt(n))**3))
-
-    def _d2ldR2(self,R,z):
-        """
-        NAME:
-            _d2ldR2
-        PURPOSE:
-            evaluate the second derivative of lambda w.r.t. R
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 lambda / dR^2
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr   = (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2)
-        term1 =            (3.*R**2 + z**2 + D**2)     / discr**0.5
-        term2 = (2.*R**2 * (   R**2 + z**2 + D**2)**2) / discr**1.5
-        return 1. + term1 - term2
-
-    def _d2ndR2(self,R,z):
-        """
-        NAME:
-            _d2ndR2
-        PURPOSE:
-            evaluate the second derivative of nu w.r.t. R
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 nu / dR^2
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr =               (R**2 + z**2 - D**2)**2 + (4. * D**2 * R**2)
-        term1 =            (3.*R**2 + z**2 + D**2)     / discr**0.5
-        term2 = (2.*R**2 * (   R**2 + z**2 + D**2)**2) / discr**1.5
-        return 1. - term1 + term2
-
-    def _d2ldz2(self,R,z):
-        """
-        NAME:
-            _d2ldz2
-        PURPOSE:
-            evaluate the second derivative of lambda w.r.t. z
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 lambda / dz^2
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr =            (R**2 + z**2    - D**2)**2 + (4. * D**2 * R**2)
-        term1 =            (R**2 + 3.*z**2 - D**2)     / discr**0.5
-        term2 = (2.*z**2 * (R**2 +    z**2 - D**2)**2) / discr**1.5
-        return 1. + term1 - term2
-
-    def _d2ndz2(self,R,z):
-        """
-        NAME:
-            _d2ldR2
-        PURPOSE:
-            evaluate the second derivative of nu w.r.t. z
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 nu / dz^2
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr =            (R**2 +    z**2 - D**2)**2 + (4. * D**2 * R**2)
-        term1 =            (R**2 + 3.*z**2 - D**2)     / discr**0.5
-        term2 = (2.*z**2 * (R**2 +    z**2 - D**2)**2) / discr**1.5
-        return 1. - term1 + term2
-
-    def _d2ldRdz(self,R,z):
-        """
-        NAME:
-            _d2ldRdz
-        PURPOSE:
-            evaluate the mixed derivative of lambda w.r.t. R and z
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 lambda / dR / dz
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr =  (R**2 + z**2 - D**2)**2 + (4. * D**2 * R**2)
-        term1 = 2.*R*z                   /discr**0.5
-        term2 = ((R**2 + z**2)**2 - D**4)/discr
-        return term1 * (1. - term2)
-
-    def _d2ndRdz(self,R,z):
-        """
-        NAME:
-            _d2ndRdz
-        PURPOSE:
-            evaluate the mixed derivative of nu w.r.t. R and z
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-        OUTPUT:
-            d^2 nu / dR / dz
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        D = self._Delta
-        discr =  (R**2 + z**2 - D**2)**2 + (4. * D**2 * R**2)
-        term1 = 2.*R*z                   /discr**0.5
-        term2 = ((R**2 + z**2)**2 - D**4)/discr
-        return term1 * (-1. + term2)
