@@ -35,6 +35,8 @@
 #            Rz_to_uv
 #            uv_to_Rz
 #            Rz_to_lambdanu
+#            Rz_to_lambdanu_jac
+#            Rz_to_lambdanu_hess
 #            lambdanu_to_Rz
 #
 ##############################################################################
@@ -1687,6 +1689,57 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
     jac[1,0] = dndR
     jac[1,1] = dndz
     return jac
+
+def Rz_to_lambdanu_hess(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_jac
+
+    PURPOSE:
+
+       calculate the Hessian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       jacobian d^2((lambda,nu))/d((R,z)^2)
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    D       = Delta
+    R2      = R**2
+    z2      = z**2
+    D2      = D**2
+    discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
+    d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
+    d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
+    hess    = numpy.zeros((2,2,2))
+    #Hessian for lambda:
+    hess[0,0,0] = d2ldR2
+    hess[0,0,1] = d2ldRdz
+    hess[0,1,0] = d2ldRdz
+    hess[0,1,1] = d2ldz2
+    #Hessian for nu:
+    hess[1,0,0] = d2ndR2
+    hess[1,0,1] = d2ndRdz
+    hess[1,1,0] = d2ndRdz
+    hess[1,1,1] = d2ndz2
+    return hess
 
 def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         """
