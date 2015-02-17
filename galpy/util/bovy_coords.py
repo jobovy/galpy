@@ -1649,6 +1649,44 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
         n = 0.5 * (term - nu.sqrt(discr))
     return (l,n)
 
+def Rz_to_lambdanu_jac(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_jac
+
+    PURPOSE:
+
+       calculate the Jacobian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       jacobian d((lambda,nu))/d((R,z))
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    discr =          (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2)
+    dldR = R * (1. + (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
+    dndR = R * (1. - (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
+    dldz = z * (1. + (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
+    dndz = z * (1. - (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
+    out[0,0] = dldR
+    out[0,1] = dldz
+    out[1,0] = dndR
+    out[1,1] = dndz
+    return out
+
 def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         """
     NAME:
@@ -1688,6 +1726,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
     if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > -1e-10:
         z2 = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
+
     
 
 def get_epoch_angles(epoch=2000.0):
