@@ -23,12 +23,14 @@ class KuzminKutuzovStaeckelPotential(Potential):
         PURPOSE:
             initialize a Kuzmin-Kutuzov Stäckel potential
         INPUT:
-            amp - amplitude to be applied to the potential (default: 1)
-            ac  - axis ratio of the coordinate surfaces 
+            amp       - amplitude to be applied to the potential (default: 1)
+            ac        - axis ratio of the coordinate surfaces 
                         (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
-            Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.)
                         Delta=sqrt(gamma-alpha)
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+            normalize - if True, normalize such that vc(1.,0.)=1., 
+                       or, if given as a number, such that the force is this 
+                       fraction of the force necessary to make vc(1.,0.)=1.
         OUTPUT:
            (none)
         HISTORY:

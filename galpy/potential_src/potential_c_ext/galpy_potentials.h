@@ -208,4 +208,11 @@ double PowerSphericalPotentialwCutoffzforce(double,double,double,double,
 					    struct potentialArg *);
 double PowerSphericalPotentialwCutoffPlanarR2deriv(double ,double, double,
 						   struct potentialArg *);
+//KuzminKutuzovStaeckelPotential
+double KuzminKutuzovStaeckelPotentialEval(double ,double , double, double,
+                        struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialRforce(double ,double , double, double,
+                        struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
 #endif /* galpy_potentials.h */

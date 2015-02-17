@@ -1,3 +1,4 @@
+# KuzminKutuzovStaeckelPotential.c
 #include <math.h>
 #include <galpy_potentials.h>
 //KuzminKutuzovStaeckelPotential
@@ -43,7 +44,7 @@ double KuzminKutuzovStaeckelPotentialRforce(double R,double Z, double phi,
   double dVdn = 0.5/sqrt(n)/pow(sqrt(l)+sqrt(n),2.);
   return -(dldR * dVdl + dndR * dVdn);
 }
-double KuzminKutuzovStaeckelPotentialPlanarRforce(double R,double phi,
+/*double KuzminKutuzovStaeckelPotentialPlanarRforce(double R,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -60,7 +61,7 @@ double KuzminKutuzovStaeckelPotentialPlanarRforce(double R,double phi,
   //Calculate Rforce
   double dVdl = 0.5/sqrt(l)/pow(sqrt(l)+sqrt(n),2.)
   return -dldR * dVdl;
-}
+}*/
 double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
@@ -83,7 +84,7 @@ double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
   double dVdn = 0.5/sqrt(n)/pow(sqrt(l)+sqrt(n),2.);
   return -(dldz * dVdl + dndz * dVdn);
 }
-double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
+/*double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
 					     double t,
 					     struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -102,5 +103,5 @@ double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
   double dVdl   = 0.5/sqrt(l)/pow(sqrt(l)+sqrt(n),2.);
   double d2Vdl2 = (-3.*sqrt(l)-sqrt(n)) / (4. * pow(l,1.5) * pow(sqrt(l)+sqrt(n),3.)
   return d2ldR2 * dVdl + dldR*dldr*d2Vdl2
-}
+}*/
 
