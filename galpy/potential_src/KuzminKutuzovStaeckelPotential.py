@@ -62,7 +62,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        l,n = self._Rz_to_ln(R,z)
+        l,n = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return -1./(nu.sqrt(l) + nu.sqrt(n))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -81,7 +81,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n  = self._Rz_to_ln(R,z,for_disk=True)
+        l,n = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return - (self._dldR(R,z) * self._lderiv(l,n) + \
                   self._dndR(R,z) * self._nderiv(l,n))
 
@@ -101,7 +101,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n  = self._Rz_to_ln(R,z,for_disk=True)
+        l,n = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return - (self._dldz(R,z) * self._lderiv(l,n) + \
                   self._dndz(R,z) * self._nderiv(l,n))
 
@@ -123,7 +123,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         """
         dldR    = self._dldR  (R,z)
         dndR    = self._dndR  (R,z)
-        l,n     = self._Rz_to_ln(R,z,for_disk=True)
+        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return self._d2ldR2(R,z)*self._lderiv(l,n)  + \
                self._d2ndR2(R,z)*self._nderiv(l,n)  + \
                (dldR)**2        *self._l2deriv(l,n) + \
@@ -148,7 +148,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         """        
         dldz    = self._dldz  (R,z)
         dndz    = self._dndz  (R,z)
-        l,n     = self._Rz_to_ln(R,z,for_disk=True)
+        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return self._d2ldz2(R,z)*self._lderiv(l,n)  + \
                self._d2ndz2(R,z)*self._nderiv(l,n)  + \
                (dldz)**2        *self._l2deriv(l,n) + \
@@ -176,7 +176,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         dldz    = self._dldz(R,z)
         dndR    = self._dndR(R,z)
         dndz    = self._dndz(R,z)
-        l,n     = self._Rz_to_ln(R,z,for_disk=True)
+        l,n     = Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return self._d2ldRdz(R,z)   *self._lderiv(l,n)  + \
                self._d2ndRdz(R,z)   *self._nderiv(l,n)  + \
                dldR*dldz            *self._l2deriv(l,n) + \
@@ -295,43 +295,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
             z2 = 0.
         return nu.sqrt(r2),nu.sqrt(z2)
 
-
-    def _Rz_to_ln(self,R,z):
-        """
-        NAME:
-            _Rz_to_ln
-        PURPOSE:
-            convert the galactocentric cylindrical coordinates (R,z) into
-            prolate spheroidal coordinates (lambda,nu)
-            by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
-                R^2 = (l+a) * (n+a) / (a-g)
-                z^2 = (l+g) * (n+g) / (g-a)
-                Delta^2 = g-a
-        INPUT:
-            R        - Galactocentric cylindrical radius
-            z        - vertical height
-        OUTPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
-        if z == 0.:
-            l = R**2 - self._alpha
-            n = -self._gamma
-        else:
-            term  =  R**2 + z**2 - self._alpha - self._gamma    # > 0
-            discr = (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2)    # > 0
-            l = 0.5 * (term + nu.sqrt(discr))  
-            n = 0.5 * (term - nu.sqrt(discr))
-        #if (n + self._gamma) < 0. or (n + self._gamma) > self._Delta**2 or (l + self._alpha) < 0.:
-        #    print "nu     + gamma =  Delta**2 * cos **2(v) = ", n+gamma
-        #    print "lambda + alpha =  Delta**2 * sinh**2(u) = ", l+alpha
-        #    print "nu     + alpha = -Delta**2 * sin **2(v) = ", n+alpha
-        #    sys.exit("Error in KuzminKutuzovStaeckelPotential._Rz_to_ln(): "+
-        #             "nu and/or lambda out of bounds.")
-        return l,n
-
     def _dldR(self,R,z):
         """
         NAME:
@@ -397,7 +360,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        #derivative of lambda and nu w.r.t. R (see _Rz_to_ln() for conversion):
+        #derivative of lambda and nu w.r.t. R (see Rz_to_lambdanu() for conversion):
         discr =          (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2) 
         return z * (1. - (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
 

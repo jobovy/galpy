@@ -1645,7 +1645,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
         discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
         l = 0.5 * (term + nu.sqrt(discr))  
         n = 0.5 * (term - nu.sqrt(discr))
-    return l,n
+    return (l,n)
     
 
 def get_epoch_angles(epoch=2000.0):
