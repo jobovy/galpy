@@ -2,7 +2,7 @@
 #include <galpy_potentials.h>
 //KuzminKutuzovStaeckelPotential
 //3  arguments: amp, ac, Delta
-double KuzminKutuzovStaeckelPotentialEval(double R,double Z, double phi,
+double KuzminKutuzovStaeckelPotentialEval(double R,double z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -20,7 +20,7 @@ double KuzminKutuzovStaeckelPotentialEval(double R,double Z, double phi,
   //Calculate potential
   return -amp /(sqrt(l) + sqrt(n));
 }
-double KuzminKutuzovStaeckelPotentialRforce(double R,double Z, double phi,
+double KuzminKutuzovStaeckelPotentialRforce(double R,double z, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -99,7 +99,7 @@ double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
   double d2ldR2 = 2.;
   //Calculate R2deriv
   double dVdl   = 0.5/sqrt(l)/pow(sqrt(l)+sqrt(n),2.);
-  double d2Vdl2 = (-3.*sqrt(l)-sqrt(n)) / (4. * pow(l,1.5) * pow(sqrt(l)+sqrt(n),3.);
-  return amp * (d2ldR2 * dVdl + dldR*dldr*d2Vdl2);
+  double d2Vdl2 = (-3.*sqrt(l)-sqrt(n)) / (4. * pow(l,1.5) * pow(sqrt(l)+sqrt(n),3.));
+  return amp * (d2ldR2 * dVdl + dldR*dldR*d2Vdl2);
 }
 
