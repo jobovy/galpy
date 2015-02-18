@@ -11,7 +11,6 @@ double KuzminKutuzovStaeckelPotentialEval(double R,double Z, double phi,
   double amp   = *args;
   double ac    = *(args+1);
   double Delta = *(args+2);
-  //How does the code know in which order the args appear???????????? LogHaloPot has a different arg order in c and python.????????? Why is the get args in each function in LogHaloPot different?????
   //Coordinate transformation
   double gamma = Delta*Delta / (1.-ac*ac)
   double alpha = gamma - Delta*Delta
@@ -44,7 +43,7 @@ double KuzminKutuzovStaeckelPotentialRforce(double R,double Z, double phi,
   double dVdn = 0.5/sqrt(n)/pow(sqrt(l)+sqrt(n),2.);
   return -(dldR * dVdl + dndR * dVdn);
 }
-/*double KuzminKutuzovStaeckelPotentialPlanarRforce(double R,double phi,
+double KuzminKutuzovStaeckelPotentialPlanarRforce(double R,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -61,7 +60,7 @@ double KuzminKutuzovStaeckelPotentialRforce(double R,double Z, double phi,
   //Calculate Rforce
   double dVdl = 0.5/sqrt(l)/pow(sqrt(l)+sqrt(n),2.)
   return -dldR * dVdl;
-}*/
+}
 double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
@@ -84,7 +83,7 @@ double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
   double dVdn = 0.5/sqrt(n)/pow(sqrt(l)+sqrt(n),2.);
   return -(dldz * dVdl + dndz * dVdn);
 }
-/*double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
+double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
 					     double t,
 					     struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -103,5 +102,5 @@ double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
   double dVdl   = 0.5/sqrt(l)/pow(sqrt(l)+sqrt(n),2.);
   double d2Vdl2 = (-3.*sqrt(l)-sqrt(n)) / (4. * pow(l,1.5) * pow(sqrt(l)+sqrt(n),3.)
   return d2ldR2 * dVdl + dldR*dldr*d2Vdl2
-}*/
+}
 

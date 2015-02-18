@@ -173,6 +173,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
       potentialArgs->nargs= 3;
       break;
     }
