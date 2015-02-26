@@ -1640,7 +1640,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
 
     """
     g = Delta**2 / (1.-ac**2)
-    a = gamma - Delta**2
+    a = g - Delta**2
     if z == 0.:
         l = R**2 - a
         n = -g
@@ -1678,12 +1678,12 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    discr =          (R**2 + z**2 - self._Delta**2)**2 + (4. * self._Delta**2 * R**2)
-    dldR  = R * (1. + (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
-    dndR  = R * (1. - (R**2 + z**2 + self._Delta**2) / nu.sqrt(discr))
-    dldz  = z * (1. + (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
-    dndz  = z * (1. - (R**2 + z**2 - self._Delta**2) / nu.sqrt(discr))
-    jac      = numpy.zeros((2,2))
+    discr =          (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    dldR  = R * (1. + (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    jac      = nu.zeros((2,2))
     jac[0,0] = dldR
     jac[0,1] = dldz
     jac[1,0] = dndR
@@ -1728,7 +1728,7 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
     d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
     d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
     d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
-    hess    = numpy.zeros((2,2,2))
+    hess    = nu.zeros((2,2,2))
     #Hessian for lambda:
     hess[0,0,0] = d2ldR2
     hess[0,0,1] = d2ldRdz
@@ -1772,7 +1772,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
 
     """
     g = Delta**2 / (1.-ac**2)
-    a = gamma - Delta**2
+    a = g - Delta**2
     r2 = (l + a) * (n + a) / (a - g)
     z2 = (l + g) * (n + g) / (g - a)
     if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:

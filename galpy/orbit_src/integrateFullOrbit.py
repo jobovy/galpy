@@ -101,7 +101,7 @@ def _parse_pot(pot,potforactions=False):
             pot_args.extend([p._amp,p.alpha,p.rc])
         elif isinstance(p,potential.KuzminKutuzovStaeckelPotential):
             pot_type.append(16)
-            pot_args.extend([p._amp,p.ac,p.Delta])
+            pot_args.extend([p._amp,p._ac,p._Delta])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
