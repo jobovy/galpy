@@ -1641,14 +1641,17 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     """
     g = Delta**2 / (1.-ac**2)
     a = g - Delta**2
-    if z == 0.:
+    term  =  R**2 + z**2 - a - g
+    discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    l = 0.5 * (term + nu.sqrt(discr))  
+    n = 0.5 * (term - nu.sqrt(discr))
+    if isinstance(z,float) and z == 0.:
         l = R**2 - a
         n = -g
-    else:
-        term  =  R**2 + z**2 - a - g
-        discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-        l = 0.5 * (term + nu.sqrt(discr))  
-        n = 0.5 * (term - nu.sqrt(discr))
+    elif isinstance(z,nu.ndarray) and nu.sum(z == 0.) > 0:
+        if isinstance(R,float):      l[z==0.] = R**2 - a
+        if isinstance(R,sc.ndarray): l[z==0.] = R[z==0.]**2 - a
+        n[z==0.] = -g
     return (l,n)
 
 def Rz_to_lambdanu_jac(R,z,Delta=1.):
