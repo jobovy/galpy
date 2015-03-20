@@ -125,7 +125,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
-            _Rderiv
+            _R2deriv
         PURPOSE:
             evaluate the second radial derivative for this potential
         INPUT:
