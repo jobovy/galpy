@@ -153,7 +153,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
                d2ndR2       * self._nderiv(l,n)  + \
                (dldR)**2    * self._l2deriv(l,n) + \
                (dndR)**2    * self._n2deriv(l,n) + \
-               2.*dldR*dndR * self._nlderiv(l,n)
+               2.*dldR*dndR * self._lnderiv(l,n)
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -186,7 +186,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
                d2ndz2       * self._nderiv(l,n)  + \
                (dldz)**2    * self._l2deriv(l,n) + \
                (dndz)**2    * self._n2deriv(l,n) + \
-               2.*dldz*dndz * self._nlderiv(l,n)
+               2.*dldz*dndz * self._lnderiv(l,n)
 
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
