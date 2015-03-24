@@ -1463,7 +1463,7 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the time (for consistency reasons)
+           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
 
            ro= (Object-wide default) physical scale for distances to use to convert
 

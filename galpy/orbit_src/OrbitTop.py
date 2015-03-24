@@ -130,7 +130,7 @@ class OrbitTop(object):
         PURPOSE:
            return the times at which the orbit is sampled
         INPUT:
-           t - (optional) time at which to get the time (for consistency reasons)
+           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
            ro= (Object-wide default) physical scale for distances to use to convert
            vo= (Object-wide default) physical scale for velocities to use to convert
            use_physical= use to override Object-wide default for using a physical scale for output
@@ -139,7 +139,11 @@ class OrbitTop(object):
         HISTORY:
            2014-06-11 - Written - Bovy (IAS)
         """
-        if len(args) == 0: return 0.
+        if len(args) == 0:
+            try:
+                return self.t
+            except AttributeError:
+                return 0.
         else: return args[0]
 
     @physical_conversion('position')

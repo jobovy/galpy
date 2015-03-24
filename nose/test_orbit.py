@@ -2254,6 +2254,18 @@ def test_MWPotential_warning():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+# Test the new Orbit.time function
+def test_time():
+    # Setup orbit
+    o= setup_orbit_energy(potential.MWPotential,axi=False)
+    # Prior to integration, should return zero
+    assert numpy.fabs(o.time()-0.) < 10.**-10., "Orbit.time before integration does not return zero"
+    # Then integrate
+    times= numpy.linspace(0.,10.,1001)
+    o.integrate(times,potential.MWPotential)
+    assert numpy.all(o.time()-times) < 10.**-8., "Orbit.time after integration does not return the integration times"
+    return None    
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential

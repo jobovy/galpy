@@ -44,6 +44,9 @@ Current development version, last updated 12/26/2014:
   allows one to do an orbit fit in the GD-1 frame of Koposov et
   al. (2010).
 
+- Orbit.time now returns the times at which an Orbit is integrated if
+  called without arguments.
+
 - Slightly improved implementation of actionAngleStaeckel.py (more
   robust umin/umax finding).
 
