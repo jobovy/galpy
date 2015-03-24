@@ -31,6 +31,27 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
+# Test interpolation with backwards orbit integration
+def test_backinterpolation_issue204():
+    # Setup orbit and its flipped version
+    o= setup_orbit_energy(potential.MWPotential,axi=False)
+    of= o.flip()
+    # Times to integrate backward and forward of flipped (should agree)
+    ntimes= numpy.linspace(0.,-10.,1001)
+    ptimes= -ntimes
+    # Integrate the orbits
+    o.integrate(ntimes,potential.MWPotential)
+    of.integrate(ptimes,potential.MWPotential)
+    # Test that interpolation works and gives the same result
+    nitimes= numpy.linspace(0.,-10.,2501)
+    pitimes= -nitimes
+    assert numpy.all((o.R(nitimes)-of.R(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    assert numpy.all((o.z(nitimes)-of.z(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    assert numpy.all((o.vR(nitimes)-of.vR(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    assert numpy.all((o.vT(nitimes)-of.vT(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    assert numpy.all((o.vT(nitimes)-of.vT(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    return None
+
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
@@ -2263,7 +2284,7 @@ def test_time():
     # Then integrate
     times= numpy.linspace(0.,10.,1001)
     o.integrate(times,potential.MWPotential)
-    assert numpy.all(o.time()-times) < 10.**-8., "Orbit.time after integration does not return the integration times"
+    assert numpy.all((o.time()-times) < 10.**-8.), "Orbit.time after integration does not return the integration times"
     return None    
 
 def test_linear_plotting():
