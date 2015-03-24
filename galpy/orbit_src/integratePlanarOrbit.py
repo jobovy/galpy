@@ -128,6 +128,17 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.PowerSphericalPotentialwCutoff):
             pot_type.append(15)
             pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.rc])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.MN3ExponentialDiskPotential):
+            # Three Miyamoto-Nagai disks
+            npot+= 2
+            pot_type.extend([5,5,5])
+            pot_args.extend([p._RZPot._amp*p._RZPot._mn3[0]._amp,
+                             p._RZPot._mn3[0]._a,p._RZPot._mn3[0]._b,
+                             p._RZPot._amp*p._RZPot._mn3[1]._amp,
+                             p._RZPot._mn3[1]._a,p._RZPot._mn3[1]._b,
+                             p._RZPot._amp*p._RZPot._mn3[2]._amp,
+                             p._RZPot._mn3[2]._a,p._RZPot._mn3[2]._b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

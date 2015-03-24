@@ -1156,6 +1156,7 @@ def test_analytic_zmax():
     tol['HernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
     tol['MiyamotoNagaiPotential']= -7. #these are more difficult
+    tol['MN3ExponentialDiskPotential']= -6. #these are more difficult
     tol['LogarithmicHaloPotential']= -7. #these are more difficult
     tol['KeplerPotential']= -7. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
@@ -1191,7 +1192,7 @@ def test_analytic_zmax():
                 tzmax_analytic= o.zmax(analytic=True)
                 #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
-                    "Analytically computed zmax does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                    "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
                 assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \
                     "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break

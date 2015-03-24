@@ -24,6 +24,7 @@ from galpy.potential_src import RazorThinExponentialDiskPotential
 from galpy.potential_src import FlattenedPowerPotential
 from galpy.potential_src import SnapshotRZPotential
 from galpy.potential_src import BurkertPotential
+from galpy.potential_src import MN3ExponentialDiskPotential
 #
 # Functions
 #
@@ -97,6 +98,7 @@ FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
 InterpSnapshotRZPotential = SnapshotRZPotential.InterpSnapshotRZPotential
 SnapshotRZPotential = SnapshotRZPotential.SnapshotRZPotential
 BurkertPotential= BurkertPotential.BurkertPotential
+MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
