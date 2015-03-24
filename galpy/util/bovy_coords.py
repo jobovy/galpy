@@ -897,7 +897,7 @@ def rect_to_cyl(X,Y,Z):
 
     OUTPUT:
 
-       [:,3] R,phi,z
+       R,phi,z
 
     HISTORY:
 
@@ -928,7 +928,7 @@ def cyl_to_rect(R,phi,Z):
 
     OUTPUT:
 
-       [:,3] X,Y,Z
+       X,Y,Z
 
     HISTORY:
 
@@ -957,7 +957,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
     OUTPUT:
 
-       [:,3]= R,phi,z
+       R,phi,z
 
     HISTORY:
 
@@ -983,7 +983,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
     OUTPUT:
 
-       [:,3]= X,Y,Z
+       X,Y,Z
 
     HISTORY:
 
