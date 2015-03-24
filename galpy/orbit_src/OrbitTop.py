@@ -1865,6 +1865,14 @@ class OrbitTop(object):
         
     def _setupOrbitInterp(self):
         if not hasattr(self,"_orbInterp"):
+            # First check that times increase
+            if hasattr(self,"t"): #Orbit has been integrated
+                if self.t[1] < self.t[0]: #must be backward
+                    sindx= nu.argsort(self.t)
+                    # sort
+                    self.t= self.t[sindx]
+                    self.orbit= self.orbit[sindx]
+                    usindx= nu.argsort(sindx) # to later unsort
             orbInterp= []
             for ii in range(len(self.vxvv)):
                 if (len(self.vxvv) == 4 or len(self.vxvv) == 6) and ii == 0:
@@ -1888,6 +1896,10 @@ class OrbitTop(object):
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
                                 self.t,self.orbit[:,ii]))
             self._orbInterp= orbInterp
+            try: #unsort
+                self.t= self.t[usindx]
+                self.orbit= self.orbit[usindx]
+            except: pass
         return None
 
 
