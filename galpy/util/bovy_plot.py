@@ -464,6 +464,8 @@ def bovy_dens2d(X,**kwargs):
 
        shrink= colorbar argument: shrink the colorbar by the factor (optional)
 
+       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
+
        Contours:
        
        justcontours - if True, only draw contours
@@ -535,6 +537,7 @@ def bovy_dens2d(X,**kwargs):
         else:
             levels= sc.linspace(sc.amin(X),sc.amax(X),_DEFAULTNCNTR)
     cntrmass= kwargs.pop('cntrmass',False)
+    conditional= kwargs.pop('conditional',False)
     cntrcolors= kwargs.pop('cntrcolors','k')
     cntrlabel= kwargs.pop('cntrlabel',False)
     cntrlw= kwargs.pop('cntrlw',None)
@@ -572,8 +575,12 @@ def bovy_dens2d(X,**kwargs):
         fig.sca(axScatter)
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
+    if conditional:
+        plotthis= X/sc.tile(sc.sum(X,axis=0),(X.shape[1],1))
+    else:
+        plotthis= X
     if not justcontours:
-        out= pyplot.imshow(X,extent=extent,**kwargs)
+        out= pyplot.imshow(plotthis,extent=extent,**kwargs)
     if not overplot:
         pyplot.axis(extent)
         _add_axislabels(xlabel,ylabel)
@@ -594,14 +601,14 @@ def bovy_dens2d(X,**kwargs):
         origin= kwargs.get('origin',None)
         if cntrmass:
             #Sum from the top down!
-            X[sc.isnan(X)]= 0.
-            sortindx= sc.argsort(X.flatten())[::-1]
-            cumul= sc.cumsum(sc.sort(X.flatten())[::-1])/sc.sum(X.flatten())
-            cntrThis= sc.zeros(sc.prod(X.shape))
+            plotthis[sc.isnan(plotthis)]= 0.
+            sortindx= sc.argsort(plotthis.flatten())[::-1]
+            cumul= sc.cumsum(sc.sort(plotthis.flatten())[::-1])/sc.sum(plotthis.flatten())
+            cntrThis= sc.zeros(sc.prod(plotthis.shape))
             cntrThis[sortindx]= cumul
-            cntrThis= sc.reshape(cntrThis,X.shape)
+            cntrThis= sc.reshape(cntrThis,plotthis.shape)
         else:
-            cntrThis= X
+            cntrThis= plotthis
         if contours:
             if not cntrSmooth is None:
                 cntrThis= ndimage.gaussian_filter(cntrThis,cntrSmooth,
@@ -796,6 +803,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        aspect - aspect ratio
 
+       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
+
        contours - if False, don't plot contours
 
        justcontours - if True, only draw contours, no density
@@ -852,6 +861,7 @@ def scatterplot(x,y,*args,**kwargs):
     weights= kwargs.pop('weights',None)
     levels= kwargs.pop('levels',special.erf(sc.arange(1,4)/sc.sqrt(2.)))
     aspect= kwargs.pop('aspect',(xrange[1]-xrange[0])/(yrange[1]-yrange[0]))
+    conditional= kwargs.pop('conditional',False)
     contours= kwargs.pop('contours',True)
     justcontours= kwargs.pop('justcontours',False)
     cntrcolors= kwargs.pop('cntrcolors','k')
@@ -914,8 +924,9 @@ def scatterplot(x,y,*args,**kwargs):
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
+                              conditional=conditional,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              justcontours=justcontours,zorder=5,
+                              justcontours=justcontours,zorder=5*justcontours,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
@@ -923,6 +934,7 @@ def scatterplot(x,y,*args,**kwargs):
                               cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
+                              conditional=conditional,
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))

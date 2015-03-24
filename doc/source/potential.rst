@@ -303,7 +303,7 @@ and we get the potential of this snapshot in ``galpy`` by doing
 >>> sp= SnapshotRZPotential(s,num_threads=1)
 
 With these definitions, this snapshot potential should be the same as
-``KeplerPotential with an amplitude of one, which we can test as
+``KeplerPotential`` with an amplitude of one, which we can test as
 follows
 
 >>> from galpy.potential import KeplerPotential
