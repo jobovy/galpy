@@ -99,7 +99,9 @@ FlattenedPowerPotential= FlattenedPowerPotential.FlattenedPowerPotential
 InterpSnapshotRZPotential = SnapshotRZPotential.InterpSnapshotRZPotential
 SnapshotRZPotential = SnapshotRZPotential.SnapshotRZPotential
 BurkertPotential= BurkertPotential.BurkertPotential
+MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
 KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
+
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
