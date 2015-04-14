@@ -34,6 +34,10 @@
 #            Rz_to_coshucosv
 #            Rz_to_uv
 #            uv_to_Rz
+#            Rz_to_lambdanu
+#            Rz_to_lambdanu_jac
+#            Rz_to_lambdanu_hess
+#            lambdanu_to_Rz
 #
 ##############################################################################
 #############################################################################
@@ -1601,6 +1605,232 @@ def uv_to_Rz(u,v,delta=1.):
     R= delta*sc.sinh(u)*sc.sin(v)
     z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
+
+def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu
+
+    PURPOSE:
+
+       calculate the prolate spheroidal coordinates (lambda,nu) from
+       galactocentric cylindrical coordinates (R,z)            
+       by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
+            R^2 = (l+a) * (n+a) / (a-g)
+            z^2 = (l+g) * (n+g) / (g-a)
+            Delta^2 = g-a
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       (lambda,nu)
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    #Wilma's calculations:
+    #g = Delta**2 / (1.-ac**2)
+    #a = g - Delta**2
+    #term  =  R**2 + z**2 - a - g
+    #discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    #l = 0.5 * (term + nu.sqrt(discr))  
+    #n = 0.5 * (term - nu.sqrt(discr))
+    #if isinstance(z,float) and z == 0.:
+    #    l = R**2 - a
+    #    n = -g
+    #elif isinstance(z,nu.ndarray) and nu.sum(z == 0.) > 0:
+    #    if isinstance(R,float):      l[z==0.] = R**2 - a
+    #    if isinstance(R,sc.ndarray): l[z==0.] = R[z==0.]**2 - a
+    #    n[z==0.] = -g
+
+    #Mathematica result (same as Wilma's results):
+    g = Delta**2 / (1.-ac**2)
+    a = g - Delta**2
+    l = 0.5*(-a-g+R**2+z**2+nu.sqrt((a+g-R**2-z**2)**2-4.*(a*g-g*R**2-a*z**2)))
+    n = 0.5*(-a-g+R**2+z**2-nu.sqrt((a+g-R**2-z**2)**2-4.*(a*g-g*R**2-a*z**2)))
+    return (l,n)
+
+def Rz_to_lambdanu_jac(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_jac
+
+    PURPOSE:
+
+       calculate the Jacobian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       jacobian d((lambda,nu))/d((R,z))
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    #Wilma's calculations:
+    #discr =          (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    #dldR  = R * (1. + (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    #dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    #dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    #dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    #jac      = nu.zeros((2,2))
+    #jac[0,0] = dldR
+    #jac[0,1] = dldz
+    #jac[1,0] = dndR
+    #jac[1,1] = dndz
+
+    #Mathematica results (is the same as Wilma's result):
+    #-a+g = Delta**2
+    discr = (Delta**2+R**2)**2+2.*(-Delta**2+R**2)*z**2+z**4
+    dldR = R*(1.+( Delta**2+R**2+z**2)/nu.sqrt(discr))
+    dndR = R*(1.-( Delta**2+R**2+z**2)/nu.sqrt(discr))
+    dldz = z*(1.+(-Delta**2+R**2+z**2)/nu.sqrt(discr))
+    dndz = z*(1.-(-Delta**2+R**2+z**2)/nu.sqrt(discr))
+    jac      = nu.zeros((2,2))
+    jac[0,0] = dldR
+    jac[0,1] = dldz
+    jac[1,0] = dndR
+    jac[1,1] = dndz
+    return jac
+
+def Rz_to_lambdanu_hess(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_hess
+
+    PURPOSE:
+
+       calculate the Hessian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    #Wilmas calculations:
+    #D       = Delta
+    #R2      = R**2
+    #z2      = z**2
+    #D2      = D**2
+    #discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
+    #d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    #d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    #d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    #d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    #d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
+    #d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
+    #hess    = nu.zeros((2,2,2))
+    #Hessian for lambda:
+    #hess[0,0,0] = d2ldR2
+    #hess[0,0,1] = d2ldRdz
+    #hess[0,1,0] = d2ldRdz
+    #hess[0,1,1] = d2ldz2
+    #Hessian for nu:
+    #hess[1,0,0] = d2ndR2
+    #hess[1,0,1] = d2ndRdz
+    #hess[1,1,0] = d2ndRdz
+    #hess[1,1,1] = d2ndz2
+
+    #Mathematica results (same as Wilma's results):
+    D       = Delta
+    R2      = R**2
+    z2      = z**2
+    D2      = D**2
+    discr   = (D2+R2)**2+2.*(-D2+R2)*z2+z2**2
+    d2ldR2  = 1.-(2.*R2*( D2+R2+z2)**2)/discr**1.5+( D2+3.*R2+   z2)/discr**0.5
+    d2ldz2  = 1.-(2.*z2*(-D2+R2+z2)**2)/discr**1.5+(-D2+   R2+3.*z2)/discr**0.5
+    d2ndR2  = 1.+(2.*R2*( D2+R2+z2)**2)/discr**1.5-( D2+3.*R2+   z2)/discr**0.5
+    d2ndz2  = 1.+(2.*z2*(-D2+R2+z2)**2)/discr**1.5-(-D2+   R2+3.*z2)/discr**0.5
+    d2ldRdz =  4.*D2*R*z*(D2+R2-z2)/discr**1.5
+    d2ndRdz = -4.*D2*R*z*(D2+R2-z2)/discr**1.5
+    hess    = nu.zeros((2,2,2))
+    #Hessian for lambda:
+    hess[0,0,0] = d2ldR2
+    hess[0,0,1] = d2ldRdz
+    hess[0,1,0] = d2ldRdz
+    hess[0,1,1] = d2ldz2
+    #Hessian for nu:
+    hess[1,0,0] = d2ndR2
+    hess[1,0,1] = d2ndRdz
+    hess[1,1,0] = d2ndRdz
+    hess[1,1,1] = d2ndz2
+    return hess
+
+def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
+    """
+    NAME:
+
+        lambdanu_to_Rz
+
+    PURPOSE:
+
+        calculate galactocentric cylindrical coordinates (R,z)
+        from prolate spheroidal coordinates (lambda,nu),
+        cf. eq. (2.2) in Dejonghe & de Zeeuw (1988a)
+
+    INPUT:
+
+        l     - prolate spheroidal coordinate lambda
+        n     - prolate spheroidal coordinate nu
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+        (R,z)
+
+    HISTORY:
+
+        2015-02-13 - Written - Trick (MPIA)
+
+    """
+    g = Delta**2 / (1.-ac**2)
+    a = g - Delta**2
+    r2 = (l + a) * (n + a) / (a - g)
+    z2 = (l + g) * (n + g) / (g - a)
+    if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:
+        r2 = 0.
+    if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > -1e-10:
+        z2 = 0.
+    return (nu.sqrt(r2),nu.sqrt(z2))
+
+    
 
 def get_epoch_angles(epoch=2000.0):
     """
