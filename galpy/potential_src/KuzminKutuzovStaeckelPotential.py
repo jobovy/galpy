@@ -7,7 +7,7 @@
 #                        \sqrt{lambda} + \sqrt{nu}  
 ###############################################################################
 import numpy as nu
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 from galpy.util import bovy_coords #for prolate spherical coordinate transforms
 class KuzminKutuzovStaeckelPotential(Potential):
     """Class that implements the Kuzmin-Kutuzov Staeckel potential
