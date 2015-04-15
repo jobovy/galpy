@@ -1153,6 +1153,7 @@ def test_analytic_zmax():
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -4. #these are more difficult
+    tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
     tol['HernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
     tol['MiyamotoNagaiPotential']= -7. #these are more difficult
