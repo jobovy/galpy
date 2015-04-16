@@ -89,12 +89,29 @@ class KuzminKutuzovStaeckelPotential(Potential):
             if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
             out = nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
             return out
+        #Wilma's calculation:
         l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         dldR = jac[0,0]
         dndR = jac[1,0]
         return - (dldR * self._lderiv(l,n) + \
                   dndR * self._nderiv(l,n))
+
+        #Mathematica calculation (seems to be the same as Wilma's calculation:
+        #d2 = self._Delta**2
+        #R2 = R**2
+        #z2 = z**2
+        #a = self._alpha
+        #numerator = nu.sqrt(2.)*R*( \
+        #            ( d2+R2+z2-nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2))/nu.sqrt(-2.*a-d2+R2+z2-nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2)) \
+        #           +(-d2-R2-z2-nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2))/nu.sqrt(-2.*a-d2+R2+z2+nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2)) \
+        #           )
+        #denominator = nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2)*( \
+        #                 nu.sqrt(-2.*a-d2+R2+z2-nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2))\
+        #                +nu.sqrt(-2.*a-d2+R2+z2+nu.sqrt(d2**2+2.*d2*(R-z)*(R+z)+(R2+z2)**2))\
+        #                )**2
+        #return numerator / denominator
+   
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -258,7 +275,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
             derivative w.r.t. nu
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
-        """
+        """ 
         return 0.5/nu.sqrt(n)/(nu.sqrt(l)+nu.sqrt(n))**2
 
     def _l2deriv(self,l,n):

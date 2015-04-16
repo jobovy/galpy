@@ -472,21 +472,21 @@ class quasiisothermaldf(object):
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
-                vRgl= 4.*sigmaR1/2.*(glx+1.)
-                vzgl= 4.*sigmaz1/2.*(glx+1.)
+                vRgl= nsigma*sigmaR1/2.*(glx+1.)
+                vzgl= nsigma*sigmaz1/2.*(glx+1.)
                 vRglw= glw
                 vzglw= glw
             else:
-                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                vRgl= nsigma*sigmaR1/2.*(glx12+1.)
                 #vRgl= 1.5/2.*(glx12+1.)
                 vRgl= list(vRgl)
-                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                vRgl.extend(-nsigma*sigmaR1/2.*(glx12+1.))
                 #vRgl.extend(-1.5/2.*(glx12+1.))
                 vRgl= numpy.array(vRgl)
-                vzgl= 4.*sigmaz1/2.*(glx12+1.)
+                vzgl= nsigma*sigmaz1/2.*(glx12+1.)
                 #vzgl= 1.5/2.*(glx12+1.)
                 vzgl= list(vzgl)
-                vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
+                vzgl.extend(-nsigma*sigmaz1/2.*(glx12+1.))
                 #vzgl.extend(-1.5/2.*(glx12+1.))
                 vzgl= numpy.array(vzgl)
                 vRglw= glw12
