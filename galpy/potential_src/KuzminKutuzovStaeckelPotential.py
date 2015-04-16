@@ -95,6 +95,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         dndR = jac[1,0]
         return - (dldR * self._lderiv(l,n) + \
                   dndR * self._nderiv(l,n))
+   
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -258,7 +259,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
             derivative w.r.t. nu
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
-        """
+        """ 
         return 0.5/nu.sqrt(n)/(nu.sqrt(l)+nu.sqrt(n))**2
 
     def _l2deriv(self,l,n):
