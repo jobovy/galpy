@@ -534,20 +534,20 @@ class quasiisothermaldf(object):
                 logqeval= _glqeval
             if _returngl:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         logqeval)
             elif _return_actions and _return_freqs:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         jr,lz,jz,
                         rg,kappa,nu,Omega)
             elif _return_actions:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         jr,lz,jz)
             else:
                 return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1*3.)
+                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1*0.1875*nsigma**2)
         elif mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:
