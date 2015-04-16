@@ -1639,26 +1639,19 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    #Wilma's calculations:
-    #g = Delta**2 / (1.-ac**2)
-    #a = g - Delta**2
-    #term  =  R**2 + z**2 - a - g
-    #discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-    #l = 0.5 * (term + nu.sqrt(discr))  
-    #n = 0.5 * (term - nu.sqrt(discr))
-    #if isinstance(z,float) and z == 0.:
-    #    l = R**2 - a
-    #    n = -g
-    #elif isinstance(z,nu.ndarray) and nu.sum(z == 0.) > 0:
-    #    if isinstance(R,float):      l[z==0.] = R**2 - a
-    #    if isinstance(R,sc.ndarray): l[z==0.] = R[z==0.]**2 - a
-    #    n[z==0.] = -g
-
-    #Mathematica result (same as Wilma's results):
     g = Delta**2 / (1.-ac**2)
     a = g - Delta**2
-    l = 0.5*(-a-g+R**2+z**2+nu.sqrt((a+g-R**2-z**2)**2-4.*(a*g-g*R**2-a*z**2)))
-    n = 0.5*(-a-g+R**2+z**2-nu.sqrt((a+g-R**2-z**2)**2-4.*(a*g-g*R**2-a*z**2)))
+    term  =  R**2 + z**2 - a - g
+    discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    l = 0.5 * (term + nu.sqrt(discr))  
+    n = 0.5 * (term - nu.sqrt(discr))
+    if isinstance(z,float) and z == 0.:
+        l = R**2 - a
+        n = -g
+    elif isinstance(z,nu.ndarray) and nu.sum(z == 0.) > 0:
+        if isinstance(R,float):      l[z==0.] = R**2 - a
+        if isinstance(R,sc.ndarray): l[z==0.] = R[z==0.]**2 - a
+        n[z==0.] = -g
     return (l,n)
 
 def Rz_to_lambdanu_jac(R,z,Delta=1.):
@@ -1688,25 +1681,11 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    #Wilma's calculations:
-    #discr =          (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-    #dldR  = R * (1. + (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
-    #dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
-    #dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
-    #dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
-    #jac      = nu.zeros((2,2))
-    #jac[0,0] = dldR
-    #jac[0,1] = dldz
-    #jac[1,0] = dndR
-    #jac[1,1] = dndz
-
-    #Mathematica results (is the same as Wilma's result):
-    #-a+g = Delta**2
-    discr = (Delta**2+R**2)**2+2.*(-Delta**2+R**2)*z**2+z**4
-    dldR = R*(1.+( Delta**2+R**2+z**2)/nu.sqrt(discr))
-    dndR = R*(1.-( Delta**2+R**2+z**2)/nu.sqrt(discr))
-    dldz = z*(1.+(-Delta**2+R**2+z**2)/nu.sqrt(discr))
-    dndz = z*(1.-(-Delta**2+R**2+z**2)/nu.sqrt(discr))
+    discr =           (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    dldR  = R * (1. + (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
     jac      = nu.zeros((2,2))
     jac[0,0] = dldR
     jac[0,1] = dldz
@@ -1741,42 +1720,17 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    #Wilmas calculations:
-    #D       = Delta
-    #R2      = R**2
-    #z2      = z**2
-    #D2      = D**2
-    #discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
-    #d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
-    #d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
-    #d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
-    #d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
-    #d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
-    #d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
-    #hess    = nu.zeros((2,2,2))
-    #Hessian for lambda:
-    #hess[0,0,0] = d2ldR2
-    #hess[0,0,1] = d2ldRdz
-    #hess[0,1,0] = d2ldRdz
-    #hess[0,1,1] = d2ldz2
-    #Hessian for nu:
-    #hess[1,0,0] = d2ndR2
-    #hess[1,0,1] = d2ndRdz
-    #hess[1,1,0] = d2ndRdz
-    #hess[1,1,1] = d2ndz2
-
-    #Mathematica results (same as Wilma's results):
     D       = Delta
     R2      = R**2
     z2      = z**2
     D2      = D**2
-    discr   = (D2+R2)**2+2.*(-D2+R2)*z2+z2**2
-    d2ldR2  = 1.-(2.*R2*( D2+R2+z2)**2)/discr**1.5+( D2+3.*R2+   z2)/discr**0.5
-    d2ldz2  = 1.-(2.*z2*(-D2+R2+z2)**2)/discr**1.5+(-D2+   R2+3.*z2)/discr**0.5
-    d2ndR2  = 1.+(2.*R2*( D2+R2+z2)**2)/discr**1.5-( D2+3.*R2+   z2)/discr**0.5
-    d2ndz2  = 1.+(2.*z2*(-D2+R2+z2)**2)/discr**1.5-(-D2+   R2+3.*z2)/discr**0.5
-    d2ldRdz =  4.*D2*R*z*(D2+R2-z2)/discr**1.5
-    d2ndRdz = -4.*D2*R*z*(D2+R2-z2)/discr**1.5
+    discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
+    d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
+    d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
     hess    = nu.zeros((2,2,2))
     #Hessian for lambda:
     hess[0,0,0] = d2ldR2
