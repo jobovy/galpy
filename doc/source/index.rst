@@ -96,6 +96,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Uses the Orbit.fit routine in ``galpy.orbit`` to fit the orbit of the Ophiuchus stream to newly obtained observational data and the routines in ``galpy.df.streamdf`` to model the creation of the stream.
 #. *The LMC geometry and outer stellar populations from early DES data*, Eduardo Balbinot, B. X. Santiago, L. Girardi, et al. (2015), *Mon. Not. Roy. Astron. Soc.*, **449**, 1129 (`arXiv/1502.05050 <http://arxiv.org/abs/1502.05050>`_):
     Employs ``galpy.potential.MWPotential`` as a mass model for the Milky Way to constrain the mass of the LMC.
+#. *Young Pulsars and the Galactic Center GeV Gamma-ray Excess*, Ryan M. O’Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2015), *Phys. Rev. Lett.*, submitted (`arXiv/1504.02477 <http://arxiv.org/abs/1504.02477>`_):
+     Uses galpy orbit integration  and ``galpy.potential.MWPotential2014`` as part of a Monte Carlo simulation of the Galactic young-pulsar population.
 
 Acknowledging galpy
 --------------------
