@@ -14,28 +14,37 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     .. math::
 
-        \\Phi(R,z) = \\frac{-\\mathrm{amp}}{\\sqrt{\\lambda} + \\sqrt{\\nu}}
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{\\lambda} + \\sqrt{\\nu}}
 
     """
     def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False):
         """
         NAME:
+
             __init__
+
         PURPOSE:
+
             initialize a Kuzmin-Kutuzov Staeckel potential
+
         INPUT:
+
             amp       - amplitude to be applied to the potential (default: 1)
-            ac        - axis ratio of the coordinate surfaces 
-                        (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
-            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.)
-                        Delta=sqrt(gamma-alpha)
-            normalize - if True, normalize such that vc(1.,0.)=1., 
-                       or, if given as a number, such that the force is this 
-                       fraction of the force necessary to make vc(1.,0.)=1.
+
+            ac        - axis ratio of the coordinate surfaces; (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
+
+            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.); Delta=sqrt(gamma-alpha)
+
+            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2015-02-15 - Written - Trick (MPIA)
+
         """
         Potential.__init__(self,amp=amp)
         self._ac    = ac
