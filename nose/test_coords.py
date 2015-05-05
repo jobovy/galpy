@@ -625,12 +625,12 @@ def test_Rz_to_uv():
     u, v= numpy.arccosh(5./3.), numpy.pi/6.
     ut,vt= bovy_coords.Rz_to_uv(*bovy_coords.uv_to_Rz(u,v,delta=3.),delta=3.)
     assert numpy.fabs(ut-u) < 10.**-10., 'Rz_to_uvz conversion did not work as expected'
-    assert numpy.fabs(vt-vt) < 10.**-10., 'Rz_to_uv conversion did not work as expected'
+    assert numpy.fabs(vt-v) < 10.**-10., 'Rz_to_uv conversion did not work as expected'
     #Also test for arrays
     os= numpy.ones(2)
     ut,vt= bovy_coords.Rz_to_uv(*bovy_coords.uv_to_Rz(u*os,v*os,delta=3.),delta=3.)
     assert numpy.all(numpy.fabs(ut-u) < 10.**-10.), 'Rz_to_uvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vt-vt) < 10.**-10.), 'Rz_to_uv conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vt-v) < 10.**-10.), 'Rz_to_uv conversion did not work as expected'
     return None
 
 def test_Rz_to_coshucosv():
