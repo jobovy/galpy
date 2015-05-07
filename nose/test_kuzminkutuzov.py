@@ -150,7 +150,7 @@ def test_density():
 #-----------------------------------------------------------------------------
 
 #test wheter the orbit integration in C and Python are the same
-def test_orbitItegrationC():
+def test_orbitIntegrationC():
 
     #_____initialize some KKSPot_____
     Delta = 1.0
@@ -166,20 +166,22 @@ def test_orbitItegrationC():
     o_P.integrate(ts,pot,method='leapfrog')  #python
     o_C.integrate(ts,pot,method='leapfrog_c')#C
 
-    assert numpy.all(numpy.fabs((o_P.R(ts) - o_C.R(ts))/o_P.R(ts)) < 10.**-5), \
-            'Orbit integration for R coordinate different in ' + \
-            'C and Python implementation.'
-    assert numpy.all(numpy.fabs((o_P.z(ts) - o_C.z(ts))/o_P.z(ts))[1::] < 10.**-1), \
-            'Orbit integration for z coordinate different in ' + \
-            'C and Python implementation.'
-    assert numpy.all(numpy.fabs((o_P.vR(ts) - o_C.vR(ts))/o_P.vR(ts)) < 10.**-3), \
-            'Orbit integration for vR coordinate different in ' + \
-            'C and Python implementation.'
-    assert numpy.all(numpy.fabs((o_P.vz(ts) - o_C.vz(ts))/o_P.vz(ts)) < 10.**-1), \
-            'Orbit integration for vz coordinate different in ' + \
-            'C and Python implementation.'
-    assert numpy.all(numpy.fabs((o_P.vT(ts) - o_C.vT(ts))/o_P.vT(ts)) < 10.**-5), \
-            'Orbit integration for vT coordinate different in ' + \
+    for ii in range(5):
+        if   ii == 0: Python, CC, string, exp1, exp2 = o_P.R(ts) , o_C.R(ts) , 'R' , -5., -5.
+        elif ii == 1: Python, CC, string, exp1, exp2 = o_P.z(ts) , o_C.z(ts) , 'z' , -2., -5.
+        elif ii == 2: Python, CC, string, exp1, exp2 = o_P.vR(ts), o_C.vR(ts), 'vR', -3., -5.
+        elif ii == 3: Python, CC, string, exp1, exp2 = o_P.vz(ts), o_C.vz(ts), 'vz', -1., -5.
+        elif ii == 4: Python, CC, string, exp1, exp2 = o_P.vT(ts), o_C.vT(ts), 'vT', -5., -5.
+
+        rel_diff = numpy.fabs((Python-CC)/CC) < 10.**exp1
+        abs_diff = (numpy.fabs(Python-CC) < 10.**exp2) * (numpy.fabs(Python) < 10.**exp2)
+        #print "Python", Python
+        #print "C",CC
+        #print numpy.fabs((Python-CC)/Python)
+        #print "rel_diff",rel_diff
+        #print "abs_diff",abs_diff
+        assert numpy.all(rel_diff+abs_diff), \
+            'Orbit integration for '+string+' coordinate different in ' + \
             'C and Python implementation.'
 
     return None
@@ -240,13 +242,13 @@ def test_actionConservation():
     aAS = actionAngleStaeckel(pot=pot,delta=Delta,c=True)
     jrs,lzs,jzs = aAS(o.R(ts),o.vR(ts),o.vT(ts),o.z(ts),o.vz(ts))
 
-    assert numpy.all(numpy.fabs(jrs - jrs[0]) < 10.**8), \
+    assert numpy.all(numpy.fabs(jrs - jrs[0]) < 10.**-8.), \
         'Radial action is not conserved along orbit.'
 
-    assert numpy.all(numpy.fabs(lzs - lzs[0]) < 10.**8), \
+    assert numpy.all(numpy.fabs(lzs - lzs[0]) < 10.**-8.), \
         'Angular momentum is not conserved along orbit.'
 
-    assert numpy.all(numpy.fabs(jzs - jzs[0]) < 10.**8), \
+    assert numpy.all(numpy.fabs(jzs - jzs[0]) < 10.**-8.), \
         'Vertical action is not conserved along orbit.'
 
     return None
@@ -254,11 +256,14 @@ def test_actionConservation():
 
 #test coordinate transformation
 def test_lambdanu_to_Rz():
+    
     #coordinate system:
     a = 3.
     g = 4.
     Delta = numpy.sqrt(g-a)
     ac = numpy.sqrt(a/g)
+
+    #_____test float input (z=0)_____
     #coordinate transformation:
     l, n = 2., -4.
     R,z= bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta)
@@ -268,11 +273,23 @@ def test_lambdanu_to_Rz():
     #test:
     assert numpy.fabs(R-R_true) < 10.**-10., 'lambdanu_to_Rz conversion did not work as expected (R)'
     assert numpy.fabs(z-z_true) < 10.**-10., 'lambdanu_to_Rz conversion did not work as expected (z)'
-    #Also test for arrays
-    os= numpy.ones(2)
-    R,z= bovy_coords.lambdanu_to_Rz(os*l,os*n,ac=ac,Delta=Delta)
-    assert numpy.all(numpy.fabs(R-R_true) < 10.**-10.), 'lambdanu_to_Rz conversion did not work as expected (R array)'
-    assert numpy.all(numpy.fabs(z-z_true) < 10.**-10.), 'lambdanu_to_Rz conversion did not work as expected (z array)'
+
+    #_____Also test for arrays_____
+    #coordinate transformation:
+    l = numpy.array([2. ,10.,20. ,0.])
+    n = numpy.array([-4.,-3.,-3.5,-3.5])
+    R,z= bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta)
+    #true values:
+    R_true = numpy.sqrt((l+a)*(n+a)/(a-g))
+    z_true = numpy.sqrt((l+g)*(n+g)/(g-a))
+    #test:
+    rel_diff = numpy.fabs((R-R_true)/R_true) < 10.**-8. 
+    abs_diff = (numpy.fabs(R-R_true) < 10.**-6.) * (numpy.fabs(R_true) < 10.**-6.)
+    assert numpy.all(rel_diff+abs_diff), 'lambdanu_to_Rz conversion did not work as expected (R array)'
+
+    rel_diff = numpy.fabs((z-z_true)/z_true) < 10.**-8. 
+    abs_diff = (numpy.fabs(z-z_true) < 10.**-6.) * (numpy.fabs(z_true) < 10.**-6.)
+    assert numpy.all(rel_diff+abs_diff), 'lambdanu_to_Rz conversion did not work as expected (z array)'
     return None
 
 def test_Rz_to_lambdanu():
@@ -281,16 +298,20 @@ def test_Rz_to_lambdanu():
     g = 7.
     Delta = numpy.sqrt(g-a)
     ac = numpy.sqrt(a/g)
+
+    #_____test float input (R=0)_____
     #true values:
-    l, n = 2., -5.
+    l, n = 2., -3.
     #coordinate transformation:
     lt,nt= bovy_coords.Rz_to_lambdanu(*bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta),ac=ac,Delta=Delta)
     #test:
     assert numpy.fabs(lt-l) < 10.**-10., 'Rz_to_lambdanu conversion did not work as expected (l)'
     assert numpy.fabs(nt-n) < 10.**-10., 'Rz_to_lambdanu conversion did not work as expected (n)'
-    #Also test for arrays
-    os= numpy.ones(2)
-    lt,nt= bovy_coords.Rz_to_lambdanu(*bovy_coords.lambdanu_to_Rz(l*os,n*os,ac=ac,Delta=Delta),ac=ac,Delta=Delta)
+
+    #___Also test for arrays___
+    l = numpy.array([2. ,10.,20. ,0.])
+    n = numpy.array([-7.,-3.,-5.,-5.])
+    lt,nt= bovy_coords.Rz_to_lambdanu(*bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta),ac=ac,Delta=Delta)
     assert numpy.all(numpy.fabs(lt-l) < 10.**-10.), 'Rz_to_lambdanu conversion did not work as expected (l array)'
     assert numpy.all(numpy.fabs(nt-n) < 10.**-10.), 'Rz_to_lambdanu conversion did not work as expected (n array)'
     return None

@@ -1781,11 +1781,11 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
     index = (r2 < 0.) * ((n+a) > 0.) * ((n+a) < 1e-10)
     if nu.any(index):
         if isinstance(r2,nu.ndarray): r2[index] = 0.
-        else:                      r2        = 0.
+        else:                         r2        = 0.
     index = (z2 < 0.) * ((n+g) < 0.) * ((n+g) > -1e-10)
     if nu.any(index):
         if isinstance(z2,nu.ndarray): z2[index] = 0.
-        else:                      z2        = 0.
+        else:                         z2        = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
 
     
