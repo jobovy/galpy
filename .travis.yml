@@ -50,7 +50,7 @@ after_success:
  # combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then coveralls-merge coverage.c.json; fi
- - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash); fi
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash -v <(curl -s https://codecov.io/bash); fi
 notifications:
   email:
     recipients:
