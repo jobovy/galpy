@@ -9,8 +9,8 @@ galpy
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
-.. image:: http://img.shields.io/badge/C%20coverage-99%-brightgreen.svg
-   :target: http://sns.ias.edu/~bovy/galpy_lcov/
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
+  :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
   :target: http://galpy.readthedocs.org/en/latest/
@@ -89,6 +89,9 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
+  :target: http://codecov.io/github/jobovy/galpy?branch=master
+
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
   :target: http://galpy.readthedocs.org/en/master/
 
@@ -100,6 +103,9 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
 
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
   :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev-v1.1
+  :target: http://codecov.io/github/jobovy/galpy?branch=dev-v1.1
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
   :target: http://galpy.readthedocs.org/en/dev-v1.1/
