@@ -39,6 +39,7 @@ install:
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
+ - pip install codecov
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
@@ -47,7 +48,10 @@ script:
 after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
- # combine, generate json, and upload
+ # Codecov
+ - codecov
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -v; fi
+ # coveralls: combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then coveralls-merge coverage.c.json; fi
 notifications:
