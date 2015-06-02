@@ -41,6 +41,7 @@ install:
  - easy_install --upgrade coveralls
  - pip install codecov
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
+ - if $REQUIRES_PYNBODY; then pip install astropy; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
