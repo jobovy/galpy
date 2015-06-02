@@ -6,6 +6,12 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.planarPotential import RZToplanarPotential
+try:
+    from astropy import coordinates
+    from astropy import units
+    _ASTROPYLOADED= True
+except ImportError:
+    _ASTROPYLOADED= False
 class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -744,6 +750,37 @@ class OrbitTop(object):
         """
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return W
+
+    def SkyCoord(self,*args,**kwargs):
+        """
+        NAME:
+           SkyCoord
+        PURPOSE:
+           return the position as an astropy SkyCoord
+        INPUT:
+           t - (optional) time at which to get the position
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+        OUTPUT:
+           SkyCoord(t)
+        HISTORY:
+           2015-06-02 - Written - Bovy (IAS)
+        """
+        radec= self._radec(*args,**kwargs)
+        tdist= self.dist(*args,**kwargs)
+        if not hasattr(tdist,'__len__') or len(tdist) == 1:
+            return coordinates.SkyCoord(radec[0,0],radec[0,1],
+                                        distance=tdist*units.kpc,
+                                        frame='icrs',unit='deg')
+        else:
+            return [coordinates.SkyCoord(radec[ii,0],radec[ii,1],
+                                         distance=tdist[ii]*units.kpc,
+                                         frame='icrs',unit='deg') 
+                    for ii in range(len(tdist))]
+        return radec[:,0]
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
