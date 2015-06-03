@@ -1,5 +1,54 @@
 # The DF of a gap in a tidal stream
 import numpy
+from galpy.df import streamdf
+class streamgapdf(streamdf):
+    """The DF of a tidal stream"""
+    def __init__(self,*args,**kwargs):
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           Initialize the DF of a gap in a stellar stream
+
+        INPUT:
+
+           streamdf args and kwargs
+
+           Subhalo and impact parameters:
+
+              impactb= impact parameter
+
+              subhalovel= velocity of the subhalo shape=(3)
+
+              GM= mass of the subhalo (in natural units)
+
+              rs= size parameter of the subhalo
+             
+           deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
+
+           nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
+
+        OUTPUT:
+
+           object
+
+        HISTORY:
+
+           2015-06-02 - Started - Bovy (IAS)
+
+        """
+        # Parse kwargs
+        impactb= kwargs.pop('impactb',1.)
+        subhalovel= kwargs.pop('subhalovel',1.)
+        GM= kwargs.pop('GM',1.)
+        rs= kwargs.pop('rs',1.)
+        deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
+        nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)      
+        return None
+
 def impulse_deltav_plummer(v,y,b,w,GM,rs):
     """
     NAME:
