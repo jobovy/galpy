@@ -23,10 +23,14 @@ class streamgapdf(streamdf):
 
               subhalovel= velocity of the subhalo shape=(3)
 
-              GM= mass of the subhalo (in natural units)
+              GM= mass of the subhalo
 
               rs= size parameter of the subhalo
-             
+              
+              timpact time since impact 
+              
+              impact_angle= angle offset from progenitor at which the impact occurred (rad)
+
            deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
@@ -45,6 +49,8 @@ class streamgapdf(streamdf):
         subhalovel= kwargs.pop('subhalovel',1.)
         GM= kwargs.pop('GM',1.)
         rs= kwargs.pop('rs',1.)
+        timpact= kwargs.pop('timpact',1.)
+        impact_angle= kwargs.pop('impact_angle',1.)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
         # TO DO:
@@ -55,6 +61,25 @@ class streamgapdf(streamdf):
         # (c) Write new meanOmega function based on this?
         # (d) then pass everything to the streamdf setup, should work?
         # (e) First do this for the Plummer sphere, then generalize
+        # Determine the necessary number of iterations
+        self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
+        self._determine_impact_coordtransform(deltaAngleTrackImpact,
+                                              nTrackChunksImpact)
+        return None
+
+    def _determine_impact_coordtransform(self,deltaAngleTrackImpact,
+                                         nTrackChunks,timpact,impact_angle):
+        """Function that sets up the transformation between (x,v) and (O,theta)"""
+        # Need to:
+        # (a) integrate the progenitor backward to the time of impact
+        # (b) sign of delta angle tells us whether the impact happens to the 
+        #     leading or trailing arm
+        # (c) compute auxiliary track: orbit at model's delta Omega
+        # (d) compute the transformation using _determine_stream_track_single
+        #     at a set of points forward and backward (nTrackChunksImpact 
+        #     and deltaAngleTrackImpact)
+        # Setup a progenitor and integrate it backward
+        
         return None
 
 def impulse_deltav_plummer(v,y,b,w,GM,rs):
