@@ -46,7 +46,15 @@ class streamgapdf(streamdf):
         GM= kwargs.pop('GM',1.)
         rs= kwargs.pop('rs',1.)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
-        nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)      
+        nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
+        # TO DO:
+        # (a) Setup the machinery to go between (x,v) and (Omega,theta) 
+        #     near the impact
+        # (b) compute \Delta Omega ( \Delta \theta_perp) and \Delta theta, 
+        #     setup interpolating function
+        # (c) Write new meanOmega function based on this?
+        # (d) then pass everything to the streamdf setup, should work?
+        # (e) First do this for the Plummer sphere, then generalize
         return None
 
 def impulse_deltav_plummer(v,y,b,w,GM,rs):
