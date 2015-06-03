@@ -771,9 +771,10 @@ class OrbitTop(object):
         """
         radec= self._radec(*args,**kwargs)
         tdist= self.dist(*args,**kwargs)
-        return coordinates.SkyCoord(radec[:,0],radec[:,1],
+        return coordinates.SkyCoord(radec[:,0]*units.degree,
+                                    radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,
-                                    frame='icrs',unit='deg')
+                                    frame='icrs')
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
