@@ -167,19 +167,14 @@ def test_orbitIntegrationC():
     o_C.integrate(ts,pot,method='leapfrog_c')#C
 
     for ii in range(5):
-        if   ii == 0: Python, CC, string, exp1, exp2 = o_P.R(ts) , o_C.R(ts) , 'R' , -5., -5.
-        elif ii == 1: Python, CC, string, exp1, exp2 = o_P.z(ts) , o_C.z(ts) , 'z' , -2., -5.
-        elif ii == 2: Python, CC, string, exp1, exp2 = o_P.vR(ts), o_C.vR(ts), 'vR', -3., -5.
-        elif ii == 3: Python, CC, string, exp1, exp2 = o_P.vz(ts), o_C.vz(ts), 'vz', -1., -5.
-        elif ii == 4: Python, CC, string, exp1, exp2 = o_P.vT(ts), o_C.vT(ts), 'vT', -5., -5.
+        if   ii == 0: Python, CC, string, exp1, exp2 = o_P.R(ts) , o_C.R(ts) , 'R' , -6., -6.
+        elif ii == 1: Python, CC, string, exp1, exp2 = o_P.z(ts) , o_C.z(ts) , 'z' , -3., -6.
+        elif ii == 2: Python, CC, string, exp1, exp2 = o_P.vR(ts), o_C.vR(ts), 'vR', -4., -6.
+        elif ii == 3: Python, CC, string, exp1, exp2 = o_P.vz(ts), o_C.vz(ts), 'vz', -2., -6.
+        elif ii == 4: Python, CC, string, exp1, exp2 = o_P.vT(ts), o_C.vT(ts), 'vT', -6., -6.
 
         rel_diff = numpy.fabs((Python-CC)/CC) < 10.**exp1
         abs_diff = (numpy.fabs(Python-CC) < 10.**exp2) * (numpy.fabs(Python) < 10.**exp2)
-        #print "Python", Python
-        #print "C",CC
-        #print numpy.fabs((Python-CC)/Python)
-        #print "rel_diff",rel_diff
-        #print "abs_diff",abs_diff
         assert numpy.all(rel_diff+abs_diff), \
             'Orbit integration for '+string+' coordinate different in ' + \
             'C and Python implementation.'
