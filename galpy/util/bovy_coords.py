@@ -1686,11 +1686,15 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
     dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
     dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
     dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
-    jac      = nu.zeros((2,2))
-    jac[0,0] = dldR
-    jac[0,1] = dldz
-    jac[1,0] = dndR
-    jac[1,1] = dndz
+    if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
+        if not isinstance(z,nu.ndarray): dim = len(R)
+        if not isinstance(R,nu.ndarray): dim = len(z)
+    else: dim = 1
+    jac      = nu.zeros((2,2,dim))
+    jac[0,0,:] = dldR
+    jac[0,1,:] = dldz
+    jac[1,0,:] = dndR
+    jac[1,1,:] = dndz
     return jac
 
 def Rz_to_lambdanu_hess(R,z,Delta=1.):
@@ -1731,17 +1735,20 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
     d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
     d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
     d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
-    hess    = nu.zeros((2,2,2))
+    dim = 1
+    if   isinstance(R,nu.ndarray): dim = len(R)
+    elif isinstance(z,nu.ndarray): dim = len(z)
+    hess    = nu.zeros((2,2,2,dim))
     #Hessian for lambda:
-    hess[0,0,0] = d2ldR2
-    hess[0,0,1] = d2ldRdz
-    hess[0,1,0] = d2ldRdz
-    hess[0,1,1] = d2ldz2
+    hess[0,0,0,:] = d2ldR2
+    hess[0,0,1,:] = d2ldRdz
+    hess[0,1,0,:] = d2ldRdz
+    hess[0,1,1,:] = d2ldz2
     #Hessian for nu:
-    hess[1,0,0] = d2ndR2
-    hess[1,0,1] = d2ndRdz
-    hess[1,1,0] = d2ndRdz
-    hess[1,1,1] = d2ndz2
+    hess[1,0,0,:] = d2ndR2
+    hess[1,0,1,:] = d2ndRdz
+    hess[1,1,0,:] = d2ndRdz
+    hess[1,1,1,:] = d2ndz2
     return hess
 
 def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
