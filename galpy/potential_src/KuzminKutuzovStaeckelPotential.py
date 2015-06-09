@@ -84,15 +84,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        dldR = jac[0,0]
-        dndR = jac[1,0]
+        dldR = jac[0,0,:]
+        dndR = jac[1,0,:]
         return - (dldR * self._lderiv(l,n) + \
                   dndR * self._nderiv(l,n))
    
@@ -113,15 +108,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        dldz = jac[0,1]
-        dndz = jac[1,1]
+        dldz = jac[0,1,:]
+        dndz = jac[1,1,:]
         return - (dldz * self._lderiv(l,n) + \
                   dndz * self._nderiv(l,n))
 
@@ -141,18 +131,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
-        dldR   = jac[0,0]
-        dndR   = jac[1,0]
-        d2ldR2 = hess[0,0,0]
-        d2ndR2 = hess[1,0,0]
+        dldR   = jac[0,0,:]
+        dndR   = jac[1,0,:]
+        d2ldR2 = hess[0,0,0,:]
+        d2ndR2 = hess[1,0,0,:]
         return d2ldR2       * self._lderiv(l,n)  + \
                d2ndR2       * self._nderiv(l,n)  + \
                (dldR)**2    * self._l2deriv(l,n) + \
@@ -175,18 +160,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
-        dldz = jac[0,1]
-        dndz = jac[1,1]
-        d2ldz2 = hess[0,1,1]
-        d2ndz2 = hess[1,1,1]
+        dldz = jac[0,1,:]
+        dndz = jac[1,1,:]
+        d2ldz2 = hess[0,1,1,:]
+        d2ndz2 = hess[1,1,1,:]
         return d2ldz2       * self._lderiv(l,n)  + \
                d2ndz2       * self._nderiv(l,n)  + \
                (dldz)**2    * self._l2deriv(l,n) + \
@@ -210,20 +190,15 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
-        dldR = jac[0,0]
-        dndR = jac[1,0]
-        dldz = jac[0,1]
-        dndz = jac[1,1]
-        d2ldRdz = hess[0,0,1]
-        d2ndRdz = hess[1,0,1]
+        dldR = jac[0,0,:]
+        dndR = jac[1,0,:]
+        dldz = jac[0,1,:]
+        dndz = jac[1,1,:]
+        d2ldRdz = hess[0,0,1,:]
+        d2ndRdz = hess[1,0,1,:]
         return d2ldRdz              * self._lderiv(l,n)  + \
                d2ndRdz              * self._nderiv(l,n)  + \
                dldR*dldz            * self._l2deriv(l,n) + \
