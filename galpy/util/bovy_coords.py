@@ -1686,12 +1686,16 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
     dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
     dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
     dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
-    jac      = nu.zeros((2,2))
-    jac[0,0] = dldR
-    jac[0,1] = dldz
-    jac[1,0] = dndR
-    jac[1,1] = dndz
-    return jac
+    dim = 1
+    if   isinstance(R,nu.ndarray): dim = len(R)
+    elif isinstance(z,nu.ndarray): dim = len(z)
+    jac      = nu.zeros((2,2,dim))
+    jac[0,0,:] = dldR
+    jac[0,1,:] = dldz
+    jac[1,0,:] = dndR
+    jac[1,1,:] = dndz
+    if dim == 1: return jac[:,:,0]
+    else:        return jac
 
 def Rz_to_lambdanu_hess(R,z,Delta=1.):
     """
@@ -1731,18 +1735,22 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
     d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
     d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
     d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
-    hess    = nu.zeros((2,2,2))
+    dim = 1
+    if   isinstance(R,nu.ndarray): dim = len(R)
+    elif isinstance(z,nu.ndarray): dim = len(z)
+    hess    = nu.zeros((2,2,2,dim))
     #Hessian for lambda:
-    hess[0,0,0] = d2ldR2
-    hess[0,0,1] = d2ldRdz
-    hess[0,1,0] = d2ldRdz
-    hess[0,1,1] = d2ldz2
+    hess[0,0,0,:] = d2ldR2
+    hess[0,0,1,:] = d2ldRdz
+    hess[0,1,0,:] = d2ldRdz
+    hess[0,1,1,:] = d2ldz2
     #Hessian for nu:
-    hess[1,0,0] = d2ndR2
-    hess[1,0,1] = d2ndRdz
-    hess[1,1,0] = d2ndRdz
-    hess[1,1,1] = d2ndz2
-    return hess
+    hess[1,0,0,:] = d2ndR2
+    hess[1,0,1,:] = d2ndRdz
+    hess[1,1,0,:] = d2ndRdz
+    hess[1,1,1,:] = d2ndz2
+    if dim == 1: return hess[:,:,:,0]
+    else:        return hess
 
 def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
     """
@@ -1778,10 +1786,14 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
     a = g - Delta**2
     r2 = (l + a) * (n + a) / (a - g)
     z2 = (l + g) * (n + g) / (g - a)
-    if math.isnan(nu.sqrt(r2)) and (n+a) > 0. and (n+a) < 1e-10:
-        r2 = 0.
-    if math.isnan(nu.sqrt(z2)) and (n+g) < 0. and (n+g) > -1e-10:
-        z2 = 0.
+    index = (r2 < 0.) * ((n+a) > 0.) * ((n+a) < 1e-10)
+    if nu.any(index):
+        if isinstance(r2,nu.ndarray): r2[index] = 0.
+        else:                         r2        = 0.
+    index = (z2 < 0.) * ((n+g) < 0.) * ((n+g) > -1e-10)
+    if nu.any(index):
+        if isinstance(z2,nu.ndarray): z2[index] = 0.
+        else:                         z2        = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
 
     
@@ -1819,4 +1831,5 @@ def get_epoch_angles(epoch=2000.0):
     else:
         raise IOError("Only epochs 1950 and 2000 are supported")
     return (theta,dec_ngp,ra_ngp)
+
 
