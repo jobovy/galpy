@@ -368,3 +368,89 @@ def test_Rz_to_lambdanu_jac():
     assert numpy.all(numpy.fabs(num_deriv_nz-jac[1,1]) < 10.**-6.), 'jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)'
     return None
 
+def test_Rz_to_lambdanu_hess():
+    #coordinate system:
+    a = 3.
+    g = 7.
+    Delta = numpy.sqrt(g-a)
+    ac = numpy.sqrt(a/g)
+
+    #_____test float input (R=0)_____
+    R, z= 1.4, 0.1
+    dR= 10.**-5.
+    dz= 10.**-5.
+    # R derivatives
+    tmp= R+dR
+    dR= tmp-R
+    # z derivatives
+    tmp= z+dz
+    dz= tmp-z
+    num_deriv_llRR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[0]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0]
+                    +bovy_coords.Rz_to_lambdanu(R-dR,z,ac=ac,Delta=Delta)[0])/dR**2.
+    num_deriv_nnRR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[1]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1]
+                    +bovy_coords.Rz_to_lambdanu(R-dR,z,ac=ac,Delta=Delta)[1])/dR**2.
+    num_deriv_llRz= (bovy_coords.Rz_to_lambdanu(R+dR,z+dz,ac=ac,Delta=Delta)[0]
+                     -bovy_coords.Rz_to_lambdanu(R+dR,z-dz,ac=ac,Delta=Delta)[0]
+                     -bovy_coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[0]
+                     +bovy_coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[0])/dR**2./4.
+    num_deriv_llzz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[0]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0]
+                    +bovy_coords.Rz_to_lambdanu(R,z-dz,ac=ac,Delta=Delta)[0])/dz**2.
+    num_deriv_nnzz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[1]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1]
+                    +bovy_coords.Rz_to_lambdanu(R,z-dz,ac=ac,Delta=Delta)[1])/dz**2.
+    num_deriv_nnRz= (bovy_coords.Rz_to_lambdanu(R+dR,z+dz,ac=ac,Delta=Delta)[1]
+                     -bovy_coords.Rz_to_lambdanu(R+dR,z-dz,ac=ac,Delta=Delta)[1]
+                     -bovy_coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
+                     +bovy_coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
+    hess= bovy_coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
+    assert numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+
+    #___Also test for arrays___
+    R= numpy.arange(1,4)*0.5
+    z= numpy.arange(1,4)*0.125
+    # R derivatives
+    tmp= R+dR
+    dR= tmp-R
+    # z derivatives
+    tmp= z+dz
+    dz= tmp-z
+    dR= 10.**-5.
+    dz= 10.**-5.
+    num_deriv_llRR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[0]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0]
+                    +bovy_coords.Rz_to_lambdanu(R-dR,z,ac=ac,Delta=Delta)[0])/dR**2.
+    num_deriv_nnRR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[1]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1]
+                    +bovy_coords.Rz_to_lambdanu(R-dR,z,ac=ac,Delta=Delta)[1])/dR**2.
+    num_deriv_llRz= (bovy_coords.Rz_to_lambdanu(R+dR,z+dz,ac=ac,Delta=Delta)[0]
+                     -bovy_coords.Rz_to_lambdanu(R+dR,z-dz,ac=ac,Delta=Delta)[0]
+                     -bovy_coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[0]
+                     +bovy_coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[0])/dR**2./4.
+    num_deriv_llzz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[0]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0]
+                    +bovy_coords.Rz_to_lambdanu(R,z-dz,ac=ac,Delta=Delta)[0])/dz**2.
+    num_deriv_nnzz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[1]
+                    -2.*bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1]
+                    +bovy_coords.Rz_to_lambdanu(R,z-dz,ac=ac,Delta=Delta)[1])/dz**2.
+    num_deriv_nnRz= (bovy_coords.Rz_to_lambdanu(R+dR,z+dz,ac=ac,Delta=Delta)[1]
+                     -bovy_coords.Rz_to_lambdanu(R+dR,z-dz,ac=ac,Delta=Delta)[1]
+                     -bovy_coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
+                     +bovy_coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
+    hess= bovy_coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
+    assert numpy.all(numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+
+    return None
+
