@@ -311,3 +311,60 @@ def test_Rz_to_lambdanu():
     assert numpy.all(numpy.fabs(nt-n) < 10.**-10.), 'Rz_to_lambdanu conversion did not work as expected (n array)'
     return None
 
+def test_Rz_to_lambdanu_jac():
+    #coordinate system:
+    a = 3.
+    g = 7.
+    Delta = numpy.sqrt(g-a)
+    ac = numpy.sqrt(a/g)
+
+    #_____test float input (R=0)_____
+    R, z= 1.4, 0.1
+    dR= 10.**-8.
+    dz= 10.**-8.
+    # R derivatives
+    tmp= R+dR
+    dR= tmp-R
+    num_deriv_lR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[0]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0])/dR
+    num_deriv_nR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[1]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1])/dR
+    # z derivatives
+    tmp= z+dz
+    dz= tmp-z
+    num_deriv_lz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[0]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0])/dR
+    num_deriv_nz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[1]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1])/dR
+    jac= bovy_coords.Rz_to_lambdanu_jac(R,z,Delta=Delta)
+    assert numpy.fabs(num_deriv_lR-jac[0,0]) < 10.**-6., 'jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)'
+    assert numpy.fabs(num_deriv_nR-jac[1,0]) < 10.**-6., 'jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_lz-jac[0,1]) < 10.**-6., 'jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)'
+    assert numpy.fabs(num_deriv_nz-jac[1,1]) < 10.**-6., 'jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)'
+
+    #___Also test for arrays___
+    R= numpy.arange(1,4)*0.5
+    z= numpy.arange(1,4)*0.125
+    dR= 10.**-8.
+    dz= 10.**-8.
+    # R derivatives
+    tmp= R+dR
+    dR= tmp-R
+    num_deriv_lR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[0]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0])/dR
+    num_deriv_nR= (bovy_coords.Rz_to_lambdanu(R+dR,z,ac=ac,Delta=Delta)[1]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1])/dR
+    # z derivatives
+    tmp= z+dz
+    dz= tmp-z
+    num_deriv_lz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[0]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[0])/dR
+    num_deriv_nz= (bovy_coords.Rz_to_lambdanu(R,z+dz,ac=ac,Delta=Delta)[1]\
+                       -bovy_coords.Rz_to_lambdanu(R,z,ac=ac,Delta=Delta)[1])/dR
+    jac= bovy_coords.Rz_to_lambdanu_jac(R,z,Delta=Delta)
+    assert numpy.all(numpy.fabs(num_deriv_lR-jac[0,0]) < 10.**-6.), 'jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_nR-jac[1,0]) < 10.**-6.), 'jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_lz-jac[0,1]) < 10.**-6.), 'jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nz-jac[1,1]) < 10.**-6.), 'jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)'
+    return None
+
