@@ -311,6 +311,31 @@ def test_Rz_to_lambdanu():
     assert numpy.all(numpy.fabs(nt-n) < 10.**-10.), 'Rz_to_lambdanu conversion did not work as expected (n array)'
     return None
 
+def test_Rz_to_lambdanu_r2lt0():
+    # Special case that leads to r2 just below zero
+    #coordinate system:
+    a = 3.
+    g = 7.
+    Delta = numpy.sqrt(g-a)
+    ac = numpy.sqrt(a/g)
+
+    #_____test float input (R=0)_____
+    #true values:
+    l, n = 2., -3.+10.**-10.
+    #coordinate transformation:
+    lt,nt= bovy_coords.Rz_to_lambdanu(*bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta),ac=ac,Delta=Delta)
+    #test:
+    assert numpy.fabs(lt-l) < 10.**-8., 'Rz_to_lambdanu conversion did not work as expected (l)'
+    assert numpy.fabs(nt-n) < 10.**-8., 'Rz_to_lambdanu conversion did not work as expected (n)'
+
+    #___Also test for arrays___
+    l = numpy.array([2. ,10.,20. ,0.])
+    n = numpy.array([-7.,-3.+10.**-10.,-5.,-5.])
+    lt,nt= bovy_coords.Rz_to_lambdanu(*bovy_coords.lambdanu_to_Rz(l,n,ac=ac,Delta=Delta),ac=ac,Delta=Delta)
+    assert numpy.all(numpy.fabs(lt-l) < 10.**-8.), 'Rz_to_lambdanu conversion did not work as expected (l array)'
+    assert numpy.all(numpy.fabs(nt-n) < 10.**-8.), 'Rz_to_lambdanu conversion did not work as expected (n array)'
+    return None
+
 def test_Rz_to_lambdanu_jac():
     #coordinate system:
     a = 3.
