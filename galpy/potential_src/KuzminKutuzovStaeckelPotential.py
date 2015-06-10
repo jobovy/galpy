@@ -84,11 +84,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         dldR = jac[0,0]
@@ -113,11 +108,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         dldz = jac[0,1]
@@ -141,11 +131,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
@@ -175,11 +160,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
@@ -210,11 +190,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        if isinstance(R,nu.ndarray) or isinstance(z,nu.ndarray):
-            if not isinstance(z,nu.ndarray): z = nu.ones_like(R)*z
-            if not isinstance(R,nu.ndarray): R = nu.ones_like(z)*R
-            out = nu.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
-            return out
         l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
         jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
