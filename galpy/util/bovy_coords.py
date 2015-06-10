@@ -34,6 +34,10 @@
 #            Rz_to_coshucosv
 #            Rz_to_uv
 #            uv_to_Rz
+#            Rz_to_lambdanu
+#            Rz_to_lambdanu_jac
+#            Rz_to_lambdanu_hess
+#            lambdanu_to_Rz
 #
 ##############################################################################
 #############################################################################
@@ -1602,6 +1606,198 @@ def uv_to_Rz(u,v,delta=1.):
     z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
 
+def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu
+
+    PURPOSE:
+
+       calculate the prolate spheroidal coordinates (lambda,nu) from
+       galactocentric cylindrical coordinates (R,z)            
+       by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
+            R^2 = (l+a) * (n+a) / (a-g)
+            z^2 = (l+g) * (n+g) / (g-a)
+            Delta^2 = g-a
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       (lambda,nu)
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    g = Delta**2 / (1.-ac**2)
+    a = g - Delta**2
+    term  =  R**2 + z**2 - a - g
+    discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    l = 0.5 * (term + nu.sqrt(discr))  
+    n = 0.5 * (term - nu.sqrt(discr))
+    if isinstance(z,float) and z == 0.:
+        l = R**2 - a
+        n = -g
+    elif isinstance(z,nu.ndarray) and nu.sum(z == 0.) > 0:
+        if isinstance(R,float):      l[z==0.] = R**2 - a
+        if isinstance(R,sc.ndarray): l[z==0.] = R[z==0.]**2 - a
+        n[z==0.] = -g
+    return (l,n)
+
+def Rz_to_lambdanu_jac(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_jac
+
+    PURPOSE:
+
+       calculate the Jacobian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       jacobian d((lambda,nu))/d((R,z))
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    discr =           (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    dldR  = R * (1. + (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dndR  = R * (1. - (R**2 + z**2 + Delta**2) / nu.sqrt(discr))
+    dldz  = z * (1. + (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    dndz  = z * (1. - (R**2 + z**2 - Delta**2) / nu.sqrt(discr))
+    dim = 1
+    if   isinstance(R,nu.ndarray): dim = len(R)
+    elif isinstance(z,nu.ndarray): dim = len(z)
+    jac      = nu.zeros((2,2,dim))
+    jac[0,0,:] = dldR
+    jac[0,1,:] = dldz
+    jac[1,0,:] = dndR
+    jac[1,1,:] = dndz
+    if dim == 1: return jac[:,:,0]
+    else:        return jac
+
+def Rz_to_lambdanu_hess(R,z,Delta=1.):
+    """
+    NAME:
+
+       Rz_to_lambdanu_hess
+
+    PURPOSE:
+
+       calculate the Hessian of the cylindrical (R,z) to prolate spheroidal
+       (lambda,nu) conversion
+
+    INPUT:
+
+        R     - Galactocentric cylindrical radius
+        z     - vertical height
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+       hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
+
+    HISTORY:
+
+       2015-02-13 - Written - Trick (MPIA)
+
+    """
+    D       = Delta
+    R2      = R**2
+    z2      = z**2
+    D2      = D**2
+    discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
+    d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
+    d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
+    d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
+    d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
+    dim = 1
+    if   isinstance(R,nu.ndarray): dim = len(R)
+    elif isinstance(z,nu.ndarray): dim = len(z)
+    hess    = nu.zeros((2,2,2,dim))
+    #Hessian for lambda:
+    hess[0,0,0,:] = d2ldR2
+    hess[0,0,1,:] = d2ldRdz
+    hess[0,1,0,:] = d2ldRdz
+    hess[0,1,1,:] = d2ldz2
+    #Hessian for nu:
+    hess[1,0,0,:] = d2ndR2
+    hess[1,0,1,:] = d2ndRdz
+    hess[1,1,0,:] = d2ndRdz
+    hess[1,1,1,:] = d2ndz2
+    if dim == 1: return hess[:,:,:,0]
+    else:        return hess
+
+def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
+    """
+    NAME:
+
+        lambdanu_to_Rz
+
+    PURPOSE:
+
+        calculate galactocentric cylindrical coordinates (R,z)
+        from prolate spheroidal coordinates (lambda,nu),
+        cf. eq. (2.2) in Dejonghe & de Zeeuw (1988a)
+
+    INPUT:
+
+        l     - prolate spheroidal coordinate lambda
+        n     - prolate spheroidal coordinate nu
+        ac    - axis ratio of the coordinate surfaces 
+                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
+                Delta=sqrt(g-a)
+
+    OUTPUT:
+
+        (R,z)
+
+    HISTORY:
+
+        2015-02-13 - Written - Trick (MPIA)
+
+    """
+    g = Delta**2 / (1.-ac**2)
+    a = g - Delta**2
+    r2 = (l + a) * (n + a) / (a - g)
+    z2 = (l + g) * (n + g) / (g - a)
+    index = (r2 < 0.) * ((n+a) > 0.) * ((n+a) < 1e-10)
+    if nu.any(index):
+        if isinstance(r2,nu.ndarray): r2[index] = 0.
+        else:                         r2        = 0.
+    index = (z2 < 0.) * ((n+g) < 0.) * ((n+g) > -1e-10)
+    if nu.any(index):
+        if isinstance(z2,nu.ndarray): z2[index] = 0.
+        else:                         z2        = 0.
+    return (nu.sqrt(r2),nu.sqrt(z2))
+
+    
+
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:
@@ -1635,4 +1831,5 @@ def get_epoch_angles(epoch=2000.0):
     else:
         raise IOError("Only epochs 1950 and 2000 are supported")
     return (theta,dec_ngp,ra_ngp)
+
 

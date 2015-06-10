@@ -100,6 +100,7 @@ Specific potentials
    potentialinterpsnapshotrzpotential.rst
    potentialisochrone.rst
    potentialkepler.rst
+   potentialkuzminkutuzov.rst
    potentialloghalo.rst
    potentialmiyamoto.rst
    potential3mn.rst
