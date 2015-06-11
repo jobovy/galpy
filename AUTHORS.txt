@@ -16,6 +16,7 @@ Greg Stinson (advice on SnapshotRZPotential tests)
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
 
+Alexander de la Vega
 Wai-Hin Ngan
 Wilma Trick
 T. E. Pickering
