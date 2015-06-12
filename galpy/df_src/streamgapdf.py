@@ -193,7 +193,43 @@ class streamgapdf(streamdf):
                 ObsTrack[ii,:]= multiOut[ii][3]
                 ObsTrackAA[ii,:]= multiOut[ii][4]
                 detdOdJps[ii]= multiOut[ii][5]
-        # REPEAT
+        #Repeat the track calculation using the previous track, to get closer to it
+        for nn in range(self.nTrackIterations):
+            if self._multi is None:
+                for ii in range(self._nTrackChunksImpact):
+                    multiOut= _determine_stream_track_single(self._aA,
+                                                             Orbit(ObsTrack[ii,:]),
+                                                             0.,
+                                                             self._progenitor_angle-self._timpact*self._progenitor_Omega,
+                                                             self._gap_sigMeanSign,
+                                                             self._dsigomeanProgDirection,
+                                                             lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                                             thetasTrack[ii])
+                    allAcfsTrack[ii,:]= multiOut[0]
+                    alljacsTrack[ii,:,:]= multiOut[1]
+                    allinvjacsTrack[ii,:,:]= multiOut[2]
+                    ObsTrack[ii,:]= multiOut[3]
+                    ObsTrackAA[ii,:]= multiOut[4]
+                    detdOdJps[ii]= multiOut[5]
+            else:
+                multiOut= multi.parallel_map(\
+                    (lambda x: _determine_stream_track_single(self._aA,Orbit(ObsTrack[x,:]),0.,
+                                                              self._progenitor_angle-self._timpact*self._progenitor_Omega,
+                                                              self._gap_sigMeanSign,
+                                                              self._dsigomeanProgDirection,
+                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                                              thetasTrack[x])),
+                    range(self._nTrackChunksImpact),
+                    numcores=numpy.amin([self._nTrackChunksImpact,
+                                         multiprocessing.cpu_count(),
+                                         self._multi]))
+                for ii in range(self._nTrackChunksImpact):
+                    allAcfsTrack[ii,:]= multiOut[ii][0]
+                    alljacsTrack[ii,:,:]= multiOut[ii][1]
+                    allinvjacsTrack[ii,:,:]= multiOut[ii][2]
+                    ObsTrack[ii,:]= multiOut[ii][3]
+                    ObsTrackAA[ii,:]= multiOut[ii][4]
+                    detdOdJps[ii]= multiOut[ii][5]           
         #Store the track
         self._gap_thetasTrack= thetasTrack
         self._gap_ObsTrack= ObsTrack
