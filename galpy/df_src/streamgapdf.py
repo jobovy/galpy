@@ -5,6 +5,7 @@ import multiprocessing
 from scipy import integrate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
+from galpy.potential import evaluateRforces
 from galpy.df import streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
 from galpy.util import bovy_coords, multi
@@ -346,7 +347,7 @@ def _a_integrand(T,y,b,w,pot,compt):
     t = T/(1-T*T)
     X = b+w*t+y*numpy.array([0,1,0])
     r = numpy.sqrt(numpy.sum(X**2))
-    return (1+T*T)/(1-T*T)**2*pot.forces(r)*X[compt]/r
+    return (1+T*T)/(1-T*T)**2*evaluateRforces(r,0.,pot)*X[compt]/r
 
 def _deltav_integrate(y,b,w,pot):
     return numpy.array([integrate.quad(_a_integrand,-1.,1.,args=(y,b,w,pot,i))[0] for i in range(3)])
@@ -362,11 +363,12 @@ def impulse_deltav_general(v,y,b,w,pot):
        y - position along the stream (nstar)
        b - impact parameter
        w - velocity of the subhalo (3)
-       pot - object that has method forces(r) = -d\Phi/dr where \Phi is the subhalo potential
+       pot - Potential object or list thereof (should be spherical)
     OUTPUT:
        deltav (nstar,3)
     HISTORY:
        2015-05-04 - SANDERS
+       2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     nv= v.shape[0]
@@ -395,11 +397,12 @@ def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
        w - velocity of the subhalo (3)
        x0 - position of closest approach (3)
        v0 - velocity of stream at closest approach (3)
-       pot - object that has method forces(r) = -d\Phi/dr where \Phi is the subhalo potential
+       pot - Potential object or list thereof (should be spherical)
     OUTPUT:
        deltav (nstar,3)
     HISTORY:
        2015-05-04 - SANDERS
+       2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
