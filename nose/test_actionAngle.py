@@ -914,7 +914,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     pp= potential.PowerSphericalPotential(normalize=1.)
     lp2= potential.PowerSphericalPotential(normalize=1.,alpha=2.)
     ppc= potential.PowerSphericalPotentialwCutoff(normalize=1.)
-    pots= [lp,hp,jp,np,ip,pp,lp2,ppc]
+    plp= potential.PlummerPotential(normalize=1.)
+    pots= [lp,hp,jp,np,ip,pp,lp2,ppc,plp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])

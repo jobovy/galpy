@@ -109,6 +109,12 @@ def _parse_pot(pot,potforactions=False):
                              p._mn3[1]._a,p._mn3[1]._b,
                              p._amp*p._mn3[2]._amp,
                              p._mn3[2]._a,p._mn3[2]._b])
+        elif isinstance(p,potential.KuzminKutuzovStaeckelPotential):
+            pot_type.append(16)
+            pot_args.extend([p._amp,p._ac,p._Delta])
+        elif isinstance(p,potential.PlummerPotential):
+            pot_type.append(17)
+            pot_args.extend([p._amp,p._b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

@@ -25,6 +25,8 @@ from galpy.potential_src import FlattenedPowerPotential
 from galpy.potential_src import SnapshotRZPotential
 from galpy.potential_src import BurkertPotential
 from galpy.potential_src import MN3ExponentialDiskPotential
+from galpy.potential_src import KuzminKutuzovStaeckelPotential
+from galpy.potential_src import PlummerPotential
 #
 # Functions
 #
@@ -99,6 +101,9 @@ InterpSnapshotRZPotential = SnapshotRZPotential.InterpSnapshotRZPotential
 SnapshotRZPotential = SnapshotRZPotential.SnapshotRZPotential
 BurkertPotential= BurkertPotential.BurkertPotential
 MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
+KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
+PlummerPotential = PlummerPotential.PlummerPotential
+
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 

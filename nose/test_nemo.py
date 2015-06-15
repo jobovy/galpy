@@ -46,6 +46,14 @@ def test_nemo_LogarithmicHaloPotential():
     run_orbitIntegration_comparison(o,lp,tmax,vo,ro,tol=0.03)
     return None
 
+def test_nemo_PlummerPotential():
+    pp= potential.PlummerPotential(normalize=1.,b=2.)
+    tmax= 3.
+    vo,ro= 213., 8.23
+    o= Orbit([1.,0.1,1.1,0.3,0.1,0.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison(o,pp,tmax,vo,ro,tol=0.03)
+    return None
+
 def test_nemo_MWPotential2014():
     mp= potential.MWPotential2014
     tmax= 4.

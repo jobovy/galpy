@@ -7,6 +7,7 @@ Direct contributions to the code base:
 Denis Erkal (_mass for TwoPowerSphericalPotential)
 Mark Fardal (streamdf improvements)
 Rok Roskar (first implementation of SnapshotRZPotential and InterpSnapshotRZPotential)
+Wilma Trick (KuzminKutuzovPotential and various other contributions)
 
 General help:
 
@@ -15,6 +16,7 @@ Greg Stinson (advice on SnapshotRZPotential tests)
 Bug reports:
 (incomplete list, apologies if I forgot anybody!)
 
+Alexander de la Vega
 Wai-Hin Ngan
 Wilma Trick
 T. E. Pickering

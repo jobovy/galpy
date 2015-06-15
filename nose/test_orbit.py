@@ -956,6 +956,7 @@ def test_analytic_ecc_rperi_rap():
     tol= {}
     tol['default']= -10.
     tol['NFWPotential']= -9. #these are more difficult
+    tol['PlummerPotential']= -9. #these are more difficult
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -8. #these are more difficult
     tol['IsochronePotential']= -6. #these are more difficult
@@ -1038,7 +1039,7 @@ def test_analytic_ecc_rperi_rap():
                 trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
-                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic)**2.)
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
                     "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Do this also for an orbit starting at pericenter
@@ -1153,6 +1154,8 @@ def test_analytic_zmax():
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -4. #these are more difficult
+    tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
+    tol['PlummerPotential']= -4. #these are more difficult
     tol['HernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
     tol['MiyamotoNagaiPotential']= -7. #these are more difficult

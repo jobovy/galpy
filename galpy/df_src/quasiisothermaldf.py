@@ -472,21 +472,21 @@ class quasiisothermaldf(object):
             #Evaluate everywhere
             if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
                                     actionAngle.actionAngleAdiabaticGrid)):
-                vRgl= 4.*sigmaR1/2.*(glx+1.)
-                vzgl= 4.*sigmaz1/2.*(glx+1.)
+                vRgl= nsigma*sigmaR1/2.*(glx+1.)
+                vzgl= nsigma*sigmaz1/2.*(glx+1.)
                 vRglw= glw
                 vzglw= glw
             else:
-                vRgl= 4.*sigmaR1/2.*(glx12+1.)
+                vRgl= nsigma*sigmaR1/2.*(glx12+1.)
                 #vRgl= 1.5/2.*(glx12+1.)
                 vRgl= list(vRgl)
-                vRgl.extend(-4.*sigmaR1/2.*(glx12+1.))
+                vRgl.extend(-nsigma*sigmaR1/2.*(glx12+1.))
                 #vRgl.extend(-1.5/2.*(glx12+1.))
                 vRgl= numpy.array(vRgl)
-                vzgl= 4.*sigmaz1/2.*(glx12+1.)
+                vzgl= nsigma*sigmaz1/2.*(glx12+1.)
                 #vzgl= 1.5/2.*(glx12+1.)
                 vzgl= list(vzgl)
-                vzgl.extend(-4.*sigmaz1/2.*(glx12+1.))
+                vzgl.extend(-nsigma*sigmaz1/2.*(glx12+1.))
                 #vzgl.extend(-1.5/2.*(glx12+1.))
                 vzgl= numpy.array(vzgl)
                 vRglw= glw12
@@ -534,20 +534,20 @@ class quasiisothermaldf(object):
                 logqeval= _glqeval
             if _returngl:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         logqeval)
             elif _return_actions and _return_freqs:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         jr,lz,jz,
                         rg,kappa,nu,Omega)
             elif _return_actions:
                 return (numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*3.,
+                                  *vTglw*vRglw*vzglw)*sigmaR1*sigmaz1*0.1875*nsigma**2,
                         jr,lz,jz)
             else:
                 return numpy.sum(numpy.exp(logqeval)*vRgl**n*vTgl**m*vzgl**o
-                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1*3.)
+                                 *vTglw*vRglw*vzglw*sigmaR1*sigmaz1*0.1875*nsigma**2)
         elif mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:

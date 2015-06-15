@@ -119,7 +119,7 @@ class actionAngleAxi(actionAngleVertical):
         if hasattr(self,'_TR'):
             return self._TR
         (rperi,rap)= self.calcRapRperi(**kwargs)
-        if rap == rperi: #Rough limit
+        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
             self._TR= 2.*m.pi/epifreq(self._pot,self._R)
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
@@ -180,7 +180,7 @@ class actionAngleAxi(actionAngleVertical):
             return self._I
         (rperi,rap)= self.calcRapRperi(**kwargs)
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        if rap == rperi: #Rough limit
+        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
             self._I= TR/Tphi*m.pi
