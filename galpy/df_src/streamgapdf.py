@@ -2,6 +2,7 @@
 import numpy
 import warnings
 import multiprocessing
+from scipy import integrate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.df import streamdf
@@ -63,20 +64,19 @@ class streamgapdf(streamdf):
         # stream track (nosetup=True)
         kwargs['nosetup']= True
         streamdf.__init__(self,*args,**kwargs)
-        # TO DO:
-        # (a) Setup the machinery to go between (x,v) and (Omega,theta) 
-        #     near the impact
+        # Setup the machinery to go between (x,v) and (Omega,theta) 
+        # near the impact
+        self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
+        self._determine_deltaAngleTrackImpact(deltaAngleTrackImpact,timpact)
+        self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
+                                              nTrackChunksImpact,
+                                              timpact,impact_angle)
         # (b) compute \Delta Omega ( \Delta \theta_perp) and \Delta theta, 
         #     setup interpolating function
         # (c) Write new meanOmega function based on this?
         # (d) then pass everything to the streamdf setup, should work?
         # (e) First do this for the Plummer sphere, then generalize
         # Determine the necessary number of iterations
-        self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
-        self._determine_deltaAngleTrackImpact(deltaAngleTrackImpact,timpact)
-        self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
-                                              nTrackChunksImpact,
-                                              timpact,impact_angle)
         return None
 
     def _determine_deltaAngleTrackImpact(self,deltaAngleTrackImpact,timpact):
@@ -147,7 +147,7 @@ class streamgapdf(streamdf):
 )
         auxiliary_Omega_along_dOmega= \
             numpy.dot(auxiliary_Omega,self._dsigomeanProgDirection)
-        # (d) compute the transformation using _determine_stream_track_single
+        # compute the transformation using _determine_stream_track_single
         allAcfsTrack= numpy.empty((self._nTrackChunksImpact,9))
         alljacsTrack= numpy.empty((self._nTrackChunksImpact,6,6))
         allinvjacsTrack= numpy.empty((self._nTrackChunksImpact,6,6))
@@ -348,10 +348,8 @@ def _a_integrand(T,y,b,w,pot,compt):
     r = numpy.sqrt(numpy.sum(X**2))
     return (1+T*T)/(1-T*T)**2*pot.forces(r)*X[compt]/r
 
-from scipy.integrate import quad
-
 def _deltav_integrate(y,b,w,pot):
-    return numpy.array([quad(_a_integrand,-1.,1.,args=(y,b,w,pot,i))[0] for i in range(3)])
+    return numpy.array([integrate.quad(_a_integrand,-1.,1.,args=(y,b,w,pot,i))[0] for i in range(3)])
 
 def impulse_deltav_general(v,y,b,w,pot):
     """
