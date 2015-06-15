@@ -1161,6 +1161,9 @@ def test_nemoaccname():
     # MN3ExponentialDiskPotential
     mp= potential.MN3ExponentialDiskPotential(normalize=1.)
     assert mp.nemo_accname() == 'MiyamotoNagai+MiyamotoNagai+MiyamotoNagai', "MN3ExponentialDiskPotential's NEMO name incorrect"
+    # Plummer
+    pp= potential.PlummerPotential(normalize=1.)
+    assert pp.nemo_accname() == 'Plummer', "PlummerPotential's NEMO name incorrect"
     return None
 
 def test_nemoaccnamepars_attributeerror():
@@ -1236,6 +1239,14 @@ def test_nemoaccpars():
     assert numpy.fabs(float(ap[2])/float(ap[10])-mn._mn3[0]._a/mn._mn3[2]._a) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])/float(ap[7])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])/float(ap[11])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    # Plummer
+    pp= potential.PlummerPotential(amp=3.,b=5.)
+    vo, ro= 7., 9.
+    vo/= 1.0227121655399913
+    ap= pp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-45.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
     return None
 
 def test_nemoaccparss():
