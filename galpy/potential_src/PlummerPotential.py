@@ -69,7 +69,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Started - Bovy (IAS)
         """
-        return -1./nu.sqrt(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)
+        return -1./nu.sqrt(R**2.+z**2.+self._b2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -87,7 +87,8 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return -R/(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.)
+        dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
+        return dPhidrr*R
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -105,14 +106,8 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        sqrtbz= nu.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return (-z/
-                     (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
-        else:
-            return (-z*asqrtbz/sqrtbz/
-                     (R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**(3./2.))
+        dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
+        return dPhidrr*z
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -130,14 +125,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        sqrtbz= nu.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return 3./\
-                (R**2.+sqrtbz**2.)**2.5/4./nu.pi*self._b2
-        else:
-            return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
-                (R**2.+asqrtbz**2.)**2.5/sqrtbz**3./4./nu.pi*self._b2
+        return 3./4./nu.pi*self._b2*(R**2.+z**2.+self._b2)**-2.5
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -155,8 +143,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return 1./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**1.5 \
-            -3.*R**2./(R**2.+(self._a+nu.sqrt(z**2.+self._b2))**2.)**2.5
+        return (self._b2-2.*R**2.+z**2.)*(R**2.+z**2.+self._b2)**-2.5
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -174,17 +161,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        sqrtbz= nu.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return (self._b2+R**2.-2.*z**2.)*(self._b2+R**2.+z**2.)**-2.5
-        else:
-            return ((self._a**3.*self._b2 + 
-                     self._a**2.*(3.*self._b2 - 2.* z**2.)
-                     *nu.sqrt(self._b2 + z**2.)
-                     + (self._b2 + R**2. - 2.*z**2.)*(self._b2 + z**2.)**1.5
-                     +self._a* (3.*self._b2**2. - 4.*z**4. + self._b2*(R**2. - z**2.)))/
-                    ((self._b2 + z**2.)**1.5* (R**2. + asqrtbz**2.)**2.5))
+        return (self._b2+R**2.-2.*z**2.)*(R**2.+z**2.+self._b2)**-2.5
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -202,13 +179,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        sqrtbz= nu.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return -(3.*R*z/(R**2.+asqrtbz**2.)**2.5)
-        else:
-            return -(3.*R*z*asqrtbz
-                     /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
+        return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
