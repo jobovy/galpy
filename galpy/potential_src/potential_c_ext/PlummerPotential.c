@@ -32,7 +32,7 @@ double PlummerPotentialPlanarRforce(double R,double phi,
   //Calculate Rforce
   return - amp * R * pow(R*R+b2,-1.5);
 }
-double PlummerPotentialzforce(double R,double z,double phi,
+double PlummerPotentialzforce(double R,double Z,double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -40,7 +40,7 @@ double PlummerPotentialzforce(double R,double z,double phi,
   double amp= *args;
   double b2= 2. * *(args+1);
   //Calculate zforce
-  return - amp * z * pow(R*R+Z*Z+b2,-1.5);
+  return - amp * Z * pow(R*R+Z*Z+b2,-1.5);
 }
 double PlummerPotentialPlanarR2deriv(double R,double phi,
 					     double t,
