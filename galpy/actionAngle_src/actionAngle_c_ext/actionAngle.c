@@ -126,6 +126,7 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      break;
     case 17: //PlummerPotential, 3 arguments
       potentialArgs->potentialEval= &PlummerPotentialEval;
       potentialArgs->nargs= 2;
