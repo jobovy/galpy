@@ -106,6 +106,7 @@ Specific potentials
    potential3mn.rst
    potentialmovingobj.rst
    potentialnfw.rst
+   potentialplummer.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialrazorexp.rst
