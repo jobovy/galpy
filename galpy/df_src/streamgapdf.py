@@ -310,10 +310,10 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
     # Rotate back to the original frame
     return 2.0*GM*numpy.sum(rotinv*numpy.tile(out.T,(3,1,1)).T,axis=-1)
 
-def impulse_deltav_plummer_general(v,x,b,w,x0,v0,GM,rs):
+def impulse_deltav_plummer_curvedstream(v,x,b,w,x0,v0,GM,rs):
     """
     NAME:
-       impulse_deltav_plummer_general
+       impulse_deltav_plummer_curvedstream
     PURPOSE:
        calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
     INPUT:
