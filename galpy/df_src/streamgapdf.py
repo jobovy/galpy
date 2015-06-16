@@ -116,6 +116,7 @@ class streamgapdf(streamdf):
             self._rs= rs
         # Interpolate the track near the gap in (x,v) at the kick_thetas
         self._interpolate_stream_track_kick()
+        self._interpolate_stream_track_kick_aA()
         # Then compute delta v along the track
         if self._general_kick:
             self._kick_deltav=\
@@ -155,25 +156,46 @@ class streamgapdf(streamdf):
         # attributes related to the track at the present time, carefully
         # removing this again to avoid confusion (as much as possible)
         self._interpolatedObsTrack= self._kick_interpolatedObsTrack
-        self._ObsTrack= self._kick_ObsTrack
+        self._ObsTrack= self._gap_ObsTrack
         self._interpolatedObsTrackXY= self._kick_interpolatedObsTrackXY
-        self._ObsTrackXY= self._kick_ObsTrackXY
+        self._ObsTrackXY= self._gap_ObsTrackXY
         self._alljacsTrack= self._gap_alljacsTrack
         self._interpolatedObsTrackAA= self._kick_interpolatedObsTrackAA
-        self._ObsTrackAA= self._kick_ObsTrackAA
+        self._ObsTrackAA= self._gap_ObsTrackAA
         Oap= self._approxaA(self._kick_interpolatedObsTrack[:,0],
                             vRp,vTp,
                             self._kick_interpolatedObsTrack[:,3],
                             vZp,
-                            self._kick_interpolatedObsTrack[:,5],interp=True)
+                            self._kick_interpolatedObsTrack[:,5],interp=True,
+                            cindx=range(len(self._kick_interpolatedObsTrackAA)))
         # Remove attributes again to avoid confusion later
         delattr(self,'_interpolatedObsTrack')
         delattr(self,'_ObsTrack')
         delattr(self,'_interpolatedObsTrackXY')
         delattr(self,'_ObsTrackXY')
-        delattr(self,'alljacsTrack')
+        delattr(self,'_alljacsTrack')
         delattr(self,'_interpolatedObsTrackAA')
         delattr(self,'_ObsTrackAA')
+        # Generate (dO,da)[angle_offset] and interpolate
+        self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
+        self._kick_interpdOr=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
+        self._kick_interpdOp=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
+        self._kick_interpdOz=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
+        self._kick_interpdar=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
+        self._kick_interpdap=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
+        self._kick_interpdaz=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         return None
 
     def _interpolate_stream_track_kick(self):
@@ -252,6 +274,31 @@ class streamgapdf(streamdf):
                 self._kick_interpTrackvX(self._impact_angle),
                 self._kick_interpTrackvY(self._impact_angle),
                 self._kick_interpTrackvZ(self._impact_angle)])
+        return None
+
+    def _interpolate_stream_track_kick_aA(self):
+        """Build interpolations of the stream track near the impact in action-angle coordinates"""
+        if hasattr(self,'_kick_interpolatedObsTrackAA'):
+            return None #Already did this
+        #Calculate 1D meanOmega on a fine grid in angle and interpolate
+        dmOs= numpy.array([self.meanOmega(da,oned=True,tdisrupt=self._tdisrupt-self._timpact)
+                           for da in self._kick_interpolatedThetasTrack])
+        self._kick_interpTrackAAdmeanOmegaOneD=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,dmOs,k=3)
+        #Build the interpolated AA
+        self._kick_interpolatedObsTrackAA=\
+            numpy.empty((len(self._kick_interpolatedThetasTrack),6))
+        for ii in range(len(self._kick_interpolatedThetasTrack)):
+            self._kick_interpolatedObsTrackAA[ii,:3]=\
+                self._progenitor_Omega+dmOs[ii]*self._dsigomeanProgDirection\
+                *self._gap_sigMeanSign
+            self._kick_interpolatedObsTrackAA[ii,3:]=\
+                self._progenitor_angle+self._kick_interpolatedThetasTrack[ii]\
+                *self._dsigomeanProgDirection*self._gap_sigMeanSign\
+                -self._timpact*self._progenitor_Omega
+            self._kick_interpolatedObsTrackAA[ii,3:]=\
+                numpy.mod(self._kick_interpolatedObsTrackAA[ii,3:],2.*numpy.pi)
         return None
 
     def _determine_deltaAngleTrackImpact(self,deltaAngleTrackImpact,timpact):
