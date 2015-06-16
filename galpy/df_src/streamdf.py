@@ -1517,7 +1517,8 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
-    def meanOmega(self,dangle,oned=False,offset_sign=None):
+    def meanOmega(self,dangle,oned=False,offset_sign=None,
+                  tdisrupt=None):
         """
         NAME:
 
@@ -1545,7 +1546,8 @@ class streamdf(object):
 
         """
         if offset_sign is None: offset_sign= self._sigMeanSign
-        dOmin= dangle/self._tdisrupt
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
         meandO= self._meandO
         dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
                    *numpy.exp(-0.5*(meandO-dOmin)**2.\
