@@ -138,6 +138,42 @@ class streamgapdf(streamdf):
         return None
 
     def _determine_deltaOmegaTheta_kick(self):
+        # Propagate deltav(angle) -> delta (Omega,theta) [angle]
+        # Cylindrical coordinates of the perturbed points
+        vXp= self._kick_interpolatedObsTrackXY[:,3]+self._kick_deltav[:,0]
+        vYp= self._kick_interpolatedObsTrackXY[:,4]+self._kick_deltav[:,1]
+        vZp= self._kick_interpolatedObsTrackXY[:,5]+self._kick_deltav[:,2]
+        vRp,vTp,vZp=\
+            bovy_coords.rect_to_cyl_vec(vXp,vYp,vZp,
+                                        self._kick_interpolatedObsTrack[:,0],
+                                        self._kick_interpolatedObsTrack[:,3],
+                                        self._kick_interpolatedObsTrack[:,5],
+                                        cyl=True)
+        # We will abuse streamdf functions for doing the (O,a) -> (R,vR)
+        # coordinate transformation, to do this, we assign some of the 
+        # attributes related to the track near the impact to the equivalent
+        # attributes related to the track at the present time, carefully
+        # removing this again to avoid confusion (as much as possible)
+        self._interpolatedObsTrack= self._kick_interpolatedObsTrack
+        self._ObsTrack= self._kick_ObsTrack
+        self._interpolatedObsTrackXY= self._kick_interpolatedObsTrackXY
+        self._ObsTrackXY= self._kick_ObsTrackXY
+        self._alljacsTrack= self._gap_alljacsTrack
+        self._interpolatedObsTrackAA= self._kick_interpolatedObsTrackAA
+        self._ObsTrackAA= self._kick_ObsTrackAA
+        Oap= self._approxaA(self._kick_interpolatedObsTrack[:,0],
+                            vRp,vTp,
+                            self._kick_interpolatedObsTrack[:,3],
+                            vZp,
+                            self._kick_interpolatedObsTrack[:,5],interp=True)
+        # Remove attributes again to avoid confusion later
+        delattr(self,'_interpolatedObsTrack')
+        delattr(self,'_ObsTrack')
+        delattr(self,'_interpolatedObsTrackXY')
+        delattr(self,'_ObsTrackXY')
+        delattr(self,'alljacsTrack')
+        delattr(self,'_interpolatedObsTrackAA')
+        delattr(self,'_ObsTrackAA')
         return None
 
     def _interpolate_stream_track_kick(self):
@@ -191,6 +227,23 @@ class streamgapdf(streamdf):
             self._kick_interpTrackvY(self._kick_interpolatedThetasTrack)
         self._kick_interpolatedObsTrackXY[:,5]=\
             self._kick_interpTrackvZ(self._kick_interpolatedThetasTrack)
+        #Also in cylindrical coordinates
+        self._kick_interpolatedObsTrack= \
+            numpy.empty((len(self._kick_interpolatedThetasTrack),6))
+        tR,tphi,tZ= bovy_coords.rect_to_cyl(self._kick_interpolatedObsTrackXY[:,0],
+                                            self._kick_interpolatedObsTrackXY[:,1],
+                                            self._kick_interpolatedObsTrackXY[:,2])
+        tvR,tvT,tvZ=\
+            bovy_coords.rect_to_cyl_vec(self._kick_interpolatedObsTrackXY[:,3],
+                                        self._kick_interpolatedObsTrackXY[:,4],
+                                        self._kick_interpolatedObsTrackXY[:,5],
+                                        tR,tphi,tZ,cyl=True)
+        self._kick_interpolatedObsTrack[:,0]= tR
+        self._kick_interpolatedObsTrack[:,1]= tvR
+        self._kick_interpolatedObsTrack[:,2]= tvT
+        self._kick_interpolatedObsTrack[:,3]= tZ
+        self._kick_interpolatedObsTrack[:,4]= tvZ
+        self._kick_interpolatedObsTrack[:,5]= tphi
         # Also store (x,v) for the point of closest approach
         self._kick_ObsTrackXY_closest= numpy.array([\
                 self._kick_interpTrackX(self._impact_angle),
@@ -250,7 +303,7 @@ class streamgapdf(streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
@@ -286,7 +339,7 @@ class streamgapdf(streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            thetasTrack[ii])
                 allAcfsTrack[ii,:]= multiOut[0]
                 alljacsTrack[ii,:,:]= multiOut[1]
@@ -302,7 +355,7 @@ class streamgapdf(streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            thetasTrack[x])),
                 range(self._nTrackChunksImpact),
                 numcores=numpy.amin([self._nTrackChunksImpact,
