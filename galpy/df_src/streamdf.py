@@ -1836,7 +1836,7 @@ class streamdf(object):
         return out
 
 ################APPROXIMATE FREQUENCY-ANGLE TRANSFORMATION#####################
-    def _approxaA(self,R,vR,vT,z,vz,phi,interp=True):
+    def _approxaA(self,R,vR,vT,z,vz,phi,interp=True,cindx=None):
         """
         NAME:
            _approxaA
@@ -1846,6 +1846,7 @@ class streamdf(object):
         INPUT:
            R,vR,vT,z,vz,phi - phase-space coordinates of the given point
            interp= (True), if True, use the interpolated track
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given          
         OUTPUT:
            (Or,Op,Oz,ar,ap,az)
         HISTORY:
@@ -1858,11 +1859,14 @@ class streamdf(object):
             z= numpy.array([z])
             vz= numpy.array([vz])
             phi= numpy.array([phi])
-        closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
-                                                    z[ii],vz[ii],phi[ii],
-                                                    interp=interp,
-                                                    xy=False) 
-                      for ii in range(len(R))]
+        if cindx is None:
+            closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+                                                        z[ii],vz[ii],phi[ii],
+                                                        interp=interp,
+                                                        xy=False) 
+                          for ii in range(len(R))]
+        else:
+            closestIndx= cindx
         out= numpy.empty((6,len(R)))
         for ii in range(len(R)):
             dxv= numpy.empty(6)
