@@ -23,6 +23,8 @@ Current development version, last updated 12/26/2014:
   radially-exponential disk potential as three Miyamoto-Nagai disks
   from Smith et al. (2015; arXiv:1502.00627v1)
 
+- Added PlummerPotential, a standard Plummer potential.
+
 - Add support for converting potential parameters to NEMO format and
   units: nemo_accname and nemo_accpars (both instance and general
   Potential method).
