@@ -2,7 +2,7 @@
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate
+from scipy import integrate, interpolate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces
@@ -31,17 +31,23 @@ class streamgapdf(streamdf):
 
               subhalovel= velocity of the subhalo shape=(3)
 
-              GM= mass of the subhalo
-
-              rs= size parameter of the subhalo
-              
               timpact time since impact 
               
               impact_angle= angle offset from progenitor at which the impact occurred (rad)
 
+              Subhalo: specify either 1( mass and size of Plummer sphere or 2( general spherical-potential object (kick is numerically computed)
+
+                 1( GM= mass of the subhalo
+
+                    rs= size parameter of the subhalo
+
+                 2( subhalopot= galpy potential object or list thereof (should be spherical)
+              
            deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
+
+           nKickPoints= (10xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated)
 
         OUTPUT:
 
@@ -54,13 +60,15 @@ class streamgapdf(streamdf):
         """
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
-        subhalovel= kwargs.pop('subhalovel',1.)
-        GM= kwargs.pop('GM',1.)
-        rs= kwargs.pop('rs',1.)
+        subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
+        GM= kwargs.pop('GM',None)
+        rs= kwargs.pop('rs',None)
+        subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
         impact_angle= kwargs.pop('impact_angle',1.)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
+        nKickPoints= kwargs.pop('nKickPoints',None)
         # Now run the regular streamdf setup, but without calculating the 
         # stream track (nosetup=True)
         kwargs['nosetup']= True
@@ -72,12 +80,125 @@ class streamgapdf(streamdf):
         self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
                                               nTrackChunksImpact,
                                               timpact,impact_angle)
-        # (b) compute \Delta Omega ( \Delta \theta_perp) and \Delta theta, 
-        #     setup interpolating function
+        # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta, 
+        # setup interpolating function
+        self._determine_deltav_kick(impactb,subhalovel,
+                                    GM,rs,subhalopot,
+                                    impact_angle,
+                                    nKickPoints)
+        self._determine_deltaOmegaTheta_kick()
         # (c) Write new meanOmega function based on this?
         # (d) then pass everything to the streamdf setup, should work?
         # (e) First do this for the Plummer sphere, then generalize
         # Determine the necessary number of iterations
+        return None
+
+    def _determine_deltav_kick(self,impactb,subhalovel,
+                               GM,rs,subhalopot,
+                               impact_angle,nKickPoints):
+        # Store some impact parameters
+        self._impactb= impactb
+        self._subhalovel= subhalovel
+        self._impact_angle= impact_angle
+        # First set nKickPoints
+        if nKickPoints is None:
+            self._nKickPoints= 10*self._nTrackChunksImpact
+        else:
+            self._nKickPoints= nKickPoints
+        # Analytical Plummer or general potential?
+        self._general_kick= GM is None or rs is None
+        if self._general_kick and subhalopot is None:
+            raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
+        if self._general_kick:
+            self._subhalopot= subhalopot
+        else:
+            self._GM= GM
+            self._rs= rs
+        # Interpolate the track near the gap in (x,v) at the kick_thetas
+        self._interpolate_stream_track_kick()
+        # Then compute delta v along the track
+        if self._general_kick:
+            self._kick_deltav=\
+                impulse_deltav_general_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
+                                                    self._kick_interpolatedObsTrackXY[:,:3],
+                                                    self._impactb,
+                                                    self._subhalovel,
+                                                    self._kick_ObsTrackXY_closest[:3],
+                                                    self._kick_ObsTrackXY_closest[3:],
+                                                    self._subhalopot)
+        else:
+            self._kick_deltav= \
+                impulse_deltav_plummer_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
+                                                    self._kick_interpolatedObsTrackXY[:,:3],
+                                                    self._impactb,
+                                                    self._subhalovel,
+                                                    self._kick_ObsTrackXY_closest[:3],
+                                                    self._kick_ObsTrackXY_closest[3:],
+                                                    self._GM,self._rs)
+        return None
+
+    def _determine_deltaOmegaTheta_kick(self):
+        return None
+
+    def _interpolate_stream_track_kick(self):
+        """Build interpolations of the stream track near the kick"""
+        if hasattr(self,'_kick_interpolatedThetasTrack'):
+            return None #Already did this
+        # Setup the trackpoints where the kick will be computed, covering the 
+        # full length of the stream
+        self._kick_interpolatedThetasTrack= \
+            numpy.linspace(self._gap_thetasTrack[0],
+                           self._gap_thetasTrack[-1],
+                           self._nKickPoints)
+        TrackX= self._gap_ObsTrack[:,0]*numpy.cos(self._gap_ObsTrack[:,5])
+        TrackY= self._gap_ObsTrack[:,0]*numpy.sin(self._gap_ObsTrack[:,5])
+        TrackZ= self._gap_ObsTrack[:,3]
+        TrackvX, TrackvY, TrackvZ=\
+            bovy_coords.cyl_to_rect_vec(self._gap_ObsTrack[:,1],
+                                        self._gap_ObsTrack[:,2],
+                                        self._gap_ObsTrack[:,4],
+                                        self._gap_ObsTrack[:,5])
+        #Interpolate
+        self._kick_interpTrackX=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackX,k=3)
+        self._kick_interpTrackY=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackY,k=3)
+        self._kick_interpTrackZ=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackZ,k=3)
+        self._kick_interpTrackvX=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackvX,k=3)
+        self._kick_interpTrackvY=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackvY,k=3)
+        self._kick_interpTrackvZ=\
+            interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
+                                                     TrackvZ,k=3)
+        #Now store an interpolated version of the stream track
+        self._kick_interpolatedObsTrackXY= numpy.empty((len(self._kick_interpolatedThetasTrack),6))
+        self._kick_interpolatedObsTrackXY[:,0]=\
+            self._kick_interpTrackX(self._kick_interpolatedThetasTrack)
+        self._kick_interpolatedObsTrackXY[:,1]=\
+            self._kick_interpTrackY(self._kick_interpolatedThetasTrack)
+        self._kick_interpolatedObsTrackXY[:,2]=\
+            self._kick_interpTrackZ(self._kick_interpolatedThetasTrack)
+        self._kick_interpolatedObsTrackXY[:,3]=\
+            self._kick_interpTrackvX(self._kick_interpolatedThetasTrack)
+        self._kick_interpolatedObsTrackXY[:,4]=\
+            self._kick_interpTrackvY(self._kick_interpolatedThetasTrack)
+        self._kick_interpolatedObsTrackXY[:,5]=\
+            self._kick_interpTrackvZ(self._kick_interpolatedThetasTrack)
+        # Also store (x,v) for the point of closest approach
+        self._kick_ObsTrackXY_closest= numpy.array([\
+                self._kick_interpTrackX(self._impact_angle),
+                self._kick_interpTrackY(self._impact_angle),
+                self._kick_interpTrackZ(self._impact_angle),
+                self._kick_interpTrackvX(self._impact_angle),
+                self._kick_interpTrackvY(self._impact_angle),
+                self._kick_interpTrackvZ(self._impact_angle)])
         return None
 
     def _determine_deltaAngleTrackImpact(self,deltaAngleTrackImpact,timpact):
