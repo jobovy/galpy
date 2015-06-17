@@ -6,10 +6,10 @@ from scipy import integrate, interpolate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces
-from galpy.df import streamdf
+import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
 from galpy.util import bovy_coords, multi
-class streamgapdf(streamdf):
+class streamgapdf(galpy.df_src.streamdf.streamdf):
     """The DF of a tidal stream"""
     def __init__(self,*args,**kwargs):
         """
@@ -72,7 +72,7 @@ class streamgapdf(streamdf):
         # Now run the regular streamdf setup, but without calculating the 
         # stream track (nosetup=True)
         kwargs['nosetup']= True
-        streamdf.__init__(self,*args,**kwargs)
+        super(streamgapdf,self).__init__(*args,**kwargs)
         # Setup the machinery to go between (x,v) and (Omega,theta) 
         # near the impact
         self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
@@ -147,8 +147,8 @@ class streamgapdf(streamdf):
         vRp,vTp,vZp=\
             bovy_coords.rect_to_cyl_vec(vXp,vYp,vZp,
                                         self._kick_interpolatedObsTrack[:,0],
-                                        self._kick_interpolatedObsTrack[:,3],
                                         self._kick_interpolatedObsTrack[:,5],
+                                        self._kick_interpolatedObsTrack[:,3],
                                         cyl=True)
         # We will abuse streamdf functions for doing the (O,a) -> (R,vR)
         # coordinate transformation, to do this, we assign some of the 
