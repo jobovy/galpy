@@ -17,6 +17,7 @@ double KuzminKutuzovStaeckelPotentialEval(double R,double z, double phi,
   double discr = pow(R*R + z*z - Delta*Delta, 2.) + (4. * Delta*Delta * R*R);
   double l     = 0.5 * (term + sqrt(discr)); 
   double n     = 0.5 * (term - sqrt(discr));
+  n= ((n > 0.) ? n: 0.);
   //Calculate potential
   return -amp /(sqrt(l) + sqrt(n));
 }
