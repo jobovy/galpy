@@ -84,7 +84,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # setup interpolating function
         self._determine_deltav_kick(impactb,subhalovel,
                                     GM,rs,subhalopot,
-                                    impact_angle,
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
         # (c) Write new meanOmega function based on this?
@@ -95,11 +94,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
     def _determine_deltav_kick(self,impactb,subhalovel,
                                GM,rs,subhalopot,
-                               impact_angle,nKickPoints):
+                               nKickPoints):
         # Store some impact parameters
         self._impactb= impactb
         self._subhalovel= subhalovel
-        self._impact_angle= impact_angle
         # First set nKickPoints
         if nKickPoints is None:
             self._nKickPoints= 10*self._nTrackChunksImpact
@@ -118,6 +116,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._interpolate_stream_track_kick()
         self._interpolate_stream_track_kick_aA()
         # Then compute delta v along the track
+        """
+        print "WARNING: SETTING Z and VZ TO ZERO TO DEAL WITH DENIS' EXAMPLE"
+        self._gap_ObsTrackXY[:,2]= 0.
+        self._gap_ObsTrackXY[:,5]= 0.
+        self._kick_interpolatedObsTrackXY[:,2]= 0.
+        self._kick_interpolatedObsTrackXY[:,5]= 0.
+        self._gap_ObsTrack[:,3]= 0.
+        self._gap_ObsTrack[:,4]= 0.
+        self._kick_interpolatedObsTrack[:,3]= 0.
+        self._kick_interpolatedObsTrack[:,4]= 0.
+        """
         if self._general_kick:
             self._kick_deltav=\
                 impulse_deltav_general_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
@@ -327,6 +336,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._gap_leading= True
         else:
             self._gap_leading= False
+        self._impact_angle= numpy.fabs(impact_angle)
         self._gap_sigMeanSign= 1.
         if self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.:
             self._gap_sigMeanSign= -1.
