@@ -2,7 +2,7 @@
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate, interpolate
+from scipy import integrate, interpolate, special, optimize
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces
@@ -91,6 +91,70 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # (e) First do this for the Plummer sphere, then generalize
         # Determine the necessary number of iterations
         return None
+
+#########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+        """
+        NAME:
+
+           meanOmega
+
+        PURPOSE:
+
+           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time; uses computed kicks and replaces the equivalent streamdf function
+
+        INPUT:
+
+           dangle - angle offset
+
+           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
+
+        OUTPUT:
+
+           mean Omega
+
+        HISTORY:
+
+           2015-06-22 - Written - Bovy (IAS)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
+        # First determine delta angle_par at timpact
+        dangle_impact= self._rewind_angle_impact(dangle)
+        meandO= self._meandO\
+            +self._kick_interpdOpar(dangle_impact)*self._sigMeanSign
+        dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                   *numpy.exp(-0.5*(meandO-dOmin)**2.\
+                                   /self._sortedSigOEig[2])/
+                (1.+special.erf((meandO-dOmin)\
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
+                   +meandO)
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign\
+                +self._kick_interpdOperp0(dangle_impact)*self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx[0]]\
+                +self._kick_interpdOperp1(dangle_impact)*self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx[1]] # latter two add perp. kicks
+
+    def _rewind_angle_impact(self,dangle):
+        """
+        NAME:
+           _rewind_angle_impact
+        PURPOSE:
+           Find the parallel angle at which a star was just after the impact
+        INPUT:
+           dangle - current parallel angle in rad
+        OUTPUT:
+           angle at impact
+        HISTORY:
+           2015-06-22 - Written - Bovy (IAS)
+        """
+        out= optimize.brentq(lambda da: dangle
+                             -(self._meandO*self._sigMeanSign
+                               +self._kick_interpdOpar(da))*self._timpact-da,
+                             0.,self._deltaAngleTrack)
+        return out
 
     def _determine_deltav_kick(self,impactb,subhalovel,
                                GM,rs,subhalopot,
@@ -205,6 +269,20 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpdaz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
+        # Also interpolate parallel and perpendicular frequencies
+        self._kick_dOaparperp=\
+            numpy.dot(self._kick_dOap[:,:3],
+                      self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
+        self._kick_interpdOpar=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
+        self._kick_interpdOperp0=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
+        self._kick_interpdOperp1=\
+            interpolate.InterpolatedUnivariateSpline(\
+            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
         return None
 
     def _interpolate_stream_track_kick(self):
@@ -290,8 +368,11 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         if hasattr(self,'_kick_interpolatedObsTrackAA'):
             return None #Already did this
         #Calculate 1D meanOmega on a fine grid in angle and interpolate
-        dmOs= numpy.array([self.meanOmega(da,oned=True,tdisrupt=self._tdisrupt-self._timpact)
-                           for da in self._kick_interpolatedThetasTrack])
+        dmOs= numpy.array([\
+                super(streamgapdf,self).meanOmega(da,oned=True,
+                                                  tdisrupt=self._tdisrupt
+                                                  -self._timpact)
+                for da in self._kick_interpolatedThetasTrack])
         self._kick_interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,dmOs,k=3)
@@ -360,7 +441,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
@@ -396,7 +477,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            thetasTrack[ii])
                 allAcfsTrack[ii,:]= multiOut[0]
                 alljacsTrack[ii,:,:]= multiOut[1]
@@ -412,7 +493,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                            thetasTrack[x])),
                 range(self._nTrackChunksImpact),
                 numcores=numpy.amin([self._nTrackChunksImpact,
@@ -435,7 +516,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                              self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                              self._gap_sigMeanSign,
                                                              self._dsigomeanProgDirection,
-                                                             lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                                             lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                                              thetasTrack[ii])
                     allAcfsTrack[ii,:]= multiOut[0]
                     alljacsTrack[ii,:,:]= multiOut[1]
@@ -449,7 +530,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                               self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                               self._gap_sigMeanSign,
                                                               self._dsigomeanProgDirection,
-                                           lambda da: self.meanOmega(da,offset_sign=self._gap_sigMeanSign),
+                                                              lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
                                                               thetasTrack[x])),
                     range(self._nTrackChunksImpact),
                     numcores=numpy.amin([self._nTrackChunksImpact,
