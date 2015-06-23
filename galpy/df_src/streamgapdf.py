@@ -1,4 +1,5 @@
 # The DF of a gap in a tidal stream
+from functools import wraps
 import numpy
 import warnings
 import multiprocessing
@@ -9,6 +10,15 @@ from galpy.potential import evaluateRforces
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
 from galpy.util import bovy_coords, multi
+def impact_check_range(func):
+    """Decorator to check the range of interpolated kicks"""
+    @wraps(func)
+    def impact_wrapper(*args,**kwargs):
+        if args[1] >= args[0]._deltaAngleTrackImpact or args[1] <= 0.:
+            return 0.
+        else:
+            return func(*args,**kwargs)
+    return impact_wrapper
 class streamgapdf(galpy.df_src.streamdf.streamdf):
     """The DF of a tidal stream"""
     def __init__(self,*args,**kwargs):
@@ -69,6 +79,12 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
         nKickPoints= kwargs.pop('nKickPoints',None)
+        # For setup later
+        nTrackChunks= kwargs.pop('nTrackChunks',None)
+        interpTrack= kwargs.pop('interpTrack',
+                                galpy.df_src.streamdf._INTERPDURINGSETUP)
+        useInterp= kwargs.pop('useInterp',
+                              galpy.df_src.streamdf._USEINTERP)
         # Now run the regular streamdf setup, but without calculating the 
         # stream track (nosetup=True)
         kwargs['nosetup']= True
@@ -86,10 +102,14 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                     GM,rs,subhalopot,
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
-        # (c) Write new meanOmega function based on this?
-        # (d) then pass everything to the streamdf setup, should work?
-        # (e) First do this for the Plummer sphere, then generalize
-        # Determine the necessary number of iterations
+        # Then pass everything to the normal streamdf setup
+        super(streamgapdf,self)._determine_stream_track(nTrackChunks)
+        self._useInterp= useInterp
+        if interpTrack or self._useInterp:
+            super(streamgapdf,self)._interpolate_stream_track()
+            super(streamgapdf,self)._interpolate_stream_track_aA()
+        super(streamgapdf,self).calc_stream_lb()
+        #super(streamgapdf,self)._determine_stream_spread()
         return None
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
@@ -118,6 +138,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-06-22 - Written - Bovy (IAS)
 
         """
+        print "NEED TO MAKE SURE THAT KICKS AREN'T APPLIED IF COMING FROM OTHER ARM"
         if tdisrupt is None: tdisrupt= self._tdisrupt
         dOmin= dangle/tdisrupt
         # First determine delta angle_par at timpact
@@ -150,10 +171,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         HISTORY:
            2015-06-22 - Written - Bovy (IAS)
         """
-        out= optimize.brentq(lambda da: dangle
-                             -(self._meandO*self._sigMeanSign
-                               +self._kick_interpdOpar(da))*self._timpact-da,
-                             0.,self._deltaAngleTrack)
+        guess= dangle-self._meandO*self._sigMeanSign*self._timpact
+        dguess= numpy.amax(self._kick_dOaparperp[:,2])*self._timpact*1.2
+        try:
+            out= optimize.brentq(lambda da: dangle
+                                 -(self._meandO*self._sigMeanSign
+                                   +self._kick_interpdOpar(da))*self._timpact
+                                 -da,
+                                 guess-dguess,guess+dguess)
+        except ValueError:
+            # Only get into trouble at the edges; assume the kick is zero
+            out= dangle-self._meandO*self._sigMeanSign*self._timpact
         return out
 
     def _determine_deltav_kick(self,impactb,subhalovel,
@@ -273,17 +301,28 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
-        self._kick_interpdOpar=\
+        self.__kick_interpdOpar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
             numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
-        self._kick_interpdOperp0=\
+        self.__kick_interpdOperp0=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
-        self._kick_interpdOperp1=\
+        self.__kick_interpdOperp1=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
         return None
+
+    # Functions that evaluate the interpolated kicks, but also check the range
+    @impact_check_range
+    def _kick_interpdOpar(self,da):
+        return self.__kick_interpdOpar(da)
+    @impact_check_range
+    def _kick_interpdOperp0(self,da):
+        return self.__kick_interpdOperp0(da)
+    @impact_check_range
+    def _kick_interpdOperp1(self,da):
+        return self.__kick_interpdOperp1(da)
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
