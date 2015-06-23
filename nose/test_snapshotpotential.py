@@ -458,6 +458,36 @@ def test_interpsnapshotKeplerPotential_z2deriv():
             assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 2.*10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
     return None
 
+def test_interpsnapshotKeplerpotential_Rzderiv():
+    # Set up a snapshot with just one unit mass at the origin
+    s= pynbody.new(star=1)
+    s['mass']= 2.
+    s['eps']= 0.
+    sp= potential.InterpSnapshotRZPotential(s,
+                                            rgrid=(0.01,2.,101),
+                                            zgrid=(0.,0.2,101),
+                                            logR=False,
+                                            interpPot=True,
+                                            interpepifreq=True,
+                                            interpverticalfreq=True,
+                                            zsym=True)
+    kp= potential.KeplerPotential(amp=2.) #should be the same
+    #This just tests on the grid
+    rs= numpy.linspace(0.01,2.,21)[1:]
+    zs= numpy.linspace(-0.2,0.2,41)
+    zs= zs[zs != 0.]# avoid zero
+    # Test, but give small |z| a less constraining 
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g; value is %g' % (r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)),kp.Rzderiv(r,z))
+    #This tests within the grid
+    rs= numpy.linspace(0.01,2.,10)[1:]
+    zs= numpy.linspace(-0.2,0.2,20)
+    for r in rs:
+        for z in zs:
+            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)))
+    return None
+
 def test_snapshotrzpotential_nopynbody():
     # Test that if we cannot load pynbody, we get an ImportError
     from galpy.potential_src import SnapshotRZPotential
