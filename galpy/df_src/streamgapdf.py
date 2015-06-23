@@ -14,7 +14,12 @@ def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
     def impact_wrapper(*args,**kwargs):
-        if args[1] >= args[0]._deltaAngleTrackImpact or args[1] <= 0.:
+        if isinstance(args[1],numpy.ndarray):
+            out= numpy.zeros(len(args[1]))
+            goodIndx= (args[1] < args[0]._deltaAngleTrackImpact)*(args[1] > 0.)
+            out[goodIndx]= func(args[0],args[1][goodIndx])
+            return out
+        elif args[1] >= args[0]._deltaAngleTrackImpact or args[1] <= 0.:
             return 0.
         else:
             return func(*args,**kwargs)
@@ -279,22 +284,22 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         delattr(self,'_ObsTrackAA')
         # Generate (dO,da)[angle_offset] and interpolate
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
-        self._kick_interpdOr=\
+        self.__kick_interpdOr=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
-        self._kick_interpdOp=\
+        self.__kick_interpdOp=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
-        self._kick_interpdOz=\
+        self.__kick_interpdOz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
-        self._kick_interpdar=\
+        self.__kick_interpdar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
-        self._kick_interpdap=\
+        self.__kick_interpdap=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
-        self._kick_interpdaz=\
+        self.__kick_interpdaz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         # Also interpolate parallel and perpendicular frequencies
@@ -323,6 +328,24 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     @impact_check_range
     def _kick_interpdOperp1(self,da):
         return self.__kick_interpdOperp1(da)
+    @impact_check_range
+    def _kick_interpdOr(self,da):
+        return self.__kick_interpdOr(da)
+    @impact_check_range
+    def _kick_interpdOp(self,da):
+        return self.__kick_interpdOp(da)
+    @impact_check_range
+    def _kick_interpdOz(self,da):
+        return self.__kick_interpdOz(da)
+    @impact_check_range
+    def _kick_interpdar(self,da):
+        return self.__kick_interpdar(da)
+    @impact_check_range
+    def _kick_interpdap(self,da):
+        return self.__kick_interpdap(da)
+    @impact_check_range
+    def _kick_interpdaz(self,da):
+        return self.__kick_interpdaz(da)
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
@@ -623,6 +646,149 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._gap_progenitor._orb.orbit[:,2]= -self._gap_progenitor._orb.orbit[:,2]
         self._gap_progenitor._orb.orbit[:,4]= -self._gap_progenitor._orb.orbit[:,4]
         return None
+
+################################SAMPLE THE DF##################################
+    def sample(self,n,returnaAdt=False,returndt=False,interp=None,
+               xy=False,lb=False,
+               Vnorm=None,Rnorm=None,
+               R0=None,Zsun=None,vsun=None):
+        """
+        NAME:
+
+            sample
+
+        PURPOSE:
+
+            sample from the DF
+
+        INPUT:
+
+            n - number of points to return
+
+            returnaAdt= (False) if True, return (Omega,angle,dt)
+
+            returndT= (False) if True, also return the time since the star was stripped
+
+            interp= (object-wide default) use interpolation of the stream track
+
+            xy= (False) if True, return Galactocentric rectangular coordinates
+
+            lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb coordinates
+
+            +Coordinate transformation inputs (all default to the instance-wide
+            values):
+
+              Vnorm= circular velocity to normalize velocities with
+
+              Rnorm= Galactocentric radius to normalize positions with
+
+              R0= Galactocentric radius of the Sun (kpc)
+
+              Zsun= Sun's height above the plane (kpc)
+
+              vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
+
+        OUTPUT:
+
+            (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
+
+        HISTORY:
+
+            2013-12-22 - Written - Bovy (IAS)
+
+        """
+        if interp is None:
+            interp= self._useInterp
+        # Use streamdf's sample to generate unperturbed frequencies, angles
+        Om,angle,dt= super(streamgapdf,self).sample(n,returnaAdt=True)
+        # Now rewind angles by timpact, apply the kicks, and run forward again
+        dangle_at_impact= angle-numpy.tile(self._progenitor_angle.T,(n,1)).T\
+            -(Om-numpy.tile(self._progenitor_Omega.T,(n,1)).T)*self._timpact
+        dangle_par_at_impact= numpy.dot(dangle_at_impact.T,
+                                        self._dsigomeanProgDirection)
+        # Calculate and apply kicks (points not yet released have zero kick)
+        dOr= self._kick_interpdOr(dangle_par_at_impact)
+        dOp= self._kick_interpdOp(dangle_par_at_impact)
+        dOz= self._kick_interpdOz(dangle_par_at_impact)
+        Om[0,:]+= dOr
+        Om[1,:]+= dOp
+        Om[2,:]+= dOz
+        angle[0,:]+=\
+            self._kick_interpdar(dangle_par_at_impact)+dOr*self._timpact
+        angle[1,:]+=\
+            self._kick_interpdap(dangle_par_at_impact)+dOp*self._timpact
+        angle[2,:]+=\
+            self._kick_interpdaz(dangle_par_at_impact)+dOz*self._timpact
+        if returnaAdt:
+            return (Om,angle,dt)
+
+        print "REST NEEDS CLEANING UP"
+
+        #Propagate to R,vR,etc.
+        RvR= self._approxaAInv(Om[0,:],Om[1,:],Om[2,:],
+                               angle[0,:],angle[1,:],angle[2,:],
+                               interp=interp)
+        if returndt and not xy and not lb:
+            return (RvR,dt)
+        elif not xy and not lb:
+            return RvR
+        if xy:
+            sX= RvR[0]*numpy.cos(RvR[5])
+            sY= RvR[0]*numpy.sin(RvR[5])
+            sZ= RvR[3]
+            svX, svY, svZ=\
+                bovy_coords.cyl_to_rect_vec(RvR[1],
+                                            RvR[2],
+                                            RvR[4],
+                                            RvR[5])            
+            out= numpy.empty((6,n))
+            out[0]= sX
+            out[1]= sY
+            out[2]= sZ
+            out[3]= svX
+            out[4]= svY
+            out[5]= svZ
+            if returndt:
+                return (out,dt)
+            else:
+                return out
+        if lb:
+            if Vnorm is None:
+                Vnorm= self._Vnorm
+            if Rnorm is None:
+                Rnorm= self._Rnorm
+            if R0 is None:
+                R0= self._R0
+            if Zsun is None:
+                Zsun= self._Zsun
+            if vsun is None:
+                vsun= self._vsun
+            XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*Rnorm,
+                                              RvR[5],
+                                              RvR[3]*Rnorm,
+                                              Xsun=R0,Zsun=Zsun)
+            vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*Vnorm,
+                                                  RvR[2]*Vnorm,
+                                                  RvR[4]*Vnorm,
+                                                  RvR[5],
+                                                  vsun=vsun)
+            slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                        degree=True)
+            svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                                    slbd[:,0],slbd[:,1],
+                                                    slbd[:,2],
+                                                    degree=True)
+            out= numpy.empty((6,n))
+            out[0]= slbd[:,0]
+            out[1]= slbd[:,1]
+            out[2]= slbd[:,2]
+            out[3]= svlbd[:,0]
+            out[4]= svlbd[:,1]
+            out[5]= svlbd[:,2]
+            if returndt:
+                return (out,dt)
+            else:
+                return out
 
 def impulse_deltav_plummer(v,y,b,w,GM,rs):
     """
