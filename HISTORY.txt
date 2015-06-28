@@ -34,6 +34,9 @@ Current development version, last updated 12/26/2014:
   PowerSphericalPotential2Cutoff and Makefile to compile and install
   it. This allows gyrfalcON simulations with MWPotential2014.
 
+- Allow user to directly specify the integration step size to use in
+  orbit integration.
+
 - Better implementations of vcirc, eipfreq, and verticalfreq for lists
   of potentials that allows for negative amplitude components.
 
