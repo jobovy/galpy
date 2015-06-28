@@ -63,7 +63,7 @@ class FullOrbit(OrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -78,6 +78,7 @@ class FullOrbit(OrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -88,7 +89,7 @@ class FullOrbit(OrbitTop):
         if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)
+        self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method,dt)
 
     @physical_conversion('energy')
     def Jacobi(self,*args,**kwargs):
@@ -537,7 +538,7 @@ class FullOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
                            *args,**kwargs)
 
-def _integrateFullOrbit(vxvv,pot,t,method):
+def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateFullOrbit
@@ -549,6 +550,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,5] array of [R,vR,vT,z,vz,phi] at each t
     HISTORY:
@@ -602,7 +604,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
                              vxvv[4]])
         #integrate
         tmp_out, msg= integrateFullOrbit_c(pot,this_vxvv,
-                                           t,method)
+                                           t,method,dt=dt)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)

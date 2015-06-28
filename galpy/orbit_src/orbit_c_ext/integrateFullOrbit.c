@@ -200,6 +200,7 @@ void integrateFullOrbit(double *yo,
 			int npot,
 			int * pot_type,
 			double * pot_args,
+			double dt,
 			double rtol,
 			double atol,
 			double *result,
@@ -215,7 +216,7 @@ void integrateFullOrbit(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -253,7 +254,7 @@ void integrateFullOrbit(double *yo,
     dim= 6;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {

@@ -49,7 +49,7 @@ class RZOrbit(OrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -64,6 +64,7 @@ class RZOrbit(OrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -73,7 +74,7 @@ class RZOrbit(OrbitTop):
         if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method)
+        self.orbit= _integrateRZOrbit(self.vxvv,pot,t,method,dt)
 
     @physical_conversion('energy')
     def E(self,*args,**kwargs):
@@ -446,7 +447,7 @@ class RZOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
                            *args,**kwargs)
 
-def _integrateRZOrbit(vxvv,pot,t,method):
+def _integrateRZOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateRZOrbit
@@ -458,6 +459,7 @@ def _integrateRZOrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,5] array of [R,vR,vT,z,vz] at each t
     HISTORY:
@@ -480,7 +482,7 @@ def _integrateRZOrbit(vxvv,pot,t,method):
         #We hack this by upgrading to a FullOrbit
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out= _integrateFullOrbit(this_vxvv,pot,t,method)
+        tmp_out= _integrateFullOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,6)
         out= tmp_out[:,0:5]
     elif method.lower() == 'odeint':
