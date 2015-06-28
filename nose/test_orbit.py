@@ -31,6 +31,25 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
+# Test the error for when explicit stepsize does not divide the output stepsize
+def test_check_integrate_dt():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([1.,0.1,1.2,0.3,0.2,2.])
+    times= numpy.linspace(0.,7.,251)
+    # This shouldn't work
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.*1.1)
+    except ValueError: pass
+    else: raise AssertionError('dt that is not an integer divisor of the output step size does not raise a ValueError')
+    # This should
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.)
+    except ValueError:
+        raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
+    return None    
+
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
