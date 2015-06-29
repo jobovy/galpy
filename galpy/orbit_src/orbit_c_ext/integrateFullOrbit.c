@@ -287,7 +287,7 @@ void integrateOrbit_dxdv(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -325,8 +325,8 @@ void integrateOrbit_dxdv(double *yo,
     dim= 12;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
+	      rtol,atol,result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(potentialArgs->args);
