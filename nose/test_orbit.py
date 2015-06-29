@@ -80,6 +80,7 @@ def test_energy_jacobi_conservation():
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol= {}
     jactol['default']= -10.
+    jactol['RazorThinExponentialDiskPotential']= -9. #these are more difficult
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
@@ -270,7 +271,7 @@ def test_energy_jacobi_conservation():
             #Jacobi
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+                "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s" %((numpy.std(tJacobis)/numpy.mean(tJacobis))**2.,p,integrator)
             if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
@@ -1200,6 +1201,61 @@ def test_analytic_zmax():
                     "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not 'NFW' in p: break
     #raise AssertionError
+    return None
+
+# Test the error for when explicit stepsize does not divide the output stepsize
+def test_check_integrate_dt():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbit([1.,0.1,1.2,0.3,0.2,2.])
+    times= numpy.linspace(0.,7.,251)
+    # This shouldn't work
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.*1.1)
+    except ValueError: pass
+    else: raise AssertionError('dt that is not an integer divisor of the output step size does not raise a ValueError')
+    # This should
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.)
+    except ValueError:
+        raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
+    return None    
+
+# Test that fixing the stepsize works, issue #207
+def test_fixedstepsize():
+    from galpy.potential import LogarithmicHaloPotential
+    import time
+    # Integrators for which it should work
+    integrators= ['leapfrog_c','rk4_c','rk6_c','symplec4_c','symplec6_c']
+    # Somewhat long time
+    times= numpy.linspace(0.,100.,30001)
+    # Test the following multiples
+    mults= [10.,40.,80.]
+    # Just do this for LogarithmicHaloPotential
+    pot= LogarithmicHaloPotential(normalize=1.)
+    planarpot= pot.toPlanar()
+    types= ['full','rz','planar','r']
+    # Loop through integrators and different types of orbits
+    for integrator in integrators:
+        for type in types:
+            if type == 'full':
+                o= setup_orbit_energy(pot,axi=False)
+            elif type == 'rz':
+                o= setup_orbit_energy(pot,axi=True)
+            elif type == 'planar':
+                o= setup_orbit_energy(planarpot,axi=False)
+            elif type == 'r':
+                o= setup_orbit_energy(planarpot,axi=True)
+            runtimes= numpy.empty(len(mults))
+            for ii,mult in enumerate(mults):
+                start= time.time()
+                o.integrate(times,pot,dt=(times[1]-times[0])/mult)
+                runtimes[ii]= time.time()-start
+            for ii,mult in enumerate(mults):
+                if ii == 0: continue
+                assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.2, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
+numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],runtimes[ii]/runtimes[0])
     return None
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
@@ -2635,7 +2691,7 @@ def setup_orbit_energy(tp,axi=False):
         if axi:
             o= Orbit([1.,1.1,1.1])
         else:
-            o= Orbit([1.,1.1,1.1,0.])
+            o= Orbit([1.,1.1,1.1,numpy.pi/2.])
     else:
         if axi:
             o= Orbit([1.,1.1,1.1,0.1,0.1])

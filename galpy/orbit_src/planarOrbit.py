@@ -218,7 +218,7 @@ class planarROrbit(planarOrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -233,6 +233,7 @@ class planarROrbit(planarOrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            error message number (get the actual orbit using getOrbit()
         HISTORY:
@@ -243,7 +244,7 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method,dt)
         return msg
 
     @physical_conversion('energy')
@@ -338,7 +339,7 @@ class planarOrbit(planarOrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -353,6 +354,7 @@ class planarOrbit(planarOrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -363,7 +365,7 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method,dt)
         return msg
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
@@ -476,7 +478,7 @@ class planarOrbit(planarOrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-def _integrateROrbit(vxvv,pot,t,method):
+def _integrateROrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateROrbit
@@ -488,6 +490,7 @@ def _integrateROrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,3] array of [R,vR,vT] at each t
     HISTORY:
@@ -507,7 +510,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
@@ -516,7 +519,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'odeint':
@@ -556,7 +559,7 @@ def _REOM(y,t,pot,l2):
     return [y[1],
             l2/y[0]**3.+evaluateplanarRforces(y[0],pot,t=t)]
 
-def _integrateOrbit(vxvv,pot,t,method):
+def _integrateOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateOrbit
@@ -568,6 +571,7 @@ def _integrateOrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt- if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,4] array of [R,vR,vT,phi] at each t
     HISTORY:
@@ -591,7 +595,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                         t,args=(pot,),rtol=10.**-8)
+                                        t,args=(pot,),rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
@@ -615,7 +619,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out, msg= integratePlanarOrbit_c(pot,this_vxvv,
-                                             t,method)
+                                             t,method,dt=dt)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)

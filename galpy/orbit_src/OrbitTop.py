@@ -76,7 +76,7 @@ class OrbitTop(object):
         self._voSet= False
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
