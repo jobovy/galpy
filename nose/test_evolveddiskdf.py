@@ -1,4 +1,5 @@
 # Tests of the evolveddiskdf module
+from __future__ import print_function, division
 import numpy
 from galpy.df import evolveddiskdf, dehnendf
 from galpy.potential import LogarithmicHaloPotential, \

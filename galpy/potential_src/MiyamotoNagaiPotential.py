@@ -6,7 +6,7 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy as nu
-from Potential import Potential
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 
@@ -55,6 +55,7 @@ class MiyamotoNagaiPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self._nemo_accname= 'MiyamotoNagai'
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -212,3 +213,32 @@ class MiyamotoNagaiPotential(Potential):
         else:
             return -(3.*R*z*asqrtbz
                      /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
+
+    @kms_to_kpcGyrDecorator
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2014-12-18 - Written - Bovy (IAS)
+
+        """
+        ampl= self._amp*vo**2.*ro
+        return "0,%s,%s,%s" % (ampl,self._a*ro,self._b*ro)

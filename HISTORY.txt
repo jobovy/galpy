@@ -1,3 +1,64 @@
+v1.1 (XXXX-XX-XX)
+==================
+
+Current development version, last updated 12/26/2014:
+
+- Added Python 3 support: in particular, Python 3.3 and 3.4 are now
+  supported; earlier 3.* may also work, but haven't been
+  tested. Python 2 and 3 are supported using a single common codebase.
+
+- Added SnapshotRZPotential and InterpSnapshotRZPotential potential
+  classes: these can be used to get a frozen snapshot of the potential
+  of an N-body simulation into galpy. SnapshotRZPotential directly
+  calculates the potential and forces using direct summation;
+  InterpSnapshotRZPotential builds an interpolation table (it's a
+  subclass of interpRZPotential and can be used in the same way). This
+  code was mainly written by Rok Roskar.
+
+- Added KuzminKutuzovStaeckelPotential, a Staeckel potential that can
+  be used to approximate the potential of a disk galaxy (see Batsleer
+  & Dejonghe 1994).
+
+- Added MN3ExponentialDiskPotential that gives the approximation to a
+  radially-exponential disk potential as three Miyamoto-Nagai disks
+  from Smith et al. (2015; arXiv:1502.00627v1)
+
+- Added PlummerPotential, a standard Plummer potential.
+
+- Add support for converting potential parameters to NEMO format and
+  units: nemo_accname and nemo_accpars (both instance and general
+  Potential method).
+
+- Added nemo/ directory for C++ implementations of additional NEMO
+  potentials (not included in the NEMO release); add PowSphwCut.cc for
+  PowerSphericalPotential2Cutoff and Makefile to compile and install
+  it. This allows gyrfalcON simulations with MWPotential2014.
+
+- Allow user to directly specify the integration step size to use in
+  orbit integration.
+
+- Better implementations of vcirc, eipfreq, and verticalfreq for lists
+  of potentials that allows for negative amplitude components.
+
+- Improvements to streamdf: add progIsTrack keyword to specify that
+  the progenitor= keyword actually specifies the desired starting
+  phase-space point of the track; the phase-space point of the
+  progenitor is calculated. Refactored streamdf setup to make this
+  easy to implement.
+
+- Orbit fitting can now be performed in custom sky coordinates
+  (requires one to specify customsky=True and to implement and pass
+  the functions (a) lb_to_customsky= and (b) pmllpmbb_to_customsky=,
+  similar to lb_to_radec and pmllpmbb_to_pmradec). For example, this
+  allows one to do an orbit fit in the GD-1 frame of Koposov et
+  al. (2010).
+
+- Orbit.time now returns the times at which an Orbit is integrated if
+  called without arguments.
+
+- Slightly improved implementation of actionAngleStaeckel.py (more
+  robust umin/umax finding).
+
 v1.0 (2014-12-10)
 ==================
 

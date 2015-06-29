@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 import os
 import pickle
 import numpy as nu
@@ -34,23 +36,11 @@ def plotRotcurve(Pot,*args,**kwargs):
        2010-07-10 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('Rrange'):
-        Rrange= kwargs['Rrange']
-        kwargs.pop('Rrange')
-    else:
-        Rrange= [0.01,5.]
-    if kwargs.has_key('grid'):
-        grid= kwargs['grid']
-        kwargs.pop('grid')
-    else:
-        grid= 1001
-    if kwargs.has_key('savefilename'):
-        savefilename= kwargs['savefilename']
-        kwargs.pop('savefilename')
-    else:
-        savefilename= None
+    Rrange= kwargs.pop('Rrange',[0.01,5.])
+    grid= kwargs.pop('grid',1001)
+    savefilename= kwargs.pop('savefilename',None)
     if not savefilename is None and os.path.exists(savefilename):
-        print "Restoring savefile "+savefilename+" ..."
+        print("Restoring savefile "+savefilename+" ...")
         savefile= open(savefilename,'rb')
         rotcurve= pickle.load(savefile)
         Rs= pickle.load(savefile)
@@ -59,18 +49,18 @@ def plotRotcurve(Pot,*args,**kwargs):
         Rs= nu.linspace(Rrange[0],Rrange[1],grid)
         rotcurve= calcRotcurve(Pot,Rs)
         if not savefilename == None:
-            print "Writing savefile "+savefilename+" ..."
+            print("Writing savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')
             pickle.dump(rotcurve,savefile)
             pickle.dump(Rs,savefile)
             savefile.close()
-    if not kwargs.has_key('xlabel'):
+    if not 'xlabel' in kwargs:
         kwargs['xlabel']= r"$R/R_0$"
-    if not kwargs.has_key('ylabel'):
+    if not 'ylabel' in kwargs:
         kwargs['ylabel']= r"$v_c(R)/v_c(R_0)$"
-    if not kwargs.has_key('xrange'):
+    if not 'xrange' in kwargs:
         kwargs['xrange']= Rrange
-    if not kwargs.has_key('yrange'):
+    if not 'yrange' in kwargs:
         kwargs['yrange']= [0.,1.2*nu.amax(rotcurve)]
     return plot.bovy_plot(Rs,rotcurve,*args,
                           **kwargs)
@@ -131,12 +121,12 @@ def vcirc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarRforces
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarRforces
+    from galpy.potential import PotentialError
     try:
         return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
 
@@ -166,14 +156,13 @@ def dvcircdR(Pot,R):
        2013-01-08 - Written - Bovy (IAS)
 
     """
-    from planarPotential import evaluateplanarRforces
-    from planarPotential import evaluateplanarR2derivs
-    from Potential import PotentialError
+    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from galpy.potential import PotentialError
     tvc= vcirc(Pot,R)
     try:
         return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
     except PotentialError:
-        from planarPotential import RZToplanarPotential
+        from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
 

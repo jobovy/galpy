@@ -269,6 +269,247 @@ be used anywhere that general three-dimensional galpy potentials can
 be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
+**NEW**: The potential of N-body simulations
+----------------------------------------------
+
+.. _potnbody:
+
+``galpy`` can setup and work with the frozen potential of an N-body
+simulation. This allows us to study the properties of such potentials
+in the same way as other potentials in ``galpy``. We can also
+investigate the properties of orbits in these potentials and calculate
+action-angle coordinates, using the ``galpy`` framework. Currently,
+this functionality is limited to axisymmetrized versions of the N-body
+snapshots, although this capability could be somewhat
+straightforwardly expanded to full triaxial potentials. The use of
+this functionality requires `pynbody
+<https://github.com/pynbody/pynbody>`_ to be installed; the potential
+of any snapshot that can be loaded with ``pynbody`` can be used within
+``galpy``.
+
+As a first, simple example of this we look at the potential of a
+single simulation particle, which should correspond to galpy's
+``KeplerPotential``. We can create such a single-particle snapshot
+using ``pynbody`` by doing
+
+>>> import pynbody
+>>> s= pynbody.new(star=1)
+>>> s['mass']= 1.
+>>> s['eps']= 0.
+
+and we get the potential of this snapshot in ``galpy`` by doing
+
+>>> from galpy.potential import SnapshotRZPotential
+>>> sp= SnapshotRZPotential(s,num_threads=1)
+
+With these definitions, this snapshot potential should be the same as
+``KeplerPotential`` with an amplitude of one, which we can test as
+follows
+
+>>> from galpy.potential import KeplerPotential
+>>> kp= KeplerPotential(amp=1.)
+>>> print(sp(1.1,0.),kp(1.1,0.),sp(1.1,0.)-kp(1.1,0.))
+(-0.90909090909090906, -0.9090909090909091, 0.0)
+>>> print(sp.Rforce(1.1,0.),kp.Rforce(1.1,0.),sp.Rforce(1.1,0.)-kp.Rforce(1.1,0.))
+(-0.82644628099173545, -0.8264462809917353, -1.1102230246251565e-16)
+
+``SnapshotRZPotential`` instances can be used wherever other ``galpy``
+potentials can be used (note that the second derivatives have not been
+implemented, such that functions depending on those will not
+work). For example, we can plot the rotation curve
+
+>>> sp.plotRotcurve()
+
+.. image:: images/sp-rotcurve.png
+
+Because evaluating the potential and forces of a snapshot is
+computationally expensive, most useful applications of frozen N-body
+potentials employ interpolated versions of the snapshot
+potential. These can be setup in ``galpy`` using an
+``InterpSnapshotRZPotential`` class that is a subclass of the
+``interpRZPotential`` described above and that can be used in the same
+manner. To illustrate its use we will make use of one of ``pynbody``'s
+example snapshots, ``g15784``. This snapshot is used `here
+<http://pynbody.github.io/pynbody/tutorials/snapshot_manipulation.html>`_
+to illustrate ``pynbody``'s use. Please follow the instructions there
+on how to download this snapshot.
+
+Once you have downloaded the ``pynbody`` testdata, we can load this
+snapshot using
+
+>>> s = pynbody.load('testdata/g15784.lr.01024.gz')
+
+(please adjust the path according to where you downloaded the
+``pynbody`` testdata). We get the main galaxy in this snapshot, center
+the simulation on it, and align the galaxy face-on using
+
+>>> h = s.halos()
+>>> h1 = h[1]
+>>> pynbody.analysis.halo.center(h1,mode='hyb')
+>>> pynbody.analysis.angmom.faceon(h1, cen=(0,0,0),mode='ssc')
+
+we also convert the simulation to physical units, but set `G=1` by
+doing the following
+
+>>> s.physical_units()
+>>> from galpy.util.bovy_conversion import _G
+>>> g= pynbody.array.SimArray(_G/1000.)
+>>> g.units= 'kpc Msol**-1 km**2 s**-2 G**-1'
+>>> s._arrays['mass']= s._arrays['mass']*g
+
+We can now load an interpolated version of this snapshot's potential
+into ``galpy`` using
+
+>>> from galpy.potential import InterpSnapshotRZPotential
+>>> spi= InterpSnapshotRZPotential(h1,rgrid=(numpy.log(0.01),numpy.log(20.),101),logR=True,zgrid=(0.,10.,101),interpPot=True,zsym=True)
+
+where we further assume that the potential is symmetric around the
+mid-plane (`z=0`). This instantiation will take about ten to fiteen
+minutes. This potential instance has `physical` units (and thus the
+``rgrid=`` and ``zgrid=`` inputs are given in kpc if the simulation's
+distance unit is kpc). For example, if we ask for the rotation curve,
+we get the following:
+
+>>> spi.plotRotcurve(Rrange=[0.01,19.9],xlabel=r'$R\,(\mathrm{kpc})$',ylabel=r'$v_c(R)\,(\mathrm{km\,s}^{-1})$')
+
+.. image:: images/spi-rotcurve-phys.png
+
+This can be compared to the rotation curve calculated by ``pynbody``,
+see `here
+<http://pynbody.github.io/pynbody/tutorials/snapshot_manipulation.html>`_.
+
+Because ``galpy`` works best in a system of `natural units` as
+explained in :ref:`Units in galpy <units>`, we will convert this
+instance to natural units using the circular velocity at `R=10` kpc,
+which is
+
+>>> spi.vcirc(10.)
+294.62723076942245
+
+To convert to `natural units` we do
+
+>>> spi.normalize(R0=10.)
+
+We can then again plot the rotation curve, keeping in mind that the
+distance unit is now :math:`R_0`
+
+>>> spi.plotRotcurve(Rrange=[0.01,1.99])
+
+which gives
+
+.. image:: images/spi-rotcurve.png
+
+in particular
+
+>>> spi.vcirc(1.)
+1.0000000000000002
+
+We can also plot the potential
+
+>>> spi.plot(rmin=0.01,rmax=1.9,nrs=51,zmin=-0.99,zmax=0.99,nzs=51)
+
+.. image:: images/spi-pot.png
+
+Clearly, this simulation's potential is quite spherical, which is
+confirmed by looking at the flattening
+
+>>> spi.flattening(1.,0.1)
+0.86675711023391921
+>>> spi.flattening(1.5,0.1)
+0.94442750306256895
+
+The epicyle and vertical frequencies can also be interpolated by
+setting the ``interpepifreq=True`` or ``interpverticalfreq=True``
+keywords when instantiating the ``InterpSnapshotRZPotential`` object.
+
+
+.. _nemopot:
+
+**NEW**: Conversion to NEMO potentials
+---------------------------------------
+
+`NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
+studying stellar dynamics. Some of its functionality overlaps with
+that of ``galpy``, but many of its programs are very complementary to
+``galpy``. In particular, it has the ability to perform N-body
+simulations with a variety of poisson solvers, which is currently not
+supported by ``galpy`` (and likely will never be directly
+supported). To encourage interaction between ``galpy`` and NEMO it
+is quite useful to be able to convert potentials between these two
+frameworks, which is not completely trivial. In particular, NEMO
+contains Walter Dehnen's fast collisionless ``gyrfalcON`` code (see
+`2000ApJ...536L..39D
+<http://adsabs.harvard.edu/abs/2000ApJ...536L..39D>`_ and
+`2002JCoPh.179...27D
+<http://adsabs.harvard.edu/abs/2002JCoPh.179...27D>`_) and the
+discussion here focuses on how to run N-body simulations using
+external potentials defined in ``galpy``.
+
+Some ``galpy`` potential instances support the functions
+``nemo_accname`` and ``nemo_accpars`` that return the name of the
+NEMO potential corresponding to this ``galpy`` Potential and its
+parameters in NEMO units. These functions assume that you use NEMO
+with WD_units, that is, positions are specified in kpc, velocities in
+kpc/Gyr, times in Gyr, and G=1. For the Miyamoto-Nagai potential
+above, you can get its name in the NEMO framework as
+
+>>> mp.nemo_accname()
+'MiyamotoNagai'
+
+and its parameters as
+
+>>> mp.nemo_accpars(220.,8.)
+'0,592617.11132,4.0,0.3'
+
+assuming that we scale velocities by ``vo=220`` km/s and positions by
+``ro=8`` kpc in galpy. These two strings can then be given to the
+``gyrfalcON`` ``accname=`` and ``accpars=`` keywords.
+
+We can do the same for lists of potentials. For example, for
+``MWPotential2014`` we do
+
+>>> from galpy.potential import nemo_accname, nemo_accpars
+>>> nemo_accname(MWPotential2014)
+'PowSphwCut+MiyamotoNagai+NFW'
+>>> nemo_accpars(MWPotential2014,220.,8.)
+'0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887'
+
+Therefore, these are the ``accname=`` and ``accpars=`` that one needs
+to provide to ``gyrfalcON`` to run a simulation in
+``MWPotential2014``.
+
+Note that the NEMO potential ``PowSphwCut`` is *not* a standard
+NEMO potential. This potential can be found in the nemo/ directory of
+the ``galpy`` source code; this directory also contains a Makefile that
+can be used to compile the extra NEMO potential and install it in
+the correct NEMO directory (this requires one to have NEMO
+running, i.e., having sourced nemo_start).
+
+You can use the ``PowSphwCut.cc`` file in the nemo/ directory as a
+template for adding additional potentials in ``galpy`` to the NEMO
+framework. To figure out how to convert the normalized ``galpy``
+potential to an amplitude when scaling to physical coordinates (like
+kpc and kpc/Gyr), one needs to look at the scaling of the radial force
+with R. For example, from the definition of MiyamotoNagaiPotential, we
+see that the radial force scales as :math:`R^{-2}`. For a general
+scaling :math:`R^{-\alpha}`, the amplitude will scale as
+:math:`V_0^2\,R_0^{\alpha-1}` with the velocity :math:`V_0` and
+position :math:`R_0` of the ``v=1`` at ``R=1``
+normalization. Therefore, for the MiyamotoNagaiPotential, the physical
+amplitude scales as :math:`V_0^2\,R_0`. For the
+LogarithmicHaloPotential, the radial force scales as :math:`R^{-1}`,
+so the amplitude scales as :math:`V_0^2`.
+
+Currently, only the ``MiyamotoNagaiPotential``, ``NFWPotential``,
+``PowerSphericalPotentialwCutoff``, ``MN3ExponentialDiskPotential``,
+and the ``LogarithmicHaloPotential`` have this NEMO
+support. Combinations of the first three are also supported (e.g.,
+``MWPotential2014``); they can also be combined with spherical
+``LogarithmicHaloPotentials``. Because of the definition of the
+logarithmic potential in NEMO, it cannot be flattened in ``z``, so to
+use a flattened logarithmic potential, one has to flip ``y`` and ``z``
+between ``galpy`` and NEMO (one can flatten in ``y``).
+
 Adding potentials to the galpy framework
 -----------------------------------------
 

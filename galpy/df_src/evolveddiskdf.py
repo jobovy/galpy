@@ -6,6 +6,7 @@
 #
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
+from __future__ import print_function
 _NSIGMA= 4.
 _NTS= 1000
 _PROFILE= False
@@ -24,7 +25,7 @@ from galpy.util import bovy_plot
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 _NAN= nu.nan
-class evolveddiskdf:
+class evolveddiskdf(object):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
         """
@@ -98,14 +99,8 @@ class evolveddiskdf:
            2011-04-15 - Added list of times option - Bovy (NYU)
 
         """
-        if kwargs.has_key('integrate_method'):
-            integrate_method= kwargs.pop('integrate_method')
-        else:
-            integrate_method= 'dopr54_c'
-        if kwargs.has_key('deriv'):
-            deriv= kwargs['deriv']
-        else:
-            deriv= None
+        integrate_method= kwargs.pop('integrate_method','dopr54_c')
+        deriv= kwargs.get('deriv',None)
         if isinstance(args[0],Orbit):
             if len(args) == 1:
                 t= 0.
@@ -118,17 +113,13 @@ class evolveddiskdf:
             tlist= True
         elif isinstance(t,nu.ndarray): tlist= True
         else: tlist= False
-        if kwargs.has_key('marginalizeVperp') and \
-                kwargs['marginalizeVperp']:
-            kwargs.pop('marginalizeVperp')
+        if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
-        elif kwargs.has_key('marginalizeVlos') and \
-                kwargs['marginalizeVlos']:
-            kwargs.pop('marginalizeVlos') 
+        elif kwargs.pop('marginalizeVlos',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
             if kwargs.pop('log',False):
                 return nu.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
@@ -137,7 +128,7 @@ class evolveddiskdf:
         #Integrate back
         if tlist:
             if self._to == t[0]:
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return nu.log([self._initdf(args[0])])
                 else:
                     return [self._initdf(args[0])]
@@ -159,8 +150,8 @@ class evolveddiskdf:
                     dderiv= tmp-o.phi()
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if msg > 0.: # pragma: no cover
-                    print "Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ..."
-                    if kwargs.has_key('log') and kwargs['log'] and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
+                    print("Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ...")
+                    if kwargs.get('log',False) and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
                     else: return nu.zeros(len(t))
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
@@ -190,7 +181,7 @@ class evolveddiskdf:
             if _PROFILE: #pragma: no cover
                 df_time= (time_module.time()-start)
                 tot_time= int_time+df_time
-                print int_time/tot_time, df_time/tot_time, tot_time
+                print(int_time/tot_time, df_time/tot_time, tot_time)
             if not deriv is None:
                 if integrate_method == 'odeint':
                     dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti),
@@ -208,7 +199,7 @@ class evolveddiskdf:
                     dRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),4] for ti in t])/dderiv
                     dvRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),5] for ti in t])/dderiv
                     dvTo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),6] for ti in t])/dderiv
-                    #print dRo, dvRo, dvTo
+                    #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     retval*= dlnfderiv
                 else:
@@ -240,13 +231,13 @@ class evolveddiskdf:
                     dRo= dorb_array[4]/dderiv
                     dvRo= dorb_array[5]/dderiv
                     dvTo= dorb_array[6]/dderiv
-                    #print dRo, dvRo, dvTo
+                    #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
                     retval*= dlnfderiv
         else:
             if self._to == t and deriv is None:
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return nu.log(self._initdf(args[0]))
                 else:
                     return self._initdf(args[0])
@@ -282,14 +273,14 @@ class evolveddiskdf:
             #int_time= (time.time()-start)
             #Now evaluate the DF
             if o.R(self._to-t) <= 0.: 
-                if kwargs.has_key('log') and kwargs['log']:
+                if kwargs.get('log',False):
                     return -nu.finfo(nu.dtype(nu.float64)).max
                 else:
                     return nu.finfo(nu.dtype(nu.float64)).eps
             #start= time.time()
             retval= self._initdf(o(self._to-t))
-            #print int_time/(time.time()-start)
-            if nu.isnan(retval): print retval, o._orb.vxvv, o(self._to-t)._orb.vxvv
+            #print( int_time/(time.time()-start))
+            if nu.isnan(retval): print(retval, o._orb.vxvv, o(self._to-t)._orb.vxvv)
             if not deriv is None:
                 thisorbit= o(self._to-t)._orb.vxvv
                 dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
@@ -307,7 +298,7 @@ class evolveddiskdf:
                 dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
-        if kwargs.has_key('log') and kwargs['log'] and deriv is None:
+        if kwargs.get('log',False) and deriv is None:
             if tlist:
                 out= nu.log(retval)
                 out[retval == 0.]= -nu.finfo(nu.dtype(nu.float64)).max
@@ -427,9 +418,9 @@ class evolveddiskdf:
                                         integrate_method,deriv)
                 if _PROFILE: #pragma: no cover
                     grid_time= (time_module.time()-start)
-                    print setup_time/(setup_time+grid_time), \
+                    print(setup_time/(setup_time+grid_time), \
                           grid_time/(setup_time+grid_time), \
-                          setup_time+grid_time
+                          setup_time+grid_time)
                 if returnGrid:
                     return (self._vmomentsurfacemassGrid(n,m,grido),grido)
                 else:
@@ -1870,12 +1861,12 @@ class evolveddiskdf:
         vcirclos= vcirc*math.sin(phi+l)
         #Marginalize
         alphalos= phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
         if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
@@ -1913,12 +1904,12 @@ class evolveddiskdf:
         vcircperp= vcirc*math.cos(phi+l) 
         #Marginalize
         alphaperp= math.pi/2.+phi+l
-        if not kwargs.has_key('nsigma') or (kwargs.has_key('nsigma') and \
-                                                kwargs['nsigma'] is None):
+        if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
+                                          kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
-        if kwargs.has_key('nsigma'): kwargs.pop('nsigma')
+        kwargs.pop('nsigma',None)
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
             va= vcirc-self._initdf.meanvT(R,phi=phi)
@@ -1949,7 +1940,7 @@ class evolveddiskdf:
         rather unnecessary""" 
         return grid(n,m)       
         
-class evolveddiskdfGrid:
+class evolveddiskdfGrid(object):
     """(not quite) Empty class since it is only used to store some stuff"""
     def __init__(self):
         return None
@@ -1981,7 +1972,7 @@ class evolveddiskdfGrid:
                               xlabel=r'$v_R / v_0$',
                               ylabel=r'$v_T / v_0$')
 
-class evolveddiskdfHierarchicalGrid:
+class evolveddiskdfHierarchicalGrid(object):
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
                  gridpoints,nlevels,deriv,upperdxdy=None,print_progress=False,
@@ -2034,8 +2025,8 @@ class evolveddiskdfHierarchicalGrid:
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
-                xsubmin= int(gridpoints)/4
-                xsubmax= gridpoints-int(gridpoints)/4
+                xsubmin= int(gridpoints)//4
+                xsubmax= gridpoints-int(gridpoints)//4
             else:
                 xsubmin= gridpoints
                 xsubmax= 0
@@ -2073,8 +2064,8 @@ class evolveddiskdfHierarchicalGrid:
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
-                xsubmin= int(gridpoints)/4
-                xsubmax= gridpoints-int(gridpoints)/4
+                xsubmin= int(gridpoints)//4
+                xsubmax= gridpoints-int(gridpoints)//4
             else:
                 xsubmin= gridpoints
                 xsubmax= 0
@@ -2176,10 +2167,10 @@ class evolveddiskdfHierarchicalGrid:
         plotdf[(plotdf == 0.)]= _NAN
         #Fill up the grid
         if nUpperLevels > 0:
-            xsubmin= nvRTot/2-nvR/2-1
-            xsubmax= nvRTot/2+nvR/2
-            ysubmin= nvTTot/2-nvT/2-1
-            ysubmax= nvTTot/2+nvT/2
+            xsubmin= nvRTot//2-nvR//2-1
+            xsubmax= nvRTot//2+nvR//2
+            ysubmin= nvTTot//2-nvT//2-1
+            ysubmax= nvTTot//2+nvT//2
             #Set outside this subgrid to NaN
             plotthis[:,:]= _NAN #within the grid gets filled in below
         else:

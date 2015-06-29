@@ -6,7 +6,7 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy as nu
-from Potential import Potential
+from galpy.potential_src.Potential import Potential
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 

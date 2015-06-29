@@ -3,7 +3,7 @@
 #   potential
 ###############################################################################
 import math as m
-from planarPotential import planarPotential
+from galpy.potential_src.planarPotential import planarPotential
 _degtorad= m.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 

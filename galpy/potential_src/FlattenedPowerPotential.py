@@ -8,8 +8,7 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from Potential import Potential
-from galpy.potential import LogarithmicHaloPotential
+from galpy.potential_src.Potential import Potential
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)

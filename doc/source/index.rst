@@ -3,15 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. raw:: html
+.. ifconfig:: not_on_rtd
 
-   <a href="https://github.com/jobovy/galpy"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
+   .. WARNING:: You are looking at the rarely updated, GitHub version of this documentation, **please go to** `galpy.readthedocs.org <http://galpy.readthedocs.org>`_ **for the latest documentation**.
 
 Welcome to galpy's documentation
 =================================
 
-galpy is a python package for galactic dynamics. It supports orbit
-integration in a variety of potentials, evaluating and sampling
+galpy is a Python 2 and 3 package for galactic dynamics. It supports
+orbit integration in a variety of potentials, evaluating and sampling
 various distribution functions, and the calculation of action-angle
 coordinates for all static potentials.
 

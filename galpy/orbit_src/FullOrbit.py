@@ -18,7 +18,7 @@ import galpy.util.bovy_coords as coords
 from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 _ORBFITNORMRADEC= 360.
 _ORBFITNORMDIST= 10.
 _ORBFITNORMPMRADEC= 4.
@@ -63,7 +63,7 @@ class FullOrbit(OrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -78,6 +78,7 @@ class FullOrbit(OrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -88,7 +89,7 @@ class FullOrbit(OrbitTop):
         if hasattr(self,'rs'): delattr(self,'rs')
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method)
+        self.orbit= _integrateFullOrbit(self.vxvv,pot,t,method,dt)
 
     @physical_conversion('energy')
     def Jacobi(self,*args,**kwargs):
@@ -106,9 +107,9 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
             OmegaP= 1.
-            if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
                     pot= self._pot
                 except AttributeError:
@@ -123,11 +124,9 @@ class FullOrbit(OrbitTop):
             else:
                 if hasattr(pot,'OmegaP'):
                     OmegaP= pot.OmegaP()
-            if kwargs.has_key('OmegaP'):
-                kwargs.pop('OmegaP')         
+            kwargs.pop('OmegaP',None)
         else:
-            OmegaP= kwargs['OmegaP']
-            kwargs.pop('OmegaP')
+            OmegaP= kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -159,16 +158,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -205,16 +203,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2013-11-30 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -249,16 +246,15 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2013-11-30 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if len(args) > 0:
             t= args[0]
         else:
@@ -380,7 +376,9 @@ class FullOrbit(OrbitTop):
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
     def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            customsky=False,lb_to_customsky=None,pmllpmbb_to_customsky=None,
             tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+            disp=False,
             **kwargs):
         """
         NAME:
@@ -394,18 +392,24 @@ class FullOrbit(OrbitTop):
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
-               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               lb= if True, input vxvv and vxvv_err are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                                       (in kpc and km/s) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
                 ro= distance in kpc corresponding to R=1. (default: taken from object)
                 vo= velocity in km/s corresponding to v=1. (default: taken from object)
 
+                lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
+
+                pmllpmbb_to_customsky= function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True
+
            Keywords related to the orbit integrations:
                tintJ= (default: 10) time to integrate orbits for fitting the orbit
                ntintJ= (default: 1000) number of time-integration points
                integrate_method= (default: 'dopr54_c') integration method to use
+           disp= (False) display the optimizer's convergence message
 
         OUTPUT:
            max of log likelihood
@@ -421,14 +425,20 @@ class FullOrbit(OrbitTop):
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
-        if radec or lb:
+        if radec or lb or customsky:
             obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True,dontpop=True)
         else:
             obs, ro, vo= None, None, None
+        if customsky \
+                and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
+            raise IOError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
         new_vxvv, maxLogL= _fit_orbit(self,vxvv,vxvv_err,pot,radec=radec,lb=lb,
+                                      customsky=customsky,
+                                      lb_to_customsky=lb_to_customsky,
+                                      pmllpmbb_to_customsky=pmllpmbb_to_customsky,
                                       tintJ=tintJ,ntintJ=ntintJ,
                                       integrate_method=integrate_method,
-                                      ro=ro,vo=vo,obs=obs)
+                                      ro=ro,vo=vo,obs=obs,disp=disp)
         #Setup with these new initial conditions
         self.vxvv= new_vxvv
         return maxLogL
@@ -446,11 +456,10 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'Eznorm'
         else:
             kwargs['d2']= 'Ez'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def plotER(self,*args,**kwargs):
@@ -466,11 +475,10 @@ class FullOrbit(OrbitTop):
         HISTORY:
            2014-06-16 - Written - Bovy (IAS)
         """
-        if kwargs.get('normed',False):
+        if kwargs.pop('normed',False):
             kwargs['d2']= 'ERnorm'
         else:
             kwargs['d2']= 'ER'
-        if kwargs.has_key('normed'): kwargs.pop('normed')
         self.plot(*args,**kwargs)
         
     def plotEzJz(self,*args,**kwargs):
@@ -492,19 +500,14 @@ class FullOrbit(OrbitTop):
         labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                     'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
                     'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
-        if not kwargs.has_key('pot'):
+        if not 'pot' in kwargs:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
-        if kwargs.has_key('d1'):
-            d1= kwargs['d1']
-            kwargs.pop('d1')
-        else:
-            d1= 't'
+            pot= kwargs.pop('pot')
+        d1= kwargs.pop('d1','t')
         self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
                                         pot,t=self.t[ii])-
                      evaluatePotentials(self.orbit[ii,0],0.,pot,
@@ -512,9 +515,9 @@ class FullOrbit(OrbitTop):
                      self.orbit[ii,4]**2./2.)/\
                         nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5],t=self.t[ii]))\
                         for ii in range(len(self.t))]
-        if not kwargs.has_key('xlabel'):
+        if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
-        if not kwargs.has_key('ylabel'):
+        if not 'ylabel' in kwargs:
             kwargs['ylabel']= r'$E_z/\sqrt{\rho}$'
         if d1 == 't':
             plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
@@ -535,7 +538,7 @@ class FullOrbit(OrbitTop):
             plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
                            *args,**kwargs)
 
-def _integrateFullOrbit(vxvv,pot,t,method):
+def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateFullOrbit
@@ -547,6 +550,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,5] array of [R,vR,vT,z,vz,phi] at each t
     HISTORY:
@@ -600,7 +604,7 @@ def _integrateFullOrbit(vxvv,pot,t,method):
                              vxvv[4]])
         #integrate
         tmp_out, msg= integrateFullOrbit_c(pot,this_vxvv,
-                                           t,method)
+                                           t,method,dt=dt)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
@@ -686,8 +690,10 @@ def _rectForce(x,pot,t=0.):
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
+               customsky=False,lb_to_customsky=None,
+               pmllpmbb_to_customsky=None,
                tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
-               ro=None,vo=None,obs=None):
+               ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -703,13 +709,21 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
     tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
                                             integrate_method=integrate_method)
     opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
-                                   args=(vxvv,vxvv_err,pot,radec,lb,tmockAA,
-                                         ro,vo,obs))
-    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+                                   args=(vxvv,vxvv_err,pot,radec,lb,
+                                         customsky,lb_to_customsky,
+                                         pmllpmbb_to_customsky,
+                                         tmockAA,
+                                         ro,vo,obs),
+                                   disp=disp)
+    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                               customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                               tmockAA,
                                ro,vo,obs)
     return (opt_vxvv,maxLogL)
 
-def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
+def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                     customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                     tmockAA,
                      ro,vo,obs):
     """The log likelihood for fitting an orbit"""
     #Use this _parse_args routine, which does forward and backward integration
@@ -720,8 +734,8 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
                                                 new_vxvv[3],
                                                 new_vxvv[4],
                                                 new_vxvv[5])
-    if radec or lb:
-        #Need to transform to ra,dec
+    if radec or lb or customsky:
+        #Need to transform to (l,b), (ra,dec), or a custom set
         #First transform to X,Y,Z,vX,vY,vZ (Galactic)
         X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
                                         iz.flatten(),
@@ -744,7 +758,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
                                 lbdvrpmllpmbb[:,4],
                                 lbdvrpmllpmbb[:,5],
                                 lbdvrpmllpmbb[:,3]]).T
-        else:
+        elif radec:
             #Further transform to ra,dec,pmra,pmdec
             radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
                                       lbdvrpmllpmbb[:,1],degree=True)
@@ -757,6 +771,19 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
                                 lbdvrpmllpmbb[:,2],
                                 pmrapmdec[:,0],pmrapmdec[:,1],
                                 lbdvrpmllpmbb[:,3]]).T
+        elif customsky:
+            #Further transform to ra,dec,pmra,pmdec
+            customradec= lb_to_customsky(lbdvrpmllpmbb[:,0],
+                                              lbdvrpmllpmbb[:,1],degree=True)
+            custompmrapmdec= pmllpmbb_to_customsky(lbdvrpmllpmbb[:,4],
+                                                   lbdvrpmllpmbb[:,5],
+                                                   lbdvrpmllpmbb[:,0],
+                                                   lbdvrpmllpmbb[:,1],
+                                                   degree=True)
+            orb_vxvv= nu.array([customradec[:,0],customradec[:,1],
+                                lbdvrpmllpmbb[:,2],
+                                custompmrapmdec[:,0],custompmrapmdec[:,1],
+                                lbdvrpmllpmbb[:,3]]).T
     else:
         #shape=(2tintJ-1,6)
         orb_vxvv= nu.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
@@ -764,7 +791,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,tmockAA,
     out= 0.
     for ii in range(vxvv.shape[0]):
         sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
-        #print sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))]
+        #print(sub_vxvv[nu.argmin(nu.sum(sub_vxvv,axis=1))])
         if not vxvv_err is None:
             sub_vxvv/= vxvv_err[ii,:]**2.
         else:

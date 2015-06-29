@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import shutil
 import warnings
@@ -53,7 +54,7 @@ def save_pickles(savefilename,*args,**kwargs):
         except KeyboardInterrupt:
             if not saving:
                 raise
-            print "KeyboardInterrupt ignored while saving pickle ..."
+            print("KeyboardInterrupt ignored while saving pickle ...")
             interrupted= True
         finally:
             if file_open:

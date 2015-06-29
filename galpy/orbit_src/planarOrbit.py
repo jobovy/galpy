@@ -5,7 +5,7 @@ from scipy import integrate
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
-from OrbitTop import OrbitTop
+from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     RZToplanarPotential, evaluateplanarphiforces,\
     evaluateplanarPotentials
@@ -94,9 +94,9 @@ class planarOrbitTop(OrbitTop):
         HISTORY:
            2011-04-18 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('OmegaP') or kwargs['OmegaP'] is None:
+        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
             OmegaP= 1.
-            if not kwargs.has_key('pot') or kwargs['pot'] is None:
+            if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
                     pot= self._pot
                 except AttributeError:
@@ -111,11 +111,9 @@ class planarOrbitTop(OrbitTop):
             else:
                 if hasattr(pot,'OmegaP'):
                     OmegaP= pot.OmegaP()
-            if kwargs.has_key('OmegaP'):
-                kwargs.pop('OmegaP')         
+            kwargs.pop('OmegaP',None)
         else:
-            OmegaP= kwargs['OmegaP']
-            kwargs.pop('OmegaP')
+            OmegaP= kwargs.pop('OmegaP')
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -220,7 +218,7 @@ class planarROrbit(planarOrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -235,6 +233,7 @@ class planarROrbit(planarOrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            error message number (get the actual orbit using getOrbit()
         HISTORY:
@@ -245,7 +244,7 @@ class planarROrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateROrbit(self.vxvv,thispot,t,method,dt)
         return msg
 
     @physical_conversion('energy')
@@ -264,16 +263,15 @@ class planarROrbit(planarOrbitTop):
            2010-09-15 - Written - Bovy (NYU)
            2011-04-18 - Added t - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):
@@ -341,7 +339,7 @@ class planarOrbit(planarOrbitTop):
                           ro=ro,zo=zo,vo=vo,solarmotion=solarmotion)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
            integrate
@@ -356,6 +354,7 @@ class planarOrbit(planarOrbitTop):
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:
@@ -366,7 +365,7 @@ class planarOrbit(planarOrbitTop):
         thispot= RZToplanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
-        self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method)
+        self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method,dt)
         return msg
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
@@ -418,16 +417,15 @@ class planarOrbit(planarOrbitTop):
         HISTORY:
            2010-09-15 - Written - Bovy (NYU)
         """
-        if not kwargs.has_key('pot') or kwargs['pot'] is None:
+        if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-            if kwargs.has_key('pot') and kwargs['pot'] is None:
+            if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs['pot']
-            kwargs.pop('pot')
+            pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
             thispot= RZToplanarPotential(pot)
         elif isinstance(pot,list):
@@ -480,7 +478,7 @@ class planarOrbit(planarOrbitTop):
             self.rs= self.orbit[:,0]
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
 
-def _integrateROrbit(vxvv,pot,t,method):
+def _integrateROrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateROrbit
@@ -492,6 +490,7 @@ def _integrateROrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,3] array of [R,vR,vT] at each t
     HISTORY:
@@ -511,7 +510,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
@@ -520,7 +519,7 @@ def _integrateROrbit(vxvv,pot,t,method):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method)
+        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
     elif method.lower() == 'odeint':
@@ -560,7 +559,7 @@ def _REOM(y,t,pot,l2):
     return [y[1],
             l2/y[0]**3.+evaluateplanarRforces(y[0],pot,t=t)]
 
-def _integrateOrbit(vxvv,pot,t,method):
+def _integrateOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        _integrateOrbit
@@ -572,6 +571,7 @@ def _integrateOrbit(vxvv,pot,t,method):
        pot - Potential instance
        t - list of times at which to output (0 has to be in this!)
        method - 'odeint' or 'leapfrog'
+       dt- if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize
     OUTPUT:
        [:,4] array of [R,vR,vT,phi] at each t
     HISTORY:
@@ -595,7 +595,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                         t,args=(pot,),rtol=10.**-8)
+                                        t,args=(pot,),rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
@@ -619,7 +619,7 @@ def _integrateOrbit(vxvv,pot,t,method):
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
         tmp_out, msg= integratePlanarOrbit_c(pot,this_vxvv,
-                                             t,method)
+                                             t,method,dt=dt)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)

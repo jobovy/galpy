@@ -16,14 +16,14 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from actionAngle import *
-from actionAngleVertical import actionAngleVertical
+from galpy.actionAngle_src.actionAngle import *
+from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import evaluateplanarRforces,\
     evaluateplanarPotentials
 from galpy.potential_src.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
-class actionAngleAxi(actionAngle,actionAngleVertical):
+class actionAngleAxi(actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
         """
@@ -44,17 +44,14 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
            2010-12-01 - Written - Bovy (NYU)
         """
         actionAngle.__init__(self,*args,**kwargs)
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
-        if kwargs.has_key('verticalPot'):
+        if 'verticalPot' in kwargs:
             kwargs.pop('pot')
             actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
                                          **kwargs)
-            if kwargs.has_key('gamma'):
-                self._gamma= kwargs['gamma']
-            else:
-                self._gamma= 1.
+            self._gamma= kwargs.get('gamma',1.)
         else:
             self._gamma= 0.
         return None
@@ -122,7 +119,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
         if hasattr(self,'_TR'):
             return self._TR
         (rperi,rap)= self.calcRapRperi(**kwargs)
-        if rap == rperi: #Rough limit
+        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
             self._TR= 2.*m.pi/epifreq(self._pot,self._R)
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
@@ -183,7 +180,7 @@ class actionAngleAxi(actionAngle,actionAngleVertical):
             return self._I
         (rperi,rap)= self.calcRapRperi(**kwargs)
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        if rap == rperi: #Rough limit
+        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
             self._I= TR/Tphi*m.pi

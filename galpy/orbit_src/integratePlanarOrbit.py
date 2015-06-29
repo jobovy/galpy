@@ -1,4 +1,5 @@
 import sys
+import sysconfig
 import warnings
 import numpy as nu
 import ctypes
@@ -10,11 +11,16 @@ from galpy.util import galpyWarning
 #Find and load the library
 _lib= None
 outerr= None
+PY3= sys.version > '3'
+if PY3: #pragma: no cover
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError, e:
-        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+    except OSError as e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
@@ -24,7 +30,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("integratePlanarOrbit_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("integratePlanarOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+        warnings.warn("integratePlanarOrbit_c extension module not loaded, because galpy_integrate_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     _ext_loaded= False
 else:
@@ -122,6 +128,25 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.PowerSphericalPotentialwCutoff):
             pot_type.append(15)
             pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.rc])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.MN3ExponentialDiskPotential):
+            # Three Miyamoto-Nagai disks
+            npot+= 2
+            pot_type.extend([5,5,5])
+            pot_args.extend([p._RZPot._amp*p._RZPot._mn3[0]._amp,
+                             p._RZPot._mn3[0]._a,p._RZPot._mn3[0]._b,
+                             p._RZPot._amp*p._RZPot._mn3[1]._amp,
+                             p._RZPot._mn3[1]._a,p._RZPot._mn3[1]._b,
+                             p._RZPot._amp*p._RZPot._mn3[2]._amp,
+                             p._RZPot._mn3[2]._a,p._RZPot._mn3[2]._b])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.KuzminKutuzovStaeckelPotential):
+            pot_type.append(16)
+            pot_args.extend([p._RZPot._amp,p._RZPot._ac,p._RZPot._Delta])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.PlummerPotential):
+            pot_type.append(17)
+            pot_args.extend([p._RZPot._amp,p._RZPot._b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -156,7 +181,8 @@ def _parse_tol(rtol,atol):
         atol= nu.log(atol)
     return (rtol,atol)
 
-def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
+def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
+                           dt=None):
     """
     NAME:
        integratePlanarOrbit_c
@@ -168,6 +194,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
        y : array, shape (len(y0), len(t))
@@ -180,6 +207,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    if dt is None: 
+        dt= -9999.99
 
     #Set up result array
     result= nu.empty((len(t),4))
@@ -194,6 +223,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                                ctypes.c_int,
                                ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
@@ -214,6 +244,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    ctypes.c_double(dt),                    
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),
@@ -226,7 +257,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     return (result,err.value)
 
 
-def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
+def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
+                                dt=None):
     """
     NAME:
        integratePlanarOrbit_dxdv_c
@@ -239,6 +271,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
        y : array, shape (len(y0), len(t))
@@ -251,6 +284,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    if dt is None: 
+        dt= -9999.99
     yo= nu.concatenate((yo,dyo))
 
     #Set up result array
@@ -268,6 +303,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
+                               ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
@@ -286,6 +322,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    ctypes.c_double(dt),                    
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),

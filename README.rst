@@ -9,8 +9,8 @@ galpy
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
-.. image:: http://img.shields.io/badge/C%20coverage-99%-brightgreen.svg
-   :target: http://sns.ias.edu/~bovy/galpy_lcov/
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
+  :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
   :target: http://galpy.readthedocs.org/en/latest/
@@ -20,6 +20,9 @@ galpy
 
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
+
+.. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
+   :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
 
 AUTHOR
 -------
@@ -45,10 +48,22 @@ DOCUMENTATION
 
 The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
 
-DEPENDENCIES
--------------
+PYTHON VERSIONS AND DEPENDENCIES
+---------------------------------
 
-This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy <http://www.scipy.org/>`__, and `Matplotlib <http://matplotlib.sourceforge.net/>`__. Certain advanced features require the GNU Scientific Library (`GSL <http://www.gnu.org/software/gsl/>`__)
+``galpy`` supports both Python 2 and 3. Specifically, galpy supports
+Python 2.7 and Python 3.3 and 3.4. It may also work on earlier Python
+3.* versions, but this has not been tested. Travis CI builds regularly
+check support for Python 2.7 and 3.4.
+
+This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
+<http://www.scipy.org/>`__, and `Matplotlib
+<http://matplotlib.sourceforge.net/>`__. Certain advanced features
+require the GNU Scientific Library (`GSL
+<http://www.gnu.org/software/gsl/>`__), with action calculations
+requiring version 1.14 or higher. Use of ``SnapshotRZPotential`` and
+``InterpSnapshotRZPotential`` requires `pynbody
+<https://github.com/pynbody/pynbody>`__.
 
 ISSUES
 -------
@@ -65,6 +80,38 @@ small and larger extensions of galpy that would be useful `here
 well as a longer-term roadmap `here
 <http://github.com/jobovy/galpy/wiki/Roadmap>`__. Please let the main
 developer know if you need any help contributing!
+
+DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
+---------------------------------------------------
+
+**master**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
+   :target: http://travis-ci.org/jobovy/galpy
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
+  :target: https://coveralls.io/r/jobovy/galpy?branch=master
+
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
+  :target: http://codecov.io/github/jobovy/galpy?branch=master
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/master/
+
+
+**development branch**:
+
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev-v1.1
+   :target: http://travis-ci.org/jobovy/galpy/branches
+
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
+  :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev-v1.1
+  :target: http://codecov.io/github/jobovy/galpy?branch=dev-v1.1
+
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
+  :target: http://galpy.readthedocs.org/en/dev-v1.1/
 
 DISK DF CORRECTIONS
 --------------------

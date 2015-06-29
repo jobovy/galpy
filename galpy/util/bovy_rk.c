@@ -51,6 +51,7 @@ Usage:
        int dim: dimension
        double *yo: initial value, dimension: dim
        int nt: number of times at which the output is wanted
+       double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
        double *args: see above
@@ -62,7 +63,7 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
-	      int nt, double *t,
+	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result, int * err){
@@ -78,10 +79,11 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   for (ii=0; ii < dim; ii++) *(yn1+ii)= *(yo+ii);
   //Estimate necessary stepsize
-  double dt= (*(t+1))-(*t);
-  double init_dt= dt;
-  dt= rk4_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
-			rtol,atol);
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= rk4_estimate_step(*func,dim,yo,init_dt,t,nargs,potentialArgs,
+			  rtol,atol);
+  }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
@@ -141,7 +143,7 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
-	      int nt, double *t,
+	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result, int * err){
@@ -162,10 +164,11 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   for (ii=0; ii < dim; ii++) *(yn1+ii)= *(yo+ii);
   //Estimate necessary stepsize
-  double dt= (*(t+1))-(*t);
-  double init_dt= dt;
-  dt= rk6_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
-			rtol,atol);
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= rk6_estimate_step(*func,dim,yo,init_dt,t,nargs,potentialArgs,
+			  rtol,atol);
+  }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
@@ -422,6 +425,7 @@ Usage:
        int dim: dimension
        double *yo: initial value, dimension: dim
        int nt: number of times at which the output is wanted
+       double dt_one: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
        double *args: see above
@@ -434,7 +438,7 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
 			      int nargs, struct potentialArg * potentialArgs),
 		 int dim,
 		 double * yo,
-		 int nt, double *t,
+		 int nt, double dt_one, double *t,
 		 int nargs, struct potentialArg * potentialArgs,
 		 double rtol, double atol,
 		 double *result, int * err){
@@ -457,8 +461,10 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   *err= 0;
   for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
   double dt= (*(t+1))-(*t);
-  double dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
-				   rtol,atol);
+  if ( dt_one == -9999.99 ) {
+    dt_one= rk4_estimate_step(*func,dim,yo,dt,t,nargs,potentialArgs,
+			      rtol,atol);
+  }
   //Integrate the system
   double to= *t;
   //set up a1
@@ -511,8 +517,6 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
       *dt_one= (init_to + dt - *to);
     if ( dt < 0. && *dt_one < (init_to+dt - *to) )
       *dt_one = (init_to + dt - *to); 
-    //printf("%f,%f,%f,%f,%f\n",*dt_one,init_to+dt - *to,*to,init_to,dt);
-    //fflush(stdout);
     *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,potentialArgs,
 				    rtol,atol,
 				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,

@@ -14,8 +14,8 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential import evaluatePotentials, epifreq, omegac
-from actionAngle import *
-from actionAngleAxi import actionAngleAxi, potentialAxi
+from galpy.actionAngle_src.actionAngle import *
+from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
@@ -30,7 +30,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
-        if not kwargs.has_key('pot'): #pragma: no cover
+        if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= kwargs['pot']
         #Also store a 'planar' (2D) version of the potential
@@ -41,8 +41,8 @@ class actionAngleSpherical(actionAngle):
         #The following for if we ever implement this code in C
         self._c= False
         ext_loaded= False
-        if ext_loaded and ((kwargs.has_key('c') and kwargs['c'])
-                           or not kwargs.has_key('c')):
+        if ext_loaded and (('c' in kwargs and kwargs['c'])
+                           or not 'c' in kwargs):
             self._c= True #pragma: no cover
         else:
             self._c= False
@@ -66,11 +66,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
-        if kwargs.has_key('fixed_quad'):
-            fixed_quad= kwargs['fixed_quad']
-            kwargs.pop('fixed_quad')
-        else:
-            fixed_quad= False
+        fixed_quad= kwargs.pop('fixed_quad',False)
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
         elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -133,11 +129,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-28 - Written - Bovy (IAS)
         """
-        if kwargs.has_key('fixed_quad'):
-            fixed_quad= kwargs['fixed_quad']
-            kwargs.pop('fixed_quad')
-        else:
-            fixed_quad= False
+        fixed_quad= kwargs.pop('fixed_quad',False)
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
         elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -214,11 +206,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2013-12-29 - Written - Bovy (IAS)
         """
-        if kwargs.has_key('fixed_quad'):
-            fixed_quad= kwargs['fixed_quad']
-            kwargs.pop('fixed_quad')
-        else:
-            fixed_quad= False
+        fixed_quad= kwargs.pop('fixed_quad',False)
         if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
             raise IOError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi

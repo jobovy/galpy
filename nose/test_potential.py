@@ -1,7 +1,9 @@
 ############################TESTS ON POTENTIALS################################
+from __future__ import print_function, division
+import os
 import sys
 import numpy
-import os
+import pynbody
 from galpy import potential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
@@ -19,10 +21,13 @@ def test_normalize_potential():
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -43,9 +48,13 @@ def test_normalize_potential():
         assert (tp.vcirc(1.)**2.-1.)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
         tp.normalize(.5)
-        assert (tp.Rforce(1.,0.)+.5)**2. < 10.**-16., \
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= tp
+        assert (ptp.Rforce(1.,0.)+.5)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
-        assert (tp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
+        assert (ptp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
 
 #Test whether the derivative of the potential is minus the force
@@ -60,12 +69,16 @@ def test_forceAsDeriv_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
+    pots.append('mockSnapshotRZPotential')
+    pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialT1')
     pots.append('mockCosmphiDiskPotentialTm1')
     pots.append('mockCosmphiDiskPotentialTm5')
@@ -85,7 +98,8 @@ def test_forceAsDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -112,7 +126,7 @@ def test_forceAsDeriv_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #Radial force
         for ii in range(len(Rs)):
@@ -194,6 +208,8 @@ def test_2ndDeriv_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialPowerSphericalPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('testMWPotential')
@@ -217,7 +233,8 @@ def test_2ndDeriv_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -244,7 +261,7 @@ def test_2ndDeriv_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #2nd radial
         if hasattr(tp,'_R2deriv'):
@@ -398,6 +415,8 @@ def test_poisson_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('testMWPotential')
@@ -406,7 +425,8 @@ def test_poisson_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -433,7 +453,7 @@ def test_poisson_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #2nd radial
         if not hasattr(tp,'_dens') or not hasattr(tp,'_R2deriv') \
@@ -468,6 +488,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('JaffeTwoPowerIntegerSphericalPotential')
     pots.append('NFWTwoPowerIntegerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('mockCosmphiDiskPotentialT1')
@@ -487,7 +509,8 @@ def test_evaluateAndDerivs_potential():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -508,7 +531,7 @@ def test_evaluateAndDerivs_potential():
         tp= tclass()
         if hasattr(tp,'normalize'): tp.normalize(1.)
         #Set tolerance
-        if p in tol.keys(): ttol= tol[p]
+        if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
         #1st radial
         if isinstance(tp,potential.linearPotential): 
@@ -720,7 +743,8 @@ def test_toVertical_toPlanar():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError']
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1122,6 +1146,250 @@ def test_LinShuReductionFactor():
     else: raise AssertionError("LinShuReductionFactor w/o nonaxiPot set or k=,m=,OmegaP= set did not raise IOError")
     return None
 
+def test_nemoaccname():
+    #There is no real good way to test this (I think), so I'm just testing to
+    #what I think is the correct output now to make sure this isn't 
+    #accidentally changed
+    # Log
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    assert lp.nemo_accname() == 'LogPot', "Logarithmic potential's NEMO name incorrect"
+    # NFW
+    np= potential.NFWPotential(normalize=1.)
+    assert np.nemo_accname() == 'NFW', "NFW's NEMO name incorrect"
+    # Miyamoto-Nagai
+    mp= potential.MiyamotoNagaiPotential(normalize=1.)
+    assert mp.nemo_accname() == 'MiyamotoNagai', "MiyamotoNagai's NEMO name incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(normalize=1.)
+    assert pp.nemo_accname() == 'PowSphwCut', "Power-spherical potential w/ cuto-ff's NEMO name incorrect"
+    # MN3ExponentialDiskPotential
+    mp= potential.MN3ExponentialDiskPotential(normalize=1.)
+    assert mp.nemo_accname() == 'MiyamotoNagai+MiyamotoNagai+MiyamotoNagai', "MN3ExponentialDiskPotential's NEMO name incorrect"
+    # Plummer
+    pp= potential.PlummerPotential(normalize=1.)
+    assert pp.nemo_accname() == 'Plummer', "PlummerPotential's NEMO name incorrect"
+    return None
+
+def test_nemoaccnamepars_attributeerror():
+    # Use BurkertPotential (unlikely that I would implement that one in NEMO soon)
+    bp= potential.BurkertPotential(normalize=1.)
+    try: bp.nemo_accname()
+    except AttributeError: pass
+    else:
+        raise AssertionError('nemo_accname for potential w/o accname does not raise AttributeError')
+    try: bp.nemo_accpars(220.,8.)
+    except AttributeError: pass
+    else:
+        raise AssertionError('nemo_accpars for potential w/o accname does not raise AttributeError')
+    return None
+
+def test_nemoaccnames():
+    # Just test MWPotential2014 and a single potential
+    # MWPotential2014
+    assert potential.nemo_accname(potential.MWPotential2014) == 'PowSphwCut+MiyamotoNagai+NFW', "MWPotential2014's NEMO name is incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(normalize=1.)
+    assert potential.nemo_accname(pp) == 'PowSphwCut', "Power-spherical potential w/ cut-off's NEMO name incorrect"
+    return None
+
+def test_nemoaccpars():
+    # Log
+    lp= potential.LogarithmicHaloPotential(amp=2.,core=3.,q=27.) #completely ridiculous, but tests scalings
+    vo, ro= 2., 3.
+    vo/= 1.0227121655399913
+    ap= lp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Logarithmic potential's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-8.0) < 10.**-8., "Logarithmic potential's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-729.0) < 10.**-8., "Logarithmic potential's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-1.0) < 10.**-8., "Logarithmic potential's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[4])-27.0) < 10.**-8., "Logarithmic potential's NEMO accpars incorrect"
+    # Miyamoto-Nagai
+    mp= potential.MiyamotoNagaiPotential(amp=3.,a=2.,b=5.)
+    vo, ro= 7., 9.
+    vo/= 1.0227121655399913
+    ap= mp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    # Power-spherical w/ cut-off
+    pp= potential.PowerSphericalPotentialwCutoff(amp=3.,alpha=4.,rc=5.)
+    vo, ro= 7., 9.
+    vo/= 1.0227121655399913
+    ap= pp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    # NFW
+    np= potential.NFWPotential(amp=1./0.2162165954,a=1./16)
+    vo, ro= 3., 4.
+    vo/= 1.0227121655399913
+    ap= np.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "NFW's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-0.25) < 10.**-8., "NFW's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-12.0) < 10.**-8., "NFW's NEMO accpars incorrect"
+    # MN3ExponentialDiskPotential
+    mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=2.,hz=0.5)
+    vo, ro= 3., 4.
+    ap= mn.nemo_accpars(vo,ro).replace('#',',').split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[4])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[8])-0) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    # Test ratios
+    assert numpy.fabs(float(ap[1])/float(ap[5])-mn._mn3[0]._amp/mn._mn3[1]._amp) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])/float(ap[9])-mn._mn3[0]._amp/mn._mn3[2]._amp) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])/float(ap[6])-mn._mn3[0]._a/mn._mn3[1]._a) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])/float(ap[10])-mn._mn3[0]._a/mn._mn3[2]._a) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])/float(ap[7])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])/float(ap[11])-1.) < 10.**-8., "MN3ExponentialDiskPotential 's NEMO accpars incorrect"
+    # Plummer
+    pp= potential.PlummerPotential(amp=3.,b=5.)
+    vo, ro= 7., 9.
+    vo/= 1.0227121655399913
+    ap= pp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-45.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    return None
+
+def test_nemoaccparss():
+    # Just combine a few of the above ones
+    # Miyamoto + PowerSpherwCut
+    mp= potential.MiyamotoNagaiPotential(amp=3.,a=2.,b=5.)
+    pp= potential.PowerSphericalPotentialwCutoff(amp=3.,alpha=4.,rc=5.)
+    vo, ro= 7., 9.
+    vo/= 1.0227121655399913
+    ap= potential.nemo_accpars(mp,vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    # PowSpherwCut
+    ap= potential.nemo_accpars(pp,vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    # Combined
+    apc= potential.nemo_accpars([mp,pp],vo,ro).split('#')
+    ap= apc[0].split(',') # should be MN
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    ap= apc[1].split(',') # should be PP
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    return None
+
+def test_MN3ExponentialDiskPotential_inputs():
+    #Test the inputs of the MN3ExponentialDiskPotential
+    # IOError for hz so large that b is negative
+    try:
+        mn= potential.MN3ExponentialDiskPotential(amp=1.,hz=50.)
+    except IOError: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential with ridiculous hz should have given IOError, but didn't")
+    # Warning when b/Rd > 3 or (b/Rd > 1.35 and posdens)
+    #Turn warnings into errors to test for them
+    import warnings
+    from galpy.util import galpyWarning
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        mn= MN3ExponentialDiskPotential(normalize=1.,hz=1.438,hr=1.)
+    except: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 3 did not raise galpyWarning")
+    try:
+        mn= MN3ExponentialDiskPotential(normalize=1.,hr=1.,hz=0.7727,
+                                        posdens=True)
+    except: pass
+    else:
+        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 1.35 did not raise galpyWarning")
+    #Turn warnings back into warnings
+    warnings.simplefilter("default",galpyWarning)
+    return None
+
+def test_MN3ExponentialDiskPotential_hz():
+    #Test that we correctly convert from hz/Rd to b/Rd
+    # exp
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=1.,sech=False)
+    assert numpy.fabs(mn._brd-1.875) < 0.05, "b/Rd not computed correctly for exponential profile"
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=2.,hz=1.,sech=False)
+    assert numpy.fabs(mn._brd-0.75) < 0.05, "b/Rd not computed correctly for exponential profile"
+    # sech
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=2.,sech=True)
+    assert numpy.fabs(mn._brd-2.1) < 0.05, "b/Rd not computed correctly for sech^2 profile"
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=2.,hz=2.,sech=True)
+    assert numpy.fabs(mn._brd-0.9) < 0.05, "b/Rd not computed correctly for sech^2 profile"
+    return None
+
+def test_MN3ExponentialDiskPotential_approx():
+    # Test that the 3MN approximation works to the advertised level
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(4.,5.*.001)
+    assert numpy.fabs(mn.mass(4.,5.*.001)-dpmass)/dpmass < 0.005, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(4.,5.*0.6)
+    assert numpy.fabs(mn.mass(4.,10.*0.6)-dpmass)/dpmass < 0.01, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness w/ sech
+    mn= potential.MN3ExponentialDiskPotential(amp=.5,hr=1.,hz=1.24,sech=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(4.,5.*0.6)
+    assert numpy.fabs(mn.mass(4.,20.*0.6)-dpmass)/dpmass < 0.01, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # At 10 Rd
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(10.,5.*.001)
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass < 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(10.,5.*0.6)
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass < 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness w/ sech
+    mn= potential.MN3ExponentialDiskPotential(amp=0.5,hr=1.,hz=1.24,sech=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(10.,5.*0.6)
+    assert numpy.fabs(mn.mass(10.,20.*0.6)-dpmass)/dpmass < 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # For posdens the deviations are larger
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(4.,5.*.001)
+    assert numpy.fabs(mn.mass(4.,5.*.001)-dpmass)/dpmass < 0.015, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(4.,5.*0.6)
+    assert numpy.fabs(mn.mass(4.,10.*0.6)-dpmass)/dpmass < 0.015, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # At 10 Rd
+    # Zero thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.001,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.001)
+    dpmass= dp.mass(10.,5.*.001)
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass > 0.04, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    assert numpy.fabs(mn.mass(10.,5.*.001)-dpmass)/dpmass < 0.07, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    # Finite thickness
+    mn= potential.MN3ExponentialDiskPotential(amp=1.,hr=1.,hz=0.62,sech=False,
+                                              posdens=True)
+    dp= potential.DoubleExponentialDiskPotential(amp=1.,hr=1.,hz=0.62)
+    dpmass= dp.mass(10.,5.*0.6)
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass < 0.08, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass > 0.03, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -1310,7 +1578,7 @@ def test_plotting():
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
-    MWPotential, FlattenedPowerPotential
+    MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -1343,6 +1611,14 @@ class specialFlattenedPowerPotential(FlattenedPowerPotential):
     def __init__(self):
         FlattenedPowerPotential.__init__(self,alpha=0.)
         return None
+class specialMN3ExponentialDiskPotentialPD(MN3ExponentialDiskPotential):
+    def __init__(self):
+        MN3ExponentialDiskPotential.__init__(self,normalize=1.,posdens=True)
+        return None
+class specialMN3ExponentialDiskPotentialSECH(MN3ExponentialDiskPotential):
+    def __init__(self):
+        MN3ExponentialDiskPotential.__init__(self,normalize=1.,sech=True)
+        return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
         interpRZPotential.__init__(self,RZPot=MWPotential,
@@ -1350,6 +1626,27 @@ class mockInterpRZPotential(interpRZPotential):
                                    logR=True,
                                    interpPot=True,interpRforce=True,
                                    interpzforce=True,interpDens=True)
+class mockSnapshotRZPotential(potential.SnapshotRZPotential):
+    def __init__(self):
+        # Test w/ equivalent of KeplerPotential: one mass
+        kp= potential.KeplerPotential(amp=1.)
+        s= pynbody.new(star=1)
+        s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
+        s['eps']= 0.
+        potential.SnapshotRZPotential.__init__(self,s)
+class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
+    def __init__(self):
+        # Test w/ equivalent of KeplerPotential: one mass
+        kp= potential.KeplerPotential(amp=1.)
+        s= pynbody.new(star=1)
+        s['mass']= 1./numpy.fabs(kp.Rforce(1.,0.)) #forces vc(1,0)=1
+        s['eps']= 0.
+        potential.InterpSnapshotRZPotential.__init__(self,s,
+                                                   rgrid=(0.01,2.,101),
+                                                   zgrid=(0.,0.3,101),
+                                                   logR=False,
+                                                   interpPot=True,
+                                                   zsym=True)
 # Some special cases of 2D, non-axisymmetric potentials, to make sure they
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import CosmphiDiskPotential, DehnenBarPotential, \

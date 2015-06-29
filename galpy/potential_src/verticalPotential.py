@@ -1,5 +1,5 @@
-from Potential import PotentialError, Potential
-from linearPotential import linearPotential
+from galpy.potential_src.linearPotential import linearPotential
+from galpy.potential_src.Potential import PotentialError, Potential
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a RZPotential:
     phi(z;R)= phi(R,z)-phi(R,0.)"""

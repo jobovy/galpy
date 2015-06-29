@@ -1,4 +1,5 @@
 import sys
+import sysconfig
 import warnings
 import numpy as nu
 import ctypes
@@ -11,11 +12,16 @@ from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
 _lib= None
 outerr= None
+PY3= sys.version > '3'
+if PY3: #pragma: no cover
+    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
+else:
+    _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c.so'))
-    except OSError, e:
-        if os.path.exists(os.path.join(path,'galpy_integrate_c.so')): #pragma: no cover
+        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+    except OSError as e:
+        if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
@@ -25,7 +31,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("integrateFullOrbit_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found",
+        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     _ext_loaded= False
 else:
@@ -93,11 +99,27 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.PowerSphericalPotentialwCutoff):
             pot_type.append(15)
             pot_args.extend([p._amp,p.alpha,p.rc])
+        elif isinstance(p,potential.MN3ExponentialDiskPotential):
+            # Three Miyamoto-Nagai disks
+            npot+= 2
+            pot_type.extend([5,5,5])
+            pot_args.extend([p._amp*p._mn3[0]._amp,
+                             p._mn3[0]._a,p._mn3[0]._b,
+                             p._amp*p._mn3[1]._amp,
+                             p._mn3[1]._a,p._mn3[1]._b,
+                             p._amp*p._mn3[2]._amp,
+                             p._mn3[2]._a,p._mn3[2]._b])
+        elif isinstance(p,potential.KuzminKutuzovStaeckelPotential):
+            pot_type.append(16)
+            pot_args.extend([p._amp,p._ac,p._Delta])
+        elif isinstance(p,potential.PlummerPotential):
+            pot_type.append(17)
+            pot_args.extend([p._amp,p._b])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
 
-def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
+def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """
     NAME:
        integrateFullOrbit_c
@@ -109,6 +131,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
        y : array, shape (len(y0), len(t))
@@ -121,6 +144,8 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    if dt is None: 
+        dt= -9999.99
 
     #Set up result array
     result= nu.empty((len(t),6))
@@ -135,6 +160,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                                ctypes.c_int,
                                ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
@@ -155,6 +181,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),

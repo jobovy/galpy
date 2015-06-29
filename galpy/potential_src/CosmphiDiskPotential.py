@@ -3,7 +3,7 @@
 #   potential
 ###############################################################################
 import math
-from planarPotential import planarPotential
+from galpy.potential_src.planarPotential import planarPotential
 _degtorad= math.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential

@@ -87,7 +87,7 @@ def bovy_end_print(filename,**kwargs):
        2009-12-23 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('format'):
+    if 'format' in kwargs:
         pyplot.savefig(filename,**kwargs)
     else:
         pyplot.savefig(filename,format=re.split(r'\.',filename)[-1],**kwargs)
@@ -130,22 +130,20 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     """
     if not overplot:
         pyplot.figure()
-    if kwargs.has_key('xrange'):
-        xlimits=kwargs['xrange']
-        kwargs.pop('xrange')
-        if not kwargs.has_key('range'):
+    if 'xrange' in kwargs:
+        xlimits= kwargs.pop('xrange')
+        if not 'range' in kwargs:
             kwargs['range']= xlimits
         xrangeSet= True
     else: xrangeSet= False
-    if kwargs.has_key('yrange'):
-        ylimits=kwargs['yrange']
-        kwargs.pop('yrange')
+    if 'yrange' in kwargs:
+        ylimits= kwargs.pop('yrange')
         yrangeSet= True
     else: yrangeSet= False
     out= pyplot.hist(x,**kwargs)
     if overplot: return out
     _add_axislabels(xlabel,ylabel)
-    if not kwargs.has_key('range') and not xrangeSet:
+    if not 'range' in kwargs and not xrangeSet:
         if isinstance(x,list):
             xlimits=(sc.array(x).min(),sc.array(x).max())
         else:
@@ -214,93 +212,23 @@ def bovy_plot(*args,**kwargs):
        2009-12-28 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('overplot') and kwargs['overplot']:
-        kwargs.pop('overplot')
-        overplot=True
-    elif kwargs.has_key('overplot'):
-        kwargs.pop('overplot')
-        overplot=False
-    else:
-        overplot=False
-    if kwargs.has_key('gcf') and kwargs['gcf']:
-        kwargs.pop('gcf')
-        gcf=True
-    elif kwargs.has_key('gcf'):
-        kwargs.pop('gcf')
-        gcf=False
-    else:
-        gcf=False
-    if kwargs.has_key('onedhists'):
-        onedhists= kwargs['onedhists']
-        kwargs.pop('onedhists')
-    else:
-        onedhists= False
-    if kwargs.has_key('scatter'):
-        scatter= kwargs['scatter']
-        kwargs.pop('scatter')
-    else:
-        scatter= False
-    if kwargs.has_key('loglog'):
-        loglog= kwargs['loglog']
-        kwargs.pop('loglog')
-    else:
-        loglog= False
-    if kwargs.has_key('semilogx'):
-        semilogx= kwargs['semilogx']
-        kwargs.pop('semilogx')
-    else:
-        semilogx= False
-    if kwargs.has_key('semilogy'):
-        semilogy= kwargs['semilogy']
-        kwargs.pop('semilogy')
-    else:
-        semilogy= False
-    if kwargs.has_key('colorbar'):
-        colorbar= kwargs['colorbar']
-        kwargs.pop('colorbar')
-    else:
-        colorbar= False
-    if kwargs.has_key('onedhisttype'):
-        onedhisttype= kwargs['onedhisttype']
-        kwargs.pop('onedhisttype')
-    else:
-        onedhisttype= 'step'
-    if kwargs.has_key('onedhistcolor'):
-        onedhistcolor= kwargs['onedhistcolor']
-        kwargs.pop('onedhistcolor')
-    else:
-        onedhistcolor= 'k'
-    if kwargs.has_key('onedhistfc'):
-        onedhistfc=kwargs['onedhistfc']
-        kwargs.pop('onedhistfc')
-    else:
-        onedhistfc= 'w'
-    if kwargs.has_key('onedhistec'):
-        onedhistec=kwargs['onedhistec']
-        kwargs.pop('onedhistec')
-    else:
-        onedhistec= 'k'
-    if kwargs.has_key('onedhistxnormed'):
-        onedhistxnormed= kwargs['onedhistxnormed']
-        kwargs.pop('onedhistxnormed')
-    else:
-        onedhistxnormed= True
-    if kwargs.has_key('onedhistynormed'):
-        onedhistynormed= kwargs['onedhistynormed']
-        kwargs.pop('onedhistynormed')
-    else:
-        onedhistynormed= True
-    if kwargs.has_key('onedhistxweights'):
-        onedhistxweights= kwargs['onedhistxweights']
-        kwargs.pop('onedhistxweights')
-    else:
-        onedhistxweights= None
-    if kwargs.has_key('onedhistyweights'):
-        onedhistyweights= kwargs['onedhistyweights']
-        kwargs.pop('onedhistyweights')
-    else:
-        onedhistyweights= None
-    if kwargs.has_key('bins'):
+    overplot= kwargs.pop('overplot',False)
+    gcf= kwargs.pop('gcf',False)
+    onedhists= kwargs.pop('onedhists',False)
+    scatter= kwargs.pop('scatter',False)
+    loglog= kwargs.pop('loglog',False)
+    semilogx= kwargs.pop('semilogx',False)
+    semilogy= kwargs.pop('semilogy',False)
+    colorbar= kwargs.pop('colorbar',False)
+    onedhisttype= kwargs.pop('onedhisttype','step')
+    onedhistcolor= kwargs.pop('onedhistcolor','k')
+    onedhistfc= kwargs.pop('onedhistfc','w')
+    onedhistec= kwargs.pop('onedhistec','k')
+    onedhistxnormed= kwargs.pop('onedhistxnormed',True)
+    onedhistynormed= kwargs.pop('onedhistynormed',True)
+    onedhistxweights= kwargs.pop('onedhistxweights',None)
+    onedhistyweights= kwargs.pop('onedhistyweights',None)
+    if 'bins' in kwargs:
         bins= kwargs['bins']
         kwargs.pop('bins')
     elif onedhists:
@@ -333,51 +261,29 @@ def bovy_plot(*args,**kwargs):
     elif not overplot and not gcf: pyplot.figure()
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
-    if kwargs.has_key('xlabel'):
-        xlabel= kwargs['xlabel']
-        kwargs.pop('xlabel')
-    else:
-        xlabel=None
-    if kwargs.has_key('ylabel'):
-        ylabel= kwargs['ylabel']
-        kwargs.pop('ylabel')
-    else:
-        ylabel=None
-    if kwargs.has_key('clabel'):
-        clabel= kwargs['clabel']
-        kwargs.pop('clabel')
-    else:
-        clabel=None
-    if kwargs.has_key('xrange') and not kwargs['xrange'] is None:
-        xlimits=kwargs['xrange']
-        kwargs.pop('xrange')
-    else:
+    xlabel= kwargs.pop('xlabel',None)
+    ylabel= kwargs.pop('ylabel',None)
+    clabel= kwargs.pop('clabel',None)
+    xlimits= kwargs.pop('xrange',None)
+    if xlimits is None:
         if isinstance(args[0],list):
             xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
         else:
             xlimits=(args[0].min(),args[0].max())
-    if kwargs.has_key('xrange'): kwargs.pop('xrange')
-    if kwargs.has_key('yrange') and not kwargs['yrange'] is None:
-        ylimits=kwargs['yrange']
-        kwargs.pop('yrange')
-    else:
+    ylimits= kwargs.pop('yrange',None)
+    if ylimits is None:
         if isinstance(args[1],list):
             ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
-    if kwargs.has_key('yrange'): kwargs.pop('yrange')
-    if kwargs.has_key('crange') and not kwargs['crange'] is None:
-        climits=kwargs['crange']
-        kwargs.pop('crange')
-    elif not scatter:
-        pass
-    elif kwargs.has_key('c') and isinstance(kwargs['c'],list):
-        climits=(sc.array(kwargs['c']).min(),sc.array(kwargs['c']).max())
-    elif kwargs.has_key('c'):
-        climits=(kwargs['c'].min(),kwargs['c'].max())
-    else:
-        climits= None
-    if kwargs.has_key('crange'): kwargs.pop('crange')
+    climits= kwargs.pop('crange',None)
+    if climits is None and scatter:
+        if 'c' in kwargs and isinstance(kwargs['c'],list):
+            climits=(sc.array(kwargs['c']).min(),sc.array(kwargs['c']).max())
+        elif 'c' in kwargs:
+            climits=(kwargs['c'].min(),kwargs['c'].max())
+        else:
+            climits= None
     if scatter:
         out= pyplot.scatter(*args,**kwargs)
     elif loglog:
@@ -471,52 +377,29 @@ def bovy_plot3d(*args,**kwargs):
        2011-01-08 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('overplot') and kwargs['overplot']:
-        kwargs.pop('overplot')
-        overplot=True
-    elif kwargs.has_key('overplot'):
-        kwargs.pop('overplot')
-        pyplot.figure()
-        overplot=False
-    else:
-        pyplot.figure()
-        overplot=False
+    overplot= kwargs.pop('overplot',False)
+    if not overplot: pyplot.figure()
     ax=pyplot.gca(projection='3d')
     ax.set_autoscale_on(False)
-    if kwargs.has_key('xlabel'):
-        xlabel= kwargs['xlabel']
-        kwargs.pop('xlabel')
-    else:
-        xlabel=None
-    if kwargs.has_key('ylabel'):
-        ylabel= kwargs['ylabel']
-        kwargs.pop('ylabel')
-    else:
-        ylabel=None
-    if kwargs.has_key('zlabel'):
-        zlabel= kwargs['zlabel']
-        kwargs.pop('zlabel')
-    else:
-        zlabel=None
-    if kwargs.has_key('xrange'):
-        xlimits=kwargs['xrange']
-        kwargs.pop('xrange')
+    xlabel= kwargs.pop('xlabel',None)
+    ylabel= kwargs.pop('ylabel',None)
+    zlabel= kwargs.pop('zlabel',None)
+    if 'xrange' in kwargs:
+        xlimits= kwargs.pop('xrange')
     else:
         if isinstance(args[0],list):
             xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
         else:
             xlimits=(args[0].min(),args[0].max())
-    if kwargs.has_key('yrange'):
-        ylimits=kwargs['yrange']
-        kwargs.pop('yrange')
+    if 'yrange' in kwargs:
+        ylimits= kwargs.pop('yrange')
     else:
         if isinstance(args[1],list):
             ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
-    if kwargs.has_key('zrange'):
-        zlimits=kwargs['zrange']
-        kwargs.pop('zrange')
+    if 'zrange' in kwargs:
+        zlimits= kwargs.pop('zrange')
     else:
         if isinstance(args[2],list):
             zlimits=(sc.array(args[2]).min(),sc.array(args[2]).max())
@@ -581,6 +464,8 @@ def bovy_dens2d(X,**kwargs):
 
        shrink= colorbar argument: shrink the colorbar by the factor (optional)
 
+       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
+
        Contours:
        
        justcontours - if True, only draw contours
@@ -618,154 +503,56 @@ def bovy_dens2d(X,**kwargs):
        2010-03-09 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('overplot'):
-        overplot= kwargs['overplot']
-        kwargs.pop('overplot')
-    else:
-        overplot= False
+    overplot= kwargs.pop('overplot',False)
     if not overplot:
         pyplot.figure()
-    if kwargs.has_key('xlabel'):
-        xlabel= kwargs['xlabel']
-        kwargs.pop('xlabel')
+    xlabel= kwargs.pop('xlabel',None)
+    ylabel= kwargs.pop('ylabel',None)
+    zlabel= kwargs.pop('zlabel',None)
+    if 'extent' in kwargs:
+        extent= kwargs.pop('extent')
     else:
-        xlabel=None
-    if kwargs.has_key('ylabel'):
-        ylabel= kwargs['ylabel']
-        kwargs.pop('ylabel')
-    else:
-        ylabel=None
-    if kwargs.has_key('zlabel'):
-        zlabel= kwargs['zlabel']
-        kwargs.pop('zlabel')
-    else:
-        zlabel=None   
-    if kwargs.has_key('extent'):
-        extent= kwargs['extent']
-        kwargs.pop('extent')
-    else:
-        if kwargs.has_key('xrange'):
-            xlimits=list(kwargs['xrange'])
-            kwargs.pop('xrange')
-        else:
-            xlimits=[0,X.shape[0]]
-        if kwargs.has_key('yrange'):
-            ylimits=list(kwargs['yrange'])
-            kwargs.pop('yrange')
-        else:
-            ylimits=[0,X.shape[1]]
+        xlimits= kwargs.pop('xrange',[0,X.shape[0]])
+        ylimits= kwargs.pop('yrange',[0,X.shape[1]])
         extent= xlimits+ylimits
-    if not kwargs.has_key('aspect'):
+    if not 'aspect' in kwargs:
         kwargs['aspect']= (xlimits[1]-xlimits[0])/float(ylimits[1]-ylimits[0])
-    if kwargs.has_key('noaxes'):
-        noaxes= kwargs['noaxes']
-        kwargs.pop('noaxes')
-    else:
-        noaxes= False
-    if (kwargs.has_key('justcontours') and kwargs['justcontours']):
-        justcontours= True
-    else:
-        justcontours= False
-    if kwargs.has_key('justcontours'): kwargs.pop('justcontours')
-    if (kwargs.has_key('contours') and kwargs['contours']) or \
-            kwargs.has_key('levels') or justcontours or \
-            (kwargs.has_key('cntrmass') and kwargs['cntrmass']):
+    noaxes= kwargs.pop('noaxes',False)
+    justcontours= kwargs.pop('justcontours',False)
+    if ('contours' in kwargs and kwargs['contours']) or \
+            'levels' in kwargs or justcontours or \
+            ('cntrmass' in kwargs and kwargs['cntrmass']):
         contours= True
     else:
         contours= False
-    if kwargs.has_key('contours'): kwargs.pop('contours')
-    if kwargs.has_key('levels'):
+    kwargs.pop('contours',None)
+    if 'levels' in kwargs:
         levels= kwargs['levels']
         kwargs.pop('levels')
     elif contours:
-        if kwargs.has_key('cntrmass') and kwargs['cntrmass']:
+        if 'cntrmass' in kwargs and kwargs['cntrmass']:
             levels= sc.linspace(0.,1.,_DEFAULTNCNTR)
         elif True in sc.isnan(sc.array(X)):
             levels= sc.linspace(sc.nanmin(X),sc.nanmax(X),_DEFAULTNCNTR)
         else:
             levels= sc.linspace(sc.amin(X),sc.amax(X),_DEFAULTNCNTR)
-    if kwargs.has_key('cntrmass') and kwargs['cntrmass']:
-        cntrmass= True
-        kwargs.pop('cntrmass')
-    else:
-        cntrmass= False
-        if kwargs.has_key('cntrmass'): kwargs.pop('cntrmass')
-    if kwargs.has_key('cntrcolors'):
-        cntrcolors= kwargs['cntrcolors']
-        kwargs.pop('cntrcolors')
-    elif contours:
-        cntrcolors='k'
-    if kwargs.has_key('cntrlabel') and kwargs['cntrlabel']:
-        cntrlabel= True
-        kwargs.pop('cntrlabel')
-    else:
-        cntrlabel= False
-        if kwargs.has_key('cntrlabel'): kwargs.pop('cntrlabel')
-    if kwargs.has_key('cntrlw'):
-        cntrlw= kwargs['cntrlw']
-        kwargs.pop('cntrlw')
-    elif contours:
-        cntrlw= None
-    if kwargs.has_key('cntrls'):
-        cntrls= kwargs['cntrls']
-        kwargs.pop('cntrls')
-    elif contours:
-        cntrls= None
-    if kwargs.has_key('cntrSmooth'):
-        cntrSmooth= kwargs['cntrSmooth']
-        kwargs.pop('cntrSmooth')
-    elif contours:
-        cntrSmooth= None
-    if kwargs.has_key('cntrlabelsize'):
-        cntrlabelsize= kwargs['cntrlabelsize']
-        kwargs.pop('cntrlabelsize')
-    elif contours:
-        cntrlabelsize= None
-    if kwargs.has_key('cntrlabelcolors'):
-        cntrlabelcolors= kwargs['cntrlabelcolors']
-        kwargs.pop('cntrlabelcolors')
-    elif contours:
-        cntrlabelcolors= None
-    if kwargs.has_key('cntrinline'):
-        cntrinline= kwargs['cntrinline']
-        kwargs.pop('cntrinline')
-    elif contours:
-        cntrinline= None
-    if kwargs.has_key('retCumImage'):
-        retCumImage= kwargs['retCumImage']
-        kwargs.pop('retCumImage')
-    else:
-        retCumImage= False
-    if kwargs.has_key('colorbar'):
-        cb= kwargs['colorbar']
-        kwargs.pop('colorbar')
-    else:
-        cb= False
-    if kwargs.has_key('shrink'):
-        shrink= kwargs['shrink']
-        kwargs.pop('shrink')
-    else:
-        shrink= None
-    if kwargs.has_key('onedhists'):
-        onedhists= kwargs['onedhists']
-        kwargs.pop('onedhists')
-    else:
-        onedhists= False
-    if kwargs.has_key('onedhistcolor'):
-        onedhistcolor= kwargs['onedhistcolor']
-        kwargs.pop('onedhistcolor')
-    else:
-        onedhistcolor= 'k'
-    if kwargs.has_key('retAxes'):
-        retAxes= kwargs['retAxes']
-        kwargs.pop('retAxes')
-    else:
-        retAxes= False
-    if kwargs.has_key('retCont'):
-        retCont= kwargs['retCont']
-        kwargs.pop('retCont')
-    else:
-        retCont= False
+    cntrmass= kwargs.pop('cntrmass',False)
+    conditional= kwargs.pop('conditional',False)
+    cntrcolors= kwargs.pop('cntrcolors','k')
+    cntrlabel= kwargs.pop('cntrlabel',False)
+    cntrlw= kwargs.pop('cntrlw',None)
+    cntrls= kwargs.pop('cntrls',None)
+    cntrSmooth= kwargs.pop('cntrSmooth',None)
+    cntrlabelsize= kwargs.pop('cntrlabelsize',None)
+    cntrlabelcolors= kwargs.pop('cntrlabelcolors',None)
+    cntrinline= kwargs.pop('cntrinline',None)
+    retCumImage= kwargs.pop('retCumImage',False)
+    cb= kwargs.pop('colorbar',False)
+    shrink= kwargs.pop('shrink',None)
+    onedhists= kwargs.pop('onedhists',False)
+    onedhistcolor= kwargs.pop('onedhistcolor','k')
+    retAxes= kwargs.pop('retAxes',False)
+    retCont= kwargs.pop('retCont',False)
     if onedhists:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
@@ -788,8 +575,12 @@ def bovy_dens2d(X,**kwargs):
         fig.sca(axScatter)
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
+    if conditional:
+        plotthis= X/sc.tile(sc.sum(X,axis=0),(X.shape[1],1))
+    else:
+        plotthis= X
     if not justcontours:
-        out= pyplot.imshow(X,extent=extent,**kwargs)
+        out= pyplot.imshow(plotthis,extent=extent,**kwargs)
     if not overplot:
         pyplot.axis(extent)
         _add_axislabels(xlabel,ylabel)
@@ -797,10 +588,7 @@ def bovy_dens2d(X,**kwargs):
     #Add colorbar
     if cb and not justcontours:
         if shrink is None:
-            if kwargs.has_key('aspect'):
-                shrink= sc.amin([float(kwargs['aspect'])*0.87,1.])
-            else:
-                shrink= 0.87
+            shrink= sc.amin([float(kwargs.pop('aspect',1.))*0.87,1.])
         CB1= pyplot.colorbar(out,shrink=shrink)
         if not zlabel is None:
             if zlabel[0] != '$':
@@ -809,24 +597,18 @@ def bovy_dens2d(X,**kwargs):
                 thiszlabel=zlabel
             CB1.set_label(thiszlabel)
     if contours or retCumImage:
-        if kwargs.has_key('aspect'):
-            aspect= kwargs['aspect']
-        else:
-            aspect= None
-        if kwargs.has_key('origin'):
-            origin= kwargs['origin']
-        else:
-            origin= None
+        aspect= kwargs.get('aspect',None)
+        origin= kwargs.get('origin',None)
         if cntrmass:
             #Sum from the top down!
-            X[sc.isnan(X)]= 0.
-            sortindx= sc.argsort(X.flatten())[::-1]
-            cumul= sc.cumsum(sc.sort(X.flatten())[::-1])/sc.sum(X.flatten())
-            cntrThis= sc.zeros(sc.prod(X.shape))
+            plotthis[sc.isnan(plotthis)]= 0.
+            sortindx= sc.argsort(plotthis.flatten())[::-1]
+            cumul= sc.cumsum(sc.sort(plotthis.flatten())[::-1])/sc.sum(plotthis.flatten())
+            cntrThis= sc.zeros(sc.prod(plotthis.shape))
             cntrThis[sortindx]= cumul
-            cntrThis= sc.reshape(cntrThis,X.shape)
+            cntrThis= sc.reshape(cntrThis,plotthis.shape)
         else:
-            cntrThis= X
+            cntrThis= plotthis
         if contours:
             if not cntrSmooth is None:
                 cntrThis= ndimage.gaussian_filter(cntrThis,cntrSmooth,
@@ -973,25 +755,20 @@ def bovy_text(*args,**kwargs):
        2010-01-26 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('title'):
-        kwargs.pop('title')
+    if kwargs.pop('title',False):
         pyplot.annotate(args[0],(0.5,1.05),xycoords='axes fraction',
                         horizontalalignment='center',
                         verticalalignment='top',**kwargs)
-    elif kwargs.has_key('bottom_left'):
-        kwargs.pop('bottom_left')
+    elif kwargs.pop('bottom_left',False):
         pyplot.annotate(args[0],(0.05,0.05),xycoords='axes fraction',**kwargs)
-    elif kwargs.has_key('bottom_right'):
-        kwargs.pop('bottom_right')
+    elif kwargs.pop('bottom_right',False):
         pyplot.annotate(args[0],(0.95,0.05),xycoords='axes fraction',
                         horizontalalignment='right',**kwargs)
-    elif kwargs.has_key('top_right'):
-        kwargs.pop('top_right')
+    elif kwargs.pop('top_right',False):
         pyplot.annotate(args[0],(0.95,0.95),xycoords='axes fraction',
                         horizontalalignment='right',
                         verticalalignment='top',**kwargs)
-    elif kwargs.has_key('top_left'):
-        kwargs.pop('top_left')
+    elif kwargs.pop('top_left',False):
         pyplot.annotate(args[0],(0.05,0.95),xycoords='axes fraction',
                         verticalalignment='top',**kwargs)
     else:
@@ -1026,7 +803,11 @@ def scatterplot(x,y,*args,**kwargs):
 
        aspect - aspect ratio
 
+       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
+
        contours - if False, don't plot contours
+
+       justcontours - if True, only draw contours, no density
 
        cntrcolors - color of contours (can be array as for bovy_dens2d)
 
@@ -1034,7 +815,7 @@ def scatterplot(x,y,*args,**kwargs):
 
        cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
 
-       levels - contour-levels
+       levels - contour-levels; data points outside of the last level will be individually shown (so, e.g., if this list is descending, contours and data points will be overplotted)
 
        onedhists - if True, make one-d histograms on the sides
 
@@ -1063,167 +844,47 @@ def scatterplot(x,y,*args,**kwargs):
        2010-04-15 - Written - Bovy (NYU)
 
     """
-    if kwargs.has_key('xlabel'):
-        xlabel= kwargs['xlabel']
-        kwargs.pop('xlabel')
-    else:
-        xlabel=None
-    if kwargs.has_key('ylabel'):
-        ylabel= kwargs['ylabel']
-        kwargs.pop('ylabel')
-    else:
-        ylabel=None
-    if kwargs.has_key('xrange'):
-        xrange=kwargs['xrange']
-        kwargs.pop('xrange')
+    xlabel= kwargs.pop('xlabel',None)
+    ylabel= kwargs.pop('ylabel',None)
+    if 'xrange' in kwargs:
+        xrange= kwargs.pop('xrange')
     else:
         if isinstance(x,list): xrange=[sc.amin(x),sc.amax(x)]
         else: xrange=[x.min(),x.max()]
-    if kwargs.has_key('yrange'):
-        yrange=kwargs['yrange']
-        kwargs.pop('yrange')
+    if 'yrange' in kwargs:
+        yrange= kwargs.pop('yrange')
     else:
         if isinstance(y,list): yrange=[sc.amin(y),sc.amax(y)]
         else: yrange=[y.min(),y.max()]
     ndata= len(x)
-    if kwargs.has_key('bins'):
-        bins= kwargs['bins']
-        kwargs.pop('bins')
-    else:
-        bins= round(0.3*sc.sqrt(ndata))
-    if kwargs.has_key('weights'):
-        weights= kwargs['weights']
-        kwargs.pop('weights')
-    else:
-        weights= None
-    if kwargs.has_key('levels'):
-        levels= kwargs['levels']
-        kwargs.pop('levels')
-    else:
-        levels= special.erf(sc.arange(1,4)/sc.sqrt(2.))
-    if kwargs.has_key('aspect'):
-        aspect= kwargs['aspect']
-        kwargs.pop('aspect')
-    else:
-        aspect= (xrange[1]-xrange[0])/(yrange[1]-yrange[0])
-    if kwargs.has_key('contours'):
-        contours= kwargs['contours']
-        kwargs.pop('contours')
-    else:
-        contours= True
-    if kwargs.has_key('cntrcolors'):
-        cntrcolors= kwargs['cntrcolors']
-        kwargs.pop('cntrcolors')
-    else:
-        cntrcolors= 'k'
-    if kwargs.has_key('cntrlw'):
-        cntrlw= kwargs['cntrlw']
-        kwargs.pop('cntrlw')
-    elif contours:
-        cntrlw= None
-    if kwargs.has_key('cntrls'):
-        cntrls= kwargs['cntrls']
-        kwargs.pop('cntrls')
-    elif contours:
-        cntrls= None
-    if kwargs.has_key('cntrSmooth'):
-        cntrSmooth= kwargs['cntrSmooth']
-        kwargs.pop('cntrSmooth')
-    elif contours:
-        cntrSmooth= None
-    if kwargs.has_key('onedhists'):
-        onedhists= kwargs['onedhists']
-        kwargs.pop('onedhists')
-    else:
-        onedhists= False
-    if kwargs.has_key('onedhistx'):
-        onedhistx= kwargs['onedhistx']
-        kwargs.pop('onedhistx')
-    elif onedhists:
-        onedhistx= True
-    else:
-        onedhistx= False
-    if kwargs.has_key('onedhisty'):
-        onedhisty= kwargs['onedhisty']
-        kwargs.pop('onedhisty')
-    elif onedhists:
-        onedhisty= True
-    else:
-        onedhisty= False
-    if kwargs.has_key('onedhisttype'):
-        onedhisttype= kwargs['onedhisttype']
-        kwargs.pop('onedhisttype')
-    else:
-        onedhisttype= 'step'
-    if kwargs.has_key('onedhistcolor'):
-        onedhistcolor= kwargs['onedhistcolor']
-        kwargs.pop('onedhistcolor')
-    else:
-        onedhistcolor= 'k'
-    if kwargs.has_key('onedhistfc'):
-        onedhistfc=kwargs['onedhistfc']
-        kwargs.pop('onedhistfc')
-    else:
-        onedhistfc= 'w'
-    if kwargs.has_key('onedhistec'):
-        onedhistec=kwargs['onedhistec']
-        kwargs.pop('onedhistec')
-    else:
-        onedhistec= 'k'
-    if kwargs.has_key('onedhistls'):
-        onedhistls=kwargs['onedhistls']
-        kwargs.pop('onedhistls')
-    else:
-        onedhistls= 'solid'
-    if kwargs.has_key('onedhistlw'):
-        onedhistlw=kwargs['onedhistlw']
-        kwargs.pop('onedhistlw')
-    else:
-        onedhistlw= None
-    if kwargs.has_key('onedhistsbins'):
-        onedhistsbins= kwargs['onedhistsbins']
-        kwargs.pop('onedhistsbins')
-    else:
-        onedhistsbins= round(0.3*sc.sqrt(ndata))
-    if kwargs.has_key('overplot'):
-        overplot= kwargs['overplot']
-        kwargs.pop('overplot')
-    else:
-        overplot= False
-    if kwargs.has_key('cmap'):
-        cmap= kwargs['cmap']
-        kwargs.pop('cmap')
-    else:
-        cmap= cm.gist_yarg
-    if kwargs.has_key('onedhistxnormed'):
-        onedhistxnormed= kwargs['onedhistxnormed']
-        kwargs.pop('onedhistxnormed')
-    else:
-        onedhistxnormed= True
-    if kwargs.has_key('onedhistynormed'):
-        onedhistynormed= kwargs['onedhistynormed']
-        kwargs.pop('onedhistynormed')
-    else:
-        onedhistynormed= True
-    if kwargs.has_key('onedhistxweights'):
-        onedhistxweights= kwargs['onedhistxweights']
-        kwargs.pop('onedhistxweights')
-    elif not weights is None:
-        onedhistxweights= weights
-    else:
-        onedhistxweights= None
-    if kwargs.has_key('onedhistyweights'):
-        onedhistyweights= kwargs['onedhistyweights']
-        kwargs.pop('onedhistyweights')
-    elif not weights is None:
-        onedhistyweights= weights
-    else:
-        onedhistyweights= None
-    if kwargs.has_key('retAxes'):
-        retAxes= kwargs['retAxes']
-        kwargs.pop('retAxes')
-    else:
-        retAxes= False
+    bins= kwargs.pop('bins',round(0.3*sc.sqrt(ndata)))
+    weights= kwargs.pop('weights',None)
+    levels= kwargs.pop('levels',special.erf(sc.arange(1,4)/sc.sqrt(2.)))
+    aspect= kwargs.pop('aspect',(xrange[1]-xrange[0])/(yrange[1]-yrange[0]))
+    conditional= kwargs.pop('conditional',False)
+    contours= kwargs.pop('contours',True)
+    justcontours= kwargs.pop('justcontours',False)
+    cntrcolors= kwargs.pop('cntrcolors','k')
+    cntrlw= kwargs.pop('cntrlw',None)
+    cntrls= kwargs.pop('cntrls',None)
+    cntrSmooth= kwargs.pop('cntrSmooth',None)
+    onedhists= kwargs.pop('onedhists',False)
+    onedhistx= kwargs.pop('onedhistx',onedhists)
+    onedhisty= kwargs.pop('onedhisty',onedhists)
+    onedhisttype= kwargs.pop('onedhisttype','step')
+    onedhistcolor= kwargs.pop('onedhistcolor','k')
+    onedhistfc= kwargs.pop('onedhistfc','w')
+    onedhistec= kwargs.pop('onedhistec','k')
+    onedhistls= kwargs.pop('onedhistls','solid')
+    onedhistlw= kwargs.pop('onedhistlw',None)
+    onedhistsbins= kwargs.pop('onedhistsbins',round(0.3*sc.sqrt(ndata)))
+    overplot= kwargs.pop('overplot',False)
+    cmap= kwargs.pop('cmap',cm.gist_yarg)
+    onedhistxnormed= kwargs.pop('onedhistxnormed',True)
+    onedhistynormed= kwargs.pop('onedhistynormed',True)
+    onedhistxweights= kwargs.pop('onedhistxweights',weights)
+    onedhistyweights= kwargs.pop('onedhistyweights',weights)
+    retAxes= kwargs.pop('retAxes',False)
     if onedhists or onedhistx or onedhisty:
         if overplot: fig= pyplot.gcf()
         else: fig= pyplot.figure()
@@ -1248,7 +909,7 @@ def scatterplot(x,y,*args,**kwargs):
             axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
     data= sc.array([x,y]).T
-    if kwargs.has_key('hist') and kwargs.has_key('edges'):
+    if 'hist' in kwargs and 'edges' in kwargs:
         hist=kwargs['hist']
         kwargs.pop('hist')
         edges=kwargs['edges']
@@ -1263,7 +924,9 @@ def scatterplot(x,y,*args,**kwargs):
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
                               retCumImage=True,aspect=aspect,
+                              conditional=conditional,
                               cntrlw=cntrlw,cntrls=cntrls,
+                              justcontours=justcontours,zorder=5*justcontours,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
@@ -1271,6 +934,7 @@ def scatterplot(x,y,*args,**kwargs):
                               cmap=cmap,origin='lower',
                               xrange=xrange,yrange=yrange,xlabel=xlabel,
                               ylabel=ylabel,interpolation='nearest',
+                              conditional=conditional,
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
                               overplot=(onedhists or overplot or onedhistx or onedhisty))
@@ -1304,7 +968,7 @@ def scatterplot(x,y,*args,**kwargs):
                 bovy_plot(plotx[ii],ploty[ii],overplot=True,
                           color='%.2f'%(1.-w8[ii]),*args,**kwargs)
         else:
-            bovy_plot(plotx,ploty,overplot=True,*args,**kwargs)
+            bovy_plot(plotx,ploty,overplot=True,zorder=1,*args,**kwargs)
     #Add onedhists
     if not (onedhists or onedhistx or onedhisty):
         if retAxes:

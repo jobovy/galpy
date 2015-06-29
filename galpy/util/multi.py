@@ -30,6 +30,7 @@
 #THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 #(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from __future__ import print_function
 import numpy
 _multi=False
 _ncpus=1
@@ -67,7 +68,7 @@ def worker(f, ii, chunk, out_q, err_q, lock):
   for val in chunk:
     try:
       result = f(val)
-    except Exception, e:
+    except Exception as e:
       err_q.put(e)
       return
 
@@ -99,7 +100,7 @@ def run_tasks(procs, err_q, out_q, num):
     for proc in procs:
       proc.join()
 
-  except Exception, e:
+  except Exception as e:
     # kill all slave processes on ctrl-C
     try:
       die(procs)
@@ -205,11 +206,11 @@ if __name__ == "__main__":
 
   tt = time.time()
   presult = parallel_map(f, iterable)
-  print 'parallel map in %g secs' % (time.time()-tt)
+  print('parallel map in %g secs' % (time.time()-tt))
 
   tt = time.time()
   result = map(f, iterable)
-  print 'serial map in %g secs' % (time.time()-tt)
+  print('serial map in %g secs' % (time.time()-tt))
 
   assert (numpy.asarray(result) == numpy.asarray(presult)).all()
 

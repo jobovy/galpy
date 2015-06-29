@@ -120,6 +120,19 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
+    case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
+      potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
+      potentialArgs->nargs= 3;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
+      break;
+    case 17: //PlummerPotential, 3 arguments
+      potentialArgs->potentialEval= &PlummerPotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

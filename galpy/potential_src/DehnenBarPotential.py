@@ -2,7 +2,7 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import math as m
-from planarPotential import planarPotential
+from galpy.potential_src.planarPotential import planarPotential
 _degtorad= m.pi/180.
 class DehnenBarPotential(planarPotential):
     """Class that implements the Dehnen bar potential (Dehnen 2000)

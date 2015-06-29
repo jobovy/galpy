@@ -169,6 +169,20 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
       break;
+    case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
+      potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
+      potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
+      potentialArgs->nargs= 3;
+      break;
+    case 17: //PlummerPotential, 2 arguments
+      potentialArgs->Rforce= &PlummerPotentialRforce;
+      potentialArgs->zforce= &PlummerPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
+      potentialArgs->nargs= 2;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
@@ -186,6 +200,7 @@ void integrateFullOrbit(double *yo,
 			int npot,
 			int * pot_type,
 			double * pot_args,
+			double dt,
 			double rtol,
 			double atol,
 			double *result,
@@ -201,7 +216,7 @@ void integrateFullOrbit(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -239,7 +254,7 @@ void integrateFullOrbit(double *yo,
     dim= 6;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
@@ -272,7 +287,7 @@ void integrateOrbit_dxdv(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -310,8 +325,8 @@ void integrateOrbit_dxdv(double *yo,
     dim= 12;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
+	      rtol,atol,result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
     free(potentialArgs->args);
