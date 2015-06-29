@@ -99,19 +99,19 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://galpy.readthedocs.org/en/master/
 
 
-**development branch**:
+**development branch** (if it exists):
 
-.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev-v1.1
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev
    :target: http://travis-ci.org/jobovy/galpy/branches
 
-.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
-  :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev
+  :target: https://coveralls.io/r/jobovy/galpy?branch=dev
 
-.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev-v1.1
-  :target: http://codecov.io/github/jobovy/galpy?branch=dev-v1.1
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev
+  :target: http://codecov.io/github/jobovy/galpy?branch=dev
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/dev-v1.1/
+  :target: http://galpy.readthedocs.org/en/dev/
 
 DISK DF CORRECTIONS
 --------------------
