@@ -80,6 +80,7 @@ def test_energy_jacobi_conservation():
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol= {}
     jactol['default']= -10.
+    jactol['RazorThinExponentialDiskPotential']= -9. #these are more difficult
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
@@ -270,7 +271,7 @@ def test_energy_jacobi_conservation():
             #Jacobi
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+                "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s" %((numpy.std(tJacobis)/numpy.mean(tJacobis))**2.,p,integrator)
             if firstTest or 'MWPotential' in p:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
@@ -2690,7 +2691,7 @@ def setup_orbit_energy(tp,axi=False):
         if axi:
             o= Orbit([1.,1.1,1.1])
         else:
-            o= Orbit([1.,1.1,1.1,0.])
+            o= Orbit([1.,1.1,1.1,numpy.pi/2.])
     else:
         if axi:
             o= Orbit([1.,1.1,1.1,0.1,0.1])
