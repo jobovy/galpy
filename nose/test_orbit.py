@@ -1254,7 +1254,7 @@ def test_fixedstepsize():
                 runtimes[ii]= time.time()-start
             for ii,mult in enumerate(mults):
                 if ii == 0: continue
-                assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.2, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
+                assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.3, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
 numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],runtimes[ii]/runtimes[0])
     return None
 
