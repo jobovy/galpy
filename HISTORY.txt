@@ -1,7 +1,5 @@
-v1.1 (XXXX-XX-XX)
+v1.1 (2015-06-30)
 ==================
-
-Current development version, last updated 12/26/2014:
 
 - Added Python 3 support: in particular, Python 3.3 and 3.4 are now
   supported; earlier 3.* may also work, but haven't been
