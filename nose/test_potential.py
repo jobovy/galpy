@@ -48,9 +48,13 @@ def test_normalize_potential():
         assert (tp.vcirc(1.)**2.-1.)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
         tp.normalize(.5)
-        assert (tp.Rforce(1.,0.)+.5)**2. < 10.**-16., \
+        if hasattr(tp,'toPlanar'):
+            ptp= tp.toPlanar()
+        else:
+            ptp= tp
+        assert (ptp.Rforce(1.,0.)+.5)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
-        assert (tp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
+        assert (ptp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
 
 #Test whether the derivative of the potential is minus the force

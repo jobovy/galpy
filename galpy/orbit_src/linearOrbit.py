@@ -39,7 +39,7 @@ class linearOrbit(OrbitTop):
                           ro=ro,zo=None,vo=vo,solarmotion=None)
         return None
 
-    def integrate(self,t,pot,method='odeint'):
+    def integrate(self,t,pot,method='odeint',dt=None):
         """
         NAME:
            integrate
@@ -49,6 +49,7 @@ class linearOrbit(OrbitTop):
            t - list of times at which to output (0 has to be in this!)
            pot - potential instance or list of instances
            method= 'odeint'= scipy's odeint, or 'leapfrog'
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (NOT USED FOR LINEAR ORBIT SO FAR)
         OUTPUT:
            (none) (get the actual orbit using getOrbit()
         HISTORY:

@@ -181,7 +181,8 @@ def _parse_tol(rtol,atol):
         atol= nu.log(atol)
     return (rtol,atol)
 
-def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
+def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
+                           dt=None):
     """
     NAME:
        integratePlanarOrbit_c
@@ -193,6 +194,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
        y : array, shape (len(y0), len(t))
@@ -205,6 +207,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    if dt is None: 
+        dt= -9999.99
 
     #Set up result array
     result= nu.empty((len(t),4))
@@ -219,6 +223,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                                ctypes.c_int,
                                ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
@@ -239,6 +244,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    ctypes.c_double(dt),                    
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),
@@ -251,7 +257,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None):
     return (result,err.value)
 
 
-def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
+def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
+                                dt=None):
     """
     NAME:
        integratePlanarOrbit_dxdv_c
@@ -264,6 +271,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
        y : array, shape (len(y0), len(t))
@@ -276,6 +284,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
+    if dt is None: 
+        dt= -9999.99
     yo= nu.concatenate((yo,dyo))
 
     #Set up result array
@@ -293,6 +303,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
+                               ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
@@ -311,6 +322,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    ctypes.c_double(dt),                    
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),

@@ -8,10 +8,15 @@ import glob
 PY3= sys.version > '3'
 
 long_description= ''
+previous_line= ''
 with open('README.rst') as dfile:
     for line in dfile:
-        if not 'image' in line and not 'target' in line:
+        if not 'image' in line and not 'target' in line \
+                and not 'DETAILED' in line and not '**master**' in line \
+                and not '**development' in line \
+                and not 'DETAILED' in  previous_line:
             long_description+= line
+        previous_line= line
 
 # Parse options; current options
 # --no-openmp: compile without OpenMP support
@@ -199,7 +204,7 @@ else:
     interppotential_c_incl= False
 
 setup(name='galpy',
-      version='1.1.alpha',
+      version='1.1',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@ias.edu',

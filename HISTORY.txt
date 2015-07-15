@@ -1,7 +1,5 @@
-v1.1 (XXXX-XX-XX)
+v1.1 (2015-06-30)
 ==================
-
-Current development version, last updated 12/26/2014:
 
 - Added Python 3 support: in particular, Python 3.3 and 3.4 are now
   supported; earlier 3.* may also work, but haven't been
@@ -33,6 +31,9 @@ Current development version, last updated 12/26/2014:
   potentials (not included in the NEMO release); add PowSphwCut.cc for
   PowerSphericalPotential2Cutoff and Makefile to compile and install
   it. This allows gyrfalcON simulations with MWPotential2014.
+
+- Allow user to directly specify the integration step size to use in
+  orbit integration.
 
 - Better implementations of vcirc, eipfreq, and verticalfreq for lists
   of potentials that allows for negative amplitude components.

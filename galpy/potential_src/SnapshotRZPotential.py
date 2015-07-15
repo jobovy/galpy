@@ -4,7 +4,8 @@ import numpy as np
 from scipy import interpolate 
 from galpy.potential_src.Potential import Potential
 from galpy.potential_src import interpRZPotential
-from galpy.potential_src.interpRZPotential import scalarVectorDecorator
+from galpy.potential_src.interpRZPotential import scalarVectorDecorator, \
+    zsymDecorator
 try: 
     import pynbody
     from pynbody import gravity
@@ -272,6 +273,12 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                                                              self._z2derivGrid,
                                                              kx=3,ky=3,s=0.)
          
+        if interpepifreq and interpverticalfreq:
+            self._Rzinterp = interpolate.RectBivariateSpline(rs,
+                                                             self._zgrid,
+                                                             self._RzderivGrid,
+                                                             kx=3,ky=3,s=0.)
+            
         # setup the derived quantities
         if interpPot: 
             self._vcircGrid = np.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
@@ -430,13 +437,29 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 
                 self._R2derivGrid = -rgrad.reshape((len(rgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
        
+            # do the same for the mixed radial-vertical component
+            if self._interpepifreq and self._interpverticalfreq: # re-use this
+                Rzgrad = np.zeros(len(points_new))
+                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
+                    Rzgrad[i] = ((racc[1]-racc[0])/(dr*2.0))[2]
+                
+                # reshape the arrays
+                self._RzderivGrid = -Rzgrad.reshape((len(Rzgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
+       
+    @scalarVectorDecorator
+    @zsymDecorator(False)
     def _R2deriv(self,R,Z,phi=0.,t=0.): 
-        if self._zsym: Z = np.abs(Z)
         return self._R2interp(R,Z)
 
+    @scalarVectorDecorator
+    @zsymDecorator(False)
     def _z2deriv(self,R,Z,phi=None,t=None):
-        if self._zsym: Z = np.abs(Z)
         return self._z2interp(R,Z)
+
+    @scalarVectorDecorator
+    @zsymDecorator(True)
+    def _Rzderiv(self,R,Z,phi=None,t=None):
+        return self._Rzinterp(R,Z)
 
     def normalize(self, R0=8.0) :
         """ 

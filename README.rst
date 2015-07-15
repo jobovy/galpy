@@ -21,6 +21,9 @@ galpy
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
 
+.. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
+   :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
+
 AUTHOR
 -------
 
@@ -32,7 +35,7 @@ full list of contributors.
 
 If you find this code useful in your research, please let me
 know. **If you use galpy in a publication, please cite** `Bovy (2015)
-<http://sns.ias.edu/~bovy/galpy-paper.html>`__ **and link to
+<http://adsabs.harvard.edu/abs/2015ApJS..216...29B>`__ **and link to
 http://github.com/jobovy/galpy**. Please also send me a reference to
 the paper or send a pull request including your paper in the list of
 galpy papers on `this page
@@ -96,19 +99,19 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://galpy.readthedocs.org/en/master/
 
 
-**development branch**:
+**development branch** (if it exists):
 
-.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev-v1.1
+.. image:: https://travis-ci.org/jobovy/galpy.svg?branch=dev
    :target: http://travis-ci.org/jobovy/galpy/branches
 
-.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev-v1.1
-  :target: https://coveralls.io/r/jobovy/galpy?branch=dev-v1.1
+.. image:: https://img.shields.io/coveralls/jobovy/galpy.svg?branch=dev
+  :target: https://coveralls.io/r/jobovy/galpy?branch=dev
 
-.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev-v1.1
-  :target: http://codecov.io/github/jobovy/galpy?branch=dev-v1.1
+.. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev
+  :target: http://codecov.io/github/jobovy/galpy?branch=dev
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/dev-v1.1/
+  :target: http://galpy.readthedocs.org/en/dev/
 
 DISK DF CORRECTIONS
 --------------------
@@ -120,9 +123,7 @@ profiles more closely (see `1999AJ....118.1201D
 these corrections is expensive, and a large set of precalculated
 corrections can be found `here
 <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__
-\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df_src/data directory before running the setup.py installation. E.g.,
-
-.. code-block:: none
+\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df_src/data directory before running the setup.py installation. E.g.::
 
    curl -O https://cloud.github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
    tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/

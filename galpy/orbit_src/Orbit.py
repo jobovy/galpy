@@ -253,7 +253,7 @@ class Orbit(object):
         """
         self._orb.turn_physical_off()
 
-    def integrate(self,t,pot,method='symplec4_c'):
+    def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
 
@@ -278,6 +278,8 @@ class Orbit(object):
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize)
+
         OUTPUT:
 
            (none) (get the actual orbit using getOrbit()
@@ -286,12 +288,16 @@ class Orbit(object):
 
            2010-07-10 - Written - Bovy (NYU)
 
+           2015-06-28 - Added dt keyword - Bovy (IAS)
+
         """
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
-        self._orb.integrate(t,pot,method=method)
+        if not _check_integrate_dt(t,dt):
+            raise ValueError('dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize')
+        self._orb.integrate(t,pot,method=method,dt=dt)
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
                        rectIn=False,rectOut=False):
@@ -3174,3 +3180,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                self._orb.vxvv[0],self._orb.vxvv[1],
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
+
+def _check_integrate_dt(t,dt):
+    """Check that the stepszie in t is an integer x dt"""
+    if dt is None:
+        return True
+    mult= round((t[1]-t[0])/dt)
+    if nu.fabs(mult*dt-t[1]+t[0]) < 10.**-10.:
+        return True
+    else:
+        return False
+

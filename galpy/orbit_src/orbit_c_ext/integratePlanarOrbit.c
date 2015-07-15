@@ -188,6 +188,7 @@ void integratePlanarOrbit(double *yo,
 			  int npot,
 			  int * pot_type,
 			  double * pot_args,
+			  double dt,
 			  double rtol,
 			  double atol,
 			  double *result,
@@ -203,7 +204,7 @@ void integratePlanarOrbit(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -241,7 +242,7 @@ void integratePlanarOrbit(double *yo,
     dim= 4;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {
@@ -259,6 +260,7 @@ void integratePlanarOrbit_dxdv(double *yo,
 			       int npot,
 			       int * pot_type,
 			       double * pot_args,
+			       double dt,
 			       double rtol,
 			       double atol,
 			       double *result,
@@ -274,7 +276,7 @@ void integratePlanarOrbit_dxdv(double *yo,
 			   int, struct potentialArg *),
 		      int,
 		      double *,
-		      int, double *,
+		      int, double, double *,
 		      int, struct potentialArg *,
 		      double, double,
 		      double *,int *);
@@ -297,7 +299,7 @@ void integratePlanarOrbit_dxdv(double *yo,
     dim= 8;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,t,npot,potentialArgs,rtol,atol,
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
   for (ii=0; ii < npot; ii++) {

@@ -1,4 +1,4 @@
-include README.rst README.dev LICENSE HISTORY.txt AUTHORS.txt
+include README.rst README.dev README.nemo LICENSE HISTORY.txt AUTHORS.txt
 include galpy/df_src/data/*.sav
 include galpy/actionAngle_src/actionAngle_c_ext/*.h
 include galpy/orbit_src/orbit_c_ext/*.h

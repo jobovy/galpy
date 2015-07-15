@@ -62,6 +62,7 @@ Usage:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
        int nt: number of times at which the output is wanted
+       double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
        double *args: see above
@@ -73,7 +74,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
-	      int nt, double *t,
+	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
@@ -94,10 +95,11 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   result+= 2 * dim;
   *err= 0;
   //Estimate necessary stepsize
-  double dt= (*(t+1))-(*t);
-  double init_dt= dt;
-  dt= leapfrog_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
-			     rtol,atol);
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= leapfrog_estimate_step(*func,dim,qo,po,init_dt,t,nargs,potentialArgs,
+			       rtol,atol);
+  }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
@@ -152,6 +154,7 @@ Usage:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
        int nt: number of times at which the output is wanted
+       double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
        double *args: see above
@@ -163,7 +166,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
-	      int nt, double *t,
+	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
@@ -192,10 +195,11 @@ void symplec4(void (*func)(double t, double *q, double *a,
   result+= 2 * dim;
   *err= 0;
   //Estimate necessary stepsize
-  double dt= (*(t+1))-(*t);
-  double init_dt= dt;
-  dt= symplec4_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
-			     rtol,atol);
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= symplec4_estimate_step(*func,dim,qo,po,init_dt,t,nargs,potentialArgs,
+			       rtol,atol);
+  }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
@@ -277,6 +281,7 @@ Usage:
        int dim: dimension
        double *yo: initial value [qo,po], dimension: 2*dim
        int nt: number of times at which the output is wanted
+       double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
        double *args: see above
@@ -288,7 +293,7 @@ void symplec6(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
-	      int nt, double *t,
+	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
 	      double *result,int * err){
@@ -325,10 +330,11 @@ void symplec6(void (*func)(double t, double *q, double *a,
   result+= 2 * dim;
   *err= 0;
   //Estimate necessary stepsize
-  double dt= (*(t+1))-(*t);
-  double init_dt= dt;
-  dt= symplec6_estimate_step(*func,dim,qo,po,dt,t,nargs,potentialArgs,
-			     rtol,atol);
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= symplec6_estimate_step(*func,dim,qo,po,init_dt,t,nargs,potentialArgs,
+			       rtol,atol);
+  }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;

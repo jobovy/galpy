@@ -1524,7 +1524,13 @@ def test_actionAngleIsochroneApprox_plotting():
     #Various plots that should be produced
     aAI.plot(obs)
     aAI.plot(obs,type='jr')
-    aAI.plot(obs,type='lz')
+    aAI.plot(numpy.reshape(obs.R(obs._orb.t),(1,len(obs._orb.t))),
+             numpy.reshape(obs.vR(obs._orb.t),(1,len(obs._orb.t))),
+             numpy.reshape(obs.vT(obs._orb.t),(1,len(obs._orb.t))),
+             numpy.reshape(obs.z(obs._orb.t),(1,len(obs._orb.t))),
+             numpy.reshape(obs.vz(obs._orb.t),(1,len(obs._orb.t))),
+             numpy.reshape(obs.phi(obs._orb.t),(1,len(obs._orb.t))),
+             type='lz')
     aAI.plot(obs,type='jz')
     aAI.plot(obs,type='jr',downsample=True)
     aAI.plot(obs,type='lz',downsample=True)

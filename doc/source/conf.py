@@ -38,7 +38,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'galpy'
-copyright = u'2010 - 2014, Jo Bovy'
+copyright = u'2010 - 2015, Jo Bovy'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -47,7 +47,7 @@ copyright = u'2010 - 2014, Jo Bovy'
 # The short X.Y version.
 version = '1.1'
 # The full version, including alpha/beta/rc tags.
-release = '1.1.alpha'
+release = '1.1'
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if on_rtd:
     version= 'v'+version
@@ -122,7 +122,7 @@ html_logo = 'images/logo-small.png'
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = 'images/logo-small.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
