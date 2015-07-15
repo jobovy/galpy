@@ -2409,29 +2409,7 @@ class streamdf(object):
         if interp is None:
             interp= self._useInterp
         #First sample frequencies
-        #Sample frequency along largest eigenvalue using ARS
-        dO1s=\
-            bovy_ars.bovy_ars([0.,0.],[True,False],
-                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
-                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
-                              _h_ars,_hp_ars,nsamples=n,
-                              hxparams=(self._meandO,self._sortedSigOEig[2]),
-                              maxn=100)
-        dO1s= numpy.array(dO1s)*self._sigMeanSign
-        dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
-        dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
-        #Rotate into dOs in R,phi,z coordinates
-        dO= numpy.vstack((dO3s,dO2s,dO1s))
-        dO= numpy.dot(self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx],
-                      dO)
-        Om= dO+numpy.tile(self._progenitor_Omega.T,(n,1)).T
-        #Also generate angles
-        da= numpy.random.normal(size=(3,n))*self._sigangle
-        #And a random time
-        dt= numpy.random.uniform(size=n)*self._tdisrupt
-        #Integrate the orbits relative to the progenitor
-        da+= dO*numpy.tile(dt,(3,1))
-        angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
+        Om,angle,dt= self._sample_aAt(n)
         if returnaAdt:
             return (Om,angle,dt)
         #Propagate to R,vR,etc.
@@ -2499,6 +2477,33 @@ class streamdf(object):
                 return (out,dt)
             else:
                 return out
+
+    def _sample_aAt(self,n):
+        """Sampling frequencies, angles, and times part of sampling"""
+        #Sample frequency along largest eigenvalue using ARS
+        dO1s=\
+            bovy_ars.bovy_ars([0.,0.],[True,False],
+                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
+                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
+                              _h_ars,_hp_ars,nsamples=n,
+                              hxparams=(self._meandO,self._sortedSigOEig[2]),
+                              maxn=100)
+        dO1s= numpy.array(dO1s)*self._sigMeanSign
+        dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
+        dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
+        #Rotate into dOs in R,phi,z coordinates
+        dO= numpy.vstack((dO3s,dO2s,dO1s))
+        dO= numpy.dot(self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx],
+                      dO)
+        Om= dO+numpy.tile(self._progenitor_Omega.T,(n,1)).T
+        #Also generate angles
+        da= numpy.random.normal(size=(3,n))*self._sigangle
+        #And a random time
+        dt= numpy.random.uniform(size=n)*self._tdisrupt
+        #Integrate the orbits relative to the progenitor
+        da+= dO*numpy.tile(dt,(3,1))
+        angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
+        return (Om,angle,dt)
 
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
