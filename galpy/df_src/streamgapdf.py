@@ -143,7 +143,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-06-22 - Written - Bovy (IAS)
 
         """
-        print "NEED TO MAKE SURE THAT KICKS AREN'T APPLIED IF COMING FROM OTHER ARM"
         if tdisrupt is None: tdisrupt= self._tdisrupt
         dOmin= dangle/tdisrupt
         # First determine delta angle_par at timpact
@@ -479,6 +478,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._gap_leading= True
         else:
             self._gap_leading= False
+        if (self._gap_leading and not self._leading) \
+                or (not self._gap_leading and self._leading):
+            raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
         self._impact_angle= numpy.fabs(impact_angle)
         self._gap_sigMeanSign= 1.
         if self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.:
