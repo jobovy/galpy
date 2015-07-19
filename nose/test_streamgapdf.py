@@ -3,7 +3,7 @@ import numpy
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
-    tol= -8.
+    tol= -10.
     v= numpy.array([[1.,0.,0.]])
     # Rotate to 90 deg off
     ma= streamgapdf._rotate_to_arbitrary_vector(v,[0,1.,0])
@@ -40,7 +40,7 @@ def test_rotate_to_arbitrary_vector():
 # Test that the rotation routine works for multiple vectors
 def test_rotate_to_arbitrary_vector_multi():
     from galpy.df_src import streamgapdf
-    tol= -8.
+    tol= -10.
     v= numpy.array([[1.,0.,0.],[0.,1.,0.]])
     # Rotate to 90 deg off
     ma= streamgapdf._rotate_to_arbitrary_vector(v,[0,0,1.])
@@ -63,4 +63,18 @@ def test_rotate_to_arbitrary_vector_multi():
     assert numpy.fabs(ma[1,1,1]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[1,2,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[1,2,2]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
+    return None
+
+# Test the inverse of the routine that rotates vectors to an arbitrary vector
+def test_rotate_to_arbitrary_vector():
+    from galpy.df_src import streamgapdf
+    tol= -10.
+    v= numpy.array([[1.,0.,0.]])
+    # Rotate to random vector and back
+    a= numpy.random.uniform(size=3)
+    a/= numpy.sqrt(numpy.sum(a**2.))
+    ma= streamgapdf._rotate_to_arbitrary_vector(v,a)
+    ma_inv= streamgapdf._rotate_to_arbitrary_vector(v,a,inv=True)
+    ma= numpy.dot(ma[0],ma_inv[0])
+    assert numpy.all(numpy.fabs(ma-numpy.eye(3)) < 10.**tol), 'Inverse rotation matrix incorrect'
     return None
