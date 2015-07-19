@@ -14,7 +14,7 @@ env: #split tests
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
-    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!(test_streamdf|test_streamgapdf)).)*$'
 addons:
   apt:
     packages:
