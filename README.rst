@@ -70,6 +70,10 @@ ISSUES
 
 If you find *any* bug in the code, please report these using the `Issue Tracker <http://github.com/jobovy/galpy/issues>`__ or by emailing the maintainer of the code.
 
+If you are having issues with the installation of ``galpy``, please
+first consult the `Installation FAQ
+<http://galpy.readthedocs.org/en/latest/installation.html#installation-faq>`__.
+
 CONTRIBUTING TO GALPY
 ----------------------
 
