@@ -700,8 +700,9 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
     out[:,1]= -wperp**2.*y/denom
     out[:,2]= -(b*wmag2*tilew[:,0]/wperp+y*wpar*tilew[:,2])/denom
     # deal w/ perpendicular impacts
-    out[numpy.fabs(wperp) < 10.**-10.,0]= (b*wmag2-y*wpar*tilew[:,0])/denom
-    out[numpy.fabs(wperp) < 10.**-10.,2]=-(b*wmag2+y*wpar*tilew[:,2])/denom
+    wperp0Indx= numpy.fabs(wperp) < 10.**-10.
+    out[wperp0Indx,0]= (b*wmag2[wperp0Indx]-y[wperp0Indx]*wpar[wperp0Indx]*tilew[wperp0Indx,0])/denom[wperp0Indx]
+    out[wperp0Indx,2]=-(b*wmag2[wperp0Indx]+y[wperp0Indx]*wpar[wperp0Indx]*tilew[wperp0Indx,2])/denom[wperp0Indx]
     # Rotate back to the original frame
     return 2.0*GM*numpy.sum(\
         rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
