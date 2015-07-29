@@ -100,36 +100,15 @@ def test_rotation_vy():
     assert numpy.fabs(ma[0,2,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,1]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
 
-# Test the Plummer calculation in a few simple special cases
-# 1) subhalo along the stream
-def test_impulse_deltav_plummer_subhalo_along_stream():
+# Test the Plummer calculation for a perpendicular impact, B&T ex. 8.7
+def test_impulse_deltav_plummer_subhalo_perpendicular():
     from galpy.df_src import streamgapdf
     tol= -10.
-    # Simple case in vy
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,1.,0.]]),
-                                             numpy.array([1.]),
-                                             5.1,
-                                             numpy.array([0.,10.,0.]),
-                                             2.3,0.4)
-    # x and z should be zero
-    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
-    assert numpy.fabs(kick[0,2]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
-    # Simple case in vz
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,0.,1.]]),
-                                             numpy.array([1.]),
-                                             5.1,
-                                             numpy.array([0.,0.,9.]),
-                                             2.3,0.4)
-    # x and y should be zero
-    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
-    assert numpy.fabs(kick[0,1]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
-    # Simple case in 1/sqrt(2.)(vy+vz)
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,1.,1.]]),
-                                             numpy.array([1.]),
-                                             5.1,
-                                             numpy.array([0.,9.,9.]),
-                                             2.3,0.4)
-    # x and y-z should be zero
-    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
-    assert numpy.fabs(kick[0,1]-kick[0,2]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,numpy.pi,0.]]),
+                                             numpy.array([0.]),
+                                             3.,
+                                             numpy.array([0.,numpy.pi/2.,0.]),
+                                             1.5,4.)
+    # Should be B&T (8.152)
+    assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     return None
