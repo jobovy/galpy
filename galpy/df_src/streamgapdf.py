@@ -703,7 +703,8 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
     out[numpy.fabs(wperp) < 10.**-10.,0]= (b*wmag2-y*wpar*tilew[:,0])/denom
     out[numpy.fabs(wperp) < 10.**-10.,2]=-(b*wmag2+y*wpar*tilew[:,2])/denom
     # Rotate back to the original frame
-    return 2.0*GM*numpy.sum(rotinv*numpy.tile(out.T,(3,1,1)).T,axis=-1)
+    return 2.0*GM*numpy.sum(\
+        rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
 
 def impulse_deltav_plummer_curvedstream(v,x,b,w,x0,v0,GM,rs):
     """
