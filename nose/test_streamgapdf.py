@@ -122,3 +122,44 @@ def test_impulse_deltav_plummer_subhalo_perpendicular():
     assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     assert numpy.fabs(kick[0,1]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     return None
+
+# Test the Plummer curved calculation for a perpendicular impact
+def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
+    from galpy.df_src import streamgapdf
+    tol= -10.
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[3.4,0.,0.]]),
+                                             numpy.array([4.]),
+                                             3.,
+                                             numpy.array([0.,numpy.pi/2.,0.]),
+                                             1.5,4.)
+    curved_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        numpy.array([[3.4,0.,0.]]),
+        numpy.array([[4.,0.,0.]]),
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        1.5,4.)
+    # Should be equal
+    assert numpy.all(numpy.fabs(kick-curved_kick) < 10.**tol), 'curved Plummer kick does not agree with straight kick for straight track'
+    # Same for a bunch of positions
+    v= numpy.zeros((100,3))
+    v[:,0]= 3.4
+    xpos= numpy.random.normal(size=100)
+    kick= streamgapdf.impulse_deltav_plummer(v,
+                                             xpos,
+                                             3.,
+                                             numpy.array([0.,numpy.pi/2.,0.]),
+                                             1.5,4.)
+    xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
+    curved_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v,
+        xpos,
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        1.5,4.)
+    # Should be equal
+    assert numpy.all(numpy.fabs(kick-curved_kick) < 10.**tol), 'curved Plummer kick does not agree with straight kick for straight track'
+    return None
