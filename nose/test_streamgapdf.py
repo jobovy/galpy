@@ -66,7 +66,7 @@ def test_rotate_to_arbitrary_vector_multi():
     return None
 
 # Test the inverse of the routine that rotates vectors to an arbitrary vector
-def test_rotate_to_arbitrary_vector():
+def test_rotate_to_arbitrary_vector_inverse():
     from galpy.df_src import streamgapdf
     tol= -10.
     v= numpy.array([[1.,0.,0.]])
