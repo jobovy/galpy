@@ -28,13 +28,17 @@ def test_rotate_to_arbitrary_vector():
     assert numpy.fabs(ma[0,1,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,2]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     # Rotate to same should be unit matrix
-    a= (v[0]+10.**-8.)
-    a/= numpy.sqrt(numpy.sum(a**2.))
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,a)
+    ma= streamgapdf._rotate_to_arbitrary_vector(v,v[0])
     assert numpy.all(numpy.fabs(numpy.diag(ma[0])-1.) < 10.**tol), \
         'Rotation matrix to same vector is not unity'
     assert numpy.fabs(numpy.sum(ma**2.)-3.)< 10.**tol, \
         'Rotation matrix to same vector is not unity'
+    # Rotate to -same should be -unit matrix
+    ma= streamgapdf._rotate_to_arbitrary_vector(v,-v[0])
+    assert numpy.all(numpy.fabs(numpy.diag(ma[0])+1.) < 10.**tol), \
+        'Rotation matrix to minus same vector is not minus unity'
+    assert numpy.fabs(numpy.sum(ma**2.)-3.)< 10.**tol, \
+        'Rotation matrix to minus same vector is not minus unity'
     return None
 
 # Test that the rotation routine works for multiple vectors
@@ -95,3 +99,37 @@ def test_rotation_vy():
     assert numpy.fabs(ma[0,1,2]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,1]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
+
+# Test the Plummer calculation in a few simple special cases
+# 1) subhalo along the stream
+def test_impulse_deltav_plummer_subhalo_along_stream():
+    from galpy.df_src import streamgapdf
+    tol= -10.
+    # Simple case in vy
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,1.,0.]]),
+                                             numpy.array([1.]),
+                                             5.1,
+                                             numpy.array([0.,10.,0.]),
+                                             2.3,0.4)
+    # x and z should be zero
+    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    assert numpy.fabs(kick[0,2]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    # Simple case in vz
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,0.,1.]]),
+                                             numpy.array([1.]),
+                                             5.1,
+                                             numpy.array([0.,0.,9.]),
+                                             2.3,0.4)
+    # x and y should be zero
+    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    assert numpy.fabs(kick[0,1]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    # Simple case in 1/sqrt(2.)(vy+vz)
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,1.,1.]]),
+                                             numpy.array([1.]),
+                                             5.1,
+                                             numpy.array([0.,9.,9.]),
+                                             2.3,0.4)
+    # x and y-z should be zero
+    assert numpy.fabs(kick[0,0]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    assert numpy.fabs(kick[0,1]-kick[0,2]) < 10.**tol, 'Perpendicular kick of subhalo moving along the stream not zero'
+    return None
