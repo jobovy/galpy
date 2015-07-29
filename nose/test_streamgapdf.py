@@ -111,4 +111,14 @@ def test_impulse_deltav_plummer_subhalo_perpendicular():
                                              1.5,4.)
     # Should be B&T (8.152)
     assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
+    assert numpy.fabs(kick[0,2]+2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
+    # Same for along z
+    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,0.,numpy.pi]]),
+                                             numpy.array([0.]),
+                                             3.,
+                                             numpy.array([0.,0.,numpy.pi/2.]),
+                                             1.5,4.)
+    # Should be B&T (8.152)
+    assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
+    assert numpy.fabs(kick[0,1]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     return None
