@@ -52,6 +52,7 @@ install:
  - if $REQUIRES_PYNBODY; then git clone https://github.com/pynbody/pynbody.git; fi
  - if $REQUIRES_PYNBODY; then cd pynbody; fi
  - if $REQUIRES_PYNBODY; then python setup.py install; fi
+ - if $REQUIRES_PYNBODY; then cd ..; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
