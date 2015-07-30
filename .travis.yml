@@ -9,12 +9,15 @@ env: #split tests
     - REQUIRES_PYNBODY=false
   matrix:
     - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
     - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
     - NOSE_IGNORE_FILES='^((?!(test_streamdf|test_streamgapdf)).)*$'
+    - NOSE_IGNORE_FILES='^((?!(test_qdf|test_pv2qdf)).)*$'
+    - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
 addons:
   apt:
     packages:
@@ -22,13 +25,13 @@ addons:
     - lcov # leave for when they approve its use
 before_install:
  # Install lcov
- - wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
- - tar xf lcov_1.11.orig.tar.gz
- - mkdir $HOME/usr
- - export PATH=$PATH:$HOME/usr/bin
- - make -C lcov-1.11/ install PREFIX=$HOME
+ #- wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+ #- tar xf lcov_1.11.orig.tar.gz
+ #- mkdir $HOME/usr
+ #- export PATH=$PATH:$HOME/usr/bin
+ #- make -C lcov-1.11/ install PREFIX=$HOME
  #Setup conda for faster installs
- - wget http://repo.continuum.io/miniconda/Miniconda-3.7.3-Linux-x86_64.sh -O miniconda.sh
+ - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
  - export PATH="$HOME/miniconda/bin:$PATH"
  - hash -r
@@ -49,7 +52,7 @@ install:
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
  - pip install codecov
- - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
+ - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git@cda64c8ac9fa59b83663b155d14d184eb33826a5; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:

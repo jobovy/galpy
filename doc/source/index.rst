@@ -90,14 +90,17 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Uses ``galpy.potential`` functions to calculate the acceleration field of the best-fit potential in Bovy & Rix (2013) above.
 #. *The power spectrum of the Milky Way: Velocity fluctuations in the Galactic disk*, Jo Bovy, Jonathan C. Bird, Ana E. Garcia Perez, Steven M. Majewski, David L. Nidever, & Gail Zasowski (2015), *Astrophys. J.*, **800**, 83 (`arXiv/1410.8135 <http://arxiv.org/abs/1410.8135>`_):
     Uses ``galpy.df.evolveddiskdf`` to calculate the mean non-axisymmetric velocity field due to different non-axisymmetric perturbations and compares it to APOGEE data.
-#. *Generation of mock tidal streams*, Mark A. Fardal, Shuiyao Huang, & Martin D. Weinberg (2014), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1410.1861 <http://arxiv.org/abs/1410.1861>`_):
-    Uses ``galpy.potential`` and ``galpy.orbit`` for orbit integration in creating a *particle-spray* model for tidal streams.
-#. *The nature and orbit of the Ophiuchus stream*, Branimir Sesar, Jo Bovy, Edouard J. Bernard, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1501.00581 <http://arxiv.org/abs/1501.00581>`_):
-    Uses the Orbit.fit routine in ``galpy.orbit`` to fit the orbit of the Ophiuchus stream to newly obtained observational data and the routines in ``galpy.df.streamdf`` to model the creation of the stream.
 #. *The LMC geometry and outer stellar populations from early DES data*, Eduardo Balbinot, B. X. Santiago, L. Girardi, et al. (2015), *Mon. Not. Roy. Astron. Soc.*, **449**, 1129 (`arXiv/1502.05050 <http://arxiv.org/abs/1502.05050>`_):
     Employs ``galpy.potential.MWPotential`` as a mass model for the Milky Way to constrain the mass of the LMC.
+#. *Generation of mock tidal streams*, Mark A. Fardal, Shuiyao Huang, & Martin D. Weinberg (2014), *Mon. Not. Roy. Astron. Soc.*, **452**, 301 (`arXiv/1410.1861 <http://arxiv.org/abs/1410.1861>`_):
+    Uses ``galpy.potential`` and ``galpy.orbit`` for orbit integration in creating a *particle-spray* model for tidal streams.
+#. *The nature and orbit of the Ophiuchus stream*, Branimir Sesar, Jo Bovy, Edouard J. Bernard, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1501.00581 <http://arxiv.org/abs/1501.00581>`_):
+    Uses the ``Orbit.fit`` routine in ``galpy.orbit`` to fit the orbit of the Ophiuchus stream to newly obtained observational data and the routines in ``galpy.df.streamdf`` to model the creation of the stream.
 #. *Young Pulsars and the Galactic Center GeV Gamma-ray Excess*, Ryan M. O’Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2015), *Phys. Rev. Lett.*, submitted (`arXiv/1504.02477 <http://arxiv.org/abs/1504.02477>`_):
      Uses galpy orbit integration  and ``galpy.potential.MWPotential2014`` as part of a Monte Carlo simulation of the Galactic young-pulsar population.
+#. *Phase Wrapping of Epicyclic Perturbations in the Wobbly Galaxy*, Alexander de la Vega, Alice C. Quillen, Jeffrey L. Carlin, Sukanya Chakrabarti, & Elena D'Onghia (2015), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1507.07489 <http://arxiv.org/abs/1507.07489>`_):
+     Employs galpy orbit integration, ``galpy.potential`` functions, and ``galpy.potential.MWPotential2014`` to investigate epicyclic motions induced by the pericentric passage of a large dwarf galaxy and how these motions give rise to streaming motions in the vertical velocities of Milky Way disk stars.
+
 
 Acknowledging galpy
 --------------------
