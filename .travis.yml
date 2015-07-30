@@ -12,8 +12,7 @@ env: #split tests
     - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
-    - NOSE_IGNORE_FILES='^((?!test_qdf).)*$'
-    - NOSE_IGNORE_FILES='^((?!test_pv2qdf).)*$'
+    - NOSE_IGNORE_FILES='^((?!(test_qdf|test_pv2qdf)).)*$'
     - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
 addons:
   apt:
