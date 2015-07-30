@@ -201,3 +201,52 @@ def test_impulse_deltav_general():
                                            pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential'
     return None
+
+# Test general impulse vs. Plummer for curved stream
+def test_impulse_deltav_general_curved():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential
+    tol= -10.
+    kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        numpy.array([[3.4,0.,0.]]),
+        numpy.array([[4.,0.,0.]]),
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        1.5,4.)
+    pp= PlummerPotential(amp=1.5,b=4.)
+    general_kick= streamgapdf.impulse_deltav_general_curvedstream(\
+        numpy.array([[3.4,0.,0.]]),
+        numpy.array([[4.,0.,0.]]),
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    # Same for a bunch of positions
+    v= numpy.zeros((100,3))
+    v[:,0]= 3.4
+    xpos= numpy.random.normal(size=100)
+    xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
+    kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v,
+        xpos,
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        numpy.pi,numpy.exp(1.))
+    pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
+    general_kick=\
+        streamgapdf.impulse_deltav_general_curvedstream(\
+        v,
+        xpos,
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    return None
