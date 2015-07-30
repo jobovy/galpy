@@ -774,11 +774,11 @@ def impulse_deltav_general(v,y,b,w,pot):
     # Rotate the subhalo's velocity to the stream frames
     tilew= numpy.sum(rot*numpy.tile(w,(nv,3,1)),axis=-1)
     tilew[:,1]-=numpy.sqrt(numpy.sum(v**2.,axis=1))
-    wmag = numpy.sqrt(w[0]**2+w[2]**2)
-    b0 = b*numpy.array([-w[2]/wmag,0,w[0]/wmag])
-    return numpy.array(map(lambda i:numpy.sum(i[2]
-                       *_deltav_integrate(i[0],b0,i[1],pot).T,axis=-1)
-                        ,zip(y,tilew,rotinv)))
+    wmag = numpy.sqrt(tilew[:,0]**2+tilew[:,2]**2)
+    b0 = b*numpy.array([-tilew[:,2]/wmag,numpy.zeros(nv),tilew[:,0]/wmag]).T
+    return numpy.array(map(lambda i:numpy.sum(i[3]
+                       *_deltav_integrate(i[0],i[1],i[2],pot).T,axis=-1)
+                        ,zip(y,b0,tilew,rotinv)))
 
 def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     """
