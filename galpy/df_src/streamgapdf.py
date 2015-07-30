@@ -776,9 +776,9 @@ def impulse_deltav_general(v,y,b,w,pot):
     tilew[:,1]-=numpy.sqrt(numpy.sum(v**2.,axis=1))
     wmag = numpy.sqrt(tilew[:,0]**2+tilew[:,2]**2)
     b0 = b*numpy.array([-tilew[:,2]/wmag,numpy.zeros(nv),tilew[:,0]/wmag]).T
-    return numpy.array(map(lambda i:numpy.sum(i[3]
+    return numpy.array(list(map(lambda i:numpy.sum(i[3]
                        *_deltav_integrate(i[0],i[1],i[2],pot).T,axis=-1)
-                        ,zip(y,b0,tilew,rotinv)))
+                        ,zip(y,b0,tilew,rotinv))))
 
 def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     """
@@ -805,8 +805,8 @@ def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     b0 = numpy.cross(w,v0)
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
     b_ = b0+x-x0
-    return numpy.array(map(lambda i:_deltav_integrate(0.,i[1],i[0],pot)
-                        ,zip(w-v,b_)))
+    return numpy.array(list(map(lambda i:_deltav_integrate(0.,i[1],i[0],pot)
+                        ,zip(w-v,b_))))
 
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
