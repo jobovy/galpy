@@ -27,7 +27,7 @@ before_install:
  - export PATH=$PATH:$HOME/usr/bin
  - make -C lcov-1.11/ install PREFIX=$HOME
  #Setup conda for faster installs
- - wget http://repo.continuum.io/miniconda/Miniconda-3.7.3-Linux-x86_64.sh -O miniconda.sh
+ - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
  - export PATH="$HOME/miniconda/bin:$PATH"
  - hash -r
