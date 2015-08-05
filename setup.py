@@ -203,6 +203,40 @@ if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
 else:
     interppotential_c_incl= False
 
+#actionAngleTorus C extension
+actionAngleTorus_c_src= glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/*.cc')
+actionAngleTorus_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/*.cc'))
+actionAngleTorus_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/pot/*.cc'))
+actionAngleTorus_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/*.cc'))
+#actionAngleTorus_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+#actionAngleTorus_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
+
+actionAngleTorus_include_dirs= \
+    ['galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/pot',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils']
+#                                'galpy/util/interp_2d',
+#                                'galpy/potential_src/potential_c_ext']
+
+
+#Installation of this extension using the GSL may (silently) fail, if the GSL
+#is built for the wrong architecture, on Mac you can install the GSL correctly
+#using
+#brew install gsl --universal
+actionAngleTorus_c= Extension('galpy_actionAngleTorus_c',
+                              language='c++',
+                              sources=actionAngleTorus_c_src,
+                              libraries=pot_libraries,
+                              include_dirs=actionAngleTorus_include_dirs,
+                              extra_compile_args=extra_compile_args,
+                              extra_link_args=extra_link_args)
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+        not orbit_ext and not interppotential_ext and not single_ext:
+    actionAngleTorus_c_incl= True
+    ext_modules.append(actionAngleTorus_c)
+else:
+    actionAngleTorus_c_incl= False
+    
 setup(name='galpy',
       version='1.1',
       description='Galactic Dynamics in python',
