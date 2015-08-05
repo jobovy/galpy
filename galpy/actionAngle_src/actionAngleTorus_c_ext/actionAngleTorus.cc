@@ -13,6 +13,7 @@
 extern "C"
 {
   void actionAngleTorus_xv(double jr, double jphi, double jz,
+			   int na,
 			   double * angler, double * anglephi, double * anglez,
 			   double * R, double * vR, double * vT, 
 			   double * z, double * vz, double * phi)
@@ -38,17 +39,21 @@ extern "C"
 
     // Load angles and get (x,v)
     Angles A;
-    A[0]= *(angler);
-    A[1]= *(anglez);
-    A[2]= *(anglephi);
-
     PSPT Q;
-    Q= T->Map3D(A);
-    *R= Q(0);
-    *z= Q(1);
-    *phi= Q(2);
-    *vR= Q(3);
-    *vz= Q(4);
-    *vT= Q(5);
+    int ii;
+    for (ii=0; ii < na; ii++) {
+      // Load angles
+      A[0]= *(angler+ii);
+      A[1]= *(anglez+ii);
+      A[2]= *(anglephi+ii);
+      // get phase-space point
+      Q= T->Map3D(A);
+      *(R+ii)= Q(0);
+      *(z+ii)= Q(1);
+      *(phi+ii)= Q(2);
+      *(vR+ii)= Q(3);
+      *(vz+ii)= Q(4);
+      *(vT+ii)= Q(5);
+    }
   }
 }
