@@ -50,7 +50,7 @@ install:
  - pip install codecov
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code
- - git clone git@github.com:jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+ - git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
  - cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
  - git checkout galpy
  - cd -
