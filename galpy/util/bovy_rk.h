@@ -31,6 +31,9 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef __BOVY_RK_H__
 #define __BOVY_RK_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
 /*
   include
 */
@@ -114,4 +117,7 @@ double bovy_dopr54_actualstep(void (*func)(double, double *, double *,int, struc
 			      double *, double *,
 			      double *, double *,
 			      double *,unsigned char);
+#ifdef __cplusplus
+}
+#endif
 #endif /* bovy_rk.h */

@@ -2,18 +2,6 @@
 #include <galpy_potentials.h>
 #include <actionAngle.h>
 #include <cubic_bspline_2d_coeffs.h>
-double evaluatePotentials(double R, double Z, 
-			  int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double pot= 0.;
-  for (ii=0; ii < nargs; ii++){
-    pot+= potentialArgs->potentialEval(R,Z,0.,0.,
-				       potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return pot;
-}
 void parse_actionAngleArgs(int npot,
 			   struct potentialArg * potentialArgs,
 			   int * pot_type,

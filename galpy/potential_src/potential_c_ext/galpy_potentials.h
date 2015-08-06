@@ -4,6 +4,9 @@
 */
 #ifndef __GALPY_POTENTIALS_H__
 #define __GALPY_POTENTIALS_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <interp_2d.h>
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
@@ -45,6 +48,28 @@ struct potentialArg{
 /*
   Function declarations
 */
+//Potential and force evaluation
+double evaluatePotentials(double,double,int, struct potentialArg *);
+double calcRforce(double,double,double,double,int,struct potentialArg *);
+double calczforce(double,double,double,double,int,struct potentialArg *);
+double calcPhiforce(double, double,double, double, 
+			int, struct potentialArg *);
+double calcR2deriv(double, double, double,double, 
+			 int, struct potentialArg *);
+double calcphi2deriv(double, double, double,double, 
+			   int, struct potentialArg *);
+double calcRphideriv(double, double, double,double, 
+			   int, struct potentialArg *);
+double calcPlanarRforce(double, double, double, 
+			int, struct potentialArg *);
+double calcPlanarphiforce(double, double, double, 
+			int, struct potentialArg *);
+double calcPlanarR2deriv(double, double, double, 
+			 int, struct potentialArg *);
+double calcPlanarphi2deriv(double, double, double, 
+			   int, struct potentialArg *);
+double calcPlanarRphideriv(double, double, double, 
+			   int, struct potentialArg *);
 //ZeroForce
 double ZeroPlanarForce(double,double,double,
 		       struct potentialArg *);
@@ -230,4 +255,7 @@ double PlummerPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double PlummerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+#ifdef __cplusplus
+}
+#endif
 #endif /* galpy_potentials.h */
