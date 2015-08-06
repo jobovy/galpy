@@ -9,6 +9,10 @@
 #include <ctime>
 #include "Torus.h"
 #include "LogPot.h"
+#include "galpyPot.h"
+#include <actionAngle.h>
+#include <integrateFullOrbit.h>
+#include <galpy_potentials.h>
 
 extern "C"
 {
@@ -22,9 +26,20 @@ extern "C"
     Torus *T;
     T= new(std::nothrow) Torus;
     
-    // set up GalaxyPotential
+    // set up potential
     Potential *Phi;
-    Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
+    //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
+    int npot= 1;
+    struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+    double * pot_args;
+    pot_args= (double *) malloc ( 3 * sizeof ( double ) );
+    *pot_args= 1.;
+    *(pot_args+1)= 0.8;
+    *(pot_args+2)= 0.;
+    int pot_type= 0;
+    parse_actionAngleArgs(npot,potentialArgs,&pot_type,pot_args);
+    parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,pot_args);
+    Phi = new(std::nothrow) galpyPotential(npot,potentialArgs);
 
     // Load actions and fit Torus
     Actions J;
