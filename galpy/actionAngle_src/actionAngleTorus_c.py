@@ -36,14 +36,25 @@ if _lib is None: #pragma: no cover
 else:
     _ext_loaded= True
 
-def actionAngleTorus_xv_c(pot,jr,jphi,jz,
-                          angler,anglephi,anglez):
+def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
+                               angler,anglephi,anglez):
     """
     NAME:
+       actionAngleTorus_xvFreqs_c
     PURPOSE:
+       compute configuration (x,v) and frequencies of a set of angles on a single torus
     INPUT:
+       pot - Potential object or list thereof
+       jr - radial action (scalar)
+       jphi - azimuthal action (scalar)
+       jz - vertical action (scalar)
+       angler - radial angle (array [N])
+       anglephi - azimuthal angle (array [N])
+       anglez - vertical angle (array [N])
     OUTPUT:
+       (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz)
     HISTORY:
+       2015-08-05/07 - Written - Bovy (UofT)
     """
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
