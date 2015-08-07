@@ -37,7 +37,7 @@ if _lib is None: #pragma: no cover
 else:
     _ext_loaded= True
 
-def _parse_pot(pot,potforactions=False):
+def _parse_pot(pot,potforactions=False,potfortorus=False):
     """Parse the potential so it can be fed to C"""
     #Figure out what's in pot
     if not isinstance(pot,list):
@@ -87,9 +87,9 @@ def _parse_pot(pot,potforactions=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            if potforactions:
+            if potforactions or potfortorus:
                 pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            else:
+            if not potforactions:
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])

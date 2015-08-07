@@ -7,7 +7,7 @@ void parse_actionAngleArgs(int npot,
 			   struct potentialArg * potentialArgs,
 			   int * pot_type,
 			   double * pot_args,
-			   bool fortorus){
+			   bool forTorus){
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
@@ -106,6 +106,26 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= gsl_interp_accel_alloc ();
       potentialArgs->accy= gsl_interp_accel_alloc ();
       potentialArgs->potentialEval= &interpRZPotentialEval;
+      if ( forTorus == true ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz); 
+	pot_args+= nR*nz;
+	potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2drforce,Rgrid,zgrid,potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxrforce= gsl_interp_accel_alloc ();
+	potentialArgs->accyrforce= gsl_interp_accel_alloc ();
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,pot_args+kk*nz,nz); 
+	pot_args+= nR*nz;    
+	potentialArgs->i2dzforce= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2dzforce,Rgrid,zgrid,potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxzforce= gsl_interp_accel_alloc ();
+	potentialArgs->accyzforce= gsl_interp_accel_alloc ();
+	potentialArgs->Rforce= &interpRZPotentialRforce;
+	potentialArgs->zforce= &interpRZPotentialzforce;
+      }
       potentialArgs->nargs= 2;
       //clean up
       free(Rgrid);
