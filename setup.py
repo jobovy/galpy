@@ -209,8 +209,6 @@ actionAngleTorus_c_src= \
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/*.cc'))
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/pot/*.cc'))
-actionAngleTorus_c_src.extend(\
     glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/*.cc'))
 actionAngleTorus_c_src.append(\
     'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
