@@ -23,6 +23,7 @@ extern "C"
 				int npot,
 				int * pot_type,
 				double * pot_args,
+				double tol,
 				double * R, double * vR, double * vT, 
 				double * z, double * vz, double * phi,
 				double * Omegar,double * Omegaphi,double * Omegaz)
@@ -43,9 +44,8 @@ extern "C"
     J[0]= jr;
     J[1]= jz;
     J[2]= jphi;
-    double dJ= 0.003;
     int flag;
-    flag = T->AutoFit(J,Phi,dJ);
+    flag = T->AutoFit(J,Phi,tol);
 
     Phi->set_Lz(J(2));
 

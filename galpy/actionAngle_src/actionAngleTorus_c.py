@@ -37,7 +37,8 @@ else:
     _ext_loaded= True
 
 def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
-                               angler,anglephi,anglez):
+                               angler,anglephi,anglez,
+                               tol=0.003):
     """
     NAME:
        actionAngleTorus_xvFreqs_c
@@ -51,6 +52,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
        angler - radial angle (array [N])
        anglephi - azimuthal angle (array [N])
        anglez - vertical angle (array [N])
+       tol= (0.003) goal for |dJ|/|J| along the torus
     OUTPUT:
        (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz)
     HISTORY:
@@ -84,6 +86,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -122,6 +125,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
                                  ctypes.c_int(npot),
                                  pot_type,
                                  pot_args,
+                                 ctypes.c_double(tol),
                                  R,vR,vT,z,vz,phi,
                                  Omegar,Omegaphi,Omegaz)
 
