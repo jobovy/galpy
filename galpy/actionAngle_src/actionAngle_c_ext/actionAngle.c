@@ -21,6 +21,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
@@ -30,6 +38,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialEval;
@@ -39,6 +55,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 8: //HernquistPotential, 2 arguments
       potentialArgs->potentialEval= &HernquistPotentialEval;
@@ -48,6 +72,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 9: //NFWPotential, 2 arguments
       potentialArgs->potentialEval= &NFWPotentialEval;
@@ -57,6 +89,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 10: //JaffePotential, 2 arguments
       potentialArgs->potentialEval= &JaffePotentialEval;
@@ -66,6 +106,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
@@ -76,6 +124,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
@@ -85,6 +141,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;     
     case 13: //interpRZPotential, XX arguments
       //Grab the grids and the coefficients
@@ -140,6 +204,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;     
     case 15: //PowerSphericalPotentialwCutoff, 3 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
@@ -149,6 +221,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
       potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
@@ -158,6 +238,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
       break;
     case 17: //PlummerPotential, 3 arguments
       potentialArgs->potentialEval= &PlummerPotentialEval;
@@ -167,6 +255,14 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
+      if ( forTorus == true ) {
+	potentialArgs->i2drforce= NULL;
+	potentialArgs->accxrforce= NULL;
+	potentialArgs->accyrforce= NULL;
+	potentialArgs->i2dzforce= NULL;
+	potentialArgs->accxzforce= NULL;
+	potentialArgs->accyzforce= NULL;
+      }
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
