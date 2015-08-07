@@ -9,7 +9,6 @@
 #include <ctime>
 #include <gsl/gsl_spline.h>
 #include "Torus.h"
-#include "LogPot.h"
 #include "interp_2d.h"
 #include "galpyPot.h"
 #include <actionAngle.h>
