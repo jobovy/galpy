@@ -16,14 +16,16 @@
 
 extern "C"
 {
-  void actionAngleTorus_xv(double jr, double jphi, double jz,
-			   int na,
-			   double * angler, double * anglephi, double * anglez,
-			   int npot,
-			   int * pot_type,
-			   double * pot_args,
-			   double * R, double * vR, double * vT, 
-			   double * z, double * vz, double * phi)
+  // Calculate (x,v) for angles on a single torus; also returns the frequencies
+  void actionAngleTorus_xvFreqs(double jr, double jphi, double jz,
+				int na,
+				double * angler, double * anglephi, double * anglez,
+				int npot,
+				int * pot_type,
+				double * pot_args,
+				double * R, double * vR, double * vT, 
+				double * z, double * vz, double * phi,
+				double * Omegar,double * Omegaphi,double * Omegaz)
   {
     // set up Torus
     Torus *T;
@@ -65,5 +67,11 @@ extern "C"
       *(vz+ii)= Q(4);
       *(vT+ii)= Q(5);
     }
+
+    // Finally, grab the frequencies
+    Frequencies om=T->omega();
+    *Omegar= om(0);
+    *Omegaz= om(1);
+    *Omegaphi= om(2);
   }
 }

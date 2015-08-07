@@ -46,7 +46,7 @@ def actionAngleTorus_xv_c(pot,jr,jphi,jz,
     HISTORY:
     """
     #Parse the potential
-    #npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result arrays
     R= numpy.empty(len(angler))
@@ -55,23 +55,33 @@ def actionAngleTorus_xv_c(pot,jr,jphi,jz,
     z= numpy.empty(len(angler))
     vz= numpy.empty(len(angler))
     phi= numpy.empty(len(angler))
+    Omegar= numpy.empty(1)
+    Omegaphi= numpy.empty(1)
+    Omegaz= numpy.empty(1)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
-    actionAngleTorus_xvFunc= _lib.actionAngleTorus_xv
-    actionAngleTorus_xvFunc.argtypes= [ctypes.c_double,
-                                       ctypes.c_double,
-                                       ctypes.c_double,
-                                       ctypes.c_int,
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                                       ndpointer(dtype=numpy.float64,flags=ndarrayFlags)]
+    actionAngleTorus_xvFreqsFunc= _lib.actionAngleTorus_xvFreqs
+    actionAngleTorus_xvFreqsFunc.argtypes=\
+        [ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_int,
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_int,
+         ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags)]
 
     #Array requirements, first store old order
     f_cont= [angler.flags['F_CONTIGUOUS'],
@@ -86,23 +96,30 @@ def actionAngleTorus_xv_c(pot,jr,jphi,jz,
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     phi= numpy.require(phi,dtype=numpy.float64,requirements=['C','W'])
+    Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
+    Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
+    Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
     
     #Run the C code
-    actionAngleTorus_xvFunc(ctypes.c_double(jr),
-                            ctypes.c_double(jphi),
-                            ctypes.c_double(jz),
-                            ctypes.c_int(len(angler)),
-                            angler,
-                            anglephi,
-                            anglez,
-                            R,vR,vT,z,vz,phi)
+    actionAngleTorus_xvFreqsFunc(ctypes.c_double(jr),
+                                 ctypes.c_double(jphi),
+                                 ctypes.c_double(jz),
+                                 ctypes.c_int(len(angler)),
+                                 angler,
+                                 anglephi,
+                                 anglez,
+                                 ctypes.c_int(npot),
+                                 pot_type,
+                                 pot_args,
+                                 R,vR,vT,z,vz,phi,
+                                 Omegar,Omegaphi,Omegaz)
 
     #Reset input arrays
     if f_cont[0]: angler= numpy.asfortranarray(angler)
     if f_cont[0]: anglephi= numpy.asfortranarray(anglephi)
     if f_cont[0]: anglez= numpy.asfortranarray(anglez)
 
-    return (R,vR,vT,z,vz,phi)
+    return (R,vR,vT,z,vz,phi,Omegar[0],Omegaphi[0],Omegaz[0])
 
 
 
