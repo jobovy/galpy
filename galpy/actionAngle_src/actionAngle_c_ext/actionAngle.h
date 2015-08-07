@@ -6,6 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <stdbool.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_spline.h>
 #include "interp_2d.h"
@@ -38,7 +39,7 @@ struct pragmasolver{
 /*
   Function declarations
 */
-void parse_actionAngleArgs(int,struct potentialArg *,int *,double *);
+  void parse_actionAngleArgs(int,struct potentialArg *,int *,double *,bool);
 #ifdef __cplusplus
 }
 #endif

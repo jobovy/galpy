@@ -1,11 +1,13 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <galpy_potentials.h>
 #include <actionAngle.h>
 #include <cubic_bspline_2d_coeffs.h>
 void parse_actionAngleArgs(int npot,
 			   struct potentialArg * potentialArgs,
 			   int * pot_type,
-			   double * pot_args){
+			   double * pot_args,
+			   bool fortorus){
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
@@ -13,6 +15,8 @@ void parse_actionAngleArgs(int npot,
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 3 arguments
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
+      potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
+      potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -20,6 +24,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
+      potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
+      potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -27,6 +33,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialEval;
+      potentialArgs->Rforce= &PowerSphericalPotentialRforce;
+      potentialArgs->zforce= &PowerSphericalPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -34,6 +42,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 8: //HernquistPotential, 2 arguments
       potentialArgs->potentialEval= &HernquistPotentialEval;
+      potentialArgs->Rforce= &HernquistPotentialRforce;
+      potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -41,6 +51,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 9: //NFWPotential, 2 arguments
       potentialArgs->potentialEval= &NFWPotentialEval;
+      potentialArgs->Rforce= &NFWPotentialRforce;
+      potentialArgs->zforce= &NFWPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -48,6 +60,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 10: //JaffePotential, 2 arguments
       potentialArgs->potentialEval= &JaffePotentialEval;
+      potentialArgs->Rforce= &JaffePotentialRforce;
+      potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -55,6 +69,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
+      potentialArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
+      potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1));
       potentialArgs->i2d= NULL;
@@ -63,6 +79,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
+      potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
+      potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->nargs= 4;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -96,6 +114,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 14: //IsochronePotential, 2 arguments
       potentialArgs->potentialEval= &IsochronePotentialEval;
+      potentialArgs->Rforce= &IsochronePotentialRforce;
+      potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -103,6 +123,8 @@ void parse_actionAngleArgs(int npot,
       break;     
     case 15: //PowerSphericalPotentialwCutoff, 3 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
+      potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
+      potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -110,6 +132,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
       potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
+      potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
+      potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->nargs= 3;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -117,6 +141,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 17: //PlummerPotential, 3 arguments
       potentialArgs->potentialEval= &PlummerPotentialEval;
+      potentialArgs->Rforce= &PlummerPotentialRforce;
+      potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
