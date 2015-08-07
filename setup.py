@@ -209,7 +209,11 @@ actionAngleTorus_c_src= \
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/*.cc'))
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/*.cc'))
+    ['galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/CHB.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Err.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
 actionAngleTorus_c_src.append(\
     'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
 actionAngleTorus_c_src.extend(\
