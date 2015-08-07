@@ -19,6 +19,9 @@ extern "C"
   void actionAngleTorus_xv(double jr, double jphi, double jz,
 			   int na,
 			   double * angler, double * anglephi, double * anglez,
+			   int npot,
+			   int * pot_type,
+			   double * pot_args,
 			   double * R, double * vR, double * vT, 
 			   double * z, double * vz, double * phi)
   {
@@ -29,17 +32,9 @@ extern "C"
     // set up potential
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
-    int npot= 1;
-    struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-    double * pot_args;
-    pot_args= (double *) malloc ( 3 * sizeof ( double ) );
-    *pot_args= 1.;
-    *(pot_args+1)= 0.8;
-    *(pot_args+2)= 0.;
-    int pot_type= 0;
-    parse_actionAngleArgs(npot,potentialArgs,&pot_type,pot_args);
-    parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,pot_args);
-    Phi = new(std::nothrow) galpyPotential(npot,potentialArgs);
+    struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+    parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,true);
+    Phi = new(std::nothrow) galpyPotential(npot,actionAngleArgs);
 
     // Load actions and fit Torus
     Actions J;
