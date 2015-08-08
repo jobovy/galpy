@@ -1898,6 +1898,20 @@ def test_MWPotential_warning_isochroneapprox():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+def test_MWPotential_warning_torus():
+    # Test that using MWPotential throws a warning, see #229
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        aAA= actionAngleTorus(pot=MWPotential)
+    except: pass
+    else:
+        raise AssertionError("actionAngleTorus with MWPotential should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("always",galpyWarning)
+    return None
+
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
                                         ntimes=1001,fixed_quad=False,
