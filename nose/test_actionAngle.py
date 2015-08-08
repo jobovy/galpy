@@ -8,62 +8,6 @@ _TRAVIS= bool(os.getenv('TRAVIS'))
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
-#Basic sanity checking: circular orbit should have constant R, zero vR, vT=vc
-def test_actionAngleTorus_basic():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential, rl, vcirc
-    tol= -4.
-    jr= 10.**-10.
-    jz= 10.**-10.
-    aAT= actionAngleTorus(pot=MWPotential)
-    # at R=1, Lz=1
-    jphi= 1.
-    angler= numpy.linspace(0.,2.*numpy.pi,101)
-    anglephi= numpy.linspace(0.,2.*numpy.pi,101)+1.
-    anglez= numpy.linspace(0.,2.*numpy.pi,101)+2.
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=1.5
-    jphi= 1.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    print(RvR[0], rl(MWPotential,jphi))
-    print(numpy.nanmax(numpy.fabs(RvR[0]-rl(MWPotential,jphi))))
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=0.5
-    jphi= 0.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    print(RvR[0], rl(MWPotential,jphi))
-    print(numpy.nanmax(numpy.fabs(RvR[0]-rl(MWPotential,jphi))))
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    return None
-
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
     from galpy.actionAngle import actionAngleIsochrone
@@ -1603,6 +1547,95 @@ def test_actionAngleIsochroneApprox_plotting():
                 0.88719443,-0.47713334,0.12019596])
     obs.integrate(numpy.linspace(0.,200.,20001),lp)
     aAI.plot(obs,type='jr')   
+    return None
+
+#Basic sanity checking: circular orbit should have constant R, zero vR, vT=vc
+def test_actionAngleTorus_basic():
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential, rl, vcirc
+    tol= -4.
+    jr= 10.**-10.
+    jz= 10.**-10.
+    aAT= actionAngleTorus(pot=MWPotential)
+    # at R=1, Lz=1
+    jphi= 1.
+    angler= numpy.linspace(0.,2.*numpy.pi,101)
+    anglephi= numpy.linspace(0.,2.*numpy.pi,101)+1.
+    anglez= numpy.linspace(0.,2.*numpy.pi,101)+2.
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
+        'circular orbit does not have constant radius for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
+        'circular orbit does not have zero radial velocity for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
+        'circular orbit does not have constant vT=vc for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
+        'circular orbit does not have zero vertical height for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
+        'circular orbit does not have zero vertical velocity for actionAngleTorus'
+    # at Lz=1.5
+    jphi= 1.5
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
+        'circular orbit does not have constant radius for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
+        'circular orbit does not have zero radial velocity for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
+        'circular orbit does not have constant vT=vc for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
+        'circular orbit does not have zero vertical height for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
+        'circular orbit does not have zero vertical velocity for actionAngleTorus'
+    # at Lz=0.5
+    jphi= 0.5
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
+        'circular orbit does not have constant radius for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
+        'circular orbit does not have zero radial velocity for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
+        'circular orbit does not have constant vT=vc for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
+        'circular orbit does not have zero vertical height for actionAngleTorus'
+    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
+        'circular orbit does not have zero vertical velocity for actionAngleTorus'
+    return None
+
+#Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
+def test_actionAngleTorus_basic_freqs():
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq, rl
+    tol= -3.
+    jr= 10.**-6.
+    jz= 10.**-6.
+    aAT= actionAngleTorus(pot=MWPotential)
+    # at Lz=1
+    jphi= 1.
+    om= aAT.Freqs(jr,jphi,jz)
+    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
+    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
+    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
+    # at Lz=1.5
+    jphi= 1.5
+    om= aAT.Freqs(jr,jphi,jz)
+    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
+    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
+    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
+    # at Lz=0.5
+    jphi= 0.5
+    om= aAT.Freqs(jr,jphi,jz)
+    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
+    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
+    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
     return None
 
 #Test the Orbit interface
