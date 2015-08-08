@@ -136,5 +136,63 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
 
     return (R,vR,vT,z,vz,phi,Omegar[0],Omegaphi[0],Omegaz[0])
 
+def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
+                             tol=0.003):
+    """
+    NAME:
+       actionAngleTorus_Freqs_c
+    PURPOSE:
+       compute frequencies on a single torus
+    INPUT:
+       pot - Potential object or list thereof
+       jr - radial action (scalar)
+       jphi - azimuthal action (scalar)
+       jz - vertical action (scalar)
+       tol= (0.003) goal for |dJ|/|J| along the torus
+    OUTPUT:
+       (Omegar,Omegaphi,Omegaz)
+    HISTORY:
+       2015-08-05/07 - Written - Bovy (UofT)
+    """
+    #Parse the potential
+    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
+
+    #Set up result
+    Omegar= numpy.empty(1)
+    Omegaphi= numpy.empty(1)
+    Omegaz= numpy.empty(1)
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    actionAngleTorus_FreqsFunc= _lib.actionAngleTorus_Freqs
+    actionAngleTorus_FreqsFunc.argtypes=\
+        [ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_int,
+         ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_double,
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags)]
+
+    #Array requirements
+    Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
+    Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
+    Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
+    
+    #Run the C code
+    actionAngleTorus_FreqsFunc(ctypes.c_double(jr),
+                               ctypes.c_double(jphi),
+                               ctypes.c_double(jz),
+                               ctypes.c_int(npot),
+                               pot_type,
+                               pot_args,
+                               ctypes.c_double(tol),
+                               Omegar,Omegaphi,Omegaz)
+
+    return (Omegar[0],Omegaphi[0],Omegaz[0])
+
 
 
