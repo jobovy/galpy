@@ -1712,6 +1712,31 @@ def test_actionAngleTorus_interppot_freqs():
     assert numpy.fabs(om[2]-omi[2]) < 10.**-4., 'Vertical frequency computed using the torus machine does not agree between potential and interpolated potential'
     return None
 
+#Test the actionAngleTorus against an isochrone potential: actions
+def test_actionAngleTorus_Isochrone_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleTorus, \
+        actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    tol= -6.
+    aAT= actionAngleTorus(pot=ip,tol=tol)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.])
+    anglephi= numpy.array([numpy.pi])
+    anglez= numpy.array([numpy.pi/2.])
+    # Calculate position from aAT
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    # Calculate actions from aAI
+    ji= aAI(*RvR)
+    djr= numpy.fabs((ji[0]-jr)/jr)
+    dlz= numpy.fabs((ji[1]-jphi)/jphi)
+    djz= numpy.fabs((ji[2]-jz)/jz)
+    assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.) 
+    assert djz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
+    return None
+
 #Test error when potential is not implemented in C
 def test_actionAngleTorus_nocerr():
     from galpy.actionAngle import actionAngleTorus
