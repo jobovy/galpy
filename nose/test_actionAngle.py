@@ -1733,8 +1733,8 @@ def test_actionAngleTorus_Isochrone_actions():
     dlz= numpy.fabs((ji[1]-jphi)/jphi)
     djz= numpy.fabs((ji[2]-jz)/jz)
     assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.) 
-    assert djz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert djz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djz*100.)
     return None
 
 #Test the actionAngleTorus against a Staeckel potential: actions
@@ -1759,8 +1759,34 @@ def test_actionAngleTorus_Staeckel_actions():
     dlz= numpy.fabs((ji[1]-jphi)/jphi)
     djz= numpy.fabs((ji[2]-jz)/jz)
     assert djr < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djr*100.) 
-    assert djz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djr*100.)
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert djz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleTorus against a Staeckel potential: frequencies
+def test_actionAngleTorus_Staeckel_freqs():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.actionAngle import actionAngleTorus, \
+        actionAngleStaeckel
+    delta= 1.2
+    kp= KuzminKutuzovStaeckelPotential(normalize=1.,Delta=delta)
+    aAS= actionAngleStaeckel(pot=kp,delta=delta,c=True)
+    tol= -3.
+    aAT= actionAngleTorus(pot=kp,tol=tol)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.])
+    anglephi= numpy.array([numpy.pi])
+    anglez= numpy.array([numpy.pi/2.])
+    # Calculate position from aAT
+    RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
+    # Calculate frequencies from aAS
+    jiOm= aAS.actionsFreqs(*RvRom[:6])
+    dor= numpy.fabs((jiOm[3]-RvRom[6])/RvRom[6])
+    dophi= numpy.fabs((jiOm[4]-RvRom[7])/RvRom[7])
+    doz= numpy.fabs((jiOm[5]-RvRom[8])/RvRom[8])
+    assert dor < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Or at %f%%' % (dor*100.)
+    assert dophi < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophir at %f%%' % (dophi*100.) 
+    assert doz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Oz at %f%%' % (doz*100.)
     return None
 
 #Test error when potential is not implemented in C
