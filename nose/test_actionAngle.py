@@ -1638,6 +1638,48 @@ def test_actionAngleTorus_basic_freqs():
         'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
     return None
 
+#Test that orbit from actionAngleTorus is the same as an integrated orbit
+def test_actionAngleTorus_orbit():
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    # Set up instance
+    aAT= actionAngleTorus(pot=MWPotential2014,tol=10.**-5.)
+    jr,jphi,jz= 0.05,1.1,0.025
+    # First calculate frequencies and the initial RvR
+    RvRom= aAT.xvFreqs(jr,jphi,jz,
+                       numpy.array([0.]),
+                       numpy.array([1.]),
+                       numpy.array([2.]))
+    om= RvRom[6:]
+    print(om)
+    # Angles along an orbit
+    ts= numpy.linspace(0.,100.,1001)
+    angler= ts*om[0]
+    anglephi= 1.+ts*om[1]
+    anglez= 2.+ts*om[2]
+    # Calculate the orbit using actionAngleTorus
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    # Calculate the orbit using orbit integration
+    orb= Orbit([RvRom[0],RvRom[1],RvRom[2],
+                RvRom[3],RvRom[4],RvRom[5]])
+    orb.integrate(ts,MWPotential2014)
+    # Compare
+    tol= -3.
+    assert numpy.all(numpy.fabs(orb.R(ts)-RvR[0]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in R'
+    assert numpy.all(numpy.fabs(orb.vR(ts)-RvR[1]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vR'
+    assert numpy.all(numpy.fabs(orb.vT(ts)-RvR[2]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vT'
+    assert numpy.all(numpy.fabs(orb.z(ts)-RvR[3]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in z'
+    assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vz'
+    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in phi'
+    return None
+
 #Test the Orbit interface
 def test_orbit_interface_spherical():
     from galpy.potential import LogarithmicHaloPotential, NFWPotential
