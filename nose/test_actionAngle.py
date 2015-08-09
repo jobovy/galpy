@@ -1552,7 +1552,8 @@ def test_actionAngleIsochroneApprox_plotting():
 #Basic sanity checking: circular orbit should have constant R, zero vR, vT=vc
 def test_actionAngleTorus_basic():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential, rl, vcirc
+    from galpy.potential import MWPotential, rl, vcirc, \
+        FlattenedPowerPotential, PlummerPotential
     tol= -4.
     jr= 10.**-10.
     jz= 10.**-10.
@@ -1573,27 +1574,33 @@ def test_actionAngleTorus_basic():
         'circular orbit does not have zero vertical height for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
         'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=1.5
+    # at Lz=1.5, using Plummer
+    tol= -3.25
+    pp= PlummerPotential(normalize=1.)
+    aAT= actionAngleTorus(pot=pp)
     jphi= 1.5
     RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
+    assert numpy.all(numpy.fabs(RvR[0]-rl(pp,jphi)) < 10.**tol), \
         'circular orbit does not have constant radius for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
         'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
+    assert numpy.all(numpy.fabs(RvR[2]-vcirc(pp,rl(pp,jphi))) < 10.**tol), \
         'circular orbit does not have constant vT=vc for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
         'circular orbit does not have zero vertical height for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
         'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=0.5
+    # at Lz=0.5, using FlattenedPowerPotential
+    tol= -4.
+    fp= FlattenedPowerPotential(normalize=1.)
+    aAT= actionAngleTorus(pot=fp)
     jphi= 0.5
     RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
+    assert numpy.all(numpy.fabs(RvR[0]-rl(fp,jphi)) < 10.**tol), \
         'circular orbit does not have constant radius for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
         'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
+    assert numpy.all(numpy.fabs(RvR[2]-vcirc(fp,rl(fp,jphi))) < 10.**tol), \
         'circular orbit does not have constant vT=vc for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
         'circular orbit does not have zero vertical height for actionAngleTorus'
@@ -1604,37 +1611,44 @@ def test_actionAngleTorus_basic():
 #Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
 def test_actionAngleTorus_basic_freqs():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq, rl
+    from galpy.potential import epifreq, omegac, verticalfreq, rl, \
+        JaffePotential, PowerSphericalPotential, HernquistPotential
     tol= -3.
     jr= 10.**-6.
     jz= 10.**-6.
-    aAT= actionAngleTorus(pot=MWPotential)
+    jp= JaffePotential(normalize=1.)
+    aAT= actionAngleTorus(pot=jp)
     # at Lz=1
     jphi= 1.
     om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[0]-epifreq(jp,rl(jp,jphi)))/om[0]) < 10.**tol, \
         'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[1]-omegac(jp,rl(jp,jphi)))/om[1]) < 10.**tol, \
         'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[2]-verticalfreq(jp,rl(jp,jphi)))/om[2]) < 10.**tol, \
         'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
-    # at Lz=1.5
+    # at Lz=1.5, w/ different potential
+    pp= PowerSphericalPotential(normalize=1.)
+    aAT= actionAngleTorus(pot=pp)
     jphi= 1.5
     om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[0]-epifreq(pp,rl(pp,jphi)))/om[0]) < 10.**tol, \
         'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[1]-omegac(pp,rl(pp,jphi)))/om[1]) < 10.**tol, \
         'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[2]-verticalfreq(pp,rl(pp,jphi)))/om[2]) < 10.**tol, \
         'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
-    # at Lz=0.5
+    # at Lz=0.5, w/ different potential
+    tol= -2.5 # appears more difficult
+    hp= HernquistPotential(normalize=1.)
+    aAT= actionAngleTorus(pot=hp)
     jphi= 0.5
     om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[0]-epifreq(hp,rl(hp,jphi)))/om[0]) < 10.**tol, \
         'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[1]-omegac(hp,rl(hp,jphi)))/om[1]) < 10.**tol, \
         'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(MWPotential,rl(MWPotential,jphi)))/om[0]) < 10.**tol, \
+    assert numpy.fabs((om[2]-verticalfreq(hp,rl(hp,jphi)))/om[2]) < 10.**tol, \
         'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
     return None
 
@@ -1652,7 +1666,6 @@ def test_actionAngleTorus_orbit():
                        numpy.array([1.]),
                        numpy.array([2.]))
     om= RvRom[6:]
-    print(om)
     # Angles along an orbit
     ts= numpy.linspace(0.,100.,1001)
     angler= ts*om[0]
