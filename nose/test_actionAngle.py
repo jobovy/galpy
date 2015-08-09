@@ -1680,6 +1680,18 @@ def test_actionAngleTorus_orbit():
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
+#Test error when potential is not implemented in C
+def test_actionAngleTorus_nocerr():
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import BurkertPotential
+    bp= BurkertPotential(normalize=1.)
+    try:
+        aAT= actionAngleTorus(pot=bp)
+    except RuntimeError: pass
+    else:
+        raise AssertionError("actionAngleTorus initialization with potential w/o C should have given a RuntimeError, but didn't")
+    return None
+
 #Test the Orbit interface
 def test_orbit_interface_spherical():
     from galpy.potential import LogarithmicHaloPotential, NFWPotential
