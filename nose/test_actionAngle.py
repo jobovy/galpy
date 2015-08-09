@@ -1803,8 +1803,8 @@ def test_actionAngleTorus_Staeckel_actions():
     assert djz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djz*100.)
     return None
 
-#Test the actionAngleTorus against a Staeckel potential: frequencies
-def test_actionAngleTorus_Staeckel_freqs():
+#Test the actionAngleTorus against an isochrone potential: frequencies and angles
+def test_actionAngleTorus_Staeckel_freqsAngles():
     from galpy.potential import KuzminKutuzovStaeckelPotential
     from galpy.actionAngle import actionAngleTorus, \
         actionAngleStaeckel
@@ -1814,19 +1814,34 @@ def test_actionAngleTorus_Staeckel_freqs():
     tol= -3.
     aAT= actionAngleTorus(pot=kp,tol=tol)
     jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.])
-    anglephi= numpy.array([numpy.pi])
-    anglez= numpy.array([numpy.pi/2.])
+    angler= numpy.array([0.1])+numpy.linspace(0.,numpy.pi,101)
+    angler= angler % (2.*numpy.pi)
+    anglephi= numpy.array([numpy.pi])+numpy.linspace(0.,numpy.pi,101)
+    anglephi= anglephi % (2.*numpy.pi)
+    anglez= numpy.array([numpy.pi/2.])+numpy.linspace(0.,numpy.pi,101)
+    anglez= anglez % (2.*numpy.pi)
     # Calculate position from aAT
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    # Calculate frequencies from aAS
-    jiOm= aAS.actionsFreqs(*RvRom[:6])
-    dor= numpy.fabs((jiOm[3]-RvRom[6])/RvRom[6])
-    dophi= numpy.fabs((jiOm[4]-RvRom[7])/RvRom[7])
-    doz= numpy.fabs((jiOm[5]-RvRom[8])/RvRom[8])
-    assert dor < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Or at %f%%' % (dor*100.)
-    assert dophi < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophir at %f%%' % (dophi*100.) 
-    assert doz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Oz at %f%%' % (doz*100.)
+    # Calculate actions, frequencies, and angles from aAI
+    ws= aAS.actionsFreqsAngles(*RvRom[:6])
+    dOr= numpy.fabs((ws[3]-RvRom[6]))
+    dOp= numpy.fabs((ws[4]-RvRom[7]))
+    dOz= numpy.fabs((ws[5]-RvRom[8]))
+    dar= numpy.fabs((ws[6]-angler))
+    dap= numpy.fabs((ws[7]-anglephi))
+    daz= numpy.fabs((ws[8]-anglez))
+    dar[dar > numpy.pi]-= 2.*numpy.pi
+    dar[dar < -numpy.pi]+= 2.*numpy.pi
+    dap[dap > numpy.pi]-= 2.*numpy.pi
+    dap[dap < -numpy.pi]+= 2.*numpy.pi
+    daz[daz > numpy.pi]-= 2.*numpy.pi
+    daz[daz < -numpy.pi]+= 2.*numpy.pi
+    assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
+    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
+    assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
+    assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for ar at %f' % (numpy.nanmax(dar))
+    assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for aphi at %f' % (numpy.nanmax(dap))
+    assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for az at %f' % (numpy.nanmax(daz))
     return None
 
 #Test error when potential is not implemented in C
