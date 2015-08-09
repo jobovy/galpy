@@ -43,7 +43,7 @@ class actionAngleTorus(object):
             self._c= _check_c(self._pot)
             if not self._c:
                 raise RuntimeError('The given potential is not fully implemented in C; using the actionAngleTorus code is not supported in pure Python')
-        else:
+        else:# pragma: no cover
             raise RuntimeError('actionAngleTorus instances cannot be used, because the actionAngleTorus_c extension failed to load')
         self._tol= kwargs.get('tol',0.003)
         return None
