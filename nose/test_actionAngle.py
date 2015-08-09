@@ -1844,6 +1844,69 @@ def test_actionAngleTorus_Staeckel_freqsAngles():
     assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for az at %f' % (numpy.nanmax(daz))
     return None
 
+#Test the actionAngleTorus against a general potential w/ actionAngleIsochroneApprox: actions
+def test_actionAngleTorus_isochroneApprox_actions():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus, \
+        actionAngleIsochroneApprox
+    aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
+    tol= -2.5
+    aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.])
+    anglephi= numpy.array([numpy.pi])
+    anglez= numpy.array([numpy.pi/2.])
+    # Calculate position from aAT
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    # Calculate actions from aAIA
+    ji= aAIA(*RvR)
+    djr= numpy.fabs((ji[0]-jr)/jr)
+    dlz= numpy.fabs((ji[1]-jphi)/jphi)
+    djz= numpy.fabs((ji[2]-jz)/jz)
+    assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (djr*100.)
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert djz < 10.**tol, 'actionAngleTorus and actionAngleMWPotential2014 applied to MWPotential2014 potential disagree for Jr at %f%%' % (djz*100.)
+    return None
+
+#Test the actionAngleTorus against a general potential w/ actionAngleIsochrone: frequencies and angles
+def test_actionAngleTorus_isochroneApprox_freqsAngles():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus, \
+        actionAngleIsochroneApprox
+    aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
+    tol= -3.5
+    aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.1])+numpy.linspace(0.,numpy.pi,21)
+    angler= angler % (2.*numpy.pi)
+    anglephi= numpy.array([numpy.pi])+numpy.linspace(0.,numpy.pi,21)
+    anglephi= anglephi % (2.*numpy.pi)
+    anglez= numpy.array([numpy.pi/2.])+numpy.linspace(0.,numpy.pi,21)
+    anglez= anglez % (2.*numpy.pi)
+    # Calculate position from aAT
+    RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
+    # Calculate actions, frequencies, and angles from aAI
+    ws= aAIA.actionsFreqsAngles(*RvRom[:6])
+    dOr= numpy.fabs((ws[3]-RvRom[6]))
+    dOp= numpy.fabs((ws[4]-RvRom[7]))
+    dOz= numpy.fabs((ws[5]-RvRom[8]))
+    dar= numpy.fabs((ws[6]-angler))
+    dap= numpy.fabs((ws[7]-anglephi))
+    daz= numpy.fabs((ws[8]-anglez))
+    dar[dar > numpy.pi]-= 2.*numpy.pi
+    dar[dar < -numpy.pi]+= 2.*numpy.pi
+    dap[dap > numpy.pi]-= 2.*numpy.pi
+    dap[dap < -numpy.pi]+= 2.*numpy.pi
+    daz[daz > numpy.pi]-= 2.*numpy.pi
+    daz[daz < -numpy.pi]+= 2.*numpy.pi
+    assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
+    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
+    assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
+    assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for ar at %f' % (numpy.nanmax(dar))
+    assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for aphi at %f' % (numpy.nanmax(dap))
+    assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for az at %f' % (numpy.nanmax(daz))
+    return None
+
 #Test error when potential is not implemented in C
 def test_actionAngleTorus_nocerr():
     from galpy.actionAngle import actionAngleTorus
