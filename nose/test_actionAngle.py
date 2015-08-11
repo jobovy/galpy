@@ -1941,7 +1941,7 @@ def test_actionAngleTorus_AutoFitWarning():
     else:
         raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
     try:
-        aAT.Freqs(jr,jp,jz,ar,ap,az)
+        aAT.Freqs(jr,jp,jz)
     except: pass
     else:
         raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
