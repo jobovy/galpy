@@ -1919,6 +1919,36 @@ def test_actionAngleTorus_nocerr():
         raise AssertionError("actionAngleTorus initialization with potential w/o C should have given a RuntimeError, but didn't")
     return None
 
+# Test the Autofit torus warnings
+def test_actionAngleTorus_AutoFitWarning():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleTorus
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAT= actionAngleTorus(pot=lp)
+    # These should give warnings
+    jr, jp, jz= 0.27209033, 1.80253892, 0.6078445
+    ar, ap, az= [1.95732492], [6.16753224], [4.08233059]
+    # Turn warnings into errors to test them
+    warnings.simplefilter("error",galpyWarning)
+    try:
+        aAT(jr,jp,jz,ar,ap,az)
+    except: pass
+    else:
+        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
+    try:
+        aAT.xvFreqs(jr,jp,jz,ar,ap,az)
+    except: pass
+    else:
+        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
+    try:
+        aAT.Freqs(jr,jp,jz,ar,ap,az)
+    except: pass
+    else:
+        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
+    #Turn warnings back into warnings
+    warnings.simplefilter("always",galpyWarning)
+    return None
+
 #Test the Orbit interface
 def test_orbit_interface_spherical():
     from galpy.potential import LogarithmicHaloPotential, NFWPotential
