@@ -53,7 +53,8 @@ extern "C"
 			      int * pot_type,
 			      double * pot_args,
 			      double tol,
-			      double * Omegar,double * Omegaphi,double * Omegaz)
+			      double * Omegar,double * Omegaphi,double * Omegaz,
+			      int * flag)
   {
     // set up Torus
     Torus *T;
@@ -71,8 +72,7 @@ extern "C"
     J[0]= jr;
     J[1]= jz;
     J[2]= jphi;
-    int flag;
-    flag = T->AutoFit(J,Phi,tol);
+    *flag = T->AutoFit(J,Phi,tol);
 
     Phi->set_Lz(J(2));
 
@@ -95,7 +95,8 @@ extern "C"
 				double tol,
 				double * R, double * vR, double * vT, 
 				double * z, double * vz, double * phi,
-				double * Omegar,double * Omegaphi,double * Omegaz)
+				double * Omegar,double * Omegaphi,double * Omegaz,
+				int * flag)
   {
     // set up Torus
     Torus *T;
@@ -113,8 +114,7 @@ extern "C"
     J[0]= jr;
     J[1]= jz;
     J[2]= jphi;
-    int flag;
-    flag = T->AutoFit(J,Phi,tol);
+    *flag = T->AutoFit(J,Phi,tol);
 
     Phi->set_Lz(J(2));
 

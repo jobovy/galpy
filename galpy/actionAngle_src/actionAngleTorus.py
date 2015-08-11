@@ -13,6 +13,11 @@ from galpy.util import galpyWarning
 import galpy.actionAngle_src.actionAngleTorus_c as actionAngleTorus_c
 from galpy.actionAngle_src.actionAngleTorus_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
+_autofit_errvals= {}
+_autofit_errvals[-1]= 'something wrong with input, usually bad starting values for the parameters'
+_autofit_errvals[-2]= 'Fit failed the goal by a factor <= 2'
+_autofit_errvals[-3]= 'Fit failed the goal by more than 2'
+_autofit_errvals[-4]= 'Fit aborted: serious problems occured'
 class actionAngleTorus(object):
     """Action-angle formalism using the Torus machinery"""
     def __init__(self,*args,**kwargs):
@@ -67,11 +72,15 @@ class actionAngleTorus(object):
         HISTORY:
            2015-08-07 - Written - Bovy (UofT)
         """
-        return actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
+        out= actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
             self._pot,
             jr,jphi,jz,
             angler,anglephi,anglez,
-            tol=kwargs.get('tol',self._tol))[:6]
+            tol=kwargs.get('tol',self._tol))
+        if out[9] != 0:
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[9],_autofit_errvals[out[9]]),
+                          galpyWarning)
+        return out[:6]
 
     def xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
@@ -92,11 +101,15 @@ class actionAngleTorus(object):
         HISTORY:
            2015-08-07 - Written - Bovy (UofT)
         """
-        return actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
+        out= actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
             self._pot,
             jr,jphi,jz,
             angler,anglephi,anglez,
             tol=kwargs.get('tol',self._tol))
+        if out[9] != 0:
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[9],_autofit_errvals[out[9]]),
+                          galpyWarning)
+        return out
 
     def Freqs(self,jr,jphi,jz,**kwargs):
         """
@@ -114,8 +127,11 @@ class actionAngleTorus(object):
         HISTORY:
            2015-08-07 - Written - Bovy (UofT)
         """
-        return actionAngleTorus_c.actionAngleTorus_Freqs_c(\
+        out= actionAngleTorus_c.actionAngleTorus_Freqs_c(\
             self._pot,
             jr,jphi,jz,
             tol=kwargs.get('tol',self._tol))
-
+        if out[4] != 0:
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[4],_autofit_errvals[out[4]]),
+                          galpyWarning)
+        return out

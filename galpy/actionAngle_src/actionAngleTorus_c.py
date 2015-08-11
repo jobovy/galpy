@@ -54,7 +54,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
        anglez - vertical angle (array [N])
        tol= (0.003) goal for |dJ|/|J| along the torus
     OUTPUT:
-       (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz)
+       (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz,flag)
     HISTORY:
        2015-08-05/07 - Written - Bovy (UofT)
     """
@@ -71,6 +71,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
     Omegar= numpy.empty(1)
     Omegaphi= numpy.empty(1)
     Omegaz= numpy.empty(1)
+    flag= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -95,7 +96,8 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-         ndpointer(dtype=numpy.float64,flags=ndarrayFlags)]
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.POINTER(ctypes.c_int)]
 
     #Array requirements, first store old order
     f_cont= [angler.flags['F_CONTIGUOUS'],
@@ -127,14 +129,15 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
                                  pot_args,
                                  ctypes.c_double(tol),
                                  R,vR,vT,z,vz,phi,
-                                 Omegar,Omegaphi,Omegaz)
+                                 Omegar,Omegaphi,Omegaz,
+                                 ctypes.byref(flag))
 
     #Reset input arrays
     if f_cont[0]: angler= numpy.asfortranarray(angler)
     if f_cont[0]: anglephi= numpy.asfortranarray(anglephi)
     if f_cont[0]: anglez= numpy.asfortranarray(anglez)
 
-    return (R,vR,vT,z,vz,phi,Omegar[0],Omegaphi[0],Omegaz[0])
+    return (R,vR,vT,z,vz,phi,Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
 def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
                              tol=0.003):
@@ -150,7 +153,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
        jz - vertical action (scalar)
        tol= (0.003) goal for |dJ|/|J| along the torus
     OUTPUT:
-       (Omegar,Omegaphi,Omegaz)
+       (Omegar,Omegaphi,Omegaz,flag)
     HISTORY:
        2015-08-05/07 - Written - Bovy (UofT)
     """
@@ -161,6 +164,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
     Omegar= numpy.empty(1)
     Omegaphi= numpy.empty(1)
     Omegaz= numpy.empty(1)
+    flag= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -175,7 +179,8 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-         ndpointer(dtype=numpy.float64,flags=ndarrayFlags)]
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.POINTER(ctypes.c_int)]
 
     #Array requirements
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
@@ -190,9 +195,10 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
                                pot_type,
                                pot_args,
                                ctypes.c_double(tol),
-                               Omegar,Omegaphi,Omegaz)
+                               Omegar,Omegaphi,Omegaz,
+                               ctypes.byref(flag))
 
-    return (Omegar[0],Omegaphi[0],Omegaz[0])
+    return (Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
 
 
