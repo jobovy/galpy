@@ -46,8 +46,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
               subhalovel= velocity of the subhalo shape=(3)
 
-              timpact time since impact 
-              
+              timpact time since impact
+
               impact_angle= angle offset from progenitor at which the impact occurred (rad)
 
               Subhalo: specify either 1( mass and size of Plummer sphere or 2( general spherical-potential object (kick is numerically computed)
@@ -57,7 +57,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                     rs= size parameter of the subhalo
 
                  2( subhalopot= galpy potential object or list thereof (should be spherical)
-              
+
            deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
@@ -90,18 +90,18 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                 galpy.df_src.streamdf._INTERPDURINGSETUP)
         useInterp= kwargs.pop('useInterp',
                               galpy.df_src.streamdf._USEINTERP)
-        # Now run the regular streamdf setup, but without calculating the 
+        # Now run the regular streamdf setup, but without calculating the
         # stream track (nosetup=True)
         kwargs['nosetup']= True
         super(streamgapdf,self).__init__(*args,**kwargs)
-        # Setup the machinery to go between (x,v) and (Omega,theta) 
+        # Setup the machinery to go between (x,v) and (Omega,theta)
         # near the impact
         self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
         self._determine_deltaAngleTrackImpact(deltaAngleTrackImpact,timpact)
         self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
                                               nTrackChunksImpact,
                                               timpact,impact_angle)
-        # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta, 
+        # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta,
         # setup interpolating function
         self._determine_deltav_kick(impactb,subhalovel,
                                     GM,rs,subhalopot,
@@ -245,7 +245,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                         self._kick_interpolatedObsTrack[:,3],
                                         cyl=True)
         # We will abuse streamdf functions for doing the (O,a) -> (R,vR)
-        # coordinate transformation, to do this, we assign some of the 
+        # coordinate transformation, to do this, we assign some of the
         # attributes related to the track near the impact to the equivalent
         # attributes related to the track at the present time, carefully
         # removing this again to avoid confusion (as much as possible)
@@ -339,7 +339,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         """Build interpolations of the stream track near the kick"""
         if hasattr(self,'_kick_interpolatedThetasTrack'):
             return None #Already did this
-        # Setup the trackpoints where the kick will be computed, covering the 
+        # Setup the trackpoints where the kick will be computed, covering the
         # full length of the stream
         self._kick_interpolatedThetasTrack= \
             numpy.linspace(self._gap_thetasTrack[0],
@@ -445,7 +445,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._timpact= timpact
         deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
             self._sortedSigOEig[2]) * (self._tdisrupt-self._timpact)
-        if deltaAngleTrackImpact is None: 
+        if deltaAngleTrackImpact is None:
             deltaAngleTrackImpact= deltaAngleTrackLim
         else:
             if deltaAngleTrackImpact > deltaAngleTrackLim:
@@ -461,7 +461,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         THE TRANSFORMATION AT ANY TIME IN THE PAST (ISN'T THAT WHAT THIS IS :-)"""
         # Integrate the progenitor backward to the time of impact
         self._gap_progenitor_setup()
-        # Sign of delta angle tells us whether the impact happens to the 
+        # Sign of delta angle tells us whether the impact happens to the
         # leading or trailing arm, self._sigMeanSign contains this info
         if impact_angle > 0.:
             self._gap_leading= True
@@ -595,7 +595,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                     allinvjacsTrack[ii,:,:]= multiOut[ii][2]
                     ObsTrack[ii,:]= multiOut[ii][3]
                     ObsTrackAA[ii,:]= multiOut[ii][4]
-                    detdOdJps[ii]= multiOut[ii][5]           
+                    detdOdJps[ii]= multiOut[ii][5]
         #Store the track
         self._gap_thetasTrack= thetasTrack
         self._gap_ObsTrack= ObsTrack
@@ -621,7 +621,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._gap_ObsTrackXY[:,2]= TrackZ
         self._gap_ObsTrackXY[:,3]= TrackvX
         self._gap_ObsTrackXY[:,4]= TrackvY
-        self._gap_ObsTrackXY[:,5]= TrackvZ       
+        self._gap_ObsTrackXY[:,5]= TrackvZ
         return None
 
     def _gap_progenitor_setup(self):
@@ -641,7 +641,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 ################################SAMPLE THE DF##################################
     def _sample_aAt(self,n):
         """Sampling frequencies, angles, and times part of sampling, for stream with gap"""
-        # Use streamdf's _sample_aAt to generate unperturbed frequencies, 
+        # Use streamdf's _sample_aAt to generate unperturbed frequencies,
         # angles
         Om,angle,dt= super(streamgapdf,self)._sample_aAt(n)
         # Now rewind angles by timpact, apply the kicks, and run forward again
@@ -738,6 +738,102 @@ def impulse_deltav_plummer_curvedstream(v,x,b,w,x0,v0,GM,rs):
     denom= wmag*(numpy.sum(b_**2,axis=1)+rs**2-bdotw**2)
     denom = 1./denom
     return -2.0*GM*((b_.T-bdotw*w.T/wmag)*denom).T
+
+def HernquistX(s):
+    """
+      Computes X function from equations (33) & (34) of Hernquist (1990)
+    """
+    if(s<0.):
+        raise ValueError("s must be positive in Hernquist X function")
+    elif(s<1.):
+        return numpy.log((1+numpy.sqrt(1-s*s))/s)/numpy.sqrt(1-s*s)
+    elif(s==1.):
+        return 1.
+    else:
+        return numpy.arccos(1./s)/numpy.sqrt(s*s-1)
+
+def impulse_deltav_hernquist(v,y,b,w,GM,rs):
+    """
+    NAME:
+       impulse_deltav_hernquist
+    PURPOSE:
+       calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+    INPUT:
+       v - velocity of the stream (nstar,3)
+       y - position along the stream (nstar)
+       b - impact parameter
+       w - velocity of the Hernquist sphere (3)
+       GM - mass of the Hernquist sphere (in natural units)
+       rs - size of the Hernquist sphere
+    OUTPUT:
+       deltav (nstar,3)
+    HISTORY:
+       2015-08-13 SANDERS, using Wyn Evans calculation
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    nv= v.shape[0]
+    # Build the rotation matrices and their inverse
+    rot= _rotation_vy(v)
+    rotinv= _rotation_vy(v,inv=True)
+    # Rotate the Plummer sphere's velocity to the stream frames
+    tilew= numpy.sum(rot*numpy.tile(w,(nv,3,1)),axis=-1)
+    wperp= numpy.sqrt(tilew[:,0]**2.+tilew[:,2]**2.)
+    wpar= numpy.sqrt(numpy.sum(v**2.,axis=1))-tilew[:,1]
+    wmag2= wpar**2.+wperp**2.
+    wmag= numpy.sqrt(wmag2)
+    B = numpy.sqrt(b**2.+wperp**2.*y**2./wmag2)
+    denom= wmag*(B**2-rs**2)
+    denom=1./denom
+    s = numpy.sqrt(2.*B/(rs+B))
+    HernquistXv=numpy.vectorize(HernquistX)
+    Xfac = 1.-2.*rs/(rs+B)*HernquistXv(s)
+    out= numpy.empty_like(v)
+    out[:,0]= (b*tilew[:,2]/wperp-y*wpar*tilew[:,0]/wmag2)*denom*Xfac
+    out[:,1]= -wperp**2.*y*denom*Xfac/wmag2
+    out[:,2]= -(b*tilew[:,0]/wperp+y*wpar*tilew[:,2]/wmag2)*denom*Xfac
+    # deal w/ perpendicular impacts
+    wperp0Indx= numpy.fabs(wperp) < 10.**-10.
+    out[wperp0Indx,0]= (b-y[wperp0Indx]*wpar[wperp0Indx]*tilew[wperp0Indx,0]/wmag2[wperp0Indx])*denom[wperp0Indx]*Xfac[wperp0Indx]
+    out[wperp0Indx,2]=-(b+y[wperp0Indx]*wpar[wperp0Indx]*tilew[wperp0Indx,2]/wmag2[wperp0Indx])*denom[wperp0Indx]*Xfac[wperp0Indx]
+    # Rotate back to the original frame
+    return 2.0*GM*numpy.sum(\
+        rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
+
+def impulse_deltav_hernquist_curvedstream(v,x,b,w,x0,v0,GM,rs):
+    """
+    NAME:
+       impulse_deltav_plummer_hernquist
+    PURPOSE:
+       calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
+    INPUT:
+       v - velocity of the stream (nstar,3)
+       x - position along the stream (nstar,3)
+       b - impact parameter
+       w - velocity of the Hernquist sphere (3)
+       x0 - point of closest approach
+       v0 - velocity of point of closest approach
+       GM - mass of the Hernquist sphere (in natural units)
+       rs - size of the Hernquist sphere
+    OUTPUT:
+       deltav (nstar,3)
+    HISTORY:
+       2015-08-13 - SANDERS, using Wyn Evans calculation
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    b_ = b0+x-x0
+    w = w-v
+    wmag = numpy.sqrt(numpy.sum(w**2,axis=1))
+    bdotw=numpy.sum(b_*w,axis=1)/wmag
+    B = numpy.sqrt(numpy.sum(b_**2,axis=1)-bdotw**2)
+    denom= wmag*(B**2-rs**2)
+    denom=1./denom
+    s = numpy.sqrt(2.*B/(rs+B))
+    HernquistXv=numpy.vectorize(HernquistX)
+    Xfac = 1.-2.*rs/(rs+B)*HernquistXv(s)
+    return -2.0*GM*((b_.T-bdotw*w.T/wmag)*Xfac*denom).T
 
 def _a_integrand(T,y,b,w,pot,compt):
     t = T/(1-T*T)
