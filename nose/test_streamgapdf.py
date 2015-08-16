@@ -250,3 +250,95 @@ def test_impulse_deltav_general_curved():
         pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
+
+# Test general impulse vs. Hernquist
+def test_impulse_deltav_general_hernquist():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import HernquistPotential
+    GM = 1.5
+    tol= -10.
+    kick= streamgapdf.impulse_deltav_hernquist(numpy.array([[3.4,0.,0.]]),
+                                             numpy.array([4.]),
+                                             3.,
+                                             numpy.array([0.,numpy.pi/2.,0.]),
+                                             GM,4.)
+    # Note factor of 2 in definition of GM and amp
+    pp= HernquistPotential(amp=2.*GM,a=4.)
+    general_kick=\
+        streamgapdf.impulse_deltav_general(numpy.array([[3.4,0.,0.]]),
+                                           numpy.array([4.]),
+                                           3.,
+                                           numpy.array([0.,numpy.pi/2.,0.]),
+                                           pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential'
+    # Same for a bunch of positions
+    GM = numpy.pi
+    v= numpy.zeros((100,3))
+    v[:,0]= 3.4
+    xpos= numpy.random.normal(size=100)
+    kick= streamgapdf.impulse_deltav_hernquist(v,
+                                             xpos,
+                                             3.,
+                                             numpy.array([0.,numpy.pi/2.,0.]),
+                                             GM,numpy.exp(1.))
+    pp= HernquistPotential(amp=2.*GM,a=numpy.exp(1.))
+    general_kick=\
+        streamgapdf.impulse_deltav_general(v,
+                                           xpos,
+                                           3.,
+                                           numpy.array([0.,numpy.pi/2.,0.]),
+                                           pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential'
+    return None
+
+# Test general impulse vs. Hernquist for curved stream
+def test_impulse_deltav_general_curved_hernquist():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import HernquistPotential
+    GM = 1.5
+    tol= -10.
+    kick= streamgapdf.impulse_deltav_hernquist_curvedstream(\
+        numpy.array([[3.4,0.,0.]]),
+        numpy.array([[4.,0.,0.]]),
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        GM,4.)
+    # Note factor of 2 in definition of GM and amp
+    pp= HernquistPotential(amp=2.*GM,a=4.)
+    general_kick= streamgapdf.impulse_deltav_general_curvedstream(\
+        numpy.array([[3.4,0.,0.]]),
+        numpy.array([[4.,0.,0.]]),
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream'
+    # Same for a bunch of positions
+    GM = numpy.pi
+    v= numpy.zeros((100,3))
+    v[:,0]= 3.4
+    xpos= numpy.random.normal(size=100)
+    xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
+    kick= streamgapdf.impulse_deltav_hernquist_curvedstream(\
+        v,
+        xpos,
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        GM,numpy.exp(1.))
+    pp= HernquistPotential(amp=2.*GM,a=numpy.exp(1.))
+    general_kick=\
+        streamgapdf.impulse_deltav_general_curvedstream(\
+        v,
+        xpos,
+        3.,
+        numpy.array([0.,numpy.pi/2.,0.]),
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        pp)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream'
+    return None
