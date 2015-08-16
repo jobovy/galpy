@@ -739,6 +739,40 @@ def impulse_deltav_plummer_curvedstream(v,x,b,w,x0,v0,GM,rs):
     denom = 1./denom
     return -2.0*GM*((b_.T-bdotw*w.T/wmag)*denom).T
 
+def impulse_deltav_hernquist_general(v,x,b,w,x0,v0,GM,rs):
+    """
+    NAME:
+       impulse_deltav_plummer_hernquist
+    PURPOSE:
+       calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
+    INPUT:
+       v - velocity of the stream (nstar,3)
+       x - position along the stream (nstar,3)
+       b - impact parameter
+       w - velocity of the Hernquist sphere (3)
+       x0 - point of closest approach
+       v0 - velocity of point of closest approach
+       GM - mass of the Hernquist sphere (in natural units)
+       rs - size of the Hernquist sphere
+    OUTPUT:
+       deltav (nstar,3)
+    HISTORY:
+       2015-08-12 - SANDERS
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    b_ = b0+x-x0
+    w = w-v
+    wmag = numpy.sqrt(numpy.sum(w**2,axis=1))
+    bdotw=numpy.sum(b_*w,axis=1)/wmag
+    denom= wmag*(numpy.sum(b_**2,axis=1)+rs**2-bdotw**2)
+    denomh=np.sqrt(denom)
+    fac = 1-rs/denomh*np.arctan(denomh/rs)
+    denom = 1./denom
+    return -2.0*GM*((b_.T-bdotw*w.T/wmag)*denom).T*fac
+
 def _a_integrand(T,y,b,w,pot,compt):
     t = T/(1-T*T)
     X = b+w*t+y*numpy.array([0,1,0])
