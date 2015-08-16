@@ -744,7 +744,7 @@ def HernquistX(s):
       Computes X function from equations (33) & (34) of Hernquist (1990)
     """
     if(s<0.):
-        raise ValueError, "s must be positive in Hernquist X function"
+        raise ValueError("s must be positive in Hernquist X function")
     elif(s<1.):
         return numpy.log((1+numpy.sqrt(1-s*s))/s)/numpy.sqrt(1-s*s)
     elif(s==1.):

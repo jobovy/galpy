@@ -342,3 +342,15 @@ def test_impulse_deltav_general_curved_hernquist():
         pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream'
     return None
+
+from nose.tools import raises
+@raises(ValueError)
+def test_hernquistX_negative():
+    from galpy.df_src import streamgapdf
+    streamgapdf.HernquistX(-1.)
+    return None
+
+def test_hernquistX_unity():
+    from galpy.df_src import streamgapdf
+    assert streamgapdf.HernquistX(1.)==1., 'Hernquist X function not returning 1 with argument 1'
+    return None
