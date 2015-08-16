@@ -904,6 +904,38 @@ def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     return numpy.array(list(map(lambda i:_deltav_integrate(0.,i[1],i[0],pot)
                         ,zip(w-v,b_))))
 
+def impulse_deltav_general_including_acceleration(v,x,b,w,x0,v0,pot,times):
+    """
+    NAME:
+       impulse_deltav_general_including_acceleration
+    PURPOSE:
+       calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation; allows for arbitrary velocity vectors and arbitrary shaped streams.
+       Must pass position samples for each particle at nsamp times separated
+       by dt
+    INPUT:
+       v - velocity of the stream (nstar,nsamp,3)
+       x - position along the stream (nstar,nsamp,3)
+       b - impact parameter
+       w - velocity of the subhalo (3)
+       x0 - position of closest approach (3)
+       v0 - velocity of stream at closest approach (3)
+       pot - Potential object or list thereof (should be spherical)
+       times - times of samples (nsamp)
+    OUTPUT:
+       deltav (nstar,3)
+    HISTORY:
+       2015-08-16 - SANDERS
+    """
+    if len(v.shape) == 2: v= numpy.reshape(v,(1,len(times),3))
+    if len(x.shape) == 2: x= numpy.reshape(x,(1,len(times),3))
+    nstar,nsamp,ndim=numpy.shape(v)
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    X = b0+x-x0-numpy.outer(times,w)
+    r = numpy.sqrt(numpy.sum(X**2,axis=-1))
+    acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
+    return integrate.simps(acc,x=times,axis=1)
+
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
 

@@ -354,3 +354,68 @@ def test_hernquistX_unity():
     from galpy.df_src import streamgapdf
     assert streamgapdf.HernquistX(1.)==1., 'Hernquist X function not returning 1 with argument 1'
     return None
+
+# Test general impulse vs. integrating orbital time-samples
+def test_impulse_deltav_general_curved():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential
+    from galpy.df_src import streamgapdf
+    tol= -3.
+    tmax=30.
+    dt=0.01
+    x0 = numpy.array([3.4,0.,0.])
+    v0 = numpy.array([4.,0.,3.])
+    w = numpy.array([1.,numpy.pi/2.,0.])
+    curved_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v0,
+        x0,
+        3.,
+        w,
+        x0,
+        v0,
+        1.5,4.)
+    pp= PlummerPotential(amp=1.5,b=4.)
+    times = numpy.linspace(-tmax,tmax,int(2.*tmax/dt))
+    X = numpy.array([x0+i*v0 for i in times])
+    V = numpy.array([v0 for i in times])
+    general_kick= streamgapdf.impulse_deltav_general_including_acceleration(\
+        V,
+        X,
+        3.,
+        w,
+        x0,
+        v0,
+        pp,
+        times)
+    assert numpy.all(numpy.fabs(curved_kick-general_kick) < 10.**tol), 'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    # Same for a bunch of positions
+    v= numpy.zeros((100,3))
+    v[:,0]= 3.4
+    xpos= numpy.random.normal(size=100)
+    xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
+    kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v,
+        xpos,
+        3.,
+        w,
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        numpy.pi,numpy.exp(1.))
+    pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
+    times = numpy.linspace(-tmax,tmax,int(2.*tmax/dt))
+    X = numpy.array([xpos+i*v for i in times])
+    X = numpy.swapaxes(X,0,1)
+    V = numpy.array([v for i in times])
+    V = numpy.swapaxes(V,0,1)
+    general_kick=\
+        streamgapdf.impulse_deltav_general_including_acceleration(\
+        V,
+        X,
+        3.,
+        w,
+        numpy.array([0.,0.,0.]),
+        numpy.array([3.4,0.,0.]),
+        pp,
+        times)
+    assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    return None
