@@ -1924,10 +1924,11 @@ def test_actionAngleTorus_AutoFitWarning():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleTorus
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    aAT= actionAngleTorus(pot=lp)
+    aAT= actionAngleTorus(pot=lp,tol=10.**-6.)
     # These should give warnings
     jr, jp, jz= 0.27209033, 1.80253892, 0.6078445
-    ar, ap, az= [1.95732492], [6.16753224], [4.08233059]
+    ar, ap, az= numpy.array([1.95732492]), numpy.array([6.16753224]), \
+        numpy.array([4.08233059])
     # Turn warnings into errors to test them
     warnings.simplefilter("error",galpyWarning)
     try:
