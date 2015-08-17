@@ -132,6 +132,6 @@ class actionAngleTorus(object):
             jr,jphi,jz,
             tol=kwargs.get('tol',self._tol))
         if out[3] != 0:
-            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[4],_autofit_errvals[out[3]]),
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[3],_autofit_errvals[out[3]]),
                           galpyWarning)
         return out
