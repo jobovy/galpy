@@ -4,7 +4,7 @@ import numpy
 import warnings
 import multiprocessing
 from scipy import integrate, interpolate, special, optimize
-from galpy.util import galpyWarning
+from galpy.util import galpyWarning, bovy_coords
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
 import galpy.df_src.streamdf
@@ -934,14 +934,13 @@ def impulse_deltav_general_including_acceleration(x,b,w,x0,v0,pot,times):
     acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
-def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot):
+def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot,
+                                            integrate_method='symplec4_c'):
     """
     NAME:
-       impulse_deltav_general_including_acceleration
+       impulse_deltav_general_including_orbitintegration
     PURPOSE:
        calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
-       Must pass position samples for each particle at nsamp times separated
-       by dt
     INPUT:
        v - velocity of the stream (nstar,3)
        x - position along the stream (nstar,3)
@@ -951,7 +950,8 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot):
        v0 - velocity of stream at closest approach (3)
        pot - Potential object or list thereof (should be spherical)
        times - times of samples (nsamp)
-       galpot - Galaxy Potential object
+       galpot - galpy Potential object or list thereof
+       integrate_method= ('symplec4_c') orbit integrator to use (see Orbit.integrate)
     OUTPUT:
        deltav (nstar,3)
     HISTORY:
@@ -964,21 +964,20 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot):
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
     nsamp=len(times)
     xres = numpy.zeros(shape=(len(x),nsamp*2-1,3))
+    R, phi, z= bovy_coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
+    vR, vp, vz= bovy_coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
+                                            R,phi,z,cyl=True)
     for i in range(nstar):
-      R = numpy.sqrt(x[i][0]**2+x[i][1]**2)
-      phi = numpy.arctan2(x[i][1],x[i][0])
-      vR = (v[i][0]*x[i][0]+v[i][1]*x[i][1])/R
-      vp = (-v[i][0]*x[i][1]+v[i][1]*x[i][0])/R
-      o = Orbit(vxvv=[R,vR,vp,x[i][2],v[i][2],phi])
-      o.integrate(times,galpot,method='odeint')
-      xres[i,nsamp:,0]=o.x(times)[1:]
-      xres[i,nsamp:,1]=o.y(times)[1:]
-      xres[i,nsamp:,2]=o.z(times)[1:]
-      oreverse = o.flip()
-      oreverse.integrate(times,galpot,method='odeint')
-      xres[i,:nsamp,0]=oreverse.x(times)[::-1]
-      xres[i,:nsamp,1]=oreverse.y(times)[::-1]
-      xres[i,:nsamp,2]=oreverse.z(times)[::-1]
+        o = Orbit([R[i],vR[i],vp[i],z[i],vz[i],phi[i]])
+        o.integrate(times,galpot,method=integrate_method)
+        xres[i,nsamp:,0]=o.x(times)[1:]
+        xres[i,nsamp:,1]=o.y(times)[1:]
+        xres[i,nsamp:,2]=o.z(times)[1:]
+        oreverse = o.flip()
+        oreverse.integrate(times,galpot,method=integrate_method)
+        xres[i,:nsamp,0]=oreverse.x(times)[::-1]
+        xres[i,:nsamp,1]=oreverse.y(times)[::-1]
+        xres[i,:nsamp,2]=oreverse.z(times)[::-1]
     times = numpy.concatenate((-times[::-1],times[1:]))
     nsamp = len(times)
     X = b0+xres-x0-numpy.outer(times,w)
