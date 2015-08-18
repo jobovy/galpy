@@ -377,9 +377,7 @@ def test_impulse_deltav_general_curved():
     pp= PlummerPotential(amp=1.5,b=4.)
     times = numpy.linspace(-tmax,tmax,int(2.*tmax/dt))
     X = numpy.array([x0+i*v0 for i in times])
-    V = numpy.array([v0 for i in times])
     general_kick= streamgapdf.impulse_deltav_general_including_acceleration(\
-        V,
         X,
         3.,
         w,
@@ -405,11 +403,8 @@ def test_impulse_deltav_general_curved():
     times = numpy.linspace(-tmax,tmax,int(2.*tmax/dt))
     X = numpy.array([xpos+i*v for i in times])
     X = numpy.swapaxes(X,0,1)
-    V = numpy.array([v for i in times])
-    V = numpy.swapaxes(V,0,1)
     general_kick=\
         streamgapdf.impulse_deltav_general_including_acceleration(\
-        V,
         X,
         3.,
         w,
@@ -438,9 +433,7 @@ def test_impulse_deltav_general_orbit():
     maxt=angrange/2./vang*1000.
     times = numpy.linspace(-maxt,maxt,1000)
     X_samples = numpy.array([[rcurv*numpy.cos(vang*time),rcurv*numpy.sin(vang*time),0.] for time in times])
-    V_samples = numpy.array([v0 for time in times])
     general_kick= streamgapdf.impulse_deltav_general_including_acceleration(\
-        V_samples,
         X_samples,
         3.,
         w,
@@ -465,9 +458,7 @@ def test_impulse_deltav_general_orbit():
     pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
     theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,100)
     X_samples = numpy.array([[[rcurv*numpy.cos(t0+vang*time),rcurv*numpy.sin(t0+vang*time),0.] for time in times] for t0 in theta])
-    V_samples = numpy.array([[v0 for time in times] for t0 in theta])
     general_kick= streamgapdf.impulse_deltav_general_including_acceleration(\
-        V_samples,
         X_samples,
         3.,
         w,
