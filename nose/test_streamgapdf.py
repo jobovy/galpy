@@ -486,3 +486,86 @@ def test_impulse_deltav_general_orbit():
         galpot)
     assert numpy.all(numpy.fabs(orbit_kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
+
+# Test general impulse vs. full orbit integration for zero force
+def test_impulse_deltav_general_orbit_zeroforce():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential
+    tol= -6.
+    rcurv=10.
+    vp=220.
+    x0 = numpy.array([rcurv,0.,0.])
+    v0 = numpy.array([0.,vp,0.])
+    w = numpy.array([1.,numpy.pi/2.,0.])
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v0,
+        x0,
+        3.,
+        w,
+        x0,
+        v0,
+        1.5,4.)
+    pp= PlummerPotential(amp=1.5,b=4.)
+    vang=vp/rcurv
+    angrange=numpy.pi
+    maxt=5.*angrange/vang
+    times = numpy.linspace(-maxt,maxt,1000)
+    galpot = constantPotential()
+    times = numpy.linspace(0,maxt,1000)
+    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+        v0,
+        x0,
+        3.,
+        w,
+        x0,
+        v0,
+        pp,
+        times,
+        galpot)
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
+        'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    # Same for a bunch of positions
+    tol= -5.
+    pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
+    theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,100)
+    xc,yc = rcurv*numpy.cos(theta),rcurv*numpy.sin(theta)
+    Xc = numpy.zeros((100,3))
+    Xc[:,0]=xc
+    Xc[:,1]=yc
+    vx,vy = -vp*numpy.sin(theta),vp*numpy.cos(theta)
+    V = numpy.zeros((100,3))
+    V[:,0]=vx
+    V[:,1]=vy
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        V,
+        Xc,
+        3.,
+        w,
+        x0,
+        v0,
+        numpy.pi,numpy.exp(1.))
+    times = numpy.linspace(0,maxt,1000)
+    orbit_kick=streamgapdf.impulse_deltav_general_orbitintegration(\
+        V,
+        Xc,
+        3.,
+        w,
+        x0,
+        v0,
+        pp,
+        times,
+        galpot)
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
+            'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    return None
+
+from galpy.potential import Potential
+class constantPotential(Potential):
+    def __init__(self):
+        Potential.__init__(self,amp=1.)
+        self.hasC= False
+        return None
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        return 0.
+    def _zforce(self,R,z,phi=0.,t=0.):
+        return 0.
