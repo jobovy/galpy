@@ -356,10 +356,9 @@ def test_hernquistX_unity():
     return None
 
 # Test general impulse vs. integrating orbital time-samples
-def test_impulse_deltav_general_curved():
+def test_impulse_deltav_general_acceleration():
     from galpy.df_src import streamgapdf
     from galpy.potential import PlummerPotential
-    from galpy.df_src import streamgapdf
     tol= -3.
     tmax=30.
     dt=0.01
@@ -420,7 +419,6 @@ def test_impulse_deltav_general_curved():
 def test_impulse_deltav_general_orbit():
     from galpy.df_src import streamgapdf
     from galpy.potential import PlummerPotential, LogarithmicHaloPotential
-    from galpy.df_src import streamgapdf
     tol= -10.
     rcurv=10.
     vp=220.
