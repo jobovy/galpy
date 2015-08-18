@@ -986,48 +986,65 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot):
     acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
-# def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs):
-#     """
-#     NAME:
-#        impulse_deltav_general_fullplummerintegration
-#     PURPOSE:
-#        calculate the delta velocity to due an encounter with a moving Plummer sphere and galactic potential relative to just in galactic potential
-#     INPUT:
-#        v - velocity of the stream (nstar,3)
-#        x - position along the stream (nstar,3)
-#        b - impact parameter
-#        w - velocity of the subhalo (3)
-#        x0 - position of closest approach (3)
-#        v0 - velocity of stream at closest approach (3)
-#        galpot - Galaxy Potential object
-#        GM - mass of Plummer
-#        rs - scale of Plummer
-#     OUTPUT:
-#        deltav (nstar,3)
-#     HISTORY:
-#        2015-08-18 - SANDERS
-#     """
-#     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
-#     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
-#     nstar,ndim=numpy.shape(v)
-#     b0 = numpy.cross(w,v0)
-#     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
-#     X = b0-x0
-#     R = np.sqrt(X[0]**2+X[1]**2)
-#     phi = np.arctan2(X[1],X[0])
-#     vR = (w[0]*X[0]+w[1]*X[1])/R
-#     vp = (-w[0]*X[1]+w[1]*X[0])/R
-#     o = Orbit(vxvv=[R,vR,vp,X[2],w[2],phi])
-#     o.integrate(times,galpot,method='odeint')
-#     plumpot = MovingObjectPotential(orbit=o, GM=GM, softening_model='plummer', softening_length=rs)
-#     for i in range(nstar):
-#       R = numpy.sqrt(x[i][0]**2+x[i][1]**2)
-#       phi = numpy.arctan2(x[i][1],x[i][0])
-#       vR = (v[i][0]*x[i][0]+v[i][1]*x[i][1])/R
-#       vp = (-v[i][0]*x[i][1]+v[i][1]*x[i][0])/R
-#       ostar= Orbit(vxvv=[R,vR,vp,x[i][2],v[i][2],phi])
-#       ostar.integrate(times[0],galpot,method='odeint')
-#       ostar.integrate(times,[galpot,plumpot],method='odeint')
+def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs):
+    """
+    NAME:
+       impulse_deltav_general_fullplummerintegration
+    PURPOSE:
+       calculate the delta velocity to due an encounter with a moving Plummer sphere and galactic potential relative to just in galactic potential
+    INPUT:
+       v - velocity of the stream (nstar,3)
+       x - position along the stream (nstar,3)
+       b - impact parameter
+       w - velocity of the subhalo (3)
+       x0 - position of closest approach (3)
+       v0 - velocity of stream at closest approach (3)
+       galpot - Galaxy Potential object
+       GM - mass of Plummer
+       rs - scale of Plummer
+    OUTPUT:
+       deltav (nstar,3)
+    HISTORY:
+       2015-08-18 - SANDERS
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+    nstar,ndim=numpy.shape(v)
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    X = b0-x0
+    # Setup Plummer orbit
+    R = numpy.sqrt(X[0]**2+X[1]**2)
+    phi = numpy.arctan2(X[1],X[0])
+    vR = (w[0]*X[0]+w[1]*X[1])/R
+    tmax = rs/numpy.sqrt(numpy.sum((w-v0)**2))
+    times = numpy.linspace(0.,tmax,1000)
+    dtimes = numpy.linspace(0.,2.*tmax,2000)
+    vp = (-w[0]*X[1]+w[1]*X[0])/R
+    o = Orbit(vxvv=[R,-vR,-vp,X[2],-w[2],phi])
+    o.integrate(times,galpot,method='odeint')
+    oplum = Orbit(vxvv=[o.R(times[-1]),-o.vR(times[-1]),-o.vT(times[-1]),o.z(times[-1]),-o.vz(times[-1]),o.phi(times[-1])])
+    oplum.integrate(dtimes,galpot,method='odeint')
+    plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
+
+    # Now integrate each particle backwards in galaxy potential, forwards in combined potential and backwards again in galaxy and take diff
+
+    deltav = numpy.zeros((nstar,3))
+    for i in range(nstar):
+      R = numpy.sqrt(x[i][0]**2+x[i][1]**2)
+      phi = numpy.arctan2(x[i][1],x[i][0])
+      vR = (v[i][0]*x[i][0]+v[i][1]*x[i][1])/R
+      vp = (-v[i][0]*x[i][1]+v[i][1]*x[i][0])/R
+      ostar= Orbit(vxvv=[R,-vR,-vp,x[i][2],-v[i][2],phi])
+      ostar.integrate(times,galpot,method='odeint')
+      oboth = Orbit(vxvv=[ostar.R(times[-1]),-ostar.vR(times[-1]),-ostar.vT(times[-1]),ostar.z(times[-1]),-ostar.vz(times[-1]),ostar.phi(times[-1])])
+      oboth.integrate(dtimes,[galpot,plumpot],method='odeint')
+      ogalpot = Orbit(vxvv=[oboth.R(times[-1]),-oboth.vR(times[-1]),-oboth.vT(times[-1]),oboth.z(times[-1]),-oboth.vz(times[-1]),oboth.phi(times[-1])])
+      ogalpot.integrate(times,galpot,method='odeint')
+      deltav[i][0]=-ogalpot.vx(times[-1])-v[i][0]
+      deltav[i][1]=-ogalpot.vy(times[-1])-v[i][1]
+      deltav[i][2]=-ogalpot.vz(times[-1])-v[i][2]
+    return deltav
 
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
