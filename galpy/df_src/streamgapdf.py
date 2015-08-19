@@ -986,7 +986,7 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot):
     acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
-def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs):
+def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,tmaxfac=10.,N=1000):
     """
     NAME:
        impulse_deltav_general_fullplummerintegration
@@ -1012,14 +1012,14 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs):
     nstar,ndim=numpy.shape(v)
     b0 = numpy.cross(w,v0)
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
-    X = b0-x0
+    X = x0-b0
     # Setup Plummer orbit
     R = numpy.sqrt(X[0]**2+X[1]**2)
     phi = numpy.arctan2(X[1],X[0])
     vR = (w[0]*X[0]+w[1]*X[1])/R
-    tmax = rs/numpy.sqrt(numpy.sum((w-v0)**2))
-    times = numpy.linspace(0.,tmax,1000)
-    dtimes = numpy.linspace(0.,2.*tmax,2000)
+    tmax = tmaxfac*rs/numpy.sqrt(numpy.sum((w-v0)**2))
+    times = numpy.linspace(0.,tmax,N)
+    dtimes = numpy.linspace(-tmax,tmax,2*N)
     vp = (-w[0]*X[1]+w[1]*X[0])/R
     o = Orbit(vxvv=[R,-vR,-vp,X[2],-w[2],phi])
     o.integrate(times,galpot,method='odeint')
