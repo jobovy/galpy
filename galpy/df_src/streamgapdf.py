@@ -904,41 +904,12 @@ def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     return numpy.array(list(map(lambda i:_deltav_integrate(0.,i[1],i[0],pot)
                         ,zip(w-v,b_))))
 
-def impulse_deltav_general_including_acceleration(x,b,w,x0,v0,pot,times):
-    """
-    NAME:
-       impulse_deltav_general_including_acceleration
-    PURPOSE:
-       calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation; allows for arbitrary velocity vectors and arbitrary shaped streams.
-       Must pass position samples for each particle at nsamp times separated
-       by dt. Note we don't need to pass the velocities of the particles.
-    INPUT:
-       x - position along the stream (nstar,nsamp,3)
-       b - impact parameter
-       w - velocity of the subhalo (3)
-       x0 - position of closest approach (3)
-       v0 - velocity of stream at closest approach (3)
-       pot - Potential object or list thereof (should be spherical)
-       times - times of samples (nsamp)
-    OUTPUT:
-       deltav (nstar,3)
-    HISTORY:
-       2015-08-16 - SANDERS
-    """
-    if len(x.shape) == 2: x= numpy.reshape(x,(1,len(times),3))
-    nstar,nsamp,ndim=numpy.shape(x)
-    b0 = numpy.cross(w,v0)
-    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
-    X = b0+x-x0-numpy.outer(times,w)
-    r = numpy.sqrt(numpy.sum(X**2,axis=-1))
-    acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
-    return integrate.simps(acc,x=times,axis=1)
-
-def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot,
+def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
+                                            tmaxfac=10.,nsamp=1000,
                                             integrate_method='symplec4_c'):
     """
     NAME:
-       impulse_deltav_general_including_orbitintegration
+       impulse_deltav_general_orbitintegration
     PURPOSE:
        calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
     INPUT:
@@ -949,8 +920,9 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot,
        x0 - position of closest approach (3)
        v0 - velocity of stream at closest approach (3)
        pot - Potential object or list thereof (should be spherical)
-       times - times of samples (nsamp)
+       tmax - maximum integration time
        galpot - galpy Potential object or list thereof
+       nsamp(1000) - number of forward integration points
        integrate_method= ('symplec4_c') orbit integrator to use (see Orbit.integrate)
     OUTPUT:
        deltav (nstar,3)
@@ -962,7 +934,7 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot,
     nstar,ndim=numpy.shape(v)
     b0 = numpy.cross(w,v0)
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
-    nsamp=len(times)
+    times = numpy.linspace(0.,tmax,nsamp)
     xres = numpy.zeros(shape=(len(x),nsamp*2-1,3))
     R, phi, z= bovy_coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
     vR, vp, vz= bovy_coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
@@ -985,7 +957,9 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,times,galpot,
     acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
-def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,tmaxfac=10.,N=1000):
+def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
+                                                  tmaxfac=10.,N=1000,
+                                                integrate_method='symplec4_c'):
     """
     NAME:
        impulse_deltav_general_fullplummerintegration
@@ -1001,6 +975,9 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,tma
        galpot - Galaxy Potential object
        GM - mass of Plummer
        rs - scale of Plummer
+       tmaxfac(10) - multiple of rs/|w-v0| to use for time integration interval
+       N(1000) - number of forward integration points
+       integrate_method('symplec4_c') - orbit integrator to use (see Orbit.integrate)
     OUTPUT:
        deltav (nstar,3)
     HISTORY:
@@ -1008,41 +985,40 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,tma
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+
     nstar,ndim=numpy.shape(v)
     b0 = numpy.cross(w,v0)
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
     X = x0-b0
+
     # Setup Plummer orbit
-    R = numpy.sqrt(X[0]**2+X[1]**2)
-    phi = numpy.arctan2(X[1],X[0])
-    vR = (w[0]*X[0]+w[1]*X[1])/R
+    R, phi, z= bovy_coords.rect_to_cyl(X[0],X[1],X[2])
+    vR, vp, vz= bovy_coords.rect_to_cyl_vec(w[0],w[1],w[2],R,phi,z,cyl=True)
     tmax = tmaxfac*rs/numpy.sqrt(numpy.sum((w-v0)**2))
     times = numpy.linspace(0.,tmax,N)
     dtimes = numpy.linspace(-tmax,tmax,2*N)
-    vp = (-w[0]*X[1]+w[1]*X[0])/R
-    o = Orbit(vxvv=[R,-vR,-vp,X[2],-w[2],phi])
-    o.integrate(times,galpot,method='odeint')
+    o = Orbit(vxvv=[R,-vR,-vp,z,-vz,phi])
+    o.integrate(times,galpot,method=integrate_method)
     oplum = Orbit(vxvv=[o.R(times[-1]),-o.vR(times[-1]),-o.vT(times[-1]),o.z(times[-1]),-o.vz(times[-1]),o.phi(times[-1])])
-    oplum.integrate(dtimes,galpot,method='odeint')
+    oplum.integrate(dtimes,galpot,method=integrate_method)
     plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
 
     # Now integrate each particle backwards in galaxy potential, forwards in combined potential and backwards again in galaxy and take diff
 
     deltav = numpy.zeros((nstar,3))
+    R, phi, z= bovy_coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
+    vR, vp, vz= bovy_coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
+                                            R,phi,z,cyl=True)
     for i in range(nstar):
-      R = numpy.sqrt(x[i][0]**2+x[i][1]**2)
-      phi = numpy.arctan2(x[i][1],x[i][0])
-      vR = (v[i][0]*x[i][0]+v[i][1]*x[i][1])/R
-      vp = (-v[i][0]*x[i][1]+v[i][1]*x[i][0])/R
-      ostar= Orbit(vxvv=[R,-vR,-vp,x[i][2],-v[i][2],phi])
-      ostar.integrate(times,galpot,method='odeint')
+      ostar= Orbit(vxvv=[R[i],-vR[i],-vp[i],z[i],-vz[i],phi[i]])
+      ostar.integrate(times,galpot,method=integrate_method)
       oboth = Orbit(vxvv=[ostar.R(times[-1]),-ostar.vR(times[-1]),-ostar.vT(times[-1]),ostar.z(times[-1]),-ostar.vz(times[-1]),ostar.phi(times[-1])])
-      oboth.integrate(dtimes,[galpot,plumpot],method='odeint')
+      oboth.integrate(dtimes,[galpot,plumpot],method=integrate_method)
       ogalpot = Orbit(vxvv=[oboth.R(times[-1]),-oboth.vR(times[-1]),-oboth.vT(times[-1]),oboth.z(times[-1]),-oboth.vz(times[-1]),oboth.phi(times[-1])])
-      ogalpot.integrate(times,galpot,method='odeint')
-      deltav[i][0]=-ogalpot.vx(times[-1])-v[i][0]
-      deltav[i][1]=-ogalpot.vy(times[-1])-v[i][1]
-      deltav[i][2]=-ogalpot.vz(times[-1])-v[i][2]
+      ogalpot.integrate(times,galpot,method=integrate_method)
+      deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
+      deltav[i][1] = -ogalpot.vy(times[-1]) - v[i][1]
+      deltav[i][2] = -ogalpot.vz(times[-1]) - v[i][2]
     return deltav
 
 def _rotation_vy(v,inv=False):
