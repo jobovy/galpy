@@ -491,7 +491,6 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
         GM,
         rs,
         tmaxfac=20.)
-    print plummer_kick,orbit_kick
     assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
             'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
