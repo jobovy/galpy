@@ -354,3 +354,125 @@ def test_hernquistX_unity():
     from galpy.df_src import streamgapdf
     assert streamgapdf.HernquistX(1.)==1., 'Hernquist X function not returning 1 with argument 1'
     return None
+
+# Test general impulse vs. full orbit integration for zero force
+def test_impulse_deltav_general_orbit_zeroforce():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential
+    tol= -6.
+    rcurv=10.
+    vp=220.
+    x0 = numpy.array([rcurv,0.,0.])
+    v0 = numpy.array([0.,vp,0.])
+    w = numpy.array([1.,numpy.pi/2.,0.])
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v0,x0,3.,w,x0,v0,1.5,4.)
+    pp= PlummerPotential(amp=1.5,b=4.)
+    vang=vp/rcurv
+    angrange=numpy.pi
+    maxt=5.*angrange/vang
+    galpot = constantPotential()
+    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+        v0,x0,3.,w,x0,v0,pp,maxt,galpot)
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
+        'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    # Same for a bunch of positions
+    tol= -5.
+    pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
+    theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,100)
+    xc,yc = rcurv*numpy.cos(theta),rcurv*numpy.sin(theta)
+    Xc = numpy.zeros((100,3))
+    Xc[:,0]=xc
+    Xc[:,1]=yc
+    vx,vy = -vp*numpy.sin(theta),vp*numpy.cos(theta)
+    V = numpy.zeros((100,3))
+    V[:,0]=vx
+    V[:,1]=vy
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        V,Xc,3.,w,x0,v0,numpy.pi,numpy.exp(1.))
+    orbit_kick=streamgapdf.impulse_deltav_general_orbitintegration(\
+        V,Xc,3.,w,x0,v0,pp,
+        maxt,
+        galpot)
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
+            'general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    return None
+
+# Test general impulse vs. full stream and halo integration for zero force
+def test_impulse_deltav_general_fullintegration_zeroforce():
+    from galpy.df_src import streamgapdf
+    tol= -3.
+    rcurv=10.
+    vp=220.
+    GM=1.5
+    rs=4.
+    x0 = numpy.array([rcurv,0.,0.])
+    v0 = numpy.array([0.,vp,0.])
+    w = numpy.array([1.,numpy.pi/4.*vp,0.])
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        v0,x0,3.,w,x0,v0,GM,rs)
+    galpot = constantPotential()
+    orbit_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
+        v0,x0,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.,N=1000)
+    nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
+    assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
+        'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
+        'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    # Same for a bunch of positions
+    tol= -2.5
+    GM=numpy.pi
+    rs=numpy.exp(1.)
+    theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,10)
+    xc,yc = rcurv*numpy.cos(theta),rcurv*numpy.sin(theta)
+    Xc = numpy.zeros((10,3))
+    Xc[:,0]=xc
+    Xc[:,1]=yc
+    vx,vy = -vp*numpy.sin(theta),vp*numpy.cos(theta)
+    V = numpy.zeros((10,3))
+    V[:,0]=vx
+    V[:,1]=vy
+    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+        V,Xc,3.,w,x0,v0,GM,rs)
+    orbit_kick=streamgapdf.impulse_deltav_general_fullplummerintegration(\
+        V,Xc,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.)
+    nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
+    assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
+        'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
+        'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    return None
+
+# Test general impulse vs. full stream and halo integration for fast encounter
+def test_impulse_deltav_general_fullintegration_fastencounter():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential, LogarithmicHaloPotential
+    tol= -2.
+    GM=1.5
+    rs=4.
+    x0 = numpy.array([1.5,0.,0.])
+    v0 = numpy.array([0.,1.,0.]) #circular orbit
+    w = numpy.array([0.,0.,100.]) # very fast compared to v=1
+    lp= LogarithmicHaloPotential(normalize=1.)
+    pp= PlummerPotential(amp=GM,b=rs)
+    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+        v0,x0,3.,w,x0,v0,pp,5.*numpy.pi,lp)
+    full_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
+        v0,x0,3.,w,x0,v0,lp,GM,rs,tmaxfac=10.,N=1000)
+    # Kick should be in the X direction
+    assert numpy.fabs((orbit_kick-full_kick)/full_kick)[0,0] < 10.**tol, \
+        'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
+    assert numpy.all(numpy.fabs((orbit_kick-full_kick))[0,1:] < 10.**tol), \
+        'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
+    return None
+
+from galpy.potential import Potential
+class constantPotential(Potential):
+    def __init__(self):
+        Potential.__init__(self,amp=1.)
+        self.hasC= False
+        return None
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        return 0.
+    def _zforce(self,R,z,phi=0.,t=0.):
+        return 0.
