@@ -427,15 +427,14 @@ def test_impulse_deltav_general_orbit_zeroforce():
 # Test general impulse vs. full stream and halo integration for zero force
 def test_impulse_deltav_general_fullintegration_zeroforce():
     from galpy.df_src import streamgapdf
-    from galpy.potential import PlummerPotential
-    tol= -4.
+    tol= -3.
     rcurv=10.
     vp=220.
     GM=1.5
     rs=4.
     x0 = numpy.array([rcurv,0.,0.])
     v0 = numpy.array([0.,vp,0.])
-    w = numpy.array([1.,numpy.pi/2.,0.])
+    w = numpy.array([1.,numpy.pi/4.*vp,0.])
     plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
         v0,
         x0,
@@ -455,12 +454,15 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
         galpot,
         GM,
         rs,
-        tmaxfac=10.,
+        tmaxfac=100.,
         N=1000)
-    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
+    nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
+    assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
+        'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
     # Same for a bunch of positions
-    tol= -4.
+    tol= -2.5
     GM=numpy.pi
     rs=numpy.exp(1.)
     theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,10)
@@ -490,9 +492,12 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
         galpot,
         GM,
         rs,
-        tmaxfac=20.)
-    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
-            'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+        tmaxfac=100.)
+    nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
+    assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
+        'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
+        'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
 
 # Test general impulse vs. full stream and halo integration for fast encounter
