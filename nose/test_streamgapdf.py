@@ -495,6 +495,47 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
             'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
 
+# Test general impulse vs. full stream and halo integration for fast encounter
+def test_impulse_deltav_general_fullintegration_fastencounter():
+    from galpy.df_src import streamgapdf
+    from galpy.potential import PlummerPotential, LogarithmicHaloPotential
+    tol= -2.
+    GM=1.5
+    rs=4.
+    x0 = numpy.array([1.5,0.,0.])
+    v0 = numpy.array([0.,1.,0.]) #circular orbit
+    w = numpy.array([0.,0.,100.]) # very fast compared to v=1
+    lp= LogarithmicHaloPotential(normalize=1.)
+    pp= PlummerPotential(amp=GM,b=rs)
+    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+        v0,
+        x0,
+        3.,
+        w,
+        x0,
+        v0,
+        pp,
+        5.*numpy.pi,
+        lp)
+    full_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
+        v0,
+        x0,
+        3.,
+        w,
+        x0,
+        v0,
+        lp,
+        GM,
+        rs,
+        tmaxfac=10.,
+        N=1000)
+    # Kick should be in the X direction
+    assert numpy.fabs((orbit_kick-full_kick)/full_kick)[0,0] < 10.**tol, \
+        'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
+    assert numpy.all(numpy.fabs((orbit_kick-full_kick))[0,1:] < 10.**tol), \
+        'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
+    return None
+
 from galpy.potential import Potential
 class constantPotential(Potential):
     def __init__(self):
