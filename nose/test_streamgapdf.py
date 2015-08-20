@@ -366,28 +366,14 @@ def test_impulse_deltav_general_orbit_zeroforce():
     v0 = numpy.array([0.,vp,0.])
     w = numpy.array([1.,numpy.pi/2.,0.])
     plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        1.5,4.)
+        v0,x0,3.,w,x0,v0,1.5,4.)
     pp= PlummerPotential(amp=1.5,b=4.)
     vang=vp/rcurv
     angrange=numpy.pi
     maxt=5.*angrange/vang
     galpot = constantPotential()
     orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        pp,
-        maxt,
-        galpot)
+        v0,x0,3.,w,x0,v0,pp,maxt,galpot)
     assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
     # Same for a bunch of positions
@@ -403,21 +389,9 @@ def test_impulse_deltav_general_orbit_zeroforce():
     V[:,0]=vx
     V[:,1]=vy
     plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
-        V,
-        Xc,
-        3.,
-        w,
-        x0,
-        v0,
-        numpy.pi,numpy.exp(1.))
+        V,Xc,3.,w,x0,v0,numpy.pi,numpy.exp(1.))
     orbit_kick=streamgapdf.impulse_deltav_general_orbitintegration(\
-        V,
-        Xc,
-        3.,
-        w,
-        x0,
-        v0,
-        pp,
+        V,Xc,3.,w,x0,v0,pp,
         maxt,
         galpot)
     assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
@@ -436,26 +410,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     v0 = numpy.array([0.,vp,0.])
     w = numpy.array([1.,numpy.pi/4.*vp,0.])
     plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        GM,rs)
+        v0,x0,3.,w,x0,v0,GM,rs)
     galpot = constantPotential()
     orbit_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        galpot,
-        GM,
-        rs,
-        tmaxfac=100.,
-        N=1000)
+        v0,x0,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.,N=1000)
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
@@ -475,24 +433,9 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     V[:,0]=vx
     V[:,1]=vy
     plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
-        V,
-        Xc,
-        3.,
-        w,
-        x0,
-        v0,
-        GM,rs)
+        V,Xc,3.,w,x0,v0,GM,rs)
     orbit_kick=streamgapdf.impulse_deltav_general_fullplummerintegration(\
-        V,
-        Xc,
-        3.,
-        w,
-        x0,
-        v0,
-        galpot,
-        GM,
-        rs,
-        tmaxfac=100.)
+        V,Xc,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.)
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
         'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
@@ -513,27 +456,9 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
     lp= LogarithmicHaloPotential(normalize=1.)
     pp= PlummerPotential(amp=GM,b=rs)
     orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        pp,
-        5.*numpy.pi,
-        lp)
+        v0,x0,3.,w,x0,v0,pp,5.*numpy.pi,lp)
     full_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
-        v0,
-        x0,
-        3.,
-        w,
-        x0,
-        v0,
-        lp,
-        GM,
-        rs,
-        tmaxfac=10.,
-        N=1000)
+        v0,x0,3.,w,x0,v0,lp,GM,rs,tmaxfac=10.,N=1000)
     # Kick should be in the X direction
     assert numpy.fabs((orbit_kick-full_kick)/full_kick)[0,0] < 10.**tol, \
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
