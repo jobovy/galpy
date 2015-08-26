@@ -1408,7 +1408,6 @@ class quasiisothermaldf(object):
                 vzgl= nsigma*sigmaz1/2.*(glx+1.)
                 vzglw= glw
                 vzfac= nsigma*sigmaz1  #2 x integration over [0,nsigma*sigmaz1]
-                sys.exit("Not sure if this is the right integration range???")
             else:
                 vzgl= nsigma*sigmaz1/2.*(glx12+1.)
                 vzgl= list(vzgl)
@@ -1434,6 +1433,7 @@ class quasiisothermaldf(object):
                                          vzgl.flatten(),
                                          log=True),
                                     (ngl,ngl))
+            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw*vzfac)*vTfac
 
     def pvT(self,vT,R,z,gl=True,ngl=_DEFAULTNGL2,nsigma=4.):
@@ -1485,7 +1485,6 @@ class quasiisothermaldf(object):
                 vzglw= glw
                 vRfac= nsigma*sigmaR1  #2 x integration over [0,nsigma*sigmaR1]
                 vzfac= nsigma*sigmaz1  #2 x integration over [0,nsigma*sigmaz1]
-                sys.exit("Not sure if this is the right integration range???")
             else:
                 vRgl= nsigma*sigmaR1/2.*(glx12+1.)
                 vRgl= list(vRgl)
@@ -1505,7 +1504,6 @@ class quasiisothermaldf(object):
                 vzglw= numpy.array(vzglw)
                 vRfac = 0.5*nsigma*sigmaR1   #integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
                 vzfac = 0.5*nsigma*sigmaz1   #integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
-                sys.exit("Not sure if this is the right integration range???")
             #Tile everything
             vRgl= numpy.tile(vRgl,(ngl,1)).T
             vzgl= numpy.tile(vzgl,(ngl,1))
@@ -1519,6 +1517,7 @@ class quasiisothermaldf(object):
                                          vzgl.flatten(),
                                          log=True),
                                     (ngl,ngl))
+            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw*vRfac*vzfac)
 
     def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2,
@@ -1575,7 +1574,6 @@ class quasiisothermaldf(object):
                 vRgl= (glx+1.)
                 vRglw= glw
                 vRfac= nsigma*sigmaR1  #2 x integration over [0,nsigma*sigmaR1]
-                sys.exit("Not sure if this is the right integration range???")
             else:
                 vRgl= (glx12+1.)
                 vRgl= list(vRgl)
@@ -1655,6 +1653,7 @@ class quasiisothermaldf(object):
                 result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)[0]*vRfac*vTfac
             else:
                 result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)*vRfac*vTfac
+                #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             if _return_actions and _return_freqs:
                 return (result,
                         jr,lz,jz,
@@ -1713,7 +1712,6 @@ class quasiisothermaldf(object):
                 vzgl= nsigma*sigmaz1/2.*(glx+1.)
                 vzglw= glw
                 vzfac= nsigma*sigmaz1  #2 x integration over [0,nsigma*sigmaz1]
-                sys.exit("Not sure if this is the right integration range???")
             else:
                 vzgl= nsigma*sigmaz1/2.*(glx12+1.)
                 vzgl= list(vzgl)
@@ -1724,7 +1722,6 @@ class quasiisothermaldf(object):
                 vzglw.extend(glw12)
                 vzglw= numpy.array(vzglw)
                 vzfac = 0.5*nsigma*sigmaz1   #integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
-                sys.exit("Not sure if this is the right integration range???")
             #evaluate
             logqeval= self(R+numpy.zeros(ngl),
                            vR+numpy.zeros(ngl),
@@ -1732,7 +1729,7 @@ class quasiisothermaldf(object):
                            z+numpy.zeros(ngl),
                            vzgl,
                            log=True)
-            sys.exit("Not sure how to take care for integration range nsigma*sigmaz1???")
+            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vzglw*vzfac)
         
     def pvTvz(self,vT,vz,R,z,gl=True,ngl=_DEFAULTNGL2,nsigma=4.):
@@ -1780,7 +1777,6 @@ class quasiisothermaldf(object):
                 vRgl= nsigma*sigmaR1/2.*(glx+1.)
                 vRglw= glw
                 vRfac= nsigma*sigmaR1  #2 x integration over [0,nsigma*sigmaR1]
-                sys.exit("Not sure if this is the right integration range???")
             else:
                 vRgl= nsigma*sigmaR1/2.*(glx12+1.)
                 vRgl= list(vRgl)
@@ -1791,7 +1787,6 @@ class quasiisothermaldf(object):
                 vRglw.extend(glw12)
                 vRglw= numpy.array(vRglw)
                 vRfac = 0.5*nsigma*sigmaR1   #integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
-                sys.exit("Not sure if this is the right integration range???")
             #evaluate
             logqeval= self(R+numpy.zeros(ngl),
                            vRgl,
@@ -1799,6 +1794,7 @@ class quasiisothermaldf(object):
                            z+numpy.zeros(ngl),
                            vz+numpy.zeros(ngl),
                            log=True)
+            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vRglw*vRfac)
 
     def pvRvz(self,vR,vz,R,z,gl=True,ngl=_DEFAULTNGL2,vTmax=1.5):
@@ -1868,6 +1864,7 @@ class quasiisothermaldf(object):
                                          vz,
                                          log=True),
                                     (nR,ngl))
+            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             out= numpy.sum(numpy.exp(logqeval)*vTglw*vTfac,axis=1)
             if scalarOut: return out[0]
             else: return out
