@@ -2499,11 +2499,26 @@ class streamdf(object):
         #Also generate angles
         da= numpy.random.normal(size=(3,n))*self._sigangle
         #And a random time
-        dt= numpy.random.uniform(size=n)*self._tdisrupt
+        dt= self.sample_t(n)
         #Integrate the orbits relative to the progenitor
         da+= dO*numpy.tile(dt,(3,1))
         angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
         return (Om,angle,dt)
+    
+    def sample_t(self,n):
+        """
+        NAME:
+           sample_t
+        PURPOSE:
+           generate a stripping time (time since stripping); simple implementation could be replaced by more complicated distributions in sub-classes of streamdf
+        INPUT:
+            n - number of points to return
+        OUTPUT:
+           array of n stripping times
+        HISTORY:
+           2015-09-16 - Written - Bovy (UofT)
+        """
+        return numpy.random.uniform(size=n)*self._tdisrupt
 
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
