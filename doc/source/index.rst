@@ -100,6 +100,9 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Uses galpy orbit integration  and ``galpy.potential.MWPotential2014`` as part of a Monte Carlo simulation of the Galactic young-pulsar population.
 #. *Phase Wrapping of Epicyclic Perturbations in the Wobbly Galaxy*, Alexander de la Vega, Alice C. Quillen, Jeffrey L. Carlin, Sukanya Chakrabarti, & Elena D'Onghia (2015), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1507.07489 <http://arxiv.org/abs/1507.07489>`_):
      Employs galpy orbit integration, ``galpy.potential`` functions, and ``galpy.potential.MWPotential2014`` to investigate epicyclic motions induced by the pericentric passage of a large dwarf galaxy and how these motions give rise to streaming motions in the vertical velocities of Milky Way disk stars.
+#. *The Phoenix stream: a cold stream in the Southern hemisphere*, E. Balbinot, B. Yanny, T. S. Li, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1509.04283 <http://arxiv.org/abs/1509.04283>`_).
+#. *Discovery of a Stellar Overdensity in Eridanus-Phoenix in the Dark Energy Survey*, T. S. Li, E. Balbinot, N. Mondrik, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1509.04296 <http://arxiv.org/abs/1509.04296>`_):
+     Both of these papers use galpy orbit integration to integrate the orbit of NGC 1261 to investigate a possible association of this cluster with the newly discovered Phoenix stream and Eridanus-Phoenix overdensity.
 
 
 Acknowledging galpy
