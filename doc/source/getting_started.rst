@@ -146,7 +146,7 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
->>> o.integrate(ts,mp,nethod='odeint')
+>>> o.integrate(ts,mp,method='odeint')
 
 Now we plot the resulting orbit as
 
