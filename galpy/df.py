@@ -3,6 +3,7 @@ from galpy.df_src import surfaceSigmaProfile
 from galpy.df_src import evolveddiskdf
 from galpy.df_src import quasiisothermaldf
 from galpy.df_src import streamdf
+from galpy.df_src import streamgapdf
 
 #
 # Classes
@@ -16,3 +17,4 @@ expSurfaceSigmaProfile= surfaceSigmaProfile.expSurfaceSigmaProfile
 surfaceSigmaProfile= surfaceSigmaProfile.surfaceSigmaProfile
 quasiisothermaldf= quasiisothermaldf.quasiisothermaldf
 streamdf= streamdf.streamdf
+streamgapdf= streamgapdf.streamgapdf
