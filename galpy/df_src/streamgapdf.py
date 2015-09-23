@@ -117,51 +117,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         #super(streamgapdf,self)._determine_stream_spread()
         return None
 
-#########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
-    def meanOmega(self,dangle,oned=False,tdisrupt=None):
-        """
-        NAME:
-
-           meanOmega
-
-        PURPOSE:
-
-           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time; uses computed kicks and replaces the equivalent streamdf function
-
-        INPUT:
-
-           dangle - angle offset
-
-           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
-
-        OUTPUT:
-
-           mean Omega
-
-        HISTORY:
-
-           2015-06-22 - Written - Bovy (IAS)
-
-        """
-        if tdisrupt is None: tdisrupt= self._tdisrupt
-        dOmin= dangle/tdisrupt
-        # First determine delta angle_par at timpact
-        dangle_impact= self._rewind_angle_impact(dangle)
-        meandO= self._meandO\
-            +self._kick_interpdOpar(dangle_impact)*self._sigMeanSign
-        dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
-                   *numpy.exp(-0.5*(meandO-dOmin)**2.\
-                                   /self._sortedSigOEig[2])/
-                (1.+special.erf((meandO-dOmin)\
-                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
-                   +meandO)
-        if oned: return dO1D
-        else:
-            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
-                *self._sigMeanSign\
-                +self._kick_interpdOperp0(dangle_impact)*self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx[0]]\
-                +self._kick_interpdOperp1(dangle_impact)*self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx[1]] # latter two add perp. kicks
-
     def _rewind_angle_impact(self,dangle):
         """
         NAME:
