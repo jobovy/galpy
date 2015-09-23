@@ -1,5 +1,43 @@
 import numpy
 numpy.random.seed(1)
+sdf_sanders15= None #so we can set this up and then use in other tests
+
+#Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
+def test_sanders15_setup():
+    #Imports
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    prog_unp_peri= Orbit([2.6556151742081835,
+                          0.2183747276300308,
+                          0.67876510797240575,
+                          -2.0143395648974671,
+                          -0.3273737682604374,
+                          0.24218273922966019])
+    global sdf_sanders15
+    V0, R0= 220., 8.
+    sigv= 0.365*(10./2.)**(1./3.) # km/s
+    sdf_sanders15= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                               leading=False,nTrackChunks=26,
+                               nTrackIterations=1,
+                               sigMeanOffset=4.5,
+                               tdisrupt=10.88\
+                                   /bovy_conversion.time_in_Gyr(V0,R0),
+                               Vnorm=V0,Rnorm=R0,
+                               impactb=0.,
+                               subhalovel=numpy.array([6.82200571,132.7700529,
+                                                       149.4174464])/V0,
+                               timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                               impact_angle=-2.34,
+                               GM=10.**-2.\
+                                   /bovy_conversion.mass_in_1010msol(V0,R0),
+                               rs=0.625/R0)
+    assert not sdf_sanders15 is None, 'sanders15 streamdf setup did not work'
+    return None
 
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
