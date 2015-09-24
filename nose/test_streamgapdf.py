@@ -136,8 +136,9 @@ def test_kickdO():
     return None
 
 def test_kickda():
-    # All angle kicks should be small, just test that they are smaller than dO/O
-    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[:,3:]) < (numpy.fabs(sdf_sanders15._kick_dOap[:,3:]/sdf_sanders15._progenitor_Omega))), 'angle kicks not smaller than the frequency kicks'
+    # All angle kicks should be small, just test that they are smaller than dO/O close to the impact
+    nIndx= numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack-sdf_sanders15._impact_angle) < 0.75
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[nIndx,3:]) < 2.*(numpy.fabs(sdf_sanders15._kick_dOap[nIndx,:3]/sdf_sanders15._progenitor_Omega))), 'angle kicks not smaller than the frequency kicks'
     return None
 
 # Test the interpolation of the kicks
@@ -161,6 +162,12 @@ def test_interpKickdO():
     assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv-0.05) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv-0.035) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv-0.04) < 0.01, 'Frequency kick near the impact point is not zero'
+    return None
+
+def test_interpKickda():
+    thetas= numpy.linspace(-0.75,0.75,10)+sdf_sanders15._impact_angle
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_interpdar(thetas)) \
+                         < 2.*numpy.fabs(sdf_sanders15._kick_interpdOr(thetas)/sdf_sanders15._progenitor_Omegar)), 'Interpolated angle kick not everywhere smaller than the frequency kick after one period'
     return None
 
 # Test rewind_angle
