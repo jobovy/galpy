@@ -78,6 +78,32 @@ def test_trackNearImpact():
     assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,5]-1.2) < .2, 'Point along the track near impact near R=16.25 does not have the correct azimuth'   
     return None
 
+def test_interpolatedTrackNearImpact():
+    # Sanity checks against numbers taken from plots of the simulation
+    # Make sure we're near X=-10.9
+    theta= 2.7
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackX(theta)*sdf_sanders15._Rnorm
+                      +10.9) < 0.2, 'Point along track near the impact at theta=2.7 is not near X=-10.9 kpc'
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackY(theta)*sdf_sanders15._Rnorm
+                      -6.) < 0.5, 'Point along track near the impact at theta=2.7 is not near Y=6. kpc'
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackZ(theta)*sdf_sanders15._Rnorm
+                      +5.) < 0.5, 'Point along track near the impact at theta=2.7 is not near Z=5. kpc'
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackvX(theta)*sdf_sanders15._Vnorm
+                      +180.) < 5, 'Point along track near the impact at theta=2.7 is not near vX=-180 km/s'
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackvY(theta)*sdf_sanders15._Vnorm
+                      +190.) < 5., 'Point along track near the impact at theta=2.7 is not near vY=190 km/s'
+    assert numpy.fabs(sdf_sanders15._kick_interpTrackvZ(theta)*sdf_sanders15._Vnorm
+                      -170.) < 5., 'Point along track near the impact at theta=2.7 is not near vZ=170 km/s'
+    return None
+
+# Test aA near the track as well
+
+# Test the calculation of the kicks in dv and dOa
+
+# Test the interpolation of the kicks
+
+# Test the sampling of present-day perturbed points based on the model
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
