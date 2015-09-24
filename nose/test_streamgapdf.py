@@ -96,9 +96,24 @@ def test_interpolatedTrackNearImpact():
                       -170.) < 5., 'Point along track near the impact at theta=2.7 is not near vZ=170 km/s'
     return None
 
-# Test aA near the track as well
-
 # Test the calculation of the kicks in dv and dOa
+def test_kickdv():
+    # Closest one to the impact point, should be close to zero
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle))
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick near the impact point not close to zero'
+    # The peak, size and location
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,0]*sdf_sanders15._Vnorm))-0.3) < 0.06, 'Peak dvx incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,0]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle < 0., 'Location of peak dvx incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,1]*sdf_sanders15._Vnorm))-0.3) < 0.06, 'Peak dvy incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,1]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvy incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,2]*sdf_sanders15._Vnorm))-1.8) < 0.06, 'Peak dvz incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,2]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvz incorrect'
+    # Close to zero far from impact point
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle-1.5))
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick far the impact point not close to zero'
+    return None
 
 # Test the interpolation of the kicks
 
