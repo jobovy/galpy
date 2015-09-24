@@ -96,7 +96,7 @@ def test_interpolatedTrackNearImpact():
                       -170.) < 5., 'Point along track near the impact at theta=2.7 is not near vZ=170 km/s'
     return None
 
-# Test the calculation of the kicks in dv and dOa
+# Test the calculation of the kicks in dv
 def test_kickdv():
     # Closest one to the impact point, should be close to zero
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
@@ -113,6 +113,31 @@ def test_kickdv():
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
                                        -sdf_sanders15._impact_angle-1.5))
     assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick far the impact point not close to zero'
+    return None
+
+# Test the calculation of the kicks in dO
+def test_kickdO():
+    from galpy.util import bovy_conversion
+    # Closest one to the impact point, should be close to zero
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle))
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)) < 0.03), 'Kick near the impact point not close to zero'
+    # The peak, size and location
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,0]*bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)))-0.085) < 0.01, 'Peak dOR incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,0])]-sdf_sanders15._impact_angle < 0., 'Location of peak dOR incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,1]*bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)))-0.07) < 0.01, 'Peak dOp incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,1])]-sdf_sanders15._impact_angle < 0., 'Location of peak dvy incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,2]*bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)))-0.075) < 0.01, 'Peak dOz incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,2])]-sdf_sanders15._impact_angle < 0., 'Location of peak dOz incorrect'
+    # Close to zero far from impact point
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle-1.5))
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)) < 0.03), 'Kick far the impact point not close to zero'
+    return None
+
+def test_kickda():
+    # All angle kicks should be small, just test that they are smaller than dO/O
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[:,3:]) < (numpy.fabs(sdf_sanders15._kick_dOap[:,3:]/sdf_sanders15._progenitor_Omega))), 'angle kicks not smaller than the frequency kicks'
     return None
 
 # Test the interpolation of the kicks
