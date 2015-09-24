@@ -141,6 +141,29 @@ def test_kickda():
     return None
 
 # Test the interpolation of the kicks
+def test_interpKickdO():
+    from galpy.util import bovy_conversion
+    freqConv= bovy_conversion.freq_in_Gyr(sdf_sanders15._Vnorm,sdf_sanders15._Rnorm)
+    # Bunch of spot checks at some interesting angles
+    # Impact angle
+    theta= sdf_sanders15._impact_angle
+    assert numpy.fabs(sdf_sanders15._kick_interpdOpar(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv) < 10.**-4., 'Frequency kick at the impact point is not zero'
+    # random one
+    theta= sdf_sanders15._impact_angle-0.25
+    assert numpy.fabs(sdf_sanders15._kick_interpdOpar(theta)*freqConv+0.07) < 0.002, 'Frequency kick near the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta)*freqConv) < 0.002, 'Frequency kick near the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta)*freqConv) < 0.003, 'Frequency kick near the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv-0.05) < 0.01, 'Frequency kick near the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv-0.035) < 0.01, 'Frequency kick near the impact point is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv-0.04) < 0.01, 'Frequency kick near the impact point is not zero'
+    return None
+
+# Test rewind_angle
 
 # Test the sampling of present-day perturbed points based on the model
 
