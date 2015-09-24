@@ -103,9 +103,9 @@ def test_kickdv():
                                        -sdf_sanders15._impact_angle))
     assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick near the impact point not close to zero'
     # The peak, size and location
-    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,0]*sdf_sanders15._Vnorm))-0.3) < 0.06, 'Peak dvx incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,0]*sdf_sanders15._Vnorm))-0.35) < 0.06, 'Peak dvx incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,0]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle < 0., 'Location of peak dvx incorrect'
-    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,1]*sdf_sanders15._Vnorm))-0.3) < 0.06, 'Peak dvy incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,1]*sdf_sanders15._Vnorm))-0.35) < 0.06, 'Peak dvy incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,1]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvy incorrect'
     assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_deltav[:,2]*sdf_sanders15._Vnorm))-1.8) < 0.06, 'Peak dvz incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_deltav[:,2]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvz incorrect'
@@ -201,8 +201,8 @@ def test_sample():
                          *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < 2.))
     outgap= numpy.sum((xv_mock_per[:,0]*sdf_sanders15._Rnorm > -2.5)\
                          *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < -1.5))
-    assert numpy.fabs(ingap/float(edgegap)-0.015/0.05) < 0.02, 'gap density versus edge of the gap is incorect'
-    assert numpy.fabs(ingap/float(outgap)-0.015/0.02) < 0.02, 'gap density versus outside of the gap is incorect'
+    assert numpy.fabs(ingap/float(edgegap)-0.015/0.05) < 0.05, 'gap density versus edge of the gap is incorect'
+    assert numpy.fabs(ingap/float(outgap)-0.015/0.02) < 0.2, 'gap density versus outside of the gap is incorect'
     # Test track of the stream
     tIndx= (xv_mock_per[:,0]*sdf_sanders15._Rnorm > 4.)\
         *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < 5.)\
