@@ -191,6 +191,28 @@ def test_rewind_angle_impact():
     return None
 
 # Test the sampling of present-day perturbed points based on the model
+def test_sample():
+    # Sample stars from the model and compare them to the stream
+    xv_mock_per= sdf_sanders15.sample(n=100000,xy=True).T
+    # Rough gap-density check
+    ingap= numpy.sum((xv_mock_per[:,0]*sdf_sanders15._Rnorm > 4.)\
+                         *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < 5.))
+    edgegap= numpy.sum((xv_mock_per[:,0]*sdf_sanders15._Rnorm > 1.)\
+                         *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < 2.))
+    outgap= numpy.sum((xv_mock_per[:,0]*sdf_sanders15._Rnorm > -2.5)\
+                         *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < -1.5))
+    assert numpy.fabs(ingap/float(edgegap)-0.015/0.05) < 0.02, 'gap density versus edge of the gap is incorect'
+    assert numpy.fabs(ingap/float(outgap)-0.015/0.02) < 0.02, 'gap density versus outside of the gap is incorect'
+    # Test track of the stream
+    tIndx= (xv_mock_per[:,0]*sdf_sanders15._Rnorm > 4.)\
+        *(xv_mock_per[:,0]*sdf_sanders15._Rnorm < 5.)\
+        *(xv_mock_per[:,1]*sdf_sanders15._Rnorm < 5.)
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,1])*sdf_sanders15._Rnorm+12.25) < 0.1, 'Location of mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,2])*sdf_sanders15._Rnorm-3.8) < 0.1, 'Location of mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,3])*sdf_sanders15._Vnorm-255.) < 2., 'Location of mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,4])*sdf_sanders15._Vnorm-20.) < 2., 'Location of mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,5])*sdf_sanders15._Vnorm+185.) < 2., 'Location of mock track is incorrect near the gap'
+    return None
 
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
