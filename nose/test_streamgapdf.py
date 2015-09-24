@@ -39,6 +39,45 @@ def test_sanders15_setup():
     assert not sdf_sanders15 is None, 'sanders15 streamdf setup did not work'
     return None
 
+# Some very basic tests
+def test_nTrackIterations():
+    assert sdf_sanders15.nTrackIterations == 1, 'nTrackIterations should have been 1'
+    return None
+def test_nTrackChunks():
+    assert sdf_sanders15._nTrackChunks == 26, 'nTrackChunks should have been 26'
+    return None
+def test_deltaAngleTrackImpact():
+    assert numpy.fabs(sdf_sanders15._deltaAngleTrackImpact-4.31) < 0.01, 'deltaAngleTrackImpact should have been ~4.31'
+    return None
+
+# Tests of the track near the impact
+def test_trackNearImpact():
+    # Sanity checks against numbers taken from plots of the simulation
+    # Make sure we're near 14.5
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[14,0]*sdf_sanders15._Rnorm
+                      -14.5) < 0.2, '14th point along track near the impact is not near 14.5 kpc'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[14,1]*sdf_sanders15._Vnorm
+                      -80) < 3., 'Point along the track near impact near R=14.5 does not have the correct radial velocity'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[14,2]*sdf_sanders15._Vnorm
+                      -220.) < 3., 'Point along the track near impact near R=14.5 does not have the correct tangential velocity'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[14,3]*sdf_sanders15._Rnorm
+                      -0.) < 1., 'Point along the track near impact near R=14.5 does not have the correct vertical height'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[14,4]*sdf_sanders15._Vnorm
+                      -200.) < 5., 'Point along the track near impact near R=14.5 does not have the correct vertical velocity'
+    # Another one!
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,0]*sdf_sanders15._Rnorm
+                      -16.25) < 0.2, '27th point along track near the impact is not near 16.25 kpc'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,1]*sdf_sanders15._Vnorm
+                      +130) < 3., 'Point along the track near impact near R=16.25 does not have the correct radial velocity'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,2]*sdf_sanders15._Vnorm
+                      -200.) < 3., 'Point along the track near impact near R=16.25 does not have the correct tangential velocity'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,3]*sdf_sanders15._Rnorm
+                      +12.) < 1., 'Point along the track near impact near R=16.25 does not have the correct vertical height'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,4]*sdf_sanders15._Vnorm
+                      -25.) < 5., 'Point along the track near impact near R=16.25 does not have the correct vertical velocity'   
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,5]-1.2) < .2, 'Point along the track near impact near R=16.25 does not have the correct azimuth'   
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
