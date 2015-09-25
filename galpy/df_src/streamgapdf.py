@@ -130,15 +130,16 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         """
         guess= dangle-self._meandO*self._sigMeanSign*self._timpact
         dguess= numpy.amax(self._kick_dOaparperp[:,2])*self._timpact*1.2
-        try:
-            out= optimize.brentq(lambda da: dangle
-                                 -(self._meandO*self._sigMeanSign
-                                   +self._kick_interpdOpar(da))*self._timpact
-                                 -da,
-                                 guess-dguess,guess+dguess)
+        out= optimize.brentq(lambda da: dangle
+                             -(self._meandO*self._sigMeanSign
+                               +self._kick_interpdOpar(da))*self._timpact
+                             -da,
+                             guess-dguess,guess+dguess)
+        """
         except ValueError:
             # Only get into trouble at the edges; assume the kick is zero
             out= dangle-self._meandO*self._sigMeanSign*self._timpact
+        """
         return out
 
     def _determine_deltav_kick(self,impactb,subhalovel,
