@@ -89,6 +89,15 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                 galpy.df_src.streamdf._INTERPDURINGSETUP)
         useInterp= kwargs.pop('useInterp',
                               galpy.df_src.streamdf._USEINTERP)
+        # Analytical Plummer or general potential?
+        self._general_kick= GM is None or rs is None
+        if self._general_kick and subhalopot is None:
+            raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
+        if self._general_kick:
+            self._subhalopot= subhalopot
+        else:
+            self._GM= GM
+            self._rs= rs
         # Now run the regular streamdf setup, but without calculating the
         # stream track (nosetup=True)
         kwargs['nosetup']= True
@@ -153,15 +162,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._nKickPoints= 10*self._nTrackChunksImpact
         else:
             self._nKickPoints= nKickPoints
-        # Analytical Plummer or general potential?
-        self._general_kick= GM is None or rs is None
-        if self._general_kick and subhalopot is None:
-            raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
-        if self._general_kick:
-            self._subhalopot= subhalopot
-        else:
-            self._GM= GM
-            self._rs= rs
         # Interpolate the track near the gap in (x,v) at the kick_thetas
         self._interpolate_stream_track_kick()
         self._interpolate_stream_track_kick_aA()
