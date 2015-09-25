@@ -291,7 +291,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
-        if hasattr(self,'_kick_interpolatedThetasTrack'):
+        if hasattr(self,'_kick_interpolatedThetasTrack'): #pragma: no cover
             return None #Already did this
         # Setup the trackpoints where the kick will be computed, covering the
         # full length of the stream
@@ -369,7 +369,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
     def _interpolate_stream_track_kick_aA(self):
         """Build interpolations of the stream track near the impact in action-angle coordinates"""
-        if hasattr(self,'_kick_interpolatedObsTrackAA'):
+        if hasattr(self,'_kick_interpolatedObsTrackAA'): #pragma: no cover
             return None #Already did this
         #Calculate 1D meanOmega on a fine grid in angle and interpolate
         dmOs= numpy.array([\
