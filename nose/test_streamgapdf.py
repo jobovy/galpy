@@ -1,6 +1,7 @@
 import numpy
 numpy.random.seed(1)
 sdf_sanders15= None #so we can set this up and then use in other tests
+sdft_sanders15= None #so we can set this up and then use in other tests
 
 #Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
 def test_sanders15_setup():
@@ -37,6 +38,47 @@ def test_sanders15_setup():
                                    /bovy_conversion.mass_in_1010msol(V0,R0),
                                rs=0.625/R0)
     assert not sdf_sanders15 is None, 'sanders15 streamdf setup did not work'
+    return None
+
+def test_sanders15_trailing_setup():
+    #Imports
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    prog_unp_peri= Orbit([2.6556151742081835,
+                          0.2183747276300308,
+                          0.67876510797240575,
+                          -2.0143395648974671,
+                          -0.3273737682604374,
+                          0.24218273922966019])
+    global sdft_sanders15
+    V0, R0= 220., 8.
+    sigv= 0.365*(10./2.)**(1./3.) # km/s
+    # Use a Potential object for the impact
+    pp= PlummerPotential(amp=10.**-2.\
+                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                         b=0.625/R0)
+    sdft_sanders15= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                                leading=True,nTrackChunks=26,
+                                nTrackChunksImpact=29,
+                                nTrackIterations=1,
+                                sigMeanOffset=4.5,
+                                tdisrupt=10.88\
+                                    /bovy_conversion.time_in_Gyr(V0,R0),
+                                Vnorm=V0,Rnorm=R0,
+                                impactb=0.,
+                                subhalovel=numpy.array([6.82200571,132.7700529,
+                                                       149.4174464])/V0,
+                                timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                                impact_angle=2.34,
+                                subhalopot=pp,
+                                nKickPoints=290,
+                                multi=True) # test multi
+    assert not sdft_sanders15 is None, 'sanders15 trailing streamdf setup did not work'
     return None
 
 # Some very basic tests
