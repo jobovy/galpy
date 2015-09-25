@@ -3,13 +3,12 @@ from functools import wraps
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate, interpolate, special, optimize
-from galpy.util import galpyWarning, bovy_coords
+from scipy import integrate, interpolate, optimize
+from galpy.util import galpyWarning, bovy_coords, multi
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
-from galpy.util import bovy_coords, multi
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -114,7 +113,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             super(streamgapdf,self)._interpolate_stream_track()
             super(streamgapdf,self)._interpolate_stream_track_aA()
         super(streamgapdf,self).calc_stream_lb()
-        #super(streamgapdf,self)._determine_stream_spread()
         return None
 
     def _rewind_angle_impact(self,dangle):
@@ -411,9 +409,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def _determine_impact_coordtransform(self,deltaAngleTrackImpact,
                                          nTrackChunksImpact,
                                          timpact,impact_angle):
-        """Function that sets up the transformation between (x,v) and (O,theta)
-        SHOULD REALLY REPLACE THIS WITH MORE GENERAL FUNCTION THAT SETS UP
-        THE TRANSFORMATION AT ANY TIME IN THE PAST (ISN'T THAT WHAT THIS IS :-)"""
+        """Function that sets up the transformation between (x,v) and (O,theta)"""
         # Integrate the progenitor backward to the time of impact
         self._gap_progenitor_setup()
         # Sign of delta angle tells us whether the impact happens to the
