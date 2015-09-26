@@ -619,20 +619,35 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 def impulse_deltav_plummer(v,y,b,w,GM,rs):
     """
     NAME:
+
        impulse_deltav_plummer
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        y - position along the stream (nstar)
+
        b - impact parameter
+
        w - velocity of the Plummer sphere (3)
+
        GM - mass of the Plummer sphere (in natural units)
+
        rs - size of the Plummer sphere
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     nv= v.shape[0]
@@ -662,22 +677,39 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
 def impulse_deltav_plummer_curvedstream(v,x,b,w,x0,v0,GM,rs):
     """
     NAME:
+
        impulse_deltav_plummer_curvedstream
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        x - position along the stream (nstar,3)
+
        b - impact parameter
+
        w - velocity of the Plummer sphere (3)
+
        x0 - point of closest approach
+
        v0 - velocity of point of closest approach
+
        GM - mass of the Plummer sphere (in natural units)
+
        rs - size of the Plummer sphere
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-05-04 - Written based on above - SANDERS
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
@@ -707,20 +739,35 @@ def HernquistX(s):
 def impulse_deltav_hernquist(v,y,b,w,GM,rs):
     """
     NAME:
+
        impulse_deltav_hernquist
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        y - position along the stream (nstar)
+
        b - impact parameter
+
        w - velocity of the Hernquist sphere (3)
+
        GM - mass of the Hernquist sphere (in natural units)
+
        rs - size of the Hernquist sphere
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-08-13 SANDERS, using Wyn Evans calculation
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     nv= v.shape[0]
@@ -754,22 +801,39 @@ def impulse_deltav_hernquist(v,y,b,w,GM,rs):
 def impulse_deltav_hernquist_curvedstream(v,x,b,w,x0,v0,GM,rs):
     """
     NAME:
+
        impulse_deltav_plummer_hernquist
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        x - position along the stream (nstar,3)
+
        b - impact parameter
+
        w - velocity of the Hernquist sphere (3)
+
        x0 - point of closest approach
+
        v0 - velocity of point of closest approach
+
        GM - mass of the Hernquist sphere (in natural units)
+
        rs - size of the Hernquist sphere
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-08-13 - SANDERS, using Wyn Evans calculation
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
@@ -799,20 +863,36 @@ def _deltav_integrate(y,b,w,pot):
 def impulse_deltav_general(v,y,b,w,pot):
     """
     NAME:
+
        impulse_deltav_general
+
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        y - position along the stream (nstar)
+
        b - impact parameter
+
        w - velocity of the subhalo (3)
+
        pot - Potential object or list thereof (should be spherical)
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-05-04 - SANDERS
+
        2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     nv= v.shape[0]
@@ -831,22 +911,39 @@ def impulse_deltav_general(v,y,b,w,pot):
 def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
     """
     NAME:
+
        impulse_deltav_general_curvedstream
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors and arbitrary shaped streams
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        x - position along the stream (nstar,3)
+
        b - impact parameter
+
        w - velocity of the subhalo (3)
+
        x0 - position of closest approach (3)
+
        v0 - velocity of stream at closest approach (3)
+
        pot - Potential object or list thereof (should be spherical)
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-05-04 - SANDERS
+
        2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
@@ -861,25 +958,45 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
                                             integrate_method='symplec4_c'):
     """
     NAME:
+
        impulse_deltav_general_orbitintegration
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        x - position along the stream (nstar,3)
+
        b - impact parameter
+
        w - velocity of the subhalo (3)
+
        x0 - position of closest approach (3)
+
        v0 - velocity of stream at closest approach (3)
+
        pot - Potential object or list thereof (should be spherical)
+
        tmax - maximum integration time
+
        galpot - galpy Potential object or list thereof
+
        nsamp(1000) - number of forward integration points
+
        integrate_method= ('symplec4_c') orbit integrator to use (see Orbit.integrate)
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-08-17 - SANDERS
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
@@ -914,26 +1031,47 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
                                                 integrate_method='symplec4_c'):
     """
     NAME:
+
        impulse_deltav_general_fullplummerintegration
+
     PURPOSE:
+
        calculate the delta velocity to due an encounter with a moving Plummer sphere and galactic potential relative to just in galactic potential
+
     INPUT:
+
        v - velocity of the stream (nstar,3)
+
        x - position along the stream (nstar,3)
+
        b - impact parameter
+
        w - velocity of the subhalo (3)
+
        x0 - position of closest approach (3)
+
        v0 - velocity of stream at closest approach (3)
+
        galpot - Galaxy Potential object
+
        GM - mass of Plummer
+
        rs - scale of Plummer
+
        tmaxfac(10) - multiple of rs/|w-v0| to use for time integration interval
+
        N(1000) - number of forward integration points
+
        integrate_method('symplec4_c') - orbit integrator to use (see Orbit.integrate)
+
     OUTPUT:
+
        deltav (nstar,3)
+
     HISTORY:
+
        2015-08-18 - SANDERS
+
     """
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
