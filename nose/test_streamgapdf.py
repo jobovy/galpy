@@ -2,6 +2,7 @@ import numpy
 from nose.tools import raises
 numpy.random.seed(1)
 sdf_sanders15= None #so we can set this up and then use in other tests
+sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdft_sanders15= None #so we can set this up and then use in other tests
 
 @raises(IOError)
@@ -113,7 +114,7 @@ def test_trailingwleadingimpact_error():
 #Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
 def test_sanders15_setup():
     #Imports
-    from galpy.df import streamgapdf
+    from galpy.df import streamdf, streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -144,7 +145,18 @@ def test_sanders15_setup():
                                GM=10.**-2.\
                                    /bovy_conversion.mass_in_1010msol(V0,R0),
                                rs=0.625/R0)
-    assert not sdf_sanders15 is None, 'sanders15 streamdf setup did not work'
+    assert not sdf_sanders15 is None, 'sanders15 streamgapdf setup did not work'
+    # Also setup the unperturbed model
+    global sdf_sanders15_unp
+    sdf_sanders15_unp= streamdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                               leading=False,nTrackChunks=26,
+                               nTrackIterations=1,
+                               sigMeanOffset=4.5,
+                               tdisrupt=10.88\
+                                   /bovy_conversion.time_in_Gyr(V0,R0),
+                               Vnorm=V0,Rnorm=R0)
+    assert not sdf_sanders15_unp is None, \
+        'sanders15 unperturbed streamdf setup did not work'
     return None
 
 def test_sanders15_trailing_setup():
@@ -368,6 +380,26 @@ def test_sample():
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,3])*sdf_sanders15._Vnorm-255.) < 2., 'Location of mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,4])*sdf_sanders15._Vnorm-20.) < 2., 'Location of mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,5])*sdf_sanders15._Vnorm+185.) < 2., 'Location of mock track is incorrect near the gap'
+    return None
+
+# Test the sampling of present-day perturbed-unperturbed points
+# (like in the paper)
+def test_sample_offset():
+    # Sample stars from the model and compare them to the stream
+    numpy.random.seed(1)
+    xv_mock_per= sdf_sanders15.sample(n=100000,xy=True).T
+    numpy.random.seed(1) # should give same points
+    xv_mock_unp= sdf_sanders15_unp.sample(n=100000,xy=True).T
+    # Test perturbation as a function of unperturbed X
+    tIndx= (xv_mock_unp[:,0]*sdf_sanders15._Rnorm > 0.)\
+        *(xv_mock_unp[:,0]*sdf_sanders15._Rnorm < 1.)\
+        *(xv_mock_unp[:,1]*sdf_sanders15._Rnorm < 5.)
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,0]-xv_mock_unp[tIndx,0])*sdf_sanders15._Rnorm+0.65) < 0.1, 'Location of perturbed mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,1]-xv_mock_unp[tIndx,1])*sdf_sanders15._Rnorm-0.1) < 0.1, 'Location of perturbed mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,2]-xv_mock_unp[tIndx,2])*sdf_sanders15._Rnorm-0.4) < 0.1, 'Location of perturbed mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,3]-xv_mock_unp[tIndx,3])*sdf_sanders15._Vnorm) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,4]-xv_mock_unp[tIndx,4])*sdf_sanders15._Vnorm+7.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
+    assert numpy.fabs(numpy.median(xv_mock_per[tIndx,5]-xv_mock_unp[tIndx,5])*sdf_sanders15._Vnorm-4.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
     return None
 
 # Test the routine that rotates vectors to an arbitrary vector
