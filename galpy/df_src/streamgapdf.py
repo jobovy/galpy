@@ -424,9 +424,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
         self._impact_angle= numpy.fabs(impact_angle)
         self._gap_sigMeanSign= 1.
-        if self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.:
-            self._gap_sigMeanSign= -1.
-        elif not self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign > 0.:
+        if (self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.) \
+                or (not self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign > 0.):
             self._gap_sigMeanSign= -1.
         # Determine how much orbital time is necessary for the progenitor's orbit at the time of impact to cover the part of the stream near the impact; we cover the whole leading (or trailing) part of the stream
         if nTrackChunksImpact is None:
