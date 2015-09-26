@@ -24,7 +24,7 @@ def impact_check_range(func):
             return func(*args,**kwargs)
     return impact_wrapper
 class streamgapdf(galpy.df_src.streamdf.streamdf):
-    """The DF of a tidal stream"""
+    """The DF of a gap in a tidal stream"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
