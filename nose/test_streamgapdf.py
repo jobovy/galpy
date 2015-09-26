@@ -182,7 +182,9 @@ def test_sanders15_trailing_setup():
                              /bovy_conversion.mass_in_1010msol(V0,R0),
                          b=0.625/R0)
     import warnings
-    with warnings.catch_warnings(True) as w:
+    from galpy.util import galpyWarning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         sdft_sanders15= streamgapdf(sigv/V0,progenitor=prog_unp_peri,
                                     pot=lp,aA=aAI,
                                     leading=True,nTrackChunks=26,
@@ -202,8 +204,12 @@ def test_sanders15_trailing_setup():
                                     nKickPoints=290,
                                     deltaAngleTrackImpact=4.5,
                                     multi=True) # test multi
-        # Should raise warning bc of deltaAngleTrackImpact
-        assert str(w[0].message[0]) == "WARNING: deltaAngleTrackImpact angle range large compared to plausible value"
+        # Should raise warning bc of deltaAngleTrackImpact, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "WARNING: deltaAngleTrackImpact angle range large compared to plausible value")
+            if raisedWarning: break
+        assert raisedWarning,  'deltaAngleTrackImpact warning not raised when it should have been'
     assert not sdft_sanders15 is None, 'sanders15 trailing streamdf setup did not work'
     return None
 
