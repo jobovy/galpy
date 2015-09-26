@@ -403,7 +403,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             deltaAngleTrackImpact= deltaAngleTrackLim
         else:
             if deltaAngleTrackImpact > deltaAngleTrackLim:
-                warnings.warn("WARNING: deltaAngleTrackImpact angle range large compared to plausible value.", galpyWarning)
+                warnings.warn("WARNING: deltaAngleTrackImpact angle range large compared to plausible value", galpyWarning)
         self._deltaAngleTrackImpact= deltaAngleTrackImpact
         return None
 

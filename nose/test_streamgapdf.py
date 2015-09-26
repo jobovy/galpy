@@ -169,22 +169,29 @@ def test_sanders15_trailing_setup():
     pp= PlummerPotential(amp=10.**-2.\
                              /bovy_conversion.mass_in_1010msol(V0,R0),
                          b=0.625/R0)
-    sdft_sanders15= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
-                                leading=True,nTrackChunks=26,
-                                nTrackChunksImpact=29,
-                                nTrackIterations=1,
-                                sigMeanOffset=4.5,
-                                tdisrupt=10.88\
-                                    /bovy_conversion.time_in_Gyr(V0,R0),
-                                Vnorm=V0,Rnorm=R0,
-                                impactb=0.,
-                                subhalovel=numpy.array([6.82200571,132.7700529,
-                                                       149.4174464])/V0,
-                                timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
-                                impact_angle=2.34,
-                                subhalopot=pp,
-                                nKickPoints=290,
-                                multi=True) # test multi
+    import warnings
+    with warnings.catch_warnings(True) as w:
+        sdft_sanders15= streamgapdf(sigv/V0,progenitor=prog_unp_peri,
+                                    pot=lp,aA=aAI,
+                                    leading=True,nTrackChunks=26,
+                                    nTrackChunksImpact=29,
+                                    nTrackIterations=1,
+                                    sigMeanOffset=4.5,
+                                    tdisrupt=10.88\
+                                        /bovy_conversion.time_in_Gyr(V0,R0),
+                                    Vnorm=V0,Rnorm=R0,
+                                    impactb=0.,
+                                    subhalovel=numpy.array([6.82200571,
+                                                            132.7700529,
+                                                            149.4174464])/V0,
+                                    timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                                    impact_angle=2.34,
+                                    subhalopot=pp,
+                                    nKickPoints=290,
+                                    deltaAngleTrackImpact=4.5,
+                                    multi=True) # test multi
+        # Should raise warning bc of deltaAngleTrackImpact
+        assert str(w[0].message[0]) == "WARNING: deltaAngleTrackImpact angle range large compared to plausible value"
     assert not sdft_sanders15 is None, 'sanders15 trailing streamdf setup did not work'
     return None
 
