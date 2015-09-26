@@ -465,22 +465,22 @@ def test_rotation_vy():
 
 # Test the Plummer calculation for a perpendicular impact, B&T ex. 8.7
 def test_impulse_deltav_plummer_subhalo_perpendicular():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer
     tol= -10.
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,numpy.pi,0.]]),
-                                             numpy.array([0.]),
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             1.5,4.)
+    kick= impulse_deltav_plummer(numpy.array([[0.,numpy.pi,0.]]),
+                                 numpy.array([0.]),
+                                 3.,
+                                 numpy.array([0.,numpy.pi/2.,0.]),
+                                 1.5,4.)
     # Should be B&T (8.152)
     assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     assert numpy.fabs(kick[0,2]+2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     # Same for along z
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[0.,0.,numpy.pi]]),
-                                             numpy.array([0.]),
-                                             3.,
-                                             numpy.array([0.,0.,numpy.pi/2.]),
-                                             1.5,4.)
+    kick= impulse_deltav_plummer(numpy.array([[0.,0.,numpy.pi]]),
+                                 numpy.array([0.]),
+                                 3.,
+                                 numpy.array([0.,0.,numpy.pi/2.]),
+                                 1.5,4.)
     # Should be B&T (8.152)
     assert numpy.fabs(kick[0,0]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
     assert numpy.fabs(kick[0,1]-2.*1.5*3./numpy.pi*2./25.) < 10.**tol, 'Perpendicular kick of subhalo perpendicular not as expected'
@@ -488,14 +488,15 @@ def test_impulse_deltav_plummer_subhalo_perpendicular():
 
 # Test the Plummer curved calculation for a perpendicular impact
 def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer, \
+        impulse_deltav_plummer_curvedstream
     tol= -10.
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[3.4,0.,0.]]),
-                                             numpy.array([4.]),
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             1.5,4.)
-    curved_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    kick= impulse_deltav_plummer(numpy.array([[3.4,0.,0.]]),
+                                 numpy.array([4.]),
+                                 3.,
+                                 numpy.array([0.,numpy.pi/2.,0.]),
+                                 1.5,4.)
+    curved_kick= impulse_deltav_plummer_curvedstream(\
         numpy.array([[3.4,0.,0.]]),
         numpy.array([[4.,0.,0.]]),
         3.,
@@ -509,13 +510,13 @@ def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
     v= numpy.zeros((100,3))
     v[:,0]= 3.4
     xpos= numpy.random.normal(size=100)
-    kick= streamgapdf.impulse_deltav_plummer(v,
-                                             xpos,
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             1.5,4.)
+    kick= impulse_deltav_plummer(v,
+                                 xpos,
+                                 3.,
+                                 numpy.array([0.,numpy.pi/2.,0.]),
+                                 1.5,4.)
     xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
-    curved_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    curved_kick= impulse_deltav_plummer_curvedstream(\
         v,
         xpos,
         3.,
@@ -529,47 +530,48 @@ def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
 
 # Test general impulse vs. Plummer
 def test_impulse_deltav_general():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer, impulse_deltav_general
     from galpy.potential import PlummerPotential
     tol= -10.
-    kick= streamgapdf.impulse_deltav_plummer(numpy.array([[3.4,0.,0.]]),
-                                             numpy.array([4.]),
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             1.5,4.)
+    kick= impulse_deltav_plummer(numpy.array([[3.4,0.,0.]]),
+                                 numpy.array([4.]),
+                                 3.,
+                                 numpy.array([0.,numpy.pi/2.,0.]),
+                                 1.5,4.)
     pp= PlummerPotential(amp=1.5,b=4.)
     general_kick=\
-        streamgapdf.impulse_deltav_general(numpy.array([[3.4,0.,0.]]),
-                                           numpy.array([4.]),
-                                           3.,
-                                           numpy.array([0.,numpy.pi/2.,0.]),
-                                           pp)
+        impulse_deltav_general(numpy.array([[3.4,0.,0.]]),
+                               numpy.array([4.]),
+                               3.,
+                               numpy.array([0.,numpy.pi/2.,0.]),
+                               pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential'
     # Same for a bunch of positions
     v= numpy.zeros((100,3))
     v[:,0]= 3.4
     xpos= numpy.random.normal(size=100)
-    kick= streamgapdf.impulse_deltav_plummer(v,
-                                             xpos,
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             numpy.pi,numpy.exp(1.))
+    kick= impulse_deltav_plummer(v,
+                                 xpos,
+                                 3.,
+                                 numpy.array([0.,numpy.pi/2.,0.]),
+                                 numpy.pi,numpy.exp(1.))
     pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
     general_kick=\
-        streamgapdf.impulse_deltav_general(v,
-                                           xpos,
-                                           3.,
-                                           numpy.array([0.,numpy.pi/2.,0.]),
-                                           pp)
+        impulse_deltav_general(v,
+                               xpos,
+                               3.,
+                               numpy.array([0.,numpy.pi/2.,0.]),
+                               pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Plummer calculation for a Plummer potential'
     return None
 
 # Test general impulse vs. Plummer for curved stream
 def test_impulse_deltav_general_curved():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer_curvedstream, \
+        impulse_deltav_general_curvedstream
     from galpy.potential import PlummerPotential
     tol= -10.
-    kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    kick= impulse_deltav_plummer_curvedstream(\
         numpy.array([[3.4,0.,0.]]),
         numpy.array([[4.,0.,0.]]),
         3.,
@@ -578,7 +580,7 @@ def test_impulse_deltav_general_curved():
         numpy.array([3.4,0.,0.]),
         1.5,4.)
     pp= PlummerPotential(amp=1.5,b=4.)
-    general_kick= streamgapdf.impulse_deltav_general_curvedstream(\
+    general_kick= impulse_deltav_general_curvedstream(\
         numpy.array([[3.4,0.,0.]]),
         numpy.array([[4.,0.,0.]]),
         3.,
@@ -592,7 +594,7 @@ def test_impulse_deltav_general_curved():
     v[:,0]= 3.4
     xpos= numpy.random.normal(size=100)
     xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
-    kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    kick= impulse_deltav_plummer_curvedstream(\
         v,
         xpos,
         3.,
@@ -602,7 +604,7 @@ def test_impulse_deltav_general_curved():
         numpy.pi,numpy.exp(1.))
     pp= PlummerPotential(amp=numpy.pi,b=numpy.exp(1.))
     general_kick=\
-        streamgapdf.impulse_deltav_general_curvedstream(\
+        impulse_deltav_general_curvedstream(\
         v,
         xpos,
         3.,
@@ -615,51 +617,52 @@ def test_impulse_deltav_general_curved():
 
 # Test general impulse vs. Hernquist
 def test_impulse_deltav_general_hernquist():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_hernquist, impulse_deltav_general
     from galpy.potential import HernquistPotential
     GM = 1.5
     tol= -10.
-    kick= streamgapdf.impulse_deltav_hernquist(numpy.array([[3.4,0.,0.]]),
-                                             numpy.array([4.]),
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             GM,4.)
+    kick= impulse_deltav_hernquist(numpy.array([[3.4,0.,0.]]),
+                                   numpy.array([4.]),
+                                   3.,
+                                   numpy.array([0.,numpy.pi/2.,0.]),
+                                   GM,4.)
     # Note factor of 2 in definition of GM and amp
     pp= HernquistPotential(amp=2.*GM,a=4.)
     general_kick=\
-        streamgapdf.impulse_deltav_general(numpy.array([[3.4,0.,0.]]),
-                                           numpy.array([4.]),
-                                           3.,
-                                           numpy.array([0.,numpy.pi/2.,0.]),
-                                           pp)
+        impulse_deltav_general(numpy.array([[3.4,0.,0.]]),
+                               numpy.array([4.]),
+                               3.,
+                               numpy.array([0.,numpy.pi/2.,0.]),
+                               pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential'
     # Same for a bunch of positions
     GM = numpy.pi
     v= numpy.zeros((100,3))
     v[:,0]= 3.4
     xpos= numpy.random.normal(size=100)
-    kick= streamgapdf.impulse_deltav_hernquist(v,
-                                             xpos,
-                                             3.,
-                                             numpy.array([0.,numpy.pi/2.,0.]),
-                                             GM,numpy.exp(1.))
+    kick= impulse_deltav_hernquist(v,
+                                   xpos,
+                                   3.,
+                                   numpy.array([0.,numpy.pi/2.,0.]),
+                                   GM,numpy.exp(1.))
     pp= HernquistPotential(amp=2.*GM,a=numpy.exp(1.))
     general_kick=\
-        streamgapdf.impulse_deltav_general(v,
-                                           xpos,
-                                           3.,
-                                           numpy.array([0.,numpy.pi/2.,0.]),
-                                           pp)
+        impulse_deltav_general(v,
+                               xpos,
+                               3.,
+                               numpy.array([0.,numpy.pi/2.,0.]),
+                               pp)
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential'
     return None
 
 # Test general impulse vs. Hernquist for curved stream
 def test_impulse_deltav_general_curved_hernquist():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_hernquist_curvedstream, \
+        impulse_deltav_general_curvedstream
     from galpy.potential import HernquistPotential
     GM = 1.5
     tol= -10.
-    kick= streamgapdf.impulse_deltav_hernquist_curvedstream(\
+    kick= impulse_deltav_hernquist_curvedstream(\
         numpy.array([[3.4,0.,0.]]),
         numpy.array([[4.,0.,0.]]),
         3.,
@@ -669,7 +672,7 @@ def test_impulse_deltav_general_curved_hernquist():
         GM,4.)
     # Note factor of 2 in definition of GM and amp
     pp= HernquistPotential(amp=2.*GM,a=4.)
-    general_kick= streamgapdf.impulse_deltav_general_curvedstream(\
+    general_kick= impulse_deltav_general_curvedstream(\
         numpy.array([[3.4,0.,0.]]),
         numpy.array([[4.,0.,0.]]),
         3.,
@@ -684,7 +687,7 @@ def test_impulse_deltav_general_curved_hernquist():
     v[:,0]= 3.4
     xpos= numpy.random.normal(size=100)
     xpos= numpy.array([xpos,numpy.zeros(100),numpy.zeros(100)]).T
-    kick= streamgapdf.impulse_deltav_hernquist_curvedstream(\
+    kick= impulse_deltav_hernquist_curvedstream(\
         v,
         xpos,
         3.,
@@ -694,7 +697,7 @@ def test_impulse_deltav_general_curved_hernquist():
         GM,numpy.exp(1.))
     pp= HernquistPotential(amp=2.*GM,a=numpy.exp(1.))
     general_kick=\
-        streamgapdf.impulse_deltav_general_curvedstream(\
+        impulse_deltav_general_curvedstream(\
         v,
         xpos,
         3.,
@@ -718,7 +721,8 @@ def test_hernquistX_unity():
 
 # Test general impulse vs. full orbit integration for zero force
 def test_impulse_deltav_general_orbit_zeroforce():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer_curvedstream, \
+        impulse_deltav_general_orbitintegration
     from galpy.potential import PlummerPotential
     tol= -6.
     rcurv=10.
@@ -726,14 +730,14 @@ def test_impulse_deltav_general_orbit_zeroforce():
     x0 = numpy.array([rcurv,0.,0.])
     v0 = numpy.array([0.,vp,0.])
     w = numpy.array([1.,numpy.pi/2.,0.])
-    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    plummer_kick= impulse_deltav_plummer_curvedstream(\
         v0,x0,3.,w,x0,v0,1.5,4.)
     pp= PlummerPotential(amp=1.5,b=4.)
     vang=vp/rcurv
     angrange=numpy.pi
     maxt=5.*angrange/vang
     galpot = constantPotential()
-    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+    orbit_kick= impulse_deltav_general_orbitintegration(\
         v0,x0,3.,w,x0,v0,pp,maxt,galpot)
     assert numpy.all(numpy.fabs(orbit_kick-plummer_kick) < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
@@ -749,9 +753,9 @@ def test_impulse_deltav_general_orbit_zeroforce():
     V = numpy.zeros((100,3))
     V[:,0]=vx
     V[:,1]=vy
-    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    plummer_kick= impulse_deltav_plummer_curvedstream(\
         V,Xc,3.,w,x0,v0,numpy.pi,numpy.exp(1.))
-    orbit_kick=streamgapdf.impulse_deltav_general_orbitintegration(\
+    orbit_kick= impulse_deltav_general_orbitintegration(\
         V,Xc,3.,w,x0,v0,pp,
         maxt,
         galpot)
@@ -761,7 +765,8 @@ def test_impulse_deltav_general_orbit_zeroforce():
 
 # Test general impulse vs. full stream and halo integration for zero force
 def test_impulse_deltav_general_fullintegration_zeroforce():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_plummer_curvedstream, \
+        impulse_deltav_general_fullplummerintegration
     tol= -3.
     rcurv=10.
     vp=220.
@@ -770,10 +775,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     x0 = numpy.array([rcurv,0.,0.])
     v0 = numpy.array([0.,vp,0.])
     w = numpy.array([1.,numpy.pi/4.*vp,0.])
-    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    plummer_kick= impulse_deltav_plummer_curvedstream(\
         v0,x0,3.,w,x0,v0,GM,rs)
     galpot = constantPotential()
-    orbit_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
+    orbit_kick= impulse_deltav_general_fullplummerintegration(\
         v0,x0,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.,N=1000)
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
@@ -793,9 +798,9 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     V = numpy.zeros((10,3))
     V[:,0]=vx
     V[:,1]=vy
-    plummer_kick= streamgapdf.impulse_deltav_plummer_curvedstream(\
+    plummer_kick= impulse_deltav_plummer_curvedstream(\
         V,Xc,3.,w,x0,v0,GM,rs)
-    orbit_kick=streamgapdf.impulse_deltav_general_fullplummerintegration(\
+    orbit_kick= impulse_deltav_general_fullplummerintegration(\
         V,Xc,3.,w,x0,v0,galpot,GM,rs,tmaxfac=100.)
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
@@ -806,7 +811,8 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
 
 # Test general impulse vs. full stream and halo integration for fast encounter
 def test_impulse_deltav_general_fullintegration_fastencounter():
-    from galpy.df_src import streamgapdf
+    from galpy.df import impulse_deltav_general_orbitintegration, \
+        impulse_deltav_general_fullplummerintegration
     from galpy.potential import PlummerPotential, LogarithmicHaloPotential
     tol= -2.
     GM=1.5
@@ -816,9 +822,9 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
     w = numpy.array([0.,0.,100.]) # very fast compared to v=1
     lp= LogarithmicHaloPotential(normalize=1.)
     pp= PlummerPotential(amp=GM,b=rs)
-    orbit_kick= streamgapdf.impulse_deltav_general_orbitintegration(\
+    orbit_kick= impulse_deltav_general_orbitintegration(\
         v0,x0,3.,w,x0,v0,pp,5.*numpy.pi,lp)
-    full_kick= streamgapdf.impulse_deltav_general_fullplummerintegration(\
+    full_kick= impulse_deltav_general_fullplummerintegration(\
         v0,x0,3.,w,x0,v0,lp,GM,rs,tmaxfac=10.,N=1000)
     # Kick should be in the X direction
     assert numpy.fabs((orbit_kick-full_kick)/full_kick)[0,0] < 10.**tol, \
