@@ -4,9 +4,10 @@ Jo Bovy <bovy@ias.edu>
 
 Direct contributions to the code base:
 
-Denis Erkal (_mass for TwoPowerSphericalPotential)
+Denis Erkal (_mass for TwoPowerSphericalPotential; also simulations to test streamgapdf)
 Mark Fardal (streamdf improvements)
 Rok Roskar (first implementation of SnapshotRZPotential and InterpSnapshotRZPotential)
+Jason Sanders (velocity kicks induced by interactions with Plummer, Hernquist, and general potentials, currently in streamgapdf)
 Wilma Trick (KuzminKutuzovPotential and various other contributions)
 
 General help:
