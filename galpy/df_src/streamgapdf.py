@@ -599,7 +599,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         dangle_at_impact= angle-numpy.tile(self._progenitor_angle.T,(n,1)).T\
             -(Om-numpy.tile(self._progenitor_Omega.T,(n,1)).T)*self._timpact
         dangle_par_at_impact= numpy.dot(dangle_at_impact.T,
-                                        self._dsigomeanProgDirection)
+                                        self._dsigomeanProgDirection)\
+                                        *self._gap_sigMeanSign
         # Calculate and apply kicks (points not yet released have zero kick)
         dOr= self._kick_interpdOr(dangle_par_at_impact)
         dOp= self._kick_interpdOp(dangle_par_at_impact)
