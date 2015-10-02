@@ -177,3 +177,34 @@ General instance routines
    sigOmega <streamdfsigomega.rst>
    sigtdAngle <streamdfsigtdangle.rst>
 
+The distribution function of a gap in a tidal stream
+----------------------------------------------------
+
+From `Sanders, Bovy, & Erkal 2015 <http://arxiv.org/abs/XXXX.XXXXX>`_;
+see :ref:`streamgap-tutorial`. Implemented as a subclass of
+``streamdf``. No full implementation is available currently, but the
+model can be set up and sampled as in the above paper.
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __init__ <streamgapdf.rst>
+   sample <streamdfsample.rst>
+
+Helper routines to compute kicks
++++++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   impulse_deltav_plummer <impulse_deltav_plummer.rst>
+   impulse_deltav_plummer_curvedstream <impulse_deltav_plummer_curvedstream.rst>
+   impulse_deltav_hernquist <impulse_deltav_hernquist.rst>
+   impulse_deltav_hernquist_curvedstream <impulse_deltav_hernquist_curvedstream.rst>
+   impulse_deltav_general <impulse_deltav_general.rst>
+   impulse_deltav_general_curvedstream <impulse_deltav_general_curvedstream.rst>
+   impulse_deltav_general_orbitintegration <impulse_deltav_general_orbitintegration.rst>
+   impulse_deltav_general_fullplummerintegration <impulse_deltav_general_fullplummerintegration.rst>

@@ -1517,7 +1517,8 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
-    def meanOmega(self,dangle,oned=False):
+    def meanOmega(self,dangle,oned=False,offset_sign=None,
+                  tdisrupt=None):
         """
         NAME:
 
@@ -1533,6 +1534,8 @@ class streamdf(object):
 
            oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
 
+           offset_sign= sign of the frequency offset (shouldn't be set)
+
         OUTPUT:
 
            mean Omega
@@ -1542,7 +1545,9 @@ class streamdf(object):
            2013-12-01 - Written - Bovy (IAS)
 
         """
-        dOmin= dangle/self._tdisrupt
+        if offset_sign is None: offset_sign= self._sigMeanSign
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
         meandO= self._meandO
         dO1D= ((numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
                    *numpy.exp(-0.5*(meandO-dOmin)**2.\
@@ -1553,7 +1558,7 @@ class streamdf(object):
         if oned: return dO1D
         else:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
-                *self._sigMeanSign
+                *offset_sign
 
     def sigOmega(self,dangle):
         """
@@ -1831,7 +1836,7 @@ class streamdf(object):
         return out
 
 ################APPROXIMATE FREQUENCY-ANGLE TRANSFORMATION#####################
-    def _approxaA(self,R,vR,vT,z,vz,phi,interp=True):
+    def _approxaA(self,R,vR,vT,z,vz,phi,interp=True,cindx=None):
         """
         NAME:
            _approxaA
@@ -1841,6 +1846,7 @@ class streamdf(object):
         INPUT:
            R,vR,vT,z,vz,phi - phase-space coordinates of the given point
            interp= (True), if True, use the interpolated track
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given          
         OUTPUT:
            (Or,Op,Oz,ar,ap,az)
         HISTORY:
@@ -1853,11 +1859,14 @@ class streamdf(object):
             z= numpy.array([z])
             vz= numpy.array([vz])
             phi= numpy.array([phi])
-        closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
-                                                    z[ii],vz[ii],phi[ii],
-                                                    interp=interp,
-                                                    xy=False) 
-                      for ii in range(len(R))]
+        if cindx is None:
+            closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+                                                        z[ii],vz[ii],phi[ii],
+                                                        interp=interp,
+                                                        xy=False) 
+                          for ii in range(len(R))]
+        else:
+            closestIndx= cindx
         out= numpy.empty((6,len(R)))
         for ii in range(len(R)):
             dxv= numpy.empty(6)
@@ -2400,29 +2409,7 @@ class streamdf(object):
         if interp is None:
             interp= self._useInterp
         #First sample frequencies
-        #Sample frequency along largest eigenvalue using ARS
-        dO1s=\
-            bovy_ars.bovy_ars([0.,0.],[True,False],
-                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
-                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
-                              _h_ars,_hp_ars,nsamples=n,
-                              hxparams=(self._meandO,self._sortedSigOEig[2]),
-                              maxn=100)
-        dO1s= numpy.array(dO1s)*self._sigMeanSign
-        dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
-        dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
-        #Rotate into dOs in R,phi,z coordinates
-        dO= numpy.vstack((dO3s,dO2s,dO1s))
-        dO= numpy.dot(self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx],
-                      dO)
-        Om= dO+numpy.tile(self._progenitor_Omega.T,(n,1)).T
-        #Also generate angles
-        da= numpy.random.normal(size=(3,n))*self._sigangle
-        #And a random time
-        dt= numpy.random.uniform(size=n)*self._tdisrupt
-        #Integrate the orbits relative to the progenitor
-        da+= dO*numpy.tile(dt,(3,1))
-        angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
+        Om,angle,dt= self._sample_aAt(n)
         if returnaAdt:
             return (Om,angle,dt)
         #Propagate to R,vR,etc.
@@ -2490,6 +2477,48 @@ class streamdf(object):
                 return (out,dt)
             else:
                 return out
+
+    def _sample_aAt(self,n):
+        """Sampling frequencies, angles, and times part of sampling"""
+        #Sample frequency along largest eigenvalue using ARS
+        dO1s=\
+            bovy_ars.bovy_ars([0.,0.],[True,False],
+                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
+                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
+                              _h_ars,_hp_ars,nsamples=n,
+                              hxparams=(self._meandO,self._sortedSigOEig[2]),
+                              maxn=100)
+        dO1s= numpy.array(dO1s)*self._sigMeanSign
+        dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
+        dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
+        #Rotate into dOs in R,phi,z coordinates
+        dO= numpy.vstack((dO3s,dO2s,dO1s))
+        dO= numpy.dot(self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx],
+                      dO)
+        Om= dO+numpy.tile(self._progenitor_Omega.T,(n,1)).T
+        #Also generate angles
+        da= numpy.random.normal(size=(3,n))*self._sigangle
+        #And a random time
+        dt= self.sample_t(n)
+        #Integrate the orbits relative to the progenitor
+        da+= dO*numpy.tile(dt,(3,1))
+        angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
+        return (Om,angle,dt)
+    
+    def sample_t(self,n):
+        """
+        NAME:
+           sample_t
+        PURPOSE:
+           generate a stripping time (time since stripping); simple implementation could be replaced by more complicated distributions in sub-classes of streamdf
+        INPUT:
+            n - number of points to return
+        OUTPUT:
+           array of n stripping times
+        HISTORY:
+           2015-09-16 - Written - Bovy (UofT)
+        """
+        return numpy.random.uniform(size=n)*self._tdisrupt
 
 def _h_ars(x,params):
     """ln p(Omega) for ARS"""
