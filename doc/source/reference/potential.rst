@@ -117,7 +117,10 @@ Specific potentials
 In addition to these classes, a simple Milky-Way-like potential fit to
 data on the Milky Way is included as
 ``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
-details). This potential is defined as
+details). Note that this potential assumes a circular velocity of 220
+km/s at the solar radius at 8 kpc; see `arXiv/1412.3451
+<http://arxiv.org/abs/1412.3451>`_ for full information on how this
+potential was fit. This potential is defined as
 
 >>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
 >>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
