@@ -103,6 +103,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
 #. *The Phoenix stream: a cold stream in the Southern hemisphere*, E. Balbinot, B. Yanny, T. S. Li, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1509.04283 <http://arxiv.org/abs/1509.04283>`_).
 #. *Discovery of a Stellar Overdensity in Eridanus-Phoenix in the Dark Energy Survey*, T. S. Li, E. Balbinot, N. Mondrik, et al. (2015), *Astrophys. J.*, submitted (`arXiv/1509.04296 <http://arxiv.org/abs/1509.04296>`_):
      Both of these papers use galpy orbit integration to integrate the orbit of NGC 1261 to investigate a possible association of this cluster with the newly discovered Phoenix stream and Eridanus-Phoenix overdensity.
+#. *Local Stellar Kinematics from RAVE data - VI. Metallicity Gradients Based on the F-G Main-sequence Stars*, O. Plevne, T. Ak, S. Karaali, S. Bilir, S. Ak, Z. F. Bostanci (2015), *Pub.~Astron.~Soc.Aus.*, in press (`arXiv/1510.01749 <http://arxiv.org/abs/1510.01749>`_):
+     This paper employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of RAVE F and G dwarfs to investigate the metallicity gradient in the Milky Way.
 
 
 Acknowledging galpy
