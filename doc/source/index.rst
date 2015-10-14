@@ -116,9 +116,12 @@ If you use galpy in a publication, please cite the following paper
 
 * *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
 
-and link to ``http://github.com/jobovy/galpy``. Please also send me a
-reference to the paper or send a pull request including your paper in
-the list of galpy papers on this page (this page is at
+and link to ``http://github.com/jobovy/galpy``. Some of the code's
+functionality is introduced in separate papers (like
+``galpy.df.streamdf`` and ``galpy.df.streamgapdf``, see above), so
+please also cite those papers when using these functions. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on this page (this page is at
 doc/source/index.rst). Thanks!
 
 When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `2014ApJ...795...95B <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_, which introduced this technique.
