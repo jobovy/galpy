@@ -180,7 +180,7 @@ General instance routines
 The distribution function of a gap in a tidal stream
 ----------------------------------------------------
 
-From `Sanders, Bovy, & Erkal 2015 <http://arxiv.org/abs/XXXX.XXXXX>`_;
+From `Sanders, Bovy, & Erkal 2015 <http://arxiv.org/abs/1510.03426>`_;
 see :ref:`streamgap-tutorial`. Implemented as a subclass of
 ``streamdf``. No full implementation is available currently, but the
 model can be set up and sampled as in the above paper.

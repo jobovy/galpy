@@ -393,7 +393,7 @@ PDF will not be quite correct.
 
 ``galpy`` also contains tools to model the effect of impacts due to
 dark-matter subhalos on streams (see `Sanders, Bovy, & Erkal 2015
-<http://arxiv.org/abs/1510.XXXXX>`__). This is implemented as a
+<http://arxiv.org/abs/1510.03426>`__). This is implemented as a
 subclass ``streamgapdf`` of ``streamdf``, because they share many of
 the same methods. Setting up a ``streamgapdf`` object requires the
 same arguments and keywords as setting up a ``streamdf`` instance (to
