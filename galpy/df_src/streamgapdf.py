@@ -210,6 +210,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._alljacsTrack= self._gap_alljacsTrack
         self._interpolatedObsTrackAA= self._kick_interpolatedObsTrackAA
         self._ObsTrackAA= self._gap_ObsTrackAA
+        self._nTrackChunks= self._nTrackChunksImpact
         Oap= self._approxaA(self._kick_interpolatedObsTrack[:,0],
                             vRp,vTp,
                             self._kick_interpolatedObsTrack[:,3],
@@ -224,6 +225,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         delattr(self,'_alljacsTrack')
         delattr(self,'_interpolatedObsTrackAA')
         delattr(self,'_ObsTrackAA')
+        delattr(self,'_nTrackChunks')
         # Generate (dO,da)[angle_offset] and interpolate
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
         self.__kick_interpdOr=\

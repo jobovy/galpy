@@ -1851,6 +1851,7 @@ class streamdf(object):
            (Or,Op,Oz,ar,ap,az)
         HISTORY:
            2013-12-03 - Written - Bovy (IAS)
+           2015-11-12 - Added weighted sum of two nearest Jacobians to help with smoothness - Bovy (UofT)
         """
         if isinstance(R,(int,float,numpy.float32,numpy.float64)): #Scalar input
             R= numpy.array([R])
@@ -1859,11 +1860,14 @@ class streamdf(object):
             z= numpy.array([z])
             vz= numpy.array([vz])
             phi= numpy.array([phi])
+        X= R*numpy.cos(phi)
+        Y= R*numpy.sin(phi)
+        Z= z
         if cindx is None:
-            closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+            closestIndx= [self._find_closest_trackpoint(X[ii],Y[ii],Z[ii],
                                                         z[ii],vz[ii],phi[ii],
                                                         interp=interp,
-                                                        xy=False) 
+                                                        xy=True,usev=False) 
                           for ii in range(len(R))]
         else:
             closestIndx= cindx
@@ -1889,13 +1893,43 @@ class streamdf(object):
                 dxv[4]= vz[ii]-self._ObsTrack[closestIndx[ii],4]
                 dxv[5]= phi[ii]-self._ObsTrack[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            # Find 2nd closest Jacobian point for smoothing
+            dmJacIndx= (X[ii]-self._ObsTrackXY[jacIndx,0])**2.\
+                +(Y[ii]-self._ObsTrackXY[jacIndx,1])**2.\
+                +(Z[ii]-self._ObsTrackXY[jacIndx,2])**2.
+            if jacIndx == 0:
+                jacIndx2= jacIndx+1
+                dmJacIndx2= (X[ii]-self._ObsTrackXY[jacIndx+1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx+1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx+1,2])**2.
+            elif jacIndx == self._nTrackChunks-1:
+                jacIndx2= jacIndx-1
+                dmJacIndx2= (X[ii]-self._ObsTrackXY[jacIndx-1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx-1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx-1,2])**2.
+            else:
+                dm1= (X[ii]-self._ObsTrackXY[jacIndx-1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx-1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx-1,2])**2.
+                dm2= (X[ii]-self._ObsTrackXY[jacIndx+1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx+1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx+1,2])**2.
+                if dm1 < dm2:
+                    jacIndx2= jacIndx-1
+                    dmJacIndx2= dm1
+                else:
+                    jacIndx2= jacIndx+1
+                    dmJacIndx2= dm2
+            ampJacIndx= numpy.sqrt(dmJacIndx)/(numpy.sqrt(dmJacIndx)\
+                                                   +numpy.sqrt(dmJacIndx2))
             #Make sure phi hasn't wrapped around
             if dxv[5] > numpy.pi:
                 dxv[5]-= 2.*numpy.pi
             elif dxv[5] < -numpy.pi:
                 dxv[5]+= 2.*numpy.pi
-            #Apply closest jacobian
-            out[:,ii]= numpy.dot(self._alljacsTrack[jacIndx,:,:],
+            #Apply closest jacobians
+            out[:,ii]= numpy.dot((1.-ampJacIndx)*self._alljacsTrack[jacIndx,:,:]
+                                 +ampJacIndx*self._alljacsTrack[jacIndx2,:,:],
                                  dxv)
             if interp:
                 out[:,ii]+= self._interpolatedObsTrackAA[closestIndx[ii]]
