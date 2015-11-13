@@ -16,6 +16,7 @@ from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
+_TWOPIWRAPS= numpy.arange(5)*2.*numpy.pi
 _labelDict= {'x': r'$X$',
              'y': r'$Y$',
              'z': r'$Z$',
@@ -1507,9 +1508,12 @@ class streamdf(object):
            2013-12-22 - Written - Bovy (IAS)
         """
         #Calculate angle offset along the stream parallel to the stream track
-        angle= numpy.hstack((ar,ap,az))
-        da= angle-self._progenitor_angle
-        dapar= self._sigMeanSign*numpy.sum(da*self._dsigomeanProgDirection)
+        da= numpy.vstack((ar+_TWOPIWRAPS-self._progenitor_angle[0],
+                          ap+_TWOPIWRAPS-self._progenitor_angle[1],
+                          az+_TWOPIWRAPS-self._progenitor_angle[2])).T
+        dapar= numpy.amin(numpy.fabs(\
+                self._sigMeanSign\
+                    *numpy.dot(da,self._dsigomeanProgDirection)))
         if interp:
             dist= numpy.fabs(dapar-self._interpolatedThetasTrack)
         else:
@@ -1987,9 +1991,12 @@ class streamdf(object):
                 dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
             # Find 2nd closest Jacobian point for smoothing
-            da= numpy.hstack((ar[ii],ap[ii],az[ii]))
-            da-= self._progenitor_angle
-            dapar= self._sigMeanSign*numpy.sum(da*self._dsigomeanProgDirection)
+            da= numpy.vstack((ar[ii]+_TWOPIWRAPS-self._progenitor_angle[0],
+                              ap[ii]+_TWOPIWRAPS-self._progenitor_angle[1],
+                              az[ii]+_TWOPIWRAPS-self._progenitor_angle[2])).T
+            dapar= numpy.amin(numpy.fabs(\
+                    self._sigMeanSign\
+                        *numpy.dot(da,self._dsigomeanProgDirection)))
             dmJacIndx= numpy.fabs(dapar-self._thetasTrack[jacIndx])
             if jacIndx == 0:
                 jacIndx2= jacIndx+1
