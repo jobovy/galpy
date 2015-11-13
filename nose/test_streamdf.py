@@ -342,11 +342,11 @@ def test_bovy14_approxaA_inv():
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
     #Point on track, not interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]
-    check_approxaA_inv(sdf_bovy14,-5.,
+    check_approxaA_inv(sdf_bovy14,-3.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     #Point near track, interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[22,:]*(1.+10.**-2.)
-    check_approxaA_inv(sdf_bovy14,-3.,
+    check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
     #Point near track, not interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]*(1.+10.**-2.)
@@ -357,7 +357,7 @@ def test_bovy14_approxaA_inv():
         sdf_bovy14._interpolatedObsTrack[:,5]
     indx= dphi < 0.
     RvR= sdf_bovy14._interpolatedObsTrack[indx,:][0,:]*(1.+10.**-2.)
-    check_approxaA_inv(sdf_bovy14,-3.,
+    check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
@@ -1170,11 +1170,11 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
     if phi < 0.: phi+= 2.*numpy.pi
     #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
-    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
+    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R; relative difference = %g' % (numpy.fabs((RvR[0]-R)/R))
     assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
     assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
     assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
     assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
-    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
+    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g' % (numpy.fabs((RvR[5]-phi)/phi))
     return None
 
