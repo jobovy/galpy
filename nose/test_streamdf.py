@@ -352,6 +352,14 @@ def test_bovy14_approxaA_inv():
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]*(1.+10.**-2.)
     check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
+    #Point near end of track, interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[-23,:]
+    check_approxaA_inv(sdf_bovy14,-2.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
+    #Point near end of track, not interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[-23,:]
+    check_approxaA_inv(sdf_bovy14,-2.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     #Now find some trackpoints close to where angles wrap, to test that wrapping is covered properly everywhere
     dphi= numpy.roll(sdf_bovy14._interpolatedObsTrack[:,5],-1)-\
         sdf_bovy14._interpolatedObsTrack[:,5]
