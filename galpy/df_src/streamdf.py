@@ -1986,6 +1986,27 @@ class streamdf(object):
                 dOa[4]= ap[ii]-self._ObsTrackAA[closestIndx[ii],4]
                 dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            # Find 2nd closest Jacobian point for smoothing
+            da= numpy.hstack((ar[ii],ap[ii],az[ii]))
+            da-= self._progenitor_angle
+            dapar= self._sigMeanSign*numpy.sum(da*self._dsigomeanProgDirection)
+            dmJacIndx= numpy.fabs(dapar-self._thetasTrack[jacIndx])
+            if jacIndx == 0:
+                jacIndx2= jacIndx+1
+                dmJacIndx2= numpy.fabs(dapar-self._thetasTrack[jacIndx+1])
+            elif jacIndx == self._nTrackChunks-1:
+                jacIndx2= jacIndx-1
+                dmJacIndx2= numpy.fabs(dapar-self._thetasTrack[jacIndx-1])
+            else:
+                dm1= numpy.fabs(dapar-self._thetasTrack[jacIndx-1])
+                dm2= numpy.fabs(dapar-self._thetasTrack[jacIndx+1])
+                if dm1 < dm2:
+                    jacIndx2= jacIndx-1
+                    dmJacIndx2= dm1
+                else:
+                    jacIndx2= jacIndx+1
+                    dmJacIndx2= dm2
+            ampJacIndx= dmJacIndx/(dmJacIndx+dmJacIndx2)
             #Make sure the angles haven't wrapped around
             if dOa[3] > numpy.pi:
                 dOa[3]-= 2.*numpy.pi
@@ -2000,7 +2021,8 @@ class streamdf(object):
             elif dOa[5] < -numpy.pi:
                 dOa[5]+= 2.*numpy.pi
             #Apply closest jacobian
-            out[:,ii]= numpy.dot(self._allinvjacsTrack[jacIndx,:,:],
+            out[:,ii]= numpy.dot((1.-ampJacIndx)*self._allinvjacsTrack[jacIndx,:,:]
+                                 +ampJacIndx*self._allinvjacsTrack[jacIndx2,:,:],
                                  dOa)
             if interp:
                 out[:,ii]+= self._interpolatedObsTrack[closestIndx[ii]]
