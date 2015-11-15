@@ -1113,6 +1113,115 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
       deltav[i][2] = -ogalpot.vz(times[-1]) - v[i][2]
     return deltav
 
+def _astream_integrand_x(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
+    return GSigma(t)*(b*w2*w[2]/wperp-(y-v*t)*wpar*w[0])\
+        /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+def _astream_integrand_x_inf(T,*args):
+    t = T/(1-T*T)
+    return (1+T*T)/(1-T*T)**2.*_astream_integrand_x(t,*args)
+def _astream_integrand_y(t,y,v,b2,w2,wperp2,GSigma,rs2):
+    return GSigma(t)*(y-v*t)/((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+def _astream_integrand_y_inf(T,*args):
+    t = T/(1-T*T)
+    return (1+T*T)/(1-T*T)**2.*_astream_integrand_y(t,*args)
+def _astream_integrand_z(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
+    return -GSigma(t)*(b*w2*w[0]/wperp+(y-v*t)*wpar*w[2])\
+        /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+def _astream_integrand_z_inf(T,*args):
+    t = T/(1-T*T)
+    return (1+T*T)/(1-T*T)**2.*_astream_integrand_z(t,*args)
+
+def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
+    """
+    NAME:
+
+       impulse_deltav_plummerstream
+
+    PURPOSE:
+
+       calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+
+    INPUT:
+
+       v - velocity of the stream (nstar,3)
+
+       y - position along the stream (nstar)
+
+       b - impact parameter
+
+       w - velocity of the Plummer sphere (3)
+
+       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
+
+       rs - size of the Plummer sphere
+
+    OUTPUT:
+
+       deltav (nstar,3)
+
+    HISTORY:
+
+       2015-11-14 - Written - Bovy (UofT)
+
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    nv= v.shape[0]
+    vmag= numpy.sqrt(numpy.sum(v**2.,axis=1))
+    # tmin, tmax set?
+    if tmin is None or tmax is None:
+        _integrand_x= _astream_integrand_x_inf
+        _integrand_y= _astream_integrand_y_inf
+        _integrand_z= _astream_integrand_z_inf
+        tmin= -1.
+        tmax= 1.
+    else:
+        _integrand_x= _astream_integrand_x
+        _integrand_y= _astream_integrand_y
+        _integrand_z= _astream_integrand_z       
+    # Build the rotation matrices and their inverse
+    rot= _rotation_vy(v)
+    rotinv= _rotation_vy(v,inv=True)
+    # Rotate the perturbing stream's velocity to the stream frames
+    tilew= numpy.sum(rot*numpy.tile(w,(nv,3,1)),axis=-1)
+    # Use similar expressions to Denis'
+    wperp= numpy.sqrt(tilew[:,0]**2.+tilew[:,2]**2.)
+    wpar= numpy.sqrt(numpy.sum(v**2.,axis=1))-tilew[:,1]
+    wmag2= wpar**2.+wperp**2.
+    wmag= numpy.sqrt(wmag2)
+    b2= b**2.
+    rs2= rs**2.
+    wperp2= wperp**2.
+    out= numpy.empty_like(v)
+    out[:,0]= [1./wmag[ii]\
+                    *integrate.quad(_astream_integrand_x,
+                                    tmin,tmax,args=(y[ii],
+                                                    vmag[ii],b,tilew[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp[ii],wperp2[ii],
+                                                    wpar[ii],
+                                                    GSigma,rs2))[0]
+               for ii in range(len(y))]
+    out[:,1]= [-wperp2[ii]/wmag[ii]\
+                    *integrate.quad(_astream_integrand_y,
+                                    tmin,tmax,args=(y[ii],
+                                                    vmag[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp2[ii],
+                                                    GSigma,rs2))[0]
+                for ii in range(len(y))]
+    out[:,2]= [1./wmag[ii]\
+                    *integrate.quad(_astream_integrand_z,
+                                    tmin,tmax,args=(y[ii],
+                                                    vmag[ii],b,tilew[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp[ii],wperp2[ii],
+                                                    wpar[ii],
+                                                    GSigma,rs2))[0]
+               for ii in range(len(y))]
+    # Rotate back to the original frame
+    return 2.0*numpy.sum(\
+        rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
+
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
 
