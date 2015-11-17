@@ -277,7 +277,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._daparMax= self._kick_interpdOpar_dapar.roots()
             self._dOparMax= self._kick_interpdOpar(self._daparMax)
             self._daparMax-= self._impact_angle
-            # Angle where caustic forms at the current time
+            # Angle where caustic forms at the current time, not yet used
             self._daparCau= interpolate.InterpolatedUnivariateSpline(\
                 self._kick_interpolatedThetasTrack,
                 numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
