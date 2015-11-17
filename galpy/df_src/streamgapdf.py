@@ -124,6 +124,103 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         super(streamgapdf,self).calc_stream_lb()
         return None
 
+    def pOparapar(self,Opar,apar):
+        """
+        NAME:
+
+           pOparapar
+
+        PURPOSE:
+
+           return the probability of a given parallel (frequency,angle) offset pair
+
+        INPUT:
+
+           Opar - parallel frequency offset (array)
+
+           apar - parallel angle offset along the stream (scalar)
+
+        OUTPUT:
+
+           p(Opar,apar)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
+            Opar= numpy.array([Opar])
+        out= numpy.zeros(len(Opar))
+        # Compute ts and where they were at impact for all
+        ts= apar/Opar
+        apar_impact= apar-Opar*self._timpact
+        dOpar_impact= self._kick_interpdOpar(apar_impact)
+        Opar_b4impact= Opar-dOpar_impact
+        ts_b4impact= apar_impact/Opar_b4impact
+        # Evaluate the two regimes: stripped before or after impact
+        out[ts < self._timpact]=\
+            numpy.exp(-0.5*(Opar-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        out[(ts >= self._timpact)\
+                *(self._timpact+ts_b4impact < self._tdisrupt)]=\
+            numpy.exp(-0.5*(Opar_b4impact-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
+    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+        """
+        NAME:
+
+           meanOmega
+
+        PURPOSE:
+
+           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
+
+        OUTPUT:
+
+           mean Omega
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        num=\
+            integrate.quad(lambda T: (T/(1-T*T)\
+                                          *numpy.sqrt(self._sortedSigOEig[2])\
+                                          +self._meandO)\
+                               *numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        denom=\
+            integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        dO1D= num/denom
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign
+
     def _rewind_angle_impact(self,dangle):
         """
         NAME:
