@@ -158,7 +158,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             else: self._caustic_phase= True
         if not self._caustic_phase: # Single-valued everywhere
             guess= dangle
-            dguess= self._dOparMax*self._timpact*1.2
+            dguess= numpy.fabs(self._dOparMax[0])*self._timpact*1.2
             out= optimize.brentq(lambda da: dangle
                                  -self._kick_interpdOpar(da)*self._timpact
                                  -da,
