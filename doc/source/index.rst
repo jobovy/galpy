@@ -60,6 +60,24 @@ Library reference
    reference/util.rst
 
 
+Acknowledging galpy
+--------------------
+
+If you use galpy in a publication, please cite the following paper
+
+* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
+
+and link to ``http://github.com/jobovy/galpy``. Some of the code's
+functionality is introduced in separate papers (like
+``galpy.df.streamdf`` and ``galpy.df.streamgapdf``, see above), so
+please also cite those papers when using these functions. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on this page (this page is at
+doc/source/index.rst). Thanks!
+
+When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `2014ApJ...795...95B <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_, which introduced this technique.
+
+
 Papers using galpy
 --------------------
 
@@ -107,24 +125,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      This paper employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of RAVE F and G dwarfs to investigate the metallicity gradient in the Milky Way.
 #. *Dynamics of stream-subhalo interactions*, Jason L. Sanders, Jo Bovy, & Denis Erkal (2015), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1510.03426 <http://arxiv.org/abs/1510.03426>`_):
      Uses and extends ``galpy.df.streamdf`` to build a generative model of the dynamical effect of sub-halo impacts on tidal streams. This new functionality is contained in ``galpy.df.streamgapdf``, a subclass of ``galpy.df.streamdf``, and can be used to efficiently model the effect of impacts on the present-day structure of streams in position and velocity space.
-
-
-Acknowledging galpy
---------------------
-
-If you use galpy in a publication, please cite the following paper
-
-* *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
-
-and link to ``http://github.com/jobovy/galpy``. Some of the code's
-functionality is introduced in separate papers (like
-``galpy.df.streamdf`` and ``galpy.df.streamgapdf``, see above), so
-please also cite those papers when using these functions. Please also
-send me a reference to the paper or send a pull request including your
-paper in the list of galpy papers on this page (this page is at
-doc/source/index.rst). Thanks!
-
-When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `2014ApJ...795...95B <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_, which introduced this technique.
+#. *Extremely metal-poor stars from the cosmic dawn in the bulge of the Milky Way*, L. M. Howes, A. R. Casey, M. Asplund et al. (2015), *Nature*, in press (`arXiv/1511.03930 <http://arxiv.org/abs/1511.03930>`_):
+     Employs galpy orbit integration in ``MWPotential2014`` to characterize the orbits of a sample of extremely metal-poor stars found in the bulge of the Milky Way. This analysis demonstrates that the orbits of these metal-poor stars are always close to the center of the Milky Way and that these stars are therefore true bulge stars rather than halo stars passing through the bulge.
 
 
 Indices and tables
