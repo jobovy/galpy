@@ -1521,6 +1521,35 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
+        # Normalize to 1 close to progenitor
+        return 0.5*(1.+special.erf((self._meandO-dOmin)\
+                                       /numpy.sqrt(2.*self._sortedSigOEig[2])))
+
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
         """
