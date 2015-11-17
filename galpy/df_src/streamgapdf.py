@@ -116,6 +116,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
         # Then pass everything to the normal streamdf setup
+        self.nInterpolatedTrackChunks= 201 #more expensive now
         super(streamgapdf,self)._determine_stream_track(nTrackChunks)
         self._useInterp= useInterp
         if interpTrack or self._useInterp:

@@ -791,6 +791,8 @@ class streamdf(object):
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
         else:
             self._nTrackChunks= nTrackChunks
+        if not hasattr(self,'nInterpolatedTrackChunks'):
+            self.nInterpolatedTrackChunks= 1001
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
@@ -1150,7 +1152,8 @@ class streamdf(object):
                                                      TrackvZ,k=3)
         #Now store an interpolated version of the stream track
         self._interpolatedThetasTrack=\
-            numpy.linspace(0.,self._deltaAngleTrack,1001)
+            numpy.linspace(0.,self._deltaAngleTrack,
+                           self.nInterpolatedTrackChunks)
         self._interpolatedObsTrackXY= numpy.empty((len(self._interpolatedThetasTrack),6))
         self._interpolatedObsTrackXY[:,0]=\
             self._interpTrackX(self._interpolatedThetasTrack)
