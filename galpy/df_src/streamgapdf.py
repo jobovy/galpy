@@ -137,13 +137,32 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         HISTORY:
            2015-06-22 - Written - Bovy (IAS)
         """
-        guess= dangle-self._meandO*self._sigMeanSign*self._timpact
-        dguess= numpy.amax(self._kick_dOaparperp[:,2])*self._timpact*1.2
-        out= optimize.brentq(lambda da: dangle
-                             -(self._meandO*self._sigMeanSign
-                               +self._kick_interpdOpar(da))*self._timpact
-                             -da,
-                             guess-dguess,guess+dguess)
+        # First subtract meanOmega evolution
+        dangle-= super(streamgapdf,self).meanOmega(dangle,oned=True)\
+            *self._timpact
+        # Now solve the kick's evolution  itself
+        if not hasattr(self,'_daparMax'):
+            # Maximum dOpar
+            self._daparMax= self._kick_interpdOpar_dapar.roots()
+            self._dOparMax= self._kick_interpdOpar(self._daparMax)
+            self._daparMax-= self._impact_angle
+            # Angle where caustic forms at the current time
+            self._daparCau= interpolate.InterpolatedUnivariateSpline(\
+                self._kick_interpolatedThetasTrack,
+                numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
+                    +self._kick_interpolatedThetasTrack/self._timpact,
+                k=4).derivative(1).roots()
+            self._dOparCau= self._kick_interpdOpar(self._daparCau)
+            self._daparCau-= self._impact_angle
+            if len(self._daparCau) == 0: self._caustic_phase= False
+            else: self._caustic_phase= True
+        if not self._caustic_phase: # Single-valued everywhere
+            guess= dangle
+            dguess= self._dOparMax*self._timpact*1.2
+            out= optimize.brentq(lambda da: dangle
+                                 -self._kick_interpdOpar(da)*self._timpact
+                                 -da,
+                                 guess-dguess,guess+dguess)
         """
         except ValueError:
             # Only get into trouble at the edges; assume the kick is zero
@@ -253,13 +272,15 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpdOpar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
         self._kick_interpdOperp0=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
         self._kick_interpdOperp1=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
+        # Also construct derivative of dOpar
+        self._kick_interpdOpar_dapar= self._kick_interpdOpar.derivative(1)
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
