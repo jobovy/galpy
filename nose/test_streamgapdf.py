@@ -362,19 +362,19 @@ def test_rewind_angle_impact():
     # Check that the equation is solved correctly for a few points
     theta= sdf_sanders15._impact_angle
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
+    pred= theta-(sdf_sanders15.meanOmega(theta,oned=True)+sdf_sanders15._kick_interpdOpar(rew_theta))\
         *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding fails by %g' % (numpy.fabs(rew_theta-pred))
     theta= 2.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
+    pred= theta-(sdf_sanders15.meanOmega(theta,oned=True)+sdf_sanders15._kick_interpdOpar(rew_theta))\
         *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding fails by %g' % (numpy.fabs(rew_theta-pred))
     theta= 5.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
+    pred= theta-(sdf_sanders15.meanOmega(theta,oned=True)+sdf_sanders15._kick_interpdOpar(rew_theta))\
         *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding fails by %g' % (numpy.fabs(rew_theta-pred))
     return None
 
 # Test the sampling of present-day perturbed points based on the model
