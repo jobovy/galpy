@@ -228,36 +228,36 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         delattr(self,'_nTrackChunks')
         # Generate (dO,da)[angle_offset] and interpolate
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
-        self.__kick_interpdOr=\
+        self._kick_interpdOr=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
-        self.__kick_interpdOp=\
+        self._kick_interpdOp=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
-        self.__kick_interpdOz=\
+        self._kick_interpdOz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
-        self.__kick_interpdar=\
+        self._kick_interpdar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
-        self.__kick_interpdap=\
+        self._kick_interpdap=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
-        self.__kick_interpdaz=\
+        self._kick_interpdaz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         # Also interpolate parallel and perpendicular frequencies
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
-        self.__kick_interpdOpar=\
+        self._kick_interpdOpar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
             numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
-        self.__kick_interpdOperp0=\
+        self._kick_interpdOperp0=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
-        self.__kick_interpdOperp1=\
+        self._kick_interpdOperp1=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
         return None
@@ -265,31 +265,31 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     # Functions that evaluate the interpolated kicks, but also check the range
     @impact_check_range
     def _kick_interpdOpar(self,da):
-        return self.__kick_interpdOpar(da)
+        return self._kick_interpdOpar(da)
     @impact_check_range
     def _kick_interpdOperp0(self,da):
-        return self.__kick_interpdOperp0(da)
+        return self._kick_interpdOperp0(da)
     @impact_check_range
     def _kick_interpdOperp1(self,da):
-        return self.__kick_interpdOperp1(da)
+        return self._kick_interpdOperp1(da)
     @impact_check_range
     def _kick_interpdOr(self,da):
-        return self.__kick_interpdOr(da)
+        return self._kick_interpdOr(da)
     @impact_check_range
     def _kick_interpdOp(self,da):
-        return self.__kick_interpdOp(da)
+        return self._kick_interpdOp(da)
     @impact_check_range
     def _kick_interpdOz(self,da):
-        return self.__kick_interpdOz(da)
+        return self._kick_interpdOz(da)
     @impact_check_range
     def _kick_interpdar(self,da):
-        return self.__kick_interpdar(da)
+        return self._kick_interpdar(da)
     @impact_check_range
     def _kick_interpdap(self,da):
-        return self.__kick_interpdap(da)
+        return self._kick_interpdap(da)
     @impact_check_range
     def _kick_interpdaz(self,da):
-        return self.__kick_interpdaz(da)
+        return self._kick_interpdaz(da)
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
