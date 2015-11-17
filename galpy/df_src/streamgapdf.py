@@ -170,6 +170,39 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                            numpy.sqrt(self._sortedSigOEig[2])
         return out
 
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                                  *(1+T*T)/(1-T*T)**2.\
+                                  *self.pOparapar(T/(1-T*T)\
+                                                      *numpy.sqrt(self._sortedSigOEig[2])\
+                                                      +self._meandO,dangle),
+                              Tlow,1.)[0]
+
     def meanOmega(self,dangle,oned=False,tdisrupt=None):
         """
         NAME:
