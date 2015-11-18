@@ -5,7 +5,7 @@ import os
 import numpy
 import tempfile
 import subprocess
-def read(filename,ext=None):
+def read(filename,ext=None,swapyz=False):
     """
     NAME:
        read
@@ -14,6 +14,7 @@ def read(filename,ext=None):
     INPUT:
        filename - name of the file
        ext= if set, 'nemo' for NEMO binary format, otherwise assumed ASCII; if not set, gleaned from extension
+       swapyz= (False) if True, swap the y and z axes in the output (only for position and velocity)
     OUTPUT:
        snapshots [nbody,ndim,nt]
     HISTORY:
@@ -39,6 +40,9 @@ def read(filename,ext=None):
     # Now read
     out= numpy.loadtxt(asciifilename,comments='#')
     if ext.lower() == 'nemo': os.remove(asciifilename)
+    if swapyz:
+        out[:,[2,3]]= out[:,[3,2]]
+        out[:,[5,6]]= out[:,[6,5]]
     # Get the number of snapshots
     nt= (_wc(asciifilename)-out.shape[0])//13 # 13 comments/snapshot
     out= numpy.reshape(out,(nt,out.shape[0]//nt,out.shape[1]))
