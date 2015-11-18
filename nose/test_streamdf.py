@@ -196,6 +196,13 @@ def test_closest_trackpointaA():
     check_closest_trackpointaA(sdf_bovy14,4,interp=False)
     return None
 
+def test_density_par():
+    #Test that the density is close to 1 close to the progenitor and close to zero far from the progenitor
+    assert numpy.fabs(sdf_bovy14.density_par(0.1)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.density_par(0.5)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.density_par(1.8)-0.) < 10.**-2., 'density far progenitor not close to 0 for Bovy14 stream'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
@@ -342,14 +349,22 @@ def test_bovy14_approxaA_inv():
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
     #Point on track, not interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]
-    check_approxaA_inv(sdf_bovy14,-5.,
+    check_approxaA_inv(sdf_bovy14,-3.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     #Point near track, interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[22,:]*(1.+10.**-2.)
-    check_approxaA_inv(sdf_bovy14,-3.,
+    check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
     #Point near track, not interpolated
     RvR= sdf_bovy14._interpolatedObsTrack[152,:]*(1.+10.**-2.)
+    check_approxaA_inv(sdf_bovy14,-2.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
+    #Point near end of track, interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[-23,:]
+    check_approxaA_inv(sdf_bovy14,-2.,
+                       RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=True)
+    #Point near end of track, not interpolated
+    RvR= sdf_bovy14._interpolatedObsTrack[-23,:]
     check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     #Now find some trackpoints close to where angles wrap, to test that wrapping is covered properly everywhere
@@ -357,7 +372,7 @@ def test_bovy14_approxaA_inv():
         sdf_bovy14._interpolatedObsTrack[:,5]
     indx= dphi < 0.
     RvR= sdf_bovy14._interpolatedObsTrack[indx,:][0,:]*(1.+10.**-2.)
-    check_approxaA_inv(sdf_bovy14,-3.,
+    check_approxaA_inv(sdf_bovy14,-2.,
                        RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],interp=False)
     return None
 
@@ -1170,11 +1185,11 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
     if phi < 0.: phi+= 2.*numpy.pi
     #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
-    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R'
+    assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R; relative difference = %g' % (numpy.fabs((RvR[0]-R)/R))
     assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
     assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
     assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
     assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
-    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi'
+    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g' % (numpy.fabs((RvR[5]-phi)/phi))
     return None
 

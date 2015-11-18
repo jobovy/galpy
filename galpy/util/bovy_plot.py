@@ -59,6 +59,29 @@ from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D
+try:
+    import seaborn as sns
+except: pass
+else:
+    sns.set_style('ticks',
+                  {'xtick.direction': u'in',
+                   'ytick.direction': u'in',
+                   'axes.labelsize': 18.0,
+                   'axes.titlesize': 18.0,
+                   'figure.figsize': sc.array([ 6.64,  4.  ]),
+                   'grid.linewidth': 2.0,
+                   'legend.fontsize': 18.0,
+                   'lines.linewidth': 2.0,
+                   'lines.markeredgewidth': 0.0,
+                   'lines.markersize': 14.0,
+                   'patch.linewidth': 0.6,
+                   'xtick.labelsize': 16.0,
+                   'xtick.major.pad': 14.0,
+                   'xtick.major.width': 2.0,
+                   'xtick.minor.width': 1.0,
+                   'ytick.labelsize': 16.0,
+                   'ytick.major.pad': 14.0,
+                   'ytick.major.width': 2.0,})
 _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
     """

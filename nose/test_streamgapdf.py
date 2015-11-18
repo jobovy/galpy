@@ -359,22 +359,32 @@ def test_interpKickda():
 
 # Test rewind_angle
 def test_rewind_angle_impact():
+    from galpy.df import streamgapdf
     # Check that the equation is solved correctly for a few points
     theta= sdf_sanders15._impact_angle
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     theta= 2.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     theta= 5.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     return None
 
 # Test the sampling of present-day perturbed points based on the model
