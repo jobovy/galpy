@@ -1970,6 +1970,7 @@ class Orbit(object):
            t - (optional) time at which to get pmra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2004,6 +2005,7 @@ class Orbit(object):
            t - (optional) time at which to get pmdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2038,6 +2040,7 @@ class Orbit(object):
            t - (optional) time at which to get pmll
 
 v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2072,6 +2075,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get pmbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2106,6 +2110,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get vlos
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2140,6 +2145,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get vra
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2175,6 +2181,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get vdec
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2210,6 +2217,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get vll
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2245,6 +2253,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get vbb
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2280,6 +2289,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get X
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2312,6 +2322,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get Y
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2344,6 +2355,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get Z
 
            obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2376,6 +2388,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2410,6 +2423,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get U
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
@@ -2444,6 +2458,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            t - (optional) time at which to get W
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
                          OR Orbit object that corresponds to the orbit
                          of the observer
