@@ -116,6 +116,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
         # Then pass everything to the normal streamdf setup
+        self.nInterpolatedTrackChunks= 201 #more expensive now
         super(streamgapdf,self)._determine_stream_track(nTrackChunks)
         self._useInterp= useInterp
         if interpTrack or self._useInterp:
@@ -123,6 +124,136 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             super(streamgapdf,self)._interpolate_stream_track_aA()
         super(streamgapdf,self).calc_stream_lb()
         return None
+
+    def pOparapar(self,Opar,apar):
+        """
+        NAME:
+
+           pOparapar
+
+        PURPOSE:
+
+           return the probability of a given parallel (frequency,angle) offset pair
+
+        INPUT:
+
+           Opar - parallel frequency offset (array)
+
+           apar - parallel angle offset along the stream (scalar)
+
+        OUTPUT:
+
+           p(Opar,apar)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
+            Opar= numpy.array([Opar])
+        out= numpy.zeros(len(Opar))
+        # Compute ts and where they were at impact for all
+        ts= apar/Opar
+        apar_impact= apar-Opar*self._timpact
+        dOpar_impact= self._kick_interpdOpar(apar_impact)
+        Opar_b4impact= Opar-dOpar_impact
+        ts_b4impact= apar_impact/Opar_b4impact
+        # Evaluate the two regimes: stripped before or after impact
+        out[ts < self._timpact]=\
+            numpy.exp(-0.5*(Opar-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        out[(ts >= self._timpact)\
+                *(self._timpact+ts_b4impact < self._tdisrupt)]=\
+            numpy.exp(-0.5*(Opar_b4impact-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                                  *(1+T*T)/(1-T*T)**2.\
+                                  *self.pOparapar(T/(1-T*T)\
+                                                      *numpy.sqrt(self._sortedSigOEig[2])\
+                                                      +self._meandO,dangle),
+                              Tlow,1.)[0]
+
+    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+        """
+        NAME:
+
+           meanOmega
+
+        PURPOSE:
+
+           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
+
+        OUTPUT:
+
+           mean Omega
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        num=\
+            integrate.quad(lambda T: (T/(1-T*T)\
+                                          *numpy.sqrt(self._sortedSigOEig[2])\
+                                          +self._meandO)\
+                               *numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        denom=\
+            integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        dO1D= num/denom
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign
 
     def _rewind_angle_impact(self,dangle):
         """
@@ -137,13 +268,32 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         HISTORY:
            2015-06-22 - Written - Bovy (IAS)
         """
-        guess= dangle-self._meandO*self._sigMeanSign*self._timpact
-        dguess= numpy.amax(self._kick_dOaparperp[:,2])*self._timpact*1.2
-        out= optimize.brentq(lambda da: dangle
-                             -(self._meandO*self._sigMeanSign
-                               +self._kick_interpdOpar(da))*self._timpact
-                             -da,
-                             guess-dguess,guess+dguess)
+        # First subtract meanOmega evolution
+        dangle-= super(streamgapdf,self).meanOmega(dangle,oned=True)\
+            *self._timpact
+        # Now solve the kick's evolution  itself
+        if not hasattr(self,'_daparMax'):
+            # Maximum dOpar
+            self._daparMax= self._kick_interpdOpar_dapar.roots()
+            self._dOparMax= self._kick_interpdOpar(self._daparMax)
+            self._daparMax-= self._impact_angle
+            # Angle where caustic forms at the current time, not yet used
+            self._daparCau= interpolate.InterpolatedUnivariateSpline(\
+                self._kick_interpolatedThetasTrack,
+                numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
+                    +self._kick_interpolatedThetasTrack/self._timpact,
+                k=4).derivative(1).roots()
+            self._dOparCau= self._kick_interpdOpar(self._daparCau)
+            self._daparCau-= self._impact_angle
+            if len(self._daparCau) == 0: self._caustic_phase= False
+            else: self._caustic_phase= True
+        if not self._caustic_phase: # Single-valued everywhere
+            guess= dangle
+            dguess= numpy.fabs(self._dOparMax[0])*self._timpact*1.2
+            out= optimize.brentq(lambda da: dangle
+                                 -self._kick_interpdOpar(da)*self._timpact
+                                 -da,
+                                 guess-dguess,guess+dguess)
         """
         except ValueError:
             # Only get into trouble at the edges; assume the kick is zero
@@ -228,68 +378,70 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         delattr(self,'_nTrackChunks')
         # Generate (dO,da)[angle_offset] and interpolate
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
-        self.__kick_interpdOr=\
+        self._kick_interpdOr=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
-        self.__kick_interpdOp=\
+        self._kick_interpdOp=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
-        self.__kick_interpdOz=\
+        self._kick_interpdOz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
-        self.__kick_interpdar=\
+        self._kick_interpdar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
-        self.__kick_interpdap=\
+        self._kick_interpdap=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
-        self.__kick_interpdaz=\
+        self._kick_interpdaz=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         # Also interpolate parallel and perpendicular frequencies
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
-        self.__kick_interpdOpar=\
+        self._kick_interpdOpar=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
-        self.__kick_interpdOperp0=\
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
+        self._kick_interpdOperp0=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
-        self.__kick_interpdOperp1=\
+        self._kick_interpdOperp1=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
+        # Also construct derivative of dOpar
+        self._kick_interpdOpar_dapar= self._kick_interpdOpar.derivative(1)
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
     @impact_check_range
     def _kick_interpdOpar(self,da):
-        return self.__kick_interpdOpar(da)
+        return self._kick_interpdOpar(da)
     @impact_check_range
     def _kick_interpdOperp0(self,da):
-        return self.__kick_interpdOperp0(da)
+        return self._kick_interpdOperp0(da)
     @impact_check_range
     def _kick_interpdOperp1(self,da):
-        return self.__kick_interpdOperp1(da)
+        return self._kick_interpdOperp1(da)
     @impact_check_range
     def _kick_interpdOr(self,da):
-        return self.__kick_interpdOr(da)
+        return self._kick_interpdOr(da)
     @impact_check_range
     def _kick_interpdOp(self,da):
-        return self.__kick_interpdOp(da)
+        return self._kick_interpdOp(da)
     @impact_check_range
     def _kick_interpdOz(self,da):
-        return self.__kick_interpdOz(da)
+        return self._kick_interpdOz(da)
     @impact_check_range
     def _kick_interpdar(self,da):
-        return self.__kick_interpdar(da)
+        return self._kick_interpdar(da)
     @impact_check_range
     def _kick_interpdap(self,da):
-        return self.__kick_interpdap(da)
+        return self._kick_interpdap(da)
     @impact_check_range
     def _kick_interpdaz(self,da):
-        return self.__kick_interpdaz(da)
+        return self._kick_interpdaz(da)
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""

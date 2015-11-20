@@ -791,6 +791,8 @@ class streamdf(object):
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
         else:
             self._nTrackChunks= nTrackChunks
+        if not hasattr(self,'nInterpolatedTrackChunks'):
+            self.nInterpolatedTrackChunks= 1001
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
@@ -1150,7 +1152,8 @@ class streamdf(object):
                                                      TrackvZ,k=3)
         #Now store an interpolated version of the stream track
         self._interpolatedThetasTrack=\
-            numpy.linspace(0.,self._deltaAngleTrack,1001)
+            numpy.linspace(0.,self._deltaAngleTrack,
+                           self.nInterpolatedTrackChunks)
         self._interpolatedObsTrackXY= numpy.empty((len(self._interpolatedThetasTrack),6))
         self._interpolatedObsTrackXY[:,0]=\
             self._interpTrackX(self._interpolatedThetasTrack)
@@ -1521,6 +1524,35 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
+        # Normalize to 1 close to progenitor
+        return 0.5*(1.+special.erf((self._meandO-dOmin)\
+                                       /numpy.sqrt(2.*self._sortedSigOEig[2])))
+
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
         """

@@ -196,6 +196,13 @@ def test_closest_trackpointaA():
     check_closest_trackpointaA(sdf_bovy14,4,interp=False)
     return None
 
+def test_density_par():
+    #Test that the density is close to 1 close to the progenitor and close to zero far from the progenitor
+    assert numpy.fabs(sdf_bovy14.density_par(0.1)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.density_par(0.5)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
+    assert numpy.fabs(sdf_bovy14.density_par(1.8)-0.) < 10.**-2., 'density far progenitor not close to 0 for Bovy14 stream'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
