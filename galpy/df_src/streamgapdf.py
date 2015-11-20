@@ -1345,8 +1345,8 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
     wperp2= wperp**2.
     out= numpy.empty_like(v)
     out[:,0]= [1./wmag[ii]\
-                    *integrate.quad(_astream_integrand_x,
-                                    tmin,tmax,args=(y[ii],
+                   *integrate.quad(_integrand_x,
+                                   tmin,tmax,args=(y[ii],
                                                     vmag[ii],b,tilew[ii],
                                                     b2,wmag2[ii],
                                                     wperp[ii],wperp2[ii],
@@ -1354,7 +1354,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
                                                     GSigma,rs2))[0]
                for ii in range(len(y))]
     out[:,1]= [-wperp2[ii]/wmag[ii]\
-                    *integrate.quad(_astream_integrand_y,
+                    *integrate.quad(_integrand_y,
                                     tmin,tmax,args=(y[ii],
                                                     vmag[ii],
                                                     b2,wmag2[ii],
@@ -1362,7 +1362,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
                                                     GSigma,rs2))[0]
                 for ii in range(len(y))]
     out[:,2]= [1./wmag[ii]\
-                    *integrate.quad(_astream_integrand_z,
+                    *integrate.quad(_integrand_z,
                                     tmin,tmax,args=(y[ii],
                                                     vmag[ii],b,tilew[ii],
                                                     b2,wmag2[ii],
