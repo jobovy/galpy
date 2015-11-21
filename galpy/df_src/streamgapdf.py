@@ -1307,6 +1307,8 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
 
        rs - size of the Plummer sphere
 
+       tmin, tmax= (None) minimum and maximum time to consider for GSigma
+
     OUTPUT:
 
        deltav (nstar,3)
@@ -1373,6 +1375,85 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
     # Rotate back to the original frame
     return 2.0*numpy.sum(\
         rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
+
+def _astream_integrand(t,b_,orb,tx,w,GSigma,rs2,tmin,compt):
+    teval= tx-tmin-t
+    b__= b_+numpy.array([orb.x(teval)[0],orb.y(teval)[0],orb.z(teval)])
+    w = w-numpy.array([orb.vx(teval)[0],orb.vy(teval)[0],orb.vz(teval)])
+    wmag = numpy.sqrt(numpy.sum(w**2))
+    bdotw=numpy.sum(b__*w)/wmag
+    denom= wmag*(numpy.sum(b__**2)+rs2-bdotw**2)
+    denom = 1./denom
+    return -2.0*GSigma(t)*(((b__.T-bdotw*w.T/wmag)*denom).T)[compt]
+
+def _astream_integrate(b_,orb,tx,w,GSigma,rs2,otmin,tmin,tmax):
+    return numpy.array([integrate.quad(_astream_integrand,tmin,tmax,
+                                       args=(b_,orb,tx,w,GSigma,rs2,
+                                             otmin,i))[0] \
+                            for i in range(3)])
+
+def impulse_deltav_plummerstream_curvedstream(v,x,t,b,w,x0,v0,GSigma,rs,
+                                              galpot,tmin=None,tmax=None):
+    """
+    NAME:
+
+       impulse_deltav_plummerstream_curvedstream
+
+    PURPOSE:
+
+       calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream; velocities and positions are assumed to lie along an orbit
+
+    INPUT:
+
+       v - velocity of the stream (nstar,3)
+
+       x - position along the stream (nstar,3)
+
+       t - times at which (v,x) are reached, wrt the closest impact t=0 (nstar)
+
+       b - impact parameter
+
+       w - velocity of the Plummer sphere (3)
+
+       x0 - point of closest approach
+
+       v0 - velocity of point of closest approach
+
+       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
+
+       rs - size of the Plummer sphere
+
+       galpot - galpy Potential object or list thereof
+
+       tmin, tmax= (None) minimum and maximum time to consider for GSigma
+
+    OUTPUT:
+
+       deltav (nstar,3)
+
+    HISTORY:
+
+       2015-11-20 - Written based on Plummer sphere above - Bovy (UofT)
+
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+    # Integrate an orbit to use to figure out where each (v,x) is at each time
+    R, phi, z= bovy_coords.rect_to_cyl(x0[0],x0[1],x0[2])
+    vR, vT, vz= bovy_coords.rect_to_cyl_vec(v0[0],v0[1],v0[2],R,phi,z,cyl=True)
+    # First back, then forward to cover the entire range with 1 orbit
+    o= Orbit([R,vR,vT,z,vz,phi]).flip()
+    ts= numpy.linspace(0.,numpy.fabs(numpy.amin(t)+tmin),101)
+    o.integrate(ts,galpot)
+    o= o(ts[-1]).flip()
+    ts= numpy.linspace(0.,numpy.amax(t)+tmax-numpy.amin(t)-tmin,201)
+    o.integrate(ts,galpot)
+    # Calculate kicks
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    return numpy.array(list(map(lambda i:_astream_integrate(\
+                    b0-x0,o,i,w,GSigma,rs**2.,numpy.amin(t)+tmin,
+                    tmin,tmax),t)))
 
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
