@@ -2347,6 +2347,24 @@ def test_backinterpolation_issue204():
     assert numpy.all((o.vT(nitimes)+of.vT(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
     return None
 
+# Test that Orbit.x .y .vx and .vy return a scalar for scalar time input
+def test_scalarxyvzvz_issue247():
+    # Setup an orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o= setup_orbit_energy(lp,axi=False)
+    assert isinstance(o.x(),float), 'Orbit.x() does not return a scalar'
+    assert isinstance(o.y(),float), 'Orbit.y() does not return a scalar'
+    assert isinstance(o.vx(),float), 'Orbit.vx() does not return a scalar'
+    assert isinstance(o.vy(),float), 'Orbit.vy() does not return a scalar'
+    # Also integrate and then test
+    times= numpy.linspace(0.,10.,1001)
+    o.integrate(times,lp)
+    assert isinstance(o.x(5.),float), 'Orbit.x() does not return a scalar'
+    assert isinstance(o.y(5.),float), 'Orbit.y() does not return a scalar'
+    assert isinstance(o.vx(5.),float), 'Orbit.vx() does not return a scalar'
+    assert isinstance(o.vy(5.),float), 'Orbit.vy() does not return a scalar'
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
