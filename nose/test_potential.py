@@ -1307,6 +1307,8 @@ def test_MN3ExponentialDiskPotential_inputs():
             raisedWarning= ('MN3ExponentialDiskPotential' in str(wa.message))
             if raisedWarning: break
         assert raisedWarning, "MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 3 did not raise galpyWarning"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         mn= MN3ExponentialDiskPotential(normalize=1.,hr=1.,hz=0.7727,
                                         posdens=True)
         raisedWarning= False
