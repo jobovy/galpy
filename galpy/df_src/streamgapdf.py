@@ -1243,7 +1243,7 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     dtimes = numpy.linspace(-tmax,tmax,2*N)
     o = Orbit(vxvv=[R,-vR,-vp,z,-vz,phi])
     o.integrate(times,galpot,method=integrate_method)
-    oplum = Orbit(vxvv=[o.R(times[-1]),-o.vR(times[-1]),-o.vT(times[-1]),o.z(times[-1]),-o.vz(times[-1]),o.phi(times[-1])])
+    oplum = o(times[-1]).flip()
     oplum.integrate(dtimes,galpot,method=integrate_method)
     plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
 
@@ -1256,9 +1256,9 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     for i in range(nstar):
       ostar= Orbit(vxvv=[R[i],-vR[i],-vp[i],z[i],-vz[i],phi[i]])
       ostar.integrate(times,galpot,method=integrate_method)
-      oboth = Orbit(vxvv=[ostar.R(times[-1]),-ostar.vR(times[-1]),-ostar.vT(times[-1]),ostar.z(times[-1]),-ostar.vz(times[-1]),ostar.phi(times[-1])])
+      oboth = ostar(times[-1]).flip()
       oboth.integrate(dtimes,[galpot,plumpot],method=integrate_method)
-      ogalpot = Orbit(vxvv=[oboth.R(times[-1]),-oboth.vR(times[-1]),-oboth.vT(times[-1]),oboth.z(times[-1]),-oboth.vz(times[-1]),oboth.phi(times[-1])])
+      ogalpot = oboth(times[-1]).flip()
       ogalpot.integrate(times,galpot,method=integrate_method)
       deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
       deltav[i][1] = -ogalpot.vy(times[-1]) - v[i][1]
