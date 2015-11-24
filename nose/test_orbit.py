@@ -2298,19 +2298,19 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
     return numpy.array(out)
 
-# Check plotting routines
 def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
-    except: pass
-    else:
-        raise AssertionError("Orbit integration with MWPotential should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "Orbit integration with MWPotential should have thrown a warning, but didn't"
     return None
 
 # Test the new Orbit.time function
