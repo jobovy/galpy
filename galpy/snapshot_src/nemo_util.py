@@ -10,7 +10,7 @@ def read(filename,ext=None,swapyz=False):
     NAME:
        read
     PURPOSE:
-       read a NEMO snapshot file
+       read a NEMO snapshot file consisting of mass,position,velocity
     INPUT:
        filename - name of the file
        ext= if set, 'nemo' for NEMO binary format, otherwise assumed ASCII; if not set, gleaned from extension
