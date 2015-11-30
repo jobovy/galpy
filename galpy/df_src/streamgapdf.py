@@ -803,7 +803,9 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
        2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
 
     """
-    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(v.shape) == 1:
+        v= numpy.reshape(v,(1,3))
+        y= numpy.reshape(y,(1,1))
     nv= v.shape[0]
     # Build the rotation matrices and their inverse
     rot= _rotation_vy(v)
@@ -1307,7 +1309,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
 
        rs - size of the Plummer sphere
 
-       tmin, tmax= (None) minimum and maximum time to consider for GSigma
+       tmin, tmax= (None) minimum and maximum time to consider for GSigma (need to be set)
 
     OUTPUT:
 
@@ -1318,20 +1320,13 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
        2015-11-14 - Written - Bovy (UofT)
 
     """
-    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(v.shape) == 1: 
+        v= numpy.reshape(v,(1,3))
+        y= numpy.reshape(y,(1,1))
+    if tmax is None or tmax is None:
+        raise ValueError("tmin= and tmax= need to be set")
     nv= v.shape[0]
     vmag= numpy.sqrt(numpy.sum(v**2.,axis=1))
-    # tmin, tmax set?
-    if tmin is None or tmax is None:
-        _integrand_x= _astream_integrand_x_inf
-        _integrand_y= _astream_integrand_y_inf
-        _integrand_z= _astream_integrand_z_inf
-        tmin= -1.
-        tmax= 1.
-    else:
-        _integrand_x= _astream_integrand_x
-        _integrand_y= _astream_integrand_y
-        _integrand_z= _astream_integrand_z       
     # Build the rotation matrices and their inverse
     rot= _rotation_vy(v)
     rotinv= _rotation_vy(v,inv=True)
@@ -1347,7 +1342,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
     wperp2= wperp**2.
     out= numpy.empty_like(v)
     out[:,0]= [1./wmag[ii]\
-                   *integrate.quad(_integrand_x,
+                   *integrate.quad(_astream_integrand_x,
                                    tmin,tmax,args=(y[ii],
                                                     vmag[ii],b,tilew[ii],
                                                     b2,wmag2[ii],
@@ -1356,7 +1351,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
                                                     GSigma,rs2))[0]
                for ii in range(len(y))]
     out[:,1]= [-wperp2[ii]/wmag[ii]\
-                    *integrate.quad(_integrand_y,
+                    *integrate.quad(_astream_integrand_y,
                                     tmin,tmax,args=(y[ii],
                                                     vmag[ii],
                                                     b2,wmag2[ii],
@@ -1364,7 +1359,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
                                                     GSigma,rs2))[0]
                 for ii in range(len(y))]
     out[:,2]= [1./wmag[ii]\
-                    *integrate.quad(_integrand_z,
+                    *integrate.quad(_astream_integrand_z       ,
                                     tmin,tmax,args=(y[ii],
                                                     vmag[ii],b,tilew[ii],
                                                     b2,wmag2[ii],
