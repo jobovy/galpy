@@ -979,6 +979,40 @@ def test_impulse_deltav_plummerstream_tmaxerror():
         v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
     return None
 
+# Test the Plummer curved calculation for a perpendicular stream impact:
+# short impact should be the same as a Plummer-sphere impact
+def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
+    from galpy.util import bovy_conversion
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.df import impulse_deltav_plummer_curvedstream, \
+        impulse_deltav_plummerstream_curvedstream
+    R0, V0= 8., 220.
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    tol= -5.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    dt= 0.01*rs/(numpy.pi/4.)
+    kick= impulse_deltav_plummer_curvedstream(\
+        numpy.array([[.5,0.1,0.2]]),
+        numpy.array([[1.2,0.,0.]]),
+        rs,
+        numpy.array([0.1,numpy.pi/4.,0.1]),
+        numpy.array([1.2,0.,0.]),
+        numpy.array([.5,0.1,0.2]),
+        GM,rs)
+    stream_kick= impulse_deltav_plummerstream_curvedstream(\
+        numpy.array([[.5,0.1,0.2]]),
+        numpy.array([[1.2,0.,0.]]),
+        numpy.array([0.]),
+        rs,
+        numpy.array([0.1,numpy.pi/4.,0.1]),
+        numpy.array([1.2,0.,0.]),
+        numpy.array([.5,0.1,0.2]),
+        lambda t: GM/dt,rs,lp,-dt/2.,dt/2.)
+    # Should be equal
+    assert numpy.all(numpy.fabs((kick-stream_kick)/kick) < 10.**tol), 'Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)))
+    return None
+
 from galpy.potential import Potential
 class constantPotential(Potential):
     def __init__(self):
