@@ -921,6 +921,64 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
     return None
 
+# Test straight, stream impulse vs. Plummer, similar setup as Fig. 1 in 
+# stream paper
+def test_impulse_deltav_plummerstream():
+    from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
+    from galpy.util import bovy_conversion
+    V0, R0= 220., 8.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    b= rs
+    stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
+    stream_r= 10./R0
+    stream_v= 220./V0
+    x_gc= stream_r*stream_phi
+    v_gc= numpy.tile([0.000001,stream_v,0.000001],(201,1))
+    w= numpy.array([0.,132.,176])/V0
+    wmag= numpy.sqrt(numpy.sum(w**2.))
+    tol= -5.
+    # Plummer sphere kick
+    kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick= impulse_deltav_plummerstream(\
+        v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
+    assert numpy.all(numpy.fabs((kick-stream_kick)/kick) < 10.**tol), 'Short stream impulse kick calculation does not agree with Plummer calculation by %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)))
+    # Same for a bunch of positions
+    kick= impulse_deltav_plummer(v_gc,x_gc,-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick=\
+        impulse_deltav_plummerstream(\
+        v_gc,x_gc,-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
+    assert numpy.all((numpy.fabs((kick-stream_kick)/kick) < 10.**tol)*(numpy.fabs(kick) >= 10**-4.)\
+                         +(numpy.fabs((kick-stream_kick)) < 10**tol)*(numpy.fabs(kick) < 10**-4.)), 'Short stream impulse kick calculation does not agree with Plummer calculation by rel: %g, abs: %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]),numpy.amax(numpy.fabs((kick-stream_kick))[numpy.fabs(kick) < 10**-3.]))
+
+@raises(ValueError)
+def test_impulse_deltav_plummerstream_tmaxerror():
+    from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
+    from galpy.util import bovy_conversion
+    V0, R0= 220., 8.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    b= rs
+    stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
+    stream_r= 10./R0
+    stream_v= 220./V0
+    x_gc= stream_r*stream_phi
+    v_gc= numpy.tile([0.000001,stream_v,0.000001],(201,1))
+    w= numpy.array([0.,132.,176])/V0
+    wmag= numpy.sqrt(numpy.sum(w**2.))
+    tol= -5.
+    # Same for infinite integration limits
+    kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick= impulse_deltav_plummerstream(\
+        v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
+    return None
+
 from galpy.potential import Potential
 class constantPotential(Potential):
     def __init__(self):
