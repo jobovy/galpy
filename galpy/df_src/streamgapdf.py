@@ -398,7 +398,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         # Also interpolate parallel and perpendicular frequencies
-        self._kick_dOaparperp_raw=\
+        self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
         self._kick_interpdOpar_raw=\
