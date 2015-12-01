@@ -412,7 +412,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
         # Also construct derivative of dOpar
-        self._kick_interpdOpar_dapar= self._kick_interpdOpar.derivative(1)
+        self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
