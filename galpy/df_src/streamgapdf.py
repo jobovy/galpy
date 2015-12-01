@@ -1270,20 +1270,11 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
 def _astream_integrand_x(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
     return GSigma(t)*(b*w2*w[2]/wperp-(y-v*t)*wpar*w[0])\
         /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
-def _astream_integrand_x_inf(T,*args):
-    t = T/(1-T*T)
-    return (1+T*T)/(1-T*T)**2.*_astream_integrand_x(t,*args)
 def _astream_integrand_y(t,y,v,b2,w2,wperp2,GSigma,rs2):
     return GSigma(t)*(y-v*t)/((b2+rs2)*w2+wperp2*(y-v*t)**2.)
-def _astream_integrand_y_inf(T,*args):
-    t = T/(1-T*T)
-    return (1+T*T)/(1-T*T)**2.*_astream_integrand_y(t,*args)
 def _astream_integrand_z(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
     return -GSigma(t)*(b*w2*w[0]/wperp+(y-v*t)*wpar*w[2])\
         /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
-def _astream_integrand_z_inf(T,*args):
-    t = T/(1-T*T)
-    return (1+T*T)/(1-T*T)**2.*_astream_integrand_z(t,*args)
 
 def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
     """
