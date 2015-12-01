@@ -359,22 +359,32 @@ def test_interpKickda():
 
 # Test rewind_angle
 def test_rewind_angle_impact():
+    from galpy.df import streamgapdf
     # Check that the equation is solved correctly for a few points
     theta= sdf_sanders15._impact_angle
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     theta= 2.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     theta= 5.
     rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= theta-(sdf_sanders15._meandO+sdf_sanders15._kick_interpdOpar(rew_theta))\
-        *sdf_sanders15._timpact
-    assert numpy.fabs(rew_theta-pred) < 10.**-6., 'Angle rewinding does not work properly'
+    pred= rew_theta\
+        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
+                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
+              +sdf_sanders15._kick_interpdOpar(rew_theta))\
+              *sdf_sanders15._timpact
+    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     return None
 
 # Test the sampling of present-day perturbed points based on the model
@@ -909,6 +919,98 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
     assert numpy.all(numpy.fabs((orbit_kick-full_kick))[0,1:] < 10.**tol), \
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
+    return None
+
+# Test straight, stream impulse vs. Plummer, similar setup as Fig. 1 in 
+# stream paper
+def test_impulse_deltav_plummerstream():
+    from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
+    from galpy.util import bovy_conversion
+    V0, R0= 220., 8.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    b= rs
+    stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
+    stream_r= 10./R0
+    stream_v= 220./V0
+    x_gc= stream_r*stream_phi
+    v_gc= numpy.tile([0.000001,stream_v,0.000001],(201,1))
+    w= numpy.array([0.,132.,176])/V0
+    wmag= numpy.sqrt(numpy.sum(w**2.))
+    tol= -5.
+    # Plummer sphere kick
+    kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick= impulse_deltav_plummerstream(\
+        v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
+    assert numpy.all(numpy.fabs((kick-stream_kick)/kick) < 10.**tol), 'Short stream impulse kick calculation does not agree with Plummer calculation by %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)))
+    # Same for a bunch of positions
+    kick= impulse_deltav_plummer(v_gc,x_gc,-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick=\
+        impulse_deltav_plummerstream(\
+        v_gc,x_gc,-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
+    assert numpy.all((numpy.fabs((kick-stream_kick)/kick) < 10.**tol)*(numpy.fabs(kick) >= 10**-4.)\
+                         +(numpy.fabs((kick-stream_kick)) < 10**tol)*(numpy.fabs(kick) < 10**-4.)), 'Short stream impulse kick calculation does not agree with Plummer calculation by rel: %g, abs: %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]),numpy.amax(numpy.fabs((kick-stream_kick))[numpy.fabs(kick) < 10**-3.]))
+
+@raises(ValueError)
+def test_impulse_deltav_plummerstream_tmaxerror():
+    from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
+    from galpy.util import bovy_conversion
+    V0, R0= 220., 8.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    b= rs
+    stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
+    stream_r= 10./R0
+    stream_v= 220./V0
+    x_gc= stream_r*stream_phi
+    v_gc= numpy.tile([0.000001,stream_v,0.000001],(201,1))
+    w= numpy.array([0.,132.,176])/V0
+    wmag= numpy.sqrt(numpy.sum(w**2.))
+    tol= -5.
+    # Same for infinite integration limits
+    kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
+    # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
+    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    stream_kick= impulse_deltav_plummerstream(\
+        v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
+    return None
+
+# Test the Plummer curved calculation for a perpendicular stream impact:
+# short impact should be the same as a Plummer-sphere impact
+def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
+    from galpy.util import bovy_conversion
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.df import impulse_deltav_plummer_curvedstream, \
+        impulse_deltav_plummerstream_curvedstream
+    R0, V0= 8., 220.
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    tol= -5.
+    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs= 0.625/R0
+    dt= 0.01*rs/(numpy.pi/4.)
+    kick= impulse_deltav_plummer_curvedstream(\
+        numpy.array([[.5,0.1,0.2]]),
+        numpy.array([[1.2,0.,0.]]),
+        rs,
+        numpy.array([0.1,numpy.pi/4.,0.1]),
+        numpy.array([1.2,0.,0.]),
+        numpy.array([.5,0.1,0.2]),
+        GM,rs)
+    stream_kick= impulse_deltav_plummerstream_curvedstream(\
+        numpy.array([[.5,0.1,0.2]]),
+        numpy.array([[1.2,0.,0.]]),
+        numpy.array([0.]),
+        rs,
+        numpy.array([0.1,numpy.pi/4.,0.1]),
+        numpy.array([1.2,0.,0.]),
+        numpy.array([.5,0.1,0.2]),
+        lambda t: GM/dt,rs,lp,-dt/2.,dt/2.)
+    # Should be equal
+    assert numpy.all(numpy.fabs((kick-stream_kick)/kick) < 10.**tol), 'Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)))
     return None
 
 from galpy.potential import Potential

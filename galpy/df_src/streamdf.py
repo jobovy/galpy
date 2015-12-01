@@ -16,6 +16,7 @@ from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
+_TWOPIWRAPS= numpy.arange(5)*2.*numpy.pi
 _labelDict= {'x': r'$X$',
              'y': r'$Y$',
              'z': r'$Z$',
@@ -790,6 +791,8 @@ class streamdf(object):
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
         else:
             self._nTrackChunks= nTrackChunks
+        if not hasattr(self,'nInterpolatedTrackChunks'):
+            self.nInterpolatedTrackChunks= 1001
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
@@ -1149,7 +1152,8 @@ class streamdf(object):
                                                      TrackvZ,k=3)
         #Now store an interpolated version of the stream track
         self._interpolatedThetasTrack=\
-            numpy.linspace(0.,self._deltaAngleTrack,1001)
+            numpy.linspace(0.,self._deltaAngleTrack,
+                           self.nInterpolatedTrackChunks)
         self._interpolatedObsTrackXY= numpy.empty((len(self._interpolatedThetasTrack),6))
         self._interpolatedObsTrackXY[:,0]=\
             self._interpTrackX(self._interpolatedThetasTrack)
@@ -1507,9 +1511,12 @@ class streamdf(object):
            2013-12-22 - Written - Bovy (IAS)
         """
         #Calculate angle offset along the stream parallel to the stream track
-        angle= numpy.hstack((ar,ap,az))
-        da= angle-self._progenitor_angle
-        dapar= self._sigMeanSign*numpy.sum(da*self._dsigomeanProgDirection)
+        da= numpy.vstack((ar+_TWOPIWRAPS-self._progenitor_angle[0],
+                          ap+_TWOPIWRAPS-self._progenitor_angle[1],
+                          az+_TWOPIWRAPS-self._progenitor_angle[2])).T
+        dapar= numpy.amin(numpy.fabs(\
+                self._sigMeanSign\
+                    *numpy.dot(da,self._dsigomeanProgDirection)))
         if interp:
             dist= numpy.fabs(dapar-self._interpolatedThetasTrack)
         else:
@@ -1517,6 +1524,35 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        dOmin= dangle/tdisrupt
+        # Normalize to 1 close to progenitor
+        return 0.5*(1.+special.erf((self._meandO-dOmin)\
+                                       /numpy.sqrt(2.*self._sortedSigOEig[2])))
+
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
         """
@@ -1851,6 +1887,7 @@ class streamdf(object):
            (Or,Op,Oz,ar,ap,az)
         HISTORY:
            2013-12-03 - Written - Bovy (IAS)
+           2015-11-12 - Added weighted sum of two nearest Jacobians to help with smoothness - Bovy (UofT)
         """
         if isinstance(R,(int,float,numpy.float32,numpy.float64)): #Scalar input
             R= numpy.array([R])
@@ -1859,11 +1896,14 @@ class streamdf(object):
             z= numpy.array([z])
             vz= numpy.array([vz])
             phi= numpy.array([phi])
+        X= R*numpy.cos(phi)
+        Y= R*numpy.sin(phi)
+        Z= z
         if cindx is None:
-            closestIndx= [self._find_closest_trackpoint(R[ii],vR[ii],vT[ii],
+            closestIndx= [self._find_closest_trackpoint(X[ii],Y[ii],Z[ii],
                                                         z[ii],vz[ii],phi[ii],
                                                         interp=interp,
-                                                        xy=False) 
+                                                        xy=True,usev=False) 
                           for ii in range(len(R))]
         else:
             closestIndx= cindx
@@ -1889,13 +1929,43 @@ class streamdf(object):
                 dxv[4]= vz[ii]-self._ObsTrack[closestIndx[ii],4]
                 dxv[5]= phi[ii]-self._ObsTrack[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            # Find 2nd closest Jacobian point for smoothing
+            dmJacIndx= (X[ii]-self._ObsTrackXY[jacIndx,0])**2.\
+                +(Y[ii]-self._ObsTrackXY[jacIndx,1])**2.\
+                +(Z[ii]-self._ObsTrackXY[jacIndx,2])**2.
+            if jacIndx == 0:
+                jacIndx2= jacIndx+1
+                dmJacIndx2= (X[ii]-self._ObsTrackXY[jacIndx+1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx+1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx+1,2])**2.
+            elif jacIndx == self._nTrackChunks-1:
+                jacIndx2= jacIndx-1
+                dmJacIndx2= (X[ii]-self._ObsTrackXY[jacIndx-1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx-1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx-1,2])**2.
+            else:
+                dm1= (X[ii]-self._ObsTrackXY[jacIndx-1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx-1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx-1,2])**2.
+                dm2= (X[ii]-self._ObsTrackXY[jacIndx+1,0])**2.\
+                    +(Y[ii]-self._ObsTrackXY[jacIndx+1,1])**2.\
+                    +(Z[ii]-self._ObsTrackXY[jacIndx+1,2])**2.
+                if dm1 < dm2:
+                    jacIndx2= jacIndx-1
+                    dmJacIndx2= dm1
+                else:
+                    jacIndx2= jacIndx+1
+                    dmJacIndx2= dm2
+            ampJacIndx= numpy.sqrt(dmJacIndx)/(numpy.sqrt(dmJacIndx)\
+                                                   +numpy.sqrt(dmJacIndx2))
             #Make sure phi hasn't wrapped around
             if dxv[5] > numpy.pi:
                 dxv[5]-= 2.*numpy.pi
             elif dxv[5] < -numpy.pi:
                 dxv[5]+= 2.*numpy.pi
-            #Apply closest jacobian
-            out[:,ii]= numpy.dot(self._alljacsTrack[jacIndx,:,:],
+            #Apply closest jacobians
+            out[:,ii]= numpy.dot((1.-ampJacIndx)*self._alljacsTrack[jacIndx,:,:]
+                                 +ampJacIndx*self._alljacsTrack[jacIndx2,:,:],
                                  dxv)
             if interp:
                 out[:,ii]+= self._interpolatedObsTrackAA[closestIndx[ii]]
@@ -1952,6 +2022,30 @@ class streamdf(object):
                 dOa[4]= ap[ii]-self._ObsTrackAA[closestIndx[ii],4]
                 dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
+            # Find 2nd closest Jacobian point for smoothing
+            da= numpy.vstack((ar[ii]+_TWOPIWRAPS-self._progenitor_angle[0],
+                              ap[ii]+_TWOPIWRAPS-self._progenitor_angle[1],
+                              az[ii]+_TWOPIWRAPS-self._progenitor_angle[2])).T
+            dapar= numpy.amin(numpy.fabs(\
+                    self._sigMeanSign\
+                        *numpy.dot(da,self._dsigomeanProgDirection)))
+            dmJacIndx= numpy.fabs(dapar-self._thetasTrack[jacIndx])
+            if jacIndx == 0:
+                jacIndx2= jacIndx+1
+                dmJacIndx2= numpy.fabs(dapar-self._thetasTrack[jacIndx+1])
+            elif jacIndx == self._nTrackChunks-1:
+                jacIndx2= jacIndx-1
+                dmJacIndx2= numpy.fabs(dapar-self._thetasTrack[jacIndx-1])
+            else:
+                dm1= numpy.fabs(dapar-self._thetasTrack[jacIndx-1])
+                dm2= numpy.fabs(dapar-self._thetasTrack[jacIndx+1])
+                if dm1 < dm2:
+                    jacIndx2= jacIndx-1
+                    dmJacIndx2= dm1
+                else:
+                    jacIndx2= jacIndx+1
+                    dmJacIndx2= dm2
+            ampJacIndx= dmJacIndx/(dmJacIndx+dmJacIndx2)
             #Make sure the angles haven't wrapped around
             if dOa[3] > numpy.pi:
                 dOa[3]-= 2.*numpy.pi
@@ -1966,7 +2060,8 @@ class streamdf(object):
             elif dOa[5] < -numpy.pi:
                 dOa[5]+= 2.*numpy.pi
             #Apply closest jacobian
-            out[:,ii]= numpy.dot(self._allinvjacsTrack[jacIndx,:,:],
+            out[:,ii]= numpy.dot((1.-ampJacIndx)*self._allinvjacsTrack[jacIndx,:,:]
+                                 +ampJacIndx*self._allinvjacsTrack[jacIndx2,:,:],
                                  dOa)
             if interp:
                 out[:,ii]+= self._interpolatedObsTrack[closestIndx[ii]]

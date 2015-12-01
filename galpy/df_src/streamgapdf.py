@@ -116,6 +116,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
         # Then pass everything to the normal streamdf setup
+        self.nInterpolatedTrackChunks= 201 #more expensive now
         super(streamgapdf,self)._determine_stream_track(nTrackChunks)
         self._useInterp= useInterp
         if interpTrack or self._useInterp:
@@ -123,6 +124,136 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             super(streamgapdf,self)._interpolate_stream_track_aA()
         super(streamgapdf,self).calc_stream_lb()
         return None
+
+    def pOparapar(self,Opar,apar):
+        """
+        NAME:
+
+           pOparapar
+
+        PURPOSE:
+
+           return the probability of a given parallel (frequency,angle) offset pair
+
+        INPUT:
+
+           Opar - parallel frequency offset (array)
+
+           apar - parallel angle offset along the stream (scalar)
+
+        OUTPUT:
+
+           p(Opar,apar)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
+            Opar= numpy.array([Opar])
+        out= numpy.zeros(len(Opar))
+        # Compute ts and where they were at impact for all
+        ts= apar/Opar
+        apar_impact= apar-Opar*self._timpact
+        dOpar_impact= self._kick_interpdOpar(apar_impact)
+        Opar_b4impact= Opar-dOpar_impact
+        ts_b4impact= apar_impact/Opar_b4impact
+        # Evaluate the two regimes: stripped before or after impact
+        out[ts < self._timpact]=\
+            numpy.exp(-0.5*(Opar-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        out[(ts >= self._timpact)\
+                *(self._timpact+ts_b4impact < self._tdisrupt)]=\
+            numpy.exp(-0.5*(Opar_b4impact-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
+    def density_par(self,dangle,tdisrupt=None):
+        """
+        NAME:
+
+           density_par
+
+        PURPOSE:
+
+           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+        OUTPUT:
+
+           density(angle)
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                                  *(1+T*T)/(1-T*T)**2.\
+                                  *self.pOparapar(T/(1-T*T)\
+                                                      *numpy.sqrt(self._sortedSigOEig[2])\
+                                                      +self._meandO,dangle),
+                              Tlow,1.)[0]
+
+    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+        """
+        NAME:
+
+           meanOmega
+
+        PURPOSE:
+
+           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time
+
+        INPUT:
+
+           dangle - angle offset
+
+           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
+
+        OUTPUT:
+
+           mean Omega
+
+        HISTORY:
+
+           2015-11-17 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        Tlow= 1./2./self._sigMeanOffset\
+            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+        num=\
+            integrate.quad(lambda T: (T/(1-T*T)\
+                                          *numpy.sqrt(self._sortedSigOEig[2])\
+                                          +self._meandO)\
+                               *numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        denom=\
+            integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                               *(1+T*T)/(1-T*T)**2.\
+                               *self.pOparapar(T/(1-T*T)\
+                                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                                   +self._meandO,dangle),
+                           Tlow,1.)[0]
+        dO1D= num/denom
+        if oned: return dO1D
+        else:
+            return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
+                *self._sigMeanSign
 
     def _rewind_angle_impact(self,dangle):
         """
@@ -137,13 +268,32 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         HISTORY:
            2015-06-22 - Written - Bovy (IAS)
         """
-        guess= dangle-self._meandO*self._sigMeanSign*self._timpact
-        dguess= numpy.amax(self._kick_dOaparperp[:,2])*self._timpact*1.2
-        out= optimize.brentq(lambda da: dangle
-                             -(self._meandO*self._sigMeanSign
-                               +self._kick_interpdOpar(da))*self._timpact
-                             -da,
-                             guess-dguess,guess+dguess)
+        # First subtract meanOmega evolution
+        dangle-= super(streamgapdf,self).meanOmega(dangle,oned=True)\
+            *self._timpact
+        # Now solve the kick's evolution  itself
+        if not hasattr(self,'_daparMax'):
+            # Maximum dOpar
+            self._daparMax= self._kick_interpdOpar_dapar.roots()
+            self._dOparMax= self._kick_interpdOpar(self._daparMax)
+            self._daparMax-= self._impact_angle
+            # Angle where caustic forms at the current time, not yet used
+            self._daparCau= interpolate.InterpolatedUnivariateSpline(\
+                self._kick_interpolatedThetasTrack,
+                numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
+                    +self._kick_interpolatedThetasTrack/self._timpact,
+                k=4).derivative(1).roots()
+            self._dOparCau= self._kick_interpdOpar(self._daparCau)
+            self._daparCau-= self._impact_angle
+            if len(self._daparCau) == 0: self._caustic_phase= False
+            else: self._caustic_phase= True
+        if not self._caustic_phase: # Single-valued everywhere
+            guess= dangle
+            dguess= numpy.fabs(self._dOparMax[0])*self._timpact*1.2
+            out= optimize.brentq(lambda da: dangle
+                                 -self._kick_interpdOpar(da)*self._timpact
+                                 -da,
+                                 guess-dguess,guess+dguess)
         """
         except ValueError:
             # Only get into trouble at the edges; assume the kick is zero
@@ -210,6 +360,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._alljacsTrack= self._gap_alljacsTrack
         self._interpolatedObsTrackAA= self._kick_interpolatedObsTrackAA
         self._ObsTrackAA= self._gap_ObsTrackAA
+        self._nTrackChunks= self._nTrackChunksImpact
         Oap= self._approxaA(self._kick_interpolatedObsTrack[:,0],
                             vRp,vTp,
                             self._kick_interpolatedObsTrack[:,3],
@@ -224,70 +375,74 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         delattr(self,'_alljacsTrack')
         delattr(self,'_interpolatedObsTrackAA')
         delattr(self,'_ObsTrackAA')
-        # Generate (dO,da)[angle_offset] and interpolate
+        delattr(self,'_nTrackChunks')
+        # Generate (dO,da)[angle_offset] and interpolate (raw here, see below
+        # for form that checks range)
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
-        self.__kick_interpdOr=\
+        self._kick_interpdOr_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
-        self.__kick_interpdOp=\
+        self._kick_interpdOp_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
-        self.__kick_interpdOz=\
+        self._kick_interpdOz_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
-        self.__kick_interpdar=\
+        self._kick_interpdar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
-        self.__kick_interpdap=\
+        self._kick_interpdap_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
-        self.__kick_interpdaz=\
+        self._kick_interpdaz_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
         # Also interpolate parallel and perpendicular frequencies
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
-        self.__kick_interpdOpar=\
+        self._kick_interpdOpar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=3)
-        self.__kick_interpdOperp0=\
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
+        self._kick_interpdOperp0_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
-        self.__kick_interpdOperp1=\
+        self._kick_interpdOperp1_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
+        # Also construct derivative of dOpar
+        self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
     @impact_check_range
     def _kick_interpdOpar(self,da):
-        return self.__kick_interpdOpar(da)
+        return self._kick_interpdOpar_raw(da)
     @impact_check_range
     def _kick_interpdOperp0(self,da):
-        return self.__kick_interpdOperp0(da)
+        return self._kick_interpdOperp0_raw(da)
     @impact_check_range
     def _kick_interpdOperp1(self,da):
-        return self.__kick_interpdOperp1(da)
+        return self._kick_interpdOperp1_raw(da)
     @impact_check_range
     def _kick_interpdOr(self,da):
-        return self.__kick_interpdOr(da)
+        return self._kick_interpdOr_raw(da)
     @impact_check_range
     def _kick_interpdOp(self,da):
-        return self.__kick_interpdOp(da)
+        return self._kick_interpdOp_raw(da)
     @impact_check_range
     def _kick_interpdOz(self,da):
-        return self.__kick_interpdOz(da)
+        return self._kick_interpdOz_raw(da)
     @impact_check_range
     def _kick_interpdar(self,da):
-        return self.__kick_interpdar(da)
+        return self._kick_interpdar_raw(da)
     @impact_check_range
     def _kick_interpdap(self,da):
-        return self.__kick_interpdap(da)
+        return self._kick_interpdap_raw(da)
     @impact_check_range
     def _kick_interpdaz(self,da):
-        return self.__kick_interpdaz(da)
+        return self._kick_interpdaz_raw(da)
 
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
@@ -649,7 +804,9 @@ def impulse_deltav_plummer(v,y,b,w,GM,rs):
        2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
 
     """
-    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(v.shape) == 1:
+        v= numpy.reshape(v,(1,3))
+        y= numpy.reshape(y,(1,1))
     nv= v.shape[0]
     # Build the rotation matrices and their inverse
     rot= _rotation_vy(v)
@@ -1089,7 +1246,7 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     dtimes = numpy.linspace(-tmax,tmax,2*N)
     o = Orbit(vxvv=[R,-vR,-vp,z,-vz,phi])
     o.integrate(times,galpot,method=integrate_method)
-    oplum = Orbit(vxvv=[o.R(times[-1]),-o.vR(times[-1]),-o.vT(times[-1]),o.z(times[-1]),-o.vz(times[-1]),o.phi(times[-1])])
+    oplum = o(times[-1]).flip()
     oplum.integrate(dtimes,galpot,method=integrate_method)
     plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
 
@@ -1102,14 +1259,188 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     for i in range(nstar):
       ostar= Orbit(vxvv=[R[i],-vR[i],-vp[i],z[i],-vz[i],phi[i]])
       ostar.integrate(times,galpot,method=integrate_method)
-      oboth = Orbit(vxvv=[ostar.R(times[-1]),-ostar.vR(times[-1]),-ostar.vT(times[-1]),ostar.z(times[-1]),-ostar.vz(times[-1]),ostar.phi(times[-1])])
+      oboth = ostar(times[-1]).flip()
       oboth.integrate(dtimes,[galpot,plumpot],method=integrate_method)
-      ogalpot = Orbit(vxvv=[oboth.R(times[-1]),-oboth.vR(times[-1]),-oboth.vT(times[-1]),oboth.z(times[-1]),-oboth.vz(times[-1]),oboth.phi(times[-1])])
+      ogalpot = oboth(times[-1]).flip()
       ogalpot.integrate(times,galpot,method=integrate_method)
       deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
       deltav[i][1] = -ogalpot.vy(times[-1]) - v[i][1]
       deltav[i][2] = -ogalpot.vz(times[-1]) - v[i][2]
     return deltav
+
+def _astream_integrand_x(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
+    return GSigma(t)*(b*w2*w[2]/wperp-(y-v*t)*wpar*w[0])\
+        /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+def _astream_integrand_y(t,y,v,b2,w2,wperp2,GSigma,rs2):
+    return GSigma(t)*(y-v*t)/((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+def _astream_integrand_z(t,y,v,b,w,b2,w2,wperp,wperp2,wpar,GSigma,rs2):
+    return -GSigma(t)*(b*w2*w[0]/wperp+(y-v*t)*wpar*w[2])\
+        /((b2+rs2)*w2+wperp2*(y-v*t)**2.)
+
+def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
+    """
+    NAME:
+
+       impulse_deltav_plummerstream
+
+    PURPOSE:
+
+       calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
+
+    INPUT:
+
+       v - velocity of the stream (nstar,3)
+
+       y - position along the stream (nstar)
+
+       b - impact parameter
+
+       w - velocity of the Plummer sphere (3)
+
+       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
+
+       rs - size of the Plummer sphere
+
+       tmin, tmax= (None) minimum and maximum time to consider for GSigma (need to be set)
+
+    OUTPUT:
+
+       deltav (nstar,3)
+
+    HISTORY:
+
+       2015-11-14 - Written - Bovy (UofT)
+
+    """
+    if len(v.shape) == 1: 
+        v= numpy.reshape(v,(1,3))
+        y= numpy.reshape(y,(1,1))
+    if tmax is None or tmax is None:
+        raise ValueError("tmin= and tmax= need to be set")
+    nv= v.shape[0]
+    vmag= numpy.sqrt(numpy.sum(v**2.,axis=1))
+    # Build the rotation matrices and their inverse
+    rot= _rotation_vy(v)
+    rotinv= _rotation_vy(v,inv=True)
+    # Rotate the perturbing stream's velocity to the stream frames
+    tilew= numpy.sum(rot*numpy.tile(w,(nv,3,1)),axis=-1)
+    # Use similar expressions to Denis'
+    wperp= numpy.sqrt(tilew[:,0]**2.+tilew[:,2]**2.)
+    wpar= numpy.sqrt(numpy.sum(v**2.,axis=1))-tilew[:,1]
+    wmag2= wpar**2.+wperp**2.
+    wmag= numpy.sqrt(wmag2)
+    b2= b**2.
+    rs2= rs**2.
+    wperp2= wperp**2.
+    out= numpy.empty_like(v)
+    out[:,0]= [1./wmag[ii]\
+                   *integrate.quad(_astream_integrand_x,
+                                   tmin,tmax,args=(y[ii],
+                                                    vmag[ii],b,tilew[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp[ii],wperp2[ii],
+                                                    wpar[ii],
+                                                    GSigma,rs2))[0]
+               for ii in range(len(y))]
+    out[:,1]= [-wperp2[ii]/wmag[ii]\
+                    *integrate.quad(_astream_integrand_y,
+                                    tmin,tmax,args=(y[ii],
+                                                    vmag[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp2[ii],
+                                                    GSigma,rs2))[0]
+                for ii in range(len(y))]
+    out[:,2]= [1./wmag[ii]\
+                    *integrate.quad(_astream_integrand_z       ,
+                                    tmin,tmax,args=(y[ii],
+                                                    vmag[ii],b,tilew[ii],
+                                                    b2,wmag2[ii],
+                                                    wperp[ii],wperp2[ii],
+                                                    wpar[ii],
+                                                    GSigma,rs2))[0]
+               for ii in range(len(y))]
+    # Rotate back to the original frame
+    return 2.0*numpy.sum(\
+        rotinv*numpy.swapaxes(numpy.tile(out.T,(3,1,1)).T,1,2),axis=-1)
+
+def _astream_integrand(t,b_,orb,tx,w,GSigma,rs2,tmin,compt):
+    teval= tx-tmin-t
+    b__= b_+numpy.array([orb.x(teval)[0],orb.y(teval)[0],orb.z(teval)])
+    w = w-numpy.array([orb.vx(teval)[0],orb.vy(teval)[0],orb.vz(teval)])
+    wmag = numpy.sqrt(numpy.sum(w**2))
+    bdotw=numpy.sum(b__*w)/wmag
+    denom= wmag*(numpy.sum(b__**2)+rs2-bdotw**2)
+    denom = 1./denom
+    return -2.0*GSigma(t)*(((b__.T-bdotw*w.T/wmag)*denom).T)[compt]
+
+def _astream_integrate(b_,orb,tx,w,GSigma,rs2,otmin,tmin,tmax):
+    return numpy.array([integrate.quad(_astream_integrand,tmin,tmax,
+                                       args=(b_,orb,tx,w,GSigma,rs2,
+                                             otmin,i))[0] \
+                            for i in range(3)])
+
+def impulse_deltav_plummerstream_curvedstream(v,x,t,b,w,x0,v0,GSigma,rs,
+                                              galpot,tmin=None,tmax=None):
+    """
+    NAME:
+
+       impulse_deltav_plummerstream_curvedstream
+
+    PURPOSE:
+
+       calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream; velocities and positions are assumed to lie along an orbit
+
+    INPUT:
+
+       v - velocity of the stream (nstar,3)
+
+       x - position along the stream (nstar,3)
+
+       t - times at which (v,x) are reached, wrt the closest impact t=0 (nstar)
+
+       b - impact parameter
+
+       w - velocity of the Plummer sphere (3)
+
+       x0 - point of closest approach
+
+       v0 - velocity of point of closest approach
+
+       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
+
+       rs - size of the Plummer sphere
+
+       galpot - galpy Potential object or list thereof
+
+       tmin, tmax= (None) minimum and maximum time to consider for GSigma
+
+    OUTPUT:
+
+       deltav (nstar,3)
+
+    HISTORY:
+
+       2015-11-20 - Written based on Plummer sphere above - Bovy (UofT)
+
+    """
+    if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
+    if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
+    # Integrate an orbit to use to figure out where each (v,x) is at each time
+    R, phi, z= bovy_coords.rect_to_cyl(x0[0],x0[1],x0[2])
+    vR, vT, vz= bovy_coords.rect_to_cyl_vec(v0[0],v0[1],v0[2],R,phi,z,cyl=True)
+    # First back, then forward to cover the entire range with 1 orbit
+    o= Orbit([R,vR,vT,z,vz,phi]).flip()
+    ts= numpy.linspace(0.,numpy.fabs(numpy.amin(t)+tmin),101)
+    o.integrate(ts,galpot)
+    o= o(ts[-1]).flip()
+    ts= numpy.linspace(0.,numpy.amax(t)+tmax-numpy.amin(t)-tmin,201)
+    o.integrate(ts,galpot)
+    # Calculate kicks
+    b0 = numpy.cross(w,v0)
+    b0 *= b/numpy.sqrt(numpy.sum(b0**2))
+    return numpy.array(list(map(lambda i:_astream_integrate(\
+                    b0-x0,o,i,w,GSigma,rs**2.,numpy.amin(t)+tmin,
+                    tmin,tmax),t)))
 
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
