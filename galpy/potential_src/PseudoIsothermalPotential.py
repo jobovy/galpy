@@ -40,8 +40,8 @@ class PseudoIsothermalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp)
-        #self.hasC= True
-        #self.hasC_dxdv= True
+        self.hasC= True
+        self.hasC_dxdv= True
         self._a= a
         self._a2= a**2.
         self._a3= a**3.

@@ -230,4 +230,15 @@ double PlummerPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double PlummerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+//PseudoIsothermalPotential
+double PseudoIsothermalPotentialEval(double,double,double,double,
+				     struct potentialArg *);
+double PseudoIsothermalPotentialRforce(double,double,double,double,
+				       struct potentialArg *);
+double PseudoIsothermalPotentialPlanarRforce(double,double,double,
+					     struct potentialArg *);
+double PseudoIsothermalPotentialzforce(double,double,double,double,
+				       struct potentialArg *);
+double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
+					      struct potentialArg *);
 #endif /* galpy_potentials.h */
