@@ -183,6 +183,13 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
       potentialArgs->nargs= 2;
       break;
+    case 18: //PseudoIsothermalPotential, 2 arguments
+      potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
+      potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->nargs= 2;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

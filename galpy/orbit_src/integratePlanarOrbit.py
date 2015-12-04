@@ -147,6 +147,10 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.PlummerPotential):
             pot_type.append(17)
             pot_args.extend([p._RZPot._amp,p._RZPot._b])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.PseudoIsothermalPotential):
+            pot_type.append(18)
+            pot_args.extend([p._RZPot._amp,p._RZPot._a])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

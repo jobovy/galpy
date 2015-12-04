@@ -109,6 +109,7 @@ Specific potentials
    potentialplummer.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
+   potentialpseudoiso.rst
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
 
