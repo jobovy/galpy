@@ -966,6 +966,7 @@ def test_analytic_ecc_rperi_rap():
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['KeplerPotential']= -8. #these are more difficult
+    tol['PseudoIsothermalPotential']= -7. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1026,7 +1027,7 @@ def test_analytic_ecc_rperi_rap():
                 tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
-                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s, by %g" %(p,integrator,(tecc-tecc_analytic)**2.)
                 #Pericenter radius
                 trperi= o.rperi()
                 trperi_analytic= o.rperi(analytic=True)
@@ -1157,6 +1158,7 @@ def test_analytic_zmax():
     tol['RazorThinExponentialDiskPotential']= -4. #these are more difficult
     tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
     tol['PlummerPotential']= -4. #these are more difficult
+    tol['PseudoIsothermalPotential']= -4. #these are more difficult
     tol['HernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
     tol['MiyamotoNagaiPotential']= -7. #these are more difficult
