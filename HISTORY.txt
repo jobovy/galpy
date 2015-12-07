@@ -1,6 +1,9 @@
 v1.2 (2016-XX-XX)
 ==================
 
+- Added a module for modeling the effect of a subhalo impact on a
+  tidal stream (galpy.df.streamgapdf).
+
 - Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
   potential.
 
