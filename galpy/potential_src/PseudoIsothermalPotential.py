@@ -5,7 +5,7 @@
 import numpy as nu
 from galpy.potential_src.Potential import Potential
 class PseudoIsothermalPotential(Potential):
-    """Class that implements the logarithmic halo potential
+    """Class that implements the pseudo-isothermal potential
 
     .. math::
 
