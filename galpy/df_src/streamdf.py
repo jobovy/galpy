@@ -1556,7 +1556,7 @@ class streamdf(object):
         # Compute ts
         ts= apar/Opar
         # Evaluate
-        out[ts < tdisrupt]=\
+        out[(ts < tdisrupt)*(ts >= 0.)]=\
             numpy.exp(-0.5*(Opar-self._meandO)**2.\
                            /self._sortedSigOEig[2])/\
                            numpy.sqrt(self._sortedSigOEig[2])
