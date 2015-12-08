@@ -1524,7 +1524,7 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
-    def pOparapar(self,Opar,apar):
+    def pOparapar(self,Opar,apar,tdisrupt=None):
         """
         NAME:
 
@@ -1549,13 +1549,14 @@ class streamdf(object):
            2015-12-07 - Written - Bovy (UofT)
 
         """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
         out= numpy.zeros(len(Opar))
         # Compute ts
         ts= apar/Opar
         # Evaluate
-        out[ts < self._tdisrupt]=\
+        out[ts < tdisrupt]=\
             numpy.exp(-0.5*(Opar-self._meandO)**2.\
                            /self._sortedSigOEig[2])/\
                            numpy.sqrt(self._sortedSigOEig[2])

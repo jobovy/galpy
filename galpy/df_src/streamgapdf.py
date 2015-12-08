@@ -158,17 +158,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         apar_impact= apar-Opar*self._timpact
         dOpar_impact= self._kick_interpdOpar(apar_impact)
         Opar_b4impact= Opar-dOpar_impact
-        ts_b4impact= apar_impact/Opar_b4impact
-        # Evaluate the two regimes: stripped before or after impact
-        out[ts < self._timpact]=\
-            numpy.exp(-0.5*(Opar-self._meandO)**2.\
-                           /self._sortedSigOEig[2])/\
-                           numpy.sqrt(self._sortedSigOEig[2])
-        out[(ts >= self._timpact)\
-                *(self._timpact+ts_b4impact < self._tdisrupt)]=\
-            numpy.exp(-0.5*(Opar_b4impact-self._meandO)**2.\
-                           /self._sortedSigOEig[2])/\
-                           numpy.sqrt(self._sortedSigOEig[2])
+        # Evaluate the smooth model in the two regimes:
+        # stripped before or after impact
+        afterIndx= ts < self._timpact
+        out[afterIndx]=\
+            super(streamgapdf,self).pOparapar(Opar[afterIndx],
+                                              apar[afterIndx])
+        out[True-afterIndx]=\
+            super(streamgapdf,self).pOparapar(Opar_b4impact[True-afterIndx],
+                                              apar_impact[True-afterIndx],
+                                              tdisrupt=
+                                              self._tdisrupt-self._timpact)
         return out
 
     def density_par(self,dangle,tdisrupt=None):
