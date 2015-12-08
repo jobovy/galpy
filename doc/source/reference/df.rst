@@ -172,6 +172,7 @@ General instance routines
    plotCompareTrackAAModel <streamdfplotcomparetrackaamodel.rst>
    plotProgenitor <streamdfplotprogenitor.rst>
    plotTrack <streamdfplottrack.rst>
+   pOparapar <streamdfpoparapar.rst>
    ptdAngle <streamdfptdangle.rst>
    sample <streamdfsample.rst>
    sigangledAngle <streamdfsigangledangle.rst>

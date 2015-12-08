@@ -1546,7 +1546,7 @@ class streamdf(object):
 
         HISTORY:
 
-           2015-11-07 - Written - Bovy (UofT)
+           2015-12-07 - Written - Bovy (UofT)
 
         """
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
