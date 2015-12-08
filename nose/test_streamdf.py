@@ -2,7 +2,7 @@ from __future__ import print_function, division
 import functools
 import nose
 import numpy
-from scipy import interpolate
+from scipy import interpolate, integrate
 sdf_bovy14= None #so we can set this up and then use in other tests
 sdft_bovy14= None #so we can set this up and then use in other tests, trailing
 
@@ -194,6 +194,23 @@ def test_closest_trackpointaA():
     #Check that we can find the closest trackpoint properly in AA
     check_closest_trackpointaA(sdf_bovy14,50)
     check_closest_trackpointaA(sdf_bovy14,4,interp=False)
+    return None
+
+def test_pOparapar():
+    #Test that integrating pOparapar gives density_par
+    dens_frompOpar_close=\
+        integrate.quad(lambda x: sdf_bovy14.pOparapar(x,0.1),
+                       sdf_bovy14._meandO\
+                           -4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]),
+                       sdf_bovy14._meandO\
+                           +4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]))[0]
+    dens_fromOpar_half=\
+        integrate.quad(lambda x: sdf_bovy14.pOparapar(x,1.1),
+                       sdf_bovy14._meandO\
+                           -4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]),
+                       sdf_bovy14._meandO\
+                           +4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]))[0]
+    assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_bovy14.density_par(1.1)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Bovy14 stream'
     return None
 
 def test_density_par():

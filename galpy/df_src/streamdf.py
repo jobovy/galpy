@@ -1524,6 +1524,43 @@ class streamdf(object):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
+    def pOparapar(self,Opar,apar):
+        """
+        NAME:
+
+           pOparapar
+
+        PURPOSE:
+
+           return the probability of a given parallel (frequency,angle) offset pair
+
+        INPUT:
+
+           Opar - parallel frequency offset (array)
+
+           apar - parallel angle offset along the stream (scalar)
+
+        OUTPUT:
+
+           p(Opar,apar)
+
+        HISTORY:
+
+           2015-11-07 - Written - Bovy (UofT)
+
+        """
+        if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
+            Opar= numpy.array([Opar])
+        out= numpy.zeros(len(Opar))
+        # Compute ts
+        ts= apar/Opar
+        # Evaluate
+        out[ts < self._tdisrupt]=\
+            numpy.exp(-0.5*(Opar-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
     def density_par(self,dangle,tdisrupt=None):
         """
         NAME:
