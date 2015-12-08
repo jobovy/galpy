@@ -158,6 +158,7 @@ General instance routines
    __init__ <streamdf.rst>
    calc_stream_lb <streamdfcalcstreamlb.rst>
    callMarg <streamdfcallmarg.rst>
+   density_par <streamdfdenspar.rst>
    estimateTdisrupt <streamdfestimatetdisrupt.rst>
    find_closest_trackpoint <streamdffindclosesttrackpoint.rst>
    find_closest_trackpointLB <streamdffindclosesttrackpointlb.rst>
