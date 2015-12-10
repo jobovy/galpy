@@ -63,6 +63,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            nKickPoints= (10xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated)
 
+           nokicksetup= (False) if True, only run as far as setting up the coordinate transformation at the time of impact (useful when using this in streampepperdf)
+
         OUTPUT:
 
            object
@@ -80,6 +82,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
         impact_angle= kwargs.pop('impact_angle',1.)
+        nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
         nKickPoints= kwargs.pop('nKickPoints',None)
@@ -93,11 +96,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._general_kick= GM is None or rs is None
         if self._general_kick and subhalopot is None:
             raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
-        if self._general_kick:
-            self._subhalopot= subhalopot
-        else:
-            self._GM= GM
-            self._rs= rs
         # Now run the regular streamdf setup, but without calculating the
         # stream track (nosetup=True)
         kwargs['nosetup']= True
@@ -109,9 +107,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
                                               nTrackChunksImpact,
                                               timpact,impact_angle)
+        if nokicksetup: return None
         # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta,
         # setup interpolating function
-        self._determine_deltav_kick(impactb,subhalovel,
+        self._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                     GM,rs,subhalopot,
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
@@ -301,7 +300,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         """
         return out
 
-    def _determine_deltav_kick(self,impactb,subhalovel,
+    def _determine_deltav_kick(self,impact_angle,impactb,subhalovel,
                                GM,rs,subhalopot,
                                nKickPoints):
         # Store some impact parameters
@@ -312,6 +311,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._nKickPoints= 10*self._nTrackChunksImpact
         else:
             self._nKickPoints= nKickPoints
+        # Sign of delta angle tells us whether the impact happens to the
+        # leading or trailing arm, self._sigMeanSign contains this info;
+        # Checked before, but check it again in case impact_angle has changed
+        if impact_angle > 0.:
+            self._gap_leading= True
+        else:
+            self._gap_leading= False
+        if (self._gap_leading and not self._leading) \
+                or (not self._gap_leading and self._leading):
+            raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
+        self._impact_angle= numpy.fabs(impact_angle)
         # Interpolate the track near the gap in (x,v) at the kick_thetas
         self._interpolate_stream_track_kick()
         self._interpolate_stream_track_kick_aA()
@@ -324,7 +334,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                     self._subhalovel,
                                                     self._kick_ObsTrackXY_closest[:3],
                                                     self._kick_ObsTrackXY_closest[3:],
-                                                    self._subhalopot)
+                                                    subhalopot)
         else:
             self._kick_deltav= \
                 impulse_deltav_plummer_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
@@ -333,7 +343,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                     self._subhalovel,
                                                     self._kick_ObsTrackXY_closest[:3],
                                                     self._kick_ObsTrackXY_closest[3:],
-                                                    self._GM,self._rs)
+                                                    GM,rs)
         return None
 
     def _determine_deltaOmegaTheta_kick(self):
@@ -577,7 +587,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         if (self._gap_leading and not self._leading) \
                 or (not self._gap_leading and self._leading):
             raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
-        self._impact_angle= numpy.fabs(impact_angle)
         self._gap_sigMeanSign= 1.
         if (self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.) \
                 or (not self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign > 0.):
