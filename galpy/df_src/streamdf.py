@@ -2539,12 +2539,12 @@ class streamdf(object):
             2013-12-22 - Written - Bovy (IAS)
 
         """
-        if interp is None:
-            interp= self._useInterp
         #First sample frequencies
         Om,angle,dt= self._sample_aAt(n)
         if returnaAdt:
             return (Om,angle,dt)
+        if interp is None:
+            interp= self._useInterp
         #Propagate to R,vR,etc.
         RvR= self._approxaAInv(Om[0,:],Om[1,:],Om[2,:],
                                angle[0,:],angle[1,:],angle[2,:],
