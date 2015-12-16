@@ -1909,8 +1909,10 @@ class _fakeInterp(object):
     def __init__(self,x):
         self.x= x
     def __call__(self,t):
-        if t == 0.:
+        if nu.any(nu.array(t) != 0.):
+            raise ValueError("Integrate instance before evaluating it at non-zero time")
+        elif isinstance(t,float):
             return self.x
         else:
-            raise ValueError("Integrate instance before evaluating it at non-zero time")
+            return nu.array([self.x for i in t])
 
