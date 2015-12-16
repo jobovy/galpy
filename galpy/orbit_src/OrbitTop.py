@@ -1881,20 +1881,21 @@ class OrbitTop(object):
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.cos(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1]),
+                                ext=2))
                 elif (len(self.vxvv) == 4 or len(self.vxvv) == 6) and \
                         ii == len(self.vxvv)-1:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.sin(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1]),ext=2))
                 else:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[ii]))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,ii]))
+                                self.t,self.orbit[:,ii],ext=2))
             self._orbInterp= orbInterp
             try: #unsort
                 self.t= self.t[usindx]
@@ -1908,5 +1909,8 @@ class _fakeInterp(object):
     def __init__(self,x):
         self.x= x
     def __call__(self,t):
-        return self.x
+        if t == 0.:
+            return self.x
+        else:
+            raise ValueError("Integrate instance before evaluating it at non-zero time")
 
