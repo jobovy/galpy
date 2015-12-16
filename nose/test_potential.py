@@ -1928,5 +1928,5 @@ class mockMovingObjectExplSoftPotential(testMWPotential):
         return None
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
-        mockMovingObjectPotential.__init__(self,rc=rc,maxt=28.,nt=1001)
+        mockMovingObjectPotential.__init__(self,rc=rc,maxt=29.,nt=1001)
         return None
