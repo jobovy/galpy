@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import warnings
 import os
 import sys
+from nose.tools import raises
 import numpy
 from galpy import potential
 from galpy.util import galpyWarning
@@ -2347,6 +2348,15 @@ def test_backinterpolation_issue204():
     assert numpy.all((o.vR(nitimes)+of.vR(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
     assert numpy.all((o.vT(nitimes)+of.vT(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
     assert numpy.all((o.vT(nitimes)+of.vT(pitimes)) < 10.**-8.), 'Forward and backward integration with interpolation do not agree'
+    return None
+
+@raises(ValueError)
+def test_call_issue256():
+    # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return eror
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
+    # no integration of the orbit
+    o.R(30)
     return None
 
 def test_linear_plotting():
