@@ -3,7 +3,7 @@ import copy
 import numpy
 import multiprocessing
 import scipy
-from scipy import special, interpolate, integrate
+from scipy import special, interpolate, integrate, optimize
 if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
@@ -1590,6 +1590,41 @@ class streamdf(object):
         # Normalize to 1 close to progenitor
         return 0.5*(1.+special.erf((self._meandO-dOmin)\
                                        /numpy.sqrt(2.*self._sortedSigOEig[2])))
+
+    def length(self,threshold=0.2):
+        """
+        NAME:
+
+           length
+
+        PURPOSE:
+
+           calculate the length of the stream
+
+        INPUT:
+
+           threshold - threshold down from peak at which to define the 'end' of the stream
+
+        OUTPUT:
+
+           length
+
+        HISTORY:
+
+           2015-12-22 - Written - Bovy (UofT)
+
+        """
+        peak_dens= self.density_par(0.1) # assume that this is the peak
+        try:
+            result=\
+                optimize.brentq(lambda x: self.density_par(x)\
+                                    -peak_dens*threshold,
+                                0.1,self._deltaAngleTrack)
+        except RuntimeError:
+            raise RuntimeError('Length could not be returned, because length method failed to find the threshold value')
+        except ValueError:
+            raise ValueError('Length could not be returned, because length method failed to initialize')
+        return result
 
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
