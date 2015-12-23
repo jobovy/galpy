@@ -1629,7 +1629,7 @@ class streamdf(object):
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
                                  
-    def length(self,threshold=0.2):
+    def length(self,threshold=0.2,phys=False):
         """
         NAME:
 
@@ -1643,9 +1643,11 @@ class streamdf(object):
 
            threshold - threshold down from peak at which to define the 'end' of the stream
 
+           phys= (False) if True, return the length in physical kpc
+
         OUTPUT:
 
-           length
+           length (rad for parallel angle; kpc for physical length)
 
         HISTORY:
 
@@ -1662,6 +1664,15 @@ class streamdf(object):
             raise RuntimeError('Length could not be returned, because length method failed to find the threshold value')
         except ValueError:
             raise ValueError('Length could not be returned, because length method failed to initialize')
+        if phys:
+            # Need to now integrate length
+            dXda= self._interpTrackX.derivative()
+            dYda= self._interpTrackY.derivative()
+            dZda= self._interpTrackZ.derivative()
+            result= integrate.quad(lambda da: numpy.sqrt(dXda(da)**2.\
+                                                             +dYda(da)**2.\
+                                                             +dZda(da)**2.),
+                                   0.,result)[0]*self._Rnorm          
         return result
 
     def meanOmega(self,dangle,oned=False,offset_sign=None,
