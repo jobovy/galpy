@@ -11,6 +11,7 @@ else:
 from galpy.orbit import Orbit
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
@@ -1629,7 +1630,7 @@ class streamdf(object):
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
                                  
-    def length(self,threshold=0.2,phys=False):
+    def length(self,threshold=0.2,phys=False,ang=False):
         """
         NAME:
 
@@ -1645,9 +1646,11 @@ class streamdf(object):
 
            phys= (False) if True, return the length in physical kpc
 
+           ang= (False) if True, return the length in sky angular arc length in degree
+
         OUTPUT:
 
-           length (rad for parallel angle; kpc for physical length)
+           length (rad for parallel angle; kpc for physical length; deg for sky arc length)
 
         HISTORY:
 
@@ -1673,6 +1676,25 @@ class streamdf(object):
                                                              +dYda(da)**2.\
                                                              +dZda(da)**2.),
                                    0.,result)[0]*self._Rnorm          
+        elif ang:
+            # Need to now integrate length
+            if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,0],-1)
+                            -self._interpolatedObsTrackLB[:,0]) > 0.:
+                ll= dePeriod(self._interpolatedObsTrackLB[:,0][:,numpy.newaxis].T*numpy.pi/180.).T*180./numpy.pi
+            else:
+                ll= dePeriod(self._interpolatedObsTrackLB[::-1,0][:,numpy.newaxis].T*numpy.pi/180.).T[::-1]*180./numpy.pi
+            if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,1],-1)
+                            -self._interpolatedObsTrackLB[:,1]) > 0.:
+                bb= dePeriod(self._interpolatedObsTrackLB[:,1][:,numpy.newaxis].T*numpy.pi/180.).T*180./numpy.pi
+            else:
+                bb= dePeriod(self._interpolatedObsTrackLB[::-1,1][:,numpy.newaxis].T*numpy.pi/180.).T[::-1]*180./numpy.pi
+            dlda= interpolate.InterpolatedUnivariateSpline(\
+                self._interpolatedThetasTrack,ll,k=3).derivative()
+            dbda= interpolate.InterpolatedUnivariateSpline(\
+                self._interpolatedThetasTrack,bb,k=3).derivative()
+            result= integrate.quad(lambda da: numpy.sqrt(dlda(da)**2.\
+                                                             +dbda(da)**2.),
+                                   0.,result)[0]
         return result
 
     def meanOmega(self,dangle,oned=False,offset_sign=None,
