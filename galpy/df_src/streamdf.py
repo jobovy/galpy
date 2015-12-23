@@ -1562,7 +1562,7 @@ class streamdf(object):
                            numpy.sqrt(self._sortedSigOEig[2])
         return out
 
-    def density_par(self,dangle,tdisrupt=None):
+    def density_par(self,dangle,coord='apar',tdisrupt=None):
         """
         NAME:
 
@@ -1570,11 +1570,14 @@ class streamdf(object):
 
         PURPOSE:
 
-           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+           calculate the density as a function of a parallel coordinate
 
         INPUT:
 
-           dangle - angle offset
+           dangle - parallel angle offset for this coordinate value
+
+           coord - coordinate to return the density in ('apar' [default],
+                   'll','phi')
 
         OUTPUT:
 
@@ -1586,11 +1589,46 @@ class streamdf(object):
 
         """
         if tdisrupt is None: tdisrupt= self._tdisrupt
+        if coord.lower() != 'apar':
+            # Need to compute the Jacobian for this coordinate value
+            ddangle= dangle+10.**-7.
+            ddangle-= dangle
+            if coord.lower() == 'phi':
+                phi_h= bovy_coords.rect_to_cyl(\
+                    self._interpTrackX(dangle+ddangle),
+                    self._interpTrackY(dangle+ddangle),
+                    self._interpTrackZ(dangle+ddangle))
+                phi= bovy_coords.rect_to_cyl(\
+                    self._interpTrackX(dangle),
+                    self._interpTrackY(dangle),
+                    self._interpTrackZ(dangle))
+                jac= numpy.fabs(phi_h[1]-phi[1])/ddangle
+            elif coord.lower() == 'll':
+                XYZ_h= bovy_coords.galcenrect_to_XYZ(\
+                    self._interpTrackX(dangle+ddangle)*self._Rnorm,
+                    self._interpTrackY(dangle+ddangle)*self._Rnorm,
+                    self._interpTrackZ(dangle+ddangle)*self._Rnorm,
+                    Xsun=self._R0,Zsun=self._Zsun)
+                lbd_h= bovy_coords.XYZ_to_lbd(XYZ_h[0],XYZ_h[1],XYZ_h[2],
+                                              degree=True)
+                XYZ= bovy_coords.galcenrect_to_XYZ(\
+                    self._interpTrackX(dangle)*self._Rnorm,
+                    self._interpTrackY(dangle)*self._Rnorm,
+                    self._interpTrackZ(dangle)*self._Rnorm,
+                    Xsun=self._R0,Zsun=self._Zsun)
+                lbd= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                            degree=True)
+                jac= numpy.fabs(lbd_h[0]-lbd[0])/ddangle
+            else:
+                raise ValueError('Coordinate input %s not supported by density_par' % coord)
+        else:
+            jac= 1.
         dOmin= dangle/tdisrupt
         # Normalize to 1 close to progenitor
-        return 0.5*(1.+special.erf((self._meandO-dOmin)\
-                                       /numpy.sqrt(2.*self._sortedSigOEig[2])))
-
+        return 0.5/jac\
+            *(1.+special.erf((self._meandO-dOmin)\
+                                 /numpy.sqrt(2.*self._sortedSigOEig[2])))
+                                 
     def length(self,threshold=0.2):
         """
         NAME:
