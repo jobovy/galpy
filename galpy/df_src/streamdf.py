@@ -1589,7 +1589,6 @@ class streamdf(object):
            2015-11-17 - Written - Bovy (UofT)
 
         """
-        if tdisrupt is None: tdisrupt= self._tdisrupt
         if coord.lower() != 'apar':
             # Need to compute the Jacobian for this coordinate value
             ddangle= dangle+10.**-7.
@@ -1624,9 +1623,14 @@ class streamdf(object):
                 raise ValueError('Coordinate input %s not supported by density_par' % coord)
         else:
             jac= 1.
+        return self._density_par(dangle,tdisrupt=tdisrupt)/jac
+
+    def _density_par(self,dangle,tdisrupt=None):
+        """The raw density as a function of parallel angle"""
+        if tdisrupt is None: tdisrupt= self._tdisrupt
         dOmin= dangle/tdisrupt
         # Normalize to 1 close to progenitor
-        return 0.5/jac\
+        return 0.5\
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
                                  
