@@ -3,7 +3,7 @@ from functools import wraps
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate, interpolate, optimize
+from scipy import integrate, interpolate, optimize, special
 from galpy.util import galpyWarning, bovy_coords, multi
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
@@ -187,7 +187,27 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                           *numpy.sqrt(self._sortedSigOEig[2])\
                                                           +self._meandO,dangle),
                                   Tlow,1.)[0]
-    def minOpar(self,dangle,tdisrupt=None):
+    def _density_par_approx(self,dangle,tdisrupt):
+        """Compute the density as a function of parallel angle using the 
+        spline representation + approximations"""
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowbindx,lowx= self.minOpar(dangle,tdisrupt,_return_raw=True)
+        lowbindx= numpy.arange(len(Oparb)-1)[lowbindx]
+        Oparb[lowbindx+1]= Oparb[lowbindx]-lowx
+        # Now integrate between breakpoints
+        out= numpy.sum((0.5/(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
+                           *(special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])\
+                                             *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO))\
+                                 -special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])*(numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO\
+                                                                                             -self._kick_interpdOpar_poly.c[-2]*self._timpact*(Oparb-numpy.roll(Oparb,-1))[:-1]))))[:lowbindx+1])
+        # Add integration to infinity
+        out+= 0.5*(1.+special.erf((self._meandO-Oparb[0])\
+                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
+        return out
+
+    def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
         NAME:
            minOpar
@@ -211,7 +231,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                          +self._timpact)
         lowx[lowx < 0.]= numpy.inf
         lowbindx= numpy.argmin(lowx)
-        return Oparb[lowbindx]-lowx[lowbindx]
+        if _return_raw:
+            return (lowbindx,lowx[lowbindx])
+        else:
+            return Oparb[lowbindx]-lowx[lowbindx]
 
     def meanOmega(self,dangle,oned=False,tdisrupt=None):
         """

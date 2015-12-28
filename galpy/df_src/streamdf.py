@@ -1563,7 +1563,8 @@ class streamdf(object):
                            numpy.sqrt(self._sortedSigOEig[2])
         return out
 
-    def density_par(self,dangle,coord='apar',tdisrupt=None):
+    def density_par(self,dangle,coord='apar',tdisrupt=None,
+                    **kwargs):
         """
         NAME:
 
@@ -1623,7 +1624,7 @@ class streamdf(object):
                 raise ValueError('Coordinate input %s not supported by density_par' % coord)
         else:
             jac= 1.
-        return self._density_par(dangle,tdisrupt=tdisrupt)/jac
+        return self._density_par(dangle,tdisrupt=tdisrupt,**kwargs)/jac
 
     def _density_par(self,dangle,tdisrupt=None):
         """The raw density as a function of parallel angle"""
