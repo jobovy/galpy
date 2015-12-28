@@ -187,7 +187,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                           *numpy.sqrt(self._sortedSigOEig[2])\
                                                           +self._meandO,dangle),
                                   Tlow,1.)[0]
-    def _density_par_approx(self,dangle,tdisrupt):
+    def _density_par_approx(self,dangle,tdisrupt,_return_array=False):
         """Compute the density as a function of parallel angle using the 
         spline representation + approximations"""
         # First construct the breakpoints for this dangle
@@ -197,11 +197,14 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         lowbindx= numpy.arange(len(Oparb)-1)[lowbindx]
         Oparb[lowbindx+1]= Oparb[lowbindx]-lowx
         # Now integrate between breakpoints
-        out= numpy.sum((0.5/(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
+        out= (0.5/(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
                            *(special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])\
                                              *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO))\
                                  -special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])*(numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO\
-                                                                                             -self._kick_interpdOpar_poly.c[-2]*self._timpact*(Oparb-numpy.roll(Oparb,-1))[:-1]))))[:lowbindx+1])
+                                                                                             -self._kick_interpdOpar_poly.c[-2]*self._timpact*(Oparb-numpy.roll(Oparb,-1))[:-1]))))
+        if _return_array:
+            return out
+        out= numpy.sum(out[:lowbindx+1])
         # Add integration to infinity
         out+= 0.5*(1.+special.erf((self._meandO-Oparb[0])\
                                   /numpy.sqrt(2.*self._sortedSigOEig[2])))
@@ -236,7 +239,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         else:
             return Oparb[lowbindx]-lowx[lowbindx]
 
-    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+    def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=False):
         """
         NAME:
 
@@ -252,6 +255,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
 
+           approx= (False) if True, compute the mean Omega by direct integration of the spline representation
+
         OUTPUT:
 
            mean Omega
@@ -264,28 +269,60 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         if tdisrupt is None: tdisrupt= self._tdisrupt
         Tlow= 1./2./self._sigMeanOffset\
             -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
-        num=\
-            integrate.quad(lambda T: (T/(1-T*T)\
-                                          *numpy.sqrt(self._sortedSigOEig[2])\
-                                          +self._meandO)\
-                               *numpy.sqrt(self._sortedSigOEig[2])\
-                               *(1+T*T)/(1-T*T)**2.\
-                               *self.pOparapar(T/(1-T*T)\
-                                                   *numpy.sqrt(self._sortedSigOEig[2])\
-                                                   +self._meandO,dangle),
-                           Tlow,1.)[0]
-        denom=\
-            integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
-                               *(1+T*T)/(1-T*T)**2.\
-                               *self.pOparapar(T/(1-T*T)\
-                                                   *numpy.sqrt(self._sortedSigOEig[2])\
-                                                   +self._meandO,dangle),
-                           Tlow,1.)[0]
+        if approx:
+            num= self._meanOmega_num_approx(dangle,tdisrupt)
+        else:
+            num=\
+                integrate.quad(lambda T: (T/(1-T*T)\
+                                              *numpy.sqrt(self._sortedSigOEig[2])\
+                                              +self._meandO)\
+                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                   *(1+T*T)/(1-T*T)**2.\
+                                   *self.pOparapar(T/(1-T*T)\
+                                                       *numpy.sqrt(self._sortedSigOEig[2])\
+                                                       +self._meandO,dangle),
+                               Tlow,1.)[0]
+        denom= self._density_par(dangle,tdisrupt=tdisrupt,approx=approx)
         dO1D= num/denom
         if oned: return dO1D
         else:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
+
+    def _meanOmega_num_approx(self,dangle,tdisrupt):
+        """Compute the numerator going into meanOmega using the direct integration of the spline representation"""
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowbindx,lowx= self.minOpar(dangle,tdisrupt,_return_raw=True)
+        lowbindx= numpy.arange(len(Oparb)-1)[lowbindx]
+        Oparb[lowbindx+1]= Oparb[lowbindx]-lowx
+        # Now integrate between breakpoints
+        out= numpy.sum(((Oparb[:-1]
+                         +(self._meandO+self._kick_interpdOpar_poly.c[-1]
+                           -Oparb[:-1])/
+                         (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact))
+                        *self._density_par_approx(dangle,tdisrupt,
+                                                  _return_array=True)
+                        +numpy.sqrt(self._sortedSigOEig[2]/2./numpy.pi)/
+                        (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                        *(numpy.exp(-0.5*(Oparb[:-1]
+                                      -self._kick_interpdOpar_poly.c[-1]
+                                      -(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                                      *(Oparb-numpy.roll(Oparb,-1))[:-1]
+                                      -self._meandO)**2.
+                                     /self._sortedSigOEig[2])
+                          -numpy.exp(-0.5*(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]
+                                       -self._meandO)**2.
+                                      /self._sortedSigOEig[2])))[:lowbindx+1])
+        # Add integration to infinity
+        out+= 0.5*(numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                        *numpy.exp(-0.5*(self._meandO-Oparb[0])**2.\
+                                        /self._sortedSigOEig[2])
+                   +self._meandO
+                   *(1.+special.erf((self._meandO-Oparb[0])
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))
+        return out
 
     def _rewind_angle_impact(self,dangle):
         """
