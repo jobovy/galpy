@@ -114,6 +114,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                     GM,rs,subhalopot,
                                     nKickPoints)
         self._determine_deltaOmegaTheta_kick()
+        return None
         # Then pass everything to the normal streamdf setup
         self.nInterpolatedTrackChunks= 201 #more expensive now
         super(streamgapdf,self)._determine_stream_track(nTrackChunks)
@@ -170,17 +171,47 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                               self._tdisrupt-self._timpact)
         return out
 
-    def _density_par(self,dangle,tdisrupt=None):
-        """The raw density as a function of parallel angle"""
+    def _density_par(self,dangle,tdisrupt=None,approx=False):
+        """The raw density as a function of parallel angle,
+        approx= use faster method that directly integrates the spline
+        representation"""
         if tdisrupt is None: tdisrupt= self._tdisrupt
-        Tlow= 1./2./self._sigMeanOffset\
-            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
-        return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
-                                  *(1+T*T)/(1-T*T)**2.\
-                                  *self.pOparapar(T/(1-T*T)\
-                                                      *numpy.sqrt(self._sortedSigOEig[2])\
-                                                      +self._meandO,dangle),
-                              Tlow,1.)[0]
+        if approx:
+            return self._density_par_approx(dangle,tdisrupt)
+        else:
+            Tlow= 1./2./self._sigMeanOffset\
+                -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
+            return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                                      *(1+T*T)/(1-T*T)**2.\
+                                      *self.pOparapar(T/(1-T*T)\
+                                                          *numpy.sqrt(self._sortedSigOEig[2])\
+                                                          +self._meandO,dangle),
+                                  Tlow,1.)[0]
+    def minOpar(self,dangle,tdisrupt=None):
+        """
+        NAME:
+           minOpar
+        PURPOSE:
+           return the approximate minimum parallel frequency at a given angle
+        INPUT:
+           dangle - parallel angle
+        OUTPUT:
+           minimum frequency that gets to this parallel angle
+        HISTORY:
+           2015-12-28 - Written - Bovy (UofT)
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x[:-1])/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowx= ((Oparb-self._kick_interpdOpar_poly.c[-1])\
+                   *(tdisrupt-self._timpact)+Oparb*self._timpact-dangle)\
+                   /((tdisrupt-self._timpact)\
+                         *(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
+                         +self._timpact)
+        lowx[lowx < 0.]= numpy.inf
+        lowbindx= numpy.argmin(lowx)
+        return Oparb[lowbindx]-lowx[lowbindx]
 
     def meanOmega(self,dangle,oned=False,tdisrupt=None):
         """
@@ -402,6 +433,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
         # Also construct derivative of dOpar
         self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
+        # Also construct piecewise-polynomial representation of dOpar
+        self._kick_interpdOpar_poly= interpolate.PPoly.from_spline(\
+            self._kick_interpdOpar_raw._eval_args)
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
