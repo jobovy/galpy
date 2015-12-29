@@ -305,7 +305,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                         *self._density_par_approx(dangle,tdisrupt,
                                                   _return_array=True)
                         +numpy.sqrt(self._sortedSigOEig[2]/2./numpy.pi)/
-                        (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                        (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)**2.
                         *(numpy.exp(-0.5*(Oparb[:-1]
                                       -self._kick_interpdOpar_poly.c[-1]
                                       -(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
@@ -484,7 +484,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpdOpar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=1) # to get zeros with sproot
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
         self._kick_interpdOperp0_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
