@@ -357,36 +357,6 @@ def test_interpKickda():
                          < 2.*numpy.fabs(sdf_sanders15._kick_interpdOr(thetas)/sdf_sanders15._progenitor_Omegar)), 'Interpolated angle kick not everywhere smaller than the frequency kick after one period'
     return None
 
-# Test rewind_angle
-def test_rewind_angle_impact():
-    from galpy.df import streamgapdf
-    # Check that the equation is solved correctly for a few points
-    theta= sdf_sanders15._impact_angle
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
-    theta= 2.
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
-    theta= 5.
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
-    return None
-
 # Test the sampling of present-day perturbed points based on the model
 def test_sample():
     # Sample stars from the model and compare them to the stream

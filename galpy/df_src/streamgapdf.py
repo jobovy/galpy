@@ -4,7 +4,7 @@ import copy
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate, interpolate, optimize, special
+from scipy import integrate, interpolate, special
 from galpy.util import galpyWarning, bovy_coords, multi
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
@@ -431,52 +431,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         out= numpy.sum(gaussxpolyInt,axis=0)
         out+= firstTerm
         return numpy.sum(out[:lowbindx+1])
-
-    def _rewind_angle_impact(self,dangle):
-        """
-        NAME:
-           _rewind_angle_impact
-        PURPOSE:
-           Find the parallel angle at which a star was just after the impact
-        INPUT:
-           dangle - current parallel angle in rad
-        OUTPUT:
-           angle at impact
-        HISTORY:
-           2015-06-22 - Written - Bovy (IAS)
-        """
-        # First subtract meanOmega evolution
-        dangle-= super(streamgapdf,self).meanOmega(dangle,oned=True)\
-            *self._timpact
-        # Now solve the kick's evolution  itself
-        if not hasattr(self,'_daparMax'):
-            # Maximum dOpar
-            self._daparMax= self._kick_interpdOpar_dapar.roots()
-            self._dOparMax= self._kick_interpdOpar(self._daparMax)
-            self._daparMax-= self._impact_angle
-            # Angle where caustic forms at the current time, not yet used
-            self._daparCau= interpolate.InterpolatedUnivariateSpline(\
-                self._kick_interpolatedThetasTrack,
-                numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
-                    +self._kick_interpolatedThetasTrack/self._timpact,
-                k=4).derivative(1).roots()
-            self._dOparCau= self._kick_interpdOpar(self._daparCau)
-            self._daparCau-= self._impact_angle
-            if len(self._daparCau) == 0: self._caustic_phase= False
-            else: self._caustic_phase= True
-        if not self._caustic_phase: # Single-valued everywhere
-            guess= dangle
-            dguess= numpy.fabs(self._dOparMax[0])*self._timpact*1.2
-            out= optimize.brentq(lambda da: dangle
-                                 -self._kick_interpdOpar(da)*self._timpact
-                                 -da,
-                                 guess-dguess,guess+dguess)
-        """
-        except ValueError:
-            # Only get into trouble at the edges; assume the kick is zero
-            out= dangle-self._meandO*self._sigMeanSign*self._timpact
-        """
-        return out
 
     def _determine_deltav_kick(self,impact_angle,impactb,subhalovel,
                                GM,rs,subhalopot,
