@@ -171,13 +171,14 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                               self._tdisrupt-self._timpact)
         return out
 
-    def _density_par(self,dangle,tdisrupt=None,approx=False):
+    def _density_par(self,dangle,tdisrupt=None,approx=False,higherorder=False):
         """The raw density as a function of parallel angle,
         approx= use faster method that directly integrates the spline
         representation"""
         if tdisrupt is None: tdisrupt= self._tdisrupt
         if approx:
-            return self._density_par_approx(dangle,tdisrupt)
+            return self._density_par_approx(dangle,tdisrupt,
+                                            higherorder=higherorder)
         else:
             Tlow= 1./2./self._sigMeanOffset\
                 -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
@@ -187,7 +188,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                           *numpy.sqrt(self._sortedSigOEig[2])\
                                                           +self._meandO,dangle),
                                   Tlow,1.)[0]
-    def _density_par_approx(self,dangle,tdisrupt,_return_array=False):
+
+    def _density_par_approx(self,dangle,tdisrupt,_return_array=False,
+                            higherorder=False):
         """Compute the density as a function of parallel angle using the 
         spline representation + approximations"""
         # First construct the breakpoints for this dangle
@@ -205,10 +208,53 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         if _return_array:
             return out
         out= numpy.sum(out[:lowbindx+1])
+        if higherorder:
+            # Add higher-order contribution
+            out+= self._density_par_approx_higherorder(Oparb,lowbindx)
         # Add integration to infinity
         out+= 0.5*(1.+special.erf((self._meandO-Oparb[0])\
                                   /numpy.sqrt(2.*self._sortedSigOEig[2])))
         return out
+
+    def _density_par_approx_higherorder(self,Oparb,lowbindx):
+        """Contribution from non-linear spline terms"""
+        spline_order= self._kick_interpdOpar_raw._eval_args[2]
+        if spline_order == 1: return 0.
+        # Form all Gaussian-like integrals necessary, recursively
+        ll= (numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]\
+            -self._meandO\
+            -self._kick_interpdOpar_poly.c[-2]*self._timpact\
+            *(Oparb-numpy.roll(Oparb,-1))[:-1])\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        ul= (Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        gausslikeInt= numpy.zeros((spline_order+1,len(ul)))
+        gausslikeInt[-1]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)-numpy.exp(-ul**2.))
+        gausslikeInt[-2]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll-numpy.exp(-ul**2.)*ul)\
+            +0.5*(special.erf(ul)-special.erf(ll))
+        for jj in range(spline_order-1):
+            gausslikeInt[-jj-3]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll**(jj+2)-numpy.exp(-ul**2.)*ul**(jj+2))\
+            +0.5*(jj+2)*gausslikeInt[-jj-1]
+        # Now multiply in the coefficients for each order
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1],
+                           (len(ul),1)).T
+        gausslikeInt*= -0.5*(-numpy.sqrt(2.))**(powers+1)\
+            *self._sortedSigOEig[2]**(0.5*(powers-1))
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1][:-2],
+                           (len(ul),1)).T
+        for jj in range(spline_order+1):
+            gausslikeInt[-jj-1]*= numpy.sum(\
+                self._kick_interpdOpar_poly.c[:-2]
+                *self._timpact**powers
+                /(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                **(powers+1)
+                *special.binom(powers,jj)
+                *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)
+                **(powers-jj),axis=0)
+        return numpy.sum(gausslikeInt[:,:lowbindx+1])
 
     def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
@@ -239,7 +285,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         else:
             return Oparb[lowbindx]-lowx[lowbindx]
 
-    def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=False):
+    def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=False,
+                  higherorder=False):
         """
         NAME:
 
@@ -256,6 +303,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
 
            approx= (False) if True, compute the mean Omega by direct integration of the spline representation
+
+           higherorder= (False) if True, include higher-order spline terms in the approximate computation
 
         OUTPUT:
 
@@ -282,7 +331,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                        *numpy.sqrt(self._sortedSigOEig[2])\
                                                        +self._meandO,dangle),
                                Tlow,1.)[0]
-        denom= self._density_par(dangle,tdisrupt=tdisrupt,approx=approx)
+        denom= self._density_par(dangle,tdisrupt=tdisrupt,approx=approx,
+                                 higherorder=higherorder)
         dO1D= num/denom
         if oned: return dO1D
         else:
