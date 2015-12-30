@@ -216,7 +216,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                   /numpy.sqrt(2.*self._sortedSigOEig[2])))
         return out
 
-    def _density_par_approx_higherorder(self,Oparb,lowbindx):
+    def _density_par_approx_higherorder(self,Oparb,lowbindx,
+                                        _return_array=False):
         """Contribution from non-linear spline terms"""
         spline_order= self._kick_interpdOpar_raw._eval_args[2]
         if spline_order == 1: return 0.
@@ -254,7 +255,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                 *special.binom(powers,jj)
                 *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)
                 **(powers-jj),axis=0)
-        return numpy.sum(gausslikeInt[:,:lowbindx+1])
+        if _return_array:
+            return numpy.sum(gausslikeInt,axis=0)
+        else:
+            return numpy.sum(gausslikeInt[:,:lowbindx+1])
 
     def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
@@ -319,7 +323,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         Tlow= 1./2./self._sigMeanOffset\
             -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
         if approx:
-            num= self._meanOmega_num_approx(dangle,tdisrupt)
+            num= self._meanOmega_num_approx(dangle,tdisrupt,
+                                            higherorder=higherorder)
         else:
             num=\
                 integrate.quad(lambda T: (T/(1-T*T)\
@@ -339,7 +344,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
 
-    def _meanOmega_num_approx(self,dangle,tdisrupt):
+    def _meanOmega_num_approx(self,dangle,tdisrupt,higherorder=False):
         """Compute the numerator going into meanOmega using the direct integration of the spline representation"""
         # First construct the breakpoints for this dangle
         Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
@@ -365,6 +370,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                           -numpy.exp(-0.5*(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]
                                        -self._meandO)**2.
                                       /self._sortedSigOEig[2])))[:lowbindx+1])
+        if higherorder:
+            # Add higher-order contribution
+            out+= self._meanOmega_num_approx_higherorder(Oparb,lowbindx)
         # Add integration to infinity
         out+= 0.5*(numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
                         *numpy.exp(-0.5*(self._meandO-Oparb[0])**2.\
@@ -373,6 +381,50 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                    *(1.+special.erf((self._meandO-Oparb[0])
                                     /numpy.sqrt(2.*self._sortedSigOEig[2]))))
         return out
+
+    def _meanOmega_num_approx_higherorder(self,Oparb,lowbindx):
+        """Contribution from non-linear spline terms"""
+        spline_order= self._kick_interpdOpar_raw._eval_args[2]
+        if spline_order == 1: return 0.
+        # Form all Gaussian-like integrals necessary, recursively
+        ll= (numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]\
+            -self._meandO\
+            -self._kick_interpdOpar_poly.c[-2]*self._timpact\
+            *(Oparb-numpy.roll(Oparb,-1))[:-1])\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        ul= (Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        gausslikeInt= numpy.zeros((spline_order+2,len(ul)))
+        gausslikeInt[-1]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)-numpy.exp(-ul**2.))
+        gausslikeInt[-2]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll-numpy.exp(-ul**2.)*ul)\
+            +0.5*(special.erf(ul)-special.erf(ll))
+        for jj in range(spline_order):
+            gausslikeInt[-jj-3]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll**(jj+2)-numpy.exp(-ul**2.)*ul**(jj+2))\
+            +0.5*(jj+2)*gausslikeInt[-jj-1]
+        # Now multiply in the coefficients for each order
+        powers= numpy.tile(numpy.arange(spline_order+2)[::-1],
+                           (len(ul),1)).T
+        gausslikeInt*= -0.5*(-numpy.sqrt(2.))**(powers+1)\
+            *self._sortedSigOEig[2]**(0.5*(powers-1))
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1][:-2],
+                           (len(ul),1)).T
+        for jj in range(spline_order+2):
+            gausslikeInt[-jj-1]*= numpy.sum(\
+                self._kick_interpdOpar_poly.c[:-2]
+                *self._timpact**powers
+                /(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                **(powers+2)
+                *special.binom(powers+1,jj)
+                *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)
+                **(powers-jj+1),axis=0)
+        out= numpy.sum(gausslikeInt,axis=0)
+        out+= Oparb[:-1]\
+            *self._density_par_approx_higherorder(Oparb,lowbindx,
+                                                  _return_array=True)
+        return numpy.sum(out[:lowbindx+1])
 
     def _rewind_angle_impact(self,dangle):
         """
