@@ -561,7 +561,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpdOpar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),
+            k=spline_order) # to get zeros with sproot
         self._kick_interpdOperp0_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],
