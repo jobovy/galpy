@@ -62,7 +62,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
 
-           nKickPoints= (10xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated)
+           nKickPoints= (30xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated); '30' chosen such that higherorderTrack can be set to False and get calculations accurate to > 99%
 
            nokicksetup= (False) if True, only run as far as setting up the coordinate transformation at the time of impact (useful when using this in streampepperdf)
 
@@ -449,7 +449,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._subhalovel= subhalovel
         # First set nKickPoints
         if nKickPoints is None:
-            self._nKickPoints= 10*self._nTrackChunksImpact
+            self._nKickPoints= 30*self._nTrackChunksImpact
         else:
             self._nKickPoints= nKickPoints
         # Sign of delta angle tells us whether the impact happens to the
