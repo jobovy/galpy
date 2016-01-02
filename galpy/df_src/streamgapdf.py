@@ -573,9 +573,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             k=spline_order)
         # Also construct derivative of dOpar
         self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
-        # Also construct piecewise-polynomial representation of dOpar
-        self._kick_interpdOpar_poly= interpolate.PPoly.from_spline(\
+        # Also construct piecewise-polynomial representation of dOpar, 
+        # removing intervals at the start and end with zero range
+        ppoly= interpolate.PPoly.from_spline(\
             self._kick_interpdOpar_raw._eval_args)
+        nzIndx=\
+            numpy.nonzero((numpy.roll(ppoly.x,-1)-ppoly.x > 0)\
+                              *(numpy.arange(len(ppoly.x)) < len(ppoly.x)//2)\
+                              +(ppoly.x-numpy.roll(ppoly.x,1) > 0)\
+                              *(numpy.arange(len(ppoly.x)) >= len(ppoly.x)//2))
+        self._kick_interpdOpar_poly= interpolate.PPoly(\
+            ppoly.c[:,nzIndx[0][:-1]],ppoly.x[nzIndx[0]])
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
