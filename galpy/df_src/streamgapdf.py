@@ -167,7 +167,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         Opar_b4impact= Opar-dOpar_impact
         # Evaluate the smooth model in the two regimes:
         # stripped before or after impact
-        afterIndx= ts < self._timpact
+        afterIndx= (ts < self._timpact)*(ts >= 0.)
         out[afterIndx]=\
             super(streamgapdf,self).pOparapar(Opar[afterIndx],
                                               apar)
