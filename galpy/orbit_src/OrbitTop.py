@@ -1911,8 +1911,6 @@ class _fakeInterp(object):
     def __call__(self,t):
         if nu.any(nu.array(t) != 0.):
             raise ValueError("Integrate instance before evaluating it at non-zero time")
-        elif isinstance(t,float):
-            return self.x
         else:
             return nu.array([self.x for i in t])
 
