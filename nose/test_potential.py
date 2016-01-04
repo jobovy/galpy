@@ -1209,7 +1209,7 @@ def test_nemoaccpars():
     vo/= 1.0227121655399913
     ap= mp.nemo_accpars(vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-5., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     # Power-spherical w/ cut-off
@@ -1218,7 +1218,7 @@ def test_nemoaccpars():
     vo/= 1.0227121655399913
     ap= pp.nemo_accpars(vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-4., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     # NFW
@@ -1249,7 +1249,7 @@ def test_nemoaccpars():
     vo/= 1.0227121655399913
     ap= pp.nemo_accpars(vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Plummer's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-5., "Plummer's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-45.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
     return None
 
@@ -1262,25 +1262,25 @@ def test_nemoaccparss():
     vo/= 1.0227121655399913
     ap= potential.nemo_accpars(mp,vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-5., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "MiyamotoNagai's NEMO accpars incorrect"
     # PowSpherwCut
     ap= potential.nemo_accpars(pp,vo,ro).split(',')
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-4., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     # Combined
     apc= potential.nemo_accpars([mp,pp],vo,ro).split('#')
     ap= apc[0].split(',') # should be MN
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1323.0) < 10.**-5., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-18.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     ap= apc[1].split(',') # should be PP
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
-    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-11907.0) < 10.**-4., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-4.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[3])-45.0) < 10.**-8., "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     return None
