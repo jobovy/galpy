@@ -751,6 +751,31 @@ class OrbitTop(object):
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return W
 
+    def SkyCoord(self,*args,**kwargs):
+        """
+        NAME:
+           SkyCoord
+        PURPOSE:
+           return the position as an astropy SkyCoord
+        INPUT:
+           t - (optional) time at which to get the position
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+        OUTPUT:
+           SkyCoord(t)
+        HISTORY:
+           2015-06-02 - Written - Bovy (IAS)
+        """
+        radec= self._radec(*args,**kwargs)
+        tdist= self.dist(*args,**kwargs)
+        return coordinates.SkyCoord(radec[:,0]*units.degree,
+                                    radec[:,1]*units.degree,
+                                    distance=tdist*units.kpc,
+                                    frame='icrs')
+
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
         lbd= self._lbd(*args,**kwargs)

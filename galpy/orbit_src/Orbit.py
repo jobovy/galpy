@@ -2493,6 +2493,38 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         """
         return self._orb.W(*args,**kwargs)
 
+    def SkyCoord(self,*args,**kwargs):
+        """
+        NAME:
+
+           SkyCoord
+
+        PURPOSE:
+
+           return the position as an astropy SkyCoord
+
+        INPUT:
+
+           t - (optional) time at which to get the position
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           SkyCoord(t)
+
+        HISTORY:
+
+           2015-06-02 - Written - Bovy (IAS)
+
+        """
+        return self._orb.SkyCoord(*args,**kwargs)
+
     def __call__(self,*args,**kwargs):
         """
         NAME:
