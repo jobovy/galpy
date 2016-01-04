@@ -9,6 +9,12 @@ import warnings
 import copy
 import math as m
 from galpy.util import galpyWarning
+from galpy.util.config import __config__
+_APY_UNITS= __config__.getboolean('astropy','astropy-units')
+try:
+    from astropy import units
+except ImportError:
+    _APY_UNITS= False
 _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
 _kmsInPcMyr= 1.0227121655399913
 _MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
@@ -468,20 +474,30 @@ def physical_conversion(quantity,pop=False):
                 print_physical_warning()
                 if quantity.lower() == 'time':
                     fac= time_in_Gyr(vo,ro)
+                    if _APY_UNITS: u= units.Gyr
                 elif quantity.lower() == 'position':
                     fac= ro
+                    if _APY_UNITS: u= units.kpc
                 elif quantity.lower() == 'velocity':
                     fac= vo
+                    if _APY_UNITS: u= units.km/units.s
                 elif quantity.lower() == 'frequency':
-                    if kwargs.get('kmskpc',False):
+                    if kwargs.get('kmskpc',False) and not _APY_UNITS:
                         fac= freq_in_kmskpc(vo,ro)
                     else:
                         fac= freq_in_Gyr(vo,ro)
+                        if _APY_UNITS: u= units.Gyr**-1.
                 elif quantity.lower() == 'action':
                     fac= ro*vo
+                    if _APY_UNITS: u= units.kpc*units.km/units.s
                 elif quantity.lower() == 'energy':
                     fac= vo**2.
-                return method(*args,**kwargs)*fac
+                    if _APY_UNITS: u= units.km**2./units.s**2.
+                if _APY_UNITS:
+                    return units.Quantity(method(*args,**kwargs)*fac,
+                                          unit=u)
+                else:
+                    return method(*args,**kwargs)*fac
             else:
                 return method(*args,**kwargs)
         return wrapped
