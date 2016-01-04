@@ -1,8 +1,15 @@
 import warnings
 import numpy as nu
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
+from galpy.util import bovy_conversion
+from galpy.util import config
 from galpy.orbit_src.FullOrbit import FullOrbit
 from galpy.orbit_src.RZOrbit import RZOrbit
 from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
@@ -72,9 +79,9 @@ class Orbit(object):
         # the methods that return Orbits
         if radec or lb:
             if ro is None:
-                ro= 8.
+                ro= config.__config__.getfloat('normalization','ro')
             if vo is None:
-                vo= 220.
+                vo= config.__config__.getfloat('normalization','vo')
         if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
             vsolar= nu.array([-10.1,4.0,6.7])
         elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
@@ -141,13 +148,13 @@ class Orbit(object):
                                     ro=ro,vo=vo,zo=zo,solarmotion=vsolar)
         #Store for actionAngle conversions
         if vo is None:
-            self._vo= None
+            self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
             self._vo= vo
             self._voSet= True
         if ro is None:
-            self._ro= None
+            self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
             self._ro= ro
@@ -291,6 +298,9 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr)/bovy_conversion.time_in_Gyr(self._vo,self._ro)
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -344,6 +354,9 @@ class Orbit(object):
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
 
         """
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr)/bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._orb.integrate_dxdv(dxdv,t,pot,method=method,
                                  rectIn=rectIn,rectOut=rectOut)
 

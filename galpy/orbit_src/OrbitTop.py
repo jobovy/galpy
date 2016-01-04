@@ -5,7 +5,7 @@ from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.potential_src.planarPotential import RZToplanarPotential
+from galpy.util import config
 class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -44,13 +44,13 @@ class OrbitTop(object):
         # the methods that return Orbits
         self.vxvv= vxvv
         if vo is None:
-            self._vo= 220.
+            self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
             self._vo= vo
             self._voSet= True
         if ro is None:
-            self._ro= 8.
+            self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
             self._ro= ro
