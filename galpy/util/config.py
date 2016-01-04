@@ -12,7 +12,7 @@ def write_default(filename):
     writeconfig.add_section('astropy')
     writeconfig.set('astropy','astropy-units',
                     default_configuration['astropy-units'])
-    with open(filename,'wb') as configfile:
+    with open(filename,'w') as configfile:
         writeconfig.write(configfile)
     return None
 
