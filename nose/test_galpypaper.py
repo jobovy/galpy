@@ -34,11 +34,11 @@ def test_units():
     print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
     print(conversion.dens_in_msolpc3(220.,8.))#Msolar/pc^3
-    assert numpy.fabs(conversion.dens_in_msolpc3(220.,8.)-0.175790330079) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.dens_in_msolpc3(220.,8.)-0.175790330079)/0.175790330079) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.surfdens_in_msolpc2(220.,8.))#Msolar/pc^2
-    assert numpy.fabs(conversion.surfdens_in_msolpc2(220.,8.)-1406.32264063) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.surfdens_in_msolpc2(220.,8.)-1406.32264063)/1406.32264063) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.mass_in_1010msol(220.,8.))#10^10 Msolar
-    assert numpy.fabs(conversion.mass_in_1010msol(220.,8.)-9.00046490005) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.mass_in_1010msol(220.,8.)-9.00046490005)/9.00046490005) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.freq_in_Gyr(220.,8.))#1/Gyr
     assert numpy.fabs(conversion.freq_in_Gyr(220.,8.)-28.1245845523) < 10.**-4., 'unit conversion has changed'
     print(conversion.time_in_Gyr(220.,8.))#Gyr
