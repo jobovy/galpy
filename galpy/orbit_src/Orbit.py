@@ -300,7 +300,8 @@ class Orbit(object):
         """
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr)/bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -356,7 +357,8 @@ class Orbit(object):
         """
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr)/bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._orb.integrate_dxdv(dxdv,t,pot,method=method,
                                  rectIn=rectIn,rectOut=rectOut)
 
