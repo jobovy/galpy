@@ -495,6 +495,7 @@ class OrbitTop(object):
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,1]
 
+    @physical_conversion('position_kpc')
     def dist(self,*args,**kwargs):
         """
         NAME:
@@ -516,6 +517,7 @@ class OrbitTop(object):
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,2].astype('float64')
 
+    @physical_conversion('proper-motion_masyr')
     def pmra(self,*args,**kwargs):
         """
         NAME:
@@ -538,6 +540,7 @@ class OrbitTop(object):
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,0]
 
+    @physical_conversion('proper-motion_masyr')
     def pmdec(self,*args,**kwargs):
         """
         NAME:
@@ -560,6 +563,7 @@ class OrbitTop(object):
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,1]
 
+    @physical_conversion('proper-motion_masyr')
     def pmll(self,*args,**kwargs):
         """
         NAME:
@@ -582,6 +586,7 @@ class OrbitTop(object):
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,4]
 
+    @physical_conversion('proper-motion_masyr')
     def pmbb(self,*args,**kwargs):
         """
         NAME:
@@ -604,6 +609,7 @@ class OrbitTop(object):
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,5]
 
+    @physical_conversion('velocity_kms')
     def vlos(self,*args,**kwargs):
         """
         NAME:
@@ -626,6 +632,7 @@ class OrbitTop(object):
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,3]
 
+    @physical_conversion('position_kpc')
     def helioX(self,*args,**kwargs):
         """
         NAME:
@@ -647,6 +654,7 @@ class OrbitTop(object):
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return X
 
+    @physical_conversion('position_kpc')
     def helioY(self,*args,**kwargs):
         """
         NAME:
@@ -668,6 +676,7 @@ class OrbitTop(object):
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Y
 
+    @physical_conversion('position_kpc')
     def helioZ(self,*args,**kwargs):
         """
         NAME:
@@ -689,6 +698,7 @@ class OrbitTop(object):
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Z
 
+    @physical_conversion('velocity_kms')
     def U(self,*args,**kwargs):
         """
         NAME:
@@ -711,6 +721,7 @@ class OrbitTop(object):
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return U
 
+    @physical_conversion('velocity_kms')
     def V(self,*args,**kwargs):
         """
         NAME:
@@ -733,6 +744,7 @@ class OrbitTop(object):
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return V
 
+    @physical_conversion('velocity_kms')
     def W(self,*args,**kwargs):
         """
         NAME:
