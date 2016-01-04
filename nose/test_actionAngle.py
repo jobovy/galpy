@@ -1622,21 +1622,21 @@ def test_orbit_interface_spherical():
                         obs.wp(pot=lp,type=type),
                         obs.wz(pot=lp,type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-15., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates'
-    assert numpy.abs(obs.Tr(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[3]) < 10.**-14., \
+    assert maxdev < 10.**-9., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates'
+    assert numpy.abs(obs.Tr(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[3]) < 10.**-8., \
         'Orbit.Tr does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.Tp(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[4]) < 10.**-14., \
+    assert numpy.abs(obs.Tp(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[4]) < 10.**-8., \
         'Orbit.Tp does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.Tz(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[5]) < 10.**-14., \
+    assert numpy.abs(obs.Tz(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[5]) < 10.**-8., \
         'Orbit.Tz does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.TrTp(pot=lp,type=type)-acfs[4]/acfs[3]*numpy.pi) < 10.**-15., \
+    assert numpy.abs(obs.TrTp(pot=lp,type=type)-acfs[4]/acfs[3]*numpy.pi) < 10.**-8., \
         'Orbit.TrTp does not agree with actionAngleSpherical frequency when using physical coordinates'
     #Test frequency in km/s/kpc
-    assert numpy.abs(obs.Or(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[3]) < 10.**-15., \
+    assert numpy.abs(obs.Or(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[3]) < 10.**-8., \
         'Orbit.Or does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
-    assert numpy.abs(obs.Op(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[4]) < 10.**-15., \
+    assert numpy.abs(obs.Op(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[4]) < 10.**-8., \
         'Orbit.Op does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
-    assert numpy.abs(obs.Oz(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[5]) < 10.**-15., \
+    assert numpy.abs(obs.Oz(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[5]) < 10.**-8., \
         'Orbit.Oz does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
     return None
 
