@@ -407,6 +407,7 @@ class OrbitTop(object):
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         return thiso[2,:]/thiso[0,:]
 
+    @physical_conversion('angle_deg')
     def ra(self,*args,**kwargs):
         """
         NAME:
@@ -428,6 +429,7 @@ class OrbitTop(object):
         radec= self._radec(*args,**kwargs)
         return radec[:,0]
 
+    @physical_conversion('angle_deg')
     def dec(self,*args,**kwargs):
         """
         NAME:
@@ -449,6 +451,7 @@ class OrbitTop(object):
         radec= self._radec(*args,**kwargs)
         return radec[:,1]
 
+    @physical_conversion('angle_deg')
     def ll(self,*args,**kwargs):
         """
         NAME:
@@ -470,6 +473,7 @@ class OrbitTop(object):
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,0]
 
+    @physical_conversion('angle_deg')
     def bb(self,*args,**kwargs):
         """
         NAME:
