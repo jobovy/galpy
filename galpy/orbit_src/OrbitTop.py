@@ -3,7 +3,7 @@ import numpy as nu
 from scipy import interpolate
 _APY_LOADED= True
 try:
-    from astropy import units
+    from astropy import units, coordinates
 except ImportError:
     _APY_LOADED= False
 from galpy import actionAngle
