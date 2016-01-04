@@ -260,7 +260,8 @@ class OrbitTop(object):
         onet= (len(thiso.shape) == 1)
         if onet: return thiso[4]
         else: return thiso[4,:]
-
+        
+    @physical_conversion('angle')
     def phi(self,*args,**kwargs):
         """
         NAME:

@@ -457,11 +457,13 @@ _roNecessary= {'time': True,
                'mass': True,
                'action': True,
                'frequency':True,
+               'angle':True,
                'angle_deg':True,
                'proper-motion_masyr':True}
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
 _voNecessary['position_kpc']= False
+_voNecessary['angle']= False
 _voNecessary['angle_deg']= False
 _voNecessary['velocity']= True
 _voNecessary['energy']= True
@@ -512,6 +514,9 @@ def physical_conversion(quantity,pop=False):
                 elif quantity.lower() == 'energy':
                     fac= vo**2.
                     if _APY_UNITS: u= units.km**2./units.s**2.
+                elif quantity.lower() == 'angle': # in rad
+                    fac= 1.
+                    if _APY_UNITS: u= units.rad
                 elif quantity.lower() == 'angle_deg': # already in deg
                     fac= 1.
                     if _APY_UNITS: u= units.deg
