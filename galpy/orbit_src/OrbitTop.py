@@ -1,10 +1,16 @@
 import math as m
 import numpy as nu
-from scipy import interpolate, optimize
+from scipy import interpolate
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
+from galpy.util import bovy_conversion
 from galpy.util import config
 class OrbitTop(object):
     """General class that holds orbits and integrates them"""
@@ -1123,6 +1129,10 @@ class OrbitTop(object):
             return nu.array(self.vxvv)
         else:
             t= args[0]
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
