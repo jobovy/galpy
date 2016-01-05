@@ -1008,6 +1008,7 @@ class Orbit(object):
         else:
             return self._orb._aA(self)[2]
 
+    @physical_conversion('angle')
     def wr(self,pot=None,**kwargs):
         """
         NAME:
@@ -1051,6 +1052,7 @@ class Orbit(object):
         else:
             return self._orb._aA.actionsFreqsAngles(self)[6][0]
 
+    @physical_conversion('angle')
     def wp(self,pot=None,**kwargs):
         """
         NAME:
@@ -1094,6 +1096,7 @@ class Orbit(object):
         else:
             return self._orb._aA.actionsFreqsAngles(self)[7][0]
 
+    @physical_conversion('angle')
     def wz(self,pot=None,**kwargs):
         """
         NAME:
