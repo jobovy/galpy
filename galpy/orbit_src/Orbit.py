@@ -101,6 +101,8 @@ class Orbit(object):
                 if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
                     ra, dec= vxvv[0].to(units.deg).value, \
                         vxvv[1].to(units.deg).value
+                else:
+                    ra, dec= vxvv[0], vxvv[1]
                 l,b= coords.radec_to_lb(ra,dec,degree=True)
             elif len(vxvv) == 4:
                 l, b= vxvv[0], 0.
