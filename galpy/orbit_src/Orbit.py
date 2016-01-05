@@ -108,7 +108,7 @@ class Orbit(object):
                 l,b= vxvv[0],vxvv[1]
             if _APY_LOADED and isinstance(l,units.Quantity):
                 l= l.to(units.deg).value
-            if _APY_LOADED and isinstance(l,units.Quantity):
+            if _APY_LOADED and isinstance(b,units.Quantity):
                 b= b.to(units.deg).value
             if uvw:
                 if _APY_LOADED and isinstance(vxvv[2],units.Quantity):
