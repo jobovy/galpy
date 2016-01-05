@@ -16,6 +16,9 @@ from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
     planarOrbitTop
 from galpy.orbit_src.linearOrbit import linearOrbit
 _K=4.74047
+if _APY_LOADED:
+    vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
+                 units.kpc,units.km/units.s,units.rad]
 class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -162,6 +165,25 @@ class Orbit(object):
                                                   vsun=vsun,galcen=True)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
+        # Parse vxvv if it consists of Quantities
+        if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+            # Need to set ro and vo, default if not specified
+            if ro is None:
+                ro= config.__config__.getfloat('normalization','ro')
+            if vo is None:
+                vo= config.__config__.getfloat('normalization','vo')
+            new_vxvv= [vxvv[0].to(vxvv_units[0]).value/ro,
+                       vxvv[1].to(vxvv_units[1]).value/vo]
+            if len(vxvv) > 2:
+                new_vxvv.append(vxvv[2].to(vxvv_units[2]).value/vo)
+            if len(vxvv) == 4:
+                new_vxvv.append(vxvv[3].to(vxvv_units[5]).value)
+            elif len(vxvv) > 4:
+                new_vxvv.append(vxvv[3].to(vxvv_units[3]).value/ro)
+                new_vxvv.append(vxvv[4].to(vxvv_units[4]).value/vo)
+                if len(vxvv) == 6:
+                    new_vxvv.append(vxvv[5].to(vxvv_units[5]).value)
+            vxvv= new_vxvv
         if len(vxvv) == 2:
             self._orb= linearOrbit(vxvv=vxvv,
                                    ro=ro,vo=vo)
