@@ -156,3 +156,21 @@ def test_orbit_setup_vxvv_linearorbit():
     assert numpy.fabs(o.x(use_physical=False)*o._ro-7.) < 10.**-8., 'Orbit initialization with vxvv as Quantity does not work as expected for RZOrbit'
     assert numpy.fabs(o.vx(use_physical=False)*o._vo+21./1.0227121655399913) < 10.**-5., 'Orbit initialization with vxvv as Quantity does not work as expected for RZOrbit'
     return None
+
+def test_orbit_setup_solarmotion():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],
+             solarmotion=units.Quantity([13.,25.,8.],unit=units.km/units.s))
+    assert numpy.fabs(o._orb._solarmotion[0]-13.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._solarmotion[1]-25.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._solarmotion[2]-8.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_solarmotion_oddunits():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],
+             solarmotion=units.Quantity([13.,25.,8.],unit=units.kpc/units.Gyr))
+    assert numpy.fabs(o._orb._solarmotion[0]-13./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._solarmotion[1]-25./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._solarmotion[2]-8./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    return None
