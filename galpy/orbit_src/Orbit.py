@@ -95,20 +95,41 @@ class Orbit(object):
             vsolar= nu.array(solarmotion)
         if radec or lb:
             if radec:
-                l,b= coords.radec_to_lb(vxvv[0],vxvv[1],degree=True)
+                if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+                    ra, dec= vxvv[0].to(units.deg).value, \
+                        vxvv[1].to(units.deg).value
+                l,b= coords.radec_to_lb(ra,dec,degree=True)
             elif len(vxvv) == 4:
                 l, b= vxvv[0], 0.
             else:
                 l,b= vxvv[0],vxvv[1]
+            if _APY_LOADED and isinstance(l,units.Quantity):
+                l= l.to(units.deg).value
+            if _APY_LOADED and isinstance(l,units.Quantity):
+                b= b.to(units.deg).value
             if uvw:
-                X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True)
+                if _APY_LOADED and isinstance(vxvv[2],units.Quantity):
+                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2].to(units.kpc).value,
+                                             degree=True)
+                else:
+                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True)
                 vx= vxvv[3]
                 vy= vxvv[4]
                 vz= vxvv[5]
+                if _APY_LOADED and isinstance(vx,units.Quantity):
+                    vx= vx.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(vy,units.Quantity):
+                    vy= vy.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(vz,units.Quantity):
+                    vz= vz.to(units.km/units.s).value
             else:
                 if radec:
-                    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(vxvv[3],vxvv[4],
-                                                             vxvv[0],vxvv[1],
+                    if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
+                        pmra, pmdec= vxvv[3].to(units.mas/units.yr).value, \
+                            vxvv[4].to(units.mas/units.yr).value
+                    else:
+                        pmra, pmdec= vxvv[3], vxvv[4]
+                    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
                                                              degree=True)
                     d, vlos= vxvv[2], vxvv[5]
                 elif len(vxvv) == 4:
@@ -117,6 +138,14 @@ class Orbit(object):
                 else:
                     pmll, pmbb= vxvv[3], vxvv[4]
                     d, vlos= vxvv[2], vxvv[5]
+                if _APY_LOADED and isinstance(d,units.Quantity):
+                    d= d.to(units.kpc).value
+                if _APY_LOADED and isinstance(vlos,units.Quantity):
+                    vlos= vlos.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(pmll,units.Quantity):
+                    pmll= pmll.to(units.mas/units.yr).value
+                if _APY_LOADED and isinstance(pmbb,units.Quantity):
+                    pmbb= pmbb.to(units.mas/units.yr).value
                 X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
                                                            vlos,pmll, pmbb,
                                                            degree=True)
