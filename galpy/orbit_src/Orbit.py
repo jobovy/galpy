@@ -2332,9 +2332,6 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         else:
             return dist*_K*self._orb.pmll(*args,**kwargs)
 
-        return self._orb.dist(*args,**kwargs)*_K*\
-            self._orb.pmll(*args,**kwargs)
-
     def vbb(self,*args,**kwargs):
         """
         NAME:
