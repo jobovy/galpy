@@ -233,3 +233,49 @@ def test_orbit_method_returntype_scalar():
     assert isinstance(o.V(),units.Quantity), 'Orbit method V does not return Quantity when it should'
     assert isinstance(o.W(),units.Quantity), 'Orbit method W does not return Quantity when it should'
     return None
+
+def test_orbit_method_returntype():
+    from galpy.orbit import Orbit
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg])
+    from galpy.potential import MWPotential2014
+    ts= numpy.linspace(0.,6.,1001)
+    o.integrate(ts,MWPotential2014)
+    assert isinstance(o.E(ts),units.Quantity), 'Orbit method E does not return Quantity when it should'
+    assert isinstance(o.ER(ts),units.Quantity), 'Orbit method ER does not return Quantity when it should'
+    assert isinstance(o.Ez(ts),units.Quantity), 'Orbit method Ez does not return Quantity when it should'
+    assert isinstance(o.Jacobi(ts),units.Quantity), 'Orbit method Jacobi does not return Quantity when it should'
+    assert isinstance(o.L(ts),units.Quantity), 'Orbit method L does not return Quantity when it should'
+    assert isinstance(o.time(ts),units.Quantity), 'Orbit method time does not return Quantity when it should'
+    assert isinstance(o.R(ts),units.Quantity), 'Orbit method R does not return Quantity when it should'
+    assert isinstance(o.vR(ts),units.Quantity), 'Orbit method vR does not return Quantity when it should'
+    assert isinstance(o.vT(ts),units.Quantity), 'Orbit method vT does not return Quantity when it should'
+    assert isinstance(o.z(ts),units.Quantity), 'Orbit method z does not return Quantity when it should'
+    assert isinstance(o.vz(ts),units.Quantity), 'Orbit method vz does not return Quantity when it should'
+    assert isinstance(o.phi(ts),units.Quantity), 'Orbit method phi does not return Quantity when it should'
+    assert isinstance(o.vphi(ts),units.Quantity), 'Orbit method vphi does not return Quantity when it should'
+    assert isinstance(o.x(ts),units.Quantity), 'Orbit method x does not return Quantity when it should'
+    assert isinstance(o.y(ts),units.Quantity), 'Orbit method y does not return Quantity when it should'
+    assert isinstance(o.vx(ts),units.Quantity), 'Orbit method vx does not return Quantity when it should'
+    assert isinstance(o.vy(ts),units.Quantity), 'Orbit method vy does not return Quantity when it should'
+    assert isinstance(o.ra(ts),units.Quantity), 'Orbit method ra does not return Quantity when it should'
+    assert isinstance(o.dec(ts),units.Quantity), 'Orbit method dec does not return Quantity when it should'
+    assert isinstance(o.ll(ts),units.Quantity), 'Orbit method ll does not return Quantity when it should'
+    assert isinstance(o.bb(ts),units.Quantity), 'Orbit method bb does not return Quantity when it should'
+    assert isinstance(o.dist(ts),units.Quantity), 'Orbit method dist does not return Quantity when it should'
+    assert isinstance(o.pmra(ts),units.Quantity), 'Orbit method pmra does not return Quantity when it should'
+    assert isinstance(o.pmdec(ts),units.Quantity), 'Orbit method pmdec does not return Quantity when it should'
+    assert isinstance(o.pmll(ts),units.Quantity), 'Orbit method pmll does not return Quantity when it should'
+    assert isinstance(o.pmbb(ts),units.Quantity), 'Orbit method pmbb does not return Quantity when it should'
+    assert isinstance(o.vlos(ts),units.Quantity), 'Orbit method vlos does not return Quantity when it should'
+    assert isinstance(o.vra(ts),units.Quantity), 'Orbit method vra does not return Quantity when it should'
+    assert isinstance(o.vdec(ts),units.Quantity), 'Orbit method vdec does not return Quantity when it should'
+    assert isinstance(o.vll(ts),units.Quantity), 'Orbit method vll does not return Quantity when it should'
+    assert isinstance(o.vbb(ts),units.Quantity), 'Orbit method vbb does not return Quantity when it should'
+    assert isinstance(o.helioX(ts),units.Quantity), 'Orbit method helioX does not return Quantity when it should'
+    assert isinstance(o.helioY(ts),units.Quantity), 'Orbit method helioY does not return Quantity when it should'
+    assert isinstance(o.helioZ(ts),units.Quantity), 'Orbit method helioZ does not return Quantity when it should'
+    assert isinstance(o.U(ts),units.Quantity), 'Orbit method U does not return Quantity when it should'
+    assert isinstance(o.V(ts),units.Quantity), 'Orbit method V does not return Quantity when it should'
+    assert isinstance(o.W(ts),units.Quantity), 'Orbit method W does not return Quantity when it should'
+    return None
