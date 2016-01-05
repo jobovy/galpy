@@ -10,6 +10,7 @@ from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
 from galpy.util import bovy_conversion
 from galpy.util import config
+_APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
 from galpy.orbit_src.FullOrbit import FullOrbit
 from galpy.orbit_src.RZOrbit import RZOrbit
 from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
@@ -19,6 +20,8 @@ _K=4.74047
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
                  units.kpc,units.km/units.s,units.rad]
+else:
+    _APY_UNITS= False
 class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
@@ -2236,8 +2239,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
-        return self._orb.dist(*args,**kwargs)*_K*\
-            self._orb.pmra(*args,**kwargs)
+        dist= self._orb.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self._orb.pmra(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self._orb.pmra(*args,**kwargs)
 
     def vdec(self,*args,**kwargs):
         """
@@ -2272,8 +2281,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
-        return self._orb.dist(*args,**kwargs)*_K*\
-            self._orb.pmdec(*args,**kwargs)
+        dist= self._orb.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self._orb.pmdec(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self._orb.pmdec(*args,**kwargs)
 
     def vll(self,*args,**kwargs):
         """
@@ -2308,6 +2323,15 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
+        dist= self._orb.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self._orb.pmll(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self._orb.pmll(*args,**kwargs)
+
         return self._orb.dist(*args,**kwargs)*_K*\
             self._orb.pmll(*args,**kwargs)
 
@@ -2344,8 +2368,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.dist(*args,**kwargs)*_K*\
-            self._orb.pmbb(*args,**kwargs)
+        dist= self._orb.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self._orb.pmbb(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self._orb.pmbb(*args,**kwargs)
 
     def helioX(self,*args,**kwargs):
         """
