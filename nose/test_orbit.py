@@ -32,27 +32,6 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
-# Test whether the output from the SkyCoord function is correct
-def test_SkyCoord():
-    from galpy.orbit import Orbit
-    # In ra, dec
-    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
-    assert numpy.fabs(o.SkyCoord().dec.degree-o.dec()) < 10.**-13., 'Orbit SkyCoord dec and direct dec do not agree'
-    assert numpy.fabs(o.SkyCoord().distance.kpc-o.dist()) < 10.**-13., 'Orbit SkyCoord distance and direct distance do not agree'
-    # For a list
-    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    times= numpy.linspace(0.,2.,51)
-    from galpy.potential import MWPotential
-    o.integrate(times,MWPotential)
-    ras= numpy.array([s.ra.degree for s in o.SkyCoord(times)])
-    decs= numpy.array([s.dec.degree for s in o.SkyCoord(times)])
-    dists= numpy.array([s.distance.kpc for s in o.SkyCoord(times)])
-    assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
-    assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
-    assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
-    return None
-
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
@@ -2378,6 +2357,27 @@ def test_call_issue256():
     o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
     # no integration of the orbit
     o.R(30)
+    return None
+
+# Test whether the output from the SkyCoord function is correct
+def test_SkyCoord():
+    from galpy.orbit import Orbit
+    # In ra, dec
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
+    assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
+    assert numpy.fabs(o.SkyCoord().dec.degree-o.dec()) < 10.**-13., 'Orbit SkyCoord dec and direct dec do not agree'
+    assert numpy.fabs(o.SkyCoord().distance.kpc-o.dist()) < 10.**-13., 'Orbit SkyCoord distance and direct distance do not agree'
+    # For a list
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
+    times= numpy.linspace(0.,2.,51)
+    from galpy.potential import MWPotential
+    o.integrate(times,MWPotential)
+    ras= numpy.array([s.ra.degree for s in o.SkyCoord(times)])
+    decs= numpy.array([s.dec.degree for s in o.SkyCoord(times)])
+    dists= numpy.array([s.distance.kpc for s in o.SkyCoord(times)])
+    assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
+    assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
+    assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
     return None
 
 def test_linear_plotting():
