@@ -279,3 +279,219 @@ def test_orbit_method_returntype():
     assert isinstance(o.V(ts),units.Quantity), 'Orbit method V does not return Quantity when it should'
     assert isinstance(o.W(ts),units.Quantity), 'Orbit method W does not return Quantity when it should'
     return None
+
+def test_orbit_method_returnunit():
+    from galpy.orbit import Orbit
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg])
+    from galpy.potential import MWPotential2014
+    try:
+        o.E(pot=MWPotential2014).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method E does not return Quantity with the right units')
+    try:
+        o.ER(pot=MWPotential2014).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method ER does not return Quantity with the right units')
+    try:
+        o.Ez(pot=MWPotential2014).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Ez does not return Quantity with the right units')
+    try:
+        o.Jacobi(pot=MWPotential2014).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Jacobi does not return Quantity with the right units')
+    try:
+        o.L().to(units.km**2/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method L does not return Quantity with the right units')
+    try:
+        o.rap(pot=MWPotential2014,analytic=True).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method rap does not return Quantity with the right units')
+    try:
+        o.rperi(pot=MWPotential2014,analytic=True).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method rperi does not return Quantity with the right units')
+    try:
+        o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method zmax does not return Quantity with the right units')
+    try:
+        o.jr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km**2/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method jr does not return Quantity with the right units')
+    try:
+        o.jp(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km**2/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method jp does not return Quantity with the right units')
+    try:
+        o.jz(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km**2/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method jz does not return Quantity with the right units')
+    try:
+        o.wr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method wr does not return Quantity with the right units')
+    try:
+        o.wp(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method wp does not return Quantity with the right units')
+    try:
+        o.wz(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method wz does not return Quantity with the right units')
+    try:
+        o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Tr does not return Quantity with the right units')
+    try:
+        o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Tp does not return Quantity with the right units')
+    try:
+        o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Tz does not return Quantity with the right units')
+    try:
+        o.Or(pot=MWPotential2014,type='staeckel',delta=0.5).to(1/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Or does not return Quantity with the right units')
+    try:
+        o.Op(pot=MWPotential2014,type='staeckel',delta=0.5).to(1/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Op does not return Quantity with the right units')
+    try:
+        o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5).to(1/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Oz does not return Quantity with the right units')
+    try:
+        o.time().to(units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method time does not return Quantity with the right units')
+    try:
+        o.R().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method R does not return Quantity with the right units')
+    try:
+        o.vR().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vR does not return Quantity with the right units')
+    try:
+        o.vT().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vT does not return Quantity with the right units')
+    try:
+        o.z().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method z does not return Quantity with the right units')
+    try:
+        o.vz().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vz does not return Quantity with the right units')
+    try:
+        o.phi().to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method phi does not return Quantity with the right units')
+    try:
+        o.vphi().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vphi does not return Quantity with the right units')
+    try:
+        o.x().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method x does not return Quantity with the right units')
+    try:
+        o.y().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method y does not return Quantity with the right units')
+    try:
+        o.vx().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vx does not return Quantity with the right units')
+    try:
+        o.vy().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vy does not return Quantity with the right units')
+    try:
+        o.ra().to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method ra does not return Quantity with the right units')
+    try:
+        o.dec().to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method dec does not return Quantity with the right units')
+    try:
+        o.ll().to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method ll does not return Quantity with the right units')
+    try:
+        o.bb().to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method bb does not return Quantity with the right units')
+    try:
+        o.dist().to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method dist does not return Quantity with the right units')
+    try:
+        o.pmra().to(units.mas/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method pmra does not return Quantity with the right units')
+    try:
+        o.pmdec().to(units.mas/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method pmdec does not return Quantity with the right units')
+    try:
+        o.pmll().to(units.mas/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method pmll does not return Quantity with the right units')
+    try:
+        o.pmbb().to(units.mas/units.yr)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method pmbb does not return Quantity with the right units')
+    try:
+        o.vlos().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vlos does not return Quantity with the right units')
+    try:
+        o.vra().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vra does not return Quantity with the right units')
+    try:
+        o.vdec().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vdec does not return Quantity with the right units')
+    try:
+        o.vll().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vll does not return Quantity with the right units')
+    try:
+        o.vbb().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method vbb does not return Quantity with the right units')
+    try:
+        o.helioX().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method helioX does not return Quantity with the right units')
+    try:
+        o.helioY().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method helioY does not return Quantity with the right units')
+    try:
+        o.helioZ().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method helioZ does not return Quantity with the right units')
+    try:
+        o.U().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method U does not return Quantity with the right units')
+    try:
+        o.V().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method V does not return Quantity with the right units')
+    try:
+        o.W().to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method W does not return Quantity with the right units')
+    return None
+
