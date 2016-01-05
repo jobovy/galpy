@@ -489,40 +489,51 @@ def physical_conversion(quantity,pop=False):
                 print_physical_warning()
                 if quantity.lower() == 'time':
                     fac= time_in_Gyr(vo,ro)
-                    if _APY_UNITS: u= units.Gyr
+                    if _APY_UNITS:
+                        u= units.Gyr
                 elif quantity.lower() == 'position':
                     fac= ro
-                    if _APY_UNITS: u= units.kpc
+                    if _APY_UNITS:
+                        u= units.kpc
                 elif quantity.lower() == 'position_kpc': # already in kpc
                     fac= 1.
-                    if _APY_UNITS: u= units.kpc
+                    if _APY_UNITS:
+                        u= units.kpc
                 elif quantity.lower() == 'velocity':
                     fac= vo
-                    if _APY_UNITS: u= units.km/units.s
+                    if _APY_UNITS:
+                        u= units.km/units.s
                 elif quantity.lower() == 'velocity_kms': # already in km/s
                     fac= 1.
-                    if _APY_UNITS: u= units.km/units.s
+                    if _APY_UNITS:
+                        u= units.km/units.s
                 elif quantity.lower() == 'frequency':
                     if kwargs.get('kmskpc',False) and not _APY_UNITS:
                         fac= freq_in_kmskpc(vo,ro)
                     else:
                         fac= freq_in_Gyr(vo,ro)
-                        if _APY_UNITS: u= units.Gyr**-1.
+                        if _APY_UNITS:
+                            u= units.Gyr**-1.
                 elif quantity.lower() == 'action':
                     fac= ro*vo
-                    if _APY_UNITS: u= units.kpc*units.km/units.s
+                    if _APY_UNITS:
+                        u= units.kpc*units.km/units.s
                 elif quantity.lower() == 'energy':
                     fac= vo**2.
-                    if _APY_UNITS: u= units.km**2./units.s**2.
+                    if _APY_UNITS:
+                        u= units.km**2./units.s**2.
                 elif quantity.lower() == 'angle': # in rad
                     fac= 1.
-                    if _APY_UNITS: u= units.rad
+                    if _APY_UNITS:
+                        u= units.rad
                 elif quantity.lower() == 'angle_deg': # already in deg
                     fac= 1.
-                    if _APY_UNITS: u= units.deg
+                    if _APY_UNITS:
+                        u= units.deg
                 elif quantity.lower() == 'proper-motion_masyr': # already in mas/yr
                     fac= 1.
-                    if _APY_UNITS: u= units.mas/units.yr
+                    if _APY_UNITS:
+                        u= units.mas/units.yr
                 if _APY_UNITS:
                     return units.Quantity(method(*args,**kwargs)*fac,
                                           unit=u)
