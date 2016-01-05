@@ -89,6 +89,8 @@ class Orbit(object):
         elif isinstance(solarmotion,str) \
                 and solarmotion.lower() == 'schoenrich':
             vsolar= nu.array([-11.1,12.24,7.25])
+        elif _APY_LOADED and isinstance(solarmotion,units.Quantity):
+            vsolar= solarmotion.to(units.km/units.s).value
         else:
             vsolar= nu.array(solarmotion)
         if radec or lb:
