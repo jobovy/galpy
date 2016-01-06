@@ -466,6 +466,7 @@ _voNecessary['position_kpc']= False
 _voNecessary['angle']= False
 _voNecessary['angle_deg']= False
 _voNecessary['velocity']= True
+_voNecessary['velocity_kms']= True
 _voNecessary['energy']= True
 def physical_conversion(quantity,pop=False):
     """Decorator to convert to physical coordinates: 
