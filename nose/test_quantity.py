@@ -556,3 +556,51 @@ def test_orbit_method_value():
     assert numpy.fabs(o.V().to(units.km/units.s).value-oc.V()) < 10.**-8., 'Orbit method V does not return the correct value as Quantity'
     assert numpy.fabs(o.W().to(units.km/units.s).value-oc.W()) < 10.**-8., 'Orbit method W does not return the correct value as Quantity'
     return None
+
+def test_integrate_timeAsQuantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential)
+    oc.integrate(ts_nounits,MWPotential)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
+def test_integrate_timeAsQuantity_Myr():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1000.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Myr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)*1000.
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential)
+    oc.integrate(ts_nounits,MWPotential)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
