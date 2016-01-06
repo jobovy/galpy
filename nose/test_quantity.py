@@ -604,3 +604,50 @@ def test_integrate_timeAsQuantity_Myr():
     assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     return None
+
+def test_integrate_dxdv_timeAsQuantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate_dxdv([1.,0.3,0.4,0.2],ts,MWPotential,
+                     rectIn=True,rectOut=True)
+    oc.integrate_dxdv([1.,0.3,0.4,0.2],ts_nounits,MWPotential,
+                      rectIn=True,rectOut=True)
+    dx= o.getOrbit_dxdv()
+    dxc= oc.getOrbit_dxdv()
+    assert numpy.all(numpy.fabs(dx-dxc) < 10.**-8.), 'Orbit integrated_dxdv with times specified as Quantity does not agree with Orbit integrated_dxdv with time specified as array'
+    return None
+
+def test_integrate_dxdv_timeAsQuantity_Myr():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Myr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)*1000.
+    # Integrate both with Quantity time and with unitless time
+    o.integrate_dxdv([1.,0.3,0.4,0.2],ts,MWPotential,
+                     rectIn=True,rectOut=True)
+    oc.integrate_dxdv([1.,0.3,0.4,0.2],ts_nounits,MWPotential,
+                      rectIn=True,rectOut=True)
+    dx= o.getOrbit_dxdv()
+    dxc= oc.getOrbit_dxdv()
+    assert numpy.all(numpy.fabs(dx-dxc) < 10.**-8.), 'Orbit integrated_dxdv with times specified as Quantity does not agree with Orbit integrated_dxdv with time specified as array'
+    return None
+
