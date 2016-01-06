@@ -35,49 +35,69 @@ def test_progenitor_coordtransformparams():
     sigv= 0.365 #km/s
     #Turn warnings into errors to test for them
     import warnings
-    warnings.simplefilter("error",galpyWarning)
-    #Test w/ diff Rnorm
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        #Test w/ diff Rnorm
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=10.)
-    except: pass
-    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from Rnorm")
+        # Should raise warning bc of Rnorm, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables")
+            if raisedWarning: break
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from Rnorm"
     #Test w/ diff R0
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              R0=10.)
-    except: pass
-    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  ro is different from R0")
+        # Should raise warning bc of R0, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables")
+            if raisedWarning: break
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from R0"
     #Test w/ diff Vnorm
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=220.)
-    except: pass
-    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  vo is different from Vnorm")
+        # Should raise warning bc of Vnorm, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables")
+            if raisedWarning: break
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  vo is different from Vnorm"
     #Test w/ diff zo
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.025)
-    except: pass
-    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  zo is different from Zsun")
+        # Should raise warning bc of zo, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables")
+            if raisedWarning: break
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  zo is different from Zsun"
     #Test w/ diff vsun
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
@@ -85,10 +105,12 @@ def test_progenitor_coordtransformparams():
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.1,
                              vsun=[0.,220.,0.])
-    except: pass
-    else: raise AssertionError("streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun")
-    #Turn warnings back into warnings
-    warnings.simplefilter("default",galpyWarning)
+        # Should raise warning bc of vsun, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables")
+            if raisedWarning: break
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
     return None
 
 #Exact setup from Bovy (2014); should reproduce those results (which have been
@@ -787,7 +809,7 @@ def test_bovy14_oppositetrailing_setup():
                               leading=False) #expl set iterations
     except IOError: pass
     else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
-    #Warning when deltaAngleTrack is too large (turn warning into error for testing)
+    #Warning when deltaAngleTrack is too large (turn warning into error for testing; not using catch_warnings, bc we need this to actually fail [setup doesn't work for such a large deltaAngleTrack])
     import warnings
     warnings.simplefilter("error")
     try:
