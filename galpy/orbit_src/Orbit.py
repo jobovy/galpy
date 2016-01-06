@@ -251,6 +251,8 @@ class Orbit(object):
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        self._roSet= False
+        self._voSet= False
         self._orb.turn_physical_off()
 
     def integrate(self,t,pot,method='symplec4_c',dt=None):
