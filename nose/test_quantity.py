@@ -651,3 +651,35 @@ def test_integrate_dxdv_timeAsQuantity_Myr():
     assert numpy.all(numpy.fabs(dx-dxc) < 10.**-8.), 'Orbit integrated_dxdv with times specified as Quantity does not agree with Orbit integrated_dxdv with time specified as array'
     return None
 
+def test_change_ro_config():
+    from galpy.orbit import Orbit
+    from galpy.util import config
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._ro-8.) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._ro-8.) < 10.**-10., 'Default ro value not as expected'
+    # Change value
+    newro= 9.
+    config.set_ro(newro)
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._ro-newro) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._ro-newro) < 10.**-10., 'Default ro value not as expected'
+    return None
+
+def test_change_vo_config():
+    from galpy.orbit import Orbit
+    from galpy.util import config
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._vo-220.) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._vo-220.) < 10.**-10., 'Default ro value not as expected'
+    # Change value
+    newvo= 250.
+    config.set_vo(newvo)
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._vo-newvo) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._vo-newvo) < 10.**-10., 'Default ro value not as expected'
+    return None
+
