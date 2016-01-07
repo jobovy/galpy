@@ -1,5 +1,5 @@
-actionAngle
-============
+actionAngle (``galpy.actionAngle``)
+===================================
 
 General instance routines
 --------------------------

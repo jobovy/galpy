@@ -1,5 +1,5 @@
-DF
-===
+DF (``galpy.df``)
+==================
 
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------

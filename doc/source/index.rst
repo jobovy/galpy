@@ -53,9 +53,9 @@ Library reference
 
    reference/potential.rst
 
-   reference/df.rst
-
    reference/aa.rst
+
+   reference/df.rst
 
    reference/util.rst
 
