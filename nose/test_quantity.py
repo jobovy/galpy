@@ -705,6 +705,13 @@ def test_change_ro_config():
               45.*units.deg])
     assert numpy.fabs(o._ro-newro) < 10.**-10., 'Default ro value not as expected'
     assert numpy.fabs(o._orb._ro-newro) < 10.**-10., 'Default ro value not as expected'
+    # Change value as Quantity
+    newro= 9.*units.kpc
+    config.set_ro(newro)
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
     return None
 
 def test_change_vo_config():
@@ -721,5 +728,12 @@ def test_change_vo_config():
               45.*units.deg])
     assert numpy.fabs(o._vo-newvo) < 10.**-10., 'Default ro value not as expected'
     assert numpy.fabs(o._orb._vo-newvo) < 10.**-10., 'Default ro value not as expected'
+    # Change value as Quantity
+    newvo= 250.*units.km/units.s
+    config.set_vo(newvo)
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg])
+    assert numpy.fabs(o._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
+    assert numpy.fabs(o._orb._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
     return None
 
