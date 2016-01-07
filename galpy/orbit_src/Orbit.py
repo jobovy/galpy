@@ -83,6 +83,12 @@ class Orbit(object):
         """
         # If you change the way an Orbit object is setup, also change each of
         # the methods that return Orbits
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if _APY_LOADED and isinstance(zo,units.Quantity):
+            zo= zo.to(units.kpc).value
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
         if radec or lb:
             if ro is None:
                 ro= config.__config__.getfloat('normalization','ro')
