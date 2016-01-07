@@ -975,12 +975,16 @@ class OrbitTop(object):
                 obs= [self._ro,0.,self._zo]
         if 'ro' in kwargs:
             ro= kwargs['ro']
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             if not dontpop:
                 kwargs.pop('ro')
         else:
             ro= self._ro
         if 'vo' in kwargs:
             vo= kwargs['vo']
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             if not dontpop:
                 kwargs.pop('vo')
         else:

@@ -11,10 +11,12 @@ import math as m
 from galpy.util import galpyWarning
 from galpy.util.config import __config__
 _APY_UNITS= __config__.getboolean('astropy','astropy-units')
+_APY_LOADED= True
 try:
     from astropy import units, constants
 except ImportError:
     _APY_UNITS= False
+    _APY_LOADED= False
     _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
     _kmsInPcMyr= 1.0227121655399913
     _PCIN10p18CM= 3.08567758 #10^18 cm
@@ -478,9 +480,13 @@ def physical_conversion(quantity,pop=False):
             ro= kwargs.get('ro',None)
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
                 vo= args[0]._vo
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             #Remove ro and vo kwargs if necessary
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
