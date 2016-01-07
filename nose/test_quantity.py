@@ -175,6 +175,46 @@ def test_orbit_setup_solarmotion_oddunits():
     assert numpy.fabs(o._orb._solarmotion[2]-8./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
+def test_orbit_setup_roAsQuantity():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],ro=11*units.kpc)
+    assert numpy.fabs(o._ro-11.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._ro-11.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_roAsQuantity_oddunits():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],ro=11*units.lyr)
+    assert numpy.fabs(o._ro-11.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._ro-11.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_voAsQuantity():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],vo=210*units.km/units.s)
+    assert numpy.fabs(o._vo-210.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._vo-210.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_voAsQuantity_oddunits():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],vo=210*units.pc/units.Myr)
+    assert numpy.fabs(o._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._orb._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_zoAsQuantity():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],zo=12*units.pc)
+    assert numpy.fabs(o._orb._zo-0.012) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbit_setup_zoAsQuantity_oddunits():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.2,0.1,0.],zo=13*units.lyr)
+    assert numpy.fabs(o._orb._zo-13.*units.lyr.to(units.kpc)) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
+    return None
+
 def test_orbit_method_returntype_scalar():
     from galpy.orbit import Orbit
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
