@@ -494,7 +494,8 @@ def physical_conversion(quantity,pop=False):
             if use_physical and \
                     not (_voNecessary[quantity.lower()] and vo is None) and \
                     not (_roNecessary[quantity.lower()] and ro is None):
-                print_physical_warning()
+                from galpy.orbit import Orbit
+                if isinstance(args[0],Orbit): print_physical_warning()
                 if quantity.lower() == 'time':
                     fac= time_in_Gyr(vo,ro)
                     if _APY_UNITS:
