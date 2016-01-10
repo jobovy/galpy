@@ -714,10 +714,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
            in which case you also need to supply the following keywords
            
-              vo= (220.) velocity unit in km/s
-
-              ro= (8.) length unit in kpc
-
               H= (default: 70) Hubble constant in km/s/Mpc
            
               Om= (default: 0.3) Omega matter
@@ -886,7 +882,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    def rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+    @bovy_conversion.physical_conversion('position')
+    def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
 
@@ -898,10 +895,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           vo - velocity unit in km/s
-
-           ro - length unit in kpc
-
            H= (default: 70) Hubble constant in km/s/Mpc
            
            Om= (default: 0.3) Omega matter
@@ -909,10 +902,14 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            overdens= (200) overdensity which defines the virial radius
 
            wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-           
+
+           ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
+
+           vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
+
         OUTPUT:
         
-           virial radius in natural units
+           virial radius
         
         HISTORY:
 
@@ -920,10 +917,13 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         """
         if wrtcrit:
-            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+            od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
+                                                              self._ro,H=H)
         else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
-        dc= 12.*self.dens(self.a,0.)/od
+            od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
+                                                                self._ro,
+                                                                H=H,Om=Om)
+        dc= 12.*self.dens(self.a,0.,use_physical=False)/od
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
                            0.01,100.)
         return x*self.a
