@@ -459,6 +459,7 @@ _roNecessary= {'time': True,
                'mass': True,
                'action': True,
                'frequency':True,
+               'forcederivative':True,
                'angle':True,
                'angle_deg':True,
                'proper-motion_masyr':True}
@@ -545,6 +546,18 @@ def physical_conversion(quantity,pop=False):
                     fac= force_in_kmsMyr(vo,ro)
                     if _APY_UNITS:
                         u= units.km/units.s/units.Myr
+                elif quantity.lower() == 'density':
+                    fac= dens_in_msolpc3(vo,ro)
+                    if _APY_UNITS:
+                        u= units.Msun/units.pc**3
+                elif quantity.lower() == 'mass':
+                    fac= mass_in_msol(vo,ro)
+                    if _APY_UNITS:
+                        u= units.Msun
+                elif quantity.lower() == 'forcederivative':
+                    fac= freq_in_Gyr(vo,ro)**2.
+                    if _APY_UNITS:
+                        u= units.Gyr**-2.
                 if _APY_UNITS:
                     return units.Quantity(method(*args,**kwargs)*fac,
                                           unit=u)
