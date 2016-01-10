@@ -19,8 +19,9 @@ class RazorThinExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
 
     """
-    def __init__(self,amp=1.,ro=1.,hr=1./3.,
+    def __init__(self,amp=1.,hr=1./3.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
+                 ro=None,vo=None,
                  new=True,glorder=100):
         """
         NAME:
@@ -35,7 +36,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1)
 
-           hr - disk scale-length in terms of ro
+           hr - disk scale-length
 
            tol - relative accuracy of potential-evaluations
 
@@ -52,10 +53,9 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._new= new
         self._glorder= glorder
-        self._ro= ro
         self._hr= hr
         self._scale= self._hr
         self._alpha= 1./self._hr

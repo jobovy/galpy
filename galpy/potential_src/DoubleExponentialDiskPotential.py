@@ -22,6 +22,7 @@ class DoubleExponentialDiskPotential(Potential):
     """
     def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
+                 ro=None,vo=None,
                  new=True,kmaxFac=2.,glorder=10):
         """
         NAME:
@@ -57,7 +58,7 @@ class DoubleExponentialDiskPotential(Potential):
            2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= True
         self._kmaxFac= kmaxFac
         self._glorder= glorder

@@ -17,7 +17,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{\\lambda} + \\sqrt{\\nu}}
 
     """
-    def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False):
+    def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -46,7 +47,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
            2015-02-15 - Written - Trick (MPIA)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._ac    = ac
         self._Delta = Delta
         self._gamma = self._Delta**2 / (1.-self._ac**2)

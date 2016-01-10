@@ -107,6 +107,7 @@ class interpRZPotential(Potential):
                  interpvcirc=False,
                  interpdvcircdr=False,
                  interpepifreq=False,interpverticalfreq=False,
+                 ro=None,vo=None,
                  use_c=False,enable_c=False,zsym=True,
                  numcores=None):
         """

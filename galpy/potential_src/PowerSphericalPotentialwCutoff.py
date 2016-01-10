@@ -17,7 +17,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{r^\\alpha}\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
-    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -46,7 +47,7 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.alpha= alpha
         self.rc= rc
         self._scale= self.rc

@@ -14,7 +14,8 @@ class PlummerPotential(Potential):
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+z^2+b^2}}
 
     """
-    def __init__(self,amp=1.,b=0.8,normalize=False):
+    def __init__(self,amp=1.,b=0.8,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -41,7 +42,7 @@ class PlummerPotential(Potential):
            2015-06-15 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._b= b
         self._scale= self._b
         self._b2= self._b**2.

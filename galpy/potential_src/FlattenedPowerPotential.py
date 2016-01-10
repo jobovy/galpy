@@ -22,7 +22,8 @@ class FlattenedPowerPotential(Potential):
     See Figure 1 in `Evans (1994) <http://adsabs.harvard.edu/abs/1994MNRAS.267..333E>`_ for combinations of alpha and q that correspond to positive densities
 
     """
-    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False):
+    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -53,7 +54,7 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.

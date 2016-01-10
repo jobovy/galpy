@@ -11,7 +11,8 @@ class BurkertPotential(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{(1+r/a)\\,(1+[r/a]^2)}
 
     """
-    def __init__(self,amp=1.,a=2.,normalize=False):
+    def __init__(self,amp=1.,a=2.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -40,7 +41,7 @@ class BurkertPotential(Potential):
            2013-04-10 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.a=a
         self._scale= self.a
         if normalize or \

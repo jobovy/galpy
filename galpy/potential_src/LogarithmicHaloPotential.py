@@ -15,7 +15,8 @@ class LogarithmicHaloPotential(Potential):
         \\Phi(R,z) = \\frac{\\mathrm{amp}}{2}\\,\\ln\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)
 
     """
-    def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False):
+    def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -44,7 +45,7 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         self._core2= core**2.

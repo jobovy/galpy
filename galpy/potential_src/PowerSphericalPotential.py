@@ -17,7 +17,8 @@ class PowerSphericalPotential(Potential):
         \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,r^{-\\alpha}
 
     """
-    def __init__(self,amp=1.,alpha=1.,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -44,7 +45,7 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.alpha= alpha
         if normalize or \
                 (isinstance(normalize,(int,float)) \

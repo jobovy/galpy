@@ -25,6 +25,7 @@ class MovingObjectPotential(Potential):
 
     """
     def __init__(self,orbit,amp=1.,GM=.06,
+                 ro=None,vo=None,
                  softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
@@ -61,7 +62,7 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._gm= GM
         self._orb= orbit
         if softening is None:

@@ -27,7 +27,8 @@ class MN3ExponentialDiskPotential(Potential):
     """
     def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  sech=False,posdens=False,
-                 normalize=False):
+                 normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -63,7 +64,8 @@ class MN3ExponentialDiskPotential(Potential):
         self._hr= hr
         self._hz= hz
         self._scale= self._hr
-        Potential.__init__(self,amp=amp*4.*numpy.pi*self._hr**2.*self._hz)
+        Potential.__init__(self,amp=amp*4.*numpy.pi*self._hr**2.*self._hz,
+                           ro=ro,vo=vo)
         # First determine b/rd
         if sech:
             self._brd= _b_sechhz(self._hz/self._hr)

@@ -15,7 +15,8 @@ class IsochronePotential(Potential):
         \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
 
     """
-    def __init__(self,amp=1.,b=1.,normalize=False):
+    def __init__(self,amp=1.,b=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -42,7 +43,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.b= b
         self._scale= self.b
         self.b2= self.b**2.

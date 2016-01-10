@@ -15,7 +15,8 @@ class MiyamotoNagaiPotential(Potential):
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+(a+\\sqrt{z^2+b^2})^2}}
 
     """
-    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False):
+    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -44,7 +45,7 @@ class MiyamotoNagaiPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._a= a
         self._scale= self._a
         self._b= b

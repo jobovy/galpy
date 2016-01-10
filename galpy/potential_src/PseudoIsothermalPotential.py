@@ -12,7 +12,8 @@ class PseudoIsothermalPotential(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\pi\\, a^3}\\,\\frac{1}{1+(r/a)^2}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -39,7 +40,7 @@ class PseudoIsothermalPotential(Potential):
            2015-12-04 - Started - Bovy (UofT)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         self._a= a

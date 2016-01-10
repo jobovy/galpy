@@ -19,7 +19,8 @@ class TwoPowerSphericalPotential(Potential):
 
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^\\alpha\\,(1+r/a)^{\\beta-\\alpha}}
     """
-    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -55,14 +56,14 @@ class TwoPowerSphericalPotential(Potential):
         self.alpha= alpha
         self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
                                                            alpha=int(alpha),
                                                            beta=int(beta),
                                                            normalize=False)
             self.integerSelf= integerSelf
         else:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             self.integerSelf= None
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -217,7 +218,8 @@ class TwoPowerSphericalPotential(Potential):
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
     the case of integer powers"""
-    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False):
+    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
            __init__
@@ -241,25 +243,25 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         self.a= a
         self._scale= self.a
         if alpha == 1 and beta == 4:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
             self.NFWSelf= None
         elif alpha == 2 and beta == 4:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             JaffeSelf= JaffePotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             NFWSelf= NFWPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
         else:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
@@ -358,7 +360,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{3}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -385,7 +388,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.a= a
         self._scale= self.a
         self.alpha= 1
@@ -518,7 +521,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^2\\,(1+r/a)^{2}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -545,7 +549,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -682,7 +686,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
     """
     def __init__(self,amp=1.,a=1.,normalize=False,
                  conc=None,mvir=None,
-                 vo=220.,ro=8.,
+                 vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
@@ -733,7 +737,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         if conc is None:
             self.a= a
             self.alpha= 1
@@ -744,10 +748,14 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
                 self.normalize(normalize)
         else:
             if wrtcrit:
-                od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+                od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
+                                                                  self._ro,H=H)
             else:
-                od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
-            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)
+                od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
+                                                                    self._ro,
+                                                                    H=H,Om=Om)
+            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
+                                                                    self._ro)
             rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
