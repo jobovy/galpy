@@ -22,12 +22,13 @@ import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
+from galpy.util import config
 from galpy.util.bovy_conversion import velocity_in_kpcGyr, physical_conversion
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 class Potential(object):
     """Top-level class for a potential"""
-    def __init__(self,amp=1.):
+    def __init__(self,amp=1.,ro=None,vo=None):
         """
         NAME:
            __init__
@@ -43,6 +44,19 @@ class Potential(object):
         self.isNonAxi= False
         self.hasC= False
         self.hasC_dxdv= False
+        # Parse ro and vo
+        if ro is None:
+            self._ro= config.__config__.getfloat('normalization','ro')
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        if vo is None:
+            self._vo= config.__config__.getfloat('normalization','vo')
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
         return None
 
     @physical_conversion('energy')
@@ -76,15 +90,15 @@ class Potential(object):
             if rawOut is None: return rawOut
             else: return self._amp*rawOut
         elif dR == 1 and dphi == 0:
-            return -self.Rforce(R,z,phi=phi,t=t)
+            return -self.Rforce(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,z,phi=phi,t=t)
+            return -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
-            return self.R2deriv(R,z,phi=phi,t=t)
+            return self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
-            return self.phi2deriv(R,z,phi=phi,t=t)
+            return self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 1 and dphi == 1:
-            return self.Rphideriv(R,z,phi=phi,t=t)           
+            return self.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR != 0 or dphi != 0:
             raise NotImplementedError('Higher-order derivatives not implemented for this potential')
         
@@ -197,10 +211,10 @@ class Potential(object):
             return self._amp*self._dens(R,z,phi=phi,t=t)
         except AttributeError:
             #Use the Poisson equation to get the density
-            return (-self.Rforce(R,z,phi=phi,t=t)/R
-                     +self.R2deriv(R,z,phi=phi,t=t)
-                     +self.phi2deriv(R,z,phi=phi,t=t)/R**2.
-                     +self.z2deriv(R,z,phi=phi,t=t))/4./nu.pi
+            return (-self.Rforce(R,z,phi=phi,t=t,use_physical=False)/R
+                     +self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
+                     +self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)/R**2.
+                     +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./nu.pi
 
     @physical_conversion('mass')
     def mass(self,R,z=None,t=0.,forceint=False):
@@ -245,11 +259,14 @@ class Potential(object):
             #Use numerical integration to get the mass
             if z is None:
                 return 4.*nu.pi\
-                    *integrate.quad(lambda x: x**2.*self.dens(x,0.,),
+                    *integrate.quad(lambda x: x**2.\
+                                        *self.dens(x,0.,
+                                                  use_physical=False),
                                     0.,R)[0]
             else:
                 return 4.*nu.pi\
-                    *integrate.dblquad(lambda y,x: x*self.dens(x,y),
+                    *integrate.dblquad(lambda y,x: x\
+                                           *self.dens(x,y,use_physical=False),
                                        0.,R,lambda x: 0., lambda x: z)[0]
 
     @physical_conversion('mass')
@@ -293,10 +310,11 @@ class Potential(object):
         """
         #Evaluate the virial radius
         try:
-            rvir= self.rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)
+            rvir= self.rvir(vo,ro,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,
+                            use_physical=False)
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
-        return self.mass(rvir,forceint=forceint)
+        return self.mass(rvir,forceint=forceint,use_physical=False)
 
     @physical_conversion('forcederivative')
     def R2deriv(self,R,Z,phi=0.,t=0.):
@@ -428,7 +446,7 @@ class Potential(object):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t))
+        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t,use_physical=False))
 
     @physical_conversion('force')
     def phiforce(self,R,z,phi=0.,t=0.):
@@ -780,7 +798,7 @@ class Potential(object):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(R*-self.Rforce(R,0.))
+        return nu.sqrt(R*-self.Rforce(R,0.,use_physical=False))
 
     @physical_conversion('frequency')
     def dvcircdR(self,R):
@@ -808,7 +826,9 @@ class Potential(object):
             2013-01-08 - Written - Bovy (IAS)
         
         """
-        return 0.5*(-self.Rforce(R,0.)+R*self.R2deriv(R,0.))/self.vcirc(R)
+        return 0.5*(-self.Rforce(R,0.,use_physical=False)\
+                         +R*self.R2deriv(R,0.,use_physical=False))\
+                         /self.vcirc(R,use_physical=False)
 
     @physical_conversion('frequency')
     def omegac(self,R):
@@ -835,7 +855,7 @@ class Potential(object):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,0.)/R)
+        return nu.sqrt(-self.Rforce(R,0.,use_physical=False)/R)
 
     @physical_conversion('frequency')
     def epifreq(self,R):
@@ -862,7 +882,8 @@ class Potential(object):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,0.)-3./R*self.Rforce(R,0.))
+        return nu.sqrt(self.R2deriv(R,0.,use_physical=False)\
+                           -3./R*self.Rforce(R,0.,use_physical=False))
 
     @physical_conversion('frequency')
     def verticalfreq(self,R):
@@ -889,7 +910,7 @@ class Potential(object):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         
         """
-        return nu.sqrt(self.z2deriv(R,0.))
+        return nu.sqrt(self.z2deriv(R,0.,use_physical=False))
 
     @physical_conversion('position')
     def lindbladR(self,OmegaP,m=2,**kwargs):
@@ -1007,7 +1028,8 @@ class Potential(object):
            2012-09-13 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z)/self.zforce(R,z)))
+        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z,use_physical=False)\
+                                   /self.zforce(R,z,use_physical=False)))
 
     @physical_conversion('velocity')
     def vterm(self,l,deg=True):
@@ -1040,7 +1062,8 @@ class Potential(object):
             sinl= nu.sin(l/180.*nu.pi)
         else:
             sinl= nu.sin(l)
-        return sinl*(self.omegac(sinl)-self.omegac(1.))
+        return sinl*(self.omegac(sinl,use_physical=False)\
+                         -self.omegac(1.,use_physical=False))
 
     def plotRotcurve(self,*args,**kwargs):
         """
