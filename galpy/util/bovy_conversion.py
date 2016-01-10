@@ -476,7 +476,7 @@ def physical_conversion(quantity,pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
-            use_physical= kwargs.get('use_physical',True)
+            use_physical= kwargs.pop('use_physical',True)
             ro= kwargs.get('ro',None)
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
@@ -541,6 +541,10 @@ def physical_conversion(quantity,pop=False):
                     fac= 1.
                     if _APY_UNITS:
                         u= units.mas/units.yr
+                elif quantity.lower() == 'force':
+                    fac= force_in_kmsMyr(vo,ro)
+                    if _APY_UNITS:
+                        u= units.km/units.s/units.Myr
                 if _APY_UNITS:
                     return units.Quantity(method(*args,**kwargs)*fac,
                                           unit=u)
