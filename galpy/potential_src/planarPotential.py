@@ -39,8 +39,6 @@ class planarPotential(object):
 
            t= time (optional)
 
-           dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative
-
         OUTPUT:
 
            Phi(R(,phi,t)))
@@ -56,15 +54,15 @@ class planarPotential(object):
             except AttributeError: #pragma: no cover
                 raise PotentialError("'_evaluate' function not implemented for this potential")
         elif dR == 1 and dphi == 0:
-            return -self.Rforce(R,phi=phi,t=t)
+            return -self.Rforce(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,phi=phi,t=t)
+            return -self.phiforce(R,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
-            return self.R2deriv(R,phi=phi,t=t)
+            return self.R2deriv(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
-            return self.phi2deriv(R,phi=phi,t=t)
+            return self.phi2deriv(R,phi=phi,t=t,use_physical=False)
         elif dR == 1 and dphi == 1:
-            return self.Rphideriv(R,phi=phi,t=t)
+            return self.Rphideriv(R,phi=phi,t=t,use_physical=False)
 
     @physical_conversion('force',pop=True)
     def Rforce(self,R,phi=0.,t=0.):
@@ -322,7 +320,7 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(R*-self.Rforce(R))       
+        return nu.sqrt(R*-self.Rforce(R,use_physical=False))       
 
     @physical_conversion('frequency',pop=True)
     def omegac(self,R):
@@ -351,7 +349,7 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R)/R)       
+        return nu.sqrt(-self.Rforce(R,use_physical=False)/R)       
 
     @physical_conversion('frequency',pop=True)
     def epifreq(self,R):
@@ -378,7 +376,8 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R)-3./R*self.Rforce(R))
+        return nu.sqrt(self.R2deriv(R,use_physical=False)
+                       -3./R*self.Rforce(R,use_physical=False))
 
     @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,**kwargs):
@@ -438,7 +437,8 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF)-self(R)))
+        return nu.sqrt(2.*(self(_INF,use_physical=False)
+                           -self(R,use_physical=False)))
         
     def plotRotcurve(self,*args,**kwargs):
         """

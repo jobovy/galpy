@@ -75,8 +75,6 @@ class Potential(object):
 
            t - time (optional)
 
-           dR= dphi=, if set to non-zero integers, return the dR, dphi't derivative instead
-           
         OUTPUT:
            Phi(R,z,t)
         HISTORY:
