@@ -5,19 +5,33 @@ import pickle
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
+from galpy.util import config
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 class planarPotential(object):
     """Class representing 2D (R,\phi) potentials"""
-    def __init__(self,amp=1.):
+    def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= 1.
         self.dim= 2
         self.isNonAxi= True #Gets reset by planarAxiPotential
         self.isRZ= False
         self.hasC= False
         self.hasC_dxdv= False
+        # Parse ro and vo
+        if ro is None:
+            self._ro= config.__config__.getfloat('normalization','ro')
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        if vo is None:
+            self._vo= config.__config__.getfloat('normalization','vo')
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
         return None
 
     @physical_conversion('energy',pop=True)
@@ -249,8 +263,8 @@ class planarPotential(object):
 
 class planarAxiPotential(planarPotential):
     """Class representing axisymmetric planar potentials"""
-    def __init__(self,amp=1.):
-        planarPotential.__init__(self,amp=amp)
+    def __init__(self,amp=1.,ro=None,vo=None):
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.isNonAxi= False
         return None
     

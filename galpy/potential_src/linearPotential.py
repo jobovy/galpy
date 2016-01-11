@@ -4,15 +4,29 @@ import os, os.path
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
+from galpy.util import config
 from galpy.potential_src.Potential import PotentialError
 from galpy.util.bovy_conversion import physical_conversion
 class linearPotential(object):
     """Class representing 1D potentials"""
-    def __init__(self,amp=1.):
+    def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp
         self.dim= 1
         self.isRZ= False
         self.hasC= False
+        # Parse ro and vo
+        if ro is None:
+            self._ro= config.__config__.getfloat('normalization','ro')
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        if vo is None:
+            self._vo= config.__config__.getfloat('normalization','vo')
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
         return None
 
     @physical_conversion('energy',pop=True)
