@@ -4,6 +4,7 @@ import os
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
+from galpy.util.bovy_conversion import physical_conversion
 def plotRotcurve(Pot,*args,**kwargs):
     """
     NAME:
@@ -95,6 +96,7 @@ def calcRotcurve(Pot,Rs):
         rotcurve[ii]= vcirc(Pot,Rs[ii])
     return rotcurve
 
+@physical_conversion('velocity',pop=True)
 def vcirc(Pot,R):
     """
 
@@ -124,12 +126,13 @@ def vcirc(Pot,R):
     from galpy.potential import evaluateplanarRforces
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
+        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,use_physical=False))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(-R*evaluateplanarRforces(R,Pot))
+        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,use_physical=False))
 
+@physical_conversion('frequency',pop=True)
 def dvcircdR(Pot,R):
     """
 
@@ -158,11 +161,11 @@ def dvcircdR(Pot,R):
     """
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
-    tvc= vcirc(Pot,R)
+    tvc= vcirc(Pot,R,use_physical=False)
     try:
-        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,use_physical=False))/tvc
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return 0.5*(-evaluateplanarRforces(R,Pot)+R*evaluateplanarR2derivs(R,Pot))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,use_physical=False))/tvc
 

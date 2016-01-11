@@ -4,6 +4,7 @@ import os
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
+from galpy.util.bovy_conversion import physical_conversion
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
@@ -92,17 +93,11 @@ def calcEscapecurve(Pot,Rs):
         grid=1
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
-    from galpy.potential import evaluateplanarPotentials
-    from galpy.potential import PotentialError
     for ii in range(grid):
-        try:
-            esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
-        except PotentialError:
-            from galpy.potential import RZToplanarPotential
-            Pot= RZToplanarPotential(Pot)
-            esccurve[ii]= nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(Rs[ii],Pot)))
+        esccurve[ii]= vesc(Pot,Rs[ii])
     return esccurve
 
+@physical_conversion('velocity',pop=True)
 def vesc(Pot,R):
     """
 
@@ -132,9 +127,9 @@ def vesc(Pot,R):
     from galpy.potential import evaluateplanarPotentials
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
+        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(2.*(evaluateplanarPotentials(_INF,Pot)-evaluateplanarPotentials(R,Pot)))
+        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
         
