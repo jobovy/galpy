@@ -882,7 +882,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    @bovy_conversion.physical_conversion('position')
+    @bovy_conversion.physical_conversion('position',pop=True)
     def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
