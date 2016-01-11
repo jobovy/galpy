@@ -120,7 +120,7 @@ class actionAngleAxi(actionAngleVertical):
             return self._TR
         (rperi,rap)= self.calcRapRperi(**kwargs)
         if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
-            self._TR= 2.*m.pi/epifreq(self._pot,self._R)
+            self._TR= 2.*m.pi/epifreq(self._pot,self._R,use_physical=False)
             return self._TR
         Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
         EL= self.calcEL(**kwargs)
@@ -275,10 +275,10 @@ class actionAngleAxi(actionAngleVertical):
             return self._rperirap
         EL= self.calcEL(**kwargs)
         E, L= EL
-        if self._vR == 0. and m.fabs(self._vT - vcirc(self._pot,self._R)) < _EPS: #We are on a circular orbit
+        if self._vR == 0. and m.fabs(self._vT - vcirc(self._pot,self._R,use_physical=False)) < _EPS: #We are on a circular orbit
             rperi= self._R
             rap = self._R
-        elif self._vR == 0. and self._vT > vcirc(self._pot,self._R): #We are exactly at pericenter
+        elif self._vR == 0. and self._vT > vcirc(self._pot,self._R,use_physical=False): #We are exactly at pericenter
             rperi= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R+10.**-8.,E,L,self._pot)
@@ -289,7 +289,7 @@ class actionAngleAxi(actionAngleVertical):
             rap= optimize.brentq(_rapRperiAxiEq,rperi+0.00001,rend,
                                  args=(E,L,self._pot))
 #                                   fprime=_rapRperiAxiDeriv)
-        elif self._vR == 0. and self._vT < vcirc(self._pot,self._R): #We are exactly at apocenter
+        elif self._vR == 0. and self._vT < vcirc(self._pot,self._R,use_physical=False): #We are exactly at apocenter
             rap= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R-10.**-8.,E,L,self._pot)

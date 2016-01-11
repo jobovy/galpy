@@ -11,6 +11,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 from galpy.util import multi, galpyWarning
 from galpy.potential_src.Potential import Potential
+from galpy.util.bovy_conversion import physical_conversion
 _DEBUG= False
 #Find and load the library
 _lib= None
@@ -407,6 +408,7 @@ class interpRZPotential(Potential):
         else:
             return evaluateDensities(self._origPot,R,z)
 
+    @physical_conversion('velocity',pop=True)
     @scalarDecorator
     def vcirc(self,R):
         from galpy.potential import vcirc
@@ -424,6 +426,7 @@ class interpRZPotential(Potential):
         else:
             return vcirc(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def dvcircdR(self,R):
         from galpy.potential import dvcircdR
@@ -441,6 +444,7 @@ class interpRZPotential(Potential):
         else:
             return dvcircdR(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def epifreq(self,R):
         from galpy.potential import epifreq
@@ -458,6 +462,7 @@ class interpRZPotential(Potential):
         else:
             return epifreq(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def verticalfreq(self,R):
         from galpy.potential import verticalfreq

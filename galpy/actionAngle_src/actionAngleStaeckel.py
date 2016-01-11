@@ -206,9 +206,9 @@ class actionAngleStaeckel(object):
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
-                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
-                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
-                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
+                Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
             else: #pragma: no cover
@@ -278,9 +278,9 @@ class actionAngleStaeckel(object):
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
-                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
-                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
-                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
+                Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
