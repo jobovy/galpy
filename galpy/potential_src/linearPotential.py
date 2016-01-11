@@ -5,6 +5,7 @@ import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.potential_src.Potential import PotentialError
+from galpy.util.bovy_conversion import physical_conversion
 class linearPotential(object):
     """Class representing 1D potentials"""
     def __init__(self,amp=1.):
@@ -14,6 +15,7 @@ class linearPotential(object):
         self.hasC= False
         return None
 
+    @physical_conversion('energy',pop=True)
     def __call__(self,x,t=0.):
         """
         NAME:
@@ -42,6 +44,7 @@ class linearPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
+    @physical_conversion('force',pop=True)
     def force(self,x,t=0.):
         """
         NAME:
@@ -124,6 +127,7 @@ class linearPotential(object):
                               xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                               xrange=[min,max])
 
+@physical_conversion('energy',pop=True)
 def evaluatelinearPotentials(Pot,x,t=0.):
     """
     NAME:
@@ -161,6 +165,7 @@ def evaluatelinearPotentials(Pot,x,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
+@physical_conversion('force',pop=True)
 def evaluatelinearForces(Pot,x,t=0.):
     """
     NAME:

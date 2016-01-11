@@ -93,11 +93,12 @@ class linearOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatelinearPotentials(pot,thiso[0],
-                                            t=t)\
+                                            t=t,use_physical=False)\
                                             +thiso[1]**2./2.
         else:
             return nu.array([evaluatelinearPotentials(pot,thiso[0,ii],
-                                                      t=t[ii])\
+                                                      t=t[ii],
+                                                      use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  for ii in range(len(t))])
 
@@ -146,7 +147,9 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
         else:
             method= 'odeint'
     if method.lower() == 'leapfrog':
-        return symplecticode.leapfrog(lambda x,t=t: evaluatelinearForces(pot,x,t=t),
+        return symplecticode.leapfrog(lambda x,t=t: evaluatelinearForces(pot,x,
+                                                                         t=t,
+                                                                         use_physical=False),
                                       nu.array(vxvv),
                                       t,rtol=10.**-8)
     elif method.lower() == 'odeint':
@@ -167,4 +170,4 @@ def _linearEOM(y,t,pot):
     HISTORY:
        2010-07-13 - Bovy (NYU)
     """
-    return [y[1],evaluatelinearForces(pot,y[0],t=t)]
+    return [y[1],evaluatelinearForces(pot,y[0],t=t,use_physical=False)]

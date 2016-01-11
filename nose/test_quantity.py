@@ -779,3 +779,10 @@ def test_planarPotential_method_returntype_scalar():
     assert isinstance(pot.lindbladR(0.9,m='corot'),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     return None
+
+def test_linearPotential_method_returntype_scalar():
+    from galpy.potential import PlummerPotential
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)
+    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
+    assert isinstance(pot.force(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    return None
