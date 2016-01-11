@@ -737,3 +737,28 @@ def test_change_vo_config():
     assert numpy.fabs(o._orb._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
     return None
 
+def test_potential_method_returntype_scalar():
+    from galpy.potential import PlummerPotential
+    pot= PlummerPotential(ro=8.,vo=220.)
+    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
+    assert isinstance(pot.Rforce(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot.zforce(1.1,0.1),units.Quantity), 'Potential method zforce does not return Quantity when it should'
+    assert isinstance(pot.phiforce(1.1,0.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
+    assert isinstance(pot.dens(1.1,0.1),units.Quantity), 'Potential method dens does not return Quantity when it should'
+    assert isinstance(pot.mass(1.1,0.1),units.Quantity), 'Potential method mass does not return Quantity when it should'
+    assert isinstance(pot.R2deriv(1.1,0.1),units.Quantity), 'Potential method R2deriv does not return Quantity when it should'
+    assert isinstance(pot.z2deriv(1.1,0.1),units.Quantity), 'Potential method z2deriv does not return Quantity when it should'
+    assert isinstance(pot.Rzderiv(1.1,0.1),units.Quantity), 'Potential method Rzderiv does not return Quantity when it should'
+    assert isinstance(pot.Rphideriv(1.1,0.1),units.Quantity), 'Potential method Rphideriv does not return Quantity when it should'
+    assert isinstance(pot.phi2deriv(1.1,0.1),units.Quantity), 'Potential method phi2deriv does not return Quantity when it should'
+    assert isinstance(pot.vcirc(1.1),units.Quantity), 'Potential method vcirc does not return Quantity when it should'
+    assert isinstance(pot.dvcircdR(1.1),units.Quantity), 'Potential method dvcircdR does not return Quantity when it should'
+    assert isinstance(pot.omegac(1.1),units.Quantity), 'Potential method omegac does not return Quantity when it should'
+    assert isinstance(pot.epifreq(1.1),units.Quantity), 'Potential method epifreq does not return Quantity when it should'
+    assert isinstance(pot.verticalfreq(1.1),units.Quantity), 'Potential method verticalfreq does not return Quantity when it should'
+    assert isinstance(pot.lindbladR(1.3),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
+    assert isinstance(pot.lindbladR(1.3,m='corot'),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
+    assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
+    assert isinstance(pot.rl(1.3),units.Quantity), 'Potential method rl does not return Quantity when it should'
+    assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
+    return None
