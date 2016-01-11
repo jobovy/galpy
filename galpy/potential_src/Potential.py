@@ -59,7 +59,7 @@ class Potential(object):
             self._voSet= True
         return None
 
-    @physical_conversion('energy')
+    @physical_conversion('energy',pop=True)
     def __call__(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
@@ -102,7 +102,7 @@ class Potential(object):
         elif dR != 0 or dphi != 0:
             raise NotImplementedError('Higher-order derivatives not implemented for this potential')
         
-    @physical_conversion('force')
+    @physical_conversion('force',pop=True)
     def Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -137,7 +137,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
         
-    @physical_conversion('force')
+    @physical_conversion('force',pop=True)
     def zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -172,7 +172,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_zforce' function not implemented for this potential")
 
-    @physical_conversion('density')
+    @physical_conversion('density',pop=True)
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         """
         NAME:
@@ -216,7 +216,7 @@ class Potential(object):
                      +self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)/R**2.
                      +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./nu.pi
 
-    @physical_conversion('mass')
+    @physical_conversion('mass',pop=True)
     def mass(self,R,z=None,t=0.,forceint=False):
         """
         NAME:
@@ -269,7 +269,7 @@ class Potential(object):
                                            *self.dens(x,y,use_physical=False),
                                        0.,R,lambda x: 0., lambda x: z)[0]
 
-    @physical_conversion('mass')
+    @physical_conversion('mass',pop=True)
     def mvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
              forceint=False):
         """
@@ -316,7 +316,7 @@ class Potential(object):
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
         return self.mass(rvir,forceint=forceint,use_physical=False)
 
-    @physical_conversion('forcederivative')
+    @physical_conversion('forcederivative',pop=True)
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -351,7 +351,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
-    @physical_conversion('forcederivative')
+    @physical_conversion('forcederivative',pop=True)
     def z2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -386,7 +386,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
-    @physical_conversion('forcederivative')
+    @physical_conversion('forcederivative',pop=True)
     def Rzderiv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -448,7 +448,7 @@ class Potential(object):
         """
         self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t,use_physical=False))
 
-    @physical_conversion('force')
+    @physical_conversion('force',pop=True)
     def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -483,7 +483,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             return 0.
 
-    @physical_conversion('forcederivative')
+    @physical_conversion('forcederivative',pop=True)
     def phi2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -518,7 +518,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             return 0.
 
-    @physical_conversion('forcederivative')
+    @physical_conversion('forcederivative',pop=True)
     def Rphideriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -773,7 +773,7 @@ class Potential(object):
                              justcontours=justcontours,
                              aspect=aspect,log=log)
 
-    @physical_conversion('velocity')
+    @physical_conversion('velocity',pop=True)
     def vcirc(self,R):
         """
         
@@ -800,7 +800,7 @@ class Potential(object):
         """
         return nu.sqrt(R*-self.Rforce(R,0.,use_physical=False))
 
-    @physical_conversion('frequency')
+    @physical_conversion('frequency',pop=True)
     def dvcircdR(self,R):
         """
         
@@ -830,7 +830,7 @@ class Potential(object):
                          +R*self.R2deriv(R,0.,use_physical=False))\
                          /self.vcirc(R,use_physical=False)
 
-    @physical_conversion('frequency')
+    @physical_conversion('frequency',pop=True)
     def omegac(self,R):
         """
         
@@ -857,7 +857,7 @@ class Potential(object):
         """
         return nu.sqrt(-self.Rforce(R,0.,use_physical=False)/R)
 
-    @physical_conversion('frequency')
+    @physical_conversion('frequency',pop=True)
     def epifreq(self,R):
         """
         
@@ -885,7 +885,7 @@ class Potential(object):
         return nu.sqrt(self.R2deriv(R,0.,use_physical=False)\
                            -3./R*self.Rforce(R,0.,use_physical=False))
 
-    @physical_conversion('frequency')
+    @physical_conversion('frequency',pop=True)
     def verticalfreq(self,R):
         """
         
@@ -912,7 +912,7 @@ class Potential(object):
         """
         return nu.sqrt(self.z2deriv(R,0.,use_physical=False))
 
-    @physical_conversion('position')
+    @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,**kwargs):
         """
         
@@ -943,7 +943,7 @@ class Potential(object):
         """
         return lindbladR(self,OmegaP,m=m,**kwargs)
 
-    @physical_conversion('velocity')
+    @physical_conversion('velocity',pop=True)
     def vesc(self,R):
         """
 
@@ -970,7 +970,7 @@ class Potential(object):
         """
         return nu.sqrt(2.*(self(_INF,0.)-self(R,0.)))
         
-    @physical_conversion('position')
+    @physical_conversion('position',pop=True)
     def rl(self,lz):
         """
         NAME:
@@ -1031,7 +1031,7 @@ class Potential(object):
         return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z,use_physical=False)\
                                    /self.zforce(R,z,use_physical=False)))
 
-    @physical_conversion('velocity')
+    @physical_conversion('velocity',pop=True)
     def vterm(self,l,deg=True):
         """
         
