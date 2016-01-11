@@ -481,11 +481,19 @@ def physical_conversion(quantity,pop=False):
             ro= kwargs.get('ro',None)
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
+            if ro is None and isinstance(args[0],list) \
+                    and hasattr(args[0][0],'_roSet') and args[0][0]._roSet:
+                # For lists of Potentials
+                ro= args[0][0]._ro
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
                 vo= args[0]._vo
+            if vo is None and isinstance(args[0],list) \
+                    and hasattr(args[0][0],'_voSet') and args[0][0]._voSet:
+                # For lists of Potentials
+                vo= args[0][0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             #Remove ro and vo kwargs if necessary
