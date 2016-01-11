@@ -739,7 +739,7 @@ def test_change_vo_config():
 
 def test_potential_method_returntype_scalar():
     from galpy.potential import PlummerPotential
-    pot= PlummerPotential(ro=8.,vo=220.)
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
     assert isinstance(pot.Rforce(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
     assert isinstance(pot.zforce(1.1,0.1),units.Quantity), 'Potential method zforce does not return Quantity when it should'
@@ -756,8 +756,8 @@ def test_potential_method_returntype_scalar():
     assert isinstance(pot.omegac(1.1),units.Quantity), 'Potential method omegac does not return Quantity when it should'
     assert isinstance(pot.epifreq(1.1),units.Quantity), 'Potential method epifreq does not return Quantity when it should'
     assert isinstance(pot.verticalfreq(1.1),units.Quantity), 'Potential method verticalfreq does not return Quantity when it should'
-    assert isinstance(pot.lindbladR(1.3),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
-    assert isinstance(pot.lindbladR(1.3,m='corot'),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
+    assert pot.lindbladR(0.9) is None, 'Potential method lindbladR does not return None, even when it should return a Quantity, when it should'
+    assert isinstance(pot.lindbladR(0.9,m='corot'),units.Quantity), 'Potential method lindbladR does not return Quantity when it should'
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     assert isinstance(pot.rl(1.3),units.Quantity), 'Potential method rl does not return Quantity when it should'
     assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
