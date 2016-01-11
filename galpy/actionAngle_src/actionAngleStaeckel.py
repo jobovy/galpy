@@ -106,7 +106,7 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([evaluatePotentials(self._pot,R[ii],z[ii]) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -191,7 +191,7 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([evaluatePotentials(self._pot,R[ii],z[ii]) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -261,7 +261,7 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([evaluatePotentials(self._pot,R[ii],z[ii]) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -710,7 +710,7 @@ def calcELStaeckel(R,vR,vT,z,vz,pot,vc=1.,ro=1.):
     HISTORY:
        2012-11-30 - Written - Bovy (IAS)
     """                           
-    return (evaluatePotentials(R,z,pot)+vR**2./2.+vT**2./2.+vz**2./2.,R*vT)
+    return (evaluatePotentials(pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.,R*vT)
 
 def potentialStaeckel(u,v,pot,delta):
     """
@@ -729,7 +729,7 @@ def potentialStaeckel(u,v,pot,delta):
        2012-11-29 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluatePotentials(R,z,pot)
+    return evaluatePotentials(pot,R,z)
 
 def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
@@ -748,7 +748,7 @@ def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
        2012-11-30 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluateRforces(R,z,pot)
+    return evaluateRforces(pot,R,z)
 
 def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
@@ -767,7 +767,7 @@ def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
        2012-11-30 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluatezforces(R,z,pot)
+    return evaluatezforces(pot,R,z)
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                          potu0v0,pot):
@@ -874,18 +874,18 @@ def estimateDeltaStaeckel(R,z,pot=None):
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
-                           +(3.*R[ii]*evaluatezforces(R[ii],z[ii],pot)
-                             -3.*z[ii]*evaluateRforces(R[ii],z[ii],pot)
-                             +R[ii]*z[ii]*(evaluateR2derivs(R[ii],z[ii],pot)
-                                           -evaluatez2derivs(R[ii],z[ii],pot)))/evaluateRzderivs(R[ii],z[ii],pot)) for ii in range(len(R))])
+                           +(3.*R[ii]*evaluatezforces(pot,R[ii],z[ii])
+                             -3.*z[ii]*evaluateRforces(pot,R[ii],z[ii])
+                             +R[ii]*z[ii]*(evaluateR2derivs(pot,R[ii],z[ii])
+                                           -evaluatez2derivs(pot,R[ii],z[ii])))/evaluateRzderivs(pot,R[ii],z[ii])) for ii in range(len(R))])
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
         delta2= nu.median(delta2[True-nu.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
-                 +(3.*R*evaluatezforces(R,z,pot)
-                   -3.*z*evaluateRforces(R,z,pot)
-                   +R*z*(evaluateR2derivs(R,z,pot)
-                         -evaluatez2derivs(R,z,pot)))/evaluateRzderivs(R,z,pot))
+                 +(3.*R*evaluatezforces(pot,R,z)
+                   -3.*z*evaluateRforces(pot,R,z)
+                   +R*z*(evaluateR2derivs(pot,R,z)
+                         -evaluatez2derivs(pot,R,z)))/evaluateRzderivs(pot,R,z))
         if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
     return nu.sqrt(delta2)

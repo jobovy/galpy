@@ -91,7 +91,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -154,7 +154,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -233,7 +233,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
