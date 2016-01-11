@@ -5,6 +5,7 @@ import pickle
 import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
+from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
@@ -19,6 +20,7 @@ class planarPotential(object):
         self.hasC_dxdv= False
         return None
 
+    @physical_conversion('energy',pop=True)
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
@@ -64,6 +66,7 @@ class planarPotential(object):
         elif dR == 1 and dphi == 1:
             return self.Rphideriv(R,phi=phi,t=t)
 
+    @physical_conversion('force',pop=True)
     def Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -96,6 +99,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
+    @physical_conversion('force',pop=True)
     def phiforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -128,6 +132,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
+    @physical_conversion('forcederivative',pop=True)
     def R2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -160,6 +165,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    @physical_conversion('forcederivative',pop=True)
     def phi2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -192,6 +198,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
+    @physical_conversion('forcederivative',pop=True)
     def Rphideriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -288,6 +295,7 @@ class planarAxiPotential(planarPotential):
         """
         return 0.
 
+    @physical_conversion('velocity',pop=True)
     def vcirc(self,R):
         """
         
@@ -316,6 +324,7 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(R*-self.Rforce(R))       
 
+    @physical_conversion('frequency',pop=True)
     def omegac(self,R):
         """
         
@@ -344,6 +353,7 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(-self.Rforce(R)/R)       
 
+    @physical_conversion('frequency',pop=True)
     def epifreq(self,R):
         """
         
@@ -370,6 +380,7 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(self.R2deriv(R)-3./R*self.Rforce(R))
 
+    @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,**kwargs):
         """
         
@@ -400,6 +411,7 @@ class planarAxiPotential(planarPotential):
         """
         return lindbladR(self,OmegaP,m=m,**kwargs)
 
+    @physical_conversion('velocity',pop=True)
     def vesc(self,R):
         """
 
@@ -507,6 +519,11 @@ class planarPotentialFromRZPotential(planarAxiPotential):
            2010-07-13 - Written - Bovy (NYU)
         """
         planarAxiPotential.__init__(self,amp=1.)
+        # Also transfer ro and vo
+        self._ro= RZPot._ro
+        self._roSet= RZPot._roSet
+        self._vo= RZPot._vo
+        self._voSet= RZPot._voSet
         self._RZPot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
@@ -527,7 +544,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.,t=t)
+        return self._RZPot(R,0.,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -544,7 +561,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.Rforce(R,0.,t=t)
+        return self._RZPot.Rforce(R,0.,t=t,use_physical=False)
 
     def _R2deriv(self,R,phi=0.,t=0.):
         """
@@ -561,7 +578,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        return self._RZPot.R2deriv(R,0.,t=t)
+        return self._RZPot.R2deriv(R,0.,t=t,use_physical=False)
             
 def RZToplanarPotential(RZPot):
     """
