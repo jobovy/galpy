@@ -109,13 +109,13 @@ class RZOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],thiso[3],
-                                      t=t)\
+                                      t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.\
                                       +thiso[4]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
@@ -153,12 +153,12 @@ class RZOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],0.,
-                                      t=t)\
+                                      t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],0.,
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -195,15 +195,16 @@ class RZOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],thiso[3],
-                                      t=t)\
+                                      t=t,use_physical=False)\
                                       -evaluatePotentials(pot,thiso[0],0.,
-                                                          t=t)\
+                                                          t=t,
+                                                          use_physical=False)\
                                                           +thiso[4]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  -evaluatePotentials(pot,thiso[0,ii],0.,
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     @physical_conversion('energy')
@@ -414,11 +415,13 @@ class RZOrbit(OrbitTop):
             pot= kwargs.pop('pot')
         d1= kwargs.pop('d1','t')
         self.EzJz= [(evaluatePotentials(pot,self.orbit[ii,0],self.orbit[ii,3],
-                                        t=self.t[ii])-
-                     evaluatePotentials(pot,self.orbit[ii,0],0.,t=self.t[ii])+
+                                        t=self.t[ii],use_physical=False)-
+                     evaluatePotentials(pot,self.orbit[ii,0],0.,t=self.t[ii],
+                                        use_physical=False)+
                      self.orbit[ii,4]**2./2.)/\
                         nu.sqrt(evaluateDensities(pot,self.orbit[ii,0],0.,
-                                                  t=self.t[ii]))\
+                                                  t=self.t[ii],
+                                                  use_physical=False))\
                         for ii in range(len(self.t))]
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
@@ -516,7 +519,7 @@ def _RZEOM(y,t,pot,l2):
        2010-04-16 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(pot,y[0],y[2],t=t),
+            l2/y[0]**3.+evaluateRforces(pot,y[0],y[2],t=t,use_physical=False),
             y[3],
-            evaluatezforces(pot,y[0],y[2],t=t)]
+            evaluatezforces(pot,y[0],y[2],t=t,use_physical=False)]
 

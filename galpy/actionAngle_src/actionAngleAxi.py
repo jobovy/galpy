@@ -360,7 +360,7 @@ def potentialAxi(R,pot,vc=1.,ro=1.):
     HISTORY:
        2010-11-30 - Written - Bovy (NYU)
     """
-    return evaluateplanarPotentials(pot,R)
+    return evaluateplanarPotentials(pot,R,use_physical=False)
 
 def _JRAxiIntegrand(r,E,L,pot):
     """The J_R integrand"""

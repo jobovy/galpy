@@ -290,12 +290,13 @@ class planarROrbit(planarOrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluateplanarPotentials(thispot,thiso[0],
-                                            t=t)\
+                                            t=t,use_physical=False)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
             return nu.array([evaluateplanarPotentials(thispot,thiso[0,ii],
-                                                      t=t[ii])\
+                                                      t=t[ii],
+                                                      use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
         
@@ -444,13 +445,15 @@ class planarOrbit(planarOrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluateplanarPotentials(thispot,thiso[0],
-                                            phi=thiso[3],t=t)\
+                                            phi=thiso[3],t=t,
+                                            use_physical=False)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
             return nu.array([evaluateplanarPotentials(thispot,thiso[0,ii],
                                                       phi=thiso[3,ii],
-                                                      t=t[ii])\
+                                                      t=t[ii],
+                                                      use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -557,7 +560,7 @@ def _REOM(y,t,pot,l2):
        2010-07-20 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],t=t)]
+            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],t=t,use_physical=False)]
 
 def _integrateOrbit(vxvv,pot,t,method,dt):
     """
@@ -767,11 +770,14 @@ def _EOM_dxdv(x,t,pot):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    R2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
-    phi2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
-    Rphideriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
+    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t,use_physical=False)
+    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t,use_physical=False)
+    R2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2,
+                                      use_physical=False)
+    phi2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2,
+                                        use_physical=False)
+    Rphideriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1,
+                                        use_physical=False)
     #Calculate derivatives and derivatives+time derivatives
     dFxdx= -cosphi**2.*R2deriv\
            +2.*cosphi*sinphi/R**2.*phiforce\
@@ -819,9 +825,11 @@ def _EOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
+            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],phi=y[2],t=t,
+                                              use_physical=False),
             y[3],
-            1./y[0]**2.*(evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
+            1./y[0]**2.*(evaluateplanarphiforces(pot,y[0],phi=y[2],t=t,
+                                                 use_physical=False)-
                          2.*y[0]*y[1]*y[3])]
 
 def _rectForce(x,pot,t=0.):
@@ -846,8 +854,8 @@ def _rectForce(x,pot,t=0.):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t)
+    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t,use_physical=False)
+    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t,use_physical=False)
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
 

@@ -176,14 +176,14 @@ class FullOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],thiso[3],
-                                      phi=thiso[5],t=t)\
+                                      phi=thiso[5],t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.\
                                       +thiso[4]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
                                                 phi=thiso[5,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
@@ -221,13 +221,13 @@ class FullOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],0.,
-                                      phi=thiso[5],t=t)\
+                                      phi=thiso[5],t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],0.,
                                                 phi=thiso[5,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -264,17 +264,18 @@ class FullOrbit(OrbitTop):
         onet= (len(thiso.shape) == 1)
         if onet:
             return evaluatePotentials(pot,thiso[0],thiso[3],
-                                      phi=thiso[5],t=t)\
+                                      phi=thiso[5],t=t,use_physical=False)\
                                       -evaluatePotentials(pot,thiso[0],0.,
-                                                          phi=thiso[5],t=t)\
+                                                          phi=thiso[5],t=t,
+                                                          use_physical=False)\
                                                           +thiso[4]**2./2.
         else:
             return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
                                                 phi=thiso[5,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  -evaluatePotentials(pot,thiso[0,ii],0.,
                                                      phi=thiso[5,ii],
-                                                t=t[ii])\
+                                                t=t[ii],use_physical=False)\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
@@ -509,13 +510,15 @@ class FullOrbit(OrbitTop):
             pot= kwargs.pop('pot')
         d1= kwargs.pop('d1','t')
         self.EzJz= [(evaluatePotentials(pot,self.orbit[ii,0],self.orbit[ii,3],
-                                        t=self.t[ii])-
+                                        t=self.t[ii],use_physical=False)-
                      evaluatePotentials(pot,self.orbit[ii,0],0.,
-                                        phi= self.orbit[ii,5],t=self.t[ii])+
+                                        phi= self.orbit[ii,5],t=self.t[ii],
+                                        use_physical=False)+
                      self.orbit[ii,4]**2./2.)/\
                         nu.sqrt(evaluateDensities(pot,self.orbit[ii,0],0.,
                                                   phi=self.orbit[ii,5],
-                                                  t=self.t[ii]))\
+                                                  t=self.t[ii],
+                                                  use_physical=False))\
                         for ii in range(len(self.t))]
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
@@ -656,12 +659,14 @@ def _FullEOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(pot,y[0],y[4],phi=y[2],t=t),
+            l2/y[0]**3.+evaluateRforces(pot,y[0],y[4],phi=y[2],t=t,
+                                        use_physical=False),
             y[3],
-            1./y[0]**2.*(evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t)-
+            1./y[0]**2.*(evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t,
+                                           use_physical=False)-
                          2.*y[0]*y[1]*y[3]),
             y[5],
-            evaluatezforces(pot,y[0],y[4],phi=y[2],t=t)]
+            evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,use_physical=False)]
 
 def _rectForce(x,pot,t=0.):
     """
@@ -685,11 +690,12 @@ def _rectForce(x,pot,t=0.):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateRforces(pot,R,x[2],phi=phi,t=t)
-    phiforce= evaluatephiforces(pot,R,x[2],phi=phi,t=t)
+    Rforce= evaluateRforces(pot,R,x[2],phi=phi,t=t,use_physical=False)
+    phiforce= evaluatephiforces(pot,R,x[2],phi=phi,t=t,use_physical=False)
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
-                     evaluatezforces(pot,R,x[2],phi=phi,t=t)])
+                     evaluatezforces(pot,R,x[2],phi=phi,t=t,
+                                     use_physical=False)])
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                customsky=False,lb_to_customsky=None,
