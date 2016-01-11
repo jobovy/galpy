@@ -567,11 +567,13 @@ def physical_conversion(quantity,pop=False):
                     fac= freq_in_Gyr(vo,ro)**2.
                     if _APY_UNITS:
                         u= units.Gyr**-2.
+                out= method(*args,**kwargs)
+                if out is None:
+                    return out
                 if _APY_UNITS:
-                    return units.Quantity(method(*args,**kwargs)*fac,
-                                          unit=u)
+                    return units.Quantity(out*fac,unit=u)
                 else:
-                    return method(*args,**kwargs)*fac
+                    return out*fac
             else:
                 return method(*args,**kwargs)
         return wrapped
