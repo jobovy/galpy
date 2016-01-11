@@ -1012,7 +1012,7 @@ def _a_integrand(T,y,b,w,pot,compt):
     t = T/(1-T*T)
     X = b+w*t+y*numpy.array([0,1,0])
     r = numpy.sqrt(numpy.sum(X**2))
-    return (1+T*T)/(1-T*T)**2*evaluateRforces(r,0.,pot)*X[compt]/r
+    return (1+T*T)/(1-T*T)**2*evaluateRforces(pot,r,0.)*X[compt]/r
 
 def _deltav_integrate(y,b,w,pot):
     return numpy.array([integrate.quad(_a_integrand,-1.,1.,args=(y,b,w,pot,i))[0] for i in range(3)])
@@ -1180,7 +1180,7 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
     nsamp = len(times)
     X = b0+xres-x0-numpy.outer(times,w)
     r = numpy.sqrt(numpy.sum(X**2,axis=-1))
-    acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
+    acc = (numpy.reshape(evaluateRforces(pot,r.flatten(),0.),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
 def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
