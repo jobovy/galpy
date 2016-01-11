@@ -124,7 +124,7 @@ class linearPotential(object):
                               xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                               xrange=[min,max])
 
-def evaluatelinearPotentials(x,Pot,t=0.):
+def evaluatelinearPotentials(Pot,x,t=0.):
     """
     NAME:
 
@@ -136,9 +136,9 @@ def evaluatelinearPotentials(x,Pot,t=0.):
 
     INPUT:
 
-       x - evaluate potentials at this position
-
        Pot - (list of) linearPotential instance(s)
+
+       x - evaluate potentials at this position
 
        t - time to evaluate at
 
@@ -161,7 +161,7 @@ def evaluatelinearPotentials(x,Pot,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
-def evaluatelinearForces(x,Pot,t=0.):
+def evaluatelinearForces(Pot,x,t=0.):
     """
     NAME:
 
@@ -173,9 +173,9 @@ def evaluatelinearForces(x,Pot,t=0.):
 
     INPUT:
 
-       x - evaluate forces at this position
-
        Pot - (list of) linearPotential instance(s)
+
+       x - evaluate forces at this position
 
        t - time to evaluate at
 
@@ -239,7 +239,7 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         xs= nu.linspace(min,max,ns)
         potx= nu.zeros(ns)
         for ii in range(ns):
-            potx[ii]= evaluatelinearPotentials(xs[ii],Pot,t=t)
+            potx[ii]= evaluatelinearPotentials(Pot,xs[ii],t=t)
         if not savefilename == None:
             print("Writing savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')

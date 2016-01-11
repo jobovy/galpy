@@ -180,7 +180,7 @@ def potentialVertical(z,pot):
     HISTORY:
        2012-06-01 - Written - Bovy (IAS)
     """
-    return evaluatelinearPotentials(z,pot)
+    return evaluatelinearPotentials(pot,z)
 
 def _JzIntegrand(z,Ez,pot):
     """The J_z integrand"""

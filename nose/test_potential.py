@@ -135,9 +135,9 @@ def test_forceAsDeriv_potential():
                 newR= Rs[ii]+dr
                 dr= newR-Rs[ii] #Representable number
                 if isinstance(tp,potential.linearPotential): 
-                    mpotderivR= (potential.evaluatelinearPotentials(Rs[ii],tp)
-                                 -potential.evaluatelinearPotentials(Rs[ii]+dr,tp))/dr
-                    tRforce= potential.evaluatelinearForces(Rs[ii],tp)
+                    mpotderivR= (potential.evaluatelinearPotentials(tp,Rs[ii])
+                                 -potential.evaluatelinearPotentials(tp,Rs[ii]+dr))/dr
+                    tRforce= potential.evaluatelinearForces(tp,Rs[ii])
                 elif isinstance(tp,potential.planarPotential):
                     mpotderivR= (potential.evaluateplanarPotentials(tp,Rs[ii],phi=Zs[jj])-potential.evaluateplanarPotentials(tp,Rs[ii]+dr,phi=Zs[jj]))/dr
                     tRforce= potential.evaluateplanarRforces(tp,Rs[ii],
@@ -1870,9 +1870,9 @@ class testlinearMWPotential(linearPotential):
         linearPotential.__init__(self,amp=1.)
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
-        return evaluatelinearPotentials(R,self._potlist,t=t)
+        return evaluatelinearPotentials(self._potlist,R,t=t)
     def _force(self,R,t=0.):
-        return evaluatelinearForces(R,self._potlist,t=t)
+        return evaluatelinearForces(self._potlist,R,t=t)
     def normalize(self,norm,t=0.):
         self._amp= norm
 
