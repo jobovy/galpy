@@ -477,7 +477,7 @@ def physical_conversion(quantity,pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
-            use_physical= kwargs.pop('use_physical',True)
+            use_physical= kwargs.get('use_physical',True)
             ro= kwargs.get('ro',None)
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
@@ -497,6 +497,7 @@ def physical_conversion(quantity,pop=False):
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             #Remove ro and vo kwargs if necessary
+            if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and \
