@@ -1581,8 +1581,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= evaluatePotentials(nu.fabs(Rs[ii]),
-                                                     zs[jj],Pot)
+                    potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(Rs[ii]),
+                                                     zs[jj])
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -1655,8 +1655,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= evaluateDensities(nu.fabs(Rs[ii]),
-                                                    zs[jj],Pot)
+                    potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(Rs[ii]),
+                                                    zs[jj])
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -1711,13 +1711,13 @@ def epifreq(Pot,R):
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot,use_physical=False)
-                       -3./R*evaluateplanarRforces(R,Pot,use_physical=False))
+        return nu.sqrt(evaluateplanarR2derivs(Pot,R,use_physical=False)
+                       -3./R*evaluateplanarRforces(Pot,R,use_physical=False))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot,use_physical=False)
-                       -3./R*evaluateplanarRforces(R,Pot,use_physical=False))
+        return nu.sqrt(evaluateplanarR2derivs(Pot,R,use_physical=False)
+                       -3./R*evaluateplanarRforces(Pot,R,use_physical=False))
 
 @physical_conversion('frequency',pop=True)
 def verticalfreq(Pot,R):
@@ -1749,7 +1749,7 @@ def verticalfreq(Pot,R):
     from galpy.potential_src.planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.verticalfreq(R,use_physical=False)
-    return nu.sqrt(evaluatez2derivs(R,0.,Pot,use_physical=False))
+    return nu.sqrt(evaluatez2derivs(Pot,R,0.,use_physical=False))
 
 def flattening(Pot,R,z):
     """
@@ -1779,8 +1779,8 @@ def flattening(Pot,R,z):
         2012-09-13 - Written - Bovy (IAS)
     
     """
-    return nu.sqrt(nu.fabs(z/R*evaluateRforces(R,z,Pot,use_physical=False)\
-                               /evaluatezforces(R,z,Pot,use_physical=False)))
+    return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,use_physical=False)\
+                               /evaluatezforces(Pot,R,z,use_physical=False)))
 
 @physical_conversion('velocity',pop=True)
 def vterm(Pot,l,deg=True):
@@ -1973,11 +1973,11 @@ def omegac(Pot,R):
     """
     from galpy.potential import evaluateplanarRforces
     try:
-        return nu.sqrt(-evaluateplanarRforces(R,Pot,use_physical=False)/R)
+        return nu.sqrt(-evaluateplanarRforces(Pot,R,use_physical=False)/R)
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(-evaluateplanarRforces(R,Pot,use_physical=False)/R)
+        return nu.sqrt(-evaluateplanarRforces(Pot,R,use_physical=False)/R)
 
 def nemo_accname(Pot):
     """
