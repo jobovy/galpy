@@ -34,19 +34,19 @@ def test_interpolation_potential():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot(r,z)
-                              -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
+                              -potential.evaluatePotentials(potential.MWPotential,r,z))/potential.evaluatePotentials(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot(r,z)
-                              -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-6., 'RZPot interpolation w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
+                              -potential.evaluatePotentials(potential.MWPotential,r,z))/potential.evaluatePotentials(potential.MWPotential,r,z)) < 10.**-6., 'RZPot interpolation w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
     #Test all at the same time to use vector evaluation
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input'
     #Test the interpolation of the potential, now with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -59,7 +59,7 @@ def test_interpolation_potential():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR'
     #Test the interpolation of the potential, w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,101),
@@ -72,7 +72,7 @@ def test_interpolation_potential():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/o zsym'
     #Test the interpolation of the potential, w/o zsym and with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -86,7 +86,7 @@ def test_interpolation_potential():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
 def test_interpolation_potential_diffinputs():
@@ -101,9 +101,9 @@ def test_interpolation_potential_diffinputs():
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     #R vector, z scalar
-    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs))))/potential.evaluatePotentials(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs)))) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     #R scalar, z vector
-    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs))/potential.evaluatePotentials(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 def test_interpolation_potential_c():
@@ -121,7 +121,7 @@ def test_interpolation_potential_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
     #now w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,151),
@@ -130,7 +130,7 @@ def test_interpolation_potential_c():
                                        interpPot=True,
                                        enable_c=True,
                                        zsym=False)
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/o zsym'
     #now with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -145,7 +145,7 @@ def test_interpolation_potential_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR'
     #now with logR and w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -160,7 +160,7 @@ def test_interpolation_potential_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 2.*10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
     return None
 
 def test_interpolation_potential_diffinputs_c():
@@ -175,9 +175,9 @@ def test_interpolation_potential_diffinputs_c():
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     #R vector, z scalar
-    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatePotentials(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot(rs,zs[10])-potential.evaluatePotentials(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs))))/potential.evaluatePotentials(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs)),)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     #R scalar, z vector
-    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatePotentials(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot(rs[10],zs)-potential.evaluatePotentials(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs))/potential.evaluatePotentials(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 def test_interpolation_potential_c_vdiffgridsizes():
@@ -195,7 +195,7 @@ def test_interpolation_potential_c_vdiffgridsizes():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(mr,mz,potential.MWPotential))/potential.evaluatePotentials(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot(mr,mz)-potential.evaluatePotentials(potential.MWPotential,mr,mz))/potential.evaluatePotentials(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector input, using C'
     return None
 
 def test_interpolation_potential_use_c():
@@ -231,7 +231,7 @@ def test_interpolation_potential_outsidegrid():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot(r,z)
-                               -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatePotentials(potential.MWPotential,r,z))/potential.evaluatePotentials(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test evaluation outside the grid in C
@@ -248,7 +248,7 @@ def test_interpolation_potential_outsidegrid_c():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot(r,z)
-                               -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatePotentials(potential.MWPotential,r,z))/potential.evaluatePotentials(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
 def test_interpolation_potential_notinterpolated():
@@ -263,7 +263,7 @@ def test_interpolation_potential_notinterpolated():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot(r,z)
-                               -potential.evaluatePotentials(r,z,potential.MWPotential))/potential.evaluatePotentials(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatePotentials(potential.MWPotential,r,z))/potential.evaluatePotentials(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test Rforce and zforce
@@ -282,26 +282,26 @@ def test_interpolation_potential_force():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.Rforce(r,z)
-                               -potential.evaluateRforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential))  < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateRforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z))  < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
             assert numpy.fabs((rzpot.zforce(r,z)
-                              -potential.evaluatezforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
+                              -potential.evaluatezforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = (%g,%g)' % (r,z)
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     for r in rs:
         for z in zs:
             rforcediff= numpy.fabs((rzpot.Rforce(r,z)
-                              -potential.evaluateRforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential)) 
+                              -potential.evaluateRforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z)) 
             assert rforcediff < 10.**-5., 'RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = (%g,%g) by %g' % (r,z,rforcediff)
             zforcediff= numpy.fabs((rzpot.zforce(r,z)
-                              -potential.evaluatezforces(r,z,potential.MWPotential))/potential.evaluatezforces(r,z,potential.MWPotential)) 
+                              -potential.evaluatezforces(potential.MWPotential,r,z))/potential.evaluatezforces(potential.MWPotential,r,z)) 
             assert zforcediff < 5.*10.**-5., 'RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = (%g,%g) by %g' % (r,z,zforcediff)
     #Test all at the same time to use vector evaluation
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input'
     #Test the interpolation of the potential, now with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -314,8 +314,8 @@ def test_interpolation_potential_force():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/ logR'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/ logR'
     #Test the interpolation of the potential, w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
@@ -328,8 +328,8 @@ def test_interpolation_potential_force():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 4.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/o zsym'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 4.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 4.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 4.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/o zsym'
     #Test the interpolation of the potential, w/o zsym and with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -343,8 +343,8 @@ def test_interpolation_potential_force():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
 def test_interpolation_potential_force_diffinputs():
@@ -359,11 +359,11 @@ def test_interpolation_potential_force_diffinputs():
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     #R vector, z scalar
-    assert numpy.all(numpy.fabs((rzpot.Rforce(rs,zs[10])-potential.evaluateRforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluateRforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of of Rforce w/ interpRZPotential fails for vector R and scalar Z'
-    assert numpy.all(numpy.fabs((rzpot.zforce(rs,zs[10])-potential.evaluatezforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluatezforces(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of of zforce w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(rs,zs[10])-potential.evaluateRforces(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs))))/potential.evaluateRforces(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs)))) < 10.**-5.), 'RZPot interpolation of of Rforce w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.zforce(rs,zs[10])-potential.evaluatezforces(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs))))/potential.evaluatezforces(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs)))) < 10.**-5.), 'RZPot interpolation of of zforce w/ interpRZPotential fails for vector R and scalar Z'
     #R scalar, z vector
-    assert numpy.all(numpy.fabs((rzpot.Rforce(rs[10],zs)-potential.evaluateRforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluateRforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
-    assert numpy.all(numpy.fabs((rzpot.zforce(rs[10],zs)-potential.evaluatezforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluatezforces(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(rs[10],zs)-potential.evaluateRforces(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs))/potential.evaluateRforces(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.zforce(rs[10],zs)-potential.evaluatezforces(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs))/potential.evaluatezforces(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs)) < 10.**-6.), 'RZPot interpolation w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 # Test Rforce in C
@@ -382,8 +382,8 @@ def test_interpolation_potential_force_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C'
     #now w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,251),
@@ -392,8 +392,8 @@ def test_interpolation_potential_force_c():
                                        interpRforce=True,interpzforce=True,
                                        enable_c=True,
                                        zsym=False)
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/o zsym'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz,))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/o zsym'
     #now with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -408,8 +408,8 @@ def test_interpolation_potential_force_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation Rforcew/ interpRZPotential fails for vector input, using C, w/ logR'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 10.**-5.), 'RZPot interpolation zforcew/ interpRZPotential fails for vector input, using C, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation Rforcew/ interpRZPotential fails for vector input, using C, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 10.**-5.), 'RZPot interpolation zforcew/ interpRZPotential fails for vector input, using C, w/ logR'
     #now with logR and w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -424,8 +424,8 @@ def test_interpolation_potential_force_c():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 2.*10.**-5.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym'
     return None
 
 def test_interpolation_potential_force_c_vdiffgridsizes():
@@ -443,8 +443,8 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(mr,mz,potential.MWPotential))/potential.evaluateRforces(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C'
-    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(mr,mz,potential.MWPotential))/potential.evaluatezforces(mr,mz,potential.MWPotential)) < 10.**-6.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot.Rforce(mr,mz)-potential.evaluateRforces(potential.MWPotential,mr,mz))/potential.evaluateRforces(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C'
+    assert numpy.all(numpy.fabs((rzpot.zforce(mr,mz)-potential.evaluatezforces(potential.MWPotential,mr,mz))/potential.evaluatezforces(potential.MWPotential,mr,mz)) < 10.**-6.), 'RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C'
     return None
 
 def test_interpolation_potential_force_use_c():
@@ -482,9 +482,9 @@ def test_interpolation_potential_force_outsidegrid():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.Rforce(r,z)
-                               -potential.evaluateRforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateRforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
             assert numpy.fabs((rzpot.zforce(r,z)
-                               -potential.evaluatezforces(r,z,potential.MWPotential))/potential.evaluatezforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatezforces(potential.MWPotential,r,z))/potential.evaluatezforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test evaluation outside the grid in C
@@ -501,9 +501,9 @@ def test_interpolation_potential_force_outsidegrid_c():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.Rforce(r,z)
-                               -potential.evaluateRforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateRforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
             assert numpy.fabs((rzpot.zforce(r,z)
-                               -potential.evaluatezforces(r,z,potential.MWPotential))/potential.evaluatezforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatezforces(potential.MWPotential,r,z))/potential.evaluatezforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
 def test_interpolation_potential_force_notinterpolated():
@@ -518,9 +518,9 @@ def test_interpolation_potential_force_notinterpolated():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.Rforce(r,z)
-                               -potential.evaluateRforces(r,z,potential.MWPotential))/potential.evaluateRforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateRforces(potential.MWPotential,r,z))/potential.evaluateRforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of Rforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
             assert numpy.fabs((rzpot.zforce(r,z)
-                               -potential.evaluatezforces(r,z,potential.MWPotential))/potential.evaluatezforces(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluatezforces(potential.MWPotential,r,z))/potential.evaluatezforces(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of zforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test RZderiv, taken from the origPot, so quite trivial
@@ -536,7 +536,7 @@ def test_interpolation_potential_rzderiv():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.Rzderiv(mr,mz)-potential.evaluateRzderivs(mr,mz,potential.MWPotential))/potential.evaluateRzderivs(mr,mz,potential.MWPotential)) < 10.**-10.), 'RZPot interpolation of Rzderiv (which is not an interpolation at all) w/ interpRZPotential fails for vector input'
+    assert numpy.all(numpy.fabs((rzpot.Rzderiv(mr,mz)-potential.evaluateRzderivs(potential.MWPotential,mr,mz))/potential.evaluateRzderivs(potential.MWPotential,mr,mz)) < 10.**-10.), 'RZPot interpolation of Rzderiv (which is not an interpolation at all) w/ interpRZPotential fails for vector input'
     return None
 
 # Test density
@@ -554,7 +554,7 @@ def test_interpolation_potential_dens():
     for r in rs:
         for z in zs:
             densdiff= numpy.fabs((rzpot.dens(r,z)
-                              -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) 
+                              -potential.evaluateDensities(potential.MWPotential,r,z))/potential.evaluateDensities(potential.MWPotential,r,z)) 
             assert densdiff < 10.**-10., 'RZPot interpolation of density of density w/ interpRZPotential fails at (R,z) = (%g,%g) by %g' % (r,z,densdiff)
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,20)
@@ -562,13 +562,13 @@ def test_interpolation_potential_dens():
     for r in rs:
         for z in zs:
             densdiff= numpy.fabs((rzpot.dens(r,z)
-                               -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) 
+                               -potential.evaluateDensities(potential.MWPotential,r,z))/potential.evaluateDensities(potential.MWPotential,r,z)) 
             assert densdiff < 4.*10.**-6., 'RZPot interpolation of density w/ interpRZPotential fails at (R,z) = (%g,%g) by %g' % (r,z,densdiff)
     #Test all at the same time to use vector evaluation
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input'
+    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(potential.MWPotential,mr,mz))/potential.evaluateDensities(potential.MWPotential,mr,mz)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input'
     #Test the interpolation of the potential, now with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -581,7 +581,7 @@ def test_interpolation_potential_dens():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input, w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(potential.MWPotential,mr,mz))/potential.evaluateDensities(potential.MWPotential,mr,mz)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input, w/ logR'
     #Test the interpolation of the potential, w/o zsym
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(0.01,2.,201),
@@ -594,7 +594,7 @@ def test_interpolation_potential_dens():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input, w/o zsym'
+    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(potential.MWPotential,mr,mz))/potential.evaluateDensities(potential.MWPotential,mr,mz)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input, w/o zsym'
     #Test the interpolation of the potential, w/o zsym and with logR
     rzpot= potential.interpRZPotential(RZPot=potential.MWPotential,
                                        rgrid=(numpy.log(0.01),numpy.log(20.),
@@ -608,7 +608,7 @@ def test_interpolation_potential_dens():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(mr,mz,potential.MWPotential))/potential.evaluateDensities(mr,mz,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
+    assert numpy.all(numpy.fabs((rzpot.dens(mr,mz)-potential.evaluateDensities(potential.MWPotential,mr,mz))/potential.evaluateDensities(potential.MWPotential,mr,mz)) < 4.*10.**-6.), 'RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR'
     return None
 
 def test_interpolation_potential_dens_diffinputs():
@@ -623,9 +623,9 @@ def test_interpolation_potential_dens_diffinputs():
     rs= numpy.linspace(0.01,2.,20)
     zs= numpy.linspace(-0.2,0.2,40)
     #R vector, z scalar
-    assert numpy.all(numpy.fabs((rzpot.dens(rs,zs[10])-potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential))/potential.evaluateDensities(rs,zs[10]*numpy.ones(len(rs)),potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.dens(rs,zs[10])-potential.evaluateDensities(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs))))/potential.evaluateDensities(potential.MWPotential,rs,zs[10]*numpy.ones(len(rs)))) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
     #R scalar, z vector
-    assert numpy.all(numpy.fabs((rzpot.dens(rs[10],zs)-potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential))/potential.evaluateDensities(rs[10]*numpy.ones(len(zs)),zs,potential.MWPotential)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
+    assert numpy.all(numpy.fabs((rzpot.dens(rs[10],zs)-potential.evaluateDensities(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs))/potential.evaluateDensities(potential.MWPotential,rs[10]*numpy.ones(len(zs)),zs)) < 4.*10.**-6.), 'RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z'
     return None
 
 # Test evaluation outside the grid
@@ -641,7 +641,7 @@ def test_interpolation_potential_dens_outsidegrid():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.dens(r,z)
-                               -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateDensities(potential.MWPotential,r,z))/potential.evaluateDensities(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = (%g,%g)' % (r,z)
     return None
 
 def test_interpolation_potential_density_notinterpolated():
@@ -656,7 +656,7 @@ def test_interpolation_potential_density_notinterpolated():
     for r in rs:
         for z in zs:
             assert numpy.fabs((rzpot.dens(r,z)
-                               -potential.evaluateDensities(r,z,potential.MWPotential))/potential.evaluateDensities(r,z,potential.MWPotential)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
+                               -potential.evaluateDensities(potential.MWPotential,r,z))/potential.evaluateDensities(potential.MWPotential,r,z)) < 10.**-10., 'RZPot interpolation of the density w/ interpRZPotential fails when the potential was not interpolated at (R,z) = (%g,%g)' % (r,z)
     return None
 
 # Test the circular velocity
