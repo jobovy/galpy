@@ -957,13 +957,13 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                         thisphi= nu.arcsin(ys[jj]/thisR)
                     else:
                         thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
-                    potR[ii,jj]= evaluateplanarPotentials(thisR,Pot,
+                    potR[ii,jj]= evaluateplanarPotentials(Pot,thisR,
                                                           phi=thisphi)
         else:
             Rs= nu.linspace(Rrange[0],Rrange[1],grid)
             potR= nu.zeros(grid)
             for ii in range(grid):
-                potR[ii]= evaluateplanarPotentials(Rs[ii],Pot)
+                potR[ii]= evaluateplanarPotentials(Pot,Rs[ii])
         if not savefilename is None:
             print("Writing planar savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')
