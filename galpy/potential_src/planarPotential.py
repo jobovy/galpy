@@ -618,7 +618,8 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
-def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
+@physical_conversion('energy',pop=True)
+def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     """
     NAME:
 
@@ -630,9 +631,9 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
 
     INPUT:
 
-       R - Cylindrical radius
-
        Pot - (list of) planarPotential instance(s)
+
+       R - Cylindrical radius
 
        phi= azimuth (optional)
 
@@ -662,19 +663,20 @@ def evaluateplanarPotentials(R,Pot,phi=None,t=0.,dR=0,dphi=0):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
+                sum+= pot(R,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
             else:
-                sum+= pot(R,t=t,dR=dR,dphi=dphi)
+                sum+= pot(R,t=t,dR=dR,dphi=dphi,use_physical=False)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi)
+            return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
         else:
-            return Pot(R,t=t,dR=dR,dphi=dphi)
+            return Pot(R,t=t,dR=dR,dphi=dphi,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarRforces(R,Pot,phi=None,t=0.):
+@physical_conversion('force',pop=True)
+def evaluateplanarRforces(Pot,R,phi=None,t=0.):
     """
     NAME:
 
@@ -686,9 +688,9 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
 
     INPUT:
 
-       R - Cylindrical radius
-
        Pot - (list of) planarPotential instance(s)
+
+       R - Cylindrical radius
 
        phi= azimuth (optional)
 
@@ -716,19 +718,20 @@ def evaluateplanarRforces(R,Pot,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.Rforce(R,phi=phi,t=t)
+                sum+= pot.Rforce(R,phi=phi,t=t,use_physical=False)
             else:
-                sum+= pot.Rforce(R,t=t)
+                sum+= pot.Rforce(R,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.Rforce(R,phi=phi,t=t)
+            return Pot.Rforce(R,phi=phi,t=t,use_physical=False)
         else:
-            return Pot.Rforce(R,t=t)
+            return Pot.Rforce(R,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
+@physical_conversion('force',pop=True)
+def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     """
     NAME:
 
@@ -740,9 +743,9 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
 
     INPUT:
 
-       R - Cylindrical radius
-
        Pot - (list of) planarPotential instance(s)
+
+       R - Cylindrical radius
 
        phi= azimuth (optional)
 
@@ -770,19 +773,20 @@ def evaluateplanarphiforces(R,Pot,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.phiforce(R,phi=phi,t=t)
+                sum+= pot.phiforce(R,phi=phi,t=t,use_physical=False)
             else:
-                sum+= pot.phiforce(R,t=t)
+                sum+= pot.phiforce(R,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.phiforce(R,phi=phi,t=t)
+            return Pot.phiforce(R,phi=phi,t=t,use_physical=False)
         else:
-            return Pot.phiforce(R,t=t)
+            return Pot.phiforce(R,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
+@physical_conversion('forcederivative',pop=True)
+def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
     """
     NAME:
 
@@ -794,9 +798,9 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
 
     INPUT:
 
-       R - Cylindrical radius
-
        Pot - (list of) planarPotential instance(s)
+
+       R - Cylindrical radius
 
        phi= azimuth (optional)
 
@@ -824,15 +828,15 @@ def evaluateplanarR2derivs(R,Pot,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.R2deriv(R,phi=phi,t=t)
+                sum+= pot.R2deriv(R,phi=phi,t=t,use_physical=False)
             else:
-                sum+= pot.R2deriv(R,t=t)
+                sum+= pot.R2deriv(R,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.R2deriv(R,phi=phi,t=t)
+            return Pot.R2deriv(R,phi=phi,t=t,use_physical=False)
         else:
-            return Pot.R2deriv(R,t=t)
+            return Pot.R2deriv(R,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
