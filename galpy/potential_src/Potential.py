@@ -1232,18 +1232,19 @@ class PotentialError(Exception): #pragma: no cover
     def __str__(self):
         return repr(self.value)
 
-def evaluatePotentials(R,z,Pot,phi=0.,t=0.,dR=0,dphi=0):
+@physical_conversion('energy',pop=True)
+def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     """
     NAME:
        evaluatePotentials
     PURPOSE:
        convenience function to evaluate a possible sum of potentials
     INPUT:
+       Pot - potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - potential or list of potentials
 
        phi - azimuth
 
@@ -1258,14 +1259,15 @@ def evaluatePotentials(R,z,Pot,phi=0.,t=0.,dR=0,dphi=0):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+            sum+= pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+        return Pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
-def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
+@physical_conversion('density',pop=True)
+def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
     """
     NAME:
 
@@ -1277,11 +1279,11 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
 
     INPUT:
 
+       Pot - potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - potential or list of potentials
 
        phi - azimuth
 
@@ -1303,25 +1305,28 @@ def evaluateDensities(R,z,Pot,phi=0.,t=0.,forcepoisson=False):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
+            sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                           use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson)
+        return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                        use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
-def evaluateRforces(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('force',pop=True)
+def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
        evaluateRforce
     PURPOSE:
        convenience function to evaluate a possible sum of potentials
     INPUT:
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1334,14 +1339,15 @@ def evaluateRforces(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.Rforce(R,z,phi=phi,t=t)
+            sum+= pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.Rforce(R,z,phi=phi,t=t)
+        return Pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
 
-def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('force',pop=True)
+def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
 
@@ -1352,11 +1358,11 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
        convenience function to evaluate a possible sum of potentials
 
     INPUT:
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1374,14 +1380,15 @@ def evaluatephiforces(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.phiforce(R,z,phi=phi,t=t)
+            sum+= pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.phiforce(R,z,phi=phi,t=t)
+        return Pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
 
-def evaluatezforces(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('force',pop=True)
+def evaluatezforces(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
 
@@ -1393,11 +1400,11 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
 
     INPUT:
 
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1415,25 +1422,26 @@ def evaluatezforces(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.zforce(R,z,phi=phi,t=t)
+            sum+= pot.zforce(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.zforce(R,z,phi=phi,t=t)
+        return Pot.zforce(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
-def evaluateR2derivs(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('forcederivative',pop=True)
+def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
        evaluateR2derivs
     PURPOSE:
        convenience function to evaluate a possible sum of potentials
     INPUT:
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1446,25 +1454,26 @@ def evaluateR2derivs(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.R2deriv(R,z,phi=phi,t=t)
+            sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.R2deriv(R,z,phi=phi,t=t)
+        return Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
 
-def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('forcederivative',pop=True)
+def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
        evaluatez2derivs
     PURPOSE:
        convenience function to evaluate a possible sum of potentials
     INPUT:
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1477,25 +1486,26 @@ def evaluatez2derivs(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.z2deriv(R,z,phi=phi,t=t)
+            sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.z2deriv(R,z,phi=phi,t=t)
+        return Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
-def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
+@physical_conversion('forcederivative',pop=True)
+def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
        evaluateRzderivs
     PURPOSE:
        convenience function to evaluate a possible sum of potentials
     INPUT:
+       Pot - a potential or list of potentials
+
        R - cylindrical Galactocentric distance
 
        z - distance above the plane
-
-       Pot - a potential or list of potentials
 
        phi - azimuth (optional)
 
@@ -1508,10 +1518,10 @@ def evaluateRzderivs(R,z,Pot,phi=0.,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.Rzderiv(R,z,phi=phi,t=t)
+            sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.Rzderiv(R,z,phi=phi,t=t)
+        return Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
@@ -1668,6 +1678,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
+@physical_conversion('frequency',pop=True)
 def epifreq(Pot,R):
     """
     
@@ -1696,16 +1707,19 @@ def epifreq(Pot,R):
     """
     from galpy.potential_src.planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
-        return Pot.epifreq(R)
+        return Pot.epifreq(R,use_physical=False)
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
+        return nu.sqrt(evaluateplanarR2derivs(R,Pot,use_physical=False)
+                       -3./R*evaluateplanarRforces(R,Pot,use_physical=False))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(evaluateplanarR2derivs(R,Pot)-3./R*evaluateplanarRforces(R,Pot))
+        return nu.sqrt(evaluateplanarR2derivs(R,Pot,use_physical=False)
+                       -3./R*evaluateplanarRforces(R,Pot,use_physical=False))
 
+@physical_conversion('frequency',pop=True)
 def verticalfreq(Pot,R):
     """
     
@@ -1734,8 +1748,8 @@ def verticalfreq(Pot,R):
     """
     from galpy.potential_src.planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
-        return Pot.verticalfreq(R)
-    return nu.sqrt(evaluatez2derivs(R,0.,Pot))
+        return Pot.verticalfreq(R,use_physical=False)
+    return nu.sqrt(evaluatez2derivs(R,0.,Pot,use_physical=False))
 
 def flattening(Pot,R,z):
     """
@@ -1765,8 +1779,10 @@ def flattening(Pot,R,z):
         2012-09-13 - Written - Bovy (IAS)
     
     """
-    return nu.sqrt(nu.fabs(z/R*evaluateRforces(R,z,Pot)/evaluatezforces(R,z,Pot)))
+    return nu.sqrt(nu.fabs(z/R*evaluateRforces(R,z,Pot,use_physical=False)\
+                               /evaluatezforces(R,z,Pot,use_physical=False)))
 
+@physical_conversion('velocity',pop=True)
 def vterm(Pot,l,deg=True):
     """
     
@@ -1799,8 +1815,10 @@ def vterm(Pot,l,deg=True):
         sinl= nu.sin(l/180.*nu.pi)
     else:
         sinl= nu.sin(l)
-    return sinl*(omegac(Pot,sinl)-omegac(Pot,1.))
+    return sinl*(omegac(Pot,sinl,use_physical=False)
+                 -omegac(Pot,1.,use_physical=False))
 
+@physical_conversion('position',pop=True)
 def rl(Pot,lz):
     """
     NAME:
@@ -1851,7 +1869,7 @@ def rl(Pot,lz):
 
 def _rlfunc(rl,lz,pot):
     """Function that gives rvc-lz"""
-    thisvcirc= vcirc(pot,rl)
+    thisvcirc= vcirc(pot,rl,use_physical=False)
     return rl*thisvcirc-lz
 
 def _rlFindStart(rl,lz,pot,lower=False):
@@ -1864,6 +1882,7 @@ def _rlFindStart(rl,lz,pot,lower=False):
             rtry*= 2.
     return rtry
 
+@physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,**kwargs):
     """
     NAME:
@@ -1920,10 +1939,12 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
         return out
 
 def _corotationR_eq(R,Pot,OmegaP):
-    return omegac(Pot,R)-OmegaP
+    return omegac(Pot,R,use_physical=False)-OmegaP
 def _lindbladR_eq(R,Pot,OmegaP,m):
-    return m*(omegac(Pot,R)-OmegaP)-epifreq(Pot,R)
+    return m*(omegac(Pot,R,use_physical=False)-OmegaP)\
+        -epifreq(Pot,R,use_physical=False)
 
+@physical_conversion('frequency',pop=True)
 def omegac(Pot,R):
     """
 
@@ -1952,11 +1973,11 @@ def omegac(Pot,R):
     """
     from galpy.potential import evaluateplanarRforces
     try:
-        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
+        return nu.sqrt(-evaluateplanarRforces(R,Pot,use_physical=False)/R)
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(-evaluateplanarRforces(R,Pot)/R)
+        return nu.sqrt(-evaluateplanarRforces(R,Pot,use_physical=False)/R)
 
 def nemo_accname(Pot):
     """
