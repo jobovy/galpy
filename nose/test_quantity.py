@@ -766,12 +766,12 @@ def test_potential_method_returntype():
 def test_planarPotential_method_returntype():
     from galpy.potential import PlummerPotential
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()
-    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
-    assert isinstance(pot.Rforce(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
-    assert isinstance(pot.phiforce(1.1,0.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
-    assert isinstance(pot.R2deriv(1.1,0.1),units.Quantity), 'Potential method R2deriv does not return Quantity when it should'
-    assert isinstance(pot.Rphideriv(1.1,0.1),units.Quantity), 'Potential method Rphideriv does not return Quantity when it should'
-    assert isinstance(pot.phi2deriv(1.1,0.1),units.Quantity), 'Potential method phi2deriv does not return Quantity when it should'
+    assert isinstance(pot(1.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
+    assert isinstance(pot.Rforce(1.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot.phiforce(1.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
+    assert isinstance(pot.R2deriv(1.1),units.Quantity), 'Potential method R2deriv does not return Quantity when it should'
+    assert isinstance(pot.Rphideriv(1.1),units.Quantity), 'Potential method Rphideriv does not return Quantity when it should'
+    assert isinstance(pot.phi2deriv(1.1),units.Quantity), 'Potential method phi2deriv does not return Quantity when it should'
     assert isinstance(pot.vcirc(1.1),units.Quantity), 'Potential method vcirc does not return Quantity when it should'
     assert isinstance(pot.omegac(1.1),units.Quantity), 'Potential method omegac does not return Quantity when it should'
     assert isinstance(pot.epifreq(1.1),units.Quantity), 'Potential method epifreq does not return Quantity when it should'
@@ -783,8 +783,8 @@ def test_planarPotential_method_returntype():
 def test_linearPotential_method_returntype():
     from galpy.potential import PlummerPotential
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)
-    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
-    assert isinstance(pot.force(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot(1.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
+    assert isinstance(pot.force(1.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
     return None
 
 def test_potential_method_returnunit():
@@ -989,3 +989,52 @@ def test_linearPotential_method_value():
     assert numpy.fabs(pot(1.1).to(units.km**2/units.s**2).value-potu(1.1)*vo**2.) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.force(1.1).to(units.km/units.s**2).value*10.**13.-potu.force(1.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method force does not return the correct value as Quantity'
     return None
+
+def test_potential_function_returntype():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.)]
+    assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
+    assert isinstance(potential.evaluateRforces(pot,1.1,0.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
+    assert isinstance(potential.evaluatezforces(pot,1.1,0.1),units.Quantity), 'Potential function zforce does not return Quantity when it should'
+    assert isinstance(potential.evaluatephiforces(pot,1.1,0.1),units.Quantity), 'Potential function phiforce does not return Quantity when it should'
+    assert isinstance(potential.evaluateDensities(pot,1.1,0.1),units.Quantity), 'Potential function dens does not return Quantity when it should'
+    assert isinstance(potential.evaluateR2derivs(pot,1.1,0.1),units.Quantity), 'Potential function R2deriv does not return Quantity when it should'
+    assert isinstance(potential.evaluatez2derivs(pot,1.1,0.1),units.Quantity), 'Potential function z2deriv does not return Quantity when it should'
+    assert isinstance(potential.evaluateRzderivs(pot,1.1,0.1),units.Quantity), 'Potential function Rzderiv does not return Quantity when it should'
+    assert isinstance(potential.vcirc(pot,1.1),units.Quantity), 'Potential function vcirc does not return Quantity when it should'
+    assert isinstance(potential.dvcircdR(pot,1.1),units.Quantity), 'Potential function dvcircdR does not return Quantity when it should'
+    assert isinstance(potential.omegac(pot,1.1),units.Quantity), 'Potential function omegac does not return Quantity when it should'
+    assert isinstance(potential.epifreq(pot,1.1),units.Quantity), 'Potential function epifreq does not return Quantity when it should'
+    assert isinstance(potential.verticalfreq(pot,1.1),units.Quantity), 'Potential function verticalfreq does not return Quantity when it should'
+    assert potential.lindbladR(pot,0.9) is None, 'Potential function lindbladR does not return None, even when it should return a Quantity, when it should'
+    assert isinstance(potential.lindbladR(pot,0.9,m='corot'),units.Quantity), 'Potential function lindbladR does not return Quantity when it should'
+    assert isinstance(potential.vesc(pot,1.3),units.Quantity), 'Potential function vesc does not return Quantity when it should'
+    assert isinstance(potential.rl(pot,1.3),units.Quantity), 'Potential function rl does not return Quantity when it should'
+    assert isinstance(potential.vterm(pot,45.),units.Quantity), 'Potential function vterm does not return Quantity when it should'
+    return None
+
+def test_planarPotential_function_returntype():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()]
+    assert isinstance(potential.evaluateplanarPotentials(pot,1.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
+    assert isinstance(potential.evaluateplanarRforces(pot,1.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
+    assert isinstance(potential.evaluateplanarphiforces(pot,1.1),units.Quantity), 'Potential function phiforce does not return Quantity when it should'
+    assert isinstance(potential.evaluateplanarR2derivs(pot,1.1),units.Quantity), 'Potential function R2deriv does not return Quantity when it should'
+    assert isinstance(potential.vcirc(pot,1.1),units.Quantity), 'Potential function vcirc does not return Quantity when it should'
+    assert isinstance(potential.omegac(pot,1.1),units.Quantity), 'Potential function omegac does not return Quantity when it should'
+    assert isinstance(potential.epifreq(pot,1.1),units.Quantity), 'Potential function epifreq does not return Quantity when it should'
+    assert potential.lindbladR(pot,0.9) is None, 'Potential function lindbladR does not return None, even when it should return a Quantity, when it should'
+    assert isinstance(potential.lindbladR(pot,0.9,m='corot'),units.Quantity), 'Potential function lindbladR does not return Quantity when it should'
+    assert isinstance(potential.vesc(pot,1.3),units.Quantity), 'Potential function vesc does not return Quantity when it should'
+    return None
+
+def test_linearPotential_function_returntype():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)]
+    assert isinstance(potential.evaluatelinearPotentials(pot,1.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
+    assert isinstance(potential.evaluatelinearForces(pot,1.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
+    return None
+
