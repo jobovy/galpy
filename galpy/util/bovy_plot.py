@@ -535,8 +535,8 @@ def bovy_dens2d(X,**kwargs):
     if 'extent' in kwargs:
         extent= kwargs.pop('extent')
     else:
-        xlimits= kwargs.pop('xrange',[0,X.shape[0]])
-        ylimits= kwargs.pop('yrange',[0,X.shape[1]])
+        xlimits= kwargs.pop('xrange',[0,X.shape[1]])
+        ylimits= kwargs.pop('yrange',[0,X.shape[0]])
         extent= xlimits+ylimits
     if not 'aspect' in kwargs:
         kwargs['aspect']= (xlimits[1]-xlimits[0])/float(ylimits[1]-ylimits[0])
