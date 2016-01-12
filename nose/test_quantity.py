@@ -872,3 +872,64 @@ def test_potential_method_returnunit():
         raise AssertionError('Potential method vter does not return Quantity with the right units')
     return None
 
+def test_planarPotential_method_returnunit():
+    from galpy.potential import PlummerPotential
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()
+    try:
+        pot(1.1).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method __call__ does not return Quantity with the right units')
+    try:
+        pot.Rforce(1.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method Rforce does not return Quantity with the right units')
+    try:
+        pot.phiforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method phiforce does not return Quantity with the right units')
+    try:
+        pot.R2deriv(1.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method R2deriv does not return Quantity with the right units')
+    try:
+        pot.phi2deriv(1.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method phi2deriv does not return Quantity with the right units')
+    try:
+        pot.Rphideriv(1.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method Rphideriv does not return Quantity with the right units')
+    try:
+        pot.vcirc(1.1).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method vcirc does not return Quantity with the right units')
+    try:
+        pot.omegac(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method omegac does not return Quantity with the right units')
+    try:
+        pot.epifreq(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method epifreq does not return Quantity with the right units')
+    try:
+        pot.lindbladR(0.9,m='corot').to(units.km)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method lindbladR does not return Quantity with the right units')
+    try:
+        pot.vesc(1.3).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method vesc does not return Quantity with the right units')
+    return None
+
+def test_linearPotential_method_returnunit():
+    from galpy.potential import PlummerPotential
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)
+    try:
+        pot(1.1).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method __call__ does not return Quantity with the right units')
+    try:
+        pot.force(1.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method force does not return Quantity with the right units')
+    return None
