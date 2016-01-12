@@ -786,3 +786,89 @@ def test_linearPotential_method_returntype():
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
     assert isinstance(pot.force(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
     return None
+
+def test_potential_method_returnunit():
+    from galpy.potential import PlummerPotential
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    try:
+        pot(1.1,0.1).to(units.km**2/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method __call__ does not return Quantity with the right units')
+    try:
+        pot.Rforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method Rforce does not return Quantity with the right units')
+    try:
+        pot.zforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method zforce does not return Quantity with the right units')
+    try:
+        pot.phiforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method phiforce does not return Quantity with the right units')
+    try:
+        pot.dens(1.1,0.1).to(units.kg/units.m**3)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method dens does not return Quantity with the right units')
+    try:
+        pot.mass(1.1,0.1).to(units.kg)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method mass does not return Quantity with the right units')
+    try:
+        pot.R2deriv(1.1,0.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method R2deriv does not return Quantity with the right units')
+    try:
+        pot.z2deriv(1.1,0.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method z2deriv does not return Quantity with the right units')
+    try:
+        pot.Rzderiv(1.1,0.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method Rzderiv does not return Quantity with the right units')
+    try:
+        pot.phi2deriv(1.1,0.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method phi2deriv does not return Quantity with the right units')
+    try:
+        pot.Rphideriv(1.1,0.1).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method Rphideriv does not return Quantity with the right units')
+    try:
+        pot.vcirc(1.1).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method vcirc does not return Quantity with the right units')
+    try:
+        pot.dvcircdR(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method dvcircdR does not return Quantity with the right units')
+    try:
+        pot.omegac(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method omegac does not return Quantity with the right units')
+    try:
+        pot.epifreq(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method epifreq does not return Quantity with the right units')
+    try:
+        pot.verticalfreq(1.1).to(1./units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method verticalfreq does not return Quantity with the right units')
+    try:
+        pot.lindbladR(0.9,m='corot').to(units.km)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method lindbladR does not return Quantity with the right units')
+    try:
+        pot.vesc(1.3).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method vesc does not return Quantity with the right units')
+    try:
+        pot.rl(1.3).to(units.km)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method rl does not return Quantity with the right units')
+    try:
+        pot.vterm(45.).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method vter does not return Quantity with the right units')
+    return None
+
