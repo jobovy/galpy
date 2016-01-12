@@ -737,7 +737,7 @@ def test_change_vo_config():
     assert numpy.fabs(o._orb._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
     return None
 
-def test_potential_method_returntype_scalar():
+def test_potential_method_returntype():
     from galpy.potential import PlummerPotential
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
@@ -763,7 +763,7 @@ def test_potential_method_returntype_scalar():
     assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
     return None
 
-def test_planarPotential_method_returntype_scalar():
+def test_planarPotential_method_returntype():
     from galpy.potential import PlummerPotential
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
@@ -780,7 +780,7 @@ def test_planarPotential_method_returntype_scalar():
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     return None
 
-def test_linearPotential_method_returntype_scalar():
+def test_linearPotential_method_returntype():
     from galpy.potential import PlummerPotential
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
