@@ -18,7 +18,7 @@ class CosmphiDiskPotential(planarPotential):
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,m=1.,
                  tform=None,tsteady=None,
-                 cp=None,sp=None):
+                 cp=None,sp=None,ro=None,vo=None):
         """
         NAME:
 
@@ -60,7 +60,7 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-27 - Started - Bovy (IAS)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= False
         self._m= m
         if cp is None or sp is None:
@@ -254,12 +254,12 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,
                  tform=None,tsteady=None,
-                 cp=None,sp=None):
+                 cp=None,sp=None,ro=None,vo=None):
         CosmphiDiskPotential.__init__(self,
                                       amp=amp,
                                       phib=phib,
                                       p=p,phio=phio,m=1.,
                                       tform=tform,tsteady=tsteady,
-                                      cp=cp,sp=sp)
+                                      cp=cp,sp=sp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True

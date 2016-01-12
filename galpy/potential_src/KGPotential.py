@@ -8,7 +8,7 @@ class KGPotential(linearPotential):
         \Phi(x) = \\mathrm{amp}\\,\\left(K\\,\\left(\\sqrt{x^2+D^2}-D\\right)+F\\,x^2\\right)
 
     """
-    def __init__(self,K=1.15,F=0.03,D=1.8,amp=1.):
+    def __init__(self,K=1.15,F=0.03,D=1.8,amp=1.,ro=None,vo=None):
         """
         NAME:
 
@@ -37,7 +37,7 @@ class KGPotential(linearPotential):
            2010-07-12 - Written - Bovy (NYU)
 
         """
-        linearPotential.__init__(self,amp=amp)
+        linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._K= K
         self._F= F
         self._D= D

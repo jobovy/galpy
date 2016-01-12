@@ -20,7 +20,7 @@ class TransientLogSpiralPotential(planarPotential):
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
                  alpha=-7.,m=2,gamma=math.pi/4.,p=None,
-                 sigma=1.,to=0.):
+                 sigma=1.,to=0.,ro=None,vo=None):
         """
         NAME:
 
@@ -63,7 +63,7 @@ class TransientLogSpiralPotential(planarPotential):
            2011-03-27 - Started - Bovy (NYU)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._omegas= omegas
         self._A= A
         self._m= m

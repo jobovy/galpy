@@ -17,7 +17,7 @@ class SteadyLogSpiralPotential(planarPotential):
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
                  alpha=-7.,m=2,gamma=math.pi/4.,p=None,
-                 tform=None,tsteady=None):
+                 tform=None,tsteady=None,ro=None,vo=None):
         """
         NAME:
 
@@ -59,7 +59,7 @@ class SteadyLogSpiralPotential(planarPotential):
            2011-03-27 - Started - Bovy (NYU)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._omegas= omegas
         self._A= A
         self._m= m

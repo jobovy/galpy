@@ -41,7 +41,7 @@ class DehnenBarPotential(planarPotential):
     def __init__(self,amp=1.,omegab=None,rb=None,chi=0.8,
                  rolr=0.9,barphi=25.*_degtorad,
                  tform=-4.,tsteady=None,beta=0.,
-                 alpha=0.01,Af=None):
+                 alpha=0.01,Af=None,ro=None,vo=None):
         """
         NAME:
 
@@ -93,7 +93,7 @@ class DehnenBarPotential(planarPotential):
            2010-11-24 - Started - Bovy (NYU)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         self._barphi= barphi

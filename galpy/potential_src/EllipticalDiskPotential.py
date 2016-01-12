@@ -18,7 +18,7 @@ class EllipticalDiskPotential(planarPotential):
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,twophio=0.01,
                  tform=None,tsteady=None,
-                 cp=None,sp=None):
+                 cp=None,sp=None,ro=None,vo=None):
         """
         NAME:
 
@@ -58,7 +58,7 @@ class EllipticalDiskPotential(planarPotential):
            2011-10-19 - Started - Bovy (IAS)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         if cp is None or sp is None:
