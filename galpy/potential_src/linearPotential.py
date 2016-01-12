@@ -172,10 +172,10 @@ def evaluatelinearPotentials(Pot,x,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(x,t=t)
+            sum+= pot(x,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,linearPotential):
-        return Pot(x,t=t)
+        return Pot(x,t=t,use_physical=False)
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
@@ -210,10 +210,10 @@ def evaluatelinearForces(Pot,x,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.force(x,t=t)
+            sum+= pot.force(x,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,linearPotential):
-        return Pot.force(x,t=t)
+        return Pot.force(x,t=t,use_physical=False)
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 
