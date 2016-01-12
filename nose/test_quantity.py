@@ -1168,3 +1168,57 @@ def test_linearPotential_function_returnunit():
         raise AssertionError('Potential function force does not return Quantity with the right units')
     return None
 
+def test_potential_function_value():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 8., 220.
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo)]
+    potu= [PlummerPotential(normalize=True)]
+    assert numpy.fabs(potential.evaluatePotentials(pot,1.1,0.1).to(units.km**2/units.s**2).value-potential.evaluatePotentials(potu,1.1,0.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateRforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatezforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function zforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatephiforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateDensities(pot,1.1,0.1).to(units.Msun/units.pc**3).value-potential.evaluateDensities(potu,1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential function dens does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateR2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateR2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatez2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluatez2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function z2deriv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateRzderivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateRzderivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function Rzderiv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vcirc(pot,1.1).to(units.km/units.s).value-potential.vcirc(potu,1.1)*vo) < 10.**-8., 'Potential function vcirc does not return the correct value as Quantity'
+    assert numpy.fabs(potential.dvcircdR(pot,1.1).to(units.km/units.s/units.kpc).value-potential.dvcircdR(potu,1.1)*vo/ro) < 10.**-8., 'Potential function dvcircdR does not return the correct value as Quantity'
+    assert numpy.fabs(potential.omegac(pot,1.1).to(units.km/units.s/units.kpc).value-potential.omegac(potu,1.1)*vo/ro) < 10.**-8., 'Potential function omegac does not return the correct value as Quantity'
+    assert numpy.fabs(potential.epifreq(pot,1.1).to(units.km/units.s/units.kpc).value-potential.epifreq(potu,1.1)*vo/ro) < 10.**-8., 'Potential function epifreq does not return the correct value as Quantity'
+    assert numpy.fabs(potential.verticalfreq(pot,1.1).to(units.km/units.s/units.kpc).value-potential.verticalfreq(potu,1.1)*vo/ro) < 10.**-8., 'Potential function verticalfreq does not return the correct value as Quantity'
+    assert numpy.fabs(potential.lindbladR(pot,0.9,m='corot').to(units.kpc).value-potential.lindbladR(potu,0.9,m='corot')*ro) < 10.**-8., 'Potential function lindbladR does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vesc(pot,1.1).to(units.km/units.s).value-potential.vesc(potu,1.1)*vo) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
+    assert numpy.fabs(potential.rl(pot,1.1).to(units.kpc).value-potential.rl(potu,1.1)*ro) < 10.**-8., 'Potential function rl does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vterm(pot,45.).to(units.km/units.s).value-potential.vterm(potu,45.)*vo) < 10.**-8., 'Potential function vterm does not return the correct value as Quantity'
+    return None
+
+def test_planarPotential_function_value():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 8., 220.
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toPlanar()]
+    potu= [PlummerPotential(normalize=True).toPlanar()]
+    assert numpy.fabs(potential.evaluateplanarPotentials(pot,1.1).to(units.km**2/units.s**2).value-potential.evaluateplanarPotentials(potu,1.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarRforces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateplanarRforces(potu,1.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarphiforces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateplanarphiforces(potu,1.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarR2derivs(pot,1.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateplanarR2derivs(potu,1.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vcirc(pot,1.1).to(units.km/units.s).value-potential.vcirc(potu,1.1)*vo) < 10.**-8., 'Potential function vcirc does not return the correct value as Quantity'
+    assert numpy.fabs(potential.omegac(pot,1.1).to(units.km/units.s/units.kpc).value-potential.omegac(potu,1.1)*vo/ro) < 10.**-8., 'Potential function omegac does not return the correct value as Quantity'
+    assert numpy.fabs(potential.epifreq(pot,1.1).to(units.km/units.s/units.kpc).value-potential.epifreq(potu,1.1)*vo/ro) < 10.**-8., 'Potential function epifreq does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vesc(pot,1.1).to(units.km/units.s).value-potential.vesc(potu,1.1)*vo) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
+    return None
+
+def test_linearPotential_function_value():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 8., 220.
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1)]
+    potu= [PlummerPotential(normalize=True).toVertical(1.1)]
+    assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1).to(units.km**2/units.s**2).value-potential.evaluatelinearPotentials(potu,1.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatelinearForces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatelinearForces(potu,1.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
+    return None
+
