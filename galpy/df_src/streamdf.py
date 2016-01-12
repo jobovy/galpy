@@ -44,7 +44,8 @@ class streamdf(object):
                  Vnorm=220.,Rnorm=8.,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
-                 useInterp=_USEINTERP,nosetup=False):
+                 useInterp=_USEINTERP,nosetup=False,
+                 custom_transform=None):
         """
         NAME:
 
@@ -111,6 +112,8 @@ class streamdf(object):
 
               vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
 
+              custom_transform= (None) matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates
+
         OUTPUT:
 
            object
@@ -143,7 +146,8 @@ class streamdf(object):
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor)
+        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
+                                    custom_transform)
         #Determine the stream track
         if not nosetup:
             self._determine_nTrackIterations(nTrackIterations)
@@ -242,7 +246,8 @@ class streamdf(object):
         self._deltaAngleTrack= deltaAngleTrack
         return None
 
-    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor):
+    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
+                               custom_transform):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet \
                 and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
@@ -263,6 +268,7 @@ class streamdf(object):
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
+        self._custom_transform= custom_transform
         return None
 
     def _setup_progIsTrack(self):
@@ -1603,7 +1609,8 @@ class streamdf(object):
                     self._interpTrackY(dangle),
                     self._interpTrackZ(dangle))
                 jac= numpy.fabs(phi_h[1]-phi[1])/ddangle
-            elif coord.lower() == 'll':
+            elif coord.lower() == 'll' or coord.lower() == 'ra' \
+                    or coord.lower() == 'customra':
                 XYZ_h= bovy_coords.galcenrect_to_XYZ(\
                     self._interpTrackX(dangle+ddangle)*self._Rnorm,
                     self._interpTrackY(dangle+ddangle)*self._Rnorm,
@@ -1618,7 +1625,25 @@ class streamdf(object):
                     Xsun=self._R0,Zsun=self._Zsun)
                 lbd= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                             degree=True)
-                jac= numpy.fabs(lbd_h[0]-lbd[0])/ddangle
+                if coord.lower() == 'll':
+                    jac= numpy.fabs(lbd_h[0]-lbd[0])/ddangle
+                else:
+                    radec_h= bovy_coords.lb_to_radec(lbd_h[0],
+                                                     lbd_h[1],
+                                                     degree=True)
+                    radec= bovy_coords.lb_to_radec(lbd[0],
+                                                   lbd[1],
+                                                   degree=True)
+                    if coord.lower() == 'ra':
+                        jac= numpy.fabs(radec_h[0]-radec[0])/ddangle
+                    else:
+                        xieta_h= bovy_coords.radec_to_custom(\
+                            radec_h[0],radec_h[1],T=self._custom_transform,
+                            degree=True)
+                        xieta= bovy_coords.radec_to_custom(\
+                            radec[0],radec[1],T=self._custom_transform,
+                            degree=True)
+                        jac= numpy.fabs(xieta_h[0]-xieta[0])/ddangle
             else:
                 raise ValueError('Coordinate input %s not supported by density_par' % coord)
         else:
