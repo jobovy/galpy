@@ -1794,7 +1794,53 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         else:                         z2        = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
 
-    
+@scalarDecorator
+@degreeDecorator([0,1],[0,1])
+def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
+    """
+    NAME:
+
+       radec_to_custom
+
+    PURPOSE:
+
+       transform from equatorial coordinates to a custom set of sky coordinates
+
+    INPUT:
+
+       ra - right ascension
+
+       dec - declination
+
+       T= matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect
+
+       degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
+
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+
+    OUTPUT:
+
+       custom longitude, custom latitude (with longitude -180 to 180)
+
+       For vector inputs [:,2]
+
+    HISTORY:
+
+       2009-11-12 - Written - Bovy (NYU)
+
+       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+
+    """
+    if T is None: raise ValueError("Must set T= for radec_to_custom")
+    #Whether to use degrees and scalar input is handled by decorators
+    XYZ= nu.array([nu.cos(dec)*nu.cos(ra),
+                   nu.cos(dec)*nu.sin(ra),
+                   nu.sin(dec)])
+    galXYZ= nu.dot(T,XYZ)
+    b= nu.arcsin(galXYZ[2])
+    l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
+    out= nu.array([l,b])
+    return out.T   
 
 def get_epoch_angles(epoch=2000.0):
     """
