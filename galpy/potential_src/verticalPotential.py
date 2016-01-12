@@ -20,6 +20,11 @@ class verticalPotential(linearPotential):
         linearPotential.__init__(self,amp=1.)
         self._RZPot= RZPot
         self._R= R
+        # Also transfer ro and vo
+        self._ro= RZPot._ro
+        self._roSet= RZPot._roSet
+        self._vo= RZPot._vo
+        self._voSet= RZPot._voSet
         return None
 
     def _evaluate(self,z,t=0.):
@@ -36,7 +41,8 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(self._R,z,t=t)-self._RZPot(self._R,0.,t=t)
+        return self._RZPot(self._R,z,t=t,use_physical=False)\
+            -self._RZPot(self._R,0.,t=t,use_physical=False)
             
     def _force(self,z,t=0.):
         """
@@ -52,8 +58,8 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.zforce(self._R,z,t=t)\
-            -self._RZPot.zforce(self._R,0.,t=t)
+        return self._RZPot.zforce(self._R,z,t=t,use_physical=False)\
+            -self._RZPot.zforce(self._R,0.,t=t,use_physical=False)
 
 def RZToverticalPotential(RZPot,R):
     """
