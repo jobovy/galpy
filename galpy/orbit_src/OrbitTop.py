@@ -1155,7 +1155,7 @@ class OrbitTop(object):
             out= []
             if _OLD_SCIPY and not isinstance(self._orbInterp[0],_fakeInterp) \
                     and nu.any((nu.array(t) < self._orbInterp[0]._data[3])\
-                               +(nu.array(t) > self._orbInterp[0]._data[4])):
+                               +(nu.array(t) > self._orbInterp[0]._data[4])): #pragma: no cover
                 raise ValueError("One or more requested time is not within the integrated range")
             if dim == 4 or dim == 6:
                 #Unpack interpolated x and y to R and phi
