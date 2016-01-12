@@ -939,7 +939,7 @@ class Potential(object):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return lindbladR(self,OmegaP,m=m,**kwargs)
+        return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
 
     @physical_conversion('velocity',pop=True)
     def vesc(self,R):
@@ -966,7 +966,8 @@ class Potential(object):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,0.)-self(R,0.)))
+        return nu.sqrt(2.*(self(_INF,0.,use_physical=False)\
+                               -self(R,0.,use_physical=False)))
         
     @physical_conversion('position',pop=True)
     def rl(self,lz):
@@ -998,7 +999,7 @@ class Potential(object):
             ~0.75 ms for a MWPotential
         
         """
-        return rl(self,lz)
+        return rl(self,lz,use_physical=False)
 
     def flattening(self,R,z):
         """
