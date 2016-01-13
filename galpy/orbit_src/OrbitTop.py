@@ -1,11 +1,18 @@
 import math as m
 import numpy as nu
-from scipy import interpolate, optimize
+import scipy
+from scipy import interpolate
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.potential_src.planarPotential import RZToplanarPotential
+if int(scipy.__version__.split('.')[0]) < 1 and \
+        int(scipy.__version__.split('.')[1]) < 15: #pragma: no cover
+    _OLD_SCIPY= True
+    _KWINTERP= {}  #for scipy version <1.15
+else:
+    _OLD_SCIPY= False
+    _KWINTERP= {'ext':2}  #for scipy version >=1.15
 class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -1146,6 +1153,10 @@ class OrbitTop(object):
                         out[ii,jj]= self.orbit[indx,ii]
                 return out #should always have nt > 1, bc otherwise covered by above
             out= []
+            if _OLD_SCIPY and not isinstance(self._orbInterp[0],_fakeInterp) \
+                    and nu.any((nu.array(t) < self._orbInterp[0]._data[3])\
+                               +(nu.array(t) > self._orbInterp[0]._data[4])): #pragma: no cover
+                raise ValueError("One or more requested time is not within the integrated range")
             if dim == 4 or dim == 6:
                 #Unpack interpolated x and y to R and phi
                 x= self._orbInterp[0](t)
@@ -1881,20 +1892,21 @@ class OrbitTop(object):
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.cos(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1]),
+                                **_KWINTERP))
                 elif (len(self.vxvv) == 4 or len(self.vxvv) == 6) and \
                         ii == len(self.vxvv)-1:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.sin(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1]),**_KWINTERP))
                 else:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[ii]))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,ii]))
+                                self.t,self.orbit[:,ii],**_KWINTERP))
             self._orbInterp= orbInterp
             try: #unsort
                 self.t= self.t[usindx]
@@ -1908,5 +1920,8 @@ class _fakeInterp(object):
     def __init__(self,x):
         self.x= x
     def __call__(self,t):
-        return self.x
+        if nu.any(nu.array(t) != 0.):
+            raise ValueError("Integrate instance before evaluating it at non-zero time")
+        else:
+            return nu.array([self.x for i in t])
 

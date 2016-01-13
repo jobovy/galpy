@@ -1,6 +1,6 @@
 .. _potential-api:
-Potential
-=========
+Potential (``galpy.potential``)
+================================
 
 3D potentials
 -------------

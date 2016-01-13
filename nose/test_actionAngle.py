@@ -1759,20 +1759,25 @@ def test_MWPotential_warning_adiabatic():
     from galpy.actionAngle import actionAngleAdiabatic, \
         actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
-    except: pass
-    else:
-        raise AssertionError("actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't")
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't"
     #Grid
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.)
-    except: pass
-    else:
-        raise AssertionError("actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 def test_MWPotential_warning_staeckel():
@@ -1780,34 +1785,40 @@ def test_MWPotential_warning_staeckel():
     from galpy.actionAngle import actionAngleStaeckel, \
         actionAngleStaeckelGrid
     from galpy.potential import MWPotential
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleStaeckel(pot=MWPotential,delta=0.5)
-    except: pass
-    else:
-        raise AssertionError("actionAngleStaeckel with MWPotential should have thrown a warning, but didn't")
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleStaeckel with MWPotential should have thrown a warning, but didn't"
     #Grid
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5)
-    except: pass
-    else:
-        raise AssertionError("actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 def test_MWPotential_warning_isochroneapprox():
     # Test that using MWPotential throws a warning, see #229
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.potential import MWPotential
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleIsochroneApprox(pot=MWPotential,b=1.)
-    except: pass
-    else:
-        raise AssertionError("actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+        # Should raise warning bc of MWPotential, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
 #Test that the actions are conserved along an orbit

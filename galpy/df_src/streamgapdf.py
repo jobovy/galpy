@@ -1365,8 +1365,8 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
 
 def _astream_integrand(t,b_,orb,tx,w,GSigma,rs2,tmin,compt):
     teval= tx-tmin-t
-    b__= b_+numpy.array([orb.x(teval)[0],orb.y(teval)[0],orb.z(teval)])
-    w = w-numpy.array([orb.vx(teval)[0],orb.vy(teval)[0],orb.vz(teval)])
+    b__= b_+numpy.array([orb.x(teval),orb.y(teval),orb.z(teval)])
+    w = w-numpy.array([orb.vx(teval),orb.vy(teval),orb.vz(teval)])
     wmag = numpy.sqrt(numpy.sum(w**2))
     bdotw=numpy.sum(b__*w)/wmag
     denom= wmag*(numpy.sum(b__**2)+rs2-bdotw**2)

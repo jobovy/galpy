@@ -1297,20 +1297,25 @@ def test_MN3ExponentialDiskPotential_inputs():
     #Turn warnings into errors to test for them
     import warnings
     from galpy.util import galpyWarning
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         mn= MN3ExponentialDiskPotential(normalize=1.,hz=1.438,hr=1.)
-    except: pass
-    else:
-        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 3 did not raise galpyWarning")
-    try:
+        # Should raise warning bc of MN3ExponentialDiskPotential, 
+        # might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= ('MN3ExponentialDiskPotential' in str(wa.message))
+            if raisedWarning: break
+        assert raisedWarning, "MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 3 did not raise galpyWarning"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         mn= MN3ExponentialDiskPotential(normalize=1.,hr=1.,hz=0.7727,
                                         posdens=True)
-    except: pass
-    else:
-        raise AssertionError("MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 1.35 did not raise galpyWarning")
-    #Turn warnings back into warnings
-    warnings.simplefilter("default",galpyWarning)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= ('MN3ExponentialDiskPotential' in str(wa.message))
+            if raisedWarning: break
+        assert raisedWarning, "MN3ExponentialDiskPotential w/o posdens, but with b/Rd > 1.35 did not raise galpyWarning"
     return None
 
 def test_MN3ExponentialDiskPotential_hz():
@@ -1928,5 +1933,5 @@ class mockMovingObjectExplSoftPotential(testMWPotential):
         return None
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
-        mockMovingObjectPotential.__init__(self,rc=rc,maxt=28.,nt=1001)
+        mockMovingObjectPotential.__init__(self,rc=rc,maxt=29.,nt=1001)
         return None

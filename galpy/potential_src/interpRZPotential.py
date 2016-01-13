@@ -34,7 +34,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("interppotential_c extension module not loaded, because galpy_actionAngle_c%s image was not found" % _ext_suffix,
+        warnings.warn("interppotential_c extension module not loaded, because galpy_interppotential_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     ext_loaded= False
 else:
