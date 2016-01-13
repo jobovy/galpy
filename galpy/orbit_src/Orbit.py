@@ -251,6 +251,8 @@ class Orbit(object):
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        self._roSet= False
+        self._voSet= False
         self._orb.turn_physical_off()
 
     def integrate(self,t,pot,method='symplec4_c',dt=None):
@@ -1715,7 +1717,9 @@ class Orbit(object):
            2010-09-21 - Written - Bovy (NYU)
 
         """
-        return self._orb.x(*args,**kwargs)
+        out= self._orb.x(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def y(self,*args,**kwargs):
         """
@@ -1744,7 +1748,9 @@ class Orbit(object):
            2010-09-21 - Written - Bovy (NYU)
 
         """
-        return self._orb.y(*args,**kwargs)
+        out= self._orb.y(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vx(self,*args,**kwargs):
         """
@@ -1773,7 +1779,9 @@ class Orbit(object):
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        return self._orb.vx(*args,**kwargs)
+        out= self._orb.vx(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vy(self,*args,**kwargs):
         """
@@ -1803,7 +1811,9 @@ class Orbit(object):
            2010-11-30 - Written - Bovy (NYU)
 
         """
-        return self._orb.vy(*args,**kwargs)
+        out= self._orb.vy(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def ra(self,*args,**kwargs):
         """

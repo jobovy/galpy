@@ -1,5 +1,5 @@
-Utilities
-==========
+Utilities (``galpy.util``)
+==========================
 
 .. toctree::
    :maxdepth: 2
