@@ -58,6 +58,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
                  2( subhalopot= galpy potential object or list thereof (should be spherical)
 
+                 3( hernquist= (False) if True, use Hernquist kicks for GM/rs
+
            deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
@@ -82,6 +84,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
         subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
+        hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
         rs= kwargs.pop('rs',None)
         subhalopot= kwargs.pop('subhalopot',None)
@@ -119,7 +122,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # setup interpolating function
         self._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                     GM,rs,subhalopot,
-                                    nKickPoints,spline_order)
+                                    nKickPoints,spline_order,hernquist)
         self._determine_deltaOmegaTheta_kick(spline_order)
         # Then pass everything to the normal streamdf setup
         self.nInterpolatedTrackChunks= 201 #more expensive now
@@ -443,7 +446,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
     def _determine_deltav_kick(self,impact_angle,impactb,subhalovel,
                                GM,rs,subhalopot,
-                               nKickPoints,spline_order):
+                               nKickPoints,spline_order,hernquist):
         # Store some impact parameters
         self._impactb= impactb
         self._subhalovel= subhalovel
@@ -477,14 +480,18 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                     self._kick_ObsTrackXY_closest[3:],
                                                     subhalopot)
         else:
+            if hernquist:
+                deltav_func= impulse_deltav_hernquist_curvedstream
+            else:
+                deltav_func= impulse_deltav_plummer_curvedstream
             self._kick_deltav= \
-                impulse_deltav_plummer_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
-                                                    self._kick_interpolatedObsTrackXY[:,:3],
-                                                    self._impactb,
-                                                    self._subhalovel,
-                                                    self._kick_ObsTrackXY_closest[:3],
-                                                    self._kick_ObsTrackXY_closest[3:],
-                                                    GM,rs)
+                deltav_func(self._kick_interpolatedObsTrackXY[:,3:],
+                            self._kick_interpolatedObsTrackXY[:,:3],
+                            self._impactb,
+                            self._subhalovel,
+                            self._kick_ObsTrackXY_closest[:3],
+                            self._kick_ObsTrackXY_closest[3:],
+                            GM,rs)
         return None
 
     def _determine_deltaOmegaTheta_kick(self,spline_order):
