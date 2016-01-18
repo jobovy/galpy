@@ -7,7 +7,7 @@ from scipy import integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
 from galpy.util.bovy_conversion import physical_conversion,\
-    potential_physical_input
+    potential_physical_input, freq_in_Gyr
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
@@ -441,7 +441,9 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return lindbladR(self,OmegaP,m=m,**kwargs)
+        if _APY_LOADED and isinstance(OmegaP,units.Quantity):
+            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+        return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
