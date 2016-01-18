@@ -1222,3 +1222,30 @@ def test_linearPotential_function_value():
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatelinearForces(potu,1.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     return None
 
+def test_potential_method_inputAsQuantity():
+    from galpy.potential import PlummerPotential
+    ro, vo= 8.*units.kpc, 220.
+    pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
+    potu= PlummerPotential(normalize=True)
+    assert numpy.fabs(pot(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu(1.1,0.1)) < 10.**-8., 'Potential method __call__ does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.Rforce(1.1,0.1)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    # Few more cases for Rforce
+    assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=9.,use_physical=False)-potu.Rforce(1.1*8./9.,0.1*8./9.)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,vo=230.,use_physical=False)-potu.Rforce(1.1,0.1)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.zforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.zforce(1.1,0.1)) < 10.**-4., 'Potential method zforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.phiforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phiforce(1.1,0.1)) < 10.**-4., 'Potential method phiforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.dens(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.dens(1.1,0.1)) < 10.**-8., 'Potential method dens does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.mass(1.1*ro,0.1*ro,use_physical=False)-potu.mass(1.1,0.1)) < 10.**-8., 'Potential method mass does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.R2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.R2deriv(1.1,0.1)) < 10.**-8., 'Potential method R2deriv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.z2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.z2deriv(1.1,0.1)) < 10.**-8., 'Potential method z2deriv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.Rzderiv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.Rzderiv(1.1,0.1)) < 10.**-8., 'Potential method Rzderiv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.Rphideriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.Rphideriv(1.1,0.1)) < 10.**-8., 'Potential method Rphideriv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.phi2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phi2deriv(1.1,0.1)) < 10.**-8., 'Potential method phi2deriv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.vcirc(1.1*ro,use_physical=False)-potu.vcirc(1.1)) < 10.**-8., 'Potential method vcirc does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.dvcircdR(1.1*ro,use_physical=False)-potu.dvcircdR(1.1)) < 10.**-8., 'Potential method dvcircdR does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.omegac(1.1*ro,use_physical=False)-potu.omegac(1.1)) < 10.**-8., 'Potential method omegac does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.epifreq(1.1*ro,use_physical=False)-potu.epifreq(1.1)) < 10.**-8., 'Potential method epifreq does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.verticalfreq(1.1*ro,use_physical=False)-potu.verticalfreq(1.1)) < 10.**-8., 'Potential method verticalfreq does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.vesc(1.1*ro,use_physical=False)-potu.vesc(1.1)) < 10.**-8., 'Potential method vesc does not return the correct value when input is Quantity'
+    return None
+
