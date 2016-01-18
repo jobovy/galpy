@@ -1327,7 +1327,7 @@ def test_linearPotential_function_inputAsQuantity():
     from galpy.potential import PlummerPotential
     from galpy import potential
     ro, vo= 8.*units.kpc, 220.
-    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1)]
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1*ro)]
     potu= [PlummerPotential(normalize=True).toVertical(1.1)]
     assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'

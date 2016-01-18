@@ -653,6 +653,8 @@ class Potential(object):
            linear (vertical) potential
         HISTORY
         """
+        if _APY_LOADED and isinstance(R,units.Quantity):
+            R= R.to(units.kpc).value/self._ro
         from galpy.potential import RZToverticalPotential
         return RZToverticalPotential(self,R)
 
