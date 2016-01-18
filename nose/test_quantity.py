@@ -1321,9 +1321,9 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.verticalfreq(pot,1.1*ro,use_physical=False)-potential.verticalfreq(potu,1.1)) < 10.**-8., 'Potential function verticalfreq does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vesc(pot,1.1*ro,use_physical=False)-potential.vesc(potu,1.1)) < 10.**-8., 'Potential function vesc does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.lindbladR(pot,0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potential.lindbladR(potu,0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
-    assert numpy.fabs(potential.lindbladR([pot],0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potential.lindbladR(potu,0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.lindbladR(pot[0],0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potential.lindbladR(potu,0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rl(pot,1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
-    assert numpy.fabs(potential.rl([pot],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.rl(pot[0],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vterm(pot,45.*units.deg,use_physical=False)-potential.vterm(potu,45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
     return None
 

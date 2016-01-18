@@ -1939,7 +1939,7 @@ def rl(Pot,lz):
     if _APY_LOADED and isinstance(lz,units.Quantity):
         if hasattr(Pot,'_ro'):
             lz= lz.to(units.km/units.s*units.kpc).value/Pot._vo/Pot._ro
-        if hasattr(Pot[0],'_ro'):
+        elif hasattr(Pot[0],'_ro'):
             lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
     #Find interval
     rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
@@ -2007,7 +2007,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
     if _APY_LOADED and isinstance(OmegaP,units.Quantity):
         if hasattr(Pot,'_ro'):
             OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(Pot._vo,Pot._ro)
-        if hasattr(Pot[0],'_ro'):
+        elif hasattr(Pot[0],'_ro'):
             OmegaP= OmegaP.to(1/units.Gyr).value\
                 /freq_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(m,str):
