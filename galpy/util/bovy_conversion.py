@@ -462,7 +462,8 @@ _roNecessary= {'time': True,
                'forcederivative':True,
                'angle':True,
                'angle_deg':True,
-               'proper-motion_masyr':True}
+               'proper-motion_masyr':True,
+               'dimensionless':False}
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
 _voNecessary['position_kpc']= False
@@ -568,6 +569,10 @@ def physical_conversion(quantity,pop=False):
                     fac= freq_in_Gyr(vo,ro)**2.
                     if _APY_UNITS:
                         u= units.Gyr**-2.
+                elif quantity.lower() == 'dimensionless':
+                    fac= 1.
+                    if _APY_UNITS:
+                        u= units.dimensionless_unscaled
                 out= method(*args,**kwargs)
                 if out is None:
                     return out
@@ -578,4 +583,46 @@ def physical_conversion(quantity,pop=False):
             else:
                 return method(*args,**kwargs)
         return wrapped
+    return wrapper
+def potential_physical_input(method):
+    """Decorator to convert inputs to Potential functions from physical 
+    to internal coordinates"""
+    @wraps(method)
+    def wrapper(*args,**kwargs):
+        ro= kwargs.get('ro',None)
+        if ro is None and hasattr(args[0],'_ro'):
+            ro= args[0]._ro
+        if ro is None and isinstance(args[0],list) \
+                and hasattr(args[0][0],'_ro'):
+            # For lists of Potentials
+            ro= args[0][0]._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if 't' in kwargs:
+            vo= kwargs.get('vo',None)
+            if vo is None and hasattr(args[0],'_vo'):
+                vo= args[0]._vo
+            if vo is None and isinstance(args[0],list) \
+                    and hasattr(args[0][0],'_vo'):
+                # For lists of Potentials
+                vo= args[0][0]._vo
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+        # Loop through args
+        newargs= ()
+        for ii in range(len(args)):
+            if _APY_LOADED and isinstance(args[ii],units.Quantity):
+                newargs= newargs+(args[ii].to(units.kpc).value/ro,)
+            else:
+                newargs= newargs+(args[ii],)
+        args= newargs
+        # phi and t kwargs
+        if 'phi' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['phi'],units.Quantity):
+            kwargs['phi']= kwargs['phi'].to(units.rad).value
+        if 't' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['t'],units.Quantity):
+            kwargs['t']= kwargs['t'].to(units.Gyr).value\
+                /time_in_Gyr(vo,ro)
+        return method(*args,**kwargs)
     return wrapper

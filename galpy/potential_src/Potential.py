@@ -23,7 +23,8 @@ import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
-from galpy.util.bovy_conversion import velocity_in_kpcGyr, physical_conversion
+from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
+    physical_conversion, potential_physical_input
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 class Potential(object):
@@ -59,6 +60,7 @@ class Potential(object):
             self._voSet= True
         return None
 
+    @potential_physical_input
     @physical_conversion('energy',pop=True)
     def __call__(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
@@ -100,6 +102,7 @@ class Potential(object):
         elif dR != 0 or dphi != 0:
             raise NotImplementedError('Higher-order derivatives not implemented for this potential')
         
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -135,6 +138,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
         
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def zforce(self,R,z,phi=0.,t=0.):
         """
@@ -170,6 +174,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_zforce' function not implemented for this potential")
 
+    @potential_physical_input
     @physical_conversion('density',pop=True)
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         """
@@ -214,6 +219,7 @@ class Potential(object):
                      +self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)/R**2.
                      +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./nu.pi
 
+    @potential_physical_input
     @physical_conversion('mass',pop=True)
     def mass(self,R,z=None,t=0.,forceint=False):
         """
@@ -314,6 +320,7 @@ class Potential(object):
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
         return self.mass(rvir,forceint=forceint,use_physical=False)
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def R2deriv(self,R,Z,phi=0.,t=0.):
         """
@@ -349,6 +356,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def z2deriv(self,R,Z,phi=0.,t=0.):
         """
@@ -384,6 +392,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def Rzderiv(self,R,Z,phi=0.,t=0.):
         """
@@ -446,6 +455,7 @@ class Potential(object):
         """
         self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t,use_physical=False))
 
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -481,6 +491,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             return 0.
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def phi2deriv(self,R,Z,phi=0.,t=0.):
         """
@@ -516,6 +527,7 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             return 0.
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def Rphideriv(self,R,Z,phi=0.,t=0.):
         """
@@ -771,6 +783,7 @@ class Potential(object):
                              justcontours=justcontours,
                              aspect=aspect,log=log)
 
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R):
         """
@@ -798,6 +811,7 @@ class Potential(object):
         """
         return nu.sqrt(R*-self.Rforce(R,0.,use_physical=False))
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def dvcircdR(self,R):
         """
@@ -828,6 +842,7 @@ class Potential(object):
                          +R*self.R2deriv(R,0.,use_physical=False))\
                          /self.vcirc(R,use_physical=False)
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def omegac(self,R):
         """
@@ -855,6 +870,7 @@ class Potential(object):
         """
         return nu.sqrt(-self.Rforce(R,0.,use_physical=False)/R)
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def epifreq(self,R):
         """
@@ -883,6 +899,7 @@ class Potential(object):
         return nu.sqrt(self.R2deriv(R,0.,use_physical=False)\
                            -3./R*self.Rforce(R,0.,use_physical=False))
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def verticalfreq(self,R):
         """
@@ -941,6 +958,7 @@ class Potential(object):
         """
         return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
 
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vesc(self,R):
         """
@@ -1001,6 +1019,8 @@ class Potential(object):
         """
         return rl(self,lz,use_physical=False)
 
+    @potential_physical_input
+    @physical_conversion('dimensionless',pop=True)
     def flattening(self,R,z):
         """
         
@@ -1231,6 +1251,7 @@ class PotentialError(Exception): #pragma: no cover
     def __str__(self):
         return repr(self.value)
 
+@potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     """
@@ -1265,6 +1286,7 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('density',pop=True)
 def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
     """
@@ -1313,6 +1335,7 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     """
@@ -1345,6 +1368,7 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     """
@@ -1386,6 +1410,7 @@ def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatezforces(Pot,R,z,phi=0.,t=0.):
     """
@@ -1428,6 +1453,7 @@ def evaluatezforces(Pot,R,z,phi=0.,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
     """
@@ -1460,6 +1486,7 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
     """
@@ -1492,6 +1519,7 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
     """
@@ -1677,6 +1705,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
 
+@potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R):
     """
@@ -1718,6 +1747,7 @@ def epifreq(Pot,R):
         return nu.sqrt(evaluateplanarR2derivs(Pot,R,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,use_physical=False))
 
+@potential_physical_input
 @physical_conversion('frequency',pop=True)
 def verticalfreq(Pot,R):
     """
@@ -1750,6 +1780,8 @@ def verticalfreq(Pot,R):
         return Pot.verticalfreq(R,use_physical=False)
     return nu.sqrt(evaluatez2derivs(Pot,R,0.,use_physical=False))
 
+@potential_physical_input
+@physical_conversion('dimensionless',pop=True)
 def flattening(Pot,R,z):
     """
     
@@ -1781,6 +1813,7 @@ def flattening(Pot,R,z):
     return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,use_physical=False)\
                                /evaluatezforces(Pot,R,z,use_physical=False)))
 
+@potential_physical_input
 @physical_conversion('velocity',pop=True)
 def vterm(Pot,l,deg=True):
     """
@@ -1943,6 +1976,7 @@ def _lindbladR_eq(R,Pot,OmegaP,m):
     return m*(omegac(Pot,R,use_physical=False)-OmegaP)\
         -epifreq(Pot,R,use_physical=False)
 
+@potential_physical_input
 @physical_conversion('frequency',pop=True)
 def omegac(Pot,R):
     """
