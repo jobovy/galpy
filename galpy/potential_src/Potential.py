@@ -711,6 +711,15 @@ class Potential(object):
            2014-04-08 - Added effective= - Bovy (IAS)
 
         """
+        if _APY_LOADED:
+            if isinstance(rmin,units.Quantity):
+                rmin= rmin.to(units.kpc).value/self._ro
+            if isinstance(rmax,units.Quantity):
+                rmax= rmax.to(units.kpc).value/self._ro
+            if isinstance(zmin,units.Quantity):
+                zmin= zmin.to(units.kpc).value/self._ro
+            if isinstance(zmax,units.Quantity):
+                zmax= zmax.to(units.kpc).value/self._ro
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
@@ -1613,6 +1622,19 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            2010-07-09 - Written - Bovy (NYU)
 
         """
+        if _APY_LOADED:
+            if hasattr(Pot,'_ro'):
+                tro= Pot._ro
+            else:
+                tro= Pot[0]._ro
+            if isinstance(rmin,units.Quantity):
+                rmin= rmin.to(units.kpc).value/tro
+            if isinstance(rmax,units.Quantity):
+                rmax= rmax.to(units.kpc).value/tro
+            if isinstance(zmin,units.Quantity):
+                zmin= zmin.to(units.kpc).value/tro
+            if isinstance(zmax,units.Quantity):
+                zmax= zmax.to(units.kpc).value/tro
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -1627,7 +1649,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(Rs[ii]),
-                                                     zs[jj])
+                                                     zs[jj],use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -1687,6 +1709,19 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         HISTORY:
            2013-07-05 - Written - Bovy (IAS)
         """
+        if _APY_LOADED:
+            if hasattr(Pot,'_ro'):
+                tro= Pot._ro
+            else:
+                tro= Pot[0]._ro
+            if isinstance(rmin,units.Quantity):
+                rmin= rmin.to(units.kpc).value/tro
+            if isinstance(rmax,units.Quantity):
+                rmax= rmax.to(units.kpc).value/tro
+            if isinstance(zmin,units.Quantity):
+                zmin= zmin.to(units.kpc).value/tro
+            if isinstance(zmax,units.Quantity):
+                zmax= zmax.to(units.kpc).value/tro
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -1701,7 +1736,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(Rs[ii]),
-                                                    zs[jj])
+                                                    zs[jj],use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')

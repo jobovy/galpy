@@ -969,6 +969,23 @@ def plotplanarPotentials(Pot,*args,**kwargs):
     Rrange= kwargs.pop('Rrange',[0.01,5.])
     xrange= kwargs.pop('xrange',[-5.,5.])
     yrange= kwargs.pop('yrange',[-5.,5.])
+    if _APY_LOADED:
+        if hasattr(Pot,'_ro'):
+            tro= Pot._ro
+        else:
+            tro= Pot[0]._ro
+        if isinstance(Rrange[0],units.Quantity):
+            Rrange[0]= Rrange[0].to(units.kpc).value/tro
+        if isinstance(Rrange[1],units.Quantity):
+            Rrange[1]= Rrange[1].to(units.kpc).value/tro
+        if isinstance(xrange[0],units.Quantity):
+            xrange[0]= xrange[0].to(units.kpc).value/tro
+        if isinstance(xrange[1],units.Quantity):
+            xrange[1]= xrange[1].to(units.kpc).value/tro
+        if isinstance(yrange[0],units.Quantity):
+            yrange[0]= yrange[0].to(units.kpc).value/tro
+        if isinstance(yrange[1],units.Quantity):
+            yrange[1]= yrange[1].to(units.kpc).value/tro
     grid= kwargs.pop('grid',100)
     gridx= kwargs.pop('gridx',100)
     gridy= kwargs.pop('gridy',gridx)
@@ -998,12 +1015,14 @@ def plotplanarPotentials(Pot,*args,**kwargs):
                     else:
                         thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
                     potR[ii,jj]= evaluateplanarPotentials(Pot,thisR,
-                                                          phi=thisphi)
+                                                          phi=thisphi,
+                                                          use_physical=False)
         else:
             Rs= nu.linspace(Rrange[0],Rrange[1],grid)
             potR= nu.zeros(grid)
             for ii in range(grid):
-                potR[ii]= evaluateplanarPotentials(Pot,Rs[ii])
+                potR[ii]= evaluateplanarPotentials(Pot,Rs[ii],
+                                                   use_physical=False)
         if not savefilename is None:
             print("Writing planar savefile "+savefilename+" ...")
             savefile= open(savefilename,'wb')

@@ -1338,3 +1338,34 @@ def test_linearPotential_function_inputAsQuantity():
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     return None
 
+def test_plotting_inputAsQuantity():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    ro, vo= 8.*units.kpc, 220.
+    pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
+    pot.plot(rmin=1.*units.kpc,rmax=4.*units.kpc,
+             zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    pot.plotDensity(rmin=1.*units.kpc,rmax=4.*units.kpc,
+                    zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    potential.plotPotentials(pot,rmin=1.*units.kpc,rmax=4.*units.kpc,
+                             zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    potential.plotPotentials([pot],rmin=1.*units.kpc,rmax=4.*units.kpc,
+                             zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    potential.plotDensities(pot,rmin=1.*units.kpc,rmax=4.*units.kpc,
+                            zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    potential.plotDensities([pot],rmin=1.*units.kpc,rmax=4.*units.kpc,
+                             zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    # Planar
+    plpot= pot.toPlanar()
+    plpot.plot(Rrange=[1.*units.kpc,8.*units.kpc],
+               xrange=[-4.*units.kpc,4.*units.kpc],
+               yrange=[-6.*units.kpc,7.*units.kpc])
+    potential.plotplanarPotentials(plpot,
+                                   Rrange=[1.*units.kpc,8.*units.kpc],
+                                   xrange=[-4.*units.kpc,4.*units.kpc],
+                                   yrange=[-6.*units.kpc,7.*units.kpc])
+    potential.plotplanarPotentials([plpot],
+                                   Rrange=[1.*units.kpc,8.*units.kpc],
+                                   xrange=[-4.*units.kpc,4.*units.kpc],
+                                   yrange=[-6.*units.kpc,7.*units.kpc])
+    return None
