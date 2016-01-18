@@ -1172,9 +1172,9 @@ def test_planarPotential_function_returnunit():
     return None
 
 def test_linearPotential_function_returnunit():
-    from galpy.potential import PlummerPotential
+    from galpy.potential import KGPotential
     from galpy import potential
-    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)]
+    pot= [KGPotential(ro=8.*units.kpc,vo=220.*units.km/units.s)]
     try:
         potential.evaluatelinearPotentials(pot,1.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
