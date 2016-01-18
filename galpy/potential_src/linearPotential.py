@@ -8,6 +8,11 @@ from galpy.util import config
 from galpy.potential_src.Potential import PotentialError
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class linearPotential(object):
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -20,12 +25,16 @@ class linearPotential(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             self._ro= ro
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             self._vo= vo
             self._voSet= True
         return None

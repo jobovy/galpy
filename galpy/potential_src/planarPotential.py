@@ -11,6 +11,11 @@ from galpy.util.bovy_conversion import physical_conversion,\
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class planarPotential(object):
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -25,12 +30,16 @@ class planarPotential(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             self._ro= ro
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             self._vo= vo
             self._voSet= True
         return None
