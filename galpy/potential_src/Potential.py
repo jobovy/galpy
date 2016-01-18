@@ -1090,6 +1090,9 @@ class Potential(object):
             2013-05-31 - Written - Bovy (IAS)
         
         """
+        if _APY_LOADED and isinstance(l,units.Quantity):
+            l= l.to(units.rad).value
+            deg= False
         if deg:
             sinl= nu.sin(l/180.*nu.pi)
         else:
@@ -1826,7 +1829,6 @@ def flattening(Pot,R,z):
     return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,use_physical=False)\
                                /evaluatezforces(Pot,R,z,use_physical=False)))
 
-@potential_physical_input
 @physical_conversion('velocity',pop=True)
 def vterm(Pot,l,deg=True):
     """
@@ -1856,6 +1858,9 @@ def vterm(Pot,l,deg=True):
         2013-05-31 - Written - Bovy (IAS)
         
     """
+    if _APY_LOADED and isinstance(l,units.Quantity):
+        l= l.to(units.rad).value
+        deg= False
     if deg:
         sinl= nu.sin(l/180.*nu.pi)
     else:
