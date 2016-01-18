@@ -24,9 +24,14 @@ from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
 from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
-    physical_conversion, potential_physical_input
+    physical_conversion, potential_physical_input, freq_in_Gyr
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class Potential(object):
     """Top-level class for a potential"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -956,6 +961,8 @@ class Potential(object):
            2011-10-09 - Written - Bovy (IAS)
         
         """
+        if _APY_LOADED and isinstance(OmegaP,units.Quantity):
+            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
         return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
 
     @potential_physical_input
