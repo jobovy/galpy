@@ -554,11 +554,9 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        planarAxiPotential.__init__(self,amp=1.)
-        # Also transfer ro and vo
-        self._ro= RZPot._ro
+        planarAxiPotential.__init__(self,amp=1.,ro=RZPot._ro,vo=RZPot._vo)
+        # Also transfer roSet and voSet
         self._roSet= RZPot._roSet
-        self._vo= RZPot._vo
         self._voSet= RZPot._voSet
         self._RZPot= RZPot
         self.hasC= RZPot.hasC
