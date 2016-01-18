@@ -755,6 +755,7 @@ def test_potential_method_returntype():
     assert isinstance(pot.Rzderiv(1.1,0.1),units.Quantity), 'Potential method Rzderiv does not return Quantity when it should'
     assert isinstance(pot.Rphideriv(1.1,0.1),units.Quantity), 'Potential method Rphideriv does not return Quantity when it should'
     assert isinstance(pot.phi2deriv(1.1,0.1),units.Quantity), 'Potential method phi2deriv does not return Quantity when it should'
+    assert isinstance(pot.flattening(1.1,0.1),units.Quantity), 'Potential method flattening does not return Quantity when it should'
     assert isinstance(pot.vcirc(1.1),units.Quantity), 'Potential method vcirc does not return Quantity when it should'
     assert isinstance(pot.dvcircdR(1.1),units.Quantity), 'Potential method dvcircdR does not return Quantity when it should'
     assert isinstance(pot.omegac(1.1),units.Quantity), 'Potential method omegac does not return Quantity when it should'
@@ -838,6 +839,10 @@ def test_potential_method_returnunit():
         pot.Rphideriv(1.1,0.1).to(1/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential method Rphideriv does not return Quantity with the right units')
+    try:
+        pot.flattening(1.1,0.1).to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method flattening does not return Quantity with the right units')
     try:
         pot.vcirc(1.1).to(units.km/units.s)
     except units.UnitConversionError:
@@ -955,6 +960,7 @@ def test_potential_method_value():
     assert numpy.fabs(pot.Rzderiv(1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.Rzderiv(1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential method Rzderiv does not return the correct value as Quantity'
     assert numpy.fabs(pot.Rphideriv(1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.Rphideriv(1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential method Rphideriv does not return the correct value as Quantity'
     assert numpy.fabs(pot.phi2deriv(1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.phi2deriv(1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential method phi2deriv does not return the correct value as Quantity'
+    assert numpy.fabs(pot.flattening(1.1,0.1).value-potu.flattening(1.1,0.1)) < 10.**-8., 'Potential method flattening does not return the correct value as Quantity'
     assert numpy.fabs(pot.vcirc(1.1).to(units.km/units.s).value-potu.vcirc(1.1)*vo) < 10.**-8., 'Potential method vcirc does not return the correct value as Quantity'
     assert numpy.fabs(pot.dvcircdR(1.1).to(units.km/units.s/units.kpc).value-potu.dvcircdR(1.1)*vo/ro) < 10.**-8., 'Potential method dvcircdR does not return the correct value as Quantity'
     assert numpy.fabs(pot.omegac(1.1).to(units.km/units.s/units.kpc).value-potu.omegac(1.1)*vo/ro) < 10.**-8., 'Potential method omegac does not return the correct value as Quantity'
@@ -1006,6 +1012,7 @@ def test_potential_function_returntype():
     assert isinstance(potential.evaluateR2derivs(pot,1.1,0.1),units.Quantity), 'Potential function R2deriv does not return Quantity when it should'
     assert isinstance(potential.evaluatez2derivs(pot,1.1,0.1),units.Quantity), 'Potential function z2deriv does not return Quantity when it should'
     assert isinstance(potential.evaluateRzderivs(pot,1.1,0.1),units.Quantity), 'Potential function Rzderiv does not return Quantity when it should'
+    assert isinstance(potential.flattening(pot,1.1,0.1),units.Quantity), 'Potential function flattening does not return Quantity when it should'
     assert isinstance(potential.vcirc(pot,1.1),units.Quantity), 'Potential function vcirc does not return Quantity when it should'
     assert isinstance(potential.dvcircdR(pot,1.1),units.Quantity), 'Potential function dvcircdR does not return Quantity when it should'
     assert isinstance(potential.omegac(pot,1.1),units.Quantity), 'Potential function omegac does not return Quantity when it should'
@@ -1078,6 +1085,10 @@ def test_potential_function_returnunit():
         potential.evaluateRzderivs(pot,1.1,0.1).to(1/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function Rzderiv does not return Quantity with the right units')
+    try:
+        potential.flattening(pot,1.1,0.1).to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function flattening does not return Quantity with the right units')
     try:
         potential.vcirc(pot,1.1).to(units.km/units.s)
     except units.UnitConversionError:
@@ -1187,6 +1198,7 @@ def test_potential_function_value():
     assert numpy.fabs(potential.evaluateR2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateR2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatez2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluatez2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function z2deriv does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateRzderivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateRzderivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function Rzderiv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.flattening(pot,1.1,0.1).value-potential.flattening(potu,1.1,0.1)) < 10.**-8., 'Potential function flattening does not return the correct value as Quantity'
     assert numpy.fabs(potential.vcirc(pot,1.1).to(units.km/units.s).value-potential.vcirc(potu,1.1)*vo) < 10.**-8., 'Potential function vcirc does not return the correct value as Quantity'
     assert numpy.fabs(potential.dvcircdR(pot,1.1).to(units.km/units.s/units.kpc).value-potential.dvcircdR(potu,1.1)*vo/ro) < 10.**-8., 'Potential function dvcircdR does not return the correct value as Quantity'
     assert numpy.fabs(potential.omegac(pot,1.1).to(units.km/units.s/units.kpc).value-potential.omegac(potu,1.1)*vo/ro) < 10.**-8., 'Potential function omegac does not return the correct value as Quantity'
@@ -1246,6 +1258,7 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.Rzderiv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.Rzderiv(1.1,0.1)) < 10.**-8., 'Potential method Rzderiv does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.Rphideriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.Rphideriv(1.1,0.1)) < 10.**-8., 'Potential method Rphideriv does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.phi2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phi2deriv(1.1,0.1)) < 10.**-8., 'Potential method phi2deriv does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.flattening(1.1*ro,0.1*ro,use_physical=False)-potu.flattening(1.1,0.1)) < 10.**-8., 'Potential method flattening does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vcirc(1.1*ro,use_physical=False)-potu.vcirc(1.1)) < 10.**-8., 'Potential method vcirc does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.dvcircdR(1.1*ro,use_physical=False)-potu.dvcircdR(1.1)) < 10.**-8., 'Potential method dvcircdR does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.omegac(1.1*ro,use_physical=False)-potu.omegac(1.1)) < 10.**-8., 'Potential method omegac does not return the correct value when input is Quantity'
@@ -1314,6 +1327,7 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.evaluateR2derivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateR2derivs(potu,1.1,0.1)) < 10.**-8., 'Potential function R2deriv does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatez2derivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatez2derivs(potu,1.1,0.1)) < 10.**-8., 'Potential function z2deriv does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateRzderivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateRzderivs(potu,1.1,0.1)) < 10.**-8., 'Potential function Rzderiv does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.flattening(pot,1.1*ro,0.1*ro,use_physical=False)-potential.flattening(potu,1.1,0.1)) < 10.**-8., 'Potential function flattening does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vcirc(pot,1.1*ro,use_physical=False)-potential.vcirc(potu,1.1)) < 10.**-8., 'Potential function vcirc does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.dvcircdR(pot,1.1*ro,use_physical=False)-potential.dvcircdR(potu,1.1)) < 10.**-8., 'Potential function dvcircdR does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.omegac(pot,1.1*ro,use_physical=False)-potential.omegac(potu,1.1)) < 10.**-8., 'Potential function omegac does not return the correct value when input is Quantity'
