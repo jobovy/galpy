@@ -1249,6 +1249,7 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.verticalfreq(1.1*ro,use_physical=False)-potu.verticalfreq(1.1)) < 10.**-8., 'Potential method verticalfreq does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vesc(1.1*ro,use_physical=False)-potu.vesc(1.1)) < 10.**-8., 'Potential method vesc does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.lindbladR(0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potu.lindbladR(0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.rl(1.1*vo*ro*units.km/units.s,use_physical=False)-potu.rl(1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_method_inputAsQuantity():
@@ -1301,6 +1302,7 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.verticalfreq(pot,1.1*ro,use_physical=False)-potential.verticalfreq(potu,1.1)) < 10.**-8., 'Potential function verticalfreq does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vesc(pot,1.1*ro,use_physical=False)-potential.vesc(potu,1.1)) < 10.**-8., 'Potential function vesc does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.lindbladR(pot,0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potential.lindbladR(potu,0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.rl(pot,1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_function_inputAsQuantity():

@@ -1028,6 +1028,8 @@ class Potential(object):
             ~0.75 ms for a MWPotential
         
         """
+        if _APY_LOADED and isinstance(lz,units.Quantity):
+            lz= lz.to(units.km/units.s*units.kpc).value/self._vo/self._ro
         return rl(self,lz,use_physical=False)
 
     @potential_physical_input
@@ -1892,6 +1894,11 @@ def rl(Pot,lz):
        ~0.75 ms for a MWPotential
 
     """
+    if _APY_LOADED and isinstance(lz,units.Quantity):
+        if hasattr(Pot,'_ro'):
+            lz= lz.to(units.km/units.s*units.kpc).value/Pot._vo/Pot._ro
+        if hasattr(Pot[0],'_ro'):
+            lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
     #Find interval
     rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
                          math.fabs(lz),
