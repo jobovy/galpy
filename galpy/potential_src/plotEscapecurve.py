@@ -4,7 +4,8 @@ import os
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion,\
+    potential_physical_input
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
@@ -97,6 +98,7 @@ def calcEscapecurve(Pot,Rs):
         esccurve[ii]= vesc(Pot,Rs[ii])
     return esccurve
 
+@potential_physical_input
 @physical_conversion('velocity',pop=True)
 def vesc(Pot,R):
     """

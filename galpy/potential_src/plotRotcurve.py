@@ -4,7 +4,8 @@ import os
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion,\
+    potential_physical_input
 def plotRotcurve(Pot,*args,**kwargs):
     """
     NAME:
@@ -96,6 +97,7 @@ def calcRotcurve(Pot,Rs):
         rotcurve[ii]= vcirc(Pot,Rs[ii])
     return rotcurve
 
+@potential_physical_input
 @physical_conversion('velocity',pop=True)
 def vcirc(Pot,R):
     """
@@ -132,6 +134,7 @@ def vcirc(Pot,R):
         Pot= RZToplanarPotential(Pot)
         return nu.sqrt(-R*evaluateplanarRforces(Pot,R,use_physical=False))
 
+@potential_physical_input
 @physical_conversion('frequency',pop=True)
 def dvcircdR(Pot,R):
     """
