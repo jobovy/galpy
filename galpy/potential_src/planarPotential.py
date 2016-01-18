@@ -6,7 +6,8 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion,\
+    potential_physical_input
 from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
@@ -34,6 +35,7 @@ class planarPotential(object):
             self._voSet= True
         return None
 
+    @potential_physical_input
     @physical_conversion('energy',pop=True)
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
         """
@@ -78,6 +80,7 @@ class planarPotential(object):
         elif dR == 1 and dphi == 1:
             return self.Rphideriv(R,phi=phi,t=t,use_physical=False)
 
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def Rforce(self,R,phi=0.,t=0.):
         """
@@ -111,6 +114,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def phiforce(self,R,phi=0.,t=0.):
         """
@@ -144,6 +148,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_phiforce' function not implemented for this potential")
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def R2deriv(self,R,phi=0.,t=0.):
         """
@@ -177,6 +182,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def phi2deriv(self,R,phi=0.,t=0.):
         """
@@ -210,6 +216,7 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
+    @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
     def Rphideriv(self,R,phi=0.,t=0.):
         """
@@ -307,6 +314,7 @@ class planarAxiPotential(planarPotential):
         """
         return 0.
 
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R):
         """
@@ -336,6 +344,7 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(R*-self.Rforce(R,use_physical=False))       
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def omegac(self,R):
         """
@@ -365,6 +374,7 @@ class planarAxiPotential(planarPotential):
         """
         return nu.sqrt(-self.Rforce(R,use_physical=False)/R)       
 
+    @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def epifreq(self,R):
         """
@@ -424,6 +434,7 @@ class planarAxiPotential(planarPotential):
         """
         return lindbladR(self,OmegaP,m=m,**kwargs)
 
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vesc(self,R):
         """
@@ -632,6 +643,7 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     """
@@ -689,6 +701,7 @@ def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateplanarRforces(Pot,R,phi=None,t=0.):
     """
@@ -744,6 +757,7 @@ def evaluateplanarRforces(Pot,R,phi=None,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     """
@@ -799,6 +813,7 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
     """

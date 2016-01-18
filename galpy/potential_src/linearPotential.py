@@ -6,7 +6,8 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.util import config
 from galpy.potential_src.Potential import PotentialError
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion,\
+    potential_physical_input
 class linearPotential(object):
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -29,6 +30,7 @@ class linearPotential(object):
             self._voSet= True
         return None
 
+    @potential_physical_input
     @physical_conversion('energy',pop=True)
     def __call__(self,x,t=0.):
         """
@@ -58,6 +60,7 @@ class linearPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_evaluate' function not implemented for this potential")
 
+    @potential_physical_input
     @physical_conversion('force',pop=True)
     def force(self,x,t=0.):
         """
@@ -141,6 +144,7 @@ class linearPotential(object):
                               xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                               xrange=[min,max])
 
+@potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatelinearPotentials(Pot,x,t=0.):
     """
@@ -179,6 +183,7 @@ def evaluatelinearPotentials(Pot,x,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
+@potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatelinearForces(Pot,x,t=0.):
     """
