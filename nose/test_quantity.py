@@ -712,6 +712,8 @@ def test_change_ro_config():
               45.*units.deg])
     assert numpy.fabs(o._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
     assert numpy.fabs(o._orb._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
+    # Back to default
+    config.set_ro(8.)
     return None
 
 def test_change_vo_config():
@@ -735,6 +737,8 @@ def test_change_vo_config():
               45.*units.deg])
     assert numpy.fabs(o._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
     assert numpy.fabs(o._orb._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
+    # Back to default
+    config.set_vo(220.)
     return None
 
 def test_potential_method_returntype():
@@ -1328,7 +1332,8 @@ def test_linearPotential_function_inputAsQuantity():
     from galpy import potential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1*ro)]
-    potu= [PlummerPotential(normalize=True).toVertical(1.1)]
+    potu= potential.RZToverticalPotential([PlummerPotential(normalize=True)],
+                                          1.1*ro)
     assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     return None

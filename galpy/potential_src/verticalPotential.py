@@ -1,5 +1,10 @@
 from galpy.potential_src.linearPotential import linearPotential
 from galpy.potential_src.Potential import PotentialError, Potential
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a RZPotential:
     phi(z;R)= phi(R,z)-phi(R,0.)"""
@@ -86,6 +91,11 @@ def RZToverticalPotential(RZPot,R):
        2010-07-21 - Written - Bovy (NYU)
 
     """
+    if _APY_LOADED and isinstance(R,units.Quantity):
+        if hasattr(RZPot,'_ro'):
+            R= R.to(units.kpc).value/RZPot._ro
+        else:
+            R= R.to(units.kpc).value/RZPot[0]._ro
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
