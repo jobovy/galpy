@@ -6,6 +6,11 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 def plotRotcurve(Pot,*args,**kwargs):
     """
     NAME:
@@ -39,6 +44,15 @@ def plotRotcurve(Pot,*args,**kwargs):
 
     """
     Rrange= kwargs.pop('Rrange',[0.01,5.])
+    if _APY_LOADED:
+        if hasattr(Pot,'_ro'):
+            tro= Pot._ro
+        else:
+            tro= Pot[0]._ro
+        if isinstance(Rrange[0],units.Quantity):
+            Rrange[0]= Rrange[0].to(units.kpc).value/tro
+        if isinstance(Rrange[1],units.Quantity):
+            Rrange[1]= Rrange[1].to(units.kpc).value/tro
     grid= kwargs.pop('grid',1001)
     savefilename= kwargs.pop('savefilename',None)
     if not savefilename is None and os.path.exists(savefilename):
@@ -94,7 +108,7 @@ def calcRotcurve(Pot,Rs):
         Rs= nu.array([Rs])
     rotcurve= nu.zeros(grid)
     for ii in range(grid):
-        rotcurve[ii]= vcirc(Pot,Rs[ii])
+        rotcurve[ii]= vcirc(Pot,Rs[ii],use_physical=False)
     return rotcurve
 
 @potential_physical_input

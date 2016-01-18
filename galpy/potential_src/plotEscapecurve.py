@@ -6,6 +6,11 @@ import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
@@ -40,6 +45,15 @@ def plotEscapecurve(Pot,*args,**kwargs):
 
     """
     Rrange= kwargs.pop('Rrange',[0.01,5.])
+    if _APY_LOADED:
+        if hasattr(Pot,'_ro'):
+            tro= Pot._ro
+        else:
+            tro= Pot[0]._ro
+        if isinstance(Rrange[0],units.Quantity):
+            Rrange[0]= Rrange[0].to(units.kpc).value/tro
+        if isinstance(Rrange[1],units.Quantity):
+            Rrange[1]= Rrange[1].to(units.kpc).value/tro
     grid= kwargs.pop('grid',1001)
     savefilename= kwargs.pop('savefilename',None)
     if not savefilename == None and os.path.exists(savefilename):
@@ -95,7 +109,7 @@ def calcEscapecurve(Pot,Rs):
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
     for ii in range(grid):
-        esccurve[ii]= vesc(Pot,Rs[ii])
+        esccurve[ii]= vesc(Pot,Rs[ii],use_physical=False)
     return esccurve
 
 @potential_physical_input

@@ -1368,4 +1368,14 @@ def test_plotting_inputAsQuantity():
                                    Rrange=[1.*units.kpc,8.*units.kpc],
                                    xrange=[-4.*units.kpc,4.*units.kpc],
                                    yrange=[-6.*units.kpc,7.*units.kpc])
+    # Rotcurve
+    pot.plotRotcurve(Rrange=[1.*units.kpc,8.*units.kpc])
+    plpot.plotRotcurve(Rrange=[1.*units.kpc,8.*units.kpc])
+    potential.plotRotcurve(pot,Rrange=[1.*units.kpc,8.*units.kpc])
+    potential.plotRotcurve([pot],Rrange=[1.*units.kpc,8.*units.kpc])
+    # Escapecurve
+    pot.plotEscapecurve(Rrange=[1.*units.kpc,8.*units.kpc])
+    plpot.plotEscapecurve(Rrange=[1.*units.kpc,8.*units.kpc])
+    potential.plotEscapecurve(pot,Rrange=[1.*units.kpc,8.*units.kpc])
+    potential.plotEscapecurve([pot],Rrange=[1.*units.kpc,8.*units.kpc])
     return None
