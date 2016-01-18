@@ -1128,25 +1128,27 @@ def test_potential_function_returnunit():
     return None
 
 def test_planarPotential_function_returnunit():
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, LopsidedDiskPotential
     from galpy import potential
-    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()]
+    pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar(),
+          LopsidedDiskPotential(ro=8.*units.kpc,vo=220.*units.km/units.s)]
     try:
-        potential.evaluateplanarPotentials(pot,1.1).to(units.km**2/units.s**2)
+        potential.evaluateplanarPotentials(pot,1.1,phi=0.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function __call__ does not return Quantity with the right units')
     try:
-        potential.evaluateplanarRforces(pot,1.1).to(units.km/units.s**2)
+        potential.evaluateplanarRforces(pot,1.1,phi=0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function Rforce does not return Quantity with the right units')
     try:
-        potential.evaluateplanarphiforces(pot,1.1).to(units.km/units.s**2)
+        potential.evaluateplanarphiforces(pot,1.1,phi=0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function phiforce does not return Quantity with the right units')
     try:
-        potential.evaluateplanarR2derivs(pot,1.1).to(1/units.s**2)
+        potential.evaluateplanarR2derivs(pot,1.1,phi=0.1).to(1/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function R2deriv does not return Quantity with the right units')
+    pot.pop()
     try:
         potential.vcirc(pot,1.1).to(units.km/units.s)
     except units.UnitConversionError:
