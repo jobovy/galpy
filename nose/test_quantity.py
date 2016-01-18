@@ -1224,6 +1224,7 @@ def test_linearPotential_function_value():
 
 def test_potential_method_inputAsQuantity():
     from galpy.potential import PlummerPotential
+    from galpy.util import bovy_conversion
     ro, vo= 8.*units.kpc, 220.
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
     potu= PlummerPotential(normalize=True)
@@ -1247,6 +1248,7 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.epifreq(1.1*ro,use_physical=False)-potu.epifreq(1.1)) < 10.**-8., 'Potential method epifreq does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.verticalfreq(1.1*ro,use_physical=False)-potu.verticalfreq(1.1)) < 10.**-8., 'Potential method verticalfreq does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vesc(1.1*ro,use_physical=False)-potu.vesc(1.1)) < 10.**-8., 'Potential method vesc does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.lindbladR(0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potu.lindbladR(0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_method_inputAsQuantity():
