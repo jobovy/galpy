@@ -1297,3 +1297,29 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.vesc(pot,1.1*ro,use_physical=False)-potential.vesc(potu,1.1)) < 10.**-8., 'Potential function vesc does not return the correct value when input is Quantity'
     return None
 
+def test_planarPotential_function_inputAsQuantity():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    ro, vo= 8.*units.kpc, 220.
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toPlanar()]
+    potu= [PlummerPotential(normalize=True).toPlanar()]
+    assert numpy.fabs(potential.evaluateplanarPotentials(pot,1.1*ro,use_physical=False)-potential.evaluateplanarPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarRforces(pot,1.1*ro,use_physical=False)-potential.evaluateplanarRforces(potu,1.1)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarphiforces(pot,1.1*ro,use_physical=False)-potential.evaluateplanarphiforces(potu,1.1)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarR2derivs(pot,1.1*ro,use_physical=False)-potential.evaluateplanarR2derivs(potu,1.1)) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vcirc(pot,1.1*ro,use_physical=False)-potential.vcirc(potu,1.1)) < 10.**-8., 'Potential function vcirc does not return the correct value as Quantity'
+    assert numpy.fabs(potential.omegac(pot,1.1*ro,use_physical=False)-potential.omegac(potu,1.1)) < 10.**-8., 'Potential function omegac does not return the correct value as Quantity'
+    assert numpy.fabs(potential.epifreq(pot,1.1*ro,use_physical=False)-potential.epifreq(potu,1.1)) < 10.**-8., 'Potential function epifreq does not return the correct value as Quantity'
+    assert numpy.fabs(potential.vesc(pot,1.1*ro,use_physical=False)-potential.vesc(potu,1.1)) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
+    return None
+
+def test_linearPotential_function_inputAsQuantity():
+    from galpy.potential import PlummerPotential
+    from galpy import potential
+    ro, vo= 8.*units.kpc, 220.
+    pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1)]
+    potu= [PlummerPotential(normalize=True).toVertical(1.1)]
+    assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
+    return None
+
