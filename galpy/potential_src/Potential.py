@@ -142,6 +142,10 @@ class Potential(object):
            2010-04-16 - Written - Bovy (NYU)
 
         """
+        return self._Rforce_nodecorator(R,z,phi=phi,t=t)
+
+    def _Rforce_nodecorator(self,R,z,phi=0.,t=0.):
+        # Separate, so it can be used during orbit integration
         try:
             return self._amp*self._Rforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
@@ -178,6 +182,10 @@ class Potential(object):
            2010-04-16 - Written - Bovy (NYU)
 
         """
+        return self._zforce_nodecorator(R,z,phi=phi,t=t)
+
+    def _zforce_nodecorator(self,R,z,phi=0.,t=0.):
+        # Separate, so it can be used during orbit integration
         try:
             return self._amp*self._zforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
@@ -495,6 +503,10 @@ class Potential(object):
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        return self._phiforce_nodecorator(R,z,phi=phi,t=t)
+
+    def _phiforce_nodecorator(self,R,z,phi=0.,t=0.):
+        # Separate, so it can be used during orbit integration
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
@@ -1385,13 +1397,17 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
+    return _evaluateRforces(Pot,R,z,phi=phi,t=t)
+
+def _evaluateRforces(Pot,R,z,phi=0.,t=0.):
+    """Raw, undecorated function for internal use"""
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
+            sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
+        return Pot._Rforce_nodecorator(R,z,phi=phi,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
 
@@ -1427,13 +1443,17 @@ def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
        2010-04-16 - Written - Bovy (NYU)
 
     """
+    return _evaluatephiforces(Pot,R,z,phi=phi,t=t)
+
+def _evaluatephiforces(Pot,R,z,phi=0.,t=0.):
+    """Raw, undecorated function for internal use"""
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
+            sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
+        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
 
@@ -1470,13 +1490,17 @@ def evaluatezforces(Pot,R,z,phi=0.,t=0.):
        2010-04-16 - Written - Bovy (NYU)
 
     """
+    return _evaluatezforces(Pot,R,z,phi=phi,t=t)
+
+def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
+    """Raw, undecorated function for internal use"""
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.zforce(R,z,phi=phi,t=t,use_physical=False)
+            sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot.zforce(R,z,phi=phi,t=t,use_physical=False)
+        return Pot._zforce_nodecorator(R,z,phi=phi,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 

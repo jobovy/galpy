@@ -1,7 +1,7 @@
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
+from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, evaluateDensities
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -519,7 +519,7 @@ def _RZEOM(y,t,pot,l2):
        2010-04-16 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(pot,y[0],y[2],t=t,use_physical=False),
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[2],t=t),
             y[3],
-            evaluatezforces(pot,y[0],y[2],t=t,use_physical=False)]
+            _evaluatezforces(pot,y[0],y[2],t=t)]
 
