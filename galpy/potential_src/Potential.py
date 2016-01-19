@@ -91,6 +91,9 @@ class Potential(object):
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
         """
+        return self._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+
+    def _call_nodecorator(self,R,z,phi=0.,t=0.,dR=0.,dphi=0):
         if dR == 0 and dphi == 0:
             try:
                 rawOut= self._evaluate(R,z,phi=phi,t=t)
@@ -1315,13 +1318,17 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
     """
+    return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+
+def _evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
+    """Raw, undecorated function for internal use"""
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
+            sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
         return sum
     elif isinstance(Pot,Potential):
-        return Pot(R,z,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
+        return Pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 

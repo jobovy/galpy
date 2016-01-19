@@ -13,7 +13,8 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential import evaluatePotentials, epifreq, omegac
+from galpy.potential import epifreq, omegac
+from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.actionAngle_src.actionAngle import *
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
@@ -91,7 +92,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(self._pot,R,z,use_physical=False)\
+            E= _evaluatePotentials(self._pot,R,z)\
                 +vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
@@ -155,8 +156,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(self._pot,R,z,use_physical=False)\
-                +vR**2./2.+vT**2./2.+vz**2./2.
+            E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -235,8 +235,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(self._pot,R,z,use_physical=False)\
-                +vR**2./2.+vT**2./2.+vz**2./2.
+            E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz

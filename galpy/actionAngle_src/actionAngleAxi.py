@@ -18,8 +18,7 @@ import numpy as nu
 from scipy import optimize, integrate
 from galpy.actionAngle_src.actionAngle import *
 from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
-from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    evaluateplanarPotentials
+from galpy.potential_src.planarPotential import _evaluateplanarPotentials
 from galpy.potential_src.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
@@ -360,7 +359,7 @@ def potentialAxi(R,pot,vc=1.,ro=1.):
     HISTORY:
        2010-11-30 - Written - Bovy (NYU)
     """
-    return evaluateplanarPotentials(pot,R,use_physical=False)
+    return _evaluateplanarPotentials(pot,R)
 
 def _JRAxiIntegrand(r,E,L,pot):
     """The J_R integrand"""

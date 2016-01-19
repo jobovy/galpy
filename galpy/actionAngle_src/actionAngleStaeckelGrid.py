@@ -17,6 +17,7 @@ from galpy.actionAngle_src.actionAngle import actionAngle
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
+from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid(object):
@@ -72,14 +73,14 @@ class actionAngleStaeckelGrid(object):
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        self._ERL= galpy.potential.evaluatePotentials(self._pot,self._RL,
-                                                      numpy.zeros(self._nLz))\
-                                                      +self._Lzs**2./2./self._RL**2.
+        self._ERL= _evaluatePotentials(self._pot,self._RL,
+                                       numpy.zeros(self._nLz))\
+                                       +self._Lzs**2./2./self._RL**2.
         self._ERLmax= numpy.amax(self._ERL)+1.
         self._ERLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
-        self._ERa= galpy.potential.evaluatePotentials(self._pot,self._Ramax,0.) +self._Lzs**2./2./self._Ramax**2.
+        self._ERa= _evaluatePotentials(self._pot,self._Ramax,0.) +self._Lzs**2./2./self._Ramax**2.
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
@@ -210,7 +211,7 @@ class actionAngleStaeckelGrid(object):
             z= meta._z
             vz= meta._vz
         Lz= R*vT
-        Phi= galpy.potential.evaluatePotentials(self._pot,R,z)
+        Phi= _evaluatePotentials(self._pot,R,z)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
         thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
         thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
