@@ -1,5 +1,4 @@
 import warnings
-import copy
 import math as m
 import numpy as nu
 from scipy import integrate, optimize

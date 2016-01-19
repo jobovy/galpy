@@ -974,6 +974,12 @@ class OrbitTop(object):
                     obs= [obs[0],obs[1],0.]
                 elif len(obs) == 4:
                     obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+            for ii in range(len(obs)):
+                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                    if ii < 3:
+                        obs[ii]= obs[ii].to(units.kpc).value
+                    else:
+                        obs[ii]= obs[ii].to(units.km/units.s).value
         else:
             if vel:
                 obs= [self._ro,0.,self._zo,
