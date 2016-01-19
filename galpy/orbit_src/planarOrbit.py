@@ -8,7 +8,7 @@ from galpy.util.bovy_conversion import physical_conversion
 from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
     RZToplanarPotential, _evaluateplanarphiforces,\
-    evaluateplanarPotentials
+    _evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
 from galpy.util import galpyWarning
 #try:
@@ -289,14 +289,13 @@ class planarROrbit(planarOrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluateplanarPotentials(thispot,thiso[0],
-                                            t=t,use_physical=False)\
+            return _evaluateplanarPotentials(thispot,thiso[0],
+                                             t=t)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
-            return nu.array([evaluateplanarPotentials(thispot,thiso[0,ii],
-                                                      t=t[ii],
-                                                      use_physical=False)\
+            return nu.array([_evaluateplanarPotentials(thispot,thiso[0,ii],
+                                                      t=t[ii])\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
         
@@ -444,16 +443,14 @@ class planarOrbit(planarOrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluateplanarPotentials(thispot,thiso[0],
-                                            phi=thiso[3],t=t,
-                                            use_physical=False)\
+            return _evaluateplanarPotentials(thispot,thiso[0],
+                                            phi=thiso[3],t=t)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
-            return nu.array([evaluateplanarPotentials(thispot,thiso[0,ii],
+            return nu.array([_evaluateplanarPotentials(thispot,thiso[0,ii],
                                                       phi=thiso[3,ii],
-                                                      t=t[ii],
-                                                      use_physical=False)\
+                                                      t=t[ii])\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -772,12 +769,9 @@ def _EOM_dxdv(x,t,pot):
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
     phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    R2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2,
-                                      use_physical=False)
-    phi2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2,
-                                        use_physical=False)
-    Rphideriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1,
-                                        use_physical=False)
+    R2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
+    phi2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
+    Rphideriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
     #Calculate derivatives and derivatives+time derivatives
     dFxdx= -cosphi**2.*R2deriv\
            +2.*cosphi*sinphi/R**2.*phiforce\

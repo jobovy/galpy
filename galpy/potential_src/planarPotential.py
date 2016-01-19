@@ -73,6 +73,10 @@ class planarPotential(object):
            2010-07-13 - Written - Bovy (NYU)
 
         """
+        return self._call_nodecorator(R,phi=phi,t=t,dR=dR,dphi=dphi)
+
+    def _call_nodecorator(self,R,phi=0.,t=0.,dR=0,dphi=0):
+        # Separate, so it can be used during orbit integration
         if dR == 0 and dphi == 0:
             try:
                 return self._amp*self._evaluate(R,phi=phi,t=t)
@@ -693,6 +697,9 @@ def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    return _evaluateplanarPotentials(Pot,R,phi=phi,t=t,dR=dR,dphi=dphi)
+
+def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     isList= isinstance(Pot,list)
     if isList:
         isAxis= [not p.isNonAxi for p in Pot]
@@ -706,15 +713,15 @@ def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot(R,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
+                sum+= pot._call_nodecorator(R,phi=phi,t=t,dR=dR,dphi=dphi)
             else:
-                sum+= pot(R,t=t,dR=dR,dphi=dphi,use_physical=False)
+                sum+= pot._call_nodecorator(R,t=t,dR=dR,dphi=dphi)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot(R,phi=phi,t=t,dR=dR,dphi=dphi,use_physical=False)
+            return Pot._call_nodecorator(R,phi=phi,t=t,dR=dR,dphi=dphi)
         else:
-            return Pot(R,t=t,dR=dR,dphi=dphi,use_physical=False)
+            return Pot._call_nodecorator(R,t=t,dR=dR,dphi=dphi)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
