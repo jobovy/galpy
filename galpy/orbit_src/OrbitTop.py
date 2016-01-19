@@ -90,6 +90,23 @@ class OrbitTop(object):
         self._voSet= False
         return None
 
+    def turn_physical_on(self):
+        """
+        NAME:
+           turn_physical_on
+        PURPOSE:
+           turn on automatic returning of outputs in physical units
+        INPUT:
+           (none)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2016-01-19 - Written - Bovy (UofT)
+        """
+        self._roSet= True
+        self._voSet= True
+        return None
+
     def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
@@ -837,6 +854,7 @@ class OrbitTop(object):
                                                 Ysun=obs[1]/ro,
                                                 Zsun=obs[2]/ro)
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
@@ -847,6 +865,7 @@ class OrbitTop(object):
                                                     Xsun=obs.x(*args,**kwargs),
                                                     Ysun=obs.y(*args,**kwargs),
                                                     Zsun=obs.z(*args,**kwargs))
+                obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
@@ -855,6 +874,7 @@ class OrbitTop(object):
                                                 Ysun=obs[1]/ro,
                                                 Zsun=obs[2]/ro)
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
@@ -867,6 +887,7 @@ class OrbitTop(object):
                                                     Xsun=obs.x(*args,**kwargs),
                                                     Ysun=obs.y(*args,**kwargs),
                                                     Zsun=obs.z(*args,**kwargs))
+                obs.turn_physical_on()
         return (X,Y,Z)
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
@@ -896,6 +917,7 @@ class OrbitTop(object):
                                                       vsun=nu.array(\
                         obs[3:6])/vo)
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
@@ -921,6 +943,7 @@ class OrbitTop(object):
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]))
+                obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
@@ -935,6 +958,7 @@ class OrbitTop(object):
                                                       vsun=nu.array(\
                         obs[3:6])/vo)
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
@@ -962,6 +986,7 @@ class OrbitTop(object):
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]))
+                obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
     def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
@@ -974,12 +999,12 @@ class OrbitTop(object):
                     obs= [obs[0],obs[1],0.]
                 elif len(obs) == 4:
                     obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
-            for ii in range(len(obs)):
-                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
-                    if ii < 3:
-                        obs[ii]= obs[ii].to(units.kpc).value
-                    else:
-                        obs[ii]= obs[ii].to(units.km/units.s).value
+                for ii in range(len(obs)):
+                    if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                        if ii < 3:
+                            obs[ii]= obs[ii].to(units.kpc).value
+                        else:
+                            obs[ii]= obs[ii].to(units.km/units.s).value
         else:
             if vel:
                 obs= [self._ro,0.,self._zo,
