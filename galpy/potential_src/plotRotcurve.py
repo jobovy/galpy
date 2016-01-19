@@ -26,7 +26,7 @@ def plotRotcurve(Pot,*args,**kwargs):
 
        Pot - Potential or list of Potential instances
 
-       Rrange - Range in R to consider
+       Rrange - Range in R to consider (needs to be in the units that you are plotting)
 
        grid= grid in R
 
@@ -76,11 +76,12 @@ def plotRotcurve(Pot,*args,**kwargs):
         if isinstance(potvo,units.Quantity):
             potvo= potvo.to(units.km/units.s).value
         if isinstance(Rrange[0],units.Quantity):
-            Rrange[0]= Rrange[0].to(units.kpc).value\
-                /(potro+use_physical*(1.-potro))
+            Rrange[0]= Rrange[0].to(units.kpc).value
         if isinstance(Rrange[1],units.Quantity):
-            Rrange[1]= Rrange[1].to(units.kpc).value\
-                /(potro+use_physical*(1.-potro))
+            Rrange[1]= Rrange[1].to(units.kpc).value
+    if use_physical:
+        Rrange[0]/= potro
+        Rrange[1]/= potro
     grid= kwargs.pop('grid',1001)
     savefilename= kwargs.pop('savefilename',None)
     if not savefilename is None and os.path.exists(savefilename):
@@ -101,6 +102,8 @@ def plotRotcurve(Pot,*args,**kwargs):
     if use_physical:
         Rs*= potro
         rotcurve*= potvo
+        Rrange[0]*= potro
+        Rrange[1]*= potro
     if not 'xlabel' in kwargs:
         kwargs['xlabel']= xlabel
     if not 'ylabel' in kwargs:
