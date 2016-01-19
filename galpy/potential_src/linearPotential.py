@@ -96,6 +96,9 @@ class linearPotential(object):
            2010-07-12 - Written - Bovy (NYU)
 
         """
+        return self._force_nodecorator(x,t=t)
+
+    def _force_nodecorator(self,x,t=0.):
         try:
             return self._amp*self._force(x,t=t)
         except AttributeError: #pragma: no cover
@@ -221,13 +224,16 @@ def evaluatelinearForces(Pot,x,t=0.):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    return _evaluatelinearForces(Pot,x,t=t)
+
+def _evaluatelinearForces(Pot,x,t=0.):
     if isinstance(Pot,list):
         sum= 0.
         for pot in Pot:
-            sum+= pot.force(x,t=t,use_physical=False)
+            sum+= pot._force_nodecorator(x,t=t)
         return sum
     elif isinstance(Pot,linearPotential):
-        return Pot.force(x,t=t,use_physical=False)
+        return Pot._force_nodecorator(x,t=t)
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances")
 

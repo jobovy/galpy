@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from galpy.orbit_src.OrbitTop import OrbitTop
-from galpy.potential_src.linearPotential import evaluatelinearForces,\
+from galpy.potential_src.linearPotential import _evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -147,9 +147,8 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
         else:
             method= 'odeint'
     if method.lower() == 'leapfrog':
-        return symplecticode.leapfrog(lambda x,t=t: evaluatelinearForces(pot,x,
-                                                                         t=t,
-                                                                         use_physical=False),
+        return symplecticode.leapfrog(lambda x,t=t: _evaluatelinearForces(pot,x,
+                                                                         t=t),
                                       nu.array(vxvv),
                                       t,rtol=10.**-8)
     elif method.lower() == 'odeint':
