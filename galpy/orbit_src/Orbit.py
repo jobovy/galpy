@@ -326,6 +326,33 @@ class Orbit(object):
         self._voSet= False
         self._orb.turn_physical_off()
 
+    def turn_physical_on(self):
+        """
+        NAME:
+
+           turn_physical_on
+
+        PURPOSE:
+
+           turn on automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-01-19 - Written - Bovy (UofT)
+
+        """
+        self._roSet= True
+        self._voSet= True
+        self._orb.turn_physical_on()
+
     def integrate(self,t,pot,method='symplec4_c',dt=None):
         """
         NAME:
