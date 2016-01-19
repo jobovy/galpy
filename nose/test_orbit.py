@@ -156,6 +156,37 @@ def test_orbit_method_inputvo_quantity():
     assert numpy.fabs(o.W(vo=vo*units.km/units.s)-o.W(vo=vo)) < 10.**-8., 'Orbit method W does not return the correct value when input vo is Quantity'
     return None
 
+# Test whether obs in methods using physical_conversion can be specified
+# as a Quantity
+def test_orbit_method_inputobs_quantity():
+    from galpy.orbit import Orbit
+    from astropy import units
+    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
+    obs= [11.,0.1,0.2,-10.,245.,7.]
+    obs_units= [11.*units.kpc,0.1*units.kpc,0.2*units.kpc,
+                -10.*units.km/units.s,245.*units.km/units.s,7.*units.km/units.s]
+    assert numpy.fabs(o.ra(obs=obs_units)-o.ra(obs=obs)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dec(obs=obs_units)-o.dec(obs=obs)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.ll(obs=obs_units)-o.ll(obs=obs)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.bb(obs=obs_units)-o.bb(obs=obs)) < 10.**-8., 'Orbit method bb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dist(obs=obs_units)-o.dist(obs=obs)) < 10.**-8., 'Orbit method dist does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmra(obs=obs_units)-o.pmra(obs=obs)) < 10.**-8., 'Orbit method pmra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmdec(obs=obs_units)-o.pmdec(obs=obs)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmll(obs=obs_units)-o.pmll(obs=obs)) < 10.**-8., 'Orbit method pmll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmbb(obs=obs_units)-o.pmbb(obs=obs)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vlos(obs=obs_units)-o.vlos(obs=obs)) < 10.**-8., 'Orbit method vlos does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vra(obs=obs_units)-o.vra(obs=obs)) < 10.**-8., 'Orbit method vra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vdec(obs=obs_units)-o.vdec(obs=obs)) < 10.**-8., 'Orbit method vdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vll(obs=obs_units)-o.vll(obs=obs)) < 10.**-8., 'Orbit method vll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vbb(obs=obs_units)-o.vbb(obs=obs)) < 10.**-8., 'Orbit method vbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioX(obs=obs_units)-o.helioX(obs=obs)) < 10.**-8., 'Orbit method helioX does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioY(obs=obs_units)-o.helioY(obs=obs)) < 10.**-8., 'Orbit method helioY does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioZ(obs=obs_units)-o.helioZ(obs=obs)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.U(obs=obs_units)-o.U(obs=obs)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.V(obs=obs_units)-o.V(obs=obs)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.W(obs=obs_units)-o.W(obs=obs)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
+    return None
+
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
