@@ -118,6 +118,10 @@ class planarPotential(object):
            2010-07-13 - Written - Bovy (NYU)
 
         """
+        return self._Rforce_nodecorator(R,phi=phi,t=t)
+
+    def _Rforce_nodecorator(self,R,phi=0.,t=0.):
+        # Separate, so it can be used during orbit integration
         try:
             return self._amp*self._Rforce(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
@@ -152,6 +156,10 @@ class planarPotential(object):
            2010-07-13 - Written - Bovy (NYU)
 
         """
+        return self._phiforce_nodecorator(R,phi=phi,t=t)
+       
+    def _phiforce_nodecorator(self,R,phi=0.,t=0.):
+        # Separate, so it can be used during orbit integration
         try:
             return self._amp*self._phiforce(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
@@ -741,6 +749,10 @@ def evaluateplanarRforces(Pot,R,phi=None,t=0.):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    return _evaluateplanarRforces(Pot,R,phi=phi,t=t)
+
+def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
+    """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     if isList:
         isAxis= [not p.isNonAxi for p in Pot]
@@ -754,15 +766,15 @@ def evaluateplanarRforces(Pot,R,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.Rforce(R,phi=phi,t=t,use_physical=False)
+                sum+= pot._Rforce_nodecorator(R,phi=phi,t=t)
             else:
-                sum+= pot.Rforce(R,t=t,use_physical=False)
+                sum+= pot._Rforce_nodecorator(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.Rforce(R,phi=phi,t=t,use_physical=False)
+            return Pot._Rforce_nodecorator(R,phi=phi,t=t)
         else:
-            return Pot.Rforce(R,t=t,use_physical=False)
+            return Pot._Rforce_nodecorator(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
@@ -797,6 +809,9 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    return _evaluateplanarphiforces(Pot,R,phi=phi,t=t)
+
+def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     isList= isinstance(Pot,list)
     if isList:
         isAxis= [not p.isNonAxi for p in Pot]
@@ -810,15 +825,15 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot.phiforce(R,phi=phi,t=t,use_physical=False)
+                sum+= pot._phiforce_nodecorator(R,phi=phi,t=t)
             else:
-                sum+= pot.phiforce(R,t=t,use_physical=False)
+                sum+= pot._phiforce_nodecorator(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot.phiforce(R,phi=phi,t=t,use_physical=False)
+            return Pot._phiforce_nodecorator(R,phi=phi,t=t)
         else:
-            return Pot.phiforce(R,t=t,use_physical=False)
+            return Pot._phiforce_nodecorator(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 

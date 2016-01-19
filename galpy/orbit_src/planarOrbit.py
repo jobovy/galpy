@@ -6,8 +6,8 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.orbit_src.OrbitTop import OrbitTop
-from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    RZToplanarPotential, evaluateplanarphiforces,\
+from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
+    RZToplanarPotential, _evaluateplanarphiforces,\
     evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
 from galpy.util import galpyWarning
@@ -560,7 +560,7 @@ def _REOM(y,t,pot,l2):
        2010-07-20 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],t=t,use_physical=False)]
+            l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],t=t)]
 
 def _integrateOrbit(vxvv,pot,t,method,dt):
     """
@@ -770,8 +770,8 @@ def _EOM_dxdv(x,t,pot):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t,use_physical=False)
-    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t,use_physical=False)
+    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
+    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
     R2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2,
                                       use_physical=False)
     phi2deriv= evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2,
@@ -825,11 +825,9 @@ def _EOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(pot,y[0],phi=y[2],t=t,
-                                              use_physical=False),
+            l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(evaluateplanarphiforces(pot,y[0],phi=y[2],t=t,
-                                                 use_physical=False)-
+            1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
 
 def _rectForce(x,pot,t=0.):
@@ -854,8 +852,8 @@ def _rectForce(x,pot,t=0.):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(pot,R,phi=phi,t=t,use_physical=False)
-    phiforce= evaluateplanarphiforces(pot,R,phi=phi,t=t,use_physical=False)
+    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
+    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
 
