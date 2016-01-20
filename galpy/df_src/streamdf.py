@@ -389,6 +389,49 @@ class streamdf(object):
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
+    def subhalo_encounters(self,venc=numpy.inf,sigma=150./220.,
+                           nsubhalo=0.3,bmax=0.025):
+        """
+        NAME:
+
+           subhalo_encounters
+
+        PURPOSE:
+
+           estimate the number of encounters with subhalos over the lifetime of this stream, using a formalism similar to that of Yoon et al. (2011)
+
+        INPUT:
+
+           venc= (numpy.inf) count encounters with relative speeds less than this
+
+           sigma= (150/220) velocity dispersion of the DM subhalo population
+
+           nsubhalo= (0.3) number density of subhalos
+
+           bmax= (0.025) maximum impact parameter (if larger than width of stream)
+
+        OUTPUT:
+
+           number of encounters
+
+        HISTORY:
+
+           2016-01-19 - Written - Bovy (UofT)
+
+        """
+        Ravg= numpy.mean(self._progenitor._orb.orbit[:,0])
+        if numpy.isinf(venc):
+            vencFac= 1.
+        else:
+            vencFac= (1.-(1.+venc**2./4./sigma**2.)\
+                          *numpy.exp(-venc**2./4./sigma**2.))
+        # Figure out width of stream
+        w= self.sigangledAngle(self._meandO*self._tdisrupt,simple=True)
+        if bmax < w*Ravg/2.: bmax= w*Ravg/2.
+        return 2.*numpy.sqrt(numpy.pi)*Ravg*sigma\
+            *self._tdisrupt**2.*self._meandO\
+            *bmax*nsubhalo*vencFac
+
 ############################STREAM TRACK FUNCTIONS#############################
     def plotTrack(self,d1='x',d2='z',interp=True,spread=0,simple=_USESIMPLE,
                   *args,**kwargs):
