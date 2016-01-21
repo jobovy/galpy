@@ -565,10 +565,12 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
+        self._kick_dOaparperp[:,2]*= self._sigMeanSign
         self._kick_interpdOpar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
+                *self._sigMeanSign,
             k=spline_order) # to get zeros with sproot
         self._kick_interpdOperp0_raw=\
             interpolate.InterpolatedUnivariateSpline(\
