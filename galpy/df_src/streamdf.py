@@ -419,7 +419,8 @@ class streamdf(object):
            2016-01-19 - Written - Bovy (UofT)
 
         """
-        Ravg= numpy.mean(self._progenitor._orb.orbit[:,0])
+        Ravg= numpy.mean(numpy.sqrt(self._progenitor._orb.orbit[:,0]**2.
+                                    +self._progenitor._orb.orbit[:,3]**2.))
         if numpy.isinf(venc):
             vencFac= 1.
         else:
