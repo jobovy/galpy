@@ -390,7 +390,7 @@ class streamdf(object):
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
 
     def subhalo_encounters(self,venc=numpy.inf,sigma=150./220.,
-                           nsubhalo=0.3,bmax=0.025):
+                           nsubhalo=0.3,bmax=0.025,yoon=False):
         """
         NAME:
 
@@ -402,13 +402,15 @@ class streamdf(object):
 
         INPUT:
 
-           venc= (numpy.inf) count encounters with relative speeds less than this
+           venc= (numpy.inf) count encounters with (relative) speeds less than this (relative radial velocity in cylindrical stream frame, unless yoon is True)
 
            sigma= (150/220) velocity dispersion of the DM subhalo population
 
            nsubhalo= (0.3) number density of subhalos
 
            bmax= (0.025) maximum impact parameter (if larger than width of stream)
+
+           yoon= (False) if True, use erroneous Yoon et al. formula
 
         OUTPUT:
 
@@ -423,13 +425,19 @@ class streamdf(object):
                                     +self._progenitor._orb.orbit[:,3]**2.))
         if numpy.isinf(venc):
             vencFac= 1.
-        else:
+        elif yoon:
             vencFac= (1.-(1.+venc**2./4./sigma**2.)\
                           *numpy.exp(-venc**2./4./sigma**2.))
+        else:
+            vencFac= (1.-numpy.exp(-venc**2./2./sigma**2.))
+        if yoon:
+            yoonFac= 2*numpy.sqrt(2.)
+        else:
+            yoonFac= 1.
         # Figure out width of stream
         w= self.sigangledAngle(self._meandO*self._tdisrupt,simple=True)
         if bmax < w*Ravg/2.: bmax= w*Ravg/2.
-        return 2.*numpy.sqrt(numpy.pi)*Ravg*sigma\
+        return yoonFac/numpy.sqrt(2.)*numpy.sqrt(numpy.pi)*Ravg*sigma\
             *self._tdisrupt**2.*self._meandO\
             *bmax*nsubhalo*vencFac
 
