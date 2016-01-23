@@ -117,12 +117,17 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
                                               nTrackChunksImpact,
                                               timpact,impact_angle)
+        # Set nKickPoints
+        if nKickPoints is None:
+            self._nKickPoints= 30*self._nTrackChunksImpact
+        else:
+            self._nKickPoints= nKickPoints
         if nokicksetup: return None
         # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta,
         # setup interpolating function
         self._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                     GM,rs,subhalopot,
-                                    nKickPoints,spline_order,hernquist)
+                                    spline_order,hernquist)
         self._determine_deltaOmegaTheta_kick(spline_order)
         # Then pass everything to the normal streamdf setup
         self.nInterpolatedTrackChunks= 201 #more expensive now
@@ -446,15 +451,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
     def _determine_deltav_kick(self,impact_angle,impactb,subhalovel,
                                GM,rs,subhalopot,
-                               nKickPoints,spline_order,hernquist):
+                               spline_order,hernquist):
         # Store some impact parameters
         self._impactb= impactb
         self._subhalovel= subhalovel
-        # First set nKickPoints
-        if nKickPoints is None:
-            self._nKickPoints= 30*self._nTrackChunksImpact
-        else:
-            self._nKickPoints= nKickPoints
         # Sign of delta angle tells us whether the impact happens to the
         # leading or trailing arm, self._sigMeanSign contains this info;
         # Checked before, but check it again in case impact_angle has changed
@@ -627,6 +627,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def _interpolate_stream_track_kick(self,spline_order):
         """Build interpolations of the stream track near the kick"""
         if hasattr(self,'_kick_interpolatedThetasTrack'): #pragma: no cover
+            self._store_closest()
             return None #Already did this
         # Setup the trackpoints where the kick will be computed, covering the
         # full length of the stream
@@ -692,6 +693,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpolatedObsTrack[:,3]= tZ
         self._kick_interpolatedObsTrack[:,4]= tvZ
         self._kick_interpolatedObsTrack[:,5]= tphi
+        self._store_closest()
+        return None
+
+    def _store_closest(self):
         # Also store (x,v) for the point of closest approach
         self._kick_ObsTrackXY_closest= numpy.array([\
                 self._kick_interpTrackX(self._impact_angle),
