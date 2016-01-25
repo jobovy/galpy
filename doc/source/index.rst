@@ -114,7 +114,7 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Uses ``galpy.potential`` and ``galpy.orbit`` for orbit integration in creating a *particle-spray* model for tidal streams.
 #. *The nature and orbit of the Ophiuchus stream*, Branimir Sesar, Jo Bovy, Edouard J. Bernard, et al. (2015), *Astrophys. J.*, **809**, 59 (`2015ApJ...809...59S <http://adsabs.harvard.edu/abs/2015ApJ...809...59S>`_):
     Uses the ``Orbit.fit`` routine in ``galpy.orbit`` to fit the orbit of the Ophiuchus stream to newly obtained observational data and the routines in ``galpy.df.streamdf`` to model the creation of the stream.
-#. *Young Pulsars and the Galactic Center GeV Gamma-ray Excess*, Ryan M. O’Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2015), *Phys. Rev. Lett.*, submitted (`arXiv/1504.02477 <http://arxiv.org/abs/1504.02477>`_):
+#. *Young Pulsars and the Galactic Center GeV Gamma-ray Excess*, Ryan M. O'Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2015), *Phys. Rev. Lett.*, submitted (`arXiv/1504.02477 <http://arxiv.org/abs/1504.02477>`_):
      Uses galpy orbit integration  and ``galpy.potential.MWPotential2014`` as part of a Monte Carlo simulation of the Galactic young-pulsar population.
 #. *Phase Wrapping of Epicyclic Perturbations in the Wobbly Galaxy*, Alexander de la Vega, Alice C. Quillen, Jeffrey L. Carlin, Sukanya Chakrabarti, & Elena D'Onghia (2015), *Mon. Not. Roy. Astron. Soc.*, **454**, 933 (`2015MNRAS.454..933D <http://adsabs.harvard.edu/abs/2015MNRAS.454..933D>`_):
      Employs galpy orbit integration, ``galpy.potential`` functions, and ``galpy.potential.MWPotential2014`` to investigate epicyclic motions induced by the pericentric passage of a large dwarf galaxy and how these motions give rise to streaming motions in the vertical velocities of Milky Way disk stars.
@@ -133,10 +133,14 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      This paper employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of RAVE F and G dwarfs to investigate the metallicity gradient in the Milky Way.
 #. *Dynamics of stream-subhalo interactions*, Jason L. Sanders, Jo Bovy, & Denis Erkal (2015), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1510.03426 <http://arxiv.org/abs/1510.03426>`_):
      Uses and extends ``galpy.df.streamdf`` to build a generative model of the dynamical effect of sub-halo impacts on tidal streams. This new functionality is contained in ``galpy.df.streamgapdf``, a subclass of ``galpy.df.streamdf``, and can be used to efficiently model the effect of impacts on the present-day structure of streams in position and velocity space.
-#. *Extremely metal-poor stars from the cosmic dawn in the bulge of the Milky Way*, L. M. Howes, A. R. Casey, M. Asplund et al. (2015), *Nature*, in press (`arXiv/1511.03930 <http://arxiv.org/abs/1511.03930>`_):
+#. *Extremely metal-poor stars from the cosmic dawn in the bulge of the Milky Way*, L. M. Howes, A. R. Casey, M. Asplund, et al. (2015), *Nature*, in press (`arXiv/1511.03930 <http://arxiv.org/abs/1511.03930>`_):
      Employs galpy orbit integration in ``MWPotential2014`` to characterize the orbits of a sample of extremely metal-poor stars found in the bulge of the Milky Way. This analysis demonstrates that the orbits of these metal-poor stars are always close to the center of the Milky Way and that these stars are therefore true bulge stars rather than halo stars passing through the bulge.
 #. *Detecting the disruption of dark-matter halos with stellar streams*, Jo Bovy (2015), *Phys. Rev. Lett.*, submitted (`arXiv/1512.00452 <http://arxiv.org/abs/1512.00452>`_):
      Uses galpy functions in ``galpy.df`` to estimate the velocity kick imparted by a disrupting dark-matter halo on a stellar stream. Also employs ``galpy.orbit`` integration and ``galpy.actionAngle`` functions to analyze *N*-body simulations of such an interaction.
+#. *Identification of Globular Cluster Stars in RAVE data II: Extended tidal debris around NGC 3201*, B. Anguiano, G. M. De Silva, K. Freeman, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1601.02282 <http://arxiv.org/abs/1601.02282>`_):
+     Employs ``galpy.orbit`` integration to study the orbits of potential tidal-debris members of NGC 3201.
+#. *Young and Millisecond Pulsar GeV Gamma-ray Fluxes from the Galactic Center and Beyond*, Ryan M. O'Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2016), *Phys. Rev. D*, submitted (`arXiv/1601.05797 <http://arxiv.org/abs/1601.05797>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` for orbit integration of pulsars kicked out of the central region of the Milky Way.
 
 Indices and tables
 ==================
