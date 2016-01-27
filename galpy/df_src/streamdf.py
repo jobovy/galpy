@@ -1712,7 +1712,7 @@ class streamdf(object):
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
                                  
-    def length(self,threshold=0.2,phys=False,ang=False):
+    def length(self,threshold=0.2,phys=False,ang=False,tdisrupt=None):
         """
         NAME:
 
@@ -1739,10 +1739,11 @@ class streamdf(object):
            2015-12-22 - Written - Bovy (UofT)
 
         """
-        peak_dens= self.density_par(0.1) # assume that this is the peak
+        peak_dens= self.density_par(0.1,tdisrupt=tdisrupt) # assume that this is the peak
         try:
             result=\
-                optimize.brentq(lambda x: self.density_par(x)\
+                optimize.brentq(lambda x: self.density_par(x,
+                                                           tdisrupt=tdisrupt)\
                                     -peak_dens*threshold,
                                 0.1,self._deltaAngleTrack)
         except RuntimeError:
