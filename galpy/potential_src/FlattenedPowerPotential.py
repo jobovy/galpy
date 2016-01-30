@@ -17,14 +17,14 @@ class FlattenedPowerPotential(Potential):
 
     .. math::
 
-        \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^{\\alpha/2}}
+        \\Phi(R,z) = -\\frac{\\mathrm{amp}\,r_1^\\alpha}{\\alpha\\,\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)^{\\alpha/2}}
 
     and the same as LogarithmicHaloPotential for :math:`\\alpha=0`
 
     See Figure 1 in `Evans (1994) <http://adsabs.harvard.edu/abs/1994MNRAS.267..333E>`_ for combinations of alpha and q that correspond to positive densities
 
     """
-    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False,
+    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False,r1=1.,
                  ro=None,vo=None):
         """
         NAME:
@@ -45,6 +45,8 @@ class FlattenedPowerPotential(Potential):
 
            core - core radius
 
+           r1= (1.) reference radius for amplitude
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
@@ -56,12 +58,16 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
         if _APY_LOADED and isinstance(core,units.Quantity):
             core= core.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.
+        # Back to old definition
+        self._amp*= r1**self.alpha
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
