@@ -25,6 +25,7 @@ import galpy.util.bovy_plot as plot
 from galpy.util import config
 from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr
+from galpy.util import bovy_conversion
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -67,6 +68,33 @@ class Potential(object):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
             self._voSet= True
+        # Parse amp if it has units
+        if _APY_LOADED and isinstance(self._amp,units.Quantity):
+            # Try a bunch of possible units
+            unitFound= False
+            # velocity^2
+            try:
+                self._amp= self._amp.to(units.km**2/units.s**2).value\
+                    /self._vo**2.
+            except units.UnitConversionError: pass
+            else:
+                unitFound= True
+            if not unitFound:
+                # mass
+                try:
+                    self._amp= self._amp.to(units.Msun).value\
+                        /bovy_conversion.mass_in_msol(self._vo,self._ro)
+                except units.UnitConversionError: pass
+                else:
+                    unitFound= True
+            if not unitFound:
+                # density
+                try:
+                    self._amp= self._amp.to(units.Msun/units.pc**3).value\
+                        /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
+                except units.UnitConversionError: pass
+                else:
+                    unitFound= True
         return None
 
     @potential_physical_input
