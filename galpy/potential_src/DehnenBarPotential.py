@@ -2,7 +2,10 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import math as m
-from galpy.potential_src.planarPotential import planarPotential
+from galpy.util import bovy_conversion
+from galpy.potential_src.planarPotential import planarPotential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _degtorad= m.pi/180.
 class DehnenBarPotential(planarPotential):
     """Class that implements the Dehnen bar potential (Dehnen 2000)
@@ -94,6 +97,15 @@ class DehnenBarPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(barphi,units.Quantity):
+            barphi= barphi.to(units.rad).value
+        if _APY_LOADED and isinstance(rolr,units.Quantity):
+            rolr= rolr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(rb,units.Quantity):
+            rb= rb.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(omegab,units.Quantity):
+            omegab= omegab.to(units.km/units.s/units.kpc).value\
+                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self._barphi= barphi

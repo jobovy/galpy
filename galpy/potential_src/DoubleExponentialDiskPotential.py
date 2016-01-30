@@ -9,7 +9,9 @@ import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
 from galpy.potential_src.PowerSphericalPotential import KeplerPotential
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
@@ -59,6 +61,10 @@ class DoubleExponentialDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(hr,units.Quantity):
+            hr= hr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(hz,units.Quantity):
+            hz= hr.to(units.kpc).value/self._ro
         self.hasC= True
         self._kmaxFac= kmaxFac
         self._glorder= glorder

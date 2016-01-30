@@ -2,7 +2,9 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class BurkertPotential(Potential):
     """BurkertPotential.py: Potential with a Burkert density
 
@@ -42,6 +44,8 @@ class BurkertPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a=a
         self._scale= self.a
         if normalize or \
@@ -49,6 +53,7 @@ class BurkertPotential(Potential):
                      and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         self.hasC= False
+        return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """

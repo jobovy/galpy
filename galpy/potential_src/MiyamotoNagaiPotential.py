@@ -6,7 +6,10 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 
@@ -46,6 +49,10 @@ class MiyamotoNagaiPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         self._a= a
         self._scale= self._a
         self._b= b

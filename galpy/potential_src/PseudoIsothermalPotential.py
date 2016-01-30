@@ -3,7 +3,9 @@
 #                                 halo potential
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PseudoIsothermalPotential(Potential):
     """Class that implements the pseudo-isothermal potential
 
@@ -41,6 +43,8 @@ class PseudoIsothermalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.hasC= True
         self.hasC_dxdv= True
         self._a= a

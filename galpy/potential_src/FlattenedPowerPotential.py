@@ -8,7 +8,9 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)
@@ -55,6 +57,8 @@ class FlattenedPowerPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(core,units.Quantity):
+            core= core.to(units.kpc).value/self._ro
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.

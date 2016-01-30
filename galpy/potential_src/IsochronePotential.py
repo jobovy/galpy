@@ -6,7 +6,9 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
@@ -44,6 +46,8 @@ class IsochronePotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         self.b= b
         self._scale= self.b
         self.b2= self.b**2.

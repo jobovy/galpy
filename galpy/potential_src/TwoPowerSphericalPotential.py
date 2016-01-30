@@ -10,7 +10,10 @@ import math as m
 import numpy
 from scipy import special, optimize
 from galpy.util import bovy_conversion
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
@@ -51,10 +54,6 @@ class TwoPowerSphericalPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        self.a= a
-        self._scale= self.a
-        self.alpha= alpha
-        self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
             Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
@@ -65,6 +64,12 @@ class TwoPowerSphericalPotential(Potential):
         else:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             self.integerSelf= None
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        self.a= a
+        self._scale= self.a
+        self.alpha= alpha
+        self.beta= beta
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -238,10 +243,6 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        self.alpha= alpha
-        self.beta= beta
-        self.a= a
-        self._scale= self.a
         if alpha == 1 and beta == 4:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo)
             HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
@@ -265,6 +266,12 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        self.alpha= alpha
+        self.beta= beta
+        self.a= a
+        self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -389,6 +396,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
         self.alpha= 1
@@ -550,6 +559,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -734,6 +745,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         if conc is None:
             self.a= a
             self.alpha= 1

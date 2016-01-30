@@ -3,20 +3,23 @@
 #   potential
 ###############################################################################
 import math as m
-from galpy.potential_src.planarPotential import planarPotential
+from galpy.util import bovy_conversion
+from galpy.potential_src.planarPotential import planarPotential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _degtorad= m.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
 
     .. math::
 
-        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
+        \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
 
     This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,twophio=0.01,
+                 p=1.,twophio=0.01,r1=1.,
                  tform=None,tsteady=None,
                  cp=None,sp=None,ro=None,vo=None):
         """
@@ -41,6 +44,8 @@ class EllipticalDiskPotential(planarPotential):
 
            p= power-law index of the phi(R) = (R/Ro)^p part
 
+           r1= (1.) normalization radius for the amplitude
+
            Either:
            
               a) phib= angle (in rad; default=25 degree)
@@ -59,6 +64,24 @@ class EllipticalDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(phib,units.Quantity):
+            phib= phib.to(units.rad).value
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(tform,units.Quantity):
+            tform= tform.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(tsteady,units.Quantity):
+            tsteady= tsteady.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(twophio,units.Quantity):
+            twophio= twophio.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(cp,units.Quantity):
+            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(sp,units.Quantity):
+            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+        # Back to old definition
+        self._amp/= r1**p
         self.hasC= True
         self.hasC_dxdv= True
         if cp is None or sp is None:

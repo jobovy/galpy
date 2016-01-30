@@ -8,7 +8,9 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 
@@ -48,6 +50,8 @@ class PowerSphericalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
         self.alpha= alpha
         # Back to old definition
         self._amp*= r1**self.alpha

@@ -5,7 +5,10 @@
 #                                                    \sqrt(R^2+z^2+b^2)
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PlummerPotential(Potential):
     """Class that implements the Plummer potential
 
@@ -43,6 +46,8 @@ class PlummerPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         self._b= b
         self._scale= self._b
         self._b2= self._b**2.

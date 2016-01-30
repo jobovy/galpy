@@ -2,7 +2,10 @@
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import math
-from galpy.potential_src.planarPotential import planarPotential
+from galpy.util import bovy_conversion
+from galpy.potential_src.planarPotential import planarPotential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _degtorad= math.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
@@ -34,7 +37,7 @@ class SteadyLogSpiralPotential(planarPotential):
 
            gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree)
         
-           A - force amplitude (alpha*potential-amplitude; default=0.035)
+           A - amplitude (alpha*potential-amplitude; default=0.035)
 
            omegas= - pattern speed (default=0.65)
 
@@ -60,6 +63,15 @@ class SteadyLogSpiralPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(gamma,units.Quantity):
+            gamma= gamma.to(units.rad).value
+        if _APY_LOADED and isinstance(p,units.Quantity):
+            p= p.to(units.rad).value
+        if _APY_LOADED and isinstance(A,units.Quantity):
+            A= A.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(omegas,units.Quantity):
+            omegas= omegas.to(units.km/units.s/units.kpc).value\
+                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         self._omegas= omegas
         self._A= A
         self._m= m

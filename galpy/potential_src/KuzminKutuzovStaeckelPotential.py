@@ -7,7 +7,9 @@
 #                        \sqrt{lambda} + \sqrt{nu}  
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 from galpy.util import bovy_coords #for prolate spherical coordinate transforms
 class KuzminKutuzovStaeckelPotential(Potential):
     """Class that implements the Kuzmin-Kutuzov Staeckel potential
@@ -48,6 +50,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(Delta,units.Quantity):
+            Delta= Delta.to(units.kpc).value/self._ro
         self._ac    = ac
         self._Delta = Delta
         self._gamma = self._Delta**2 / (1.-self._ac**2)
