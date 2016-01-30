@@ -48,6 +48,7 @@ class KGPotential(linearPotential):
                 K= K.to(units.pc/units.Myr**2).value\
                     /bovy_conversion.force_in_pcMyr2(self._vo,self._ro)
             except units.UnitConversionError: pass
+        if _APY_LOADED and isinstance(K,units.Quantity):
             try:
                 K= K.to(units.Msun/units.pc**2).value\
                     /bovy_conversion.force_in_2piGmsolpc2(self._vo,self._ro)
@@ -57,6 +58,12 @@ class KGPotential(linearPotential):
             try:
                 F= F.to(units.Msun/units.pc**3).value\
                     /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
+            except units.UnitConversionError: pass
+        if _APY_LOADED and isinstance(F,units.Quantity):
+            try:
+                F= F.to(units.km**2/units.s**2/units.pc**2).value\
+                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)\
+                    /bovy_conversion._G
             except units.UnitConversionError:
                 raise units.UnitConversionError("Units for F not understood; should be density")
         self._K= K
