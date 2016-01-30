@@ -60,7 +60,7 @@ class DoubleExponentialDiskPotential(Potential):
            2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         if _APY_LOADED and isinstance(hr,units.Quantity):
             hr= hr.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(hz,units.Quantity):

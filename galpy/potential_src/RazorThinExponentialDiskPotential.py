@@ -55,7 +55,7 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
         if _APY_LOADED and isinstance(hr,units.Quantity):
             hr= hr.to(units.kpc).value/self._ro
         self._new= new

@@ -64,7 +64,7 @@ class MN3ExponentialDiskPotential(Potential):
            2015-02-07 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         if _APY_LOADED and isinstance(hr,units.Quantity):
             hr= hr.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(hz,units.Quantity):

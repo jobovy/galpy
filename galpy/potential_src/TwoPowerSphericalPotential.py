@@ -55,14 +55,14 @@ class TwoPowerSphericalPotential(Potential):
 
         """
         if alpha == round(alpha) and beta == round(beta):
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
                                                            alpha=int(alpha),
                                                            beta=int(beta),
                                                            normalize=False)
             self.integerSelf= integerSelf
         else:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             self.integerSelf= None
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -244,25 +244,25 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         if alpha == 1 and beta == 4:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
             self.NFWSelf= None
         elif alpha == 2 and beta == 4:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             JaffeSelf= JaffePotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             NFWSelf= NFWPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
         else:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
@@ -395,7 +395,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         self.a= a
@@ -558,7 +558,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         self.a= a
@@ -744,7 +744,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         if conc is None:

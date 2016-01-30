@@ -48,7 +48,7 @@ class MiyamotoNagaiPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(b,units.Quantity):

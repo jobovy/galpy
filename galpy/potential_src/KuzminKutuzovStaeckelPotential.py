@@ -49,7 +49,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
            2015-02-15 - Written - Trick (MPIA)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(Delta,units.Quantity):
             Delta= Delta.to(units.kpc).value/self._ro
         self._ac    = ac

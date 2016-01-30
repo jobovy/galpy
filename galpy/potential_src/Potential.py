@@ -103,6 +103,16 @@ class Potential(object):
                     if not amp_units == 'density':
                         raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of density instead' % (type(self).__name__,amp_units))
             if not unitFound:
+                # surface density
+                try:
+                    self._amp= self._amp.to(units.Msun/units.pc**2).value\
+                        /bovy_conversion.surfdens_in_msolpc2(self._vo,self._ro)
+                except units.UnitConversionError: pass
+                else:
+                    unitFound= True
+                    if not amp_units == 'surfacedensity':
+                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of surface density instead' % (type(self).__name__,amp_units))
+            if not unitFound:
                 raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
         return None
 

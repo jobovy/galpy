@@ -45,7 +45,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(b,units.Quantity):
             b= b.to(units.kpc).value/self._ro
         self.b= b

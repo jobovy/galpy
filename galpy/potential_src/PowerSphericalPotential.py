@@ -49,7 +49,7 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         if _APY_LOADED and isinstance(r1,units.Quantity):
             r1= r1.to(units.kpc).value/self._ro
         self.alpha= alpha

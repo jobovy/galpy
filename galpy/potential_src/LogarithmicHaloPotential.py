@@ -48,7 +48,7 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
         if _APY_LOADED and isinstance(core,units.Quantity):
             core= core.to(units.kpc).value/self._ro
         self.hasC= True

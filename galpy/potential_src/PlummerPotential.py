@@ -45,7 +45,7 @@ class PlummerPotential(Potential):
            2015-06-15 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(b,units.Quantity):
             b= b.to(units.kpc).value/self._ro
         self._b= b

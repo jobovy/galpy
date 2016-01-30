@@ -56,7 +56,7 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(core,units.Quantity):
             core= core.to(units.kpc).value/self._ro
         self.alpha= alpha
