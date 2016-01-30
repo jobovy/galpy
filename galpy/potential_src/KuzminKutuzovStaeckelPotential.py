@@ -18,6 +18,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{\\lambda} + \\sqrt{\\nu}}
 
+    (see, e.g., `Batsleer & Dejonghe 1994 <http://adsabs.harvard.edu/abs/1994A%26A...287...43B>`__)
+
     """
     def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False,
                  ro=None,vo=None):
