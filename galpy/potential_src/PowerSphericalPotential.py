@@ -16,7 +16,7 @@ class PowerSphericalPotential(Potential):
 
     .. math::
 
-        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,\\left(\\frac{r_1}{r}\\right)^{\\alpha}
+        \\rho(r) = \\frac{\\mathrm{amp}}{r_1^3}\\,\\left(\\frac{r_1}{r}\\right)^{\\alpha}
 
     """
     def __init__(self,amp=1.,alpha=1.,normalize=False,r1=1.,
@@ -49,12 +49,13 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(r1,units.Quantity):
             r1= r1.to(units.kpc).value/self._ro
         self.alpha= alpha
         # Back to old definition
-        self._amp*= r1**self.alpha
+        if self.alpha != 3.:
+            self._amp*= r1**(self.alpha-3.)*4.*nu.pi/(3.-self.alpha)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
