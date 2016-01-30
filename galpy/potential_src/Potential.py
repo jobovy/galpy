@@ -35,13 +35,14 @@ except ImportError:
     _APY_LOADED= False
 class Potential(object):
     """Top-level class for a potential"""
-    def __init__(self,amp=1.,ro=None,vo=None):
+    def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """
         NAME:
            __init__
         PURPOSE:
         INPUT:
            amp - amplitude to be applied when evaluating the potential and its forces
+           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units
         OUTPUT:
         HISTORY:
         """
@@ -79,6 +80,8 @@ class Potential(object):
             except units.UnitConversionError: pass
             else:
                 unitFound= True
+                if not amp_units == 'velocity2':
+                    raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of velocity2 instead' % (type(self).__name__,amp_units))
             if not unitFound:
                 # mass
                 try:
@@ -87,6 +90,8 @@ class Potential(object):
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
+                    if not amp_units == 'mass':
+                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of mass instead' % (type(self).__name__,amp_units))
             if not unitFound:
                 # density
                 try:
@@ -95,6 +100,10 @@ class Potential(object):
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
+                    if not amp_units == 'density':
+                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of density instead' % (type(self).__name__,amp_units))
+            if not unitFound:
+                raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
         return None
 
     @potential_physical_input
