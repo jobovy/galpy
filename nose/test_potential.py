@@ -634,9 +634,9 @@ def test_evaluateAndDerivs_potential():
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
-    pp= potential.PowerSphericalPotential(amp=2.,alpha=3.001)
+    pp= potential.PowerSphericalPotential(amp=2.,alpha=2.999)
     kp= potential.KeplerPotential(amp=2.)
-    assert numpy.fabs(((pp.mass(10.)-kp.mass(10.)))/kp.mass(10.)) < 10.**-2., "Mass for PowerSphericalPotential close to KeplerPotential is not close to KeplerPotential's mass"
+    assert numpy.fabs((((3.-2.999)/(4.*numpy.pi)*pp.mass(10.)-kp.mass(10.)))/kp.mass(10.)) < 10.**-2., "Mass for PowerSphericalPotential close to KeplerPotential is not close to KeplerPotential's mass"
     pp= potential.PowerSphericalPotential(amp=2.)
     #mass = amp x r^(3-alpha)
     tR= 1.
