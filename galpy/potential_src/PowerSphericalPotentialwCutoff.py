@@ -14,10 +14,10 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{r^\\alpha}\\,\\exp\\left(-(r/rc)^2\\right)
+        \\rho(r) = \\mathrm{amp}\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
-    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,
+    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,r1=1.,
                  ro=None,vo=None):
         """
         NAME:
@@ -36,6 +36,8 @@ class PowerSphericalPotentialwCutoff(Potential):
 
            rc= cut-off radius
 
+           r1= (1.) reference radius for amplitude
+
            normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
@@ -49,6 +51,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.alpha= alpha
+        # Back to old definition
+        self._amp*= r1**self.alpha
         self.rc= rc
         self._scale= self.rc
         if normalize or \

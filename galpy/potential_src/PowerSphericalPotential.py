@@ -14,10 +14,10 @@ class PowerSphericalPotential(Potential):
 
     .. math::
 
-        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,r^{-\\alpha}
+        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,\\left(\\frac{r_1}{r}\\right)^{\\alpha}
 
     """
-    def __init__(self,amp=1.,alpha=1.,normalize=False,
+    def __init__(self,amp=1.,alpha=1.,normalize=False,r1=1.,
                  ro=None,vo=None):
         """
         NAME:
@@ -34,6 +34,8 @@ class PowerSphericalPotential(Potential):
 
            alpha - inner power
 
+           r1= (1.) reference radius for amplitude
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
         OUTPUT:
@@ -47,6 +49,8 @@ class PowerSphericalPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.alpha= alpha
+        # Back to old definition
+        self._amp*= r1**self.alpha
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
