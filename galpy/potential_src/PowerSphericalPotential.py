@@ -202,7 +202,8 @@ class KeplerPotential(PowerSphericalPotential):
         \\Phi(r) = -\\frac{\\mathrm{amp}}{r}
 
     """
-    def __init__(self,amp=1.,normalize=False):
+    def __init__(self,amp=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -230,7 +231,7 @@ class KeplerPotential(PowerSphericalPotential):
 
         """
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
-                                         alpha=3.)
+                                         alpha=3.,ro=ro,vo=vo)
 
     def _mass(self,R,z=0.,t=0.):
         """
