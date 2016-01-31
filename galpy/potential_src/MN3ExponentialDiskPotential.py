@@ -68,7 +68,7 @@ class MN3ExponentialDiskPotential(Potential):
         if _APY_LOADED and isinstance(hr,units.Quantity):
             hr= hr.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(hz,units.Quantity):
-            hz= hr.to(units.kpc).value/self._ro
+            hz= hz.to(units.kpc).value/self._ro
         self._hr= hr
         self._hz= hz
         self._scale= self._hr

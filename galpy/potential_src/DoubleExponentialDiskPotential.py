@@ -64,7 +64,7 @@ class DoubleExponentialDiskPotential(Potential):
         if _APY_LOADED and isinstance(hr,units.Quantity):
             hr= hr.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(hz,units.Quantity):
-            hz= hr.to(units.kpc).value/self._ro
+            hz= hz.to(units.kpc).value/self._ro
         self.hasC= True
         self._kmaxFac= kmaxFac
         self._glorder= glorder
