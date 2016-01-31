@@ -72,6 +72,8 @@ PotentialError= Potential.PotentialError
 LinShuReductionFactor= planarPotential.LinShuReductionFactor
 nemo_accname= Potential.nemo_accname
 nemo_accpars= Potential.nemo_accpars
+turn_physical_off= Potential.turn_physical_off
+turn_physical_on= Potential.turn_physical_on
 #
 # Classes
 #

@@ -2322,6 +2322,66 @@ def nemo_accpars(Pot,vo,ro):
     else: #pragma: no cover 
         raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
     
+def turn_physical_off(Pot):
+    """
+    NAME:
+    
+       turn_physical_off
+
+    PURPOSE:
+
+       turn off automatic returning of outputs in physical units
+
+    INPUT:
+
+       (none)
+
+    OUTPUT:
+
+       (none)
+
+    HISTORY:
+
+       2016-01-30 - Written - Bovy (UofT)
+
+    """
+    if isinstance(Pot,list):
+        for pot in Pot:
+            pot.turn_physical_off()
+    else:
+        Pot.turn_physical_off()
+    return None
+
+def turn_physical_on(Pot):
+    """
+    NAME:
+       
+       turn_physical_on
+
+    PURPOSE:
+    
+       turn on automatic returning of outputs in physical units
+    
+    INPUT:
+    
+       (none)
+    
+    OUTPUT:
+    
+        (none)
+    
+    HISTORY:
+    
+        2016-01-30 - Written - Bovy (UofT)
+    
+    """
+    if isinstance(Pot,list):
+        for pot in Pot:
+            pot.turn_physical_on()
+    else:
+        Pot.turn_physical_on()
+    return None
+
 def _check_c(Pot):
     """
 
