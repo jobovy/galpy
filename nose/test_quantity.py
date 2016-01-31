@@ -2,7 +2,7 @@
 from galpy.util import config
 config.__config__.set('astropy','astropy-units','True')
 import numpy
-from astropy import units
+from astropy import units, constants
 
 def test_orbit_setup_radec_basic():
     from galpy.orbit import Orbit
@@ -1413,3 +1413,108 @@ def test_plotting_inputAsQuantity():
     potential.plotEscapecurve(pot,Rrange=[1.*units.kpc,8.*units.kpc])
     potential.plotEscapecurve([pot],Rrange=[1.*units.kpc,8.*units.kpc])
     return None
+
+def test_potential_ampunits():
+    # Test that input units for potential amplitudes behave as expected
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 9., 210.
+    # Burkert
+    pot= potential.BurkertPotential(amp=0.1*units.Msun/units.pc**3.,
+                                    a=2.,ro=ro,vo=vo)
+    # density at r=a should be amp/4
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-0.1/4.) < 10.**-8., "BurkertPotential w/ amp w/ units does not behave as expected"
+    # DoubleExponentialDiskPotential
+    pot= potential.DoubleExponentialDiskPotential(\
+        amp=0.1*units.Msun/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
+    # density at zero should be amp
+    assert numpy.fabs(pot.dens(0.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-0.1) < 10.**-8., "DoubleExponentialDiskPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerSphericalPotential
+    pot= potential.TwoPowerSphericalPotential(amp=20.*units.Msun,a=2.,
+                                              alpha=1.5,beta=3.5,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TwoPowerSphericalPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerSphericalPotential with integer powers
+    pot= potential.TwoPowerSphericalPotential(amp=20.*units.Msun,a=2.,
+                                              alpha=2.,beta=5.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TwoPowerSphericalPotential w/ amp w/ units does not behave as expected"
+    # JaffePotential
+    pot= potential.JaffePotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "JaffePotential w/ amp w/ units does not behave as expected"
+    # HernquistPotential
+    pot= potential.HernquistPotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "HernquistPotential w/ amp w/ units does not behave as expected"
+    # NFWPotential
+    pot= potential.NFWPotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ amp w/ units does not behave as expected"
+    # FlattenedPowerPotential
+    pot= potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s**2,
+                                           r1=1.,q=0.9,alpha=0.5,core=0.,
+                                           ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot(2.,1.,use_physical=False)*vo**2.+40000./0.5/(2.**2.+(1./0.9)**2.)**0.25) < 10.**-8., "FlattenedPowerPotential w/ amp w/ units does not behave as expected"
+    # IsochronePotential
+    pot= potential.IsochronePotential(amp=20.*units.Msun,b=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(2.+numpy.sqrt(4.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ amp w/ units does not behave as expected"   
+    # KeplerPotential
+    pot= potential.KeplerPotential(amp=20.*units.Msun,ro=ro,vo=vo)
+    # Check mass
+    assert numpy.fabs(pot.mass(100.,use_physical=False)*bovy_conversion.mass_in_msol(vo,ro)-20.) < 10.**-8., "KeplerPotential w/ amp w/ units does not behave as expected"   
+    # KuzminKutuzovStaeckelPotential
+    pot= potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun,
+                                                  Delta=2.,ro=ro,vo=vo)
+    pot_nounits= potential.KuzminKutuzovStaeckelPotential(\
+        amp=(20.*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
+        Delta=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ amp w/ units does not behave as expected"   
+    # LogarithmicHaloPotential
+    pot= potential.LogarithmicHaloPotential(amp=40000*units.km**2/units.s**2,
+                                            core=0.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.)) < 10.**-8., "LogarithmicHaloPotential w/ amp w/ units does not behave as expected"   
+    # MiyamotoNagaiPotential
+    pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun,
+                                          a=2.,b=0.5,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"   
+    # MN3ExponentialDiskPotential
+    pot= potential.MN3ExponentialDiskPotential(\
+        amp=0.1*units.Msun/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
+    # density at hr should be 
+    assert numpy.fabs(pot.dens(2.,0.2,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-2.)) < 10.**-3., "MN3ExponentialDiskPotential w/ amp w/ units does not behave as expected"
+    # PlummerPotential
+    pot= potential.PlummerPotential(amp=20*units.Msun,
+                                    b=0.5,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+0.25)/ro/1000.) < 10.**-8., "PlummerPotential w/ amp w/ units does not behave as expected"   
+    # PowerSphericalPotential
+    pot= potential.PowerSphericalPotential(amp=10.**10.*units.Msun,
+                                           r1=1.,alpha=2.,ro=ro,vo=vo)
+    # density at r1
+    assert numpy.fabs(pot.dens(1.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-10./ro**3.) < 10.**-8., "PowerSphericalPotential w/ amp w/ units does not behave as expected"
+    # PowerSphericalPotentialwCutoff
+    pot= potential.PowerSphericalPotentialwCutoff(amp=0.1*units.Msun/units.pc**3,
+                                           r1=1.,alpha=2.,rc=2.,ro=ro,vo=vo)
+    # density at r1
+    assert numpy.fabs(pot.dens(1.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-0.25)) < 10.**-8., "PowerSphericalPotentialwCutoff w/ amp w/ units does not behave as expected"
+    # PseudoIsothermalPotential
+    pot= potential.PseudoIsothermalPotential(amp=10.**10.*units.Msun,
+                                             a=2.,ro=ro,vo=vo)
+    # density at a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-10./4./numpy.pi/8./2./ro**3.) < 10.**-8., "PseudoIsothermalPotential w/ amp w/ units does not behave as expected"
+    # RazorThinExponentialDiskPotential
+    pot= potential.RazorThinExponentialDiskPotential(amp=40.*units.Msun/units.pc**2,
+                                                     hr=2.,ro=ro,vo=vo)
+    pot_nounits= potential.RazorThinExponentialDiskPotential(\
+        amp=(40.*units.Msun/units.pc**2*constants.G).to(1/units.kpc*units.km**2/units.s**2).value*ro/vo**2,
+        hr=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"   
+    return None
+
