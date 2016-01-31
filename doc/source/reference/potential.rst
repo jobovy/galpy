@@ -81,6 +81,8 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
@@ -207,6 +209,8 @@ Use as ``method(...)``
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
 ++++++++++++++++++++
@@ -261,6 +265,8 @@ Use as ``method(...)``
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
    plotlinearPotentials <potential1dplots.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
 ++++++++++++++++++++
