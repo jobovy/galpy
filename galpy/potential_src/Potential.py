@@ -150,6 +150,64 @@ class Potential(object):
                         raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x surface density instead' % (type(self).__name__,amp_units))
             if not unitFound:
                 raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
+            else:
+                # When amplitude is given with units, turn on physical output
+                self._roSet= True
+                self._voSet= True
+        return None
+
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-01-30 - Written - Bovy (UofT)
+
+        """
+        self._roSet= False
+        self._voSet= False
+        return None
+
+    def turn_physical_on(self):
+        """
+        NAME:
+
+           turn_physical_on
+
+        PURPOSE:
+
+           turn on automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-01-30 - Written - Bovy (UofT)
+
+        """
+        self._roSet= True
+        self._voSet= True
         return None
 
     @potential_physical_input

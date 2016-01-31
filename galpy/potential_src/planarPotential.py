@@ -44,6 +44,60 @@ class planarPotential(object):
             self._voSet= True
         return None
 
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-01-30 - Written - Bovy (UofT)
+
+        """
+        self._roSet= False
+        self._voSet= False
+        return None
+
+    def turn_physical_on(self):
+        """
+        NAME:
+
+           turn_physical_on
+
+        PURPOSE:
+
+           turn on automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-01-30 - Written - Bovy (UofT)
+
+        """
+        self._roSet= True
+        self._voSet= True
+        return None
+
     @potential_physical_input
     @physical_conversion('energy',pop=True)
     def __call__(self,R,phi=0.,t=0.,dR=0,dphi=0):
