@@ -5,6 +5,7 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                                        distance
 ###############################################################################
+import copy
 import numpy as nu
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -64,10 +65,12 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp*GM,ro=ro,vo=vo)
+        Potential.__init__(self,amp=amp*GM,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(softening_length,units.Quantity):
             softening_length= softening_length.to(units.kpc).value/self._ro
-        self._orb= orbit
+        # Make sure we aren't getting physical outputs
+        self._orb= copy.deepcopy(orbit)
+        self._orb.turn_physical_off()
         if softening is None:
             if softening_model.lower() == 'plummer':
                 self._softening= PlummerSoftening(softening_length=softening_length)
