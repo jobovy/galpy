@@ -1662,3 +1662,224 @@ def test_potential_paramunits():
     assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ parameters w/ units does not behave as expected"   
     return None
 
+def test_potential_paramunits_2d():
+    # Test that input units for potential parameters other than the amplitude
+    # behave as expected
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 11., 180.
+    # DehnenBarPotential
+    pot= potential.DehnenBarPotential(amp=1.,
+                                      omegab=50.*units.km/units.s/units.kpc,
+                                      rb=4.*units.kpc,
+                                      Af=1290.*units.km**2/units.s**2,
+                                      barphi=20.*units.deg,
+                                      ro=ro,vo=vo)
+    pot_nounits= potential.DehnenBarPotential(amp=1.,
+                                              omegab=50.*ro/vo,
+                                              rb=4./ro,
+                                              Af=1290./vo**2.,
+                                              barphi=20./180.*numpy.pi,
+                                              ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,use_physical=False)-pot_nounits(1.5,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
+    # DehnenBarPotential, alternative setup
+    pot= potential.DehnenBarPotential(amp=1.,
+                                      rolr=8.*units.kpc,
+                                      chi=0.8,
+                                      alpha=0.02,
+                                      beta=0.2,
+                                      barphi=20.*units.deg,
+                                      ro=ro,vo=vo)
+    pot_nounits= potential.DehnenBarPotential(amp=1.,
+                                              rolr=8./ro,
+                                              chi=0.8,
+                                              alpha=0.02,
+                                              beta=0.2,
+                                              barphi=20./180.*numpy.pi,
+                                              ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,use_physical=False)-pot_nounits(1.5,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
+    # CosmphiDiskPotential
+    pot= potential.CosmphiDiskPotential(amp=1.,
+                                        m=3,
+                                        tform=1.*units.Gyr,
+                                        tsteady=3.*units.Gyr,
+                                        phib=20.*units.deg,
+                                        phio=1290.*units.km**2/units.s**2,
+                                        r1=8.*units.kpc,
+                                        ro=ro,vo=vo)
+    pot_nounits= potential.CosmphiDiskPotential(amp=1.,
+                                                m=3,
+                                                tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                phib=20./180.*numpy.pi,
+                                                phio=1290./vo**2.,
+                                                r1=8./ro,
+                                                ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"   
+    # CosmphiDiskPotential, alternative setup
+    pot= potential.CosmphiDiskPotential(amp=1.,
+                                        m=3,
+                                        tform=1.*units.Gyr,
+                                        tsteady=3.*units.Gyr,
+                                        cp=1000.*units.km**2/units.s**2.,
+                                        sp=300.*units.km**2/units.s**2.,
+                                        r1=8.*units.kpc,
+                                        ro=ro,vo=vo)
+    pot_nounits= potential.CosmphiDiskPotential(amp=1.,
+                                                m=3,
+                                                tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                cp=1000./vo**2.,
+                                                sp=300./vo**2.,
+                                                r1=8./ro,
+                                                ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"   
+    # EllipticalDiskPotential
+    pot= potential.EllipticalDiskPotential(amp=1.,
+                                           tform=1.*units.Gyr,
+                                           tsteady=3.*units.Gyr,
+                                           phib=20.*units.deg,
+                                           twophio=1290.*units.km**2/units.s**2,
+                                           r1=8.*units.kpc,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.EllipticalDiskPotential(amp=1.,
+                                                   tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                   tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                   phib=20./180.*numpy.pi,
+                                                   twophio=1290./vo**2.,
+                                                   r1=8./ro,
+                                                   ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"   
+    # EllipticalDiskPotential, alternative setup
+    pot= potential.EllipticalDiskPotential(amp=1.,
+                                           tform=1.*units.Gyr,
+                                           tsteady=3.*units.Gyr,
+                                           cp=1000.*units.km**2/units.s**2.,
+                                           sp=300.*units.km**2/units.s**2.,
+                                           r1=8.*units.kpc,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.EllipticalDiskPotential(amp=1.,
+                                                   tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                   tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                   cp=1000./vo**2.,
+                                                   sp=300./vo**2.,
+                                                   r1=8./ro,
+                                                   ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"   
+    # LopsidedDiskPotential
+    pot= potential.LopsidedDiskPotential(amp=1.,
+                                         tform=1.*units.Gyr,
+                                         tsteady=3.*units.Gyr,
+                                         phib=20.*units.deg,
+                                         phio=1290.*units.km**2/units.s**2,
+                                         r1=8.*units.kpc,
+                                         ro=ro,vo=vo)
+    pot_nounits= potential.LopsidedDiskPotential(amp=1.,
+                                                 tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                 tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                 phib=20./180.*numpy.pi,
+                                                 phio=1290./vo**2.,
+                                                 r1=8./ro,
+                                                 ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    # LopsidedDiskPotential, alternative setup
+    pot= potential.LopsidedDiskPotential(amp=1.,
+                                         tform=1.*units.Gyr,
+                                         tsteady=3.*units.Gyr,
+                                         cp=1000.*units.km**2/units.s**2.,
+                                         sp=300.*units.km**2/units.s**2.,
+                                         r1=8.*units.kpc,
+                                         ro=ro,vo=vo)
+    pot_nounits= potential.LopsidedDiskPotential(amp=1.,
+                                                 tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                 tsteady=3./bovy_conversion.time_in_Gyr(vo,ro),
+                                                 cp=1000./vo**2.,
+                                                 sp=300./vo**2.,
+                                                 r1=8./ro,
+                                                 ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    # SteadyLogSpiralPotential
+    pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                            m=4,
+                                            omegas=50.*units.km/units.s/units.kpc,
+                                            A=1700.*units.km**2/units.s**2,
+                                            gamma=21.*units.deg,
+                                            alpha=-9.,
+                                            ro=ro,vo=vo)
+    pot_nounits= potential.SteadyLogSpiralPotential(amp=1.,
+                                                    m=4,
+                                                    omegas=50.*ro/vo,
+                                                    A=1700./vo**2.,
+                                                    gamma=21./180.*numpy.pi,
+                                                    alpha=-9.,
+                                                    ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    # SteadyLogSpiralPotential, alternative setup
+    pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                            m=4,
+                                            omegas=50.*units.km/units.s/units.kpc,
+                                            A=1700.*units.km**2/units.s**2,
+                                            gamma=21.*units.deg,
+                                            p=10.*units.deg,
+                                            ro=ro,vo=vo)
+    pot_nounits= potential.SteadyLogSpiralPotential(amp=1.,
+                                                    m=4,
+                                                    omegas=50.*ro/vo,
+                                                    A=1700./vo**2.,
+                                                    gamma=21./180.*numpy.pi,
+                                                    p=10./180.*numpy.pi,
+                                                    ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    # TransientLogSpiralPotential
+    pot= potential.TransientLogSpiralPotential(amp=1.,
+                                               m=4,
+                                               omegas=50.*units.km/units.s/units.kpc,
+                                               A=1700.*units.km**2/units.s**2,
+                                               gamma=21.*units.deg,
+                                               alpha=-9.,
+                                               to=2.*units.Gyr,
+                                               sigma=1.*units.Gyr,
+                                               ro=ro,vo=vo)
+    pot_nounits= potential.TransientLogSpiralPotential(amp=1.,
+                                                       m=4,
+                                                       omegas=50.*ro/vo,
+                                                       A=1700./vo**2.,
+                                                       gamma=21./180.*numpy.pi,
+                                                       alpha=-9.,
+                                                       to=2./bovy_conversion.time_in_Gyr(vo,ro),
+                                                       sigma=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                       ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    # TransientLogSpiralPotential, alternative setup
+    pot= potential.TransientLogSpiralPotential(amp=1.,
+                                               m=4,
+                                               omegas=50.*units.km/units.s/units.kpc,
+                                               A=1700.*units.km**2/units.s**2,
+                                               gamma=21.*units.deg,
+                                               p=10.*units.deg,
+                                               to=2.*units.Gyr,
+                                               sigma=1.*units.Gyr,
+                                               ro=ro,vo=vo)
+    pot_nounits= potential.TransientLogSpiralPotential(amp=1.,
+                                                       m=4,
+                                                       omegas=50.*ro/vo,
+                                                       A=1700./vo**2.,
+                                                       gamma=21./180.*numpy.pi,
+                                                       p=10./180.*numpy.pi,
+                                                       to=2./bovy_conversion.time_in_Gyr(vo,ro),
+                                                       sigma=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                       ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    return None
