@@ -23,11 +23,11 @@ class KGPotential(linearPotential):
 
         INPUT:
 
-           K= K parameter
+           K= K parameter (= :math:`2\\pi \\Sigma_{\\mathrm{disk}}`; specify either as surface density or directly as force [i.e., including :math:`2\\pi G`])
 
-           F= F parameter
+           F= F parameter (= :math:`4\\pi\\rho_{\\mathrm{halo}}`; specify either as density or directly as second potential derivative [i.e., including :math:`4\\pi G`])
 
-           D= D parameter
+           D= D parameter (natural units or Quantity length units)
 
            amp - an overall amplitude
 
@@ -52,18 +52,18 @@ class KGPotential(linearPotential):
             try:
                 K= K.to(units.Msun/units.pc**2).value\
                     /bovy_conversion.force_in_2piGmsolpc2(self._vo,self._ro)
+                print K
             except units.UnitConversionError:
                 raise units.UnitConversionError("Units for K not understood; should be force or surface density")
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
                 F= F.to(units.Msun/units.pc**3).value\
-                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
+                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)*4.*sc.pi
             except units.UnitConversionError: pass
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
-                F= F.to(units.km**2/units.s**2/units.pc**2).value\
-                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)\
-                    /bovy_conversion._G
+                F= F.to(units.km**2/units.s**2/units.kpc**2).value\
+                    *ro**2/vo**2
             except units.UnitConversionError:
                 raise units.UnitConversionError("Units for F not understood; should be density")
         self._K= K
