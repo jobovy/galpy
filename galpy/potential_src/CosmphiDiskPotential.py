@@ -36,7 +36,7 @@ class CosmphiDiskPotential(planarPotential):
         INPUT:
 
            amp=  amplitude to be applied to the potential (default:
-           1.), see twophio below
+           1.), see phio below
 
            tform= start of growth (to smoothly grow this potential
 
