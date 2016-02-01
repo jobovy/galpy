@@ -21,7 +21,7 @@ class DehnenBarPotential(planarPotential):
 
     .. math::
 
-        A_b(t) = \\frac{\\alpha}{3\\,R_b^3}\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
+        A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
     and 
 
@@ -29,7 +29,7 @@ class DehnenBarPotential(planarPotential):
 
         A_b(t) = \\begin{cases}
         0\\,, & \\frac{t}{T_b} < t_\mathrm{form}\\\\
-        \\frac{\\alpha}{3\\,R_b^3}\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
+        A_f\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
         \\end{cases}
 
     where
@@ -38,7 +38,11 @@ class DehnenBarPotential(planarPotential):
 
        T_b = \\frac{2\pi}{\\Omega_b}
 
-    is the bar period.
+    is the bar period and the strength can also be specified using :math:`\\alpha`
+
+    .. math::
+
+       \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\,.
 
     """
     def __init__(self,amp=1.,omegab=None,rb=None,chi=0.8,
@@ -65,9 +69,6 @@ class DehnenBarPotential(planarPotential):
            tform - start of bar growth / bar period (default: -4)
 
            tsteady - time from tform at which the bar is fully grown / bar period (default: -tform/2, st the perturbation is fully grown at tform/2)
-
-           tsteady - time at which the bar is fully grown / bar period
-           (default: tform/2)
 
            Either provide:
 
@@ -106,6 +107,8 @@ class DehnenBarPotential(planarPotential):
         if _APY_LOADED and isinstance(omegab,units.Quantity):
             omegab= omegab.to(units.km/units.s/units.kpc).value\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+        if _APY_LOADED and isinstance(Af,units.Quantity):
+            Af= Af.to(units.km**2/units.s**2).value/self._vo**2.
         self.hasC= True
         self.hasC_dxdv= True
         self._barphi= barphi
