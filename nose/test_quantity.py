@@ -1946,6 +1946,52 @@ def test_potential_method_turnphysicaloff():
     assert isinstance(pot(1.1),float), 'Potential method does not return float when turn_physical_on has been called'
     return None
 
+def test_potential_function_turnphysicalon():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    potential.turn_physical_on(pot)
+    assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    potential.turn_physical_on([pot])
+    assert isinstance(potential.evaluatePotentials([pot],1.1,0.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    potential.turn_physical_on(pot)
+    assert isinstance(potential.evaluateplanarPotentials(pot,1.1,phi=0.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    potential.turn_physical_on([pot])
+    assert isinstance(potential.evaluateplanarPotentials([pot],1.1,phi=0.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.kpc)
+    potential.turn_physical_on(pot)
+    assert isinstance(potential.evaluatelinearPotentials(pot,1.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    potential.turn_physical_on([pot])
+    assert isinstance(potential.evaluatelinearPotentials([pot],1.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
+    return None
+
+def test_potential_function_turnphysicaloff():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    potential.turn_physical_off(pot)
+    assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    potential.turn_physical_off([pot])
+    assert isinstance(potential.evaluatePotentials([pot],1.1,0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    potential.turn_physical_off(pot)
+    assert isinstance(potential.evaluateplanarPotentials(pot,1.1,phi=0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    potential.turn_physical_off([pot])
+    assert isinstance(potential.evaluateplanarPotentials([pot],1.1,phi=0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.kpc)
+    potential.turn_physical_off(pot)
+    assert isinstance(potential.evaluatelinearPotentials(pot,1.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    potential.turn_physical_off([pot])
+    assert isinstance(potential.evaluatelinearPotentials([pot],1.1),float), 'Potential function does not return float when function turn_physical_off has been called'
+    return None
+
 def test_potential_setup_roAsQuantity():
     from galpy import potential
     # 3D
