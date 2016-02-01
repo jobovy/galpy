@@ -1623,14 +1623,14 @@ def test_potential_ampunits_wrongunits():
     # DoubleExponentialDiskPotential
     assert_raises(units.UnitConversionError,
                   lambda x: potential.DoubleExponentialDiskPotential(\
-            amp=0.1*units.Msun/units.pc**2.,hr=2.,hz=0.2,ro=ro,vo=vo),())
+            amp=0.1*units.Msun/units.pc**2.*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo),())
     # TwoPowerSphericalPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3,a=2.,
                                               alpha=1.5,beta=3.5,ro=ro,vo=vo),())
     # TwoPowerSphericalPotential with integer powers
     assert_raises(units.UnitConversionError,
-                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**2,a=2.,
+                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3*constants.G,a=2.,
                                                                 alpha=2.,beta=5.,ro=ro,vo=vo),
                   ())
     # JaffePotential
@@ -1668,7 +1668,7 @@ def test_potential_ampunits_wrongunits():
     # MN3ExponentialDiskPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.MN3ExponentialDiskPotential(\
-            amp=0.1*units.Msun/units.pc**2.,hr=2.,hz=0.2,ro=ro,vo=vo),())
+            amp=0.1*units.Msun*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo),())
     # PlummerPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.PlummerPotential(amp=20*units.km**2/units.s**2,
