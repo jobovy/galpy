@@ -2087,6 +2087,25 @@ def test_potential_paramunits_1d():
     assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
     return None
 
+def test_potential_paramunits_1d_wrongunits():
+    # Test that input units for potential amplitudes behave as expected
+    from galpy import potential
+    ro, vo= 9., 210.
+    # KGPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x: \
+                      potential.KGPotential(amp=1.,
+                                            K=40.*units.Msun/units.pc**3,
+                                            F=0.02*units.Msun/units.pc**3,
+                                            D=200*units.pc,ro=ro,vo=vo),())
+    assert_raises(units.UnitConversionError,
+                  lambda x: \
+                      potential.KGPotential(amp=1.,
+                                            K=40.*units.Msun/units.pc**2,
+                                            F=0.02*units.Msun/units.pc**2,
+                                            D=200*units.pc,ro=ro,vo=vo),())
+    return None
+
 def test_potential_method_turnphysicalon():
     from galpy import potential
     # 3D
