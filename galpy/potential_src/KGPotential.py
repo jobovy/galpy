@@ -52,7 +52,6 @@ class KGPotential(linearPotential):
             try:
                 K= K.to(units.Msun/units.pc**2).value\
                     /bovy_conversion.force_in_2piGmsolpc2(self._vo,self._ro)
-                print K
             except units.UnitConversionError:
                 raise units.UnitConversionError("Units for K not understood; should be force or surface density")
         if _APY_LOADED and isinstance(F,units.Quantity):
