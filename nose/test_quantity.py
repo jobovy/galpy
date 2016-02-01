@@ -1883,3 +1883,33 @@ def test_potential_paramunits_2d():
     # Check potential
     assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
     return None
+
+def test_potential_paramunits_1d():
+    # Test that input units for potential parameters other than the amplitude
+    # behave as expected
+    from galpy import potential
+    from galpy.util import bovy_conversion
+    ro, vo= 10.5, 195.
+    # KGPotential
+    pot= potential.KGPotential(amp=1.,
+                               K=40.*units.Msun/units.pc**2,
+                               F=0.02*units.Msun/units.pc**3,
+                               D=200*units.pc,ro=ro,vo=vo)
+    pot_nounits= potential.KGPotential(amp=1.,
+                                       K=40./bovy_conversion.surfdens_in_msolpc2(vo,ro)*2.*numpy.pi,
+                                       F=0.02/bovy_conversion.dens_in_msolpc3(vo,ro)*4.*numpy.pi,
+                                       D=0.2/ro,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
+    # KGPotential, alternative setup
+    pot= potential.KGPotential(amp=1.,
+                               K=40.*units.Msun/units.pc**2*constants.G,
+                               F=0.02*units.Msun/units.pc**3*constants.G,
+                               D=200*units.pc,ro=ro,vo=vo)
+    pot_nounits= potential.KGPotential(amp=1.,
+                                       K=40./bovy_conversion.surfdens_in_msolpc2(vo,ro),
+                                       F=0.02/bovy_conversion.dens_in_msolpc3(vo,ro),
+                                       D=0.2/ro,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
+    return None
