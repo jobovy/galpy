@@ -1913,3 +1913,55 @@ def test_potential_paramunits_1d():
     # Check potential
     assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
     return None
+
+def test_potential_setup_roAsQuantity():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    assert numpy.fabs(pot._ro-7.) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    assert numpy.fabs(pot._ro-6.) < 10.**-10., 'ro in 2D potential setup as Quantity does not work as expected'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.kpc)
+    assert numpy.fabs(pot._ro-5.) < 10.**-10., 'ro in 1D potential setup as Quantity does not work as expected'
+    return None
+
+def test_potential_setup_roAsQuantity_oddunits():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.lyr)
+    assert numpy.fabs(pot._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.lyr)
+    assert numpy.fabs(pot._ro-6.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 2D potential setup as Quantity does not work as expected'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.lyr)
+    assert numpy.fabs(pot._ro-5.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 1D potential setup as Quantity does not work as expected'
+    return None
+
+def test_potential_setup_voAsQuantity():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(vo=210.*units.km/units.s)
+    assert numpy.fabs(pot._vo-210.) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
+    # 2D
+    pot= potential.DehnenBarPotential(vo=230.*units.km/units.s)
+    assert numpy.fabs(pot._vo-230.) < 10.**-10., 'vo in 2D potential setup as Quantity does not work as expected'
+    # 1D
+    pot= potential.KGPotential(vo=250.*units.km/units.s)
+    assert numpy.fabs(pot._vo-250.) < 10.**-10., 'vo in 1D potential setup as Quantity does not work as expected'
+    return None
+
+def test_potential_setup_voAsQuantity_oddunits():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(vo=210.*units.pc/units.Myr)
+    assert numpy.fabs(pot._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
+    # 2D
+    pot= potential.DehnenBarPotential(vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(pot._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 2D potential setup as Quantity does not work as expected'
+    # 1D
+    pot= potential.KGPotential(vo=250.*units.pc/units.Myr)
+    assert numpy.fabs(pot._vo-250.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 1D potential setup as Quantity does not work as expected'
+    return None
