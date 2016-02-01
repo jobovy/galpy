@@ -1914,6 +1914,38 @@ def test_potential_paramunits_1d():
     assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
     return None
 
+def test_potential_method_turnphysicalon():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    pot.turn_physical_on()
+    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot.turn_physical_on()
+    assert isinstance(pot(1.1,phi=0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.kpc)
+    pot.turn_physical_on()
+    assert isinstance(pot(1.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    return None
+
+def test_potential_method_turnphysicaloff():
+    from galpy import potential
+    # 3D
+    pot= potential.BurkertPotential(ro=7.*units.kpc)
+    pot.turn_physical_off()
+    assert isinstance(pot(1.1,0.1),float), 'Potential method does not return float when turn_physical_on has been called'
+    # 2D
+    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot.turn_physical_off()
+    assert isinstance(pot(1.1,phi=0.1),float), 'Potential method does not return float when turn_physical_on has been called'
+    # 1D
+    pot= potential.KGPotential(ro=5.*units.kpc)
+    pot.turn_physical_off()
+    assert isinstance(pot(1.1),float), 'Potential method does not return float when turn_physical_on has been called'
+    return None
+
 def test_potential_setup_roAsQuantity():
     from galpy import potential
     # 3D
@@ -1965,3 +1997,4 @@ def test_potential_setup_voAsQuantity_oddunits():
     pot= potential.KGPotential(vo=250.*units.pc/units.Myr)
     assert numpy.fabs(pot._vo-250.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 1D potential setup as Quantity does not work as expected'
     return None
+
