@@ -2217,3 +2217,52 @@ def test_potential_setup_voAsQuantity_oddunits():
     assert numpy.fabs(pot._vo-250.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 1D potential setup as Quantity does not work as expected'
     return None
 
+def test_interpRZPotential_ro():
+    # Test that ro is correctly propagated to interpRZPotential
+    from galpy.potential import BurkertPotential, interpRZPotential
+    ro= 9.
+    # ro on, single pot
+    bp= BurkertPotential(ro=ro)
+    ip= interpRZPotential(bp)
+    assert numpy.fabs(ip._ro-bp._ro) < 10.**-10., 'ro not correctly propagated to interpRZPotential'
+    assert ip._roSet, 'roSet not correctly propagated to interpRZPotential'
+    # ro on, list pot
+    ip= interpRZPotential([bp])
+    assert numpy.fabs(ip._ro-bp._ro) < 10.**-10., 'ro not correctly propagated to interpRZPotential'
+    assert ip._roSet, 'roSet not correctly propagated to interpRZPotential'
+    # ro off, single pot
+    bp= BurkertPotential()
+    ip= interpRZPotential(bp)
+    assert numpy.fabs(ip._ro-bp._ro) < 10.**-10., 'ro not correctly propagated to interpRZPotential'
+    assert not ip._roSet, 'roSet not correctly propagated to interpRZPotential'
+    # ro off, list pot
+    bp= BurkertPotential()
+    ip= interpRZPotential([bp])
+    assert numpy.fabs(ip._ro-bp._ro) < 10.**-10., 'ro not correctly propagated to interpRZPotential'
+    assert not ip._roSet, 'roSet not correctly propagated to interpRZPotential'
+    return None
+
+def test_interpRZPotential_vo():
+    # Test that vo is correctly propagated to interpRZPotential
+    from galpy.potential import BurkertPotential, interpRZPotential
+    vo= 200.
+    # vo on, single pot
+    bp= BurkertPotential(vo=vo)
+    ip= interpRZPotential(bp)
+    assert numpy.fabs(ip._vo-bp._vo) < 10.**-10., 'vo not correctly propagated to interpRZPotential'
+    assert ip._voSet, 'voSet not correctly propagated to interpRZPotential'
+    # vo on, list pot
+    ip= interpRZPotential([bp])
+    assert numpy.fabs(ip._vo-bp._vo) < 10.**-10., 'vo not correctly propagated to interpRZPotential'
+    assert ip._voSet, 'voSet not correctly propagated to interpRZPotential'
+    # vo off, single pot
+    bp= BurkertPotential()
+    ip= interpRZPotential(bp)
+    assert numpy.fabs(ip._vo-bp._vo) < 10.**-10., 'vo not correctly propagated to interpRZPotential'
+    assert not ip._voSet, 'voSet not correctly propagated to interpRZPotential'
+    # vo off, list pot
+    bp= BurkertPotential()
+    ip= interpRZPotential([bp])
+    assert numpy.fabs(ip._vo-bp._vo) < 10.**-10., 'vo not correctly propagated to interpRZPotential'
+    assert not ip._voSet, 'voSet not correctly propagated to interpRZPotential'
+    return None
