@@ -154,7 +154,27 @@ class interpRZPotential(Potential):
         if isinstance(RZPot,interpRZPotential):
             from galpy.potential import PotentialError
             raise PotentialError('Cannot setup interpRZPotential with another interpRZPotential')
-        Potential.__init__(self,amp=1.)
+        # Propagate ro and vo
+        roSet= True
+        voSet= True
+        if ro is None:
+            if isinstance(RZPot,list):
+                ro= RZPot[0]._ro
+                roSet= RZPot[0]._roSet
+            else:
+                ro= RZPot._ro
+                roSet= RZPot._roSet
+        if vo is None:
+            if isinstance(RZPot,list):
+                vo= RZPot[0]._vo
+                voSet= RZPot[0]._voSet
+            else:
+                vo= RZPot._vo
+                voSet= RZPot._voSet
+        Potential.__init__(self,amp=1.,ro=ro,vo=vo)
+        # Turn off physical if it hadn't been on
+        if not roSet: self._roSet= False
+        if not voSet: self._voSet= False
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
         self._logR= logR
