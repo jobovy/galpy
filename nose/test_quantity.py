@@ -1,4 +1,5 @@
 # Make sure to set configuration, needs to be before any galpy imports
+from nose.tools import assert_raises
 from galpy.util import config
 config.__config__.set('astropy','astropy-units','True')
 import numpy
@@ -1516,6 +1517,85 @@ def test_potential_ampunits():
         hr=2.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"   
+    return None
+
+def test_potential_ampunits_wrongunits():
+    # Test that input units for potential amplitudes behave as expected
+    from galpy import potential
+    ro, vo= 9., 210.
+    # Burkert
+    assert_raises(units.UnitConversionError,
+                  lambda x: potential.BurkertPotential(amp=0.1*units.Msun/units.pc**2.,
+                                                       a=2.,ro=ro,vo=vo),())
+    # DoubleExponentialDiskPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x: potential.DoubleExponentialDiskPotential(\
+            amp=0.1*units.Msun/units.pc**2.,hr=2.,hz=0.2,ro=ro,vo=vo),())
+    # TwoPowerSphericalPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3,a=2.,
+                                              alpha=1.5,beta=3.5,ro=ro,vo=vo),())
+    # TwoPowerSphericalPotential with integer powers
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**2,a=2.,
+                                                                alpha=2.,beta=5.,ro=ro,vo=vo),
+                  ())
+    # JaffePotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.JaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo),())
+    # HernquistPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.HernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
+    # NFWPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.NFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
+    # FlattenedPowerPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x: potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s,
+                                                              r1=1.,q=0.9,alpha=0.5,core=0.,
+                                                              ro=ro,vo=vo),())
+    # IsochronePotential
+    assert_raises(units.UnitConversionError,
+                  lambda x: potential.IsochronePotential(amp=20.*units.km**2/units.s**2,b=2.,ro=ro,vo=vo),())
+    # KeplerPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.KeplerPotential(amp=20.*units.Msun/units.pc**3,ro=ro,vo=vo),())
+    # KuzminKutuzovStaeckelPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun/units.pc**2,
+                                                                    Delta=2.,ro=ro,vo=vo),())
+    # LogarithmicHaloPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x: potential.LogarithmicHaloPotential(amp=40*units.Msun,
+                                                          core=0.,ro=ro,vo=vo),())
+    # MiyamotoNagaiPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.MiyamotoNagaiPotential(amp=20*units.km**2/units.s**2,
+                                          a=2.,b=0.5,ro=ro,vo=vo),())
+    # MN3ExponentialDiskPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.MN3ExponentialDiskPotential(\
+            amp=0.1*units.Msun/units.pc**2.,hr=2.,hz=0.2,ro=ro,vo=vo),())
+    # PlummerPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.PlummerPotential(amp=20*units.km**2/units.s**2,
+                                    b=0.5,ro=ro,vo=vo),())
+    # PowerSphericalPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.PowerSphericalPotential(amp=10.**10.*units.Msun/units.pc**3,
+                                           r1=1.,alpha=2.,ro=ro,vo=vo),())
+    # PowerSphericalPotentialwCutoff
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.PowerSphericalPotentialwCutoff(amp=0.1*units.Msun/units.pc**2,
+                                                                    r1=1.,alpha=2.,rc=2.,ro=ro,vo=vo),())
+    # PseudoIsothermalPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.PseudoIsothermalPotential(amp=10.**10.*units.Msun/units.pc**3,
+                                             a=2.,ro=ro,vo=vo),())
+    # RazorThinExponentialDiskPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.RazorThinExponentialDiskPotential(amp=40.*units.Msun/units.pc**3,
+                                                     hr=2.,ro=ro,vo=vo),())
     return None
 
 def test_potential_paramunits():
