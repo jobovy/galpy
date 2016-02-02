@@ -850,6 +850,7 @@ class streamdf(object):
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
         else:
             self._nTrackChunks= nTrackChunks
+        if self._nTrackChunks < 3: self._nTrackChunks= 3
         if not hasattr(self,'nInterpolatedTrackChunks'):
             self.nInterpolatedTrackChunks= 1001
         dt= self._deltaAngleTrack\
