@@ -197,14 +197,12 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             return self._density_par_approx(dangle,tdisrupt,
                                             higherorder=higherorder)
         else:
-            Tlow= 1./2./self._sigMeanOffset\
-                -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
             return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
                                       *(1+T*T)/(1-T*T)**2.\
                                       *self.pOparapar(T/(1-T*T)\
                                                           *numpy.sqrt(self._sortedSigOEig[2])\
                                                           +self._meandO,dangle),
-                                  Tlow,1.)[0]
+                                  -1.,1.)[0]
 
     def _density_par_approx(self,dangle,tdisrupt,_return_array=False,
                             higherorder=False):
@@ -348,8 +346,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         """
         if higherorder is None: higherorder= self._higherorderTrack
         if tdisrupt is None: tdisrupt= self._tdisrupt
-        Tlow= 1./2./self._sigMeanOffset\
-            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
         if approx:
             num= self._meanOmega_num_approx(dangle,tdisrupt,
                                             higherorder=higherorder)
@@ -363,7 +359,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                    *self.pOparapar(T/(1-T*T)\
                                                        *numpy.sqrt(self._sortedSigOEig[2])\
                                                        +self._meandO,dangle),
-                               Tlow,1.)[0]
+                               -1.,1.)[0]
         denom= self._density_par(dangle,tdisrupt=tdisrupt,approx=approx,
                                  higherorder=higherorder)
         dO1D= num/denom
