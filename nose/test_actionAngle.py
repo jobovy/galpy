@@ -1771,7 +1771,8 @@ def test_MWPotential_warning_adiabatic():
     #Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
-        aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.)
+        aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.,nEz=5,nEr=5,
+                                      nLz=5,nR=5)
         # Should raise warning bc of MWPotential, might raise others
         raisedWarning= False
         for wa in w:
@@ -1797,7 +1798,8 @@ def test_MWPotential_warning_staeckel():
     #Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
-        aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5)
+        aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5,
+                                     nE=5,npsi=5,nLz=5)
         # Should raise warning bc of MWPotential, might raise others
         raisedWarning= False
         for wa in w:
