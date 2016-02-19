@@ -24,7 +24,7 @@ from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
-class actionAngleStaeckel(object):
+class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
         """
@@ -89,12 +89,12 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -175,12 +175,12 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -244,13 +244,13 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
-                phi= meta._phi
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
+                phi= self._eval_phi
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -307,7 +307,12 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        actionAngle.__init__(self,*args,**kwargs)
+        self._parse_eval_args(*args,**kwargs)
+        self._R= self._eval_R
+        self._vR= self._eval_vR
+        self._vT= self._eval_vT
+        self._z= self._eval_z
+        self._vz= self._eval_vz
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']

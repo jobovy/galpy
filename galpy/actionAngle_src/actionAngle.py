@@ -12,28 +12,41 @@ class actionAngle(object):
         HISTORY:
            2010-07-11 - Written - Bovy (NYU)
         """
+        return None
+
+    def _parse_eval_args(self,*args,**kwargs):
+        """
+        NAME:
+           _parse_eval_args
+        PURPOSE:
+           Internal function to parse the arguments given for an action/frequency/angle evaluation
+        INPUT:
+        OUTPUT:
+        HISTORY:
+           2010-07-11 - Written - Bovy (NYU)
+        """
         if len(args) == 3: #R,vR.vT
             R,vR,vT= args
-            self._R= R
-            self._vR= vR
-            self._vT= vT
-            self._z= 0.
-            self._vz= 0.
+            self._eval_R= R
+            self._eval_vR= vR
+            self._eval_vT= vT
+            self._eval_z= 0.
+            self._eval_vz= 0.
         elif len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
-            self._R= R
-            self._vR= vR
-            self._vT= vT
-            self._z= z
-            self._vz= vz
+            self._eval_R= R
+            self._eval_vR= vR
+            self._eval_vT= vT
+            self._eval_z= z
+            self._eval_vz= vz
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
-            self._R= R
-            self._vR= vR
-            self._vT= vT
-            self._z= z
-            self._vz= vz
-            self._phi= phi
+            self._eval_R= R
+            self._eval_vR= vR
+            self._eval_vT= vT
+            self._eval_z= z
+            self._eval_vz= vz
+            self._eval_phi= phi
         else:
             if len(args) == 2:
                 vxvv= args[0](args[1])._orb.vxvv
@@ -42,24 +55,24 @@ class actionAngle(object):
                     vxvv= args[0]._orb.vxvv
                 except AttributeError: #if we're given an OrbitTop instance
                     vxvv= args[0].vxvv
-            self._R= vxvv[0]
-            self._vR= vxvv[1]
-            self._vT= vxvv[2]
+            self._eval_R= vxvv[0]
+            self._eval_vR= vxvv[1]
+            self._eval_vT= vxvv[2]
             if len(vxvv) > 4:
-                self._z= vxvv[3]
-                self._vz= vxvv[4]
+                self._eval_z= vxvv[3]
+                self._eval_vz= vxvv[4]
                 if len(vxvv) > 5:
-                    self._phi= vxvv[5]
+                    self._eval_phi= vxvv[5]
             elif len(vxvv) > 3:
-                self._phi= vxvv[3]
-                self._z= 0.
-                self._vz= 0.
+                self._eval_phi= vxvv[3]
+                self._eval_z= 0.
+                self._eval_vz= 0.
             else:
-                self._z= 0.
-                self._vz= 0.
+                self._eval_z= 0.
+                self._eval_vz= 0.
         if hasattr(self,'_z'): #calculate the polar angle
-            if self._z == 0.: self._theta= m.pi/2.
-            else: self._theta= m.atan(self._R/self._z)
+            if self._eval_z == 0.: self._eval_theta= m.pi/2.
+            else: self._eval_theta= m.atan(self._eval_R/self._eval_z)
         return None
 
     def __call__(self,*args,**kwargs):

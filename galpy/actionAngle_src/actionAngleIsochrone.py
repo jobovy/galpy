@@ -15,7 +15,7 @@ import copy
 import numpy as nu
 from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential
-class actionAngleIsochrone(object):
+class actionAngleIsochrone(actionAngle):
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
     def __init__(self,*args,**kwargs):
         """
@@ -80,12 +80,12 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -130,12 +130,12 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -187,13 +187,13 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
-            phi= meta._phi
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+            phi= self._eval_phi
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])

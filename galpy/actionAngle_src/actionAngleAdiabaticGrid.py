@@ -20,7 +20,7 @@ import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.util import multi
 _PRINTOUTSIDEGRID= False
-class actionAngleAdiabaticGrid(object):
+class actionAngleAdiabaticGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
     def __init__(self,pot=None,zmax=1.,gamma=1.,Rmax=5.,
                  nR=16,nEz=16,nEr=31,nLz=31,numcores=1,
@@ -209,12 +209,12 @@ class actionAngleAdiabaticGrid(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         #First work on the vertical action
         Phi= _evaluatePotentials(self._pot,R,z)
         try:
@@ -327,20 +327,20 @@ class actionAngleAdiabaticGrid(object):
         HISTORY:
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
-        meta= actionAngle(*args)
-        Phi= _evaluatePotentials(self._pot,meta._R,meta._z)
-        Phio= _evaluatePotentials(self._pot,meta._R,0.)
-        Ez= Phi-Phio+meta._vz**2./2.
+        self._parse_eval_args(*args)
+        Phi= _evaluatePotentials(self._pot,self._eval_R,self._eval_z)
+        Phio= _evaluatePotentials(self._pot,self._eval_R,0.)
+        Ez= Phi-Phio+self._eval_vz**2./2.
         #Bigger than Ezzmax?
-        thisEzZmax= numpy.exp(self._EzZmaxsInterp(meta._R))
-        if meta._R > self._Rmax or meta._R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
+        thisEzZmax= numpy.exp(self._EzZmaxsInterp(self._eval_R))
+        if self._eval_R > self._Rmax or self._eval_R < self._Rmin or (Ez != 0. and numpy.log(Ez) > thisEzZmax): #Outside of the grid
             if _PRINTOUTSIDEGRID: #pragma: no cover
                 print("Outside of grid in Ez")
-            jz= self._aA(meta._R,0.,1.,#these two r dummies
+            jz= self._aA(self._eval_R,0.,1.,#these two r dummies
                          0.,math.sqrt(2.*Ez),
                          _justjz=True,
                          **kwargs)[2]
         else:
-            jz= (self._jzInterp(meta._R,Ez/thisEzZmax)\
-                *(numpy.exp(self._jzEzmaxInterp(meta._R))-10.**-5.))[0][0]
+            jz= (self._jzInterp(self._eval_R,Ez/thisEzZmax)\
+                *(numpy.exp(self._jzEzmaxInterp(self._eval_R))-10.**-5.))[0][0]
         return jz

@@ -34,7 +34,9 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
         """
-        actionAngle.__init__(self,*args,**kwargs)
+        self._parse_eval_args(*args,**kwargs)
+        self._z= self._eval_z
+        self._vz= self._eval_vz
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleVertical")
         self._verticalpot= kwargs['pot']

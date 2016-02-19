@@ -20,7 +20,7 @@ import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
-class actionAngleStaeckelGrid(object):
+class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
                  nE=25,npsi=25,nLz=30,numcores=1,
@@ -204,12 +204,12 @@ class actionAngleStaeckelGrid(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         Lz= R*vT
         Phi= _evaluatePotentials(self._pot,R,z)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
