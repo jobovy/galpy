@@ -1,5 +1,6 @@
 import math as m
 from galpy.util import config
+from galpy.util.bovy_conversion import physical_conversion_actionAngle
 _APY_LOADED= True
 try:
     from astropy import units
@@ -100,6 +101,7 @@ class actionAngle(object):
             else: self._eval_theta= m.atan(self._eval_R/self._eval_z)
         return None
 
+    @physical_conversion_actionAngle('__call__',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -128,6 +130,7 @@ class actionAngle(object):
         except AttributeError: #pragma: no cover
             raise NotImplementedError("'__call__' method not implemented for this actionAngle module")
 
+    @physical_conversion_actionAngle('actionsFreqs',pop=True)
     def actionsFreqs(self,*args,**kwargs):
         """
         NAME:
@@ -156,6 +159,7 @@ class actionAngle(object):
         except AttributeError: #pragma: no cover
             raise NotImplementedError("'actionsFreqs' method not implemented for this actionAngle module")
 
+    @physical_conversion_actionAngle('actionsFreqsAngles',pop=True)
     def actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:

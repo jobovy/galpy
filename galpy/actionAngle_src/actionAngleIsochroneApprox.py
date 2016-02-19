@@ -118,12 +118,12 @@ class actionAngleIsochroneApprox(actionAngle):
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                               vR.flatten(),
-                                               vT.flatten(),
-                                               z.flatten(),
-                                               vz.flatten(),
-                                               phi.flatten())
+            acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                vR.flatten(),
+                                                vT.flatten(),
+                                                z.flatten(),
+                                                vz.flatten(),
+                                                phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -229,12 +229,12 @@ class actionAngleIsochroneApprox(actionAngle):
             #Use self._aAI to calculate the actions and angles in the isochrone potential
             if '_acfs' in kwargs: acfs= kwargs['_acfs']
             else:
-                acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                                   vR.flatten(),
-                                                   vT.flatten(),
-                                                   z.flatten(),
-                                                   vz.flatten(),
-                                                   phi.flatten())
+                acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                    vR.flatten(),
+                                                    vT.flatten(),
+                                                    z.flatten(),
+                                                    vz.flatten(),
+                                                    phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -355,12 +355,12 @@ class actionAngleIsochroneApprox(actionAngle):
         #Parse input
         R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
-        acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                           vR.flatten(),
-                                           vT.flatten(),
-                                           z.flatten(),
-                                           vz.flatten(),
-                                           phi.flatten())
+        acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                            vR.flatten(),
+                                            vT.flatten(),
+                                            z.flatten(),
+                                            vz.flatten(),
+                                            phi.flatten())
         if type == 'jr' or type == 'lz' or type == 'jz':
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
