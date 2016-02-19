@@ -63,10 +63,10 @@ class actionAngleStaeckel(actionAngle):
         self._delta= kwargs['delta']
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -150,10 +150,10 @@ class actionAngleStaeckel(actionAngle):
                         aASingle._R*aASingle._vT,
                         aASingle.Jz(**copy.copy(kwargs)))
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -218,10 +218,10 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)

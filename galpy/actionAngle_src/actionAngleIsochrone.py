@@ -58,10 +58,10 @@ class actionAngleIsochrone(actionAngle):
         self._pot= IsochronePotential(amp=self.amp,b=self.b)
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -108,10 +108,10 @@ class actionAngleIsochrone(actionAngle):
                 -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
             return (Jr,Jphi,Jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -164,10 +164,10 @@ class actionAngleIsochrone(actionAngle):
             Omegaphi[indx]*= -1.
             return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz)
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)

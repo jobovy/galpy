@@ -98,7 +98,10 @@ class actionAngle(object):
         HISTORY:
            2014-01-03 - Written for top level - Bovy (IAS)
         """
-        raise NotImplementedError("'__call__' method not implemented for this actionAngle module")
+        try:
+            return self._evaluate(*args,**kwargs)
+        except AttributeError: #pragma: no cover
+            raise NotImplementedError("'__call__' method not implemented for this actionAngle module")
 
     def actionsFreqs(self,*args,**kwargs):
         """
@@ -123,7 +126,10 @@ class actionAngle(object):
         HISTORY:
            2014-01-03 - Written for top level - Bovy (IAS)
         """
-        raise NotImplementedError("'actionsFreqs' method not implemented for this actionAngle module")
+        try:
+            return self._actionsFreqs(*args,**kwargs)
+        except AttributeError: #pragma: no cover
+            raise NotImplementedError("'actionsFreqs' method not implemented for this actionAngle module")
 
     def actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -149,7 +155,10 @@ class actionAngle(object):
         HISTORY:
            2014-01-03 - Written for top level - Bovy (IAS)
         """
-        raise NotImplementedError("'actionsFreqsAngles' method not implemented for this actionAngle module")
+        try:
+            return self._actionsFreqsAngles(*args,**kwargs)
+        except AttributeError: #pragma: no cover
+            raise NotImplementedError("'actionsFreqsAngles' method not implemented for this actionAngle module")
 
 
 class UnboundError(Exception): #pragma: no cover

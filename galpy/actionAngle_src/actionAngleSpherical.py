@@ -49,10 +49,10 @@ class actionAngleSpherical(actionAngle):
             self._c= False
         return None
 
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -113,10 +113,10 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
             return (nu.array(Jr),Jphi,Jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -189,10 +189,10 @@ class actionAngleSpherical(actionAngle):
             Op[vT < 0.]*= -1.
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
     
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,ap,az)

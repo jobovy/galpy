@@ -53,10 +53,10 @@ class actionAngleAdiabatic(actionAngle):
         self._gamma= kwargs.get('gamma',1.)
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:

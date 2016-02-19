@@ -184,10 +184,10 @@ class actionAngleAdiabaticGrid(actionAngle):
                                                         kx=3,ky=3,s=0.)
         return None
 
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:

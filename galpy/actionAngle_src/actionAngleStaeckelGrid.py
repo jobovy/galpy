@@ -184,10 +184,10 @@ class actionAngleStaeckelGrid(actionAngle):
         self._jzFiltered= ndimage.spline_filter(numpy.log(self._jz+10.**-10.),order=3)
         return None
 
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
