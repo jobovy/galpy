@@ -997,9 +997,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self())[0]
+            return self._orb._aA(self(),use_physical=False)[0]
         else:
-            return self._orb._aA(self)[0]
+            return self._orb._aA(self,use_physical=False)[0]
 
     @physical_conversion('action')
     def jp(self,pot=None,**kwargs):
@@ -1047,9 +1047,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self())[1]
+            return self._orb._aA(self(),use_physical=False)[1]
         else:
-            return self._orb._aA(self)[1]
+            return self._orb._aA(self,use_physical=False)[1]
 
     @physical_conversion('action')
     def jz(self,pot=None,**kwargs):
@@ -1097,9 +1097,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self())[2]
+            return self._orb._aA(self(),use_physical=False)[2]
         else:
-            return self._orb._aA(self)[2]
+            return self._orb._aA(self,use_physical=False)[2]
 
     @physical_conversion('angle')
     def wr(self,pot=None,**kwargs):
@@ -1141,9 +1141,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self())[6][0]
+            return self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[6][0]
         else:
-            return self._orb._aA.actionsFreqsAngles(self)[6][0]
+            return self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[6][0]
 
     @physical_conversion('angle')
     def wp(self,pot=None,**kwargs):
@@ -1185,9 +1187,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self())[7][0]
+            return self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[7][0]
         else:
-            return self._orb._aA.actionsFreqsAngles(self)[7][0]
+            return self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[7][0]
 
     @physical_conversion('angle')
     def wz(self,pot=None,**kwargs):
@@ -1229,9 +1233,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self())[8][0]
+            return self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[8][0]
         else:
-            return self._orb._aA.actionsFreqsAngles(self)[8][0]
+            return self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[8][0]
 
     @physical_conversion('time')
     def Tr(self,pot=None,**kwargs):
@@ -1279,9 +1285,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[3][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[3][0]
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[3][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[3][0]
 
     @physical_conversion('time')
     def Tp(self,pot=None,**kwargs):
@@ -1329,9 +1337,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[4][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[4][0]
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[4][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[4][0]
 
     def TrTp(self,pot=None,**kwargs):
         """
@@ -1422,9 +1432,11 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self())[5][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[5][0]
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self)[5][0]
+            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[5][0]
 
     @physical_conversion('frequency')
     def Or(self,pot=None,**kwargs):
@@ -1470,9 +1482,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self())[3][0]
+            return self._orb._aA.actionsFreqs(self(),use_physical=False)[3][0]
         else:
-            return self._orb._aA.actionsFreqs(self)[3][0]
+            return self._orb._aA.actionsFreqs(self,use_physical=False)[3][0]
 
     @physical_conversion('frequency')
     def Op(self,pot=None,**kwargs):
@@ -1517,9 +1529,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self())[4][0]
+            return self._orb._aA.actionsFreqs(self(),use_physical=False)[4][0]
         else:
-            return self._orb._aA.actionsFreqs(self)[4][0]
+            return self._orb._aA.actionsFreqs(self,use_physical=False)[4][0]
 
     @physical_conversion('frequency')
     def Oz(self,pot=None,**kwargs):
@@ -1564,9 +1576,9 @@ class Orbit(object):
         """
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self())[5][0]
+            return self._orb._aA.actionsFreqs(self(),use_physical=False)[5][0]
         else:
-            return self._orb._aA.actionsFreqs(self)[5][0]
+            return self._orb._aA.actionsFreqs(self,use_physical=False)[5][0]
 
     def time(self,*args,**kwargs):
         """
