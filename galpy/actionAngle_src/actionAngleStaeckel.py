@@ -24,6 +24,11 @@ from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -63,6 +68,8 @@ class actionAngleStaeckel(actionAngle):
             self._c= False
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
+        if _APY_LOADED and isinstance(self._delta,units.Quantity):
+            self._delta= self._delta.to(units.kpc).value/self._ro
         return None
     
     def _evaluate(self,*args,**kwargs):
