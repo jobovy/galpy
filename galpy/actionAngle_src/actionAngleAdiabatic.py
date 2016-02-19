@@ -38,6 +38,8 @@ class actionAngleAdiabatic(actionAngle):
         HISTORY:
             2012-07-26 - Written - Bovy (IAS@MPIA)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']

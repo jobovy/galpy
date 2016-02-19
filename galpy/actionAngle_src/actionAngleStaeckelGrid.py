@@ -46,6 +46,8 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
             2012-11-29 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if pot is None:
             raise IOError("Must specify pot= for actionAngleStaeckelGrid")
         self._pot= pot

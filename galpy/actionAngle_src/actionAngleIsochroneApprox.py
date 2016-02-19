@@ -54,6 +54,8 @@ class actionAngleIsochroneApprox(actionAngle):
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']

@@ -33,6 +33,8 @@ class actionAngleIsochrone(actionAngle):
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
         if 'ip' in kwargs:

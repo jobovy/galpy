@@ -51,6 +51,8 @@ class actionAngleAdiabaticGrid(actionAngle):
         HISTORY:
             2012-07-27 - Written - Bovy (IAS@MPIA)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if pot is None: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._c= kwargs.pop('c',False)

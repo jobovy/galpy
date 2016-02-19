@@ -1,17 +1,42 @@
 import math as m
+from galpy.util import config
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class actionAngle(object):
     """Top-level class for actionAngle classes"""
-    def __init__(self,*args,**kwargs):
+    def __init__(self,ro=None,vo=None):
         """
         NAME:
            __init__
         PURPOSE:
            initialize an actionAngle object
         INPUT:
+           ro= (None) distance scale
+           vo= (None) velocity scale
         OUTPUT:
         HISTORY:
-           2010-07-11 - Written - Bovy (NYU)
+           2016-02-18 - Written - Bovy (UofT)
         """
+        # Parse ro and vo
+        if ro is None:
+            self._ro= config.__config__.getfloat('normalization','ro')
+            self._roSet= False
+        else:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
+            self._ro= ro
+            self._roSet= True
+        if vo is None:
+            self._vo= config.__config__.getfloat('normalization','vo')
+            self._voSet= False
+        else:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+            self._vo= vo
+            self._voSet= True
         return None
 
     def _parse_eval_args(self,*args,**kwargs):
