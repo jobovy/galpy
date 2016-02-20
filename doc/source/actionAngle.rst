@@ -609,7 +609,7 @@ and maximum b if multiple *R* and *z* are given
 >>> o= Orbit(obs)
 >>> ts= numpy.linspace(0.,100.,1001)
 >>> o.integrate(ts,lp)
->>> estimateBIsochrone(o.R(ts),o.z(ts),pot=lp)
+>>> estimateBIsochrone(lp,o.R(ts),o.z(ts))
 (0.78065062339131952, 1.2265541473461612, 1.4899326335155412) #bmin,bmedian,bmax over the orbit
 
 Experience shows that a scale parameter somewhere in the range
