@@ -22,6 +22,8 @@ from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
 from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 class actionAngleIsochroneApprox(actionAngle):
@@ -659,32 +661,36 @@ class actionAngleIsochroneApprox(actionAngle):
         else:
             return (R,vR,vT,z,vz,phi)
 
-def estimateBIsochrone(R,z,pot=None):
+@potential_physical_input
+@physical_conversion('position',pop=True)
+def estimateBIsochrone(pot,R,z):
     """
     NAME:
        estimateBIsochrone
     PURPOSE:
        Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
     INPUT:
-       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       pot= Potential instance or list thereof
+       pot- Potential instance or list thereof
+       R,z - coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
     OUTPUT:
        b if 1 R,Z given
        bmin,bmedian,bmax if multiple R given       
     HISTORY:
        2013-09-12 - Written - Bovy (IAS)
+       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
     """
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
-        bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
-        return (nu.amin(bs[True-nu.isnan(bs)]),
-                nu.median(bs[True-nu.isnan(bs)]),
-                nu.amax(bs[True-nu.isnan(bs)]))
+        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],use_physical=False)
+                      for ii in range(len(R))])
+        return nu.array([nu.amin(bs[True-nu.isnan(bs)]),
+                         nu.median(bs[True-nu.isnan(bs)]),
+                         nu.amax(bs[True-nu.isnan(bs)])])
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)
-        dlvcdlr= dvcircdR(pot,r)/vcirc(pot,r)*r
+        dlvcdlr= dvcircdR(pot,r,use_physical=False)/vcirc(pot,r,use_physical=False)*r
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)
