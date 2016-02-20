@@ -58,6 +58,8 @@ class actionAngleIsochrone(actionAngle):
             self._ip= IsochronePotential(amp=self.amp,b=self.b)
         #Define _pot, because some functions that use actionAngle instances need this
         self._pot= IsochronePotential(amp=self.amp,b=self.b)
+        # Check the units
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):

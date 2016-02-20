@@ -41,6 +41,20 @@ class actionAngle(object):
             self._voSet= True
         return None
 
+    def _check_consistent_units(self):
+        """Internal function to check that the set of units for this object is consistent with that for the potential"""
+        if isinstance(self._pot,list):
+            if self._roSet and self._pot[0]._roSet:
+                assert m.fabs(self._ro-self._pot[0]._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
+            if self._voSet and self._pot[0]._voSet:
+                assert m.fabs(self._vo-self._pot[0]._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
+        else:
+            if self._roSet and self._pot._roSet:
+                assert m.fabs(self._ro-self._pot._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
+            if self._voSet and self._pot._voSet:
+                assert m.fabs(self._vo-self._pot._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
+        return None
+            
     def _parse_eval_args(self,*args,**kwargs):
         """
         NAME:

@@ -49,6 +49,8 @@ class actionAngleSpherical(actionAngle):
             self._c= True #pragma: no cover
         else:
             self._c= False
+        # Check the units
+        self._check_consistent_units()
         return None
 
     def _evaluate(self,*args,**kwargs):

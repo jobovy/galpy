@@ -191,6 +191,8 @@ class actionAngleStaeckelGrid(actionAngle):
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
         self._jrFiltered= ndimage.spline_filter(numpy.log(self._jr+10.**-10.),order=3)
         self._jzFiltered= ndimage.spline_filter(numpy.log(self._jz+10.**-10.),order=3)
+        # Check the units
+        self._check_consistent_units()
         return None
 
     def _evaluate(self,*args,**kwargs):

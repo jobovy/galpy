@@ -53,6 +53,8 @@ class actionAngleAdiabatic(actionAngle):
         else:
             self._c= False
         self._gamma= kwargs.get('gamma',1.)
+        # Check the units
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):

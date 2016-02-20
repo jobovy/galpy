@@ -184,6 +184,8 @@ class actionAngleAdiabaticGrid(actionAngle):
                                                         y,
                                                         jr,
                                                         kx=3,ky=3,s=0.)
+        # Check the units
+        self._check_consistent_units()
         return None
 
     def _evaluate(self,*args,**kwargs):

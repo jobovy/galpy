@@ -72,6 +72,8 @@ class actionAngleStaeckel(actionAngle):
         self._delta= kwargs['delta']
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
             self._delta= self._delta.to(units.kpc).value/self._ro
+        # Check the units
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):

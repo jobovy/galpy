@@ -90,6 +90,8 @@ class actionAngleIsochroneApprox(actionAngle):
             self._c= True
         else:
             self._c= False
+        # Check the units
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):
