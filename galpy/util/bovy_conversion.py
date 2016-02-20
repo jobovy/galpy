@@ -680,3 +680,41 @@ def physical_conversion_actionAngle(quantity,pop=False):
                 return method(*args,**kwargs)
         return wrapped
     return wrapper
+
+def actionAngle_physical_input(method):
+    """Decorator to convert inputs to actionAngle functions from physical 
+    to internal coordinates"""
+    @wraps(method)
+    def wrapper(*args,**kwargs):
+        if len(args) < 3: # orbit input
+            return method(*args,**kwargs)
+        ro= kwargs.get('ro',None)
+        if ro is None and hasattr(args[0],'_ro'):
+            ro= args[0]._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.get('vo',None)
+        if vo is None and hasattr(args[0],'_vo'):
+            vo= args[0]._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        # Loop through args
+        newargs= ()
+        for ii in range(len(args)):
+            if _APY_LOADED and isinstance(args[ii],units.Quantity):
+                try:
+                    targ= args[ii].to(units.kpc).value/ro
+                except units.UnitConversionError:
+                    try:
+                        targ= args[ii].to(units.km/units.s).value/vo
+                    except units.UnitConversionError:
+                        try:
+                            targ= args[ii].to(units.rad).value
+                        except units.UnitConversionError:
+                            raise units.UnitConversionError("Input units not understood")               
+                newargs= newargs+(targ,)
+            else:
+                newargs= newargs+(args[ii],)
+        args= newargs
+        return method(*args,**kwargs)
+    return wrapper
