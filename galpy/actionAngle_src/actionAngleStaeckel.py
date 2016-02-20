@@ -20,6 +20,8 @@ from galpy.potential_src.Potential import _evaluatePotentials, \
     _evaluateRforces, _evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -874,22 +876,23 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     if vtry < 0.000000001: return 0.   
     return vtry
 
-def estimateDeltaStaeckel(R,z,pot=None):
+@potential_physical_input
+@physical_conversion('position',pop=True)
+def estimateDeltaStaeckel(pot,R,z):
     """
     NAME:
        estimateDeltaStaeckel
     PURPOSE:
        Estimate a good value for delta using eqn. (9) in Sanders (2012)
     INPUT:
-       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       pot= Potential instance or list thereof
+       pot - Potential instance or list thereof
+       R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
     OUTPUT:
        delta
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
+       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
     """
-    if pot is None: #pragma: no cover
-        raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
