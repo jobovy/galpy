@@ -1731,7 +1731,7 @@ def test_estimateDeltaStaeckel():
     o= Orbit([1.1, 0.05, 1.1, 0.05,0.,2.])
     times= numpy.linspace(0.,100.,1001)
     o.integrate(times,MWPotential)
-    delta= estimateDeltaStaeckel(o.R(times),o.z(times),pot=MWPotential)
+    delta= estimateDeltaStaeckel(MWPotential,o.R(times),o.z(times))
     assert numpy.fabs(delta-0.71) < 10.**-3., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to the MWPotential is wrong'
     return None
@@ -1745,10 +1745,10 @@ def test_estimateDeltaStaeckel_spherical():
     times= numpy.linspace(0.,100.,1001)
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     o.integrate(times,lp)
-    delta= estimateDeltaStaeckel(o.R(),o.z(),pot=lp)
+    delta= estimateDeltaStaeckel(lp,o.R(),o.z())
     assert numpy.fabs(delta) < 10.**-6., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
-    delta= estimateDeltaStaeckel(o.R(times),o.z(times),pot=lp)
+    delta= estimateDeltaStaeckel(lp,o.R(times),o.z(times))
     assert numpy.fabs(delta) < 10.**-16., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
     return None

@@ -204,13 +204,13 @@ def test_estimateDelta():
     #for each time step individually:
     deltas_estimate = numpy.zeros(len(ts))
     for ii in range(len(ts)):
-        deltas_estimate[ii] = estimateDeltaStaeckel(o.R(ts[ii]),o.z(ts[ii]),pot=pot)
+        deltas_estimate[ii] = estimateDeltaStaeckel(pot,o.R(ts[ii]),o.z(ts[ii]))
 
     assert numpy.all(numpy.fabs(deltas_estimate - Delta) < 10.**-8), \
             'Focal length Delta estimated along the orbit is not constant.'
 
     #for all time steps together:
-    delta_estimate = estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=pot)
+    delta_estimate = estimateDeltaStaeckel(pot,o.R(ts),o.z(ts))
     
     assert numpy.fabs(delta_estimate - Delta) < 10.**-8, \
             'Focal length Delta estimated from the orbit is not the same as the input focal length.'
