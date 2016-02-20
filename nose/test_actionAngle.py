@@ -1718,7 +1718,7 @@ def test_estimateBIsochrone():
     o= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
     times= numpy.linspace(0.,100.,1001)
     o.integrate(times,ip)
-    bmin, bmed, bmax= estimateBIsochrone(o.R(times),o.z(times),pot=ip)
+    bmin, bmed, bmax= estimateBIsochrone(ip,o.R(times),o.z(times))
     assert numpy.fabs(bmed-1.2) < 10.**-15., \
         'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
     return None
