@@ -399,7 +399,7 @@ the median) estimates at positions around the orbit (which we
 integrated in the example above)
 
 >>> from galpy.actionAngle import estimateDeltaStaeckel
->>> estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=MWPotential2014)
+>>> estimateDeltaStaeckel(MWPotential2014,o.R(ts),o.z(ts))
 0.40272708556203662
 
 We will use :math:`\Delta = 0.4` in what follows. We set up the
