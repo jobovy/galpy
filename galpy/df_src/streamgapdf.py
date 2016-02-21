@@ -614,7 +614,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
             auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
-        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3)
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
+                                    use_physical=False)
         auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
 )
         auxiliary_Omega_along_dOmega= \

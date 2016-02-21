@@ -162,7 +162,8 @@ class streamdf(object):
         # Make sure we do not use physical coordinates
         self._progenitor.turn_physical_off()
         acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
-                                    _firstFlip=(not leading))
+                                          _firstFlip=(not leading),
+                                          use_physical=False)
         self._progenitor_jr= acfs[0][0]
         self._progenitor_lz= acfs[1][0]
         self._progenitor_jz= acfs[2][0]
@@ -744,11 +745,11 @@ class streamdf(object):
             aatrack= numpy.empty((self._nTrackChunks,6))
             for ii in range(self._nTrackChunks):
                 aatrack[ii]= self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
-                                                         maxn=3)[3:]
+                                                         maxn=3,use_physical=False)[3:]
         else:
             aatrack= numpy.reshape(\
                 multi.parallel_map(
-                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]), maxn=3)[3:]),
+                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]), maxn=3,use_physical=False)[3:]),
                     range(self._nTrackChunks),
                     numcores=numpy.amin([self._nTrackChunks,
                                          multiprocessing.cpu_count(),
@@ -818,7 +819,8 @@ class streamdf(object):
             auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
             auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
-        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3)
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
+                                    use_physical=False)
         auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
 )
         auxiliary_Omega_along_dOmega= \
