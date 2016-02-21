@@ -2285,3 +2285,47 @@ def test_interpRZPotential_vo():
     assert numpy.fabs(ip._vo-bp._vo) < 10.**-10., 'vo not correctly propagated to interpRZPotential'
     assert not ip._voSet, 'voSet not correctly propagated to interpRZPotential'
     return None
+
+def test_actionAngle_method_returntype():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleAdiabaticGrid, actionAngleStaeckel, \
+        actionAngleStaeckelGrid, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=8.,vo=220.)
+    for ii in range(3):
+        assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    for ii in range(6):
+        assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
+    for ii in range(9):
+        assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
+    for ii in range(3):
+        assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    for ii in range(6):
+        assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
+    for ii in range(9):
+        assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=8.,vo=220.)
+    for ii in range(3):
+        assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=8.,vo=220.)
+    for ii in range(3):
+        assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    for ii in range(6):
+        assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
+    for ii in range(9):
+        assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=8.,vo=220.)
+    for ii in range(3):
+        assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    for ii in range(6):
+        assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
+    for ii in range(9):
+        assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    return None
