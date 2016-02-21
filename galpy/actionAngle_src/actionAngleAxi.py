@@ -42,7 +42,7 @@ class actionAngleAxi(actionAngleVertical):
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
         """
-        self._parse_eval_args(*args,**kwargs)
+        self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
         self._R= self._eval_R
         self._vR= self._eval_vR
         self._vT= self._eval_vT

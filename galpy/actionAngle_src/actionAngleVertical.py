@@ -34,7 +34,7 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
         """
-        self._parse_eval_args(*args,**kwargs)
+        self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
         self._z= self._eval_z
         self._vz= self._eval_vz
         if not 'pot' in kwargs: #pragma: no cover

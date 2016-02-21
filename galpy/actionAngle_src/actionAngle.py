@@ -55,6 +55,14 @@ class actionAngle(object):
                 assert m.fabs(self._vo-self._pot._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
         return None
             
+    def _check_consistent_units_orbitInput(self,orb):
+        """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
+        if self._roSet and orb._roSet:
+            assert m.fabs(self._ro-orb._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
+        if self._voSet and orb._voSet:
+            assert m.fabs(self._vo-orb._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
+        return None
+            
     def _parse_eval_args(self,*args,**kwargs):
         """
         NAME:
@@ -89,6 +97,8 @@ class actionAngle(object):
             self._eval_vz= vz
             self._eval_phi= phi
         else:
+            if not kwargs.get('_noOrbUnitsCheck',False):
+                self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
                 vxvv= args[0](args[1])._orb.vxvv
             else:
