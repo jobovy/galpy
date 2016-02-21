@@ -700,10 +700,11 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
     #Import here, because otherwise there is an infinite loop of imports
-    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngle
     #Mock this up, bc we want to use its orbit-integration routines
     class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
         def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
+            actionAngle.__init__(self)
             self._tintJ= tintJ
             self._ntintJ=ntintJ
             self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
