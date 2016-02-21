@@ -2288,8 +2288,7 @@ def test_interpRZPotential_vo():
 
 def test_actionAngle_method_returntype():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleAdiabaticGrid, actionAngleStaeckel, \
-        actionAngleStaeckelGrid, actionAngleIsochroneApprox
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
     from galpy.potential import PlummerPotential, MWPotential
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=8.,vo=220.)
@@ -2329,3 +2328,146 @@ def test_actionAngle_method_returntype():
     for ii in range(9):
         assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
     return None
+
+def test_actionAngle_method_returnunit():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=8.,vo=220.)
+    for ii in range(3):
+        try:
+            aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(6,9):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
+    for ii in range(3):
+        try:
+            aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(6,9):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=8.,vo=220.)
+    for ii in range(3):
+        try:
+            aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=8.,vo=220.)
+    for ii in range(3):
+        try:
+            aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(6,9):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=8.,vo=220.)
+    for ii in range(3):
+        try:
+            aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(3,6):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    for ii in range(6,9):
+        try:
+            aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    return None
+
