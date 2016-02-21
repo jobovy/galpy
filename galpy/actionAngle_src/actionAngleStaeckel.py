@@ -320,7 +320,7 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        self._parse_eval_args(*args,**kwargs)
+        self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
         self._R= self._eval_R
         self._vR= self._eval_vR
         self._vT= self._eval_vT
