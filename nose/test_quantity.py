@@ -2633,3 +2633,35 @@ def test_actionAngle_setup_voAsQuantity_oddunits():
     assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     return None
 
+def test_estimateDeltaStaeckel_method_returntype():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateDeltaStaeckel
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    assert isinstance(estimateDeltaStaeckel(pot,1.1,0.1),units.Quantity), 'estimateDeltaStaeckel function does not return Quantity when it should'
+    assert isinstance(estimateDeltaStaeckel(pot,1.1*numpy.ones(3),0.1*numpy.ones(3)),units.Quantity), 'estimateDeltaStaeckel function does not return Quantity when it should'
+    return None
+
+def test_estimateDeltaStaeckel_method_returnunit():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateDeltaStaeckel
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    try:
+        estimateDeltaStaeckel(pot,1.1,0.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('estimateDeltaStaeckel function does not return Quantity with the right units')
+    try:
+        estimateDeltaStaeckel(pot,1.1*numpy.ones(3),0.1*numpy.ones(3)).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('estimateDeltaStaeckel function does not return Quantity with the right units')
+    return None
+
+def test_estimateDeltaStaeckel_method_value():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateDeltaStaeckel
+    ro, vo= 9., 230.
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    potu= PlummerPotential(normalize=True)
+    assert numpy.fabs(estimateDeltaStaeckel(pot,1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.kpc).value-estimateDeltaStaeckel(potu,1.1,0.1)*ro) < 10.**-8., 'estimateDeltaStaeckel function does not return Quantity with the right value'
+    assert numpy.all(numpy.fabs(estimateDeltaStaeckel(pot,1.1*numpy.ones(3),0.1*numpy.ones(3)).to(units.kpc).value-estimateDeltaStaeckel(potu,1.1*numpy.ones(3),0.1*numpy.ones(3))*ro) < 10.**-8.), 'estimateDeltaStaeckel function does not return Quantity with the right value'
+    return None
+
