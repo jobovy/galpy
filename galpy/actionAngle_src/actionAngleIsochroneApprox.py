@@ -191,7 +191,7 @@ class actionAngleIsochroneApprox(actionAngle):
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        acfs= self.actionsFreqsAngles(*args,**kwargs)
+        acfs= self._actionsFreqsAngles(*args,**kwargs)
         return (acfs[0],acfs[1],acfs[2],acfs[3],acfs[4],acfs[5])
 
     def _actionsFreqsAngles(self,*args,**kwargs):
