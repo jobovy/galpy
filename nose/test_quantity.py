@@ -2545,3 +2545,91 @@ def test_actionAngle_method_value():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     return None
 
+def test_actionAngle_setup_roAsQuantity():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=7.*units.kpc)
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=7.*units.kpc)
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=9.*units.kpc)
+    assert numpy.fabs(aA._ro-9.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=7.*units.kpc)
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=7.*units.kpc)
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    return None
+
+def test_actionAngle_setup_roAsQuantity_oddunits():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    return None
+
+def test_actionAngle_setup_voAsQuantity():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,vo=230.*units.km/units.s)
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,vo=230.*units.km/units.s)
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=9.*units.kpc)
+    assert numpy.fabs(aA._ro-9.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,vo=230.*units.km/units.s)
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,vo=230.*units.km/units.s)
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    return None
+
+def test_actionAngle_setup_voAsQuantity_oddunits():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, MWPotential
+    # actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=MWPotential,ro=9.*units.kpc)
+    assert numpy.fabs(aA._ro-9.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
+    return None
+
