@@ -23,9 +23,14 @@ from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, time_in_Gyr
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class actionAngleIsochroneApprox(actionAngle):
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
@@ -77,9 +82,16 @@ class actionAngleIsochroneApprox(actionAngle):
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
-            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=kwargs['b'],
+            if _APY_LOADED and isinstance(kwargs['b'],units.Quantity):
+                b= kwargs['b'].to(units.kpc).value/self._ro
+            else:
+                b= kwargs['b']
+            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=b,
                                                                   normalize=1.))
         self._tintJ= kwargs.get('tintJ',100.)
+        if _APY_LOADED and isinstance(self._tintJ,units.Quantity):
+            self._tintJ= self._tintJ.to(units.Gyr).value\
+                /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
@@ -222,6 +234,9 @@ class actionAngleIsochroneApprox(actionAngle):
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
+            if _APY_LOADED and isinstance(ts,units.Quantity):
+                ts= ts.to(units.Gyr).value\
+                    /time_in_Gyr(self._vo,self._ro)
         else:
             ts= nu.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
