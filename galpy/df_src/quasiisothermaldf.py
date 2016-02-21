@@ -180,7 +180,7 @@ class quasiisothermaldf(object):
         else:
             #Use self._aA to calculate the actions
             try:
-                jr,lz,jz= self._aA(*args,**kwargs)
+                jr,lz,jz= self._aA(*args,use_physical=False,**kwargs)
             except actionAngle.UnboundError:
                 if log: return -numpy.finfo(numpy.dtype(numpy.float64)).max
                 else: return 0.
