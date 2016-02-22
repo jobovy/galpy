@@ -1709,6 +1709,28 @@ def test_orbit_interface_actionAngleIsochroneApprox():
         'Orbit.TrTp does not agree with actionAngleSpherical frequency'
     return None
 
+# Test physical output for actionAngleStaeckel
+def test_physical_staeckel():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.71,ro=ro,vo=vo)
+    aAnu= actionAngleStaeckel(pot=MWPotential,delta=0.71)
+    for ii in range(3):
+        assert numpy.fabs(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    for ii in range(3,6):
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    for ii in range(3,6):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    for ii in range(6,9):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    return None
+
 #Test the b estimation
 def test_estimateBIsochrone():
     from galpy.potential import IsochronePotential
