@@ -2633,6 +2633,15 @@ def test_actionAngle_setup_voAsQuantity_oddunits():
     assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     return None
 
+def test_actionAngleStaeckel_setup_delta_units():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    ro= 9.
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.45*ro*units.kpc,ro=ro)
+    aAu= actionAngleStaeckel(pot=MWPotential,delta=0.45)
+    assert numpy.fabs(aA._delta-aAu._delta) < 10.**-10., 'delta with units in actionAngleStaeckel setup does not work as expected'
+    return None
+
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
