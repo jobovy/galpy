@@ -2659,6 +2659,19 @@ def test_actionAngleIsochroneApprix_setup_b_units():
     assert numpy.fabs(aA._aAI.b-aAu._aAI.b) < 10.**-10., 'b with units in actionAngleIsochroneApprox setup does not work as expected'
     return None
 
+def test_actionAngleIsochroneApprix_setup_tintJ_units():
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    ro= 9.
+    vo= 230.
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.7,
+                                   tintJ=11.*units.Gyr,ro=ro,vo=vo)
+    aAu= actionAngleIsochroneApprox(pot=MWPotential,b=0.7,
+                                    tintJ=11./bovy_conversion.time_in_Gyr(vo,ro))
+    assert numpy.fabs(aA._tintJ-aAu._tintJ) < 10.**-10., 'tintJ with units in actionAngleIsochroneApprox setup does not work as expected'
+    return None
+
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
