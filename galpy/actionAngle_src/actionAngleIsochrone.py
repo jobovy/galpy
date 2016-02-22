@@ -49,6 +49,9 @@ class actionAngleIsochrone(actionAngle):
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+            # Check the units
+            self._pot= ip
+            self._check_consistent_units()
             self.b= ip.b
             self.amp= ip._amp
         else:
