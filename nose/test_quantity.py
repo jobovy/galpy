@@ -2818,6 +2818,61 @@ def test_actionAngle_inconsistentPotentialUnits_error():
                   lambda x: actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.),())
     return None
 
+def test_actionAngle_inconsistentOrbitUnits_error():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, IsochronePotential
+    from galpy.orbit import Orbit
+    # actionAngleIsochrone
+    pot= IsochronePotential(normalize=1)
+    aA= actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    # actionAngleAdiabatic
+    aA= actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.)
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    # actionAngleStaeckel
+    aA= actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.)
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    # actionAngleIsochroneApprox
+    aA= actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.)
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
+    assert_raises(AssertionError,lambda x: aA(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
+    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    return None
+
 def test_estimateDeltaStaeckel_method_returntype():
     from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
