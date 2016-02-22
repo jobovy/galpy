@@ -2665,3 +2665,38 @@ def test_estimateDeltaStaeckel_method_value():
     assert numpy.all(numpy.fabs(estimateDeltaStaeckel(pot,1.1*numpy.ones(3),0.1*numpy.ones(3)).to(units.kpc).value-estimateDeltaStaeckel(potu,1.1*numpy.ones(3),0.1*numpy.ones(3))*ro) < 10.**-8.), 'estimateDeltaStaeckel function does not return Quantity with the right value'
     return None
 
+def test_estimateBIsochrone_method_returntype():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateBIsochrone
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    assert isinstance(estimateBIsochrone(pot,1.1,0.1),units.Quantity), 'estimateBIsochrone function does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(estimateBIsochrone(pot,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii],units.Quantity), 'estimateBIsochrone function does not return Quantity when it should'
+    return None
+
+def test_estimateBIsochrone_method_returnunit():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateBIsochrone
+    pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
+    try:
+        estimateBIsochrone(pot,1.1,0.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('estimateBIsochrone function does not return Quantity with the right units')
+    for ii in range(3):
+        try:
+            estimateBIsochrone(pot,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii].to(units.kpc)
+        except units.UnitConversionError:
+            raise AssertionError('estimateBIsochrone function does not return Quantity with the right units')
+    return None
+
+def test_estimateBIsochrone_method_value():
+    from galpy.potential import PlummerPotential
+    from galpy.actionAngle import estimateBIsochrone
+    ro, vo= 9., 230.
+    pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
+    potu= PlummerPotential(normalize=True)
+    assert numpy.fabs(estimateBIsochrone(pot,1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.kpc).value-estimateBIsochrone(potu,1.1,0.1)*ro) < 10.**-8., 'estimateBIsochrone function does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.all(numpy.fabs(estimateBIsochrone(pot,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii].to(units.kpc).value-estimateBIsochrone(potu,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii]*ro) < 10.**-8.), 'estimateBIsochrone function does not return Quantity with the right value'
+    return None
+
