@@ -2745,6 +2745,38 @@ def test_actionAngle_method_inputAsQuantity():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
     return None
 
+def test_actionAngleIsochroneApprox_method_ts_units():   
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    from galpy.util import bovy_conversion
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    ro, vo= 7.5, 215.
+    aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8,ro=ro,vo=vo)
+    R,vR,vT,z,vz,phi= 1.1, 0.3, 1.2, 0.2,0.5,2.
+    #Setup an orbit, and integrated it first
+    o= Orbit([R,vR,vT,z,vz,phi])
+    ts= numpy.linspace(0.,10.,25000)*units.Gyr #Integrate for a long time, not the default
+    o.integrate(ts,ip)
+    jiaO= aAIA.actionsFreqs(o,ts=ts)
+    jiaOu= aAIA.actionsFreqs(o,ts=ts.value/bovy_conversion.time_in_Gyr(vo,ro))
+    dOr= numpy.fabs((jiaO[3]-jiaOu[3])/jiaO[3])
+    dOp= numpy.fabs((jiaO[4]-jiaOu[4])/jiaO[4])
+    dOz= numpy.fabs((jiaO[5]-jiaOu[5])/jiaO[5])
+    assert dOr < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    assert dOp < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    assert dOz < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    # Same for actionsFreqsAngles
+    jiaO= aAIA.actionsFreqsAngles(o,ts=ts)
+    jiaOu= aAIA.actionsFreqsAngles(o,ts=ts.value/bovy_conversion.time_in_Gyr(vo,ro))
+    dOr= numpy.fabs((jiaO[3]-jiaOu[3])/jiaO[3])
+    dOp= numpy.fabs((jiaO[4]-jiaOu[4])/jiaO[4])
+    dOz= numpy.fabs((jiaO[5]-jiaOu[5])/jiaO[5])
+    assert dOr < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    assert dOp < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    assert dOz < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
+    return None
+
 def test_estimateDeltaStaeckel_method_returntype():
     from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
