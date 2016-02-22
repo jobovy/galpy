@@ -2497,9 +2497,9 @@ def test_actionAngle_method_value():
     aA= actionAngleSpherical(pot=pot,ro=ro,vo=vo)
     aAnu= actionAngleSpherical(pot=pot)
     for ii in range(3):
-        assert numpy.fabs(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s).value-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
+        assert numpy.fabs(aA(1.1,0.1,1.1,0.1,0.2,0.,ro=9.*units.kpc)[ii].to(units.kpc*units.km/units.s).value-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]*9.*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
     for ii in range(3):
-        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s).value-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.,vo=230.*units.km/units.s)[ii].to(units.kpc*units.km/units.s).value-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*230.) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
     for ii in range(3,6):
         assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr).value-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
     for ii in range(3):
@@ -2697,9 +2697,9 @@ def test_actionAngle_method_inputAsQuantity():
     aA= actionAngleSpherical(pot=pot,ro=ro,vo=vo)
     aAnu= actionAngleSpherical(pot=pot)
     for ii in range(3):
-        assert numpy.fabs(aA(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method __call__ does not return the correct value when input is Quantity'
+        assert numpy.fabs(aA(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False,ro=ro*units.kpc)[ii]-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method __call__ does not return the correct value when input is Quantity'
     for ii in range(3):
-        assert numpy.fabs(aA.actionsFreqs(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqs does not return the correct value when input is Quantity'
+        assert numpy.fabs(aA.actionsFreqs(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False,vo=vo*units.km/units.s)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqs does not return the correct value when input is Quantity'
     for ii in range(3,6):
         assert numpy.fabs(aA.actionsFreqs(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqs does not return the correct value when input is Quantity'
     for ii in range(3):
@@ -2872,6 +2872,23 @@ def test_actionAngle_inconsistentOrbitUnits_error():
     assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
     assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
     return None
+
+def test_actionAngle_input_wrongunits():
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.potential import PlummerPotential
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7)
+    aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
+    assert_raises(units.UnitConversionError,
+                  lambda x: aA(1.*units.Gyr,0.1*units.km/units.s,
+                               1.1*units.km/units.s,0.1*units.kpc,
+                               0.2*units.km/units.s,0.1*units.rad),())
+    assert_raises(units.UnitConversionError,
+                  lambda x: aA(1.*units.kpc,0.1*units.Gyr,
+                               1.1*units.km/units.s,0.1*units.kpc,
+                               0.2*units.km/units.s,0.1*units.rad),())
+    return None
+    
 
 def test_estimateDeltaStaeckel_method_returntype():
     from galpy.potential import MiyamotoNagaiPotential
