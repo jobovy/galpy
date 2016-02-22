@@ -121,7 +121,7 @@ class actionAngle(object):
             else:
                 self._eval_z= 0.
                 self._eval_vz= 0.
-        if hasattr(self,'_z'): #calculate the polar angle
+        if hasattr(self,'_eval_z'): #calculate the polar angle
             if self._eval_z == 0.: self._eval_theta= m.pi/2.
             else: self._eval_theta= m.atan(self._eval_R/self._eval_z)
         return None
