@@ -2650,6 +2650,15 @@ def test_actionAngleIsochrone_setup_b_units():
     assert numpy.fabs(aA.b-aAu.b) < 10.**-10., 'b with units in actionAngleIsochrone setup does not work as expected'
     return None
 
+def test_actionAngleIsochroneApprix_setup_b_units():
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.potential import MWPotential
+    ro= 9.
+    aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.7*ro*units.kpc,ro=ro)
+    aAu= actionAngleIsochroneApprox(pot=MWPotential,b=0.7)
+    assert numpy.fabs(aA._aAI.b-aAu._aAI.b) < 10.**-10., 'b with units in actionAngleIsochroneApprox setup does not work as expected'
+    return None
+
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
