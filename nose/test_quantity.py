@@ -2642,6 +2642,14 @@ def test_actionAngleStaeckel_setup_delta_units():
     assert numpy.fabs(aA._delta-aAu._delta) < 10.**-10., 'delta with units in actionAngleStaeckel setup does not work as expected'
     return None
 
+def test_actionAngleIsochrone_setup_b_units():
+    from galpy.actionAngle import actionAngleIsochrone
+    ro= 9.
+    aA= actionAngleIsochrone(b=0.7*ro*units.kpc,ro=ro)
+    aAu= actionAngleIsochrone(b=0.7)
+    assert numpy.fabs(aA.b-aAu.b) < 10.**-10., 'b with units in actionAngleIsochrone setup does not work as expected'
+    return None
+
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
