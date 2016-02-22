@@ -2777,6 +2777,47 @@ def test_actionAngleIsochroneApprox_method_ts_units():
     assert dOz < 10.**-6., 'actionAngleIsochroneApprox with ts with units fails'
     return None
 
+def test_actionAngle_inconsistentPotentialUnits_error():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
+        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
+    from galpy.potential import PlummerPotential, IsochronePotential
+    # actionAngleIsochrone
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleIsochrone(ip=pot,ro=8.,vo=220.),())
+    pot= IsochronePotential(normalize=1.,ro=8.,vo=230.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleIsochrone(ip=pot,ro=8.,vo=220.),())
+    # actionAngleSpherical
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleSpherical(pot=pot,ro=8.,vo=220.),())
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleSpherical(pot=pot,ro=8.,vo=220.),())
+    # actionAngleAdiabatic
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.),())
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.),())
+    # actionAngleStaeckel
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.),())
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.),())
+    # actionAngleIsochroneApprox
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.),())
+    pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
+    assert_raises(AssertionError,
+                  lambda x: actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.),())
+    return None
+
 def test_estimateDeltaStaeckel_method_returntype():
     from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
