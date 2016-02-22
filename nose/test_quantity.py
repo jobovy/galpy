@@ -2642,6 +2642,17 @@ def test_actionAngleStaeckel_setup_delta_units():
     assert numpy.fabs(aA._delta-aAu._delta) < 10.**-10., 'delta with units in actionAngleStaeckel setup does not work as expected'
     return None
 
+def test_actionAngleStaeckelGrid_setup_delta_units():
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.potential import MWPotential
+    ro= 9.
+    aA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.45*ro*units.kpc,ro=ro,
+                                nE=5,npsi=5,nLz=5)
+    aAu= actionAngleStaeckelGrid(pot=MWPotential,delta=0.45,
+                                 nE=5,npsi=5,nLz=5)
+    assert numpy.fabs(aA._delta-aAu._delta) < 10.**-10., 'delta with units in actionAngleStaeckel setup does not work as expected'
+    return None
+
 def test_actionAngleIsochrone_setup_b_units():
     from galpy.actionAngle import actionAngleIsochrone
     ro= 9.
