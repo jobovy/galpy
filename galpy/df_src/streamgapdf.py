@@ -463,8 +463,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
         self._impact_angle= numpy.fabs(impact_angle)
         # Interpolate the track near the gap in (x,v) at the kick_thetas
-        self._interpolate_stream_track_kick(spline_order)
-        self._interpolate_stream_track_kick_aA(spline_order)
+        self._interpolate_stream_track_kick()
+        self._interpolate_stream_track_kick_aA()
         # Then compute delta v along the track
         if self._general_kick:
             self._kick_deltav=\
@@ -620,7 +620,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def _kick_interpdaz(self,da):
         return self._kick_interpdaz_raw(da)
 
-    def _interpolate_stream_track_kick(self,spline_order):
+    def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
         if hasattr(self,'_kick_interpolatedThetasTrack'): #pragma: no cover
             self._store_closest()
@@ -642,22 +642,22 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         #Interpolate
         self._kick_interpTrackX=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackX,k=spline_order)
+                                                     TrackX,k=3)
         self._kick_interpTrackY=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackY,k=spline_order)
+                                                     TrackY,k=3)
         self._kick_interpTrackZ=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackZ,k=spline_order)
+                                                     TrackZ,k=3)
         self._kick_interpTrackvX=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackvX,k=spline_order)
+                                                     TrackvX,k=3)
         self._kick_interpTrackvY=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackvY,k=spline_order)
+                                                     TrackvY,k=3)
         self._kick_interpTrackvZ=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
-                                                     TrackvZ,k=spline_order)
+                                                     TrackvZ,k=3)
         #Now store an interpolated version of the stream track
         self._kick_interpolatedObsTrackXY= numpy.empty((len(self._kick_interpolatedThetasTrack),6))
         self._kick_interpolatedObsTrackXY[:,0]=\
@@ -703,7 +703,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                 self._kick_interpTrackvZ(self._impact_angle)])
         return None
 
-    def _interpolate_stream_track_kick_aA(self,spline_order):
+    def _interpolate_stream_track_kick_aA(self):
         """Build interpolations of the stream track near the impact in action-angle coordinates"""
         if hasattr(self,'_kick_interpolatedObsTrackAA'): #pragma: no cover
             return None #Already did this
@@ -715,7 +715,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                 for da in self._kick_interpolatedThetasTrack])
         self._kick_interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,dmOs,k=spline_order)
+            self._kick_interpolatedThetasTrack,dmOs,k=3)
         #Build the interpolated AA
         self._kick_interpolatedObsTrackAA=\
             numpy.empty((len(self._kick_interpolatedThetasTrack),6))
