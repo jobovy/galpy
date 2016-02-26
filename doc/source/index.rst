@@ -141,6 +141,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Employs ``galpy.orbit`` integration to study the orbits of potential tidal-debris members of NGC 3201.
 #. *Young and Millisecond Pulsar GeV Gamma-ray Fluxes from the Galactic Center and Beyond*, Ryan M. O'Leary, Matthew D. Kistler, Matthew Kerr, & Jason Dexter (2016), *Phys. Rev. D*, submitted (`arXiv/1601.05797 <http://arxiv.org/abs/1601.05797>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` for orbit integration of pulsars kicked out of the central region of the Milky Way.
+#. *Abundances and kinematics for ten anticentre open clusters*, T. Cantat-Gaudin, P. Donati, A. Vallenari, R. Sordo, A. Bragaglia, L. Magrini (2016), *Astron. & Astrophys.*, in press (`arXiv/1602.07121 <http://arxiv.org/abs/1602.07121>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 10 open clusters located toward the Galactic anti-center, finding that the most distant clusters have high-eccentricity orbits.
 
 Indices and tables
 ==================
