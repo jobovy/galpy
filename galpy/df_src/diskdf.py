@@ -33,6 +33,7 @@ from galpy.df_src.surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.util import save_pickles
+from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
 #scipy version
@@ -95,6 +96,7 @@ class diskdf(object):
                                                                    alpha=2.-2.*self._beta),gamma=0.)
         return None
     
+    @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -349,7 +351,8 @@ class diskdf(object):
                 OE= xE**(self._beta-1.)
         sigma2xE= self._surfaceSigmaProfile.sigma2(xE,log=False)
         return OE/sigma2xE
-        
+
+    @physical_conversion('velocity2',pop=True)        
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -376,6 +379,7 @@ class diskdf(object):
         """
         return self._surfaceSigmaProfile.sigma2(R,log=log)
 
+    @physical_conversion('surfacedensity',pop=True)        
     def targetSurfacemass(self,R,log=False):
          """
          NAME:
@@ -402,6 +406,7 @@ class diskdf(object):
          """
          return self._surfaceSigmaProfile.surfacemass(R,log=log)
 
+    @physical_conversion('surfacedensitydistance',pop=True)        
     def targetSurfacemassLOS(self,d,l,log=False,deg=True):
         """
         NAME:
@@ -424,7 +429,7 @@ class diskdf(object):
 
         OUTPUT:
 
-            Sigma(d,l)
+            Sigma(d,l) x d
 
         HISTORY:
 
@@ -439,11 +444,11 @@ class diskdf(object):
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 +math.log(d)
-            pass
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *d
 
+    @physical_conversion('surfacedensitydistance',pop=True)        
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
         """
@@ -475,7 +480,7 @@ class diskdf(object):
 
         OUTPUT:
 
-           Sigma(d,l)
+           Sigma(d,l) x d
 
         HISTORY:
 
@@ -653,6 +658,7 @@ class diskdf(object):
             out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
+    @physical_conversion('velocity',pop=True)
     def asymmetricdrift(self,R):
         """
         NAME:
@@ -682,6 +688,7 @@ class diskdf(object):
                                          -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
 
 
+    @physical_conversion('surfacedensity',pop=True)        
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
@@ -745,6 +752,7 @@ class diskdf(object):
                                       self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
+    @physical_conversion('velocity2surfacedensity',pop=True)
     def sigma2surfacemass(self,R,romberg=False,nsigma=None,
                                 relative=False):
         """
@@ -902,6 +910,7 @@ class diskdf(object):
                                           self._gamma,n,m,deriv),
                                          epsrel=_EPSREL)[0]/sc.pi*norm/2.
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortA(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -948,6 +957,7 @@ class diskdf(object):
             *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortB(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -993,6 +1003,7 @@ class diskdf(object):
             *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortC(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1036,6 +1047,7 @@ class diskdf(object):
             surfmass #other terms is zero because f is even in vR
         return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortK(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1079,6 +1091,7 @@ class diskdf(object):
             surfmass #other terms is zero because f is even in vR
         return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
 
+    @physical_conversion('velocity2',pop=True)        
     def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1111,6 +1124,7 @@ class diskdf(object):
         """
         return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
 
+    @physical_conversion('velocity2',pop=True)        
     def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -1148,6 +1162,7 @@ class diskdf(object):
                     **2.\
                     /surfmass)/surfmass
 
+    @physical_conversion('velocity2',pop=True)        
     def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1180,6 +1195,7 @@ class diskdf(object):
         """
         return self.sigma2(R,romberg=romberg,nsigma=nsigma)
 
+    @physical_conversion('velocity',pop=True)
     def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1213,6 +1229,7 @@ class diskdf(object):
         return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
+    @physical_conversion('velocity',pop=True)
     def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
