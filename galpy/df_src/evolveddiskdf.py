@@ -369,7 +369,7 @@ class evolveddiskdf(df):
 
         OUTPUT:
 
-           <vR^n vT^m  x surface-mass> at R,phi
+           <vR^n vT^m  x surface-mass> at R,phi (no support for units)
 
         COMMENT:
 

@@ -35,7 +35,7 @@ General instance routines
    targetSigma2 <diskdftargetSigma2.rst>
    targetSurfacemass <diskdftargetSurfacemass.rst>
    targetSurfacemassLOS <diskdftargetSurfacemassLOS.rst>
-   vmomentsurfacemass <diskdfvmomentsurfacemass.rst>
+   _vmomentsurfacemass <diskdfvmomentsurfacemass.rst>
 
 Sampling routines
 ^^^^^^^^^^^^^^^^^^^
@@ -88,7 +88,7 @@ General instance routines
    sigmaRT <edfsigmart.rst>
    sigmaT2 <edfsigmat2.rst>
    vertexdev <edfvertexdev.rst>
-   vmomentsurfacemass <edfvmomentsurfacemass.rst>
+   _vmomentsurfacemass <edfvmomentsurfacemass.rst>
 
 Three-dimensional disk distribution functions
 ----------------------------------------------
@@ -110,7 +110,7 @@ General instance routines
    estimate_hsr <quasidfestimatehsr.rst>
    estimate_hsz <quasidfestimatehsz.rst>
    estimate_hz <quasidfestimatehz.rst>
-   jmomentdensity <quasidfjmomentdensity.rst>
+   _jmomentdensity <quasidfjmomentdensity.rst>
    meanjr <quasidfmeanjr.rst>
    meanjz <quasidfmeanjz.rst>
    meanlz <quasidfmeanlz.rst>
@@ -130,7 +130,7 @@ General instance routines
    sigmaz2 <quasidfsigmaz2.rst>
    surfacemass_z <quasidfsurfacemass_z.rst>
    tilt <quasidftilt.rst>
-   vmomentdensity <quasidfvmomentdensity.rst>
+   _vmomentdensity <quasidfvmomentdensity.rst>
 
 
 Specific distribution functions

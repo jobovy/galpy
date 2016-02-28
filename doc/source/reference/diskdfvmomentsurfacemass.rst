@@ -1,4 +1,4 @@
-galpy.df.diskdf.vmomentsurfacemass
-===================================
+galpy.df.diskdf._vmomentsurfacemass
+====================================
 
-.. automethod:: galpy.df.diskdf.vmomentsurfacemass
+.. automethod:: galpy.df.diskdf._vmomentsurfacemass

@@ -857,7 +857,7 @@ class diskdf(df):
 
         OUTPUT:
 
-           <vR^n vT^m  x surface-mass> at R
+           <vR^n vT^m  x surface-mass> at R (no support for units)
 
         HISTORY:
 

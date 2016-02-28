@@ -428,7 +428,7 @@ class quasiisothermaldf(df):
            _return_freqs= if True, return the evaluated frequencies and rg (does not work with _returngl currently)
 
         OUTPUT:
-           <vR^n vT^m  x density> at R,z
+           <vR^n vT^m  x density> at R,z (no support for units)
         HISTORY:
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
@@ -618,7 +618,7 @@ class quasiisothermaldf(df):
            nmc= if mc, use nmc samples
 
         OUTPUT:
-           <jr^n lz^m jz^o  x density> at R
+           <jr^n lz^m jz^o  x density> at R (no support for units)
         HISTORY:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
