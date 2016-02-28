@@ -818,12 +818,12 @@ class diskdf(object):
                                       self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
-    def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
+    def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
                            relative=False,phi=0.,deriv=None):
         """
         NAME:
 
-           vmomentsurfacemass
+           _vmomentsurfacemass
 
         PURPOSE:
 
@@ -949,12 +949,12 @@ class diskdf(object):
         #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
             /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
 
     @physical_conversion('frequency_kmskpc',pop=True)
@@ -995,12 +995,12 @@ class diskdf(object):
         #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
             /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
 
     @physical_conversion('frequency_kmskpc',pop=True)
@@ -1042,8 +1042,8 @@ class diskdf(object):
         #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
         meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass #other terms is zero because f is even in vR
         return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
 
@@ -1086,8 +1086,8 @@ class diskdf(object):
         #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
         meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass #other terms is zero because f is even in vR
         return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
 
@@ -1157,8 +1157,8 @@ class diskdf(object):
            2011-03-30 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        return (self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
-                -self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        return (self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
+                -self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
                     **2.\
                     /surfmass)/surfmass
 
@@ -1226,7 +1226,7 @@ class diskdf(object):
 
            2011-03-30 - Written - Bovy (NYU)
         """
-        return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        return self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
     @physical_conversion('velocity',pop=True)
@@ -1260,7 +1260,7 @@ class diskdf(object):
 
            2011-03-30 - Written - Bovy (NYU)
         """
-        return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+        return self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
     def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
@@ -1294,11 +1294,11 @@ class diskdf(object):
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vt2-vt**2.
         return (vt3-3.*vt*vt2+2.*vt**3.)*s2**(-1.5)
@@ -1334,11 +1334,11 @@ class diskdf(object):
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vr2-vr**2.
         return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
@@ -1374,13 +1374,13 @@ class diskdf(object):
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt4= self.vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
+        vt4= self._vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vt2-vt**2.
         return (vt4-4.*vt*vt3+6.*vt**2.*vt2-3.*vt**4.)*s2**(-2.)-3.
@@ -1416,13 +1416,13 @@ class diskdf(object):
            2011-12-07 - Written - Bovy (NYU)
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr4= self.vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
+        vr4= self._vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vr2-vr**2.
         return (vr4-4.*vr*vr3+6.*vr**2.*vr2-3.*vr**4.)*s2**(-2.)-3.

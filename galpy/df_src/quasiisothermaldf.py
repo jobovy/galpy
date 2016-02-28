@@ -385,7 +385,7 @@ class quasiisothermaldf(object):
         return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
                                  0.,1.)[0]
 
-    def vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
+    def _vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                        _rawgausssamples=False,
                        gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
@@ -396,7 +396,7 @@ class quasiisothermaldf(object):
                        **kwargs):
         """
         NAME:
-           vmomentdensity
+           _vmomentdensity
         PURPOSE:
            calculate the an arbitrary moment of the velocity distribution 
            at R times the density
@@ -430,7 +430,7 @@ class quasiisothermaldf(object):
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
         if isinstance(R,numpy.ndarray):
-            return numpy.array([self.vmomentdensity(r,zz,n,m,o,nsigma=nsigma,
+            return numpy.array([self._vmomentdensity(r,zz,n,m,o,nsigma=nsigma,
                                                     mc=mc,nmc=nmc,
                                                     gl=gl,ngl=ngl,**kwargs) for r,zz in zip(R,z)])
         if isinstance(self._aA,(actionAngle.actionAngleAdiabatic,
@@ -588,12 +588,12 @@ class quasiisothermaldf(object):
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
         
-    def jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+    def _jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
                        **kwargs):
         """
         NAME:
-           jmomentdensity
+           _jmomentdensity
         PURPOSE:
            calculate the an arbitrary moment of an action
            of the velocity distribution 
@@ -690,7 +690,7 @@ class quasiisothermaldf(object):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        return self.vmomentdensity(R,z,0.,0.,0.,
+        return self._vmomentdensity(R,z,0.,0.,0.,
                                    nsigma=nsigma,mc=mc,nmc=nmc,
                                    gl=gl,ngl=ngl,
                                    **kwargs)
@@ -727,27 +727,27 @@ class quasiisothermaldf(object):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,2.,0.,0.,
+            return self._vmomentdensity(R,z,2.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,2.,0.,0.,
+            return self._vmomentdensity(R,z,2.,0.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,2.,0.,0.,
+            return (self._vmomentdensity(R,z,2.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -784,27 +784,27 @@ class quasiisothermaldf(object):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,1.,0.,1.,
+            return self._vmomentdensity(R,z,1.,0.,1.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,1.,0.,1.,
+            return self._vmomentdensity(R,z,1.,0.,1.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,1.,0.,1.,
+            return (self._vmomentdensity(R,z,1.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -840,36 +840,36 @@ class quasiisothermaldf(object):
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            tsigmar2= self.vmomentdensity(R,z,2.,0.,0.,
+            tsigmar2= self._vmomentdensity(R,z,2.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
-            tsigmaz2= self.vmomentdensity(R,z,0.,0.,2.,
+            tsigmaz2= self._vmomentdensity(R,z,0.,0.,2.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
-            tsigmarz= self.vmomentdensity(R,z,1.,0.,1.,
+            tsigmarz= self._vmomentdensity(R,z,1.,0.,1.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
             return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            tsigmar2= self.vmomentdensity(R,z,2.,0.,0.,
+            tsigmar2= self._vmomentdensity(R,z,2.,0.,0.,
                                              ngl=ngl,gl=gl,
                                              _glqeval=glqeval,
                                              **kwargs)/surfmass
-            tsigmaz2= self.vmomentdensity(R,z,0.,0.,2.,
+            tsigmaz2= self._vmomentdensity(R,z,0.,0.,2.,
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
-            tsigmarz= self.vmomentdensity(R,z,1.,0.,1.,
+            tsigmarz= self._vmomentdensity(R,z,1.,0.,1.,
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
@@ -910,27 +910,27 @@ class quasiisothermaldf(object):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,0.,0.,2.,
+            return self._vmomentdensity(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,0.,0.,2.,
+            return self._vmomentdensity(R,z,0.,0.,2.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,0.,0.,2.,
+            return (self._vmomentdensity(R,z,0.,0.,2.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -971,27 +971,27 @@ class quasiisothermaldf(object):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,0.,1.,0.,
+            return self._vmomentdensity(R,z,0.,1.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,0.,1.,0.,
+            return self._vmomentdensity(R,z,0.,1.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,0.,1.,0.,
+            return (self._vmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1028,27 +1028,27 @@ class quasiisothermaldf(object):
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,1.,0.,0.,
+            return self._vmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,1.,0.,0.,
+            return self._vmomentdensity(R,z,1.,0.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,1.,0.,0.,
+            return (self._vmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1085,27 +1085,27 @@ class quasiisothermaldf(object):
            2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.vmomentdensity(R,z,0.,0.,1.,
+            return self._vmomentdensity(R,z,0.,0.,1.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            return self.vmomentdensity(R,z,0.,0.,1.,
+            return self._vmomentdensity(R,z,0.,0.,1.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.vmomentdensity(R,z,0.,0.,1.,
+            return (self._vmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1142,40 +1142,40 @@ class quasiisothermaldf(object):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            mvt= self.vmomentdensity(R,z,0.,1.,0.,
+            mvt= self._vmomentdensity(R,z,0.,1.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
-            return self.vmomentdensity(R,z,0.,2.,0.,
+            return self._vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                            **kwargs)/surfmass\
                                            -mvt**2.
         elif gl:
-            surfmass, glqeval= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
                                                        _returngl=True,
                                                        **kwargs)
-            mvt= self.vmomentdensity(R,z,0.,1.,0.,
+            mvt= self._vmomentdensity(R,z,0.,1.,0.,
                                          ngl=ngl,gl=gl,
                                          _glqeval=glqeval,
                                          **kwargs)/surfmass
-            return self.vmomentdensity(R,z,0.,2.,0.,
+            return self._vmomentdensity(R,z,0.,2.,0.,
                                            ngl=ngl,gl=gl,
                                            _glqeval=glqeval,
                                            **kwargs)/surfmass-mvt**2.
 
         else: #pragma: no cover because this is too slow; a warning is shown
-            surfmass= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass= self._vmomentdensity(R,z,0.,0.,0.,
                                               nsigma=nsigma,mc=mc,nmc=nmc,
                                               **kwargs)
-            return (self.vmomentdensity(R,z,0.,2.,0.,
+            return (self._vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass\
-                        -(self.vmomentdensity(R,z,0.,2.,0.,
+                        -(self._vmomentdensity(R,z,0.,2.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass)**2.)
 
@@ -1207,18 +1207,18 @@ class quasiisothermaldf(object):
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentdensity(R,z,1.,0.,0.,
+            return self._jmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.jmomentdensity(R,z,1.,0.,0.,
+            return (self._jmomentdensity(R,z,1.,0.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1250,18 +1250,18 @@ class quasiisothermaldf(object):
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentdensity(R,z,0.,1.,0.,
+            return self._jmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.jmomentdensity(R,z,0.,1.,0.,
+            return (self._jmomentdensity(R,z,0.,1.,0.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
@@ -1293,18 +1293,18 @@ class quasiisothermaldf(object):
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
         if mc:
-            surfmass, vrs, vts, vzs= self.vmomentdensity(R,z,0.,0.,0.,
+            surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
                                                              **kwargs)
-            return self.jmomentdensity(R,z,0.,0.,1.,
+            return self._jmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                            _vrs=vrs,_vts=vts,_vzs=vzs,
                                                              **kwargs)/surfmass
         else: #pragma: no cover because this is too slow; a warning is shown
-            return (self.jmomentdensity(R,z,0.,0.,1.,
+            return (self._jmomentdensity(R,z,0.,0.,1.,
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/
-                    self.vmomentdensity(R,z,0.,0.,0.,
+                    self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
