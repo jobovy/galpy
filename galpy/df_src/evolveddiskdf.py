@@ -410,10 +410,10 @@ class evolveddiskdf(df):
         else:
             warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                           galpyWarning)
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az))
-            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az))
-            meanvR= self._initdf.meanvR(R,phi=az)
-            meanvT= self._initdf.meanvT(R,phi=az)
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az,use_physical=False))
+            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az,use_physical=False))
+            meanvR= self._initdf.meanvR(R,phi=az,use_physical=False)
+            meanvT= self._initdf.meanvT(R,phi=az,use_physical=False)
         if _PROFILE: #pragma: no cover
             setup_time= (time_module.time()-start)
         if not grid is None and isinstance(grid,bool) and grid:
@@ -541,7 +541,9 @@ class evolveddiskdf(df):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if sigmaT2 is None:
             sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -549,7 +551,9 @@ class evolveddiskdf(df):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if sigmaRT is None:
             sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -557,7 +561,9 @@ class evolveddiskdf(df):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
@@ -1246,7 +1252,8 @@ class evolveddiskdf(df):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvRdphi= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1411,7 +1418,8 @@ class evolveddiskdf(df):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvRdphi= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1576,7 +1584,8 @@ class evolveddiskdf(df):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvTdphi= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1741,7 +1750,8 @@ class evolveddiskdf(df):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvTdphi= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1887,7 +1897,8 @@ class evolveddiskdf(df):
         kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
         if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+                                                  use_physical=False)) #Slight abuse
             cosalphalos= math.cos(alphalos)
             tanalphalos= math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
@@ -1897,7 +1908,8 @@ class evolveddiskdf(df):
                                         sigmaR1,phi),
                                   **kwargs)[0]/math.fabs(cosalphalos)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+                                                  use_physical=False))
             sinalphalos= math.sin(alphalos)
             cotalphalos= 1./math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
@@ -1929,8 +1941,9 @@ class evolveddiskdf(df):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
-            va= vcirc-self._initdf.meanvT(R,phi=phi)
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+                                                  use_physical=False)) #slight abuse
+            va= vcirc-self._initdf.meanvT(R,phi=phi,use_physical=False)
             cosalphaperp= math.cos(alphaperp)
             tanalphaperp= math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
@@ -1942,7 +1955,8 @@ class evolveddiskdf(df):
                                         sigmaR1,phi),
                                   **kwargs)[0]/math.fabs(cosalphaperp)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+                                                  use_physical=False))
             sinalphaperp= math.sin(alphaperp)
             cotalphaperp= 1./math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
