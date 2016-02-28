@@ -36,6 +36,7 @@ from galpy.util import save_pickles
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
+from galpy.df_src.df import df
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -44,13 +45,13 @@ except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= math.pi/180.
-class diskdf(object):
+class diskdf(df):
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
                  surfaceSigma=expSurfaceSigmaProfile,
                  profileParams=(1./3.,1.0,0.2),
                  correct=False,
-                 beta=0.,**kwargs):
+                 beta=0.,ro=None,vo=None,**kwargs):
         """
         NAME:
            __init__
@@ -75,6 +76,7 @@ class diskdf(object):
         HISTORY:
             2010-03-10 - Written - Bovy (NYU)
         """
+        df.__init__(self,ro=ro,vo=vo)
         self._dftype= dftype
         if isinstance(surfaceSigma,surfaceSigmaProfile):
             self._surfaceSigmaProfile= surfaceSigma

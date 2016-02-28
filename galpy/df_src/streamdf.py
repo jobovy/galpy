@@ -9,6 +9,7 @@ if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
 else:
     from scipy.misc import logsumexp
 from galpy.orbit import Orbit
+from galpy.df_src.df import df
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 import warnings
@@ -33,14 +34,14 @@ _labelDict= {'x': r'$X$',
              'pmll':r'$\mu_l\,(\mathrm{mas\,yr}^{-1})$',
              'pmbb':r'$\mu_b\,(\mathrm{mas\,yr}^{-1})$',
              'vlos':r'$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$'}
-class streamdf(object):
+class streamdf(df):
     """The DF of a tidal stream"""
     def __init__(self,sigv,progenitor=None,pot=None,aA=None,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
                  deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
                  progIsTrack=False,
-                 Vnorm=220.,Rnorm=8.,
+                 Vnorm=None,Rnorm=None,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
                  useInterp=_USEINTERP,nosetup=False):
@@ -121,6 +122,9 @@ class streamdf(object):
            2013-11-25 - Started over - Bovy (IAS)
 
         """
+        df.__init__(self,ro=Rnorm,vo=Vnorm)
+        if Rnorm is None: Rnorm= 8.
+        if Vnorm is None: Vnorm= 220.
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./bovy_conversion.time_in_Gyr(Vnorm,Rnorm)

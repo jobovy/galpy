@@ -4,6 +4,9 @@ v1.2 (2016-XX-XX)
 - Added support for providing inputs to Potential and Orbit methods as
   Quantities with units (#258). MOREMOREMORE
 
+- quasiisothermaldf input ro replaced by refr to avoid clash with ro
+  that specifies units (see above).
+
 - Re-defined the amplitude parameters of a few potentials to allow for
   easier setups with amplitudes provided as Quantities with
   units. This is the case for FlattenedPowerPotential,

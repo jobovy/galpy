@@ -8,17 +8,19 @@ from galpy import actionAngle
 from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.orbit import Orbit
+from galpy.df_src.df import df
 from galpy.util import galpyWarning
 _NSIGMA=4
 _DEFAULTNGL=10
 _DEFAULTNGL2=20
-class quasiisothermaldf(object):
+class quasiisothermaldf(df):
     """Class that represents a 'Binney' quasi-isothermal DF"""
     def __init__(self,hr,sr,sz,hsr,hsz,pot=None,aA=None,
                  cutcounter=False,
                  _precomputerg=True,_precomputergrmax=None,
                  _precomputergnLz=51,
-                 ro=1.,lo=10./220./8.):
+                 refr=1.,lo=10./220./8.,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -46,7 +48,7 @@ class quasiisothermaldf(object):
 
            cutcounter= if True, set counter-rotating stars' DF to zero
 
-           ro= reference radius for surface mass and sigmas
+           refr= reference radius for dispersions (can be different from ro)
 
            lo= reference angular momentum below where there are significant numbers of retrograde stars
 
@@ -67,12 +69,13 @@ class quasiisothermaldf(object):
            2012-07-25 - Started - Bovy (IAS@MPIA)
 
         """
+        df.__init__(self,ro=ro,vo=vo)
         self._hr= hr
         self._sr= sr
         self._sz= sz
         self._hsr= hsr
         self._hsz= hsz
-        self._ro= ro
+        self._refr= refr
         self._lo= lo
         self._lnsr= math.log(self._sr)
         self._lnsz= math.log(self._sz)
@@ -196,9 +199,9 @@ class quasiisothermaldf(object):
             kappa, nu= self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
             Omega= numpy.fabs(lz)/thisrg/thisrg
         #calculate surface-densities and sigmas
-        lnsurfmass= (self._ro-thisrg)/self._hr
-        lnsr= self._lnsr+(self._ro-thisrg)/self._hsr
-        lnsz= self._lnsz+(self._ro-thisrg)/self._hsz
+        lnsurfmass= (self._refr-thisrg)/self._hr
+        lnsr= self._lnsr+(self._refr-thisrg)/self._hsr
+        lnsz= self._lnsz+(self._refr-thisrg)/self._hsz
         #Calculate func
         if 'func' in kwargs:
             if log:
@@ -440,11 +443,11 @@ class quasiisothermaldf(object):
         if nsigma == None:
             nsigma= _NSIGMA
         if _sigmaR1 is None:
-            sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+            sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
         else:
             sigmaR1= _sigmaR1
         if _sigmaz1 is None:
-            sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+            sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         else:
             sigmaz1= _sigmaz1
         thisvc= potential.vcirc(self._pot,R)
@@ -621,8 +624,8 @@ class quasiisothermaldf(object):
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         thisvc= potential.vcirc(self._pot,R)
         #Use the asymmetric drift equation to estimate va
         gamma= numpy.sqrt(0.5)
@@ -1382,7 +1385,7 @@ class quasiisothermaldf(object):
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -1449,8 +1452,8 @@ class quasiisothermaldf(object):
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
+        sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -1530,7 +1533,7 @@ class quasiisothermaldf(object):
            2012-12-22 - Written - Bovy (IAS)
         """
         if _sigmaR1 is None:
-            sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+            sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
         else:
             sigmaR1= _sigmaR1
         if gl:
@@ -1666,7 +1669,7 @@ class quasiisothermaldf(object):
         HISTORY:
            2013-01-02 - Written - Bovy (IAS)
         """
-        sigmaz1= self._sz*numpy.exp((self._ro-R)/self._hsz)
+        sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -1728,7 +1731,7 @@ class quasiisothermaldf(object):
         HISTORY:
            2012-12-22 - Written - Bovy (IAS)
         """
-        sigmaR1= self._sr*numpy.exp((self._ro-R)/self._hsr)
+        sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")

@@ -20,12 +20,13 @@ from scipy import integrate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
+from galpy.df_src.df import df
 from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 _NAN= nu.nan
-class evolveddiskdf(object):
+class evolveddiskdf(df):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
         """
@@ -39,7 +40,7 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           initdf - the df at the start of the evolution (at to)
+           initdf - the df at the start of the evolution (at to) (units are transferred)
 
            pot - potential to integrate orbits in
 
@@ -54,6 +55,11 @@ class evolveddiskdf(object):
            2011-03-30 - Written - Bovy (NYU)
 
         """
+        if initdf._roSet: ro= initdf._ro
+        else: ro= None
+        if initdf._voSet: ro= initdf._vo
+        else: vo= None
+        df.__init__(self,ro=ro,vo=vo)
         self._initdf= initdf
         self._pot= pot
         self._to= to
