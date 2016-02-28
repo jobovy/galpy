@@ -194,7 +194,7 @@ class diskdf(df):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -240,7 +240,7 @@ class diskdf(df):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -496,10 +496,10 @@ class diskdf(df):
         R, phi= _dlToRphi(d,lrad)
         if target:
             if relative: return d
-            else: return self.targetSurfacemass(R)*d
+            else: return self.targetSurfacemass(R,use_physical=False)*d
         else:
             return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
-                                    relative=relative)\
+                                    relative=relative,use_physical=False)\
                                     *d
 
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
@@ -534,15 +534,18 @@ class diskdf(df):
         if target:
             minR= optimize.fmin_bfgs(lambda x: \
                                          -self.targetSurfacemassLOS(x,l,
-                                                                      deg=False),
+                                                                    use_physical=False,
+                                                                    deg=False),
                                      0.,disp=False)[0]
-            maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
+            maxSM= self.targetSurfacemassLOS(minR,l,deg=False,
+                                             use_physical=False)
         else:
             minR= optimize.fmin_bfgs(lambda x: \
                                          -self.surfacemassLOS(x,l,
-                                                              deg=False),
+                                                              deg=False,
+                                                              use_physical=False),
                                      0.,disp=False)[0]
-            maxSM= self.surfacemassLOS(minR,l,deg=False)
+            maxSM= self.surfacemassLOS(minR,l,deg=False,use_physical=False)
         #Now rejection-sample
         if maxd is None:
             maxd= _MAXD_REJECTLOS
@@ -551,9 +554,11 @@ class diskdf(df):
             #sample
             prop= nu.random.random()*maxd
             if target:
-                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
+                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False,
+                                                          use_physical=False)
             else:
-                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
+                surfmassatprop= self.surfacemassLOS(prop,l,deg=False,
+                                                    use_physical=False)
             if surfmassatprop/maxSM > nu.random.random(): #accept
                 out.append(prop)
         return nu.array(out)
@@ -599,9 +604,9 @@ class diskdf(df):
             nsigma= _NSIGMA
         out= []
         if target:
-            sigma= math.sqrt(self.targetSigma2(R))
+            sigma= math.sqrt(self.targetSigma2(R,use_physical=False))
         else:
-            sigma= math.sqrt(self.sigma2(R))
+            sigma= math.sqrt(self.sigma2(R,use_physical=False))
         while len(out) < n:
             #sample
             vrg, vtg= nu.random.normal(), nu.random.normal()
@@ -684,7 +689,7 @@ class diskdf(df):
            2011-04-02 - Written - Bovy (NYU)
 
         """
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                          -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                          -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
@@ -724,8 +729,8 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -790,8 +795,8 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -864,8 +869,8 @@ class diskdf(df):
             return 0.
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -949,7 +954,8 @@ class diskdf(df):
            could be made more efficient, e.g., surfacemass is calculated multiple times
         """
         #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
         surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
         dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
@@ -995,7 +1001,8 @@ class diskdf(df):
            could be made more efficient, e.g., surfacemass is calculated multiple times
         """
         #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
         surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
         dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
@@ -1042,7 +1049,8 @@ class diskdf(df):
            we know this is zero, but it is calculated anyway (bug or feature?)
         """
         #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
         surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
         dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
@@ -1086,7 +1094,8 @@ class diskdf(df):
            we know this is zero, but it is calculated anyway (bug or feature?)
         """
         #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
         surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
         dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
@@ -1124,7 +1133,8 @@ class diskdf(df):
 
            2010-03-XX - Written - Bovy (NYU)
         """
-        return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
+        return self.sigma2surfacemass(R,romberg,nsigma,use_physical=False)\
+            /self.surfacemass(R,romberg,nsigma,use_physical=False)
 
     @physical_conversion('velocity2',pop=True)        
     def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
@@ -1158,7 +1168,8 @@ class diskdf(df):
 
            2011-03-30 - Written - Bovy (NYU)
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
         return (self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
                 -self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
                     **2.\
@@ -1195,7 +1206,7 @@ class diskdf(df):
 
            2011-03-30 - Written - Bovy (NYU)
         """
-        return self.sigma2(R,romberg=romberg,nsigma=nsigma)
+        return self.sigma2(R,romberg=romberg,nsigma=nsigma,use_physical=False)
 
     @physical_conversion('velocity',pop=True)
     def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
@@ -1229,7 +1240,8 @@ class diskdf(df):
            2011-03-30 - Written - Bovy (NYU)
         """
         return self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
 
     @physical_conversion('velocity',pop=True)
     def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
@@ -1263,7 +1275,8 @@ class diskdf(df):
            2011-03-30 - Written - Bovy (NYU)
         """
         return self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
 
     def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
@@ -1295,7 +1308,8 @@ class diskdf(df):
 
            2011-12-07 - Written - Bovy (NYU)
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
         vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
         vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
@@ -1335,7 +1349,8 @@ class diskdf(df):
 
            2011-12-07 - Written - Bovy (NYU)
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
         vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
@@ -1375,7 +1390,8 @@ class diskdf(df):
 
            2011-12-07 - Written - Bovy (NYU)
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
         vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
         vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
@@ -1417,7 +1433,8 @@ class diskdf(df):
 
            2011-12-07 - Written - Bovy (NYU)
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
         vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
@@ -1539,7 +1556,7 @@ class diskdf(df):
         HISTORY:
            2010-03-28 - Written - Bovy (NYU)
         """
-        return R**self._beta-self.asymmetricdrift(R)
+        return R**self._beta-self.asymmetricdrift(R,use_physical=False)
 
     def _estimateSigmaR2(self,R,phi=0.,log=False):
         """
@@ -1558,7 +1575,7 @@ class diskdf(df):
         HISTORY:
            2010-03-28 - Written - Bovy (NYU)
         """
-        return self.targetSigma2(R,log=log)
+        return self.targetSigma2(R,log=log,use_physical=False)
 
     def _estimateSigmaT2(self,R,phi=0.,log=False):
         """
@@ -1578,9 +1595,11 @@ class diskdf(df):
            2010-03-28 - Written - Bovy (NYU)
         """
         if log:
-            return self.targetSigma2(R,log=log)-2.*nu.log(self._gamma)
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                -2.*nu.log(self._gamma)
         else:
-            return self.targetSigma2(R,log=log)/self._gamma**2.
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                /self._gamma**2.
 
 
 class dehnendf(diskdf):
@@ -1665,17 +1684,17 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             corr_time= (time.time()-start)
             start= time.time()
-        SRE2= self.targetSigma2(xE,log=True)+correction[1]
+        SRE2= self.targetSigma2(xE,log=True,use_physical=False)+correction[1]
         if _PROFILE: #pragma: no cover
             targSigma_time= (time.time()-start)
             start= time.time()
-            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
             out_time= (time.time()-start)
             tot_time= one_time+corr_time+targSigma_time+out_time
             print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
             return out
         else:
-            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
@@ -1866,8 +1885,8 @@ class shudf(diskdf):
             correction= self._corr.correct(xL,log=True)
         else:
             correction= sc.zeros(2)
-        SRE2= self.targetSigma2(xL,log=True)+correction[1]
-        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
+        SRE2= self.targetSigma2(xL,log=True,use_physical=False)+correction[1]
+        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True,use_physical=False)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
@@ -2225,9 +2244,12 @@ class DFcorrection(object):
                                         interp_k=self._interp_k)
             newcorrections= sc.zeros((self._npoints,2))
             for jj in range(self._npoints):
-                thisSurface= currentDF.surfacemass(self._rs[jj])
-                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj])/thisSurface
-                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj])*thisSurface/currentDF.sigma2surfacemass(self._rs[jj])
+                thisSurface= currentDF.surfacemass(self._rs[jj],
+                                                   use_physical=False)
+                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj],use_physical=False)/thisSurface
+                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj],use_physical=False)*thisSurface\
+                    /currentDF.sigma2surfacemass(self._rs[jj],
+                                                 use_physical=False)
                 #print(jj, newcorrections[jj,:])
             corrections*= newcorrections
         #Save
