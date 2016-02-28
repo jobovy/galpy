@@ -451,18 +451,25 @@ _roNecessary= {'time': True,
                'position': True,
                'position_kpc': True,
                'velocity': False,
+               'velocity2': False,
+               'velocity2surfacendensity': False,
                'velocity_kms': False,
                'energy': False,
                'density': True,
                'force': True,
+               'velocity2surfacedensity': True,
                'surfacedensity': True,
+               'surfacedensitydistance': True,
                'mass': True,
                'action': True,
                'frequency':True,
+               'frequency_kmskpc':True,
                'forcederivative':True,
                'angle':True,
                'angle_deg':True,
                'proper-motion_masyr':True,
+               'phasespacedensity':True,
+               'phasespacedensity2d':True,
                'dimensionless':False}
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
@@ -470,6 +477,7 @@ _voNecessary['position_kpc']= False
 _voNecessary['angle']= False
 _voNecessary['angle_deg']= False
 _voNecessary['velocity']= True
+_voNecessary['velocity2']= True
 _voNecessary['velocity_kms']= True
 _voNecessary['energy']= True
 def physical_conversion(quantity,pop=False):
@@ -522,6 +530,10 @@ def physical_conversion(quantity,pop=False):
                     fac= vo
                     if _APY_UNITS:
                         u= units.km/units.s
+                elif quantity.lower() == 'velocity2':
+                    fac= vo**2.
+                    if _APY_UNITS:
+                        u= (units.km/units.s)**2
                 elif quantity.lower() == 'velocity_kms': # already in km/s
                     fac= 1.
                     if _APY_UNITS:
@@ -533,6 +545,10 @@ def physical_conversion(quantity,pop=False):
                         fac= freq_in_Gyr(vo,ro)
                         if _APY_UNITS:
                             u= units.Gyr**-1.
+                elif quantity.lower() == 'frequency_kmskpc':
+                    fac= freq_in_kmskpc(vo,ro)
+                    if _APY_UNITS:
+                        u= units.km/units.s/units.kpc
                 elif quantity.lower() == 'action':
                     fac= ro*vo
                     if _APY_UNITS:
@@ -561,6 +577,18 @@ def physical_conversion(quantity,pop=False):
                     fac= dens_in_msolpc3(vo,ro)
                     if _APY_UNITS:
                         u= units.Msun/units.pc**3
+                elif quantity.lower() == 'velocity2surfacedensity':
+                    fac= surfdens_in_msolpc2(vo,ro)*vo**2
+                    if _APY_UNITS:
+                        u= units.Msun/units.pc**2*(units.km/units.s)**2
+                elif quantity.lower() == 'surfacedensity':
+                    fac= surfdens_in_msolpc2(vo,ro)
+                    if _APY_UNITS:
+                        u= units.Msun/units.pc**2
+                elif quantity.lower() == 'surfacedensitydistance':
+                    fac= surfdens_in_msolpc2(vo,ro)*ro
+                    if _APY_UNITS:
+                        u= units.Msun/units.pc
                 elif quantity.lower() == 'mass':
                     fac= mass_in_msol(vo,ro)
                     if _APY_UNITS:
@@ -569,6 +597,14 @@ def physical_conversion(quantity,pop=False):
                     fac= freq_in_Gyr(vo,ro)**2.
                     if _APY_UNITS:
                         u= units.Gyr**-2.
+                elif quantity.lower() == 'phasespacedensity':
+                    fac= 1./vo**3./ro**3.
+                    if _APY_UNITS:
+                        u= 1/(units.km/units.s)**3/units.pc**3
+                elif quantity.lower() == 'phasespacedensity2d':
+                    fac= 1./vo**2./ro**2.
+                    if _APY_UNITS:
+                        u= 1/(units.km/units.s)**2/units.pc**2
                 elif quantity.lower() == 'dimensionless':
                     fac= 1.
                     if _APY_UNITS:
