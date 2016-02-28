@@ -23,6 +23,7 @@ from galpy.potential import calcRotcurve
 from galpy.df_src.df import df
 from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot
+from galpy.util.bovy_conversion import physical_conversion
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 _NAN= nu.nan
@@ -64,6 +65,7 @@ class evolveddiskdf(df):
         self._pot= pot
         self._to= to
 
+    @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -460,6 +462,7 @@ class evolveddiskdf(df):
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
+    @physical_conversion('angle_deg',pop=True)
     def vertexdev(self,R,t=0.,nsigma=None,deg=False,
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
@@ -563,6 +566,7 @@ class evolveddiskdf(df):
         else:
             return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG
 
+    @physical_conversion('velocity',pop=True)
     def meanvR(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
@@ -663,6 +667,7 @@ class evolveddiskdf(df):
         else:
             return out
 
+    @physical_conversion('velocity',pop=True)
     def meanvT(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
@@ -764,6 +769,7 @@ class evolveddiskdf(df):
         else:
             return out
 
+    @physical_conversion('velocity2',pop=True)
     def sigmaR2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -879,6 +885,7 @@ class evolveddiskdf(df):
         else:
             return out
 
+    @physical_conversion('velocity2',pop=True)
     def sigmaT2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -992,6 +999,7 @@ class evolveddiskdf(df):
         else:
             return out
 
+    @physical_conversion('velocity2',pop=True)
     def sigmaRT(self,R,t=0.,nsigma=None,deg=False,
                 epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -1116,6 +1124,7 @@ class evolveddiskdf(df):
         else:
             return out
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortA(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1280,6 +1289,7 @@ class evolveddiskdf(df):
         else:
             return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortB(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1444,6 +1454,7 @@ class evolveddiskdf(df):
         else:
             return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortC(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1608,6 +1619,7 @@ class evolveddiskdf(df):
         else:
             return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
 
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortK(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
