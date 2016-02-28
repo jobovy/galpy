@@ -36,7 +36,9 @@ from galpy.util import save_pickles
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
-from galpy.df_src.df import df
+from galpy.df_src.df import df, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -81,6 +83,14 @@ class diskdf(df):
         if isinstance(surfaceSigma,surfaceSigmaProfile):
             self._surfaceSigmaProfile= surfaceSigma
         else:
+            if _APY_LOADED and isinstance(profileParams[0],units.Quantity):
+                newprofileParams=\
+                    (profileParams[0].to(units.kpc).value/self._ro,
+                     profileParams[1].to(units.kpc).value/self._ro,
+                     profileParams[2].to(units.km/units.s).value/self._vo)
+                self._roSet= True
+                self._voSet= True
+                profileParams= newprofileParams
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
         self._gamma= sc.sqrt(2./(1.+self._beta))
