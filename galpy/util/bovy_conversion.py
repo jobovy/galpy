@@ -456,9 +456,11 @@ _roNecessary= {'time': True,
                'velocity_kms': False,
                'energy': False,
                'density': True,
+               'numberdensity': True,
                'force': True,
                'velocity2surfacedensity': True,
                'surfacedensity': True,
+               'numbersurfacedensity': True,
                'surfacedensitydistance': True,
                'mass': True,
                'action': True,
@@ -470,6 +472,8 @@ _roNecessary= {'time': True,
                'proper-motion_masyr':True,
                'phasespacedensity':True,
                'phasespacedensity2d':True,
+               'phasespacedensityvelocity':True,
+               'phasespacedensityvelocity2':True,
                'dimensionless':False}
 _voNecessary= copy.copy(_roNecessary)
 _voNecessary['position']= False
@@ -577,6 +581,10 @@ def physical_conversion(quantity,pop=False):
                     fac= dens_in_msolpc3(vo,ro)
                     if _APY_UNITS:
                         u= units.Msun/units.pc**3
+                elif quantity.lower() == 'numberdensity':
+                    fac= 1/ro**3.
+                    if _APY_UNITS:
+                        u= 1/units.pc**3
                 elif quantity.lower() == 'velocity2surfacedensity':
                     fac= surfdens_in_msolpc2(vo,ro)*vo**2
                     if _APY_UNITS:
@@ -585,6 +593,10 @@ def physical_conversion(quantity,pop=False):
                     fac= surfdens_in_msolpc2(vo,ro)
                     if _APY_UNITS:
                         u= units.Msun/units.pc**2
+                elif quantity.lower() == 'numbersurfacedensity':
+                    fac= 1./ro**2.
+                    if _APY_UNITS:
+                        u= 1/units.pc**2
                 elif quantity.lower() == 'surfacedensitydistance':
                     fac= surfdens_in_msolpc2(vo,ro)*ro
                     if _APY_UNITS:
@@ -605,6 +617,14 @@ def physical_conversion(quantity,pop=False):
                     fac= 1./vo**2./ro**2.
                     if _APY_UNITS:
                         u= 1/(units.km/units.s)**2/units.pc**2
+                elif quantity.lower() == 'phasespacedensityvelocity':
+                    fac= 1./vo**2./ro**3.
+                    if _APY_UNITS:
+                        u= 1/(units.km/units.s)**2/units.pc**3
+                elif quantity.lower() == 'phasespacedensityvelocity2':
+                    fac= 1./vo/ro**3.
+                    if _APY_UNITS:
+                        u= 1/(units.km/units.s)/units.pc**3
                 elif quantity.lower() == 'dimensionless':
                     fac= 1.
                     if _APY_UNITS:
