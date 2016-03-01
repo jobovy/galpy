@@ -177,11 +177,18 @@ class diskdf(df):
             vT= nu.array([o._orb.vxvv[2] for o in args[0]])
             R= nu.array([o._orb.vxvv[0] for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
-        elif isinstance(args[0],nu.ndarray):
+        elif isinstance(args[0],nu.ndarray) and \
+                not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
             R= args[0][0]
+            if _APY_LOADED and isinstance(vR,units.Quantity):
+                vR= vR.to(units.km/units.s).value/self._vo
+            if _APY_LOADED and isinstance(vT,units.Quantity):
+                vT= vT.to(units.km/units.s).value/self._vo
+            if _APY_LOADED and isinstance(R,units.Quantity):
+                R= R.to(units.kpc).value/self._ro
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
         else:
             return sc.real(self.eval(*args))
@@ -191,8 +198,8 @@ class diskdf(df):
         #Get l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
         vcirc= R**self._beta
         vcirclos= vcirc*math.sin(phi+l)
@@ -236,8 +243,8 @@ class diskdf(df):
         #Get d, l, vperp
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         vcirc= R**self._beta
@@ -1677,6 +1684,10 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             import time
             start= time.time()
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
             xE= sc.exp(E-.5)
@@ -1882,6 +1893,10 @@ class shudf(diskdf):
         HISTORY:
            2010-05-09 - Written - Bovy (NYU)
         """
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
