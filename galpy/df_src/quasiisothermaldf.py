@@ -8,9 +8,11 @@ from galpy import actionAngle
 from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.orbit import Orbit
-from galpy.df_src.df import df
+from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion
+if _APY_LOADED:
+    from astropy import units
 _NSIGMA=4
 _DEFAULTNGL=10
 _DEFAULTNGL2=20
@@ -71,6 +73,20 @@ class quasiisothermaldf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(hr,units.Quantity):
+            hr= hr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(sr,units.Quantity):
+            sr= sr.to(units.km/units.s).value/self._vo
+        if _APY_LOADED and isinstance(sz,units.Quantity):
+            sz= sz.to(units.km/units.s).value/self._vo
+        if _APY_LOADED and isinstance(hsr,units.Quantity):
+            hsr= hsr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(hsz,units.Quantity):
+            hsz= hsz.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(refr,units.Quantity):
+            refr= refr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(lo,units.Quantity):
+            lo= lo.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         self._hr= hr
         self._sr= sr
         self._sz= sz
