@@ -490,7 +490,8 @@ def physical_conversion(quantity,pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
-            use_physical= kwargs.get('use_physical',True)
+            use_physical= kwargs.get('use_physical',True) and \
+                not kwargs.get('log',False)
             ro= kwargs.get('ro',None)
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
