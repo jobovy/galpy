@@ -2299,7 +2299,10 @@ def test_physical_output_on():
         o_orig= o()
         #turn off and on
         o.turn_physical_off()
-        o.turn_physical_on()
+        if ii%2 == 0:
+            o.turn_physical_on(ro=ro,vo=vo)
+        else:
+            o.turn_physical_on(ro=ro,vo=vo)
         #Test positions
         assert numpy.fabs(o.R()-o_orig.R(use_physical=True)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected when turned back on'
         if ii % 2 == 1:
