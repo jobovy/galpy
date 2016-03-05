@@ -354,8 +354,12 @@ class Orbit(object):
         self._roSet= True
         self._voSet= True
         if not ro is None:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             self._ro= ro
         if not vo is None:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             self._vo= vo
         self._orb.turn_physical_on(ro=ro,vo=vo)
 
