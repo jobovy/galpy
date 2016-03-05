@@ -2284,6 +2284,7 @@ def test_physical_output_off():
 # back on by turn_physical_on
 def test_physical_output_on():
     from galpy.potential import LogarithmicHaloPotential
+    from astropy import units
     lp= LogarithmicHaloPotential(normalize=1.)
     plp= lp.toPlanar()
     for ii in range(4):
@@ -2299,10 +2300,12 @@ def test_physical_output_on():
         o_orig= o()
         #turn off and on
         o.turn_physical_off()
-        if ii%2 == 0:
+        if ii == 0:
             o.turn_physical_on(ro=ro,vo=vo)
+        elif ii == 1:
+            o.turn_physical_on(ro=ro*units.kpc,vo=vo*units.km/units.s)
         else:
-            o.turn_physical_on(ro=ro,vo=vo)
+            o.turn_physical_on()
         #Test positions
         assert numpy.fabs(o.R()-o_orig.R(use_physical=True)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected when turned back on'
         if ii % 2 == 1:
