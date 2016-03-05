@@ -681,6 +681,19 @@ def potential_physical_input(method):
                 and isinstance(kwargs['t'],units.Quantity):
             kwargs['t']= kwargs['t'].to(units.Gyr).value\
                 /time_in_Gyr(vo,ro)
+        # kwargs that come up in quasiisothermaldf    
+        if 'z' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['z'],units.Quantity):
+            kwargs['z']= kwargs['z'].to(units.kpc).value/ro
+        if 'dz' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['dz'],units.Quantity):
+            kwargs['dz']= kwargs['dz'].to(units.kpc).value/ro
+        if 'dR' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['dR'],units.Quantity):
+            kwargs['dR']= kwargs['dR'].to(units.kpc).value/ro
+        if 'zmax' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['zmax'],units.Quantity):
+            kwargs['zmax']= kwargs['zmax'].to(units.kpc).value/ro
         return method(*args,**kwargs)
     return wrapper
 def physical_conversion_actionAngle(quantity,pop=False):
