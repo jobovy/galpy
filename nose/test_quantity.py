@@ -2983,3 +2983,31 @@ def test_estimateBIsochrone_method_value():
         assert numpy.all(numpy.fabs(estimateBIsochrone(pot,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii].to(units.kpc).value-estimateBIsochrone(potu,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii]*ro) < 10.**-8.), 'estimateBIsochrone function does not return Quantity with the right value'
     return None
 
+def test_diskdf_method_returntype():
+    from galpy.df import dehnendf,shudf
+    from galpy.orbit import Orbit
+    df= dehnendf(ro=8.,vo=220.)
+    dfs= shudf(ro=8.,vo=220.)
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'diskdf method __call__ does not return Quantity when it should'
+    assert isinstance(df.targetSigma2(1.2),units.Quantity), 'diskdf method targetSigma2 does not return Quantity when it should'
+    assert isinstance(df.targetSurfacemass(1.2),units.Quantity), 'diskdf method targetSurfacemass does not return Quantity when it should'
+    assert isinstance(df.targetSurfacemassLOS(1.2,40.),units.Quantity), 'diskdf method targetSurfacemassLOS does not return Quantity when it should'
+    assert isinstance(df.surfacemassLOS(1.2,35.),units.Quantity), 'diskdf method surfacemassLOS does not return Quantity when it should'
+    assert isinstance(df.sampledSurfacemassLOS(1.2),units.Quantity), 'diskdf method sampledSurfacemassLOS does not return Quantity when it should'
+    assert isinstance(df.sampleVRVT(1.1),units.Quantity), 'diskdf method sampleVRVT does not return Quantity when it should'
+    assert isinstance(df.sampleLOS(12.)[0].R(),units.Quantity), 'diskdf method sampleLOS does not return Quantity when it should'
+    assert isinstance(df.sample()[0].R(),units.Quantity), 'diskdf method sample does not return Quantity when it should'
+    assert isinstance(dfs.sample()[0].R(),units.Quantity), 'diskdf method sample does not return Quantity when it should'
+    assert isinstance(df.asymmetricdrift(0.8),units.Quantity), 'diskdf method asymmetricdrift does not return Quantity when it should'
+    assert isinstance(df.surfacemass(1.1),units.Quantity), 'diskdf method  does not return Quantity when it should'
+    assert isinstance(df.sigma2surfacemass(1.2),units.Quantity), 'diskdf method sigma2surfacemass does not return Quantity when it should'
+    assert isinstance(df.oortA(1.2),units.Quantity), 'diskdf method oortA does not return Quantity when it should'
+    assert isinstance(df.oortB(1.2),units.Quantity), 'diskdf method oortB does not return Quantity when it should'
+    assert isinstance(df.oortC(1.2),units.Quantity), 'diskdf method oortC does not return Quantity when it should'
+    assert isinstance(df.oortK(1.2),units.Quantity), 'diskdf method oortK does not return Quantity when it should'
+    assert isinstance(df.sigma2(1.2),units.Quantity), 'diskdf method sigma2 does not return Quantity when it should'
+    assert isinstance(df.sigmaT2(1.2),units.Quantity), 'diskdf method sigmaT2 does not return Quantity when it should'
+    assert isinstance(df.sigmaR2(1.2),units.Quantity), 'diskdf method sigmaR2 does not return Quantity when it should'
+    assert isinstance(df.meanvT(1.2),units.Quantity), 'diskdf method meanvT does not return Quantity when it should'
+    assert isinstance(df.meanvR(1.2),units.Quantity), 'diskdf method meanvR does not return Quantity when it should'
+    return None
