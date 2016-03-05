@@ -699,7 +699,7 @@ class diskdf(df):
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
             vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
-            if self._roSet:
+            if self._roSet and self._voSet:
                 out.append(Orbit([thisR,vv[0],vv[1],thisphi],ro=self._ro,
                                  vo=self._vo))
             else:
@@ -1760,7 +1760,7 @@ class dehnendf(diskdf):
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
                targetSigma2=True,
-               maxd=None):
+               maxd=None,**kwargs):
         """
         NAME:
            sample
@@ -1784,7 +1784,7 @@ class dehnendf(diskdf):
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
-                    \kappa/\omega_R discrepancy
+                    \kappa/\omega_R discrepancy; EL not returned in physical units        
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
@@ -1818,7 +1818,8 @@ class dehnendf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
-            if _APY_LOADED and isinstance(rrange[0],units.Quantity):
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
                 rrange[0]= rrange[0].to(units.kpc).value/self._ro
                 rrange[1]= rrange[1].to(units.kpc).value/self._ro
             if not hasattr(self,'_psp'):
@@ -1872,6 +1873,10 @@ class dehnendf(diskdf):
         if len(out) > n*nphi:
             print(n, nphi, n*nphi)
             out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
 class shudf(diskdf):
@@ -2015,7 +2020,8 @@ class shudf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
-            if _APY_LOADED and isinstance(rrange[0],units.Quantity):
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
                 rrange[0]= rrange[0].to(units.kpc).value/self._ro
                 rrange[1]= rrange[1].to(units.kpc).value/self._ro
             if not hasattr(self,'_psp'):
@@ -2065,6 +2071,10 @@ class shudf(diskdf):
                                    returnOrbit=returnOrbit,nphi=nphi))
         if len(out) > n*nphi:
             out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
