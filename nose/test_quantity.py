@@ -3040,3 +3040,38 @@ def test_evolveddiskdf_method_returntype():
     assert isinstance(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvR does not return Quantity when it should'
     return None
 
+def test_quasiisothermaldf_method_returntype():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=8.,vo=220.)
+    o= Orbit([1.1,0.1,1.1,0.1,0.03,0.4])
+    assert isinstance(qdf(o),units.Quantity), 'quasiisothermaldf method __call__ does not return Quantity when it should'
+    assert isinstance(qdf.estimate_hr(1.1),units.Quantity), 'quasiisothermaldf method estimate_hr does not return Quantity when it should'
+    assert isinstance(qdf.estimate_hz(1.1,0.1),units.Quantity), 'quasiisothermaldf method estimate_hz does not return Quantity when it should'
+    assert isinstance(qdf.estimate_hsr(1.1),units.Quantity), 'quasiisothermaldf method estimate_hsr does not return Quantity when it should'
+    assert isinstance(qdf.estimate_hsz(1.1),units.Quantity), 'quasiisothermaldf method estimate_hsz does not return Quantity when it should'
+    assert isinstance(qdf.surfacemass_z(1.1),units.Quantity), 'quasiisothermaldf method surfacemass_z does not return Quantity when it should'
+    assert isinstance(qdf.density(1.1,0.1),units.Quantity), 'quasiisothermaldf method density does not return Quantity when it should'
+    assert isinstance(qdf.sigmaR2(1.1,0.1),units.Quantity), 'quasiisothermaldf method sigmaR2 does not return Quantity when it should'
+    assert isinstance(qdf.sigmaT2(1.1,0.1),units.Quantity), 'quasiisothermaldf method sigmaT2 does not return Quantity when it should'
+    assert isinstance(qdf.sigmaz2(1.1,0.1),units.Quantity), 'quasiisothermaldf method sigmaz2 does not return Quantity when it should'
+    assert isinstance(qdf.sigmaRz(1.1,0.1),units.Quantity), 'quasiisothermaldf method sigmaRz does not return Quantity when it should'
+    assert isinstance(qdf.tilt(1.1,0.1),units.Quantity), 'quasiisothermaldf method tilt does not return Quantity when it should'
+    assert isinstance(qdf.meanvR(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanvR does not return Quantity when it should'
+    assert isinstance(qdf.meanvT(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanvT does not return Quantity when it should'
+    assert isinstance(qdf.meanvz(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanvz does not return Quantity when it should'
+    assert isinstance(qdf.meanjr(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanjr does not return Quantity when it should'
+    assert isinstance(qdf.meanlz(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanlz does not return Quantity when it should'
+    assert isinstance(qdf.meanjz(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanjz does not return Quantity when it should'
+    assert isinstance(qdf.sampleV(1.1,0.1),units.Quantity), 'quasiisothermaldf method sampleV does not return Quantity when it should'
+    assert isinstance(qdf.pvR(0.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvR does not return Quantity when it should'
+    assert isinstance(qdf.pvT(1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvT does not return Quantity when it should'
+    assert isinstance(qdf.pvz(0.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvz does not return Quantity when it should'
+    assert isinstance(qdf.pvRvT(0.1,1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvRvT does not return Quantity when it should'
+    assert isinstance(qdf.pvRvz(0.1,0.2,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvRvz does not return Quantity when it should'
+    assert isinstance(qdf.pvTvz(1.1,1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvTvz does not return Quantity when it should'
+    return None
