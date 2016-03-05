@@ -2358,7 +2358,7 @@ def turn_physical_off(Pot):
         Pot.turn_physical_off()
     return None
 
-def turn_physical_on(Pot):
+def turn_physical_on(Pot,ro=None,vo=None):
     """
     NAME:
        
@@ -2370,8 +2370,10 @@ def turn_physical_on(Pot):
     
     INPUT:
     
-       (none)
-    
+       ro= reference distance (kpc)
+       
+       vo= reference velocity (km/s)
+
     OUTPUT:
     
         (none)
@@ -2383,9 +2385,9 @@ def turn_physical_on(Pot):
     """
     if isinstance(Pot,list):
         for pot in Pot:
-            pot.turn_physical_on()
+            pot.turn_physical_on(ro=ro,vo=vo)
     else:
-        Pot.turn_physical_on()
+        Pot.turn_physical_on(ro=ro,vo=vo)
     return None
 
 def _check_c(Pot):
