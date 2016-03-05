@@ -3210,3 +3210,114 @@ def test_quasiisothermaldf_method_returntype():
     assert isinstance(qdf.pvRvz(0.1,0.2,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvRvz does not return Quantity when it should'
     assert isinstance(qdf.pvTvz(1.1,1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvTvz does not return Quantity when it should'
     return None
+
+def test_quasiisothermaldf_method_returnunit():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=8.,vo=220.)
+    o= Orbit([1.1,0.1,1.1,0.1,0.03,0.4])
+    try:
+        qdf(o).to(1/(units.km/units.s)**3/units.kpc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method __call__ does not return Quantity with the right units')
+    try:
+        qdf.estimate_hr(1.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method estimate_hr does not return Quantity with the right units')
+    try:
+        qdf.estimate_hz(1.1,0.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method estimate_hz does not return Quantity with the right units')
+    try:
+        qdf.estimate_hsr(1.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method estimate_hsr does not return Quantity with the right units')
+    try:
+        qdf.estimate_hsz(1.1).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method estimate_hsz does not return Quantity with the right units')
+    try:
+        qdf.surfacemass_z(1.1).to(1/units.pc**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method surfacemass_z does not return Quantity with the right units')
+    try:
+        qdf.density(1.1,0.1).to(1/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method density does not return Quantity with the right units')
+    try:
+        qdf.sigmaR2(1.1,0.1).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sigmaR2 does not return Quantity with the right units')
+    try:
+        qdf.sigmaRz(1.1,0.1).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sigmaRz does not return Quantity with the right units')
+    try:
+        qdf.sigmaT2(1.1,0.1).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sigmaT2 does not return Quantity with the right units')
+    try:
+        qdf.sigmaz2(1.1,0.1).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sigmaz2 does not return Quantity with the right units')
+    try:
+        qdf.tilt(1.1,0.1).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method tilt does not return Quantity with the right units')
+    try:
+        qdf.meanvR(1.1,0.1).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanvR does not return Quantity with the right units')
+    try:
+        qdf.meanvT(1.1,0.1).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanvT does not return Quantity with the right units')
+    try:
+        qdf.meanvz(1.1,0.1).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanvz does not return Quantity with the right units')
+    try:
+        qdf.meanjr(1.1,0.1).to(units.kpc*(units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanjr does not return Quantity with the right units')
+    try:
+        qdf.meanlz(1.1,0.1).to(units.kpc*(units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanlz does not return Quantity with the right units')
+    try:
+        qdf.meanjz(1.1,0.1).to(units.kpc*(units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method meanjz does not return Quantity with the right units')
+    try:
+        qdf.sampleV(1.1,0.1).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sampleV does not return Quantity with the right units')
+    try:
+        qdf.pvR(0.1,1.1,0.1).to(1/(units.km/units.s)/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvR does not return Quantity with the right units')
+    try:
+        qdf.pvz(0.1,1.1,0.1).to(1/(units.km/units.s)/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvz does not return Quantity with the right units')
+    try:
+        qdf.pvT(1.1,1.1,0.1).to(1/(units.km/units.s)/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvT does not return Quantity with the right units')
+    try:
+        qdf.pvRvT(0.1,1.1,1.1,0.1).to(1/(units.km/units.s)**2/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvRvT does not return Quantity with the right units')
+    try:
+        qdf.pvRvz(0.1,0.2,1.1,0.1).to(1/(units.km/units.s)**2/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvRvz does not return Quantity with the right units')
+    try:
+        qdf.pvTvz(1.1,0.2,1,1.1,0.1).to(1/(units.km/units.s)**2/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method pvTvz does not return Quantity with the right units')
+    return None
