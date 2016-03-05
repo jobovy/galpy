@@ -530,6 +530,7 @@ class diskdf(df):
                                     relative=relative,use_physical=False)\
                                     *d
 
+    @physical_conversion('position',pop=True)
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
         NAME:
@@ -596,6 +597,7 @@ class diskdf(df):
         return nu.array(out)
 
     @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def sampleVRVT(self,R,n=1,nsigma=None,target=True):
         """
         NAME:
@@ -697,7 +699,11 @@ class diskdf(df):
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
             vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
-            out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
+            if self._roSet:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi],ro=self._ro,
+                                 vo=self._vo))
+            else:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
     @potential_physical_input
