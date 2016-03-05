@@ -3011,3 +3011,32 @@ def test_diskdf_method_returntype():
     assert isinstance(df.meanvT(1.2),units.Quantity), 'diskdf method meanvT does not return Quantity when it should'
     assert isinstance(df.meanvR(1.2),units.Quantity), 'diskdf method meanvR does not return Quantity when it should'
     return None
+
+def test_evolveddiskdf_method_returntype():
+    from galpy.df import dehnendf
+    from galpy.potential import LogarithmicHaloPotential, \
+        EllipticalDiskPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
+                                tform=-150.,tsteady=125.)
+    idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=8.,vo=220.)
+    from galpy.df import evolveddiskdf
+    edfwarm= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1])
+    assert isinstance(edfwarm(o),units.Quantity), 'evolveddiskdf method __call__ does not return Quantity when it should'
+    assert isinstance(edfwarm.oortA(1.2,grid=True,returnGrids=False,gridpoints\
+=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3),units.Quantity), 'evolveddiskdf method oortA does not return Quantity when it should'
+    assert isinstance(edfwarm.oortB(1.2,grid=True,returnGrids=False,gridpoints\
+=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3),units.Quantity), 'evolveddiskdf method oortB does not return Quantity when it should'
+    assert isinstance(edfwarm.oortC(1.2,grid=True,returnGrids=False,gridpoints\
+=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3),units.Quantity), 'evolveddiskdf method oortC does not return Quantity when it should'
+    assert isinstance(edfwarm.oortK(1.2,grid=True,returnGrids=False,gridpoints\
+=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3),units.Quantity), 'evolveddiskdf method oortK does not return Quantity when it should'
+    assert isinstance(edfwarm.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaT2 does not return Quantity when it should'
+    assert isinstance(edfwarm.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaR2 does not return Quantity when it should'
+    assert isinstance(edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaR2 does not return Quantity when it should'
+    assert isinstance(edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvT does not return Quantity when it should'
+    assert isinstance(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvR does not return Quantity when it should'
+    return None
+
