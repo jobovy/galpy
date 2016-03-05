@@ -615,7 +615,7 @@ def test_setup_diffsetups():
     qdfnpc= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                               pot=MWPotential,aA=aAS,cutcounter=True,
                               _precomputerg=False)
-    assert numpy.fabs(qdf.rg(1.1)-qdfnpc.rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
+    assert numpy.fabs(qdf._rg(1.1)-qdfnpc._rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
 
 def test_call_diffinoutputs():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
