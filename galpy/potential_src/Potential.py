@@ -183,7 +183,7 @@ class Potential(object):
         self._voSet= False
         return None
 
-    def turn_physical_on(self):
+    def turn_physical_on(self,ro=None,vo=None):
         """
         NAME:
 
@@ -195,7 +195,9 @@ class Potential(object):
 
         INPUT:
 
-           (none)
+           ro= reference distance (kpc)
+
+           vo= reference velocity (km/s)
 
         OUTPUT:
 
@@ -208,6 +210,10 @@ class Potential(object):
         """
         self._roSet= True
         self._voSet= True
+        if not ro is None:
+            self._ro= ro
+        if not vo is None:
+            self._vo= vo
         return None
 
     @potential_physical_input
