@@ -3122,6 +3122,59 @@ def test_evolveddiskdf_method_returntype():
     assert isinstance(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvR does not return Quantity when it should'
     return None
 
+def test_evolveddiskdf_method_returnunit():
+    from galpy.df import dehnendf
+    from galpy.potential import LogarithmicHaloPotential, \
+        EllipticalDiskPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
+                                tform=-150.,tsteady=125.)
+    idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=8.,vo=220.)
+    from galpy.df import evolveddiskdf
+    edfwarm= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
+    from galpy.orbit import Orbit
+    try:
+        edfwarm(Orbit([1.1,0.1,1.1,0.2])).to(1/(units.km/units.s)**2/units.kpc**2)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method __call__ does not return Quantity with the right units')
+    try:
+        edfwarm.oortA(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method oortA does not return Quantity with the right units')
+    try:
+        edfwarm.oortB(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method oortB does not return Quantity with the right units')
+    try:
+        edfwarm.oortC(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method oortC does not return Quantity with the right units')
+    try:
+        edfwarm.oortK(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method oortK does not return Quantity with the right units')
+    try:
+        edfwarm.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method sigmaT2 does not return Quantity with the right units')
+    try:
+        edfwarm.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method sigmaR2 does not return Quantity with the right units')
+    try:
+        edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method sigmaRT does not return Quantity with the right units')
+    try:
+        edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method meanvR does not return Quantity with the right units')
+    try:
+        edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method meanvT does not return Quantity with the right units')
+    return None
+
 def test_quasiisothermaldf_method_returntype():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
