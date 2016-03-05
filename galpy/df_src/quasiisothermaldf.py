@@ -10,7 +10,8 @@ from galpy.potential import IsochronePotential
 from galpy.orbit import Orbit
 from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import galpyWarning
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, actionAngle_physical_input
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -198,6 +199,12 @@ class quasiisothermaldf(df):
         #First parse args
         if len(args) == 1 and not isinstance(args[0],Orbit): #(jr,lz,jz)
             jr,lz,jz= args[0]
+            if _APY_LOADED and isinstance(jr,units.Quantity):
+                jr= jr.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+            if _APY_LOADED and isinstance(lz,units.Quantity):
+                lz= lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+            if _APY_LOADED and isinstance(jz,units.Quantity):
+                jz= jz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         else:
             #Use self._aA to calculate the actions
             try:
@@ -265,6 +272,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
+    @potential_physical_input
     @physical_conversion('position',pop=True)
     def estimate_hr(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
@@ -296,6 +304,7 @@ class quasiisothermaldf(df):
         lsf= numpy.log(sf)
         return -dR/(lsf[1]-lsf[0])
 
+    @potential_physical_input
     @physical_conversion('position',pop=True)
     def estimate_hz(self,R,z,dz=10.**-8.,**kwargs):
         """
@@ -325,6 +334,7 @@ class quasiisothermaldf(df):
         lsf= numpy.log(sf)
         return -dz/(lsf[1]-lsf[0])
 
+    @potential_physical_input
     @physical_conversion('position',pop=True)
     def estimate_hsr(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
@@ -351,6 +361,7 @@ class quasiisothermaldf(df):
         lsf= numpy.log(sf)/2.
         return -dR/(lsf[1]-lsf[0])
 
+    @potential_physical_input
     @physical_conversion('position',pop=True)
     def estimate_hsz(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
@@ -377,6 +388,7 @@ class quasiisothermaldf(df):
         lsf= numpy.log(sf)/2.
         return -dR/(lsf[1]-lsf[0])
 
+    @potential_physical_input
     @physical_conversion('numbersurfacedensity',pop=True)
     def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=8,
                       **kwargs):
@@ -394,7 +406,7 @@ class quasiisothermaldf(df):
 
            nz= number of zs to use to estimate
 
-           zmax=m minimum z to use
+           zmax= minimum z to use
 
            density kwargs
         OUTPUT:
@@ -695,6 +707,7 @@ class quasiisothermaldf(df):
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**2.*gamma*sigmaz1
         
+    @potential_physical_input
     @physical_conversion('numberdensity',pop=True)
     def density(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -731,6 +744,7 @@ class quasiisothermaldf(df):
                                    gl=gl,ngl=ngl,
                                    **kwargs)
     
+    @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaR2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -788,6 +802,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaRz(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -846,6 +861,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('angle_deg',pop=True)
     def tilt(self,R,z,nsigma=None,mc=False,nmc=10000,
              gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -916,6 +932,7 @@ class quasiisothermaldf(df):
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
         
+    @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaz2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -974,6 +991,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvT(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -1036,6 +1054,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvR(self,R,z,nsigma=None,mc=False,nmc=10000,
                gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -1094,6 +1113,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvz(self,R,z,nsigma=None,mc=False,nmc=10000,
                gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -1152,6 +1172,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaT2(self,R,z,nsigma=None,mc=False,nmc=10000,
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
@@ -1223,6 +1244,7 @@ class quasiisothermaldf(df):
                                            nsigma=nsigma,mc=mc,nmc=nmc,
                                            **kwargs)/surfmass)**2.)
 
+    @potential_physical_input
     @physical_conversion('action',pop=True)
     def meanjr(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
@@ -1267,6 +1289,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('action',pop=True)
     def meanlz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
@@ -1311,6 +1334,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     @physical_conversion('action',pop=True)
     def meanjz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
@@ -1355,6 +1379,7 @@ class quasiisothermaldf(df):
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
         
+    @potential_physical_input
     def sampleV(self,R,z,n=1):
         """
         NAME:
@@ -1410,6 +1435,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
     def pvR(self,vR,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
@@ -1479,6 +1505,7 @@ class quasiisothermaldf(df):
                                     (ngl,ngl))
             return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw*sigmaz1)*1.5
 
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
     def pvT(self,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
@@ -1558,6 +1585,7 @@ class quasiisothermaldf(df):
                                     (ngl,ngl))
             return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw*sigmaR1*sigmaz1)
 
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
     def pvz(self,vz,R,z,gl=True,ngl=_DEFAULTNGL2,
             _return_actions=False,_jr=None,_lz=None,_jz=None,
@@ -1701,6 +1729,7 @@ class quasiisothermaldf(df):
             else:
                 return result
 
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity',pop=True)
     def pvRvT(self,vR,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
@@ -1764,6 +1793,7 @@ class quasiisothermaldf(df):
                            log=True,use_physical=False)
             return numpy.sum(numpy.exp(logqeval)*vzglw*sigmaz1)
         
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity',pop=True)
     def pvTvz(self,vT,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
@@ -1827,6 +1857,7 @@ class quasiisothermaldf(df):
                            log=True,use_physical=False)
             return numpy.sum(numpy.exp(logqeval)*vRglw*sigmaR1)
 
+    @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity',pop=True)
     def pvRvz(self,vR,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
