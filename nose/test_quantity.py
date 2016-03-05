@@ -3012,6 +3012,88 @@ def test_diskdf_method_returntype():
     assert isinstance(df.meanvR(1.2),units.Quantity), 'diskdf method meanvR does not return Quantity when it should'
     return None
 
+def test_diskdf_method_returnunit():
+    from galpy.df import dehnendf
+    from galpy.orbit import Orbit
+    df= dehnendf(ro=8.,vo=220.)
+    try:
+        df(Orbit([1.1,0.1,1.1])).to(1/(units.km/units.s)**2/units.kpc**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method __call__ does not return Quantity with the right units')
+    try:
+        df.targetSigma2(1.2).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method targetSigma2 does not return Quantity with the right units')
+    try:
+        df.targetSurfacemass(1.2).to(units.Msun/units.pc**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method targetSurfacemass does not return Quantity with the right units')
+    try:
+        df.targetSurfacemassLOS(1.2,30.).to(units.Msun/units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method targetSurfacemassLOS does not return Quantity with the right units')
+    try:
+        df.surfacemassLOS(1.2,40.).to(units.Msun/units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method surfacemassLOS does not return Quantity with the right units')
+    try:
+        df.sampledSurfacemassLOS(1.2).to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method sampledSurfacemassLOS does not return Quantity with the right units')
+    try:
+        df.sampleVRVT(1.2).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method sampleVRVT does not return Quantity with the right units')
+    try:
+        df.asymmetricdrift(1.2).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method asymmetricdrift does not return Quantity with the right units')
+    try:
+        df.surfacemass(1.2).to(units.Msun/units.pc**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method surfacemass does not return Quantity with the right units')
+    try:
+        df.sigma2surfacemass(1.2).to(units.Msun/units.pc**2*(units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method surfacemass does not return Quantity with the right units')
+    try:
+        df.oortA(1.2).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method oortA does not return Quantity with the right units')
+    try:
+        df.oortB(1.2).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method oortB does not return Quantity with the right units')
+    try:
+        df.oortC(1.2).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method oortC does not return Quantity with the right units')
+    try:
+        df.oortK(1.2).to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method oortK does not return Quantity with the right units')
+    try:
+        df.sigma2(1.2).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method sigma2 does not return Quantity with the right units')
+    try:
+        df.sigmaT2(1.2).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method sigmaT2 does not return Quantity with the right units')
+    try:
+        df.sigmaR2(1.2).to((units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method sigmaR2 does not return Quantity with the right units')
+    try:
+        df.meanvR(1.2).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method meanvR does not return Quantity with the right units')
+    try:
+        df.meanvT(1.2).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method meanvT does not return Quantity with the right units')
+    return None
+
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
     from galpy.potential import LogarithmicHaloPotential, \
