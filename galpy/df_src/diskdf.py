@@ -693,12 +693,14 @@ class diskdf(df):
             l= los
         out= []
         #sample distances
-        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass)
+        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass,
+                                       use_physical=False)
         for ii in range(int(n)):
             #Calculate R and phi
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
-            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
+            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2,
+                                use_physical=False)[0]
             if self._roSet and self._voSet:
                 out.append(Orbit([thisR,vv[0],vv[1],thisphi],ro=self._ro,
                                  vo=self._vo))
@@ -1963,7 +1965,7 @@ class shudf(diskdf):
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
-               targetSurfmass=True,targetSigma2=True):
+               targetSurfmass=True,targetSigma2=True,**kwargs):
         """
         NAME:
            sample
