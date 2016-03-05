@@ -326,7 +326,7 @@ class Orbit(object):
         self._voSet= False
         self._orb.turn_physical_off()
 
-    def turn_physical_on(self):
+    def turn_physical_on(self,ro=None,vo=None):
         """
         NAME:
 
@@ -338,7 +338,9 @@ class Orbit(object):
 
         INPUT:
 
-           (none)
+           ro= reference distance (kpc)
+
+           vo= reference velocity (km/s)
 
         OUTPUT:
 
@@ -351,7 +353,11 @@ class Orbit(object):
         """
         self._roSet= True
         self._voSet= True
-        self._orb.turn_physical_on()
+        if not ro is None:
+            self._ro= ro
+        if not vo is None:
+            self._vo= vo
+        self._orb.turn_physical_on(ro=ro,vo=vo)
 
     def integrate(self,t,pot,method='symplec4_c',dt=None):
         """

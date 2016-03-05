@@ -90,14 +90,15 @@ class OrbitTop(object):
         self._voSet= False
         return None
 
-    def turn_physical_on(self):
+    def turn_physical_on(self,ro=None,vo=None):
         """
         NAME:
            turn_physical_on
         PURPOSE:
            turn on automatic returning of outputs in physical units
         INPUT:
-           (none)
+           ro= reference distance (kpc)
+           vo= reference velocity (km/s)
         OUTPUT:
            (none)
         HISTORY:
@@ -105,6 +106,10 @@ class OrbitTop(object):
         """
         self._roSet= True
         self._voSet= True
+        if not ro is None:
+            self._ro= ro
+        if not vo is None:
+            self._vo= vo
         return None
 
     def integrate(self,t,pot,method='symplec4_c',dt=None):
