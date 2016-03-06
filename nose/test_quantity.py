@@ -3228,6 +3228,18 @@ def test_quasiisothermaldf_method_returntype():
     assert isinstance(qdf.pvRvT(0.1,1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvRvT does not return Quantity when it should'
     assert isinstance(qdf.pvRvz(0.1,0.2,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvRvz does not return Quantity when it should'
     assert isinstance(qdf.pvTvz(1.1,1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvTvz does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,0,0,0,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,1,0,0,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,0,1,1,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,0,0,1,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,1,1,0,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.vmomentdensity(1.1,0.1,2,1,1,gl=True),units.Quantity), 'quasiisothermaldf method vmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,0,0,0,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,1,0,0,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,0,1,1,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,0,0,1,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,1,1,0,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
+    assert isinstance(qdf.jmomentdensity(1.1,0.1,2,1,1,gl=True),units.Quantity), 'quasiisothermaldf method jmomentdensity does not return Quantity when it should'
     return None
 
 def test_quasiisothermaldf_method_returnunit():
@@ -3339,4 +3351,28 @@ def test_quasiisothermaldf_method_returnunit():
         qdf.pvTvz(1.1,0.2,1,1.1,0.1).to(1/(units.km/units.s)**2/units.pc**3)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method pvTvz does not return Quantity with the right units')
+    try:
+        qdf.vmomentdensity(1.1,0.2,0,0,0,gl=True).to(1/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method vmomentdensity does not return Quantity with the right units')
+    try:
+        qdf.vmomentdensity(1.1,0.2,1,0,0,gl=True).to(1/units.pc**3*(units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method vmomentdensity does not return Quantity with the right units')
+    try:
+        qdf.vmomentdensity(1.1,0.2,1,1,0,gl=True).to(1/units.pc**3*(units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method vmomentdensity does not return Quantity with the right units')
+    try:
+        qdf.jmomentdensity(1.1,0.2,0,0,0,gl=True).to(1/units.pc**3)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method jmomentdensity does not return Quantity with the right units')
+    try:
+        qdf.jmomentdensity(1.1,0.2,1,0,0,gl=True).to(1/units.pc**3*(units.kpc*units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method jmomentdensity does not return Quantity with the right units')
+    try:
+        qdf.jmomentdensity(1.1,0.2,1,1,0,gl=True).to(1/units.pc**3*(units.kpc*units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method jmomentdensity does not return Quantity with the right units')
     return None
