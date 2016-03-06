@@ -323,7 +323,7 @@ class evolveddiskdf(df):
         else:
             return retval
 
-    def _vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
+    def vmomentsurfacemass(self,R,n,m,t=0.,nsigma=None,deg=False,
                            epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                            grid=None,gridpoints=101,returnGrid=False,
                            hierarchgrid=False,nlevels=2,
@@ -333,7 +333,7 @@ class evolveddiskdf(df):
         """
         NAME:
 
-           _vmomentsurfacemass
+           vmomentsurfacemass
 
         PURPOSE:
 
@@ -452,7 +452,7 @@ class evolveddiskdf(df):
                 else:
                     return self._vmomentsurfacemassHierarchicalGrid(n,m,grido)
         #Calculate the initdf moment and then calculate the ratio
-        initvmoment= self._initdf._vmomentsurfacemass(R,n,m,nsigma=nsigma,
+        initvmoment= self._initdf.vmomentsurfacemass(R,n,m,nsigma=nsigma,
                                                      phi=phi)
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
@@ -530,7 +530,7 @@ class evolveddiskdf(df):
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaR2_tmp,grido)= self._vmomentsurfacemass(R,2,0,deg=deg,t=t,
+            (sigmaR2_tmp,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
                                                          nsigma=nsigma,phi=phi,
                                                          epsrel=epsrel,
                                                          epsabs=epsabs,grid=grid,
@@ -635,7 +635,7 @@ class evolveddiskdf(df):
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid           
-            vmomentR= self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+            vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
@@ -646,7 +646,7 @@ class evolveddiskdf(df):
                                               integrate_method=integrate_method)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (vmomentR,grido)= self._vmomentsurfacemass(R,1,0,deg=deg,t=t,
+            (vmomentR,grido)= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,
                                                       nsigma=nsigma,phi=phi,
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
@@ -657,7 +657,7 @@ class evolveddiskdf(df):
                                                       integrate_method=integrate_method)
         else:
             grido= False
-            vmomentR= self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+            vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
@@ -666,7 +666,7 @@ class evolveddiskdf(df):
                                               hierarchgrid=hierarchgrid,
                                               nlevels=nlevels,integrate_method=integrate_method)
         if surfacemass is None:
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -737,7 +737,7 @@ class evolveddiskdf(df):
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid           
-            vmomentT= self._vmomentsurfacemass(R,0,1,deg=deg,t=t,
+            vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
                                               nsigma=nsigma,phi=phi,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
@@ -748,7 +748,7 @@ class evolveddiskdf(df):
                                               integrate_method=integrate_method)
         elif isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (vmomentT,grido)= self._vmomentsurfacemass(R,0,1,deg=deg,t=t,
+            (vmomentT,grido)= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
                                                       nsigma=nsigma,phi=phi,
                                                       epsrel=epsrel,
                                                       epsabs=epsabs,grid=grid,
@@ -759,7 +759,7 @@ class evolveddiskdf(df):
                                                       integrate_method=integrate_method)
         else:
             grido= False
-            vmomentT= self._vmomentsurfacemass(R,0,1,deg=deg,t=t,
+            vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
                                               nsigma=nsigma,phi=phi,
                                               epsrel=epsrel,
                                               epsabs=epsabs,grid=grid,
@@ -768,7 +768,7 @@ class evolveddiskdf(df):
                                               hierarchgrid=hierarchgrid,
                                               nlevels=nlevels,integrate_method=integrate_method)
         if surfacemass is None:
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -843,7 +843,7 @@ class evolveddiskdf(df):
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
-            sigmaR2= self._vmomentsurfacemass(R,2,0,deg=deg,t=t,phi=phi,
+            sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -855,7 +855,7 @@ class evolveddiskdf(df):
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaR2,grido)= self._vmomentsurfacemass(R,2,0,deg=deg,t=t,
+            (sigmaR2,grido)= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
                                                      nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
@@ -866,7 +866,7 @@ class evolveddiskdf(df):
                                                      integrate_method=integrate_method)
         else:
             grido= False
-            sigmaR2= self._vmomentsurfacemass(R,2,0,deg=deg,t=t,
+            sigmaR2= self.vmomentsurfacemass(R,2,0,deg=deg,t=t,
                                              nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -876,7 +876,7 @@ class evolveddiskdf(df):
                                              nlevels=nlevels,
                                              integrate_method=integrate_method)
         if surfacemass is None:
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -885,7 +885,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if meanvR is None:
-            meanvR= self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+            meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=grido,
                                             gridpoints=gridpoints,
@@ -958,7 +958,7 @@ class evolveddiskdf(df):
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
-            sigmaT2= self._vmomentsurfacemass(R,0,2,deg=deg,t=t,phi=phi,
+            sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -970,7 +970,7 @@ class evolveddiskdf(df):
         elif (meanvT is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaT2,grido)= self._vmomentsurfacemass(R,0,2,deg=deg,t=t,
+            (sigmaT2,grido)= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
                                                      nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
@@ -981,7 +981,7 @@ class evolveddiskdf(df):
                                                      integrate_method=integrate_method)
         else:
             grido= False
-            sigmaT2= self._vmomentsurfacemass(R,0,2,deg=deg,t=t,
+            sigmaT2= self.vmomentsurfacemass(R,0,2,deg=deg,t=t,
                                              nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -991,7 +991,7 @@ class evolveddiskdf(df):
                                              nlevels=nlevels,
                                              integrate_method=integrate_method)
         if surfacemass is None:
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -1000,7 +1000,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if meanvT is None:
-            meanvT= self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+            meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=grido,
                                             gridpoints=gridpoints,
@@ -1075,7 +1075,7 @@ class evolveddiskdf(df):
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
             grido= grid
-            sigmaRT= self._vmomentsurfacemass(R,1,1,deg=deg,t=t,phi=phi,
+            sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,phi=phi,
                                              nsigma=nsigma,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -1087,7 +1087,7 @@ class evolveddiskdf(df):
         elif (meanvR is None or surfacemass is None ) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
-            (sigmaRT,grido)= self._vmomentsurfacemass(R,1,1,deg=deg,t=t,
+            (sigmaRT,grido)= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
                                                      nsigma=nsigma,phi=phi,
                                                      epsrel=epsrel,
                                                      epsabs=epsabs,grid=grid,
@@ -1098,7 +1098,7 @@ class evolveddiskdf(df):
                                                      integrate_method=integrate_method)
         else:
             grido= False
-            sigmaRT= self._vmomentsurfacemass(R,1,1,deg=deg,t=t,
+            sigmaRT= self.vmomentsurfacemass(R,1,1,deg=deg,t=t,
                                              nsigma=nsigma,phi=phi,
                                              epsrel=epsrel,
                                              epsabs=epsabs,grid=grido,
@@ -1108,7 +1108,7 @@ class evolveddiskdf(df):
                                              nlevels=nlevels,
                                              integrate_method=integrate_method)
         if surfacemass is None:
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grido,
                                                  gridpoints=gridpoints,
@@ -1117,7 +1117,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if meanvR is None:
-            meanvR= self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+            meanvR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=grido,
                                             gridpoints=gridpoints,
@@ -1126,7 +1126,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method)/surfacemass
         if meanvT is None:
-            meanvT= self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+            meanvT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=grido,
                                             gridpoints=gridpoints,
@@ -1202,7 +1202,7 @@ class evolveddiskdf(df):
         """
         #First calculate the grids if they are not given
         if isinstance(grid,bool) and grid:
-            (surfacemass,grid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (surfacemass,grid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                         nsigma=nsigma,epsrel=epsrel,
                                                         epsabs=epsabs,grid=True,
                                                         gridpoints=gridpoints,
@@ -1212,7 +1212,7 @@ class evolveddiskdf(df):
                                                         integrate_method=integrate_method)
         elif isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grid,
                                                  gridpoints=gridpoints,
@@ -1221,7 +1221,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if isinstance(derivRGrid,bool) and derivRGrid:
-            (dsurfacemassdR,derivRGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdR,derivRGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                  nsigma=nsigma,epsrel=epsrel,
                                                                  epsabs=epsabs,grid=True,
                                                                  gridpoints=derivGridpoints,
@@ -1231,7 +1231,7 @@ class evolveddiskdf(df):
                                                                  integrate_method=integrate_method,deriv='R')
         elif isinstance(derivRGrid,evolveddiskdfGrid) or \
                 isinstance(derivRGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdR= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdR= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                     nsigma=nsigma,epsrel=epsrel,
                                                     epsabs=epsabs,grid=derivRGrid,
                                                     gridpoints=derivGridpoints,
@@ -1240,7 +1240,7 @@ class evolveddiskdf(df):
                                                     nlevels=nlevels,
                                                     integrate_method=integrate_method,deriv='R')
         if isinstance(derivphiGrid,bool) and derivphiGrid:
-            (dsurfacemassdphi,derivphiGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdphi,derivphiGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                      nsigma=nsigma,epsrel=epsrel,
                                                                      epsabs=epsabs,grid=True,
                                                                      gridpoints=derivGridpoints,
@@ -1250,7 +1250,7 @@ class evolveddiskdf(df):
                                                                      integrate_method=integrate_method,deriv='phi')
         elif isinstance(derivphiGrid,evolveddiskdfGrid) or \
                 isinstance(derivphiGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdphi= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdphi= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                       nsigma=nsigma,epsrel=epsrel,
                                                       epsabs=epsabs,grid=derivphiGrid,
                                                       gridpoints=derivGridpoints,
@@ -1267,7 +1267,7 @@ class evolveddiskdf(df):
                             hierarchgrid=hierarchgrid,
                             nlevels=nlevels,integrate_method=integrate_method,
                             use_physical=False)
-        dmeanvRdphi= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+        dmeanvRdphi= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
                                               gridpoints=derivGridpoints,
@@ -1276,7 +1276,7 @@ class evolveddiskdf(df):
                                               nlevels=nlevels,
                                               integrate_method=integrate_method,deriv='phi')
                       /surfacemass
-                      -self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                      -self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1285,7 +1285,7 @@ class evolveddiskdf(df):
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdphi)
-        dmeanvTdR= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+        dmeanvTdR= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=derivRGrid,
                                             gridpoints=derivGridpoints,
@@ -1294,7 +1294,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method,deriv='R')
                     /surfacemass
-                    -self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                    -self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1369,7 +1369,7 @@ class evolveddiskdf(df):
         """
         #First calculate the grids if they are not given
         if isinstance(grid,bool) and grid:
-            (surfacemass,grid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (surfacemass,grid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                         nsigma=nsigma,epsrel=epsrel,
                                                         epsabs=epsabs,grid=True,
                                                         gridpoints=gridpoints,
@@ -1379,7 +1379,7 @@ class evolveddiskdf(df):
                                                         integrate_method=integrate_method)
         elif isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grid,
                                                  gridpoints=gridpoints,
@@ -1388,7 +1388,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if isinstance(derivRGrid,bool) and derivRGrid:
-            (dsurfacemassdR,derivRGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdR,derivRGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                  nsigma=nsigma,epsrel=epsrel,
                                                                  epsabs=epsabs,grid=True,
                                                                  gridpoints=derivGridpoints,
@@ -1398,7 +1398,7 @@ class evolveddiskdf(df):
                                                                  integrate_method=integrate_method,deriv='R')
         elif isinstance(derivRGrid,evolveddiskdfGrid) or \
                 isinstance(derivRGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdR= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdR= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                     nsigma=nsigma,epsrel=epsrel,
                                                     epsabs=epsabs,grid=derivRGrid,
                                                     gridpoints=derivGridpoints,
@@ -1407,7 +1407,7 @@ class evolveddiskdf(df):
                                                     nlevels=nlevels,
                                                     integrate_method=integrate_method,deriv='R')
         if isinstance(derivphiGrid,bool) and derivphiGrid:
-            (dsurfacemassdphi,derivphiGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdphi,derivphiGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                      nsigma=nsigma,epsrel=epsrel,
                                                                      epsabs=epsabs,grid=True,
                                                                      gridpoints=derivGridpoints,
@@ -1417,7 +1417,7 @@ class evolveddiskdf(df):
                                                                      integrate_method=integrate_method,deriv='phi')
         elif isinstance(derivphiGrid,evolveddiskdfGrid) or \
                 isinstance(derivphiGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdphi= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdphi= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                       nsigma=nsigma,epsrel=epsrel,
                                                       epsabs=epsabs,grid=derivphiGrid,
                                                       gridpoints=derivGridpoints,
@@ -1434,7 +1434,7 @@ class evolveddiskdf(df):
                             hierarchgrid=hierarchgrid,
                             nlevels=nlevels,integrate_method=integrate_method,
                             use_physical=False)
-        dmeanvRdphi= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+        dmeanvRdphi= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
                                               gridpoints=derivGridpoints,
@@ -1443,7 +1443,7 @@ class evolveddiskdf(df):
                                               nlevels=nlevels,
                                               integrate_method=integrate_method,deriv='phi')
                       /surfacemass
-                      -self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                      -self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1452,7 +1452,7 @@ class evolveddiskdf(df):
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdphi)
-        dmeanvTdR= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+        dmeanvTdR= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=derivRGrid,
                                             gridpoints=derivGridpoints,
@@ -1461,7 +1461,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method,deriv='R')
                     /surfacemass
-                    -self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                    -self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1536,7 +1536,7 @@ class evolveddiskdf(df):
         """
         #First calculate the grids if they are not given
         if isinstance(grid,bool) and grid:
-            (surfacemass,grid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (surfacemass,grid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                         nsigma=nsigma,epsrel=epsrel,
                                                         epsabs=epsabs,grid=True,
                                                         gridpoints=gridpoints,
@@ -1546,7 +1546,7 @@ class evolveddiskdf(df):
                                                         integrate_method=integrate_method)
         elif isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grid,
                                                  gridpoints=gridpoints,
@@ -1555,7 +1555,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if isinstance(derivRGrid,bool) and derivRGrid:
-            (dsurfacemassdR,derivRGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdR,derivRGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                  nsigma=nsigma,epsrel=epsrel,
                                                                  epsabs=epsabs,grid=True,
                                                                  gridpoints=derivGridpoints,
@@ -1565,7 +1565,7 @@ class evolveddiskdf(df):
                                                                  integrate_method=integrate_method,deriv='R')
         elif isinstance(derivRGrid,evolveddiskdfGrid) or \
                 isinstance(derivRGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdR= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdR= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                     nsigma=nsigma,epsrel=epsrel,
                                                     epsabs=epsabs,grid=derivRGrid,
                                                     gridpoints=derivGridpoints,
@@ -1574,7 +1574,7 @@ class evolveddiskdf(df):
                                                     nlevels=nlevels,
                                                     integrate_method=integrate_method,deriv='R')
         if isinstance(derivphiGrid,bool) and derivphiGrid:
-            (dsurfacemassdphi,derivphiGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdphi,derivphiGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                      nsigma=nsigma,epsrel=epsrel,
                                                                      epsabs=epsabs,grid=True,
                                                                      gridpoints=derivGridpoints,
@@ -1584,7 +1584,7 @@ class evolveddiskdf(df):
                                                                      integrate_method=integrate_method,deriv='phi')
         elif isinstance(derivphiGrid,evolveddiskdfGrid) or \
                 isinstance(derivphiGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdphi= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdphi= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                       nsigma=nsigma,epsrel=epsrel,
                                                       epsabs=epsabs,grid=derivphiGrid,
                                                       gridpoints=derivGridpoints,
@@ -1601,7 +1601,7 @@ class evolveddiskdf(df):
                             hierarchgrid=hierarchgrid,
                             nlevels=nlevels,integrate_method=integrate_method,
                             use_physical=False)
-        dmeanvTdphi= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+        dmeanvTdphi= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
                                               gridpoints=derivGridpoints,
@@ -1610,7 +1610,7 @@ class evolveddiskdf(df):
                                               nlevels=nlevels,
                                               integrate_method=integrate_method,deriv='phi')
                       /surfacemass
-                      -self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                      -self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1619,7 +1619,7 @@ class evolveddiskdf(df):
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdphi)
-        dmeanvRdR= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+        dmeanvRdR= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=derivRGrid,
                                             gridpoints=derivGridpoints,
@@ -1628,7 +1628,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method,deriv='R')
                     /surfacemass
-                    -self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                    -self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1703,7 +1703,7 @@ class evolveddiskdf(df):
         """
         #First calculate the grids if they are not given
         if isinstance(grid,bool) and grid:
-            (surfacemass,grid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (surfacemass,grid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                         nsigma=nsigma,epsrel=epsrel,
                                                         epsabs=epsabs,grid=True,
                                                         gridpoints=gridpoints,
@@ -1713,7 +1713,7 @@ class evolveddiskdf(df):
                                                         integrate_method=integrate_method)
         elif isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            surfacemass= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            surfacemass= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                  nsigma=nsigma,epsrel=epsrel,
                                                  epsabs=epsabs,grid=grid,
                                                  gridpoints=gridpoints,
@@ -1722,7 +1722,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         if isinstance(derivRGrid,bool) and derivRGrid:
-            (dsurfacemassdR,derivRGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdR,derivRGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                  nsigma=nsigma,epsrel=epsrel,
                                                                  epsabs=epsabs,grid=True,
                                                                  gridpoints=derivGridpoints,
@@ -1732,7 +1732,7 @@ class evolveddiskdf(df):
                                                                  integrate_method=integrate_method,deriv='R')
         elif isinstance(derivRGrid,evolveddiskdfGrid) or \
                 isinstance(derivRGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdR= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdR= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                     nsigma=nsigma,epsrel=epsrel,
                                                     epsabs=epsabs,grid=derivRGrid,
                                                     gridpoints=derivGridpoints,
@@ -1741,7 +1741,7 @@ class evolveddiskdf(df):
                                                     nlevels=nlevels,
                                                     integrate_method=integrate_method,deriv='R')
         if isinstance(derivphiGrid,bool) and derivphiGrid:
-            (dsurfacemassdphi,derivphiGrid)= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            (dsurfacemassdphi,derivphiGrid)= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                                      nsigma=nsigma,epsrel=epsrel,
                                                                      epsabs=epsabs,grid=True,
                                                                      gridpoints=derivGridpoints,
@@ -1751,7 +1751,7 @@ class evolveddiskdf(df):
                                                                      integrate_method=integrate_method,deriv='phi')
         elif isinstance(derivphiGrid,evolveddiskdfGrid) or \
                 isinstance(derivphiGrid,evolveddiskdfHierarchicalGrid):
-            dsurfacemassdphi= self._vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
+            dsurfacemassdphi= self.vmomentsurfacemass(R,0,0,deg=deg,t=t,phi=phi,
                                                       nsigma=nsigma,epsrel=epsrel,
                                                       epsabs=epsabs,grid=derivphiGrid,
                                                       gridpoints=derivGridpoints,
@@ -1768,7 +1768,7 @@ class evolveddiskdf(df):
                             hierarchgrid=hierarchgrid,
                             nlevels=nlevels,integrate_method=integrate_method,
                             use_physical=False)
-        dmeanvTdphi= (self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+        dmeanvTdphi= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
                                               gridpoints=derivGridpoints,
@@ -1777,7 +1777,7 @@ class evolveddiskdf(df):
                                               nlevels=nlevels,
                                               integrate_method=integrate_method,deriv='phi')
                       /surfacemass
-                      -self._vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
+                      -self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
@@ -1786,7 +1786,7 @@ class evolveddiskdf(df):
                                                nlevels=nlevels,
                                                integrate_method=integrate_method)
                       /surfacemass**2.*dsurfacemassdphi)
-        dmeanvRdR= (self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+        dmeanvRdR= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                             nsigma=nsigma,epsrel=epsrel,
                                             epsabs=epsabs,grid=derivRGrid,
                                             gridpoints=derivGridpoints,
@@ -1795,7 +1795,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method,deriv='R')
                     /surfacemass
-                    -self._vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
+                    -self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                                nsigma=nsigma,epsrel=epsrel,
                                                epsabs=epsabs,grid=grid,
                                                gridpoints=gridpoints,
