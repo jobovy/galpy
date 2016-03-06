@@ -3010,6 +3010,9 @@ def test_diskdf_method_returntype():
     assert isinstance(df.sigmaR2(1.2),units.Quantity), 'diskdf method sigmaR2 does not return Quantity when it should'
     assert isinstance(df.meanvT(1.2),units.Quantity), 'diskdf method meanvT does not return Quantity when it should'
     assert isinstance(df.meanvR(1.2),units.Quantity), 'diskdf method meanvR does not return Quantity when it should'
+    assert isinstance(df.vmomentsurfacemass(1.1,0,0),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
+    assert isinstance(df.vmomentsurfacemass(1.1,0,0),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
+    assert isinstance(df.vmomentsurfacemass(1.1,1,1),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
     return None
 
 def test_diskdf_method_returnunit():
@@ -3092,6 +3095,22 @@ def test_diskdf_method_returnunit():
         df.meanvT(1.2).to((units.km/units.s))
     except units.UnitConversionError:
         raise AssertionError('diskdf method meanvT does not return Quantity with the right units')
+    try:
+        df.vmomentsurfacemass(1.1,0,0).to(units.Msun/units.pc**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method vmomentsurfacemass does not return Quantity with the right units')
+    try:
+        df.vmomentsurfacemass(1.1,1,0).to(units.Msun/units.pc**2*(units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method vmomentsurfacemass does not return Quantity with the right units')
+    try:
+        df.vmomentsurfacemass(1.1,1,1).to(units.Msun/units.pc**2*(units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method vmomentsurfacemass does not return Quantity with the right units')
+    try:
+        df.vmomentsurfacemass(1.1,0,2).to(units.Msun/units.pc**2*(units.km/units.s)**2)
+    except units.UnitConversionError:
+        raise AssertionError('diskdf method vmomentsurfacemass does not return Quantity with the right units')
     return None
 
 def test_evolveddiskdf_method_returntype():
