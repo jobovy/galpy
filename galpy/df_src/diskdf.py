@@ -911,19 +911,19 @@ class diskdf(df):
         """
         use_physical= kwargs.pop('use_physical',True)
         ro= kwargs.pop('ro',None)
-        if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
-            ro= args[0]._ro
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
             ro= ro.to(units.kpc).value
         vo= kwargs.pop('vo',None)
-        if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
-            vo= args[0]._vo
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
             vo= vo.to(units.km/units.s).value
         if use_physical and not vo is None and not ro is None:
-            fac= surfdens_in_msolpc2(vo,ro)*vo**(args[0]+args[1])
+            fac= surfdens_in_msolpc2(vo,ro)*vo**(args[1]+args[2])
             if _APY_UNITS:
-                u= units.Msun/units.pc**2*(units.km/units.s)**(args[0]+args[1])
+                u= units.Msun/units.pc**2*(units.km/units.s)**(args[1]+args[2])
             out= self._vmomentsurfacemass(*args,**kwargs)
             if out is None:
                 return out
