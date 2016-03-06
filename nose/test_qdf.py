@@ -677,43 +677,43 @@ def test_vmomentdensity_diffinoutputs():
     assert numpy.fabs(numpy.log(qdf.sigmaR2(R,z,gl=True,_sigmaR1=0.95*numpy.sqrt(qdf.sigmaR2(R,z)),_sigmaz1=0.95*numpy.sqrt(qdf.sigmaz2(R,z))))-numpy.log(sigmar2)) < 0.01, 'sigmaR2 calculated w/ explicit sigmaR1 and sigmaz1  do not agree'
     #Test ngl inputs further
     try:
-        qdf._vmomentdensity(R,z,0,0,0,gl=True,ngl=11)
+        qdf.vmomentdensity(R,z,0,0,0,gl=True,ngl=11)
     except ValueError: pass
-    else: raise AssertionError('qdf._vmomentdensity w/ ngl == odd does not raise ValueError')
-    surfmass, glqeval= qdf._vmomentdensity(R,z,0.,0.,0., 
+    else: raise AssertionError('qdf.vmomentdensity w/ ngl == odd does not raise ValueError')
+    surfmass, glqeval= qdf.vmomentdensity(R,z,0.,0.,0., 
                                           gl=True,
                                           _returngl=True)
     #This shouldn't reuse gleval, but should work nonetheless
     assert numpy.fabs(numpy.log(surfmass)\
-                          -numpy.log(qdf._vmomentdensity(R,z,0.,0.,0.,
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,
                                                         gl=True,
                                                         _glqeval=glqeval,
                                                         ngl=30))) < 0.05, 'vmomentsurfmass w/ wrong glqeval input does not work'
     #Test that we can re-use jr, etc.
-    surfmass, jr,lz,jz= qdf._vmomentdensity(R,z,0.,0.,0.,gl=True,
+    surfmass, jr,lz,jz= qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
                                            _return_actions=True)
     assert numpy.fabs(numpy.log(surfmass)\
-                          -numpy.log(qdf._vmomentdensity(R,z,0.,0.,0.,gl=True,
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
                                                         _jr=jr,_lz=lz,_jz=jz))) < 0.01, 'surfacemass calculated from re-used actions does not agree with that before'
     surfmass, jr,lz,jz, rg, kappa, nu, Omega=\
-        qdf._vmomentdensity(R,z,0.,0.,0.,gl=True,
+        qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
                            _return_actions=True,
                            _return_freqs=True)
     assert numpy.fabs(numpy.log(surfmass)\
-                          -numpy.log(qdf._vmomentdensity(R,z,0.,0.,0.,gl=True,
+                          -numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,gl=True,
                                                         _jr=jr,_lz=lz,_jz=jz,
                                                         _rg=rg,_kappa=kappa,
                                                         _nu=nu,_Omega=Omega))) < 0.01, 'surfacemass calculated from re-used actions does not agree with that before'
     #Some tests of mc=True
-    surfmass, vrs, vts, vzs= qdf._vmomentdensity(R,z,0.,0.,0.,mc=True,gl=False,
+    surfmass, vrs, vts, vzs= qdf.vmomentdensity(R,z,0.,0.,0.,mc=True,gl=False,
                                                 _rawgausssamples=True,
                                                 _returnmc=True)
-    assert numpy.fabs(numpy.log(surfmass)-numpy.log(qdf._vmomentdensity(R,z,0.,0.,0.,
+    assert numpy.fabs(numpy.log(surfmass)-numpy.log(qdf.vmomentdensity(R,z,0.,0.,0.,
                                                              mc=True,gl=False,
                                                              _rawgausssamples=True,
                                                              _vrs=vrs,
                                                              _vts=vts,
-                                                             _vzs=vzs))) < 0.0001, 'qdf._vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
+                                                             _vzs=vzs))) < 0.0001, 'qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
     return None
 
 def test_jmomentdensity_diffinoutputs():
@@ -721,17 +721,17 @@ def test_jmomentdensity_diffinoutputs():
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #Some tests of mc=True
     R,z= 0.8, 0.1
-    jr2surfmass, vrs, vts, vzs= qdf._jmomentdensity(R,z,2.,0.,0.,mc=True,
+    jr2surfmass, vrs, vts, vzs= qdf.jmomentdensity(R,z,2.,0.,0.,mc=True,
                                                    _returnmc=True)
-    assert numpy.fabs(numpy.log(jr2surfmass)-numpy.log(qdf._jmomentdensity(R,z,2.,0.,0.,
+    assert numpy.fabs(numpy.log(jr2surfmass)-numpy.log(qdf.jmomentdensity(R,z,2.,0.,0.,
                                                              mc=True,
                                                              _vrs=vrs,
                                                              _vts=vts,
-                                                             _vzs=vzs))) < 0.0001, 'qdf._jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
+                                                             _vzs=vzs))) < 0.0001, 'qdf.jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
     return None
 
 def test_pvz_diffinoutput():
-    #pvz, similarly to _vmomentdensity, can output certain intermediate results
+    #pvz, similarly to vmomentdensity, can output certain intermediate results
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #test re-using the actions
