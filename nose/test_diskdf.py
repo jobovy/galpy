@@ -496,11 +496,11 @@ def test_sigma2surfacemass():
 def test_vmomentsurfacemass():
     #Test that vmomentsurfacemass gives reasonable results
     dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,0.,0.)-dfc.surfacemass(0.9)) < 10.**-8., '_vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,0.,0.,relative=True)-dfc.surfacemass(0.9)/dfc.targetSurfacemass(0.9)) < 10.**-8., '_vmomentsurfacemass with (n,m) = (0,0) and relative=True is not equal to surfacemass/targetSurfacemass'
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,2.,0.)-dfc.sigma2surfacemass(0.9)) < 10.**-8., '_vmomentsurfacemass with (n,m) = (2,0) is not equal to sigma2surfacemass'
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,1.,1.,romberg=True)) < 10.**-8., '_vmomentsurfacemass with (n,m) = (1.,1.) is not equal to zero (not automatically zero)'
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,1,1)) < 10.**-8., '_vmomentsurfacemass with (n,m) = (1,1) is not equal to zero'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.)-dfc.surfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.,relative=True)-dfc.surfacemass(0.9)/dfc.targetSurfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) and relative=True is not equal to surfacemass/targetSurfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,2.,0.)-dfc.sigma2surfacemass(0.9)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (2,0) is not equal to sigma2surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1.,1.,romberg=True)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1.,1.) is not equal to zero (not automatically zero)'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1,1)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1,1) is not equal to zero'
     return None
 
 def test_cold_surfacemassLOS():
@@ -980,7 +980,7 @@ def test_vmomentsurfacedensity_deriv():
     #Quick test that the phi derivative is zero
     beta= 0.
     dfc= dehnendf(beta=beta,profileParams=(1./4.,1.,0.02))
-    assert numpy.fabs(dfc._vmomentsurfacemass(0.9,0,0,deriv='phi')) < 10.**-6., 'surfacemass phi derivative is not zero'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0,0,deriv='phi')) < 10.**-6., 'surfacemass phi derivative is not zero'
     return None
 
 def test_ELtowRRapRperi_flat():

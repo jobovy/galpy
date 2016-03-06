@@ -25,13 +25,13 @@ def test_mildnonaxi_meanvr_grid():
     mvr= edf.meanvR(0.9,phi=0.2,integrate_method='rk6_c',grid=grid)
     assert numpy.fabs(mvr) < 0.001, 'meanvR of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed grid'
     #Pre-compute surfmass and use it, first test that grid is properly returned when given
-    smass, ngrid= edf._vmomentsurfacemass(0.9,0,0,phi=0.2,
+    smass, ngrid= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
                                         integrate_method='rk6_c',
                                         grid=grid,gridpoints=_GRIDPOINTS,
                                         returnGrid=True)
-    assert ngrid == grid, 'grid returned by _vmomentsurfacemass w/ grid input is not the same as the input'
+    assert ngrid == grid, 'grid returned by vmomentsurfacemass w/ grid input is not the same as the input'
     #Pre-compute surfmass and use it
-    nsmass= edf._vmomentsurfacemass(0.9,0,0,phi=0.2,
+    nsmass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
                                    integrate_method='rk6_c',
                                    grid=True,gridpoints=_GRIDPOINTS)
     assert numpy.fabs(smass-nsmass) < 0.001, 'surfacemass computed w/ and w/o returnGrid are not the same'
@@ -99,12 +99,12 @@ def test_mildnonaxi_meanvt_hierarchgrid():
                     gridpoints=_GRIDPOINTS)
     assert numpy.fabs(mvt-idf.meanvT(0.9)) < 0.005, 'meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid'
     #Also test that the hierarchgrid is properly returned
-    smass, ngrid= edf._vmomentsurfacemass(0.9,0,0,phi=0.2,
+    smass, ngrid= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
                                         integrate_method='rk6_c',
                                         grid=grid,gridpoints=_GRIDPOINTS,
                                          returnGrid=True)
-    assert ngrid == grid, 'hierarchical grid returned by _vmomentsurfacemass w/ grid input is not the same as the input'
-    nsmass= edf._vmomentsurfacemass(0.9,0,0,phi=0.2,
+    assert ngrid == grid, 'hierarchical grid returned by vmomentsurfacemass w/ grid input is not the same as the input'
+    nsmass= edf.vmomentsurfacemass(0.9,0,0,phi=0.2,
                                    integrate_method='rk6_c',
                                    grid=True,hierarchgrid=True,
                                    gridpoints=_GRIDPOINTS)
@@ -129,7 +129,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
     return None
                        
 def test_mildnonaxi_meanvt_grid_rmEstimates():
-    # Test _vmomentsurfacemass w/o having the _estimateX functions in the intial DF
+    # Test vmomentsurfacemass w/o having the _estimateX functions in the intial DF
     class fakeDehnen(dehnendf): #class that removes the _estimate functions
         def __init__(self,*args,**kwargs):
             dehnendf.__init__(self,*args,**kwargs)
