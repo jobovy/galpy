@@ -34,7 +34,7 @@ from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.util import save_pickles
 from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
 from galpy.df_src.df import df, _APY_LOADED
@@ -871,13 +871,12 @@ class diskdf(df):
                                       self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
-    def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
-                           relative=False,phi=0.,deriv=None):
+    def vmomentsurfacemass(self,*args,**kwargs):
         """
         NAME:
 
-           _vmomentsurfacemass
-
+           vmomentsurfacemass
+           
         PURPOSE:
 
            calculate the an arbitrary moment of the velocity distribution 
@@ -910,6 +909,34 @@ class diskdf(df):
            2011-03-30 - Written - Bovy (NYU)
 
         """
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
+            ro= args[0]._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
+            vo= args[0]._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if use_physical and not vo is None and not ro is None:
+            fac= surfdens_in_msolpc2(vo,ro)*vo**(args[0]+args[1])
+            if _APY_UNITS:
+                u= units.Msun/units.pc**2*(units.km/units.s)**(args[0]+args[1])
+            out= self._vmomentsurfacemass(*args,**kwargs)
+            if out is None:
+                return out
+            if _APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._vmomentsurfacemass(*args,**kwargs)
+          
+    def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
+                           relative=False,phi=0.,deriv=None):
+        """Non-physical version of vmomentsurfacemass, otherwise the same"""
         #odd moments of vR are zero
         if isinstance(n,int) and n%2 == 1:
             return 0.
