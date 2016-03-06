@@ -11,7 +11,7 @@ from galpy.orbit import Orbit
 from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input, actionAngle_physical_input
+    potential_physical_input, actionAngle_physical_input, _APY_UNITS
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -429,15 +429,7 @@ class quasiisothermaldf(df):
         return 2.*integrate.quad((lambda x: numpy.exp(lsfInterp(x))),
                                  0.,1.)[0]
 
-    def _vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
-                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
-                       _rawgausssamples=False,
-                       gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
-                       _return_actions=False,_jr=None,_lz=None,_jz=None,
-                       _return_freqs=False,
-                       _rg=None,_kappa=None,_nu=None,_Omega=None,
-                       _sigmaR1=None,_sigmaz1=None,
-                       **kwargs):
+    def vmomentdensity(self,*args,**kwargs):
         """
         NAME:
            _vmomentdensity
@@ -473,6 +465,41 @@ class quasiisothermaldf(df):
         HISTORY:
            2012-08-06 - Written - Bovy (IAS@MPIA)
         """
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if use_physical and not vo is None and not ro is None:
+            fac= vo**(args[2]+args[3]+args[4])/ro**3
+            if _APY_UNITS:
+                u= 1/units.pc**3*(units.km/units.s)**(args[2]+args[3]+args[4])
+            out= self._vmomentdensity(*args,**kwargs)
+            if out is None:
+                return out
+            if _APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._vmomentdensity(*args,**kwargs)  
+
+    def _vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
+                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                       _rawgausssamples=False,
+                       gl=False,ngl=_DEFAULTNGL,_returngl=False,_glqeval=None,
+                       _return_actions=False,_jr=None,_lz=None,_jz=None,
+                       _return_freqs=False,
+                       _rg=None,_kappa=None,_nu=None,_Omega=None,
+                       _sigmaR1=None,_sigmaz1=None,
+                       **kwargs):
+        """Non-physical version of vmomentdensity, otherwise the same"""
         if isinstance(R,numpy.ndarray):
             return numpy.array([self._vmomentdensity(r,zz,n,m,o,nsigma=nsigma,
                                                     mc=mc,nmc=nmc,
@@ -635,12 +662,10 @@ class quasiisothermaldf(df):
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
         
-    def _jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
-                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
-                       **kwargs):
+    def jmomentdensity(self,*args,**kwargs):
         """
         NAME:
-           _jmomentdensity
+           jmomentdensity
         PURPOSE:
            calculate the an arbitrary moment of an action
            of the velocity distribution 
@@ -666,6 +691,35 @@ class quasiisothermaldf(df):
         HISTORY:
            2012-08-09 - Written - Bovy (IAS@MPIA)
         """
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if use_physical and not vo is None and not ro is None:
+            fac= (ro*vo)**(args[2]+args[3]+args[4])/ro**3
+            if _APY_UNITS:
+                u= 1/units.pc**3*(units.kpc*units.km/units.s)**(args[2]+args[3]+args[4])
+            out= self._jmomentdensity(*args,**kwargs)
+            if out is None:
+                return out
+            if _APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._jmomentdensity(*args,**kwargs)  
+
+    def _jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
+                       _returnmc=False,_vrs=None,_vts=None,_vzs=None,
+                       **kwargs):
+        """Non-physical version of jmomentdensity, otherwise the same"""
         if nsigma == None:
             nsigma= _NSIGMA
         sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
