@@ -3433,3 +3433,53 @@ def test_quasiisothermaldf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method jmomentdensity does not return Quantity with the right units')
     return None
+
+def test_quasiisothermaldf_method_value():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro, vo= 9., 210.
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=ro,vo=vo)
+    qdfnou= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                              cutcounter=True)
+    o= Orbit([1.1,0.1,1.1,0.1,0.03,0.4])
+    assert numpy.fabs(qdf(o).to(1/units.kpc**3/(units.km/units.s)**3).value-qdfnou(o)/ro**3/vo**3) < 10.**-8., 'quasiisothermaldf method __call__ does not return correct Quantity'
+    assert numpy.fabs(qdf.estimate_hr(1.1).to(units.kpc).value-qdfnou.estimate_hr(1.1)*ro) < 10.**-8., 'quasiisothermaldf method estimate_hr does not return correct Quantity'
+    assert numpy.fabs(qdf.estimate_hz(1.1,0.1).to(units.kpc).value-qdfnou.estimate_hz(1.1,0.1)*ro) < 10.**-8., 'quasiisothermaldf method estimate_hz does not return correct Quantity'
+    assert numpy.fabs(qdf.estimate_hsr(1.1).to(units.kpc).value-qdfnou.estimate_hsr(1.1)*ro) < 10.**-8., 'quasiisothermaldf method estimate_hsr does not return correct Quantity'
+    assert numpy.fabs(qdf.estimate_hsz(1.1).to(units.kpc).value-qdfnou.estimate_hsz(1.1)*ro) < 10.**-8., 'quasiisothermaldf method estimate_hsz does not return correct Quantity'
+    assert numpy.fabs(qdf.surfacemass_z(1.1).to(1/units.kpc**2).value-qdfnou.surfacemass_z(1.1)/ro**2) < 10.**-8., 'quasiisothermaldf method surfacemass_z does not return correct Quantity'
+    assert numpy.fabs(qdf.density(1.1,0.1).to(1/units.kpc**3).value-qdfnou.density(1.1,0.1)/ro**3) < 10.**-8., 'quasiisothermaldf method density does not return correct Quantity'
+    assert numpy.fabs(qdf.sigmaR2(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaR2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaR2 does not return correct Quantity'
+    assert numpy.fabs(qdf.sigmaT2(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaT2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaT2 does not return correct Quantity'
+    assert numpy.fabs(qdf.sigmaz2(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaz2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaz2 does not return correct Quantity'
+    assert numpy.fabs(qdf.sigmaRz(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaRz(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaRz does not return correct Quantity'
+    assert numpy.fabs(qdf.tilt(1.1,0.1).to(units.deg).value-qdfnou.tilt(1.1,0.1)) < 10.**-8., 'quasiisothermaldf method tilt does not return correct Quantity'
+    assert numpy.fabs(qdf.meanvR(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvR(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvR does not return correct Quantity'
+    assert numpy.fabs(qdf.meanvT(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvT(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvT does not return correct Quantity'
+    assert numpy.fabs(qdf.meanvz(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvz(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvz does not return correct Quantity'
+    # Lower tolerance, because determined through sampling
+    assert numpy.fabs(qdf.meanjr(1.1,0.1,nmc=100000).to(units.kpc*units.km/units.s).value-qdfnou.meanjr(1.1,0.1,nmc=100000)*ro*vo) < 10., 'quasiisothermaldf method meanjr does not return correct Quantity'
+    assert numpy.fabs(qdf.meanlz(1.1,0.1,nmc=100000).to(units.kpc*units.km/units.s).value-qdfnou.meanlz(1.1,0.1,nmc=100000)*ro*vo) < 100., 'quasiisothermaldf method meanlz does not return correct Quantity'
+    assert numpy.fabs(qdf.meanjz(1.1,0.1,nmc=100000).to(units.kpc*units.km/units.s).value-qdfnou.meanjz(1.1,0.1,nmc=100000)*ro*vo) < 10., 'quasiisothermaldf method meanjz does not return correct Quantity'
+    assert numpy.fabs(qdf.pvR(0.1,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)).value-qdfnou.pvR(0.1,1.1,0.1)/ro**3/vo) < 10.**-8., 'quasiisothermaldf method pvR does not return correct Quantity'
+    assert numpy.fabs(qdf.pvT(1.1,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)).value-qdfnou.pvT(1.1,1.1,0.1)/ro**3/vo) < 10.**-8., 'quasiisothermaldf method pvT does not return correct Quantity'
+    assert numpy.fabs(qdf.pvz(0.1,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)).value-qdfnou.pvz(0.1,1.1,0.1)/ro**3/vo) < 10.**-8., 'quasiisothermaldf method pvz does not return correct Quantity'
+    assert numpy.fabs(qdf.pvRvT(0.1,1.1,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)**2).value-qdfnou.pvRvT(0.1,1.1,1.1,0.1)/ro**3/vo**2) < 10.**-8., 'quasiisothermaldf method pvRvT does not return correct Quantity'
+    assert numpy.fabs(qdf.pvRvz(0.1,0.2,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)**2).value-qdfnou.pvRvz(0.1,0.2,1.1,0.1)/ro**3/vo**2) < 10.**-8., 'quasiisothermaldf method pvRvz does not return correct Quantity'
+    assert numpy.fabs(qdf.pvTvz(1.1,1.1,1.1,0.1).to(1/units.kpc**3/(units.km/units.s)**2).value-qdfnou.pvTvz(1.1,1.1,1.1,0.1)/ro**3/vo**2) < 10.**-8., 'quasiisothermaldf method pvTvz does not return correct Quantity'
+    assert numpy.fabs(qdf.vmomentdensity(1.1,0.1,0,0,0,gl=True).to(1/units.kpc**3*(units.km/units.s)**0).value-qdfnou.vmomentdensity(1.1,0.1,0,0,0,gl=True)/ro**3*vo**0) < 10.**-8., 'quasiisothermaldf method vmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.vmomentdensity(1.1,0.1,1,0,0,gl=True).to(1/units.kpc**3*(units.km/units.s)**1).value-qdfnou.vmomentdensity(1.1,0.1,1,0,0,gl=True)/ro**3*vo) < 10.**-8., 'quasiisothermaldf method vmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.vmomentdensity(1.1,0.1,0,1,1,gl=True).to(1/units.kpc**3*(units.km/units.s)**2).value-qdfnou.vmomentdensity(1.1,0.1,0,1,1,gl=True)/ro**3*vo**2) < 10.**-8., 'quasiisothermaldf method vmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.vmomentdensity(1.1,0.1,1,1,0,gl=True).to(1/units.kpc**3*(units.km/units.s)**2).value-qdfnou.vmomentdensity(1.1,0.1,1,1,0,gl=True)/ro**3*vo**2) < 10.**-8., 'quasiisothermaldf method vmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.vmomentdensity(1.1,0.1,2,1,1,gl=True).to(1/units.kpc**3*(units.km/units.s)**4).value-qdfnou.vmomentdensity(1.1,0.1,2,1,1,gl=True)/ro**3*vo**4) < 10.**-8., 'quasiisothermaldf method vmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,0,0,0,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**0).value-qdfnou.jmomentdensity(1.1,0.1,0,0,0,nmc=100000)/ro**3*(ro*vo)**0) < 10.**-4., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,1,0,0,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**1).value-qdfnou.jmomentdensity(1.1,0.1,1,0,0,nmc=100000)/ro**3*(ro*vo)**1) < 10.**-2., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,0,1,1,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**2).value-qdfnou.jmomentdensity(1.1,0.1,0,1,1,nmc=100000)/ro**3*(ro*vo)**2) < 1., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,1,1,0,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**2).value-qdfnou.jmomentdensity(1.1,0.1,1,1,0,nmc=100000)/ro**3*(ro*vo)**2) < 10., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,2,1,1,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**4).value-qdfnou.jmomentdensity(1.1,0.1,2,1,1,nmc=100000)/ro**3*(ro*vo)**4) < 10000., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    return None
+
