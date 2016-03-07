@@ -3011,7 +3011,7 @@ def test_diskdf_method_returntype():
     assert isinstance(df.meanvT(1.2),units.Quantity), 'diskdf method meanvT does not return Quantity when it should'
     assert isinstance(df.meanvR(1.2),units.Quantity), 'diskdf method meanvR does not return Quantity when it should'
     assert isinstance(df.vmomentsurfacemass(1.1,0,0),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
-    assert isinstance(df.vmomentsurfacemass(1.1,0,0),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
+    assert isinstance(df.vmomentsurfacemass(1.1,1,0),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
     assert isinstance(df.vmomentsurfacemass(1.1,1,1),units.Quantity), 'diskdf method vmomentsurfacemass does not return Quantity when it should'
     return None
 
@@ -3111,6 +3111,35 @@ def test_diskdf_method_returnunit():
         df.vmomentsurfacemass(1.1,0,2).to(units.Msun/units.pc**2*(units.km/units.s)**2)
     except units.UnitConversionError:
         raise AssertionError('diskdf method vmomentsurfacemass does not return Quantity with the right units')
+    return None
+
+def test_diskdf_method_value():
+    from galpy.df import dehnendf
+    from galpy.orbit import Orbit
+    from galpy.util import bovy_conversion
+    ro, vo= 7., 230.
+    df= dehnendf(ro=ro,vo=vo)
+    dfnou= dehnendf()
+    assert numpy.fabs(df(Orbit([1.1,0.1,1.1])).to(1/units.kpc**2/(units.km/units.s)**2).value-dfnou(Orbit([1.1,0.1,1.1]))/vo**2/ro**2) < 10.**-8., 'diskdf method __call__ does not return correct Quantity'
+    assert numpy.fabs(df.targetSigma2(1.2).to((units.km/units.s)**2).value-dfnou.targetSigma2(1.2)*vo**2) < 10.**-8., 'diskdf method targetSigma2 does not return Quantity'
+    assert numpy.fabs(df.targetSurfacemass(1.2).to(units.Msun/units.pc**2).value-dfnou.targetSurfacemass(1.2)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'diskdf method targetSurfacemass does not return Quantity'
+    assert numpy.fabs(df.targetSurfacemassLOS(1.2,40.).to(units.Msun/units.pc).value-dfnou.targetSurfacemassLOS(1.2,40.)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*ro*1000.)< 10.**-8., 'diskdf method targetSurfacemassLOS does not return Quantity'
+    assert numpy.fabs(df.surfacemassLOS(1.2,35.).to(units.Msun/units.pc).value-dfnou.surfacemassLOS(1.2,35.)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*ro*1000.)< 10.**-8., 'diskdf method surfacemassLOS does not return Quantity'
+    assert numpy.fabs(df.asymmetricdrift(0.8).to(units.km/units.s).value-dfnou.asymmetricdrift(0.8)*vo)< 10.**-8., 'diskdf method asymmetricdrift does not return Quantity'
+    assert numpy.fabs(df.surfacemass(1.1).to(units.Msun/units.pc**2).value-dfnou.surfacemass(1.1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'diskdf method  does not return Quantity'
+    assert numpy.fabs(df.sigma2surfacemass(1.2).to(units.Msun/units.pc**2*(units.km/units.s)**2).value-dfnou.sigma2surfacemass(1.2)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*vo**2) < 10.**-8., 'diskdf method sigma2surfacemass does not return Quantity'
+    assert numpy.fabs(df.oortA(1.2).to(1/units.Gyr).value-dfnou.oortA(1.2)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'diskdf method oortA does not return Quantity'
+    assert numpy.fabs(df.oortB(1.2).to(1/units.Gyr).value-dfnou.oortB(1.2)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'diskdf method oortB does not return Quantity'
+    assert numpy.fabs(df.oortC(1.2).to(1/units.Gyr).value-dfnou.oortC(1.2)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'diskdf method oortC does not return Quantity'
+    assert numpy.fabs(df.oortK(1.2).to(1/units.Gyr).value-dfnou.oortK(1.2)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'diskdf method oortK does not return Quantity'
+    assert numpy.fabs(df.sigma2(1.2).to((units.km/units.s)**2).value-dfnou.sigma2(1.2)*vo**2) < 10.**-8., 'diskdf method sigma2 does not return Quantity'
+    assert numpy.fabs(df.sigmaT2(1.2).to((units.km/units.s)**2).value-dfnou.sigmaT2(1.2)*vo**2) < 10.**-8., 'diskdf method sigmaT2 does not return Quantity'
+    assert numpy.fabs(df.sigmaR2(1.2).to((units.km/units.s)**2).value-dfnou.sigmaR2(1.2)*vo**2) < 10.**-8., 'diskdf method sigmaR2 does not return Quantity'
+    assert numpy.fabs(df.meanvT(1.2).to(units.km/units.s).value-dfnou.meanvT(1.2)*vo)< 10.**-8., 'diskdf method meanvT does not return Quantity'
+    assert numpy.fabs(df.meanvR(1.2).to(units.km/units.s).value-dfnou.meanvR(1.2)*vo)< 10.**-8., 'diskdf method meanvT does not return Quantity'
+    assert numpy.fabs(df.vmomentsurfacemass(1.1,0,0).to(units.Msun/units.pc**2).value-dfnou.vmomentsurfacemass(1.1,0,0)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'diskdf method vmomentsurfacemass does not return Quantity'
+    assert numpy.fabs(df.vmomentsurfacemass(1.1,0,1).to(units.Msun/units.pc**2*(units.km/units.s)**1).value-dfnou.vmomentsurfacemass(1.1,0,1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*vo) < 10.**-8., 'diskdf method vmomentsurfacemass does not return Quantity'
+    assert numpy.fabs(df.vmomentsurfacemass(1.1,1,1).to(units.Msun/units.pc**2*(units.km/units.s)**2).value-dfnou.vmomentsurfacemass(1.1,1,1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*vo**2) < 10.**-8., 'diskdf method vmomentsurfacemass does not return Quantity'
     return None
 
 def test_evolveddiskdf_method_returntype():
