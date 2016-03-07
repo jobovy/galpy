@@ -479,7 +479,7 @@ class quasiisothermaldf(df):
         if use_physical and not vo is None and not ro is None:
             fac= vo**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
-                u= 1/units.pc**3*(units.km/units.s)**(args[2]+args[3]+args[4])
+                u= 1/units.kpc**3*(units.km/units.s)**(args[2]+args[3]+args[4])
             out= self._vmomentdensity(*args,**kwargs)
             if out is None:
                 return out
@@ -705,7 +705,7 @@ class quasiisothermaldf(df):
         if use_physical and not vo is None and not ro is None:
             fac= (ro*vo)**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
-                u= 1/units.pc**3*(units.kpc*units.km/units.s)**(args[2]+args[3]+args[4])
+                u= 1/units.kpc**3*(units.kpc*units.km/units.s)**(args[2]+args[3]+args[4])
             out= self._jmomentdensity(*args,**kwargs)
             if out is None:
                 return out
