@@ -768,7 +768,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._nTrackChunksImpact= int(numpy.floor(self._deltaAngleTrackImpact/0.15))+1
         else:
             self._nTrackChunksImpact= nTrackChunksImpact
-        if self._nTrackChunksImpact < 3: self._nTrackChunksImpact= 3
+        if self._nTrackChunksImpact < 4: self._nTrackChunksImpact= 4
         dt= self._deltaAngleTrackImpact\
             /self._progenitor_Omega_along_dOmega\
             /self._sigMeanSign*self._gap_sigMeanSign
