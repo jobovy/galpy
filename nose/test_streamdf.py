@@ -337,6 +337,31 @@ def test_density_ra():
     'density far from progenitor in ra is incorrect'
     return None
 
+def test_density_ll_wsampling():
+    # Test that the density computed using density_par is correct using a 
+    # random sample
+    numpy.random.seed(1)
+    from galpy.util import bovy_coords
+    def ll(apar):
+        """Quick function that returns l for a given apar"""
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                             Xsun=sdf_bovy14._R0,
+                                             Ysun=0.,
+                                             Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        return l   
+    LB= sdf_bovy14.sample(n=10000,lb=True)
+    apar1, apar2= 0.1, 0.6
+    dens1= float(numpy.sum((LB[0] > ll(apar1))*(LB[0] < ll(apar1)+2.)))
+    dens2= float(numpy.sum((LB[0] > ll(apar2))*(LB[0] < ll(apar2)+2.)))
+    dens1_calc= sdf_bovy14.density_par(apar1,coord='ll')
+    dens2_calc= sdf_bovy14.density_par(apar2,coord='ll')
+    assert numpy.fabs(dens1/dens2-dens1_calc/dens2_calc) < 0.1, 'density in ll computed using density_par does not agree with density from random sample'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
