@@ -267,6 +267,40 @@ def test_density_phi():
     'density far from progenitor in phi is incorrect'
     return None
 
+def test_density_ll():
+    #Test that the density in ll is correctly computed, by doing this by hand
+    from galpy.util import bovy_coords
+    def dens_ll(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        jac= numpy.fabs((dl-l)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density far from progenitor in ll is incorrect'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
