@@ -475,6 +475,26 @@ def test_minOpar():
                                               apar)) < 10.**-16., 'Probability for Opar < minOpar is not zero'
     return None
 
+def test_meanOmega_approx():
+    # Test that the approximate meanOmega agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    return None
+
+def test_meanOmega_approx_higherorder():
+    # Test that the approximate meanOmega agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,higherorder=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,higherorder=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
