@@ -453,8 +453,6 @@ def test_length_phys():
                             +((dZ-Z)/dapar)**2.)
         return jac*sdf_bovy14._Rnorm
     thresh= 0.2
-    print(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3),
-          sdf_bovy14.length(threshold=thresh,phys=True))
     assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3)
                       -sdf_bovy14.length(threshold=thresh,phys=True)) < 1., 'Length in physical coordinates does not conform to rough expectation'
     return None
