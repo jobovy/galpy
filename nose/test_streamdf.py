@@ -242,6 +242,31 @@ def test_density_par():
     assert numpy.fabs(sdf_bovy14.density_par(1.8)-0.) < 10.**-2., 'density far progenitor not close to 0 for Bovy14 stream'
     return None
 
+def test_density_phi():
+    #Test that the density in phi is correctly computed, by doing this by hand
+    from galpy.util import bovy_coords
+    def dens_phi(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar), sdf_bovy14._interpTrackY(apar),\
+            sdf_bovy14._interpTrackY(apar)
+        R,phi,z= bovy_coords.rect_to_cyl(X,Y,Z)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar),\
+            sdf_bovy14._interpTrackY(apar+dapar),\
+            sdf_bovy14._interpTrackY(apar+dapar)
+        dR,dphi,dz= bovy_coords.rect_to_cyl(dX,dY,dZ)
+        jac= numpy.fabs((dphi-phi)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density near progenitor in phi is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density near progenitor in phi is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density far from progenitor in phi is incorrect'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
