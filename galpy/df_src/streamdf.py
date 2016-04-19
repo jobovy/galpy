@@ -1747,7 +1747,7 @@ class streamdf(object):
                                                            tdisrupt=tdisrupt)\
                                     -peak_dens*threshold,
                                 0.1,self._deltaAngleTrack)
-        except RuntimeError:
+        except RuntimeError: #pragma: no cover
             raise RuntimeError('Length could not be returned, because length method failed to find the threshold value')
         except ValueError:
             raise ValueError('Length could not be returned, because length method failed to initialize')

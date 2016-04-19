@@ -387,6 +387,22 @@ def test_density_ll_wsampling():
     assert numpy.fabs(dens1/dens2-dens1_calc/dens2_calc) < 0.1, 'density in ll computed using density_par does not agree with density from random sample'
     return None
 
+def test_length():
+    # Test that the length is correct according to its definition
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    thresh= 0.05
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+
+@raises(ValueError)
+def test_length_valueerror():
+    thresh= 0.00001
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
