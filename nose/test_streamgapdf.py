@@ -439,7 +439,6 @@ def test_pOparapar():
                            -10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]),
                        sdf_sanders15._meandO\
                            +10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]))[0]
-    print(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3))
     assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Sanders15 stream'
     return None
 
@@ -498,11 +497,12 @@ def test_meanOmega_approx_higherorder():
 def test_hernquist():
     # Test that Hernquist kicks are similar to Plummer kicks, but are
     # different in understood ways (...)
+    from galpy.util import bovy_conversion
     # Switch to Hernquist
+    V0, R0= 220., 8.
     impactb=0.
     subhalovel=numpy.array([6.82200571,132.7700529,
                             149.4174464])/V0
-    timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0)
     impact_angle=-2.34
     GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
     rs=0.625/R0
@@ -514,7 +514,6 @@ def test_hernquist():
     sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                          GM,rs,None,
                                          3,False)
-    plummer_kicks= sdf_sanders15._kick_deltav
     # Repeat some of the deltav tests from above
     # Closest one to the impact point, should be close to zero
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
