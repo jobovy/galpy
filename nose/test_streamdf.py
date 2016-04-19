@@ -805,6 +805,45 @@ def test_bovy14_sampleA():
     assert numpy.fabs((numpy.mean(AA[2][indx])-sdf_bovy14.meantdAngle(0.25))/numpy.mean(AA[2][indx])) < 10.**-2., 'mean stripping time along sample not as expected'
     return None
 
+def test_subhalo_encounters():
+    # Test that subhalo_encounters acts as expected
+    # linear in sigma
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=300./220.)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.)-3) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=200./220.)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.)-2) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=50./220.,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    # linear in bmax
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=1.5)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5)-3) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=1.)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5)-2) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=0.25,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    # except when bmax is tiny, then it shouldn't matter
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=10.**-7.)\
+                          /sdf_bovy14.subhalo_encounters(bmax=10.**-6.)-1.) < 10.**-5., 'subhalo_encounters does not become insensitive to bmax at small bmax'
+    # linear in nsubhalo
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=1.5)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5)-3) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=1.)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5)-2) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=0.25,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    # For nsubhalo = 0.3 should have O(10) impacts (wow, that actually worked!)
+    assert numpy.fabs(numpy.log10(sdf_bovy14.subhalo_encounters(nsubhalo=0.3,
+                                                                bmax=1.5/8.,
+                                                                sigma=120./220.))\
+                          -1.) < 0.5, 'Number of subhalo impacts does not behave as expected for reasonable inputs'
+    # Except if you're Yoon et al., then it's more like 30
+    assert numpy.fabs(numpy.log10(sdf_bovy14.subhalo_encounters(nsubhalo=0.3,
+                                                                bmax=1.5/8.,
+                                                                sigma=120./220.,
+                                                                yoon=True))\
+                          -1.5) < 0.5, 'Number of subhalo impacts does not behave as expected for reasonable inputs'
+    return None
+
 def test_bovy14_oppositetrailing_setup():
     #Imports
     from galpy.df import streamdf
