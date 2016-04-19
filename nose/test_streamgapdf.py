@@ -495,6 +495,45 @@ def test_meanOmega_approx_higherorder():
     assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,higherorder=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
     return None
 
+def test_hernquist():
+    # Test that Hernquist kicks are similar to Plummer kicks, but are
+    # different in understood ways (...)
+    # Switch to Hernquist
+    impactb=0.
+    subhalovel=numpy.array([6.82200571,132.7700529,
+                            149.4174464])/V0
+    timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0)
+    impact_angle=-2.34
+    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs=0.625/R0
+    sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,True)
+    hernquist_kicks= sdf_sanders15._kick_deltav
+    # Back to Plummer
+    sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,False)
+    plummer_kicks= sdf_sanders15._kick_deltav
+    # Repeat some of the deltav tests from above
+    # Closest one to the impact point, should be close to zero
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle))
+    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._Vnorm) < 0.4), 'Kick near the impact point not close to zero for Hernquist'
+    # The peak, size and location
+    # Peak should be slightly less (guessed these correct!)
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,0]*sdf_sanders15._Vnorm))-0.25) < 0.06, 'Peak dvx incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,0]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle < 0., 'Location of peak dvx incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,1]*sdf_sanders15._Vnorm))-0.25) < 0.06, 'Peak dvy incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,1]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvy incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,2]*sdf_sanders15._Vnorm))-1.3) < 0.06, 'Peak dvz incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,2]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvz incorrect'
+    # Close to zero far from impact point
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle-1.5))
+    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick far the impact point not close to zero'
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
