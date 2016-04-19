@@ -3,6 +3,7 @@ import functools
 import nose
 import numpy
 from scipy import interpolate, integrate
+from galpy.util import bovy_coords
 sdf_bovy14= None #so we can set this up and then use in other tests
 sdft_bovy14= None #so we can set this up and then use in other tests, trailing
 
@@ -127,11 +128,25 @@ def test_bovy14_setup():
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
                 0.88719443,-0.47713334,0.12019596])
     sigv= 0.365 #km/s
+    # For custom_transform
+    theta,dec_ngp,ra_ngp= bovy_coords.get_epoch_angles(2000.)
+    T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],
+                              [numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],
+                              [0.,0.,1.]]),
+                 numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,
+                                          numpy.cos(dec_ngp)],
+                                        [0.,1.,0.],
+                                        [numpy.cos(dec_ngp),0.,
+                                         numpy.sin(dec_ngp)]]),
+                           numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],
+                                        [numpy.sin(theta),-numpy.cos(theta),0.],
+                                        [0.,0.,1.]]))).T
     global sdf_bovy14
     sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                          leading=True,
                          nTrackChunks=11,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         custom_transform=T)
     assert not sdf_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
 
@@ -244,7 +259,6 @@ def test_density_par():
 
 def test_density_phi():
     #Test that the density in phi is correctly computed, by doing this by hand
-    from galpy.util import bovy_coords
     def dens_phi(apar):
         dapar= 10.**-9.
         X,Y,Z= sdf_bovy14._interpTrackX(apar), sdf_bovy14._interpTrackY(apar),\
@@ -267,9 +281,9 @@ def test_density_phi():
     'density far from progenitor in phi is incorrect'
     return None
 
-def test_density_ll():
+def test_density_ll_and_customra():
     #Test that the density in ll is correctly computed, by doing this by hand
-    from galpy.util import bovy_coords
+    # custom should be the same for this setup (see above)
     def dens_ll(apar):
         dapar= 10.**-9.
         X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
@@ -293,17 +307,22 @@ def test_density_ll():
     apar= 0.1
     assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
     'density near progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
     apar= 0.5
     assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
     'density near progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
     apar= 1.8
     assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density far from progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
     'density far from progenitor in ll is incorrect'
     return None
 
 def test_density_ra():
     #Test that the density in ra is correctly computed, by doing this by hand
-    from galpy.util import bovy_coords
     def dens_ra(apar):
         dapar= 10.**-9.
         X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
@@ -341,7 +360,6 @@ def test_density_ll_wsampling():
     # Test that the density computed using density_par is correct using a 
     # random sample
     numpy.random.seed(1)
-    from galpy.util import bovy_coords
     def ll(apar):
         """Quick function that returns l for a given apar"""
         X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
@@ -1092,7 +1110,6 @@ def test_calcaAJacLB():
     from galpy.df_src.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_coords
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
