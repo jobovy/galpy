@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import numpy
 from galpy.util import bovy_coords
+from nose.tools import raises
 from test_streamdf import expected_failure
 
 def test_radec_to_lb_ngp():
@@ -740,4 +741,55 @@ def test_cyl_to_rect_jac():
     assert numpy.fabs(jac[4,5]+1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
     assert numpy.all(numpy.fabs(jac[5,numpy.array([True,True,True,True,False,True],dtype='bool')]-0.) < 10.**-10.), 'cyl_to_rect_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,4]-1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
+    return None
+
+@raises(ValueError)
+def test_radec_to_custom_valueerror():
+    # Test the radec_to_custom without T raises a ValueError
+    xieta= bovy_coords.radec_to_custom(20.,30.)
+    return None
+
+def test_radec_to_custom_againstlb():
+    ra, dec= 20., 30.
+    theta,dec_ngp,ra_ngp= bovy_coords.get_epoch_angles(2000.)
+    T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],
+                              [numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],
+                              [0.,0.,1.]]),
+                 numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,
+                                          numpy.cos(dec_ngp)],
+                                        [0.,1.,0.],
+                                        [numpy.cos(dec_ngp),0.,
+                                         numpy.sin(dec_ngp)]]),
+                           numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],
+                                        [numpy.sin(theta),-numpy.cos(theta),0.],
+                                        [0.,0.,1.]])))
+    lb_direct= bovy_coords.radec_to_lb(ra,dec,degree=True)
+    lb_custom= bovy_coords.radec_to_custom(ra,dec,T=T.T,degree=True)
+    assert numpy.fabs(lb_direct[0]-lb_custom[0]) < 10.**-8., 'radec_to_custom for transformation to l,b does not work properly'
+    assert numpy.fabs(lb_direct[1]-lb_custom[1]) < 10.**-8., 'radec_to_custom for transformation to l,b does not work properly'
+    # Array
+    s= numpy.arange(2)
+    lb_direct= bovy_coords.radec_to_lb(ra*s,dec*s,degree=True)
+    lb_custom= bovy_coords.radec_to_custom(ra*s,dec*s,T=T.T,degree=True)
+    print(lb_direct, lb_custom)
+    assert numpy.all(numpy.fabs(lb_direct-lb_custom) < 10.**-8.), 'radec_to_custom for transformation to l,b does not work properly'
+    return None
+
+def test_radec_to_custom_pal5():
+    # Test the custom ra,dec transformation for Pal 5
+    _RAPAL5= 229.018/180.*numpy.pi
+    _DECPAL5= -0.124/180.*numpy.pi
+    _TPAL5= numpy.dot(numpy.array([[numpy.cos(_DECPAL5),0.,numpy.sin(_DECPAL5)],
+                                   [0.,1.,0.],
+                                   [-numpy.sin(_DECPAL5),0.,numpy.cos(_DECPAL5)]]),
+                      numpy.array([[numpy.cos(_RAPAL5),numpy.sin(_RAPAL5),0.],
+                                   [-numpy.sin(_RAPAL5),numpy.cos(_RAPAL5),0.],
+                                   [0.,0.,1.]]))
+    xieta= bovy_coords.radec_to_custom(_RAPAL5,_DECPAL5,T=_TPAL5,degree=False)
+    assert numpy.fabs(xieta[0]) < 10.**-8., 'radec_to_custom does not work properly for Pal 5 transformation'
+    assert numpy.fabs(xieta[1]) < 10.**-8., 'radec_to_custom does not work properly for Pal 5 transformation'
+    # One more, rough estimate based on visual inspection of plot
+    xieta= bovy_coords.radec_to_custom(240.,6.,T=_TPAL5,degree=True)
+    assert numpy.fabs(xieta[0]-11.) < 0.2, 'radec_to_custom does not work properly for Pal 5 transformation'
+    assert numpy.fabs(xieta[1]-6.) < 0.2, 'radec_to_custom does not work properly for Pal 5 transformation'
     return None
