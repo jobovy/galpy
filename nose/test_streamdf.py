@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import functools
 import nose
+from nose.tools import raises
 import numpy
 from scipy import interpolate, integrate
 from galpy.util import bovy_coords
@@ -248,6 +249,12 @@ def test_pOparapar():
                        sdf_bovy14._meandO\
                            +4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]))[0]
     assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_bovy14.density_par(1.1)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Bovy14 stream'
+    return None
+
+@raises(ValueError)
+def test_density_par_valueerror():
+    # Test that the code throws a ValueError if coord is not understood
+    sdf_bovy14.density_par(0.1,coord='xi')
     return None
 
 def test_density_par():
