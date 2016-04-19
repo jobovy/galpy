@@ -844,6 +844,37 @@ def test_subhalo_encounters():
                           -1.5) < 0.5, 'Number of subhalo impacts does not behave as expected for reasonable inputs'
     return None
 
+def test_subhalo_encounters_venc():
+    # Test that the dependence on venc of subhalo_encounters is correct
+    def expected_venc(venc,sigma):
+        return 1.-numpy.exp(-venc**2./2./sigma**2.)
+    sigma= 150./220.
+    print(sdf_bovy14.subhalo_encounters(venc=1000./220.,
+                                        sigma=sigma)/\
+              sdf_bovy14.subhalo_encounters(sigma=sigma))
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(100./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=200./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(200./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=300./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(300./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    # Should go to 1
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=30000./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          -1.) < 10.**-4., \
+                          'subhalo_encounters venc behavior is not correct'
+    return None
+
 def test_bovy14_oppositetrailing_setup():
     #Imports
     from galpy.df import streamdf
