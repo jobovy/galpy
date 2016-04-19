@@ -429,6 +429,13 @@ def test_length_ang():
     thresh= 0.2
     assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dphidapar(0.3)
                       -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
+    # Dangerous hack to test case where l decreases along the stream
+    sdf_bovy14._interpolatedObsTrackLB[:,:2]*= -1.
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dphidapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
+    # Go back
+    sdf_bovy14._interpolatedObsTrackLB[:,:2]*= -1.
     return None
 
 def test_length_phys():
