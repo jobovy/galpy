@@ -849,9 +849,6 @@ def test_subhalo_encounters_venc():
     def expected_venc(venc,sigma):
         return 1.-numpy.exp(-venc**2./2./sigma**2.)
     sigma= 150./220.
-    print(sdf_bovy14.subhalo_encounters(venc=1000./220.,
-                                        sigma=sigma)/\
-              sdf_bovy14.subhalo_encounters(sigma=sigma))
     assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
                                                     sigma=sigma)/\
                           sdf_bovy14.subhalo_encounters(sigma=sigma)\
@@ -882,9 +879,6 @@ def test_subhalo_encounters_venc_yoon():
         return 1.-(1.+venc**2./4./sigma**2.)\
             *numpy.exp(-venc**2./4./sigma**2.)
     sigma= 150./220.
-    print(sdf_bovy14.subhalo_encounters(venc=1000./220.,
-                                        sigma=sigma,yoon=True)/\
-              sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True))
     assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
                                                     sigma=sigma,yoon=True)/\
                           sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
