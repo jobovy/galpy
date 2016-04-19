@@ -248,11 +248,11 @@ def test_density_phi():
     def dens_phi(apar):
         dapar= 10.**-9.
         X,Y,Z= sdf_bovy14._interpTrackX(apar), sdf_bovy14._interpTrackY(apar),\
-            sdf_bovy14._interpTrackY(apar)
+            sdf_bovy14._interpTrackZ(apar)
         R,phi,z= bovy_coords.rect_to_cyl(X,Y,Z)
         dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar),\
             sdf_bovy14._interpTrackY(apar+dapar),\
-            sdf_bovy14._interpTrackY(apar+dapar)
+            sdf_bovy14._interpTrackZ(apar+dapar)
         dR,dphi,dz= bovy_coords.rect_to_cyl(dX,dY,dZ)
         jac= numpy.fabs((dphi-phi)/dapar)
         return sdf_bovy14.density_par(apar)/jac
@@ -274,7 +274,7 @@ def test_density_ll():
         dapar= 10.**-9.
         X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
             sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
                                            Ysun=0.,
@@ -282,7 +282,7 @@ def test_density_ll():
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
             sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
                                                 Ysun=0.,
@@ -299,6 +299,42 @@ def test_density_ll():
     apar= 1.8
     assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
     'density far from progenitor in ll is incorrect'
+    return None
+
+def test_density_ra():
+    #Test that the density in ra is correctly computed, by doing this by hand
+    from galpy.util import bovy_coords
+    def dens_ra(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        dra,ddec= bovy_coords.lb_to_radec(dl,db,degree=True)
+        jac= numpy.fabs((dra-ra)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density near progenitor in ra is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density near progenitor in ra is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density far from progenitor in ra is incorrect'
     return None
 
 def test_meanOmega():
