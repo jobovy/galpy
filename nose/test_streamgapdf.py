@@ -463,6 +463,18 @@ def test_density_apar_approx_higherorder():
     assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True,higherorder=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True,higherorder=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
     return None
 
+def test_minOpar():
+    # Test that for Opar < minOpar, p(Opar,apar) is in fact zero!
+    apar= 0.3
+    dO= 10.**-4.
+    assert numpy.fabs(sdf_sanders15.pOparapar(sdf_sanders15.minOpar(apar)-dO,
+                                              apar)) < 10.**-16., 'Probability for Opar < minOpar is not zero'
+    apar= 2.6
+    dO= 10.**-4.
+    assert numpy.fabs(sdf_sanders15.pOparapar(sdf_sanders15.minOpar(apar)-dO,
+                                              apar)) < 10.**-16., 'Probability for Opar < minOpar is not zero'
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
