@@ -443,6 +443,26 @@ def test_pOparapar():
     assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Sanders15 stream'
     return None
 
+def test_density_apar_approx():
+    # Test that the approximate density agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    return None
+
+def test_density_apar_approx_higherorder():
+    # Test that the approximate density agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True,higherorder=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True,higherorder=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True,higherorder=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True,higherorder=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
