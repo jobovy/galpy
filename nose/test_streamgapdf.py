@@ -1,6 +1,7 @@
 import numpy
 from nose.tools import raises
 numpy.random.seed(1)
+from scipy import integrate
 sdf_sanders15= None #so we can set this up and then use in other tests
 sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdfl_sanders15= None #so we can set this up and then use in other tests
@@ -419,6 +420,27 @@ def test_sample_offset_leading():
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,3]-xv_mock_unp[tIndx,3])*sdfl_sanders15._Vnorm+2.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,4]-xv_mock_unp[tIndx,4])*sdfl_sanders15._Vnorm+7.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,5]-xv_mock_unp[tIndx,5])*sdfl_sanders15._Vnorm-6.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
+    return None
+
+# Tests of the density and meanOmega functions
+
+def test_pOparapar():
+    #Test that integrating pOparapar gives density_par
+    dens_frompOpar_close=\
+        integrate.quad(lambda x: sdf_sanders15.pOparapar(x,0.3),
+                       sdf_sanders15._meandO\
+                           -10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]),
+                       sdf_sanders15._meandO\
+                           +10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]))[0]
+    # This is actually in the gap!
+    dens_fromOpar_half=\
+        integrate.quad(lambda x: sdf_sanders15.pOparapar(x,2.6),
+                       sdf_sanders15._meandO\
+                           -10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]),
+                       sdf_sanders15._meandO\
+                           +10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]))[0]
+    print(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3))
+    assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Sanders15 stream'
     return None
 
 # Test the routine that rotates vectors to an arbitrary vector
