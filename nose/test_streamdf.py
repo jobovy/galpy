@@ -395,12 +395,40 @@ def test_length():
     thresh= 0.05
     assert numpy.fabs(sdf_bovy14.density_par(\
             sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    return None
 
 @raises(ValueError)
 def test_length_valueerror():
     thresh= 0.00001
     assert numpy.fabs(sdf_bovy14.density_par(\
             sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    return None
+
+def test_length_ang():
+    # Test that this is roughly correct
+    def dphidapar(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        jac= numpy.fabs((dl-l)/dapar)
+        return jac
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dphidapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
     return None
 
 def test_meanOmega():
