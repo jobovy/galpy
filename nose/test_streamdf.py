@@ -875,6 +875,39 @@ def test_subhalo_encounters_venc():
                           'subhalo_encounters venc behavior is not correct'
     return None
 
+def test_subhalo_encounters_venc_yoon():
+    # Test that the dependence on venc of subhalo_encounters is correct
+    # in the Yoon et al. case
+    def expected_venc(venc,sigma):
+        return 1.-(1.+venc**2./4./sigma**2.)\
+            *numpy.exp(-venc**2./4./sigma**2.)
+    sigma= 150./220.
+    print(sdf_bovy14.subhalo_encounters(venc=1000./220.,
+                                        sigma=sigma,yoon=True)/\
+              sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True))
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(100./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=200./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(200./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=300./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(300./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    # Should go to 1
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=30000./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          -1.) < 10.**-4., \
+                          'subhalo_encounters venc behavior is not correct'
+    return None
+
 def test_bovy14_oppositetrailing_setup():
     #Imports
     from galpy.df import streamdf
