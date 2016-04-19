@@ -431,6 +431,27 @@ def test_length_ang():
                       -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
     return None
 
+def test_length_phys():
+    # Test that this is roughly correct
+    def dxdapar(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar),\
+            sdf_bovy14._interpTrackY(apar),\
+            sdf_bovy14._interpTrackZ(apar)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar),\
+            sdf_bovy14._interpTrackY(apar+dapar),\
+            sdf_bovy14._interpTrackZ(apar+dapar)
+        jac= numpy.sqrt(((dX-X)/dapar)**2.\
+                            +((dY-Y)/dapar)**2.\
+                            +((dZ-Z)/dapar)**2.)
+        return jac*sdf_bovy14._Rnorm
+    thresh= 0.2
+    print(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3),
+          sdf_bovy14.length(threshold=thresh,phys=True))
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,phys=True)) < 1., 'Length in physical coordinates does not conform to rough expectation'
+    return None
+
 def test_meanOmega():
     #Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1)-sdf_bovy14._progenitor_Omega) < 10.**-2.), 'meanOmega near progenitor not close to mean Omega for Bovy14 stream'
