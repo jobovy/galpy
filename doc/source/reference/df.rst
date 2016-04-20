@@ -164,6 +164,7 @@ General instance routines
    find_closest_trackpointLB <streamdffindclosesttrackpointlb.rst>
    freqEigvalRatio <streamdffreqeigvalratio.rst>
    gaussApprox <streamdfgaussapprox.rst>
+   length <streamdflength.rst>
    meanangledAngle <streamdfmeanangledangle.rst>
    meanOmega <streamdfmeanomega.rst>
    meantdAngle <streamdfmeantdangle.rst>
