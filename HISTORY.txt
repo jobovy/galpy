@@ -7,11 +7,11 @@ v1.2 (2016-XX-XX)
   along the stream and the stream track for a perturbed stream from
   Bovy, Erkal, & Sanders (2016).
 
-- Added functions to galpy.df.streamdf to compute the density along
-  the stream quickly (in various coordinates, including custom sky
-  coordinates), to compute the probability
-  p(freq_parallel,angle_parallel), and to estimate the number of
-  encounters with DM subhalos.
+- Added functions to galpy.df.streamdf to compute the length of the
+  stream, the density along the stream quickly (in various
+  coordinates, including custom sky coordinates), to compute the
+  probability p(freq_parallel,angle_parallel), and to estimate the
+  number of encounters with DM subhalos.
 
 - Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
   potential.
