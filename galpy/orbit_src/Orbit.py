@@ -1519,6 +1519,35 @@ class Orbit(object):
         """
         return self._orb.R(*args,**kwargs)
 
+    def r(self,*args,**kwargs):
+        """
+        NAME:
+
+           r
+
+        PURPOSE:
+
+           return spherical radius at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the radius
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           r(t)
+
+        HISTORY:
+
+           2016-04-19 - Written - Bovy (UofT)
+
+        """
+        return self._orb.r(*args,**kwargs)
+
     def vR(self,*args,**kwargs):
         """
         NAME:

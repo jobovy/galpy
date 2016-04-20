@@ -2031,6 +2031,7 @@ def test_physical_output():
             assert numpy.fabs(o.x()/ro-o.x(use_physical=False)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected'
             assert numpy.fabs(o.y()/ro-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected'
         if ii < 2:
+            assert numpy.fabs(o.r()/ro-o.r(use_physical=False)) < 10.**-10., 'o.r() output for Orbit setup with ro= does not work as expected'
             assert numpy.fabs(o.z()/ro-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected'
         #Test velocities
         assert numpy.fabs(o.vR()/vo-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected'
@@ -2091,6 +2092,7 @@ def test_physical_output_off():
             assert numpy.fabs(o.y()-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected when turned off'
         if ii < 2:
             assert numpy.fabs(o.z()-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected when turned off'
+            assert numpy.fabs(o.r()-o.r(use_physical=False)) < 10.**-10., 'o.r() output for Orbit setup with ro= does not work as expected when turned off'
         #Test velocities
         assert numpy.fabs(o.vR()-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected when turned off'
         assert numpy.fabs(o.vT()-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
