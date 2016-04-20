@@ -350,6 +350,17 @@ def test_interpKickdO():
     assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv-0.05) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv-0.035) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv-0.04) < 0.01, 'Frequency kick near the impact point is not zero'
+    # One beyond ._deltaAngleTrackImpact
+    theta= sdf_sanders15._deltaAngleTrackImpact+0.1
+    assert numpy.fabs(sdf_sanders15._kick_interpdOpar(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdar(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdap(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdaz(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
     return None
 
 def test_interpKickda():
