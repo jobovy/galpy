@@ -533,6 +533,25 @@ def test_hernquist():
     assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick far the impact point not close to zero'
     return None
 
+@raises(ValueError)
+def test_determine_deltav_valueerrort():
+    # Test that modeling leading (trailing) impact for trailing (leading) arm
+    # raises a ValueError when using _determine_deltav_kick
+    from galpy.util import bovy_conversion
+    # Switch to Hernquist
+    V0, R0= 220., 8.
+    impactb=0.
+    subhalovel=numpy.array([6.82200571,132.7700529,
+                            149.4174464])/V0
+    impact_angle=-2.34
+    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs=0.625/R0
+    # Can't do minus impact angle!
+    sdf_sanders15._determine_deltav_kick(-impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,True)
+    return None
+
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
     from galpy.df_src import streamgapdf
