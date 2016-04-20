@@ -293,6 +293,7 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -346,6 +347,7 @@ class Orbit(object):
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         self._orb.integrate_dxdv(dxdv,t,pot,method=method,
                                  rectIn=rectIn,rectOut=rectOut)
 
@@ -541,6 +543,7 @@ class Orbit(object):
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
                              radec=radec,lb=lb,
                              customsky=customsky,
@@ -3257,3 +3260,6 @@ def _check_integrate_dt(t,dt):
     else:
         return False
 
+def _check_potential_dim(orb,pot):
+    from galpy.potential import _dim
+    assert orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toLinear' % (orb.dim(),_dim(pot),orb.dim())

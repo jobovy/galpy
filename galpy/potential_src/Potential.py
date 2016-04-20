@@ -2014,6 +2014,32 @@ def _check_c(Pot):
     elif isinstance(Pot,Potential):
         return Pot.hasC
 
+def _dim(Pot):
+    """
+    NAME:                                                                       
+       _dim                                                                                
+    PURPOSE:
+
+       Determine the dimensionality of this potential
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+    OUTPUT:
+
+       Minimum of the dimensionality of all potentials if list; otherwise Pot.dim
+
+    HISTORY:
+
+       2016-04-19 - Written - Bovy (UofT)
+    """
+    from galpy.potential import planarPotential, linearPotential
+    if isinstance(Pot,list):
+        return nu.amin(nu.array([p.dim for p in Pot],dtype='int'))
+    elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
+        return Pot.dim
+
 def kms_to_kpcGyrDecorator(func):
     """Decorator to convert velocities from km/s to kpc/Gyr"""
     @wraps(func)
