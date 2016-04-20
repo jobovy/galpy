@@ -32,50 +32,6 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
-@raises(AssertionError)
-def test_orbit_dim_2dPot_3dOrb():
-    # Test that orbit integration throws an error when using a potential that
-    # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit
-    b_p= potential.PowerSphericalPotentialwCutoff(\
-        alpha=1.8,rc=1.9/8.,normalize=0.05)
-    bar_p= potential.DehnenBarPotential()
-    pota=[b_p,bar_p]
-    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
-                       1000,endpoint=True)
-    o.integrate(ts,pota,method="odeint")
-    return None
-
-@raises(AssertionError)
-def test_orbit_dim_1dPot_3dOrb():
-    # Test that orbit integration throws an error when using a potential that
-    # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit
-    b_p= potential.PowerSphericalPotentialwCutoff(\
-        alpha=1.8,rc=1.9/8.,normalize=0.05)
-    pota= potential.RZToverticalPotential(b_p,1.1)
-    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
-                       1000,endpoint=True)
-    o.integrate(ts,pota,method="odeint")
-    return None
-
-@raises(AssertionError)
-def test_orbit_dim_1dPot_2dOrb():
-    # Test that orbit integration throws an error when using a potential that
-    # is lower dimensional than the orbit, for a 1D potential
-    from galpy.orbit import Orbit
-    b_p= potential.PowerSphericalPotentialwCutoff(\
-        alpha=1.8,rc=1.9/8.,normalize=0.05)
-    pota= [b_p.toVertical(1.1)]
-    o= Orbit(vxvv=[1.1,0.1,1.1,0.1])
-    ts= numpy.linspace(0.,10.,1001)
-    o.integrate(ts,pota,method="leapfrog")
-    return None
-
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
@@ -2443,6 +2399,50 @@ def test_call_issue256():
     o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
     # no integration of the orbit
     o.R(30)
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_2dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit (using ~Plevne's example)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    bar_p= potential.DehnenBarPotential()
+    pota=[b_p,bar_p]
+    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    o.integrate(ts,pota,method="odeint")
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_1dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= potential.RZToverticalPotential(b_p,1.1)
+    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    o.integrate(ts,pota,method="odeint")
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_1dPot_2dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= [b_p.toVertical(1.1)]
+    o= Orbit(vxvv=[1.1,0.1,1.1,0.1])
+    ts= numpy.linspace(0.,10.,1001)
+    o.integrate(ts,pota,method="leapfrog")
     return None
 
 def test_linear_plotting():
