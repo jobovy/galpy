@@ -697,7 +697,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
            amp - amplitude to be applied to the potential
 
-           a - "scale" (in terms of Ro)
+           a - "scale" (in terms of Ro when conc is given)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
