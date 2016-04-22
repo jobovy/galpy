@@ -9,6 +9,7 @@ from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
 from galpy.df_src.df import df, _APY_LOADED
+from galpy.util.bovy_conversion import physical_conversion
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
 if _APY_LOADED:
@@ -346,6 +347,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         else:
             return Oparb[lowbindx]-lowx[lowbindx]
 
+    @physical_conversion('frequency',pop=True)
     def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=True,
                   higherorder=None):
         """
