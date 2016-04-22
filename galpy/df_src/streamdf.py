@@ -432,7 +432,7 @@ class streamdf(df):
 
            sigma= (150/220) velocity dispersion of the DM subhalo population
 
-           nsubhalo= (0.3) number density of subhalos
+           nsubhalo= (0.3) spatial number density of subhalos
 
            bmax= (0.025) maximum impact parameter (if larger than width of stream)
 
@@ -447,6 +447,14 @@ class streamdf(df):
            2016-01-19 - Written - Bovy (UofT)
 
         """
+        if _APY_LOADED and isinstance(venc,units.Quantity):
+            venc= venc.to(units.km/units.s).value/self._vo
+        if _APY_LOADED and isinstance(sigma,units.Quantity):
+            sigma= sigma.to(units.km/units.s).value/self._vo
+        if _APY_LOADED and isinstance(nsubhalo,units.Quantity):
+            nsubhalo= nsubhalo.to(1/units.kpc**3).value*self._ro**3.
+        if _APY_LOADED and isinstance(bmax,units.Quantity):
+            bmax= nsubhalo.to(units.kpc).value/self._ro
         Ravg= numpy.mean(numpy.sqrt(self._progenitor._orb.orbit[:,0]**2.
                                     +self._progenitor._orb.orbit[:,3]**2.))
         if numpy.isinf(venc):
