@@ -66,6 +66,7 @@ Methods
    pmdec <orbitpmdec.rst>
    pmll <orbitpmll.rst>
    pmra <orbitpmra.rst>
+   r <orbitsphr.rst>
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>

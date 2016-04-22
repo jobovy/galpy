@@ -1,8 +1,10 @@
 from __future__ import print_function, division
 import functools
 import nose
+from nose.tools import raises
 import numpy
-from scipy import interpolate
+from scipy import interpolate, integrate
+from galpy.util import bovy_coords
 sdf_bovy14= None #so we can set this up and then use in other tests
 sdft_bovy14= None #so we can set this up and then use in other tests, trailing
 
@@ -127,11 +129,25 @@ def test_bovy14_setup():
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
                 0.88719443,-0.47713334,0.12019596])
     sigv= 0.365 #km/s
+    # For custom_transform
+    theta,dec_ngp,ra_ngp= bovy_coords.get_epoch_angles(2000.)
+    T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],
+                              [numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],
+                              [0.,0.,1.]]),
+                 numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,
+                                          numpy.cos(dec_ngp)],
+                                        [0.,1.,0.],
+                                        [numpy.cos(dec_ngp),0.,
+                                         numpy.sin(dec_ngp)]]),
+                           numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],
+                                        [numpy.sin(theta),-numpy.cos(theta),0.],
+                                        [0.,0.,1.]]))).T
     global sdf_bovy14
     sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                          leading=True,
                          nTrackChunks=11,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         custom_transform=T)
     assert not sdf_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
 
@@ -218,11 +234,227 @@ def test_closest_trackpointaA():
     check_closest_trackpointaA(sdf_bovy14,4,interp=False)
     return None
 
+def test_pOparapar():
+    #Test that integrating pOparapar gives density_par
+    dens_frompOpar_close=\
+        integrate.quad(lambda x: sdf_bovy14.pOparapar(x,0.1),
+                       sdf_bovy14._meandO\
+                           -4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]),
+                       sdf_bovy14._meandO\
+                           +4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]))[0]
+    dens_fromOpar_half=\
+        integrate.quad(lambda x: sdf_bovy14.pOparapar(x,1.1),
+                       sdf_bovy14._meandO\
+                           -4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]),
+                       sdf_bovy14._meandO\
+                           +4.*numpy.sqrt(sdf_bovy14._sortedSigOEig[2]))[0]
+    assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_bovy14.density_par(1.1)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Bovy14 stream'
+    return None
+
+@raises(ValueError)
+def test_density_par_valueerror():
+    # Test that the code throws a ValueError if coord is not understood
+    sdf_bovy14.density_par(0.1,coord='xi')
+    return None
+
 def test_density_par():
     #Test that the density is close to 1 close to the progenitor and close to zero far from the progenitor
     assert numpy.fabs(sdf_bovy14.density_par(0.1)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
     assert numpy.fabs(sdf_bovy14.density_par(0.5)-1.) < 10.**-2., 'density near progenitor not close to 1 for Bovy14 stream'
     assert numpy.fabs(sdf_bovy14.density_par(1.8)-0.) < 10.**-2., 'density far progenitor not close to 0 for Bovy14 stream'
+    return None
+
+def test_density_phi():
+    #Test that the density in phi is correctly computed, by doing this by hand
+    def dens_phi(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar), sdf_bovy14._interpTrackY(apar),\
+            sdf_bovy14._interpTrackZ(apar)
+        R,phi,z= bovy_coords.rect_to_cyl(X,Y,Z)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar),\
+            sdf_bovy14._interpTrackY(apar+dapar),\
+            sdf_bovy14._interpTrackZ(apar+dapar)
+        dR,dphi,dz= bovy_coords.rect_to_cyl(dX,dY,dZ)
+        jac= numpy.fabs((dphi-phi)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density near progenitor in phi is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density near progenitor in phi is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_phi(apar)/sdf_bovy14.density_par(apar,coord='phi')-1.) < 10.**-2., \
+    'density far from progenitor in phi is incorrect'
+    return None
+
+def test_density_ll_and_customra():
+    #Test that the density in ll is correctly computed, by doing this by hand
+    # custom should be the same for this setup (see above)
+    def dens_ll(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        jac= numpy.fabs((dl-l)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
+    'density near progenitor in ll is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='ll')-1.) < 10.**-2., \
+    'density far from progenitor in ll is incorrect'
+    assert numpy.fabs(dens_ll(apar)/sdf_bovy14.density_par(apar,coord='customra')-1.) < 10.**-2., \
+    'density far from progenitor in ll is incorrect'
+    return None
+
+def test_density_ra():
+    #Test that the density in ra is correctly computed, by doing this by hand
+    def dens_ra(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        dra,ddec= bovy_coords.lb_to_radec(dl,db,degree=True)
+        jac= numpy.fabs((dra-ra)/dapar)
+        return sdf_bovy14.density_par(apar)/jac
+    apar= 0.1
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density near progenitor in ra is incorrect'
+    apar= 0.5
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density near progenitor in ra is incorrect'
+    apar= 1.8
+    assert numpy.fabs(dens_ra(apar)/sdf_bovy14.density_par(apar,coord='ra')-1.) < 10.**-2., \
+    'density far from progenitor in ra is incorrect'
+    return None
+
+def test_density_ll_wsampling():
+    # Test that the density computed using density_par is correct using a 
+    # random sample
+    numpy.random.seed(1)
+    def ll(apar):
+        """Quick function that returns l for a given apar"""
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                             Xsun=sdf_bovy14._R0,
+                                             Ysun=0.,
+                                             Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        return l   
+    LB= sdf_bovy14.sample(n=10000,lb=True)
+    apar1, apar2= 0.1, 0.6
+    dens1= float(numpy.sum((LB[0] > ll(apar1))*(LB[0] < ll(apar1)+2.)))
+    dens2= float(numpy.sum((LB[0] > ll(apar2))*(LB[0] < ll(apar2)+2.)))
+    dens1_calc= sdf_bovy14.density_par(apar1,coord='ll')
+    dens2_calc= sdf_bovy14.density_par(apar2,coord='ll')
+    assert numpy.fabs(dens1/dens2-dens1_calc/dens2_calc) < 0.1, 'density in ll computed using density_par does not agree with density from random sample'
+    return None
+
+def test_length():
+    # Test that the length is correct according to its definition
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    thresh= 0.05
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    return None
+
+@raises(ValueError)
+def test_length_valueerror():
+    thresh= 0.00001
+    assert numpy.fabs(sdf_bovy14.density_par(\
+            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    return None
+
+def test_length_ang():
+    # Test that this is roughly correct
+    def dphidapar(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
+                                           Xsun=sdf_bovy14._R0,
+                                           Ysun=0.,
+                                           Zsun=sdf_bovy14._Zsun)
+        l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
+                                                Xsun=sdf_bovy14._R0,
+                                                Ysun=0.,
+                                                Zsun=sdf_bovy14._Zsun)
+        dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
+        jac= numpy.fabs((dl-l)/dapar)
+        return jac
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dphidapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
+    # Dangerous hack to test case where l decreases along the stream
+    sdf_bovy14._interpolatedObsTrackLB[:,:2]*= -1.
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dphidapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,ang=True)) < 10., 'Length in angular coordinates does not conform to rough expectation'
+    # Go back
+    sdf_bovy14._interpolatedObsTrackLB[:,:2]*= -1.
+    return None
+
+def test_length_phys():
+    # Test that this is roughly correct
+    def dxdapar(apar):
+        dapar= 10.**-9.
+        X,Y,Z= sdf_bovy14._interpTrackX(apar),\
+            sdf_bovy14._interpTrackY(apar),\
+            sdf_bovy14._interpTrackZ(apar)
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar),\
+            sdf_bovy14._interpTrackY(apar+dapar),\
+            sdf_bovy14._interpTrackZ(apar+dapar)
+        jac= numpy.sqrt(((dX-X)/dapar)**2.\
+                            +((dY-Y)/dapar)**2.\
+                            +((dZ-Z)/dapar)**2.)
+        return jac*sdf_bovy14._Rnorm
+    thresh= 0.2
+    assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3)
+                      -sdf_bovy14.length(threshold=thresh,phys=True)) < 1., 'Length in physical coordinates does not conform to rough expectation'
     return None
 
 def test_meanOmega():
@@ -788,6 +1020,103 @@ def test_bovy14_sampleA():
     assert numpy.fabs((numpy.mean(AA[2][indx])-sdf_bovy14.meantdAngle(0.25))/numpy.mean(AA[2][indx])) < 10.**-2., 'mean stripping time along sample not as expected'
     return None
 
+def test_subhalo_encounters():
+    # Test that subhalo_encounters acts as expected
+    # linear in sigma
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=300./220.)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.)-3) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=200./220.)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.)-2) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(sigma=50./220.,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(sigma=100./220.,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with sigma'
+    # linear in bmax
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=1.5)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5)-3) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=1.)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5)-2) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=0.25,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(bmax=0.5,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with bmax'
+    # except when bmax is tiny, then it shouldn't matter
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(bmax=10.**-7.)\
+                          /sdf_bovy14.subhalo_encounters(bmax=10.**-6.)-1.) < 10.**-5., 'subhalo_encounters does not become insensitive to bmax at small bmax'
+    # linear in nsubhalo
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=1.5)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5)-3) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=1.)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5)-2) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(nsubhalo=0.25,yoon=True)\
+                          /sdf_bovy14.subhalo_encounters(nsubhalo=0.5,yoon=True)-0.5) < 10.**-8., 'subhalo_encounters does not act linearly with nsubhalo'
+    # For nsubhalo = 0.3 should have O(10) impacts (wow, that actually worked!)
+    assert numpy.fabs(numpy.log10(sdf_bovy14.subhalo_encounters(nsubhalo=0.3,
+                                                                bmax=1.5/8.,
+                                                                sigma=120./220.))\
+                          -1.) < 0.5, 'Number of subhalo impacts does not behave as expected for reasonable inputs'
+    # Except if you're Yoon et al., then it's more like 30
+    assert numpy.fabs(numpy.log10(sdf_bovy14.subhalo_encounters(nsubhalo=0.3,
+                                                                bmax=1.5/8.,
+                                                                sigma=120./220.,
+                                                                yoon=True))\
+                          -1.5) < 0.5, 'Number of subhalo impacts does not behave as expected for reasonable inputs'
+    return None
+
+def test_subhalo_encounters_venc():
+    # Test that the dependence on venc of subhalo_encounters is correct
+    def expected_venc(venc,sigma):
+        return 1.-numpy.exp(-venc**2./2./sigma**2.)
+    sigma= 150./220.
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(100./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=200./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(200./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=300./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          /expected_venc(300./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    # Should go to 1
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=30000./220.,
+                                                    sigma=sigma)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma)\
+                          -1.) < 10.**-4., \
+                          'subhalo_encounters venc behavior is not correct'
+    return None
+
+def test_subhalo_encounters_venc_yoon():
+    # Test that the dependence on venc of subhalo_encounters is correct
+    # in the Yoon et al. case
+    def expected_venc(venc,sigma):
+        return 1.-(1.+venc**2./4./sigma**2.)\
+            *numpy.exp(-venc**2./4./sigma**2.)
+    sigma= 150./220.
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=100./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(100./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=200./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(200./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=300./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          /expected_venc(300./220.,sigma)-1.) < 10.**-8., \
+                          'subhalo_encounters venc behavior is not correct'
+    # Should go to 1
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(venc=30000./220.,
+                                                    sigma=sigma,yoon=True)/\
+                          sdf_bovy14.subhalo_encounters(sigma=sigma,yoon=True)\
+                          -1.) < 10.**-4., \
+                          'subhalo_encounters venc behavior is not correct'
+    return None
+
 def test_bovy14_oppositetrailing_setup():
     #Imports
     from galpy.df import streamdf
@@ -858,7 +1187,6 @@ def test_calcaAJacLB():
     from galpy.df_src.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_coords
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\

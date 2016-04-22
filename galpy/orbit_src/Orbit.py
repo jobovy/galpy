@@ -401,6 +401,7 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value\
@@ -458,6 +459,7 @@ class Orbit(object):
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value\
@@ -598,6 +600,7 @@ class Orbit(object):
         return self._orb.getOrbit_dxdv()
 
     def fit(self,vxvv,vxvv_err=None,pot=None,radec=False,lb=False,
+            customsky=False,lb_to_customsky=None,pmllpmbb_to_customsky=None,
             tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
             **kwargs):
         """
@@ -623,6 +626,8 @@ class Orbit(object):
 
                lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                                       (in kpc and km/s) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
@@ -631,6 +636,10 @@ class Orbit(object):
 
                 vo= velocity in km/s corresponding to v=1. (default: taken from object)
 
+                lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
+
+                pmllpmbb_to_customsky= function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True
+
            Keywords related to the orbit integrations:
 
                tintJ= (default: 10) time to integrate orbits for fitting the orbit
@@ -638,6 +647,8 @@ class Orbit(object):
                ntintJ= (default: 1000) number of time-integration points
 
                integrate_method= (default: 'dopr54_c') integration method to use
+
+           disp= (False) display the optimizer's convergence message
 
         OUTPUT:
 
@@ -648,8 +659,12 @@ class Orbit(object):
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        _check_potential_dim(self,pot)
         return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
                              radec=radec,lb=lb,
+                             customsky=customsky,
+                             lb_to_customsky=lb_to_customsky,
+                             pmllpmbb_to_customsky=pmllpmbb_to_customsky,
                              tintJ=tintJ,ntintJ=ntintJ,
                              integrate_method=integrate_method,
                              **kwargs)
@@ -1649,6 +1664,35 @@ class Orbit(object):
 
         """
         return self._orb.R(*args,**kwargs)
+
+    def r(self,*args,**kwargs):
+        """
+        NAME:
+
+           r
+
+        PURPOSE:
+
+           return spherical radius at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the radius
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           r(t)
+
+        HISTORY:
+
+           2016-04-19 - Written - Bovy (UofT)
+
+        """
+        return self._orb.r(*args,**kwargs)
 
     def vR(self,*args,**kwargs):
         """
@@ -3403,3 +3447,7 @@ def _check_integrate_dt(t,dt):
     else:
         return False
 
+def _check_potential_dim(orb,pot):
+    from galpy.potential import _dim
+    # Don't deal with pot=None here, just dimensionality
+    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toLinear' % (orb.dim(),_dim(pot),orb.dim())

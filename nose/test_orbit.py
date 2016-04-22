@@ -2186,6 +2186,7 @@ def test_physical_output():
             assert numpy.fabs(o.x()/ro-o.x(use_physical=False)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected'
             assert numpy.fabs(o.y()/ro-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected'
         if ii < 2:
+            assert numpy.fabs(o.r()/ro-o.r(use_physical=False)) < 10.**-10., 'o.r() output for Orbit setup with ro= does not work as expected'
             assert numpy.fabs(o.z()/ro-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected'
         #Test velocities
         assert numpy.fabs(o.vR()/vo-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected'
@@ -2246,6 +2247,7 @@ def test_physical_output_off():
             assert numpy.fabs(o.y()-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected when turned off'
         if ii < 2:
             assert numpy.fabs(o.z()-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected when turned off'
+            assert numpy.fabs(o.r()-o.r(use_physical=False)) < 10.**-10., 'o.r() output for Orbit setup with ro= does not work as expected when turned off'
         #Test velocities
         assert numpy.fabs(o.vR()-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected when turned off'
         assert numpy.fabs(o.vT()-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
@@ -2639,6 +2641,50 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
     assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_2dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit (using ~Plevne's example)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    bar_p= potential.DehnenBarPotential()
+    pota=[b_p,bar_p]
+    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    o.integrate(ts,pota,method="odeint")
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_1dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= potential.RZToverticalPotential(b_p,1.1)
+    o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    o.integrate(ts,pota,method="odeint")
+    return None
+
+@raises(AssertionError)
+def test_orbit_dim_1dPot_2dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.orbit import Orbit
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= [b_p.toVertical(1.1)]
+    o= Orbit(vxvv=[1.1,0.1,1.1,0.1])
+    ts= numpy.linspace(0.,10.,1001)
+    o.integrate(ts,pota,method="leapfrog")
     return None
 
 def test_linear_plotting():

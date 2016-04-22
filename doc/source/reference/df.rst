@@ -158,11 +158,13 @@ General instance routines
    __init__ <streamdf.rst>
    calc_stream_lb <streamdfcalcstreamlb.rst>
    callMarg <streamdfcallmarg.rst>
+   density_par <streamdfdenspar.rst>
    estimateTdisrupt <streamdfestimatetdisrupt.rst>
    find_closest_trackpoint <streamdffindclosesttrackpoint.rst>
    find_closest_trackpointLB <streamdffindclosesttrackpointlb.rst>
    freqEigvalRatio <streamdffreqeigvalratio.rst>
    gaussApprox <streamdfgaussapprox.rst>
+   length <streamdflength.rst>
    meanangledAngle <streamdfmeanangledangle.rst>
    meanOmega <streamdfmeanomega.rst>
    meantdAngle <streamdfmeantdangle.rst>
@@ -171,11 +173,13 @@ General instance routines
    plotCompareTrackAAModel <streamdfplotcomparetrackaamodel.rst>
    plotProgenitor <streamdfplotprogenitor.rst>
    plotTrack <streamdfplottrack.rst>
+   pOparapar <streamdfpoparapar.rst>
    ptdAngle <streamdfptdangle.rst>
    sample <streamdfsample.rst>
    sigangledAngle <streamdfsigangledangle.rst>
    sigOmega <streamdfsigomega.rst>
    sigtdAngle <streamdfsigtdangle.rst>
+   subhalo_encounters <streamdfsubhaloencounters.rst>
 
 The distribution function of a gap in a tidal stream
 ----------------------------------------------------

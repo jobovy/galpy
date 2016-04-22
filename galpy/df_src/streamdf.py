@@ -3,7 +3,7 @@ import copy
 import numpy
 import multiprocessing
 import scipy
-from scipy import special, interpolate, integrate
+from scipy import special, interpolate, integrate, optimize
 if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
@@ -12,6 +12,7 @@ from galpy.orbit import Orbit
 from galpy.df_src.df import df
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
 import warnings
 from galpy.util import galpyWarning
 _INTERPDURINGSETUP= True
@@ -44,7 +45,8 @@ class streamdf(df):
                  Vnorm=None,Rnorm=None,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
-                 useInterp=_USEINTERP,nosetup=False):
+                 useInterp=_USEINTERP,nosetup=False,
+                 custom_transform=None):
         """
         NAME:
 
@@ -111,6 +113,8 @@ class streamdf(df):
 
               vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
 
+              custom_transform= (None) matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates
+
         OUTPUT:
 
            object
@@ -146,7 +150,8 @@ class streamdf(df):
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor)
+        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
+                                    custom_transform)
         #Determine the stream track
         if not nosetup:
             self._determine_nTrackIterations(nTrackIterations)
@@ -246,7 +251,8 @@ class streamdf(df):
         self._deltaAngleTrack= deltaAngleTrack
         return None
 
-    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor):
+    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
+                               custom_transform):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet \
                 and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
@@ -267,6 +273,7 @@ class streamdf(df):
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
+        self._custom_transform= custom_transform
         return None
 
     def _setup_progIsTrack(self):
@@ -386,6 +393,58 @@ class streamdf(df):
         """
         return deltaAngle\
             /numpy.sqrt(numpy.sum(self._dsigomeanProg**2.))
+
+    def subhalo_encounters(self,venc=numpy.inf,sigma=150./220.,
+                           nsubhalo=0.3,bmax=0.025,yoon=False):
+        """
+        NAME:
+
+           subhalo_encounters
+
+        PURPOSE:
+
+           estimate the number of encounters with subhalos over the lifetime of this stream, using a formalism similar to that of Yoon et al. (2011)
+
+        INPUT:
+
+           venc= (numpy.inf) count encounters with (relative) speeds less than this (relative radial velocity in cylindrical stream frame, unless yoon is True)
+
+           sigma= (150/220) velocity dispersion of the DM subhalo population
+
+           nsubhalo= (0.3) number density of subhalos
+
+           bmax= (0.025) maximum impact parameter (if larger than width of stream)
+
+           yoon= (False) if True, use erroneous Yoon et al. formula
+
+        OUTPUT:
+
+           number of encounters
+
+        HISTORY:
+
+           2016-01-19 - Written - Bovy (UofT)
+
+        """
+        Ravg= numpy.mean(numpy.sqrt(self._progenitor._orb.orbit[:,0]**2.
+                                    +self._progenitor._orb.orbit[:,3]**2.))
+        if numpy.isinf(venc):
+            vencFac= 1.
+        elif yoon:
+            vencFac= (1.-(1.+venc**2./4./sigma**2.)\
+                          *numpy.exp(-venc**2./4./sigma**2.))
+        else:
+            vencFac= (1.-numpy.exp(-venc**2./2./sigma**2.))
+        if yoon:
+            yoonFac= 2*numpy.sqrt(2.)
+        else:
+            yoonFac= 1.
+        # Figure out width of stream
+        w= self.sigangledAngle(self._meandO*self._tdisrupt,simple=True)
+        if bmax < w*Ravg/2.: bmax= w*Ravg/2.
+        return yoonFac/numpy.sqrt(2.)*numpy.sqrt(numpy.pi)*Ravg*sigma\
+            *self._tdisrupt**2.*self._meandO\
+            *bmax*nsubhalo*vencFac
 
 ############################STREAM TRACK FUNCTIONS#############################
     def plotTrack(self,d1='x',d2='z',interp=True,spread=0,simple=_USESIMPLE,
@@ -796,6 +855,7 @@ class streamdf(df):
             self._nTrackChunks= int(numpy.floor(self._deltaAngleTrack/0.15))+1
         else:
             self._nTrackChunks= nTrackChunks
+        if self._nTrackChunks < 4: self._nTrackChunks= 4
         if not hasattr(self,'nInterpolatedTrackChunks'):
             self.nInterpolatedTrackChunks= 1001
         dt= self._deltaAngleTrack\
@@ -1530,7 +1590,46 @@ class streamdf(df):
         return numpy.argmin(dist)
 
 #########DISTRIBUTION AS A FUNCTION OF ANGLE ALONG THE STREAM##################
-    def density_par(self,dangle,tdisrupt=None):
+    def pOparapar(self,Opar,apar,tdisrupt=None):
+        """
+        NAME:
+
+           pOparapar
+
+        PURPOSE:
+
+           return the probability of a given parallel (frequency,angle) offset pair
+
+        INPUT:
+
+           Opar - parallel frequency offset (array)
+
+           apar - parallel angle offset along the stream (scalar)
+
+        OUTPUT:
+
+           p(Opar,apar)
+
+        HISTORY:
+
+           2015-12-07 - Written - Bovy (UofT)
+
+        """
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
+            Opar= numpy.array([Opar])
+        out= numpy.zeros(len(Opar))
+        # Compute ts
+        ts= apar/Opar
+        # Evaluate
+        out[(ts < tdisrupt)*(ts >= 0.)]=\
+            numpy.exp(-0.5*(Opar[(ts < tdisrupt)*(ts >= 0.)]-self._meandO)**2.\
+                           /self._sortedSigOEig[2])/\
+                           numpy.sqrt(self._sortedSigOEig[2])
+        return out
+
+    def density_par(self,dangle,coord='apar',tdisrupt=None,
+                    **kwargs):
         """
         NAME:
 
@@ -1538,11 +1637,14 @@ class streamdf(df):
 
         PURPOSE:
 
-           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
+           calculate the density as a function of a parallel coordinate
 
         INPUT:
 
-           dangle - angle offset
+           dangle - parallel angle offset for this coordinate value
+
+           coord - coordinate to return the density in ('apar' [default],
+                   'll','phi')
 
         OUTPUT:
 
@@ -1553,11 +1655,137 @@ class streamdf(df):
            2015-11-17 - Written - Bovy (UofT)
 
         """
+        if coord.lower() != 'apar':
+            # Need to compute the Jacobian for this coordinate value
+            ddangle= dangle+10.**-7.
+            ddangle-= dangle
+            if coord.lower() == 'phi':
+                phi_h= bovy_coords.rect_to_cyl(\
+                    self._interpTrackX(dangle+ddangle),
+                    self._interpTrackY(dangle+ddangle),
+                    self._interpTrackZ(dangle+ddangle))
+                phi= bovy_coords.rect_to_cyl(\
+                    self._interpTrackX(dangle),
+                    self._interpTrackY(dangle),
+                    self._interpTrackZ(dangle))
+                jac= numpy.fabs(phi_h[1]-phi[1])/ddangle
+            elif coord.lower() == 'll' or coord.lower() == 'ra' \
+                    or coord.lower() == 'customra':
+                XYZ_h= bovy_coords.galcenrect_to_XYZ(\
+                    self._interpTrackX(dangle+ddangle)*self._Rnorm,
+                    self._interpTrackY(dangle+ddangle)*self._Rnorm,
+                    self._interpTrackZ(dangle+ddangle)*self._Rnorm,
+                    Xsun=self._R0,Zsun=self._Zsun)
+                lbd_h= bovy_coords.XYZ_to_lbd(XYZ_h[0],XYZ_h[1],XYZ_h[2],
+                                              degree=True)
+                XYZ= bovy_coords.galcenrect_to_XYZ(\
+                    self._interpTrackX(dangle)*self._Rnorm,
+                    self._interpTrackY(dangle)*self._Rnorm,
+                    self._interpTrackZ(dangle)*self._Rnorm,
+                    Xsun=self._R0,Zsun=self._Zsun)
+                lbd= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                            degree=True)
+                if coord.lower() == 'll':
+                    jac= numpy.fabs(lbd_h[0]-lbd[0])/ddangle
+                else:
+                    radec_h= bovy_coords.lb_to_radec(lbd_h[0],
+                                                     lbd_h[1],
+                                                     degree=True)
+                    radec= bovy_coords.lb_to_radec(lbd[0],
+                                                   lbd[1],
+                                                   degree=True)
+                    if coord.lower() == 'ra':
+                        jac= numpy.fabs(radec_h[0]-radec[0])/ddangle
+                    else:
+                        xieta_h= bovy_coords.radec_to_custom(\
+                            radec_h[0],radec_h[1],T=self._custom_transform,
+                            degree=True)
+                        xieta= bovy_coords.radec_to_custom(\
+                            radec[0],radec[1],T=self._custom_transform,
+                            degree=True)
+                        jac= numpy.fabs(xieta_h[0]-xieta[0])/ddangle
+            else:
+                raise ValueError('Coordinate input %s not supported by density_par' % coord)
+        else:
+            jac= 1.
+        return self._density_par(dangle,tdisrupt=tdisrupt,**kwargs)/jac
+
+    def _density_par(self,dangle,tdisrupt=None):
+        """The raw density as a function of parallel angle"""
         if tdisrupt is None: tdisrupt= self._tdisrupt
         dOmin= dangle/tdisrupt
         # Normalize to 1 close to progenitor
-        return 0.5*(1.+special.erf((self._meandO-dOmin)\
-                                       /numpy.sqrt(2.*self._sortedSigOEig[2])))
+        return 0.5\
+            *(1.+special.erf((self._meandO-dOmin)\
+                                 /numpy.sqrt(2.*self._sortedSigOEig[2])))
+                                 
+    def length(self,threshold=0.2,phys=False,ang=False,tdisrupt=None):
+        """
+        NAME:
+
+           length
+
+        PURPOSE:
+
+           calculate the length of the stream
+
+        INPUT:
+
+           threshold - threshold down from peak at which to define the 'end' of the stream
+
+           phys= (False) if True, return the length in physical kpc
+
+           ang= (False) if True, return the length in sky angular arc length in degree
+
+        OUTPUT:
+
+           length (rad for parallel angle; kpc for physical length; deg for sky arc length)
+
+        HISTORY:
+
+           2015-12-22 - Written - Bovy (UofT)
+
+        """
+        peak_dens= self.density_par(0.1,tdisrupt=tdisrupt) # assume that this is the peak
+        try:
+            result=\
+                optimize.brentq(lambda x: self.density_par(x,
+                                                           tdisrupt=tdisrupt)\
+                                    -peak_dens*threshold,
+                                0.1,self._deltaAngleTrack)
+        except RuntimeError: #pragma: no cover
+            raise RuntimeError('Length could not be returned, because length method failed to find the threshold value')
+        except ValueError:
+            raise ValueError('Length could not be returned, because length method failed to initialize')
+        if phys:
+            # Need to now integrate length
+            dXda= self._interpTrackX.derivative()
+            dYda= self._interpTrackY.derivative()
+            dZda= self._interpTrackZ.derivative()
+            result= integrate.quad(lambda da: numpy.sqrt(dXda(da)**2.\
+                                                             +dYda(da)**2.\
+                                                             +dZda(da)**2.),
+                                   0.,result)[0]*self._Rnorm          
+        elif ang:
+            # Need to now integrate length
+            if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,0],-1)
+                            -self._interpolatedObsTrackLB[:,0]) > 0.:
+                ll= dePeriod(self._interpolatedObsTrackLB[:,0][:,numpy.newaxis].T*numpy.pi/180.).T*180./numpy.pi
+            else:
+                ll= dePeriod(self._interpolatedObsTrackLB[::-1,0][:,numpy.newaxis].T*numpy.pi/180.).T[::-1]*180./numpy.pi
+            if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,1],-1)
+                            -self._interpolatedObsTrackLB[:,1]) > 0.:
+                bb= dePeriod(self._interpolatedObsTrackLB[:,1][:,numpy.newaxis].T*numpy.pi/180.).T*180./numpy.pi
+            else:
+                bb= dePeriod(self._interpolatedObsTrackLB[::-1,1][:,numpy.newaxis].T*numpy.pi/180.).T[::-1]*180./numpy.pi
+            dlda= interpolate.InterpolatedUnivariateSpline(\
+                self._interpolatedThetasTrack,ll,k=3).derivative()
+            dbda= interpolate.InterpolatedUnivariateSpline(\
+                self._interpolatedThetasTrack,bb,k=3).derivative()
+            result= integrate.quad(lambda da: numpy.sqrt(dlda(da)**2.\
+                                                             +dbda(da)**2.),
+                                   0.,result)[0]
+        return result
 
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
@@ -2507,12 +2735,12 @@ class streamdf(df):
             2013-12-22 - Written - Bovy (IAS)
 
         """
-        if interp is None:
-            interp= self._useInterp
         #First sample frequencies
         Om,angle,dt= self._sample_aAt(n)
         if returnaAdt:
             return (Om,angle,dt)
+        if interp is None:
+            interp= self._useInterp
         #Propagate to R,vR,etc.
         RvR= self._approxaAInv(Om[0,:],Om[1,:],Om[2,:],
                                angle[0,:],angle[1,:],angle[2,:],

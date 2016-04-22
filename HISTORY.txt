@@ -15,10 +15,21 @@ v1.2 (2016-XX-XX)
   EllipticalDiskPotential.
 
 - Added a module for modeling the effect of a subhalo impact on a
-  tidal stream (galpy.df.streamgapdf).
+  tidal stream (galpy.df.streamgapdf); see Sanders, Bovy, & Erkal
+  (2016). Also includes the fast methods for computing the density
+  along the stream and the stream track for a perturbed stream from
+  Bovy, Erkal, & Sanders (2016).
+
+- Added functions to galpy.df.streamdf to compute the length of the
+  stream, the density along the stream quickly (in various
+  coordinates, including custom sky coordinates), to compute the
+  probability p(freq_parallel,angle_parallel), and to estimate the
+  number of encounters with DM subhalos.
 
 - Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
   potential.
+
+- Added the spherical radius as an Orbit method.
 
 v1.1 (2015-06-30)
 ==================

@@ -1,9 +1,10 @@
 # The DF of a gap in a tidal stream
 from functools import wraps
+import copy
 import numpy
 import warnings
 import multiprocessing
-from scipy import integrate, interpolate, optimize
+from scipy import integrate, interpolate, special
 from galpy.util import galpyWarning, bovy_coords, multi
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
@@ -57,11 +58,19 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
                  2( subhalopot= galpy potential object or list thereof (should be spherical)
 
+                 3( hernquist= (False) if True, use Hernquist kicks for GM/rs
+
            deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
 
            nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
 
-           nKickPoints= (10xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated)
+           nKickPoints= (30xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated); '30' chosen such that higherorderTrack can be set to False and get calculations accurate to > 99%
+
+           nokicksetup= (False) if True, only run as far as setting up the coordinate transformation at the time of impact (useful when using this in streampepperdf)
+
+           spline_order= (3) order of the spline to interpolate the kicks with
+
+           higherorderTrack= (False) if True, calculate the track using higher-order terms
 
         OUTPUT:
 
@@ -75,14 +84,18 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
         subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
+        hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
         rs= kwargs.pop('rs',None)
         subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
         impact_angle= kwargs.pop('impact_angle',1.)
+        nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
         nKickPoints= kwargs.pop('nKickPoints',None)
+        spline_order= kwargs.pop('spline_order',3)
+        higherorderTrack= kwargs.pop('higherorderTrack',False)
         # For setup later
         nTrackChunks= kwargs.pop('nTrackChunks',None)
         interpTrack= kwargs.pop('interpTrack',
@@ -93,11 +106,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._general_kick= GM is None or rs is None
         if self._general_kick and subhalopot is None:
             raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
-        if self._general_kick:
-            self._subhalopot= subhalopot
-        else:
-            self._GM= GM
-            self._rs= rs
         # Now run the regular streamdf setup, but without calculating the
         # stream track (nosetup=True)
         kwargs['nosetup']= True
@@ -109,14 +117,21 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._determine_impact_coordtransform(self._deltaAngleTrackImpact,
                                               nTrackChunksImpact,
                                               timpact,impact_angle)
+        # Set nKickPoints
+        if nKickPoints is None:
+            self._nKickPoints= 30*self._nTrackChunksImpact
+        else:
+            self._nKickPoints= nKickPoints
+        if nokicksetup: return None
         # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta,
         # setup interpolating function
-        self._determine_deltav_kick(impactb,subhalovel,
+        self._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                     GM,rs,subhalopot,
-                                    nKickPoints)
-        self._determine_deltaOmegaTheta_kick()
+                                    spline_order,hernquist)
+        self._determine_deltaOmegaTheta_kick(spline_order)
         # Then pass everything to the normal streamdf setup
         self.nInterpolatedTrackChunks= 201 #more expensive now
+        self._higherorderTrack= higherorderTrack
         super(streamgapdf,self)._determine_stream_track(nTrackChunks)
         self._useInterp= useInterp
         if interpTrack or self._useInterp:
@@ -158,53 +173,149 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         apar_impact= apar-Opar*self._timpact
         dOpar_impact= self._kick_interpdOpar(apar_impact)
         Opar_b4impact= Opar-dOpar_impact
-        ts_b4impact= apar_impact/Opar_b4impact
-        # Evaluate the two regimes: stripped before or after impact
-        out[ts < self._timpact]=\
-            numpy.exp(-0.5*(Opar-self._meandO)**2.\
-                           /self._sortedSigOEig[2])/\
-                           numpy.sqrt(self._sortedSigOEig[2])
-        out[(ts >= self._timpact)\
-                *(self._timpact+ts_b4impact < self._tdisrupt)]=\
-            numpy.exp(-0.5*(Opar_b4impact-self._meandO)**2.\
-                           /self._sortedSigOEig[2])/\
-                           numpy.sqrt(self._sortedSigOEig[2])
+        # Evaluate the smooth model in the two regimes:
+        # stripped before or after impact
+        afterIndx= (ts < self._timpact)*(ts >= 0.)
+        out[afterIndx]=\
+            super(streamgapdf,self).pOparapar(Opar[afterIndx],
+                                              apar)
+        out[True-afterIndx]=\
+            super(streamgapdf,self).pOparapar(Opar_b4impact[True-afterIndx],
+                                              apar_impact[True-afterIndx],
+                                              tdisrupt=
+                                              self._tdisrupt-self._timpact)
         return out
 
-    def density_par(self,dangle,tdisrupt=None):
+    def _density_par(self,dangle,tdisrupt=None,approx=True,
+                     higherorder=None):
+        """The raw density as a function of parallel angle,
+        approx= use faster method that directly integrates the spline
+        representation"""
+        if higherorder is None: higherorder= self._higherorderTrack
+        if tdisrupt is None: tdisrupt= self._tdisrupt
+        if approx:
+            return self._density_par_approx(dangle,tdisrupt,
+                                            higherorder=higherorder)
+        else:
+            return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
+                                      *(1+T*T)/(1-T*T)**2.\
+                                      *self.pOparapar(T/(1-T*T)\
+                                                          *numpy.sqrt(self._sortedSigOEig[2])\
+                                                          +self._meandO,dangle),
+                                  -1.,1.)[0]
+
+    def _density_par_approx(self,dangle,tdisrupt,_return_array=False,
+                            higherorder=False):
+        """Compute the density as a function of parallel angle using the 
+        spline representation + approximations"""
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowbindx,lowx= self.minOpar(dangle,tdisrupt,_return_raw=True)
+        lowbindx= numpy.arange(len(Oparb)-1)[lowbindx]
+        Oparb[lowbindx+1]= Oparb[lowbindx]-lowx
+        # Now integrate between breakpoints
+        out= (0.5/(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
+                           *(special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])\
+                                             *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO))\
+                                 -special.erf(1./numpy.sqrt(2.*self._sortedSigOEig[2])*(numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO\
+                                                                                             -self._kick_interpdOpar_poly.c[-2]*self._timpact*(Oparb-numpy.roll(Oparb,-1))[:-1]))))
+        if _return_array:
+            return out
+        out= numpy.sum(out[:lowbindx+1])
+        if higherorder:
+            # Add higher-order contribution
+            out+= self._density_par_approx_higherorder(Oparb,lowbindx)
+        # Add integration to infinity
+        out+= 0.5*(1.+special.erf((self._meandO-Oparb[0])\
+                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
+        return out
+
+    def _density_par_approx_higherorder(self,Oparb,lowbindx,
+                                        _return_array=False,
+                                        gaussxpolyInt=None):
+        """Contribution from non-linear spline terms"""
+        spline_order= self._kick_interpdOpar_raw._eval_args[2]
+        if spline_order == 1: return 0.
+        # Form all Gaussian-like integrals necessary
+        ll= (numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]\
+            -self._meandO\
+            -self._kick_interpdOpar_poly.c[-2]*self._timpact\
+            *(Oparb-numpy.roll(Oparb,-1))[:-1])\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        ul= (Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        if gaussxpolyInt is None:
+            gaussxpolyInt=\
+                self._densMoments_approx_higherorder_gaussxpolyInts(\
+                ll,ul,spline_order+1)
+        # Now multiply in the coefficients for each order
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1],
+                           (len(ul),1)).T
+        gaussxpolyInt*= -0.5*(-numpy.sqrt(2.))**(powers+1)\
+            *self._sortedSigOEig[2]**(0.5*(powers-1))
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1][:-2],
+                           (len(ul),1)).T
+        for jj in range(spline_order+1):
+            gaussxpolyInt[-jj-1]*= numpy.sum(\
+                self._kick_interpdOpar_poly.c[:-2]
+                *self._timpact**powers
+                /(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                **(powers+1)
+                *special.binom(powers,jj)
+                *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)
+                **(powers-jj),axis=0)
+        if _return_array:
+            return numpy.sum(gaussxpolyInt,axis=0)
+        else:
+            return numpy.sum(gaussxpolyInt[:,:lowbindx+1])
+
+    def _densMoments_approx_higherorder_gaussxpolyInts(self,ll,ul,maxj):
+        """Calculate all of the polynomial x Gaussian integrals occuring 
+        in the higher-order terms, recursively"""
+        gaussxpolyInt= numpy.zeros((maxj,len(ul)))
+        gaussxpolyInt[-1]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)-numpy.exp(-ul**2.))
+        gaussxpolyInt[-2]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll-numpy.exp(-ul**2.)*ul)\
+            +0.5*(special.erf(ul)-special.erf(ll))
+        for jj in range(maxj-2):
+            gaussxpolyInt[-jj-3]= 1./numpy.sqrt(numpy.pi)\
+            *(numpy.exp(-ll**2.)*ll**(jj+2)-numpy.exp(-ul**2.)*ul**(jj+2))\
+            +0.5*(jj+2)*gaussxpolyInt[-jj-1]
+        return gaussxpolyInt
+
+    def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
         NAME:
-
-           density_par
-
+           minOpar
         PURPOSE:
-
-           calculate the density as a function of parallel angle, assuming a uniform time distribution up to a maximum time
-
+           return the approximate minimum parallel frequency at a given angle
         INPUT:
-
-           dangle - angle offset
-
+           dangle - parallel angle
         OUTPUT:
-
-           density(angle)
-
+           minimum frequency that gets to this parallel angle
         HISTORY:
-
-           2015-11-17 - Written - Bovy (UofT)
-
+           2015-12-28 - Written - Bovy (UofT)
         """
         if tdisrupt is None: tdisrupt= self._tdisrupt
-        Tlow= 1./2./self._sigMeanOffset\
-            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
-        return integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
-                                  *(1+T*T)/(1-T*T)**2.\
-                                  *self.pOparapar(T/(1-T*T)\
-                                                      *numpy.sqrt(self._sortedSigOEig[2])\
-                                                      +self._meandO,dangle),
-                              Tlow,1.)[0]
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x[:-1])/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowx= ((Oparb-self._kick_interpdOpar_poly.c[-1])\
+                   *(tdisrupt-self._timpact)+Oparb*self._timpact-dangle)\
+                   /((tdisrupt-self._timpact)\
+                         *(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)\
+                         +self._timpact)
+        lowx[lowx < 0.]= numpy.inf
+        lowbindx= numpy.argmin(lowx)
+        if _return_raw:
+            return (lowbindx,lowx[lowbindx])
+        else:
+            return Oparb[lowbindx]-lowx[lowbindx]
 
-    def meanOmega(self,dangle,oned=False,tdisrupt=None):
+    def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=True,
+                  higherorder=None):
         """
         NAME:
 
@@ -220,6 +331,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
 
+           approx= (True) if True, compute the mean Omega by direct integration of the spline representation
+
+           higherorder= (object-wide default higherorderTrack) if True, include higher-order spline terms in the approximate computation
+
         OUTPUT:
 
            mean Omega
@@ -229,89 +344,124 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-11-17 - Written - Bovy (UofT)
 
         """
+        if higherorder is None: higherorder= self._higherorderTrack
         if tdisrupt is None: tdisrupt= self._tdisrupt
-        Tlow= 1./2./self._sigMeanOffset\
-            -numpy.sqrt(1.-(1./2./self._sigMeanOffset)**2.)
-        num=\
-            integrate.quad(lambda T: (T/(1-T*T)\
-                                          *numpy.sqrt(self._sortedSigOEig[2])\
-                                          +self._meandO)\
-                               *numpy.sqrt(self._sortedSigOEig[2])\
-                               *(1+T*T)/(1-T*T)**2.\
-                               *self.pOparapar(T/(1-T*T)\
-                                                   *numpy.sqrt(self._sortedSigOEig[2])\
-                                                   +self._meandO,dangle),
-                           Tlow,1.)[0]
-        denom=\
-            integrate.quad(lambda T: numpy.sqrt(self._sortedSigOEig[2])\
-                               *(1+T*T)/(1-T*T)**2.\
-                               *self.pOparapar(T/(1-T*T)\
-                                                   *numpy.sqrt(self._sortedSigOEig[2])\
-                                                   +self._meandO,dangle),
-                           Tlow,1.)[0]
+        if approx:
+            num= self._meanOmega_num_approx(dangle,tdisrupt,
+                                            higherorder=higherorder)
+        else:
+            num=\
+                integrate.quad(lambda T: (T/(1-T*T)\
+                                              *numpy.sqrt(self._sortedSigOEig[2])\
+                                              +self._meandO)\
+                                   *numpy.sqrt(self._sortedSigOEig[2])\
+                                   *(1+T*T)/(1-T*T)**2.\
+                                   *self.pOparapar(T/(1-T*T)\
+                                                       *numpy.sqrt(self._sortedSigOEig[2])\
+                                                       +self._meandO,dangle),
+                               -1.,1.)[0]
+        denom= self._density_par(dangle,tdisrupt=tdisrupt,approx=approx,
+                                 higherorder=higherorder)
         dO1D= num/denom
         if oned: return dO1D
         else:
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *self._sigMeanSign
 
-    def _rewind_angle_impact(self,dangle):
-        """
-        NAME:
-           _rewind_angle_impact
-        PURPOSE:
-           Find the parallel angle at which a star was just after the impact
-        INPUT:
-           dangle - current parallel angle in rad
-        OUTPUT:
-           angle at impact
-        HISTORY:
-           2015-06-22 - Written - Bovy (IAS)
-        """
-        # First subtract meanOmega evolution
-        dangle-= super(streamgapdf,self).meanOmega(dangle,oned=True)\
-            *self._timpact
-        # Now solve the kick's evolution  itself
-        if not hasattr(self,'_daparMax'):
-            # Maximum dOpar
-            self._daparMax= self._kick_interpdOpar_dapar.roots()
-            self._dOparMax= self._kick_interpdOpar(self._daparMax)
-            self._daparMax-= self._impact_angle
-            # Angle where caustic forms at the current time, not yet used
-            self._daparCau= interpolate.InterpolatedUnivariateSpline(\
-                self._kick_interpolatedThetasTrack,
-                numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
-                    +self._kick_interpolatedThetasTrack/self._timpact,
-                k=4).derivative(1).roots()
-            self._dOparCau= self._kick_interpdOpar(self._daparCau)
-            self._daparCau-= self._impact_angle
-            if len(self._daparCau) == 0: self._caustic_phase= False
-            else: self._caustic_phase= True
-        if not self._caustic_phase: # Single-valued everywhere
-            guess= dangle
-            dguess= numpy.fabs(self._dOparMax[0])*self._timpact*1.2
-            out= optimize.brentq(lambda da: dangle
-                                 -self._kick_interpdOpar(da)*self._timpact
-                                 -da,
-                                 guess-dguess,guess+dguess)
-        """
-        except ValueError:
-            # Only get into trouble at the edges; assume the kick is zero
-            out= dangle-self._meandO*self._sigMeanSign*self._timpact
-        """
+    def _meanOmega_num_approx(self,dangle,tdisrupt,higherorder=False):
+        """Compute the numerator going into meanOmega using the direct integration of the spline representation"""
+        # First construct the breakpoints for this dangle
+        Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
+        # Find the lower limit of the integration in the pw-linear-kick approx.
+        lowbindx,lowx= self.minOpar(dangle,tdisrupt,_return_raw=True)
+        lowbindx= numpy.arange(len(Oparb)-1)[lowbindx]
+        Oparb[lowbindx+1]= Oparb[lowbindx]-lowx
+        # Now integrate between breakpoints
+        out= numpy.sum(((Oparb[:-1]
+                         +(self._meandO+self._kick_interpdOpar_poly.c[-1]
+                           -Oparb[:-1])/
+                         (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact))
+                        *self._density_par_approx(dangle,tdisrupt,
+                                                  _return_array=True)
+                        +numpy.sqrt(self._sortedSigOEig[2]/2./numpy.pi)/
+                        (1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)**2.
+                        *(numpy.exp(-0.5*(Oparb[:-1]
+                                      -self._kick_interpdOpar_poly.c[-1]
+                                      -(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                                      *(Oparb-numpy.roll(Oparb,-1))[:-1]
+                                      -self._meandO)**2.
+                                     /self._sortedSigOEig[2])
+                          -numpy.exp(-0.5*(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]
+                                       -self._meandO)**2.
+                                      /self._sortedSigOEig[2])))[:lowbindx+1])
+        if higherorder:
+            # Add higher-order contribution
+            out+= self._meanOmega_num_approx_higherorder(Oparb,lowbindx)
+        # Add integration to infinity
+        out+= 0.5*(numpy.sqrt(2./numpy.pi)*numpy.sqrt(self._sortedSigOEig[2])\
+                        *numpy.exp(-0.5*(self._meandO-Oparb[0])**2.\
+                                        /self._sortedSigOEig[2])
+                   +self._meandO
+                   *(1.+special.erf((self._meandO-Oparb[0])
+                                    /numpy.sqrt(2.*self._sortedSigOEig[2]))))
         return out
 
-    def _determine_deltav_kick(self,impactb,subhalovel,
+    def _meanOmega_num_approx_higherorder(self,Oparb,lowbindx):
+        """Contribution from non-linear spline terms"""
+        spline_order= self._kick_interpdOpar_raw._eval_args[2]
+        if spline_order == 1: return 0.
+        # Form all Gaussian-like integrals necessary
+        ll= (numpy.roll(Oparb,-1)[:-1]-self._kick_interpdOpar_poly.c[-1]\
+            -self._meandO\
+            -self._kick_interpdOpar_poly.c[-2]*self._timpact\
+            *(Oparb-numpy.roll(Oparb,-1))[:-1])\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        ul= (Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)\
+            /numpy.sqrt(2.*self._sortedSigOEig[2])
+        gaussxpolyInt=\
+            self._densMoments_approx_higherorder_gaussxpolyInts(ll,ul,
+                                                               spline_order+2)
+        firstTerm= Oparb[:-1]\
+            *self._density_par_approx_higherorder(\
+            Oparb,lowbindx,_return_array=True,
+            gaussxpolyInt=copy.copy(gaussxpolyInt[1:]))
+        # Now multiply in the coefficients for each order
+        powers= numpy.tile(numpy.arange(spline_order+2)[::-1],
+                           (len(ul),1)).T
+        gaussxpolyInt*= -0.5*(-numpy.sqrt(2.))**(powers+1)\
+            *self._sortedSigOEig[2]**(0.5*(powers-1))
+        powers= numpy.tile(numpy.arange(spline_order+1)[::-1][:-2],
+                           (len(ul),1)).T
+        for jj in range(spline_order+2):
+            gaussxpolyInt[-jj-1]*= numpy.sum(\
+                self._kick_interpdOpar_poly.c[:-2]
+                *self._timpact**powers
+                /(1.+self._kick_interpdOpar_poly.c[-2]*self._timpact)
+                **(powers+2)
+                *special.binom(powers+1,jj)
+                *(Oparb[:-1]-self._kick_interpdOpar_poly.c[-1]-self._meandO)
+                **(powers-jj+1),axis=0)
+        out= numpy.sum(gaussxpolyInt,axis=0)
+        out+= firstTerm
+        return numpy.sum(out[:lowbindx+1])
+
+    def _determine_deltav_kick(self,impact_angle,impactb,subhalovel,
                                GM,rs,subhalopot,
-                               nKickPoints):
+                               spline_order,hernquist):
         # Store some impact parameters
         self._impactb= impactb
         self._subhalovel= subhalovel
-        # First set nKickPoints
-        if nKickPoints is None:
-            self._nKickPoints= 10*self._nTrackChunksImpact
+        # Sign of delta angle tells us whether the impact happens to the
+        # leading or trailing arm, self._sigMeanSign contains this info;
+        # Checked before, but check it again in case impact_angle has changed
+        if impact_angle > 0.:
+            self._gap_leading= True
         else:
-            self._nKickPoints= nKickPoints
+            self._gap_leading= False
+        if (self._gap_leading and not self._leading) \
+                or (not self._gap_leading and self._leading):
+            raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
+        self._impact_angle= numpy.fabs(impact_angle)
         # Interpolate the track near the gap in (x,v) at the kick_thetas
         self._interpolate_stream_track_kick()
         self._interpolate_stream_track_kick_aA()
@@ -324,19 +474,23 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                     self._subhalovel,
                                                     self._kick_ObsTrackXY_closest[:3],
                                                     self._kick_ObsTrackXY_closest[3:],
-                                                    self._subhalopot)
+                                                    subhalopot)
         else:
+            if hernquist:
+                deltav_func= impulse_deltav_hernquist_curvedstream
+            else:
+                deltav_func= impulse_deltav_plummer_curvedstream
             self._kick_deltav= \
-                impulse_deltav_plummer_curvedstream(self._kick_interpolatedObsTrackXY[:,3:],
-                                                    self._kick_interpolatedObsTrackXY[:,:3],
-                                                    self._impactb,
-                                                    self._subhalovel,
-                                                    self._kick_ObsTrackXY_closest[:3],
-                                                    self._kick_ObsTrackXY_closest[3:],
-                                                    self._GM,self._rs)
+                deltav_func(self._kick_interpolatedObsTrackXY[:,3:],
+                            self._kick_interpolatedObsTrackXY[:,:3],
+                            self._impactb,
+                            self._subhalovel,
+                            self._kick_ObsTrackXY_closest[:3],
+                            self._kick_ObsTrackXY_closest[3:],
+                            GM,rs)
         return None
 
-    def _determine_deltaOmegaTheta_kick(self):
+    def _determine_deltaOmegaTheta_kick(self,spline_order):
         # Propagate deltav(angle) -> delta (Omega,theta) [angle]
         # Cylindrical coordinates of the perturbed points
         vXp= self._kick_interpolatedObsTrackXY[:,3]+self._kick_deltav[:,0]
@@ -381,38 +535,60 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_dOap= Oap.T-self._kick_interpolatedObsTrackAA
         self._kick_interpdOr_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,0],
+            k=spline_order)
         self._kick_interpdOp_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,1],
+            k=spline_order)
         self._kick_interpdOz_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,2],
+            k=spline_order)
         self._kick_interpdar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,3],
+            k=spline_order)
         self._kick_interpdap_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,4],
+            k=spline_order)
         self._kick_interpdaz_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOap[:,5],
+            k=spline_order)
         # Also interpolate parallel and perpendicular frequencies
         self._kick_dOaparperp=\
             numpy.dot(self._kick_dOap[:,:3],
                       self._sigomatrixEig[1][:,self._sigomatrixEigsortIndx])
+        self._kick_dOaparperp[:,2]*= self._sigMeanSign
         self._kick_interpdOpar_raw=\
             interpolate.InterpolatedUnivariateSpline(\
             self._kick_interpolatedThetasTrack,
-            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection),k=4) # to get zeros with sproot
+            numpy.dot(self._kick_dOap[:,:3],self._dsigomeanProgDirection)\
+                *self._sigMeanSign,
+            k=spline_order) # to get zeros with sproot
         self._kick_interpdOperp0_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,0],
+            k=spline_order)
         self._kick_interpdOperp1_raw=\
             interpolate.InterpolatedUnivariateSpline(\
-            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],k=3)
+            self._kick_interpolatedThetasTrack,self._kick_dOaparperp[:,1],
+            k=spline_order)
         # Also construct derivative of dOpar
         self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
+        # Also construct piecewise-polynomial representation of dOpar, 
+        # removing intervals at the start and end with zero range
+        ppoly= interpolate.PPoly.from_spline(\
+            self._kick_interpdOpar_raw._eval_args)
+        nzIndx=\
+            numpy.nonzero((numpy.roll(ppoly.x,-1)-ppoly.x > 0)\
+                              *(numpy.arange(len(ppoly.x)) < len(ppoly.x)//2)\
+                              +(ppoly.x-numpy.roll(ppoly.x,1) > 0)\
+                              *(numpy.arange(len(ppoly.x)) >= len(ppoly.x)//2))
+        self._kick_interpdOpar_poly= interpolate.PPoly(\
+            ppoly.c[:,nzIndx[0][:-1]],ppoly.x[nzIndx[0]])
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
@@ -447,6 +623,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def _interpolate_stream_track_kick(self):
         """Build interpolations of the stream track near the kick"""
         if hasattr(self,'_kick_interpolatedThetasTrack'): #pragma: no cover
+            self._store_closest()
             return None #Already did this
         # Setup the trackpoints where the kick will be computed, covering the
         # full length of the stream
@@ -512,6 +689,10 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         self._kick_interpolatedObsTrack[:,3]= tZ
         self._kick_interpolatedObsTrack[:,4]= tvZ
         self._kick_interpolatedObsTrack[:,5]= tphi
+        self._store_closest()
+        return None
+
+    def _store_closest(self):
         # Also store (x,v) for the point of closest approach
         self._kick_ObsTrackXY_closest= numpy.array([\
                 self._kick_interpTrackX(self._impact_angle),
@@ -577,7 +758,6 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         if (self._gap_leading and not self._leading) \
                 or (not self._gap_leading and self._leading):
             raise ValueError('Modeling leading (trailing) impact for trailing (leading) arm; this is not allowed because it is nonsensical in this framework')
-        self._impact_angle= numpy.fabs(impact_angle)
         self._gap_sigMeanSign= 1.
         if (self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign < 0.) \
                 or (not self._gap_leading and self._progenitor_Omega_along_dOmega/self._sigMeanSign > 0.):
@@ -588,6 +768,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             self._nTrackChunksImpact= int(numpy.floor(self._deltaAngleTrackImpact/0.15))+1
         else:
             self._nTrackChunksImpact= nTrackChunksImpact
+        if self._nTrackChunksImpact < 4: self._nTrackChunksImpact= 4
         dt= self._deltaAngleTrackImpact\
             /self._progenitor_Omega_along_dOmega\
             /self._sigMeanSign*self._gap_sigMeanSign

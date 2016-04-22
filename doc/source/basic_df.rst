@@ -406,7 +406,7 @@ slow computations involved). Thus, we can evaluate the mean radial
 velocity at ``R=0.9``, ``phi=22.5`` degree, and ``t=0`` by using a grid
 
 >>> mvrcold, gridcold= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51,nsigma=6.)
->>> mvrwarm, gridwarm= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51)
+>>> mvrwarm, gridwarm= edfwarm.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51)
 >>> print mvrcold, mvrwarm
 -0.0358753028951 -0.0294763627935
 

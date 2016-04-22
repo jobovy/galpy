@@ -44,7 +44,7 @@ def save_pickles(savefilename,*args,**kwargs):
             if kwargs.get('testKeyboardInterrupt',False) and not interrupted:
                 raise KeyboardInterrupt
             for f in args:
-                pickle.dump(f,savefile)
+                pickle.dump(f,savefile,pickle.HIGHEST_PROTOCOL)
             savefile.close()
             file_open= False
             shutil.move(tmp_savefilename,savefilename)

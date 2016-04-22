@@ -1,6 +1,7 @@
 import numpy
 from nose.tools import raises
 numpy.random.seed(1)
+from scipy import integrate
 sdf_sanders15= None #so we can set this up and then use in other tests
 sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdfl_sanders15= None #so we can set this up and then use in other tests
@@ -349,42 +350,23 @@ def test_interpKickdO():
     assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv-0.05) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv-0.035) < 0.01, 'Frequency kick near the impact point is not zero'
     assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv-0.04) < 0.01, 'Frequency kick near the impact point is not zero'
+    # One beyond ._deltaAngleTrackImpact
+    theta= sdf_sanders15._deltaAngleTrackImpact+0.1
+    assert numpy.fabs(sdf_sanders15._kick_interpdOpar(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta)*freqConv) < 10.**-16., 'Frequency kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdar(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdap(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
+    assert numpy.fabs(sdf_sanders15._kick_interpdaz(theta)) < 10.**-16., 'Angle kick beyond ._deltaAngleTrackImpact is not zero'
     return None
 
 def test_interpKickda():
     thetas= numpy.linspace(-0.75,0.75,10)+sdf_sanders15._impact_angle
     assert numpy.all(numpy.fabs(sdf_sanders15._kick_interpdar(thetas)) \
                          < 2.*numpy.fabs(sdf_sanders15._kick_interpdOr(thetas)/sdf_sanders15._progenitor_Omegar)), 'Interpolated angle kick not everywhere smaller than the frequency kick after one period'
-    return None
-
-# Test rewind_angle
-def test_rewind_angle_impact():
-    from galpy.df import streamgapdf
-    # Check that the equation is solved correctly for a few points
-    theta= sdf_sanders15._impact_angle
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
-    theta= 2.
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
-    theta= 5.
-    rew_theta= sdf_sanders15._rewind_angle_impact(theta)
-    pred= rew_theta\
-        +(super(streamgapdf,sdf_sanders15).meanOmega(rew_theta,oned=True,
-                                                     tdisrupt=sdf_sanders15._tdisrupt-sdf_sanders15._timpact)\
-              +sdf_sanders15._kick_interpdOpar(rew_theta))\
-              *sdf_sanders15._timpact
-    assert numpy.fabs(theta-pred) < 10.**-2., 'Angle rewinding fails by %g' % (numpy.fabs(theta-pred))
     return None
 
 # Test the sampling of present-day perturbed points based on the model
@@ -449,6 +431,136 @@ def test_sample_offset_leading():
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,3]-xv_mock_unp[tIndx,3])*sdfl_sanders15._Vnorm+2.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,4]-xv_mock_unp[tIndx,4])*sdfl_sanders15._Vnorm+7.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
     assert numpy.fabs(numpy.median(xv_mock_per[tIndx,5]-xv_mock_unp[tIndx,5])*sdfl_sanders15._Vnorm-6.) < 0.5, 'Location of perturbed mock track is incorrect near the gap'
+    return None
+
+# Tests of the density and meanOmega functions
+
+def test_pOparapar():
+    #Test that integrating pOparapar gives density_par
+    dens_frompOpar_close=\
+        integrate.quad(lambda x: sdf_sanders15.pOparapar(x,0.3),
+                       sdf_sanders15._meandO\
+                           -10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]),
+                       sdf_sanders15._meandO\
+                           +10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]))[0]
+    # This is actually in the gap!
+    dens_fromOpar_half=\
+        integrate.quad(lambda x: sdf_sanders15.pOparapar(x,2.6),
+                       sdf_sanders15._meandO\
+                           -10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]),
+                       sdf_sanders15._meandO\
+                           +10.*numpy.sqrt(sdf_sanders15._sortedSigOEig[2]))[0]
+    assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_sanders15.density_par(2.6)/sdf_sanders15.density_par(0.3)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Sanders15 stream'
+    return None
+
+def test_density_apar_approx():
+    # Test that the approximate density agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    return None
+
+def test_density_apar_approx_higherorder():
+    # Test that the approximate density agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True,higherorder=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True,higherorder=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.density_par(apar,approx=False)/sdf_sanders15.density_par(apar,approx=True,higherorder=True)/sdf_sanders15.density_par(0.3,approx=False)*sdf_sanders15.density_par(0.3,approx=True,higherorder=True)-1.) < 10.**-3., 'Approximate density does not agree with direct integration'
+    return None
+
+def test_minOpar():
+    # Test that for Opar < minOpar, p(Opar,apar) is in fact zero!
+    apar= 0.3
+    dO= 10.**-4.
+    assert numpy.fabs(sdf_sanders15.pOparapar(sdf_sanders15.minOpar(apar)-dO,
+                                              apar)) < 10.**-16., 'Probability for Opar < minOpar is not zero'
+    apar= 2.6
+    dO= 10.**-4.
+    assert numpy.fabs(sdf_sanders15.pOparapar(sdf_sanders15.minOpar(apar)-dO,
+                                              apar)) < 10.**-16., 'Probability for Opar < minOpar is not zero'
+    return None
+
+def test_meanOmega_approx():
+    # Test that the approximate meanOmega agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    return None
+
+def test_meanOmega_approx_higherorder():
+    # Test that the approximate meanOmega agrees with the direct integration
+    # Need to do this relatively to another density, because there is an
+    # overall offset
+    apar= 2.6
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,higherorder=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    apar= 2.3
+    assert numpy.fabs(sdf_sanders15.meanOmega(apar,approx=False,oned=True)/sdf_sanders15.meanOmega(apar,approx=True,higherorder=True,oned=True)-1.) < 10.**-3., 'Approximate meanOmega does not agree with direct integration'
+    return None
+
+def test_hernquist():
+    # Test that Hernquist kicks are similar to Plummer kicks, but are
+    # different in understood ways (...)
+    from galpy.util import bovy_conversion
+    # Switch to Hernquist
+    V0, R0= 220., 8.
+    impactb=0.
+    subhalovel=numpy.array([6.82200571,132.7700529,
+                            149.4174464])/V0
+    impact_angle=-2.34
+    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs=0.625/R0
+    sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,True)
+    hernquist_kicks= sdf_sanders15._kick_deltav
+    # Back to Plummer
+    sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,False)
+    # Repeat some of the deltav tests from above
+    # Closest one to the impact point, should be close to zero
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle))
+    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._Vnorm) < 0.4), 'Kick near the impact point not close to zero for Hernquist'
+    # The peak, size and location
+    # Peak should be slightly less (guessed these correct!)
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,0]*sdf_sanders15._Vnorm))-0.25) < 0.06, 'Peak dvx incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,0]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle < 0., 'Location of peak dvx incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,1]*sdf_sanders15._Vnorm))-0.25) < 0.06, 'Peak dvy incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,1]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvy incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(hernquist_kicks[:,2]*sdf_sanders15._Vnorm))-1.3) < 0.06, 'Peak dvz incorrect'
+    assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(hernquist_kicks[:,2]*sdf_sanders15._Vnorm)]-sdf_sanders15._impact_angle > 0., 'Location of peak dvz incorrect'
+    # Close to zero far from impact point
+    tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
+                                       -sdf_sanders15._impact_angle-1.5))
+    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._Vnorm) < 0.3), 'Kick far the impact point not close to zero'
+    return None
+
+@raises(ValueError)
+def test_determine_deltav_valueerrort():
+    # Test that modeling leading (trailing) impact for trailing (leading) arm
+    # raises a ValueError when using _determine_deltav_kick
+    from galpy.util import bovy_conversion
+    # Switch to Hernquist
+    V0, R0= 220., 8.
+    impactb=0.
+    subhalovel=numpy.array([6.82200571,132.7700529,
+                            149.4174464])/V0
+    impact_angle=-2.34
+    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    rs=0.625/R0
+    # Can't do minus impact angle!
+    sdf_sanders15._determine_deltav_kick(-impact_angle,impactb,subhalovel,
+                                         GM,rs,None,
+                                         3,True)
     return None
 
 # Test the routine that rotates vectors to an arbitrary vector
