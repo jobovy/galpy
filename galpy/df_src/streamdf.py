@@ -42,6 +42,7 @@ class streamdf(df):
                  sigangle=None,
                  deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
                  progIsTrack=False,
+                 ro=None,vo=None,
                  Vnorm=None,Rnorm=None,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
@@ -103,11 +104,11 @@ class streamdf(df):
 
            Coordinate transformation inputs:
 
-              Vnorm= (220) circular velocity to normalize velocities with
+              vo= (220) circular velocity to normalize velocities with [used to be Vnorm]
 
-              Rnorm= (8) Galactocentric radius to normalize positions with
+              ro= (8) Galactocentric radius to normalize positions with [used to be Rnorm]
 
-              R0= (8) Galactocentric radius of the Sun (kpc)
+              R0= (8) Galactocentric radius of the Sun (kpc) [can be different from ro]
 
               Zsun= (0.025) Sun's height above the plane (kpc)
 
@@ -126,12 +127,16 @@ class streamdf(df):
            2013-11-25 - Started over - Bovy (IAS)
 
         """
-        df.__init__(self,ro=Rnorm,vo=Vnorm)
-        if Rnorm is None: Rnorm= 8.
-        if Vnorm is None: Vnorm= 220.
+        if ro is None and not Rnorm is None:
+            warnings.warn("WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword", galpyWarning)
+            ro= Rnorm
+        if vo is None and not Vnorm is None:
+            warnings.warn("WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword", galpyWarning)
+            vo= Vnorm
+        df.__init__(self,ro=ro,vo=vo)
         self._sigv= sigv
         if tdisrupt is None:
-            self._tdisrupt= 5./bovy_conversion.time_in_Gyr(Vnorm,Rnorm)
+            self._tdisrupt= 5./bovy_conversion.time_in_Gyr(self._vo,self._ro)
         else:
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
@@ -150,7 +155,7 @@ class streamdf(df):
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        self._setup_coord_transform(Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
+        self._setup_coord_transform(self._ro,self._vo,R0,Zsun,vsun,progenitor,
                                     custom_transform)
         #Determine the stream track
         if not nosetup:
@@ -251,25 +256,22 @@ class streamdf(df):
         self._deltaAngleTrack= deltaAngleTrack
         return None
 
-    def _setup_coord_transform(self,Rnorm,Vnorm,R0,Zsun,vsun,progenitor,
-                               custom_transform):
+    def _setup_coord_transform(self,R0,Zsun,vsun,progenitor,custom_transform):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet \
-                and (numpy.fabs(Rnorm-progenitor._orb._ro) > 10.**-.8 \
+                and (numpy.fabs(self._ro-progenitor._orb._ro) > 10.**-.8 \
                          or numpy.fabs(R0-progenitor._orb._ro) > 10.**-8.):
-            warnings.warn("Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
+            warnings.warn("Warning: progenitor's ro does not agree with streamdf's ro and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
         if progenitor._voSet \
-                and numpy.fabs(Vnorm-progenitor._orb._vo) > 10.**-8.:
-            warnings.warn("Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables", galpyWarning)
+                and numpy.fabs(self._vo-progenitor._orb._vo) > 10.**-8.:
+            warnings.warn("Warning: progenitor's vo does not agree with streamdf's vo; this may have unexpected consequences when projecting into observables", galpyWarning)
         if (progenitor._roSet or progenitor._voSet) \
                 and numpy.fabs(Zsun-progenitor._orb._zo) > 10.**-8.:
             warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
         if (progenitor._roSet or progenitor._voSet) \
-                and numpy.any(numpy.fabs(vsun-numpy.array([0.,Vnorm,0.])\
+                and numpy.any(numpy.fabs(vsun-numpy.array([0.,self._vo,0.])\
                                              -progenitor._orb._solarmotion) > 10.**-8.):
-            warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables", galpyWarning)
-        self._Vnorm= Vnorm
-        self._Rnorm= Rnorm
+            warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for vo); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._R0= R0
         self._Zsun= Zsun
         self._vsun= vsun
@@ -556,9 +558,9 @@ class streamdf(df):
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
         phys= kwargs.pop('scaleToPhysical',False)
-        tx= self._parse_progenitor_dim(d1,tts,ro=self._Rnorm,vo=self._Vnorm,
+        tx= self._parse_progenitor_dim(d1,tts,ro=self._ro,vo=self._vo,
                                        obs=obs,phys=phys)
-        ty= self._parse_progenitor_dim(d2,tts,ro=self._Rnorm,vo=self._Vnorm,
+        ty= self._parse_progenitor_dim(d2,tts,ro=self._ro,vo=self._vo,
                                        obs=obs,phys=phys)
         bovy_plot.bovy_plot(tx,ty,*args,
                             xlabel=_labelDict[d1.lower()],
@@ -605,12 +607,12 @@ class streamdf(df):
         if phys and (d1.lower() == 'x' or d1.lower() == 'y' \
                          or d1.lower() == 'z' or d1.lower() == 'r'):
             tx= copy.copy(tx)
-            tx*= self._Rnorm
+            tx*= self._ro
         if phys and (d1.lower() == 'vx' or d1.lower() == 'vy' \
                          or d1.lower() == 'vz' or d1.lower() == 'vr' \
                          or d1.lower() == 'vt'):
             tx= copy.copy(tx)
-            tx*= self._Vnorm
+            tx*= self._vo
         return tx        
 
     def _parse_progenitor_dim(self,d1,ts,ro=None,vo=None,obs=None,
@@ -651,12 +653,12 @@ class streamdf(df):
         if phys and (d1.lower() == 'x' or d1.lower() == 'y' \
                          or d1.lower() == 'z' or d1.lower() == 'r'):
             tx= copy.copy(tx)
-            tx*= self._Rnorm
+            tx*= self._ro
         if phys and (d1.lower() == 'vx' or d1.lower() == 'vy' \
                          or d1.lower() == 'vz' or d1.lower() == 'vr' \
                          or d1.lower() == 'vt'):
             tx= copy.copy(tx)
-            tx*= self._Vnorm
+            tx*= self._vo
         return tx        
 
     def _parse_track_spread(self,d1,d2,interp=True,phys=False,
@@ -704,8 +706,8 @@ class streamdf(df):
             relevantDict= indxDict
             if phys:#apply scale factors
                 tcov= copy.copy(relevantCov)
-                scaleFac= numpy.array([self._Rnorm,self._Vnorm,self._Vnorm,
-                                       self._Rnorm,self._Vnorm,1.])
+                scaleFac= numpy.array([self._ro,self._vo,self._vo,
+                                       self._ro,self._vo,1.])
                 tcov*= numpy.tile(scaleFac,(6,1))
                 tcov*= numpy.tile(scaleFac,(6,1)).T
                 relevantCov= tcov
@@ -714,8 +716,8 @@ class streamdf(df):
             relevantDict= indxDictXY
             if phys:#apply scale factors
                 tcov= copy.copy(relevantCov)
-                scaleFac= numpy.array([self._Rnorm,self._Rnorm,self._Rnorm,
-                                       self._Vnorm,self._Vnorm,self._Vnorm])
+                scaleFac= numpy.array([self._ro,self._ro,self._ro,
+                                       self._vo,self._vo,self._vo])
                 tcov*= numpy.tile(scaleFac,(6,1))
                 tcov*= numpy.tile(scaleFac,(6,1)).T
                 relevantCov= tcov
@@ -1081,15 +1083,15 @@ class streamdf(df):
         return None
 
     def _determine_stream_spreadLB(self,simple=_USESIMPLE,
-                                   Rnorm=None,Vnorm=None,
+                                   ro=None,vo=None,
                                    R0=None,Zsun=None,vsun=None):
         """Determine the spread in the stream in observable coordinates"""
         if not hasattr(self,'_allErrCovs'):
             self._determine_stream_spread(simple=simple)
-        if Rnorm is None:
-            Rnorm= self._Rnorm
-        if Vnorm is None:
-            Vnorm= self._Vnorm
+        if ro is None:
+            ro= self._ro
+        if vo is None:
+            vo= self._vo
         if R0 is None:
             R0= self._R0
         if Zsun is None:
@@ -1100,8 +1102,8 @@ class streamdf(df):
         obs= [R0,0.,Zsun]
         obs.extend(vsun)
         obskwargs= {}
-        obskwargs['ro']= Rnorm
-        obskwargs['vo']= Vnorm
+        obskwargs['ro']= ro
+        obskwargs['vo']= vo
         obskwargs['obs']= obs
         self._ErrCovsLBScale= [180.,90.,
                                self._progenitor.dist(**obskwargs),
@@ -1117,8 +1119,8 @@ class streamdf(df):
             tjacXY= bovy_coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
             tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
                                                degree=True)
-            tjacLB[:3,:]/= Rnorm 
-            tjacLB[3:,:]/= Vnorm 
+            tjacLB[:3,:]/= ro
+            tjacLB[3:,:]/= vo
             for jj in range(6):
                 tjacLB[:,jj]*= self._ErrCovsLBScale[jj]
             tjac= numpy.dot(numpy.linalg.inv(tjacLB),tjacXY)
@@ -1279,7 +1281,7 @@ class streamdf(df):
         return None
 
     def calc_stream_lb(self,
-                       Vnorm=None,Rnorm=None,
+                       vo=None,ro=None,
                        R0=None,Zsun=None,vsun=None):
         """
         NAME:
@@ -1295,9 +1297,9 @@ class streamdf(df):
            Coordinate transformation inputs (all default to the instance-wide
            values):
 
-              Vnorm= circular velocity to normalize velocities with
+              vo= circular velocity to normalize velocities with
 
-              Rnorm= Galactocentric radius to normalize positions with
+              ro= Galactocentric radius to normalize positions with
 
               R0= Galactocentric radius of the Sun (kpc)
 
@@ -1314,10 +1316,10 @@ class streamdf(df):
            2013-12-02 - Written - Bovy (IAS)
 
         """
-        if Vnorm is None:
-            Vnorm= self._Vnorm
-        if Rnorm is None:
-            Rnorm= self._Rnorm
+        if vo is None:
+            vo= self._vo
+        if ro is None:
+            ro= self._ro
         if R0 is None:
             R0= self._R0
         if Zsun is None:
@@ -1325,13 +1327,13 @@ class streamdf(df):
         if vsun is None:
             vsun= self._vsun
         self._ObsTrackLB= numpy.empty_like(self._ObsTrack)
-        XYZ= bovy_coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*Rnorm,
+        XYZ= bovy_coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*ro,
                                           self._ObsTrack[:,5],
-                                          self._ObsTrack[:,3]*Rnorm,
+                                          self._ObsTrack[:,3]*ro,
                                           Xsun=R0,Zsun=Zsun)
-        vXYZ= bovy_coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*Vnorm,
-                                              self._ObsTrack[:,2]*Vnorm,
-                                              self._ObsTrack[:,4]*Vnorm,
+        vXYZ= bovy_coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*vo,
+                                              self._ObsTrack[:,2]*vo,
+                                              self._ObsTrack[:,4]*vo,
                                               self._ObsTrack[:,5],
                                               vsun=vsun)
         slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
@@ -1351,15 +1353,15 @@ class streamdf(df):
                 numpy.empty_like(self._interpolatedObsTrackXY)
             XYZ=\
                 bovy_coords.galcenrect_to_XYZ(\
-                self._interpolatedObsTrackXY[:,0]*Rnorm,
-                self._interpolatedObsTrackXY[:,1]*Rnorm,
-                self._interpolatedObsTrackXY[:,2]*Rnorm,
+                self._interpolatedObsTrackXY[:,0]*ro,
+                self._interpolatedObsTrackXY[:,1]*ro,
+                self._interpolatedObsTrackXY[:,2]*ro,
                 Xsun=R0,Zsun=Zsun)
             vXYZ=\
                 bovy_coords.galcenrect_to_vxvyvz(\
-                self._interpolatedObsTrackXY[:,3]*Vnorm,
-                self._interpolatedObsTrackXY[:,4]*Vnorm,
-                self._interpolatedObsTrackXY[:,5]*Vnorm,
+                self._interpolatedObsTrackXY[:,3]*vo,
+                self._interpolatedObsTrackXY[:,4]*vo,
+                self._interpolatedObsTrackXY[:,5]*vo,
                 vsun=vsun)
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                         degree=True)
@@ -1376,7 +1378,7 @@ class streamdf(df):
         if hasattr(self,'_allErrCovsLBUnscaled'):
             #Re-calculate this
             self._determine_stream_spreadLB(simple=_USESIMPLE,
-                                            Vnorm=Vnorm,Rnorm=Rnorm,
+                                            vo=vo,ro=ro,
                                             R0=R0,Zsun=Zsun,vsun=vsun)
         return None
 
@@ -1672,16 +1674,16 @@ class streamdf(df):
             elif coord.lower() == 'll' or coord.lower() == 'ra' \
                     or coord.lower() == 'customra':
                 XYZ_h= bovy_coords.galcenrect_to_XYZ(\
-                    self._interpTrackX(dangle+ddangle)*self._Rnorm,
-                    self._interpTrackY(dangle+ddangle)*self._Rnorm,
-                    self._interpTrackZ(dangle+ddangle)*self._Rnorm,
+                    self._interpTrackX(dangle+ddangle)*self._ro,
+                    self._interpTrackY(dangle+ddangle)*self._ro,
+                    self._interpTrackZ(dangle+ddangle)*self._ro,
                     Xsun=self._R0,Zsun=self._Zsun)
                 lbd_h= bovy_coords.XYZ_to_lbd(XYZ_h[0],XYZ_h[1],XYZ_h[2],
                                               degree=True)
                 XYZ= bovy_coords.galcenrect_to_XYZ(\
-                    self._interpTrackX(dangle)*self._Rnorm,
-                    self._interpTrackY(dangle)*self._Rnorm,
-                    self._interpTrackZ(dangle)*self._Rnorm,
+                    self._interpTrackX(dangle)*self._ro,
+                    self._interpTrackY(dangle)*self._ro,
+                    self._interpTrackZ(dangle)*self._ro,
                     Xsun=self._R0,Zsun=self._Zsun)
                 lbd= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                             degree=True)
@@ -1765,7 +1767,7 @@ class streamdf(df):
             result= integrate.quad(lambda da: numpy.sqrt(dXda(da)**2.\
                                                              +dYda(da)**2.\
                                                              +dZda(da)**2.),
-                                   0.,result)[0]*self._Rnorm          
+                                   0.,result)[0]*self._ro          
         elif ang:
             # Need to now integrate length
             if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,0],-1)
@@ -2461,9 +2463,9 @@ class streamdf(df):
 
            lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the marginalized PDF in these coordinates is returned          
 
-           Vnorm= (220) circular velocity to normalize with when lb=True
+           vo= (220) circular velocity to normalize with when lb=True
 
-           Rnorm= (8) Galactocentric radius to normalize with when lb=True
+           ro= (8) Galactocentric radius to normalize with when lb=True
 
            R0= (8) Galactocentric radius of the Sun (kpc)
 
@@ -2542,8 +2544,8 @@ class streamdf(df):
             numpy.meshgrid(*weightEval,indexing='ij')
         if kwargs.get('lb',False): #Convert to Galactocentric cylindrical coordinates
             #Setup coordinate transformation kwargs
-            Vnorm= kwargs.get('Vnorm',self._Vnorm)
-            Rnorm= kwargs.get('Rnorm',self._Rnorm)
+            vo= kwargs.get('vo',self._vo)
+            ro= kwargs.get('ro',self._ro)
             R0= kwargs.get('R0',self._R0)
             Zsun= kwargs.get('Zsun',self._Zsun)
             vsun= kwargs.get('vsun',self._vsun)
@@ -2564,11 +2566,11 @@ class streamdf(df):
                                                          iR,iphi,iZ,
                                                          galcen=True,
                                                          vsun=vsun)
-            iR/= Rnorm
-            iZ/= Rnorm
-            ivR/= Vnorm
-            ivT/= Vnorm
-            ivZ/= Vnorm
+            iR/= ro
+            iZ/= ro
+            ivR/= vo
+            ivT/= vo
+            ivZ/= vo
         else:
             #Convert to cylindrical coordinates
             iR,iphi,iZ=\
@@ -2688,7 +2690,7 @@ class streamdf(df):
 ################################SAMPLE THE DF##################################
     def sample(self,n,returnaAdt=False,returndt=False,interp=None,
                xy=False,lb=False,
-               Vnorm=None,Rnorm=None,
+               vo=None,ro=None,
                R0=None,Zsun=None,vsun=None):
         """
         NAME:
@@ -2716,9 +2718,9 @@ class streamdf(df):
             +Coordinate transformation inputs (all default to the instance-wide
             values):
 
-              Vnorm= circular velocity to normalize velocities with
+              vo= circular velocity to normalize velocities with
 
-              Rnorm= Galactocentric radius to normalize positions with
+              ro= Galactocentric radius to normalize positions with
 
               R0= Galactocentric radius of the Sun (kpc)
 
@@ -2770,23 +2772,23 @@ class streamdf(df):
             else:
                 return out
         if lb:
-            if Vnorm is None:
-                Vnorm= self._Vnorm
-            if Rnorm is None:
-                Rnorm= self._Rnorm
+            if vo is None:
+                vo= self._vo
+            if ro is None:
+                ro= self._ro
             if R0 is None:
                 R0= self._R0
             if Zsun is None:
                 Zsun= self._Zsun
             if vsun is None:
                 vsun= self._vsun
-            XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*Rnorm,
+            XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*ro,
                                               RvR[5],
-                                              RvR[3]*Rnorm,
+                                              RvR[3]*ro,
                                               Xsun=R0,Zsun=Zsun)
-            vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*Vnorm,
-                                                  RvR[2]*Vnorm,
-                                                  RvR[4]*Vnorm,
+            vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*vo,
+                                                  RvR[2]*vo,
+                                                  RvR[4]*vo,
                                                   RvR[5],
                                                   vsun=vsun)
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
@@ -2959,7 +2961,7 @@ def _determine_stream_spread_single(sigomatrixEig,
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
-              Vnorm=220.,Rnorm=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
+              vo=220.,ro=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
               _initacfs=None):
     """
     NAME:
@@ -2983,8 +2985,8 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
        actionsFreqsAngles= (False) if True, calculate d(action,freq.,angle)/d (xv)
 
        lb= (False) if True, start with (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
-       Vnorm= (220) circular velocity to normalize with when lb=True
-       Rnorm= (8) Galactocentric radius to normalize with when lb=True
+       vo= (220) circular velocity to normalize with when lb=True
+       ro= (8) Galactocentric radius to normalize with when lb=True
        R0= (8) Galactocentric radius of the Sun (kpc)
        Zsun= (0.025) Sun's height above the plane (kpc)
        vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
@@ -2997,7 +2999,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
        2013-11-25 - Written - Bovy (IAS) 
     """
     if lb:
-        coordFunc= lambda x: lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun)
+        coordFunc= lambda x: lbCoordFunc(xv,vo,ro,R0,Zsun,vsun)
     if not coordFunc is None:
         R, vR, vT, z, vz, phi= coordFunc(xv)
     else:
@@ -3008,10 +3010,10 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         #Re-scale some of the differences, to be more natural
         dxv[0]*= 180./numpy.pi
         dxv[1]*= 180./numpy.pi
-        dxv[2]*= Rnorm
-        dxv[3]*= Vnorm
-        dxv[4]*= Vnorm/4.74047/xv[2]
-        dxv[5]*= Vnorm/4.74047/xv[2]
+        dxv[2]*= ro
+        dxv[3]*= vo
+        dxv[4]*= vo/4.74047/xv[2]
+        dxv[5]*= vo/4.74047/xv[2]
     if actionsFreqsAngles:
         jac= numpy.zeros((9,6))
     else:
@@ -3082,7 +3084,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         jac= numpy.dot(jac2,numpy.linalg.inv(jac))[0:3,0:3]
     return jac
 
-def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
+def lbCoordFunc(xv,vo,ro,R0,Zsun,vsun):
     #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
     X,Y,Z= bovy_coords.lbd_to_XYZ(xv[0],xv[1],xv[2],degree=True)
     R,phi,Z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,
@@ -3091,9 +3093,9 @@ def lbCoordFunc(xv,Vnorm,Rnorm,R0,Zsun,vsun):
                                                X,Y,Z,XYZ=True)
     vR,vT,vZ= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,
                                               vsun=vsun)
-    R/= Rnorm
-    Z/= Rnorm
-    vR/= Vnorm
-    vT/= Vnorm
-    vZ/= Vnorm
+    R/= ro
+    Z/= ro
+    vR/= vo
+    vT/= vo
+    vZ/= vo
     return (R,vR,vT,Z,vZ,phi)
