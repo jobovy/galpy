@@ -1484,7 +1484,7 @@ class quasiisothermaldf(df):
         out[:,0]= vRs[0:n]
         out[:,1]= vTs[0:n]
         out[:,2]= vzs[0:n]
-        if _APY_LOADED and self._voSet:
+        if _APY_UNITS and self._voSet:
             return units.Quantity(out*self._vo,unit=units.km/units.s)
         else:
             return out
