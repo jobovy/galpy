@@ -12,7 +12,7 @@ from galpy.orbit import Orbit
 from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.bovy_conversion import physical_conversion, _APY_UNITS
 from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
 import warnings
 from galpy.util import galpyWarning
@@ -2730,9 +2730,7 @@ class streamdf(df):
 
 ################################SAMPLE THE DF##################################
     def sample(self,n,returnaAdt=False,returndt=False,interp=None,
-               xy=False,lb=False,
-               vo=None,ro=None,
-               R0=None,Zsun=None,vsun=None):
+               xy=False,lb=False):
         """
         NAME:
 
@@ -2781,6 +2779,15 @@ class streamdf(df):
         #First sample frequencies
         Om,angle,dt= self._sample_aAt(n)
         if returnaAdt:
+            if _APY_UNITS and self._voSet and self._roSet:
+                Om=\
+                    units.Quantity(\
+                    Om*bovy_conversion.freq_in_Gyr(self._vo,self._ro),
+                    unit=1/units.Gyr)
+                angle= units.Quantity(angle,unit=units.rad)
+                dt= units.Quantity(\
+                    dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                    unit=units.Gyr)
             return (Om,angle,dt)
         if interp is None:
             interp= self._useInterp
@@ -2789,8 +2796,25 @@ class streamdf(df):
                                angle[0,:],angle[1,:],angle[2,:],
                                interp=interp)
         if returndt and not xy and not lb:
+            if _APY_UNITS and self._voSet and self._roSet:
+                return (units.Quantity(RvR[0]*self._ro,unit=units.kpc),
+                        units.Quantity(RvR[1]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[2]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[3]*self._ro,unit=units.kpc),
+                        units.Quantity(RvR[4]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[5],unit=units.rad),
+                        units.Quantity(\
+                        dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                        unit=units.Gyr))
             return (RvR,dt)
         elif not xy and not lb:
+            if _APY_UNITS and self._voSet and self._roSet:
+                return (units.Quantity(RvR[0]*self._ro,unit=units.kpc),
+                        units.Quantity(RvR[1]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[2]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[3]*self._ro,unit=units.kpc),
+                        units.Quantity(RvR[4]*self._vo,unit=units.km/units.s),
+                        units.Quantity(RvR[5],unit=units.rad))
             return RvR
         if xy:
             sX= RvR[0]*numpy.cos(RvR[5])
@@ -2809,20 +2833,32 @@ class streamdf(df):
             out[4]= svY
             out[5]= svZ
             if returndt:
+                if _APY_UNITS and self._voSet and self._roSet:
+                    return (units.Quantity(out[0]*self._ro,unit=units.kpc),
+                            units.Quantity(out[1]*self._ro,unit=units.kpc),
+                            units.Quantity(out[2]*self._ro,unit=units.kpc),
+                            units.Quantity(out[3]*self._vo,unit=units.km/units.s),
+                            units.Quantity(out[4]*self._vo,unit=units.km/units.s),
+                            units.Quantity(out[5]*self._vo,unit=units.km/units.s),
+                            units.Quantity(\
+                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            unit=units.Gyr))
                 return (out,dt)
             else:
+                if _APY_UNITS and self._voSet and self._roSet:
+                    return (units.Quantity(out[0]*self._ro,unit=units.kpc),
+                            units.Quantity(out[1]*self._ro,unit=units.kpc),
+                            units.Quantity(out[2]*self._ro,unit=units.kpc),
+                            units.Quantity(out[3]*self._vo,unit=units.km/units.s),
+                            units.Quantity(out[4]*self._vo,unit=units.km/units.s),
+                            units.Quantity(out[5]*self._vo,unit=units.km/units.s))
                 return out
         if lb:
-            if vo is None:
-                vo= self._vo
-            if ro is None:
-                ro= self._ro
-            if R0 is None:
-                R0= self._R0
-            if Zsun is None:
-                Zsun= self._Zsun
-            if vsun is None:
-                vsun= self._vsun
+            vo= self._vo
+            ro= self._ro
+            R0= self._R0
+            Zsun= self._Zsun
+            vsun= self._vsun
             XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*ro,
                                               RvR[5],
                                               RvR[3]*ro,
@@ -2846,8 +2882,25 @@ class streamdf(df):
             out[4]= svlbd[:,1]
             out[5]= svlbd[:,2]
             if returndt:
+                if _APY_UNITS:
+                    return (units.Quantity(out[0],unit=units.deg),
+                            units.Quantity(out[1],unit=units.deg),
+                            units.Quantity(out[2],unit=units.kpc),
+                            units.Quantity(out[3],unit=units.km/units.s),
+                            units.Quantity(out[4],unit=units.mas/units.yr),
+                            units.Quantity(out[5],unit=units.mas/units.yr),
+                            units.Quantity(\
+                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            unit=units.Gyr))
                 return (out,dt)
             else:
+                if _APY_UNITS:
+                    return (units.Quantity(out[0],unit=units.deg),
+                            units.Quantity(out[1],unit=units.deg),
+                            units.Quantity(out[2],unit=units.kpc),
+                            units.Quantity(out[3],unit=units.km/units.s),
+                            units.Quantity(out[4],unit=units.mas/units.yr),
+                            units.Quantity(out[5],unit=units.mas/units.yr))
                 return out
 
     def _sample_aAt(self,n):
