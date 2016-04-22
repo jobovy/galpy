@@ -243,6 +243,7 @@ def test_orbit_method_returntype_scalar():
     assert isinstance(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method Oz does not return Quantity when it should'
     assert isinstance(o.time(),units.Quantity), 'Orbit method time does not return Quantity when it should'
     assert isinstance(o.R(),units.Quantity), 'Orbit method R does not return Quantity when it should'
+    assert isinstance(o.r(),units.Quantity), 'Orbit method r does not return Quantity when it should'
     assert isinstance(o.vR(),units.Quantity), 'Orbit method vR does not return Quantity when it should'
     assert isinstance(o.vT(),units.Quantity), 'Orbit method vT does not return Quantity when it should'
     assert isinstance(o.z(),units.Quantity), 'Orbit method z does not return Quantity when it should'
@@ -289,6 +290,7 @@ def test_orbit_method_returntype():
     assert isinstance(o.L(ts),units.Quantity), 'Orbit method L does not return Quantity when it should'
     assert isinstance(o.time(ts),units.Quantity), 'Orbit method time does not return Quantity when it should'
     assert isinstance(o.R(ts),units.Quantity), 'Orbit method R does not return Quantity when it should'
+    assert isinstance(o.r(ts),units.Quantity), 'Orbit method r does not return Quantity when it should'
     assert isinstance(o.vR(ts),units.Quantity), 'Orbit method vR does not return Quantity when it should'
     assert isinstance(o.vT(ts),units.Quantity), 'Orbit method vT does not return Quantity when it should'
     assert isinstance(o.z(ts),units.Quantity), 'Orbit method z does not return Quantity when it should'
@@ -414,6 +416,10 @@ def test_orbit_method_returnunit():
         o.R().to(units.pc)
     except units.UnitConversionError:
         raise AssertionError('Orbit method R does not return Quantity with the right units')
+    try:
+        o.r().to(units.pc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method r does not return Quantity with the right units')
     try:
         o.vR().to(units.km/units.s)
     except units.UnitConversionError:
@@ -566,6 +572,7 @@ def test_orbit_method_value():
     assert numpy.fabs(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5).to(1/units.Gyr).value-oc.Oz(pot=MWPotential2014,type='staeckel',delta=0.5)*bovy_conversion.freq_in_Gyr(o._vo,o._ro)) < 10.**-8., 'Ozbit method Or does not return the correct value as Quantity'
     assert numpy.fabs(o.time().to(units.Gyr).value-oc.time()*bovy_conversion.time_in_Gyr(o._vo,o._ro)) < 10.**-8., 'Orbit method time does not return the correct value as Quantity'
     assert numpy.fabs(o.R().to(units.kpc).value-oc.R()*o._ro) < 10.**-8., 'Orbit method R does not return the correct value as Quantity'
+    assert numpy.fabs(o.r().to(units.kpc).value-oc.r()*o._ro) < 10.**-8., 'Orbit method r does not return the correct value as Quantity'
     assert numpy.fabs(o.vR().to(units.km/units.s).value-oc.vR()*o._vo) < 10.**-8., 'Orbit method vR does not return the correct value as Quantity'
     assert numpy.fabs(o.vT().to(units.km/units.s).value-oc.vT()*o._vo) < 10.**-8., 'Orbit method vT does not return the correct value as Quantity'
     assert numpy.fabs(o.z().to(units.kpc).value-oc.z()*o._ro) < 10.**-8., 'Orbit method z does not return the correct value as Quantity'
