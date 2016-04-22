@@ -12,6 +12,7 @@ from galpy.orbit import Orbit
 from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from galpy.util.bovy_conversion import physical_conversion
 from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
 import warnings
 from galpy.util import galpyWarning
@@ -325,6 +326,7 @@ class streamdf(df):
                            self._deltaAngleTrack)
         return None
 
+    @physical_conversion('angle_deg',pop=True)
     def misalignment(self,isotropic=False):
         """
         NAME:
@@ -389,6 +391,7 @@ class streamdf(df):
             return numpy.sqrt(self._sortedSigOEig)[2]\
                 /numpy.sqrt(self._sortedSigOEig)[1]
 
+    @physical_conversion('time',pop=True)
     def estimateTdisrupt(self,deltaAngle):
         """
         NAME:
@@ -1821,6 +1824,7 @@ class streamdf(df):
                                    0.,result)[0]
         return result
 
+    @physical_conversion('frequency',pop=True)
     def meanOmega(self,dangle,oned=False,offset_sign=None,
                   tdisrupt=None):
         """
@@ -1864,6 +1868,7 @@ class streamdf(df):
             return self._progenitor_Omega+dO1D*self._dsigomeanProgDirection\
                 *offset_sign
 
+    @physical_conversion('frequency',pop=True)
     def sigOmega(self,dangle):
         """
         NAME:
@@ -1938,6 +1943,7 @@ class streamdf(df):
                                          numpy.sqrt(self._sortedSigOEig[2])
         return out
 
+    @physical_conversion('time',pop=True)
     def meantdAngle(self,dangle):
         """
         NAME:
@@ -1970,6 +1976,7 @@ class streamdf(df):
         elif numpy.isnan(denom): return 0.
         else: return num/denom
 
+    @physical_conversion('time',pop=True)
     def sigtdAngle(self,dangle):
         """
         NAME:
@@ -2037,6 +2044,7 @@ class streamdf(df):
                                (ap,dangle,smallest))[0] for ap in angleperp])
         return out
 
+    @physical_conversion('angle',pop=True)
     def meanangledAngle(self,dangle,smallest=False):
         """
         NAME:
@@ -2074,6 +2082,7 @@ class streamdf(df):
         if denom == 0.: return numpy.nan
         else: return num/denom
 
+    @physical_conversion('angle',pop=True)
     def sigangledAngle(self,dangle,assumeZeroMean=True,smallest=False,
                        simple=False):
         """
