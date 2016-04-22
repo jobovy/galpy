@@ -9,12 +9,14 @@ if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
 else:
     from scipy.misc import logsumexp
 from galpy.orbit import Orbit
-from galpy.df_src.df import df
+from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
 import warnings
 from galpy.util import galpyWarning
+if _APY_LOADED:
+    from astropy import units
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
@@ -134,10 +136,15 @@ class streamdf(df):
             warnings.warn("WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword", galpyWarning)
             vo= Vnorm
         df.__init__(self,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(sigv,units.Quantity):
+            sigv= sigv.to(units.km/units.s).value/self._vo
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./bovy_conversion.time_in_Gyr(self._vo,self._ro)
         else:
+            if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
+                tdisrupt= tdisrupt.to(units.Gyr).value\
+                    /bovy_conversion.time_in_Gyr(self._vo,self._ro)
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
@@ -151,10 +158,22 @@ class streamdf(df):
         else:
             self._multi= multi
         self._progenitor_setup(progenitor,leading)
+        if not sigangle is None and \
+                _APY_LOADED and isinstance(sigangle,units.Quantity):
+            sigangle= sigangle.to(units.rad).value
+        if not deltaAngleTrack is None and \
+                _APY_LOADED and isinstance(deltaAngleTrack,units.Quantity):
+            deltaAngleTrack= deltaAngleTrack.to(units.rad).value
         self._offset_setup(sigangle,leading,deltaAngleTrack)
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
+        if _APY_LOADED and isinstance(R0,units.Quantity):
+            R0= R0.to(units.kpc).value
+        if _APY_LOADED and isinstance(Zsun,units.Quantity):
+            Zsun= Zsun.to(units.kpc).value
+        if _APY_LOADED and isinstance(vsun,units.Quantity):
+            vsun= vsun.to(units.km/units.s).value
         self._setup_coord_transform(self._ro,self._vo,R0,Zsun,vsun,progenitor,
                                     custom_transform)
         #Determine the stream track
