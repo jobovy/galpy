@@ -1644,6 +1644,11 @@ class streamdf(df):
            2015-12-07 - Written - Bovy (UofT)
 
         """
+        if _APY_LOADED and isinstance(Opar,units.Quantity):
+            Opar= Opar.to(1/units.Gyr).value\
+                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(apar,units.Quantity):
+            apar= apar.to(units.rad).value
         if tdisrupt is None: tdisrupt= self._tdisrupt
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
