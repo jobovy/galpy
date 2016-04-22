@@ -5,11 +5,14 @@ import numpy
 import warnings
 import multiprocessing
 from scipy import integrate, interpolate, special
-from galpy.util import galpyWarning, bovy_coords, multi
+from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
+from galpy.df_src.df import df, _APY_LOADED
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
+if _APY_LOADED:
+    from astropy import units
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -81,15 +84,39 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-06-02 - Started - Bovy (IAS)
 
         """
+        df.__init__(self,ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
+        if _APY_LOADED and isinstance(impactb,units.Quantity):
+            impactb= impactb.to(units.kpc).value/self._ro
         subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
+        if _APY_LOADED and isinstance(subhalovel,units.Quantity):
+            subhalovel= subhalovel.to(units.km/units.s).value/self._vo
         hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
+        if not GM is None \
+                and _APY_LOADED and isinstance(GM,units.Quantity):
+            # GM can be GM or M
+            try:
+                GM= GM.to(units.pc*units.km**2/units.s**2)\
+                    .value\
+                    /bovy_conversion.mass_in_msol(self._vo,self._ro)\
+                    /bovy_conversion._G
+            except units.UnitConversionError: pass
+            GM= GM.to(units.Msun).value\
+                /bovy_conversion.mass_in_msol(self._vo,self._ro)
         rs= kwargs.pop('rs',None)
+        if not rs is None \
+                and _APY_LOADED and isinstance(rs,units.Quantity):
+            rs= rs.to(units.kpc).value/self._ro
         subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
+        if _APY_LOADED and isinstance(timpact,units.Quantity):
+            timpact= timpact.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         impact_angle= kwargs.pop('impact_angle',1.)
+        if _APY_LOADED and isinstance(impact_angle,units.Quantity):
+            impact_angle= impact_angle.to(units.rad).value
         nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
