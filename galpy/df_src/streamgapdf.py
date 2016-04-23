@@ -745,7 +745,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         dmOs= numpy.array([\
                 super(streamgapdf,self).meanOmega(da,oned=True,
                                                   tdisrupt=self._tdisrupt
-                                                  -self._timpact)
+                                                  -self._timpact,
+                                                  use_physical=False)
                 for da in self._kick_interpolatedThetasTrack])
         self._kick_interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
@@ -815,7 +816,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
@@ -852,7 +853,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            thetasTrack[ii])
                 allAcfsTrack[ii,:]= multiOut[0]
                 alljacsTrack[ii,:,:]= multiOut[1]
@@ -868,7 +869,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            thetasTrack[x])),
                 range(self._nTrackChunksImpact),
                 numcores=numpy.amin([self._nTrackChunksImpact,
@@ -891,7 +892,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                              self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                              self._gap_sigMeanSign,
                                                              self._dsigomeanProgDirection,
-                                                             lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                                             lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                                              thetasTrack[ii])
                     allAcfsTrack[ii,:]= multiOut[0]
                     alljacsTrack[ii,:,:]= multiOut[1]
@@ -905,7 +906,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                               self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                               self._gap_sigMeanSign,
                                                               self._dsigomeanProgDirection,
-                                                              lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                                              lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                                               thetasTrack[x])),
                     range(self._nTrackChunksImpact),
                     numcores=numpy.amin([self._nTrackChunksImpact,
