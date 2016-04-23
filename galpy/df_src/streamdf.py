@@ -313,7 +313,7 @@ class streamdf(df):
                                            self._progenitor_angle,
                                            self._sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           self.meanOmega,
+                                           lambda x: self.meanOmega(x,use_physical=False),
                                            0.) #angle = 0
         # Setup the new progenitor orbit
         progenitor= Orbit(prog_stream_offset[3])
@@ -471,7 +471,8 @@ class streamdf(df):
         else:
             yoonFac= 1.
         # Figure out width of stream
-        w= self.sigangledAngle(self._meandO*self._tdisrupt,simple=True)
+        w= self.sigangledAngle(self._meandO*self._tdisrupt,simple=True,
+                               use_physical=False)
         if bmax < w*Ravg/2.: bmax= w*Ravg/2.
         return yoonFac/numpy.sqrt(2.)*numpy.sqrt(numpy.pi)*Ravg*sigma\
             *self._tdisrupt**2.*self._meandO\
@@ -900,7 +901,7 @@ class streamdf(df):
                                            self._progenitor_angle,
                                            self._sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           self.meanOmega,
+                                           lambda x: self.meanOmega(x,use_physical=False),
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
@@ -937,7 +938,7 @@ class streamdf(df):
                                                          self._progenitor_angle,
                                                          self._sigMeanSign,
                                                          self._dsigomeanProgDirection,
-                                                         self.meanOmega,
+                                                         lambda x: self.meanOmega(x,use_physical=False),
                                                          thetasTrack[ii])
                 allAcfsTrack[ii,:]= multiOut[0]
                 alljacsTrack[ii,:,:]= multiOut[1]
@@ -952,7 +953,7 @@ class streamdf(df):
                                                           self._progenitor_angle,
                                                           self._sigMeanSign,
                                                           self._dsigomeanProgDirection,
-                                                          self.meanOmega,
+                                                          lambda x: self.meanOmega(x,use_physical=False),
                                                           thetasTrack[x])),
                 range(self._nTrackChunks),
                 numcores=numpy.amin([self._nTrackChunks,
@@ -975,7 +976,7 @@ class streamdf(df):
                                                              self._progenitor_angle,
                                                              self._sigMeanSign,
                                                              self._dsigomeanProgDirection,
-                                                             self.meanOmega,
+                                                             lambda x:self.meanOmega(x,use_physical=False),
                                                              thetasTrack[ii])
                     allAcfsTrack[ii,:]= multiOut[0]
                     alljacsTrack[ii,:,:]= multiOut[1]
@@ -989,7 +990,7 @@ class streamdf(df):
                                                               self._progenitor_angle,
                                                               self._sigMeanSign,
                                                               self._dsigomeanProgDirection,
-                                                              self.meanOmega,
+                                                              lambda x: self.meanOmega(x,use_physical=False),
                                                               thetasTrack[x])),
                     range(self._nTrackChunks),
                     numcores=numpy.amin([self._nTrackChunks,
@@ -1037,15 +1038,15 @@ class streamdf(df):
             for ii in range(self._nTrackChunks):
                 allErrCovs[ii]= _determine_stream_spread_single(self._sigomatrixEig,
                                                                 self._thetasTrack[ii],
-                                                                self.sigOmega,
-                                                                lambda y: self.sigangledAngle(y,simple=simple),
+                                                                lambda x: self.sigOmega(x,use_physical=False),
+                                                                lambda y: self.sigangledAngle(y,simple=simple,use_physical=False),
                                                                 self._allinvjacsTrack[ii])
         else:
             multiOut= multi.parallel_map(\
                 (lambda x: _determine_stream_spread_single(self._sigomatrixEig,
                                                                 self._thetasTrack[x],
-                                                                self.sigOmega,
-                                                                lambda y: self.sigangledAngle(y,simple=simple),
+                                                                lambda x: self.sigOmega(x,use_physical=False),
+                                                                lambda y: self.sigangledAngle(y,simple=simple,use_physical=False),
                                                                 self._allinvjacsTrack[x])),
 
                 range(self._nTrackChunks),
@@ -1290,7 +1291,7 @@ class streamdf(df):
         #Calculate 1D meanOmega on a fine grid in angle and interpolate
         if not hasattr(self,'_interpolatedThetasTrack'):
             self._interpolate_stream_track()
-        dmOs= numpy.array([self.meanOmega(da,oned=True) 
+        dmOs= numpy.array([self.meanOmega(da,oned=True,use_physical=False) 
                           for da in self._interpolatedThetasTrack])
         self._interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
@@ -1900,7 +1901,7 @@ class streamdf(df):
                 (1.+special.erf((meandO-dOmin)\
                                     /numpy.sqrt(2.*self._sortedSigOEig[2]))))\
                    +meandO**2.+self._sortedSigOEig[2])
-        mO= self.meanOmega(dangle,oned=True)
+        mO= self.meanOmega(dangle,oned=True,use_physical=False)
         return numpy.sqrt(sO1D2-mO**2.)
 
     def ptdAngle(self,t,dangle):
@@ -2115,7 +2116,7 @@ class streamdf(df):
         if smallest: eigIndx= 0
         else: eigIndx= 1
         if simple:
-            dt= self.meantdAngle(dangle)
+            dt= self.meantdAngle(dangle,use_physical=False)
             return numpy.sqrt(self._sigangle2
                               +self._sortedSigOEig[eigIndx]*dt**2.)
         aplow= numpy.amax([numpy.sqrt(self._sortedSigOEig[eigIndx])*self._tdisrupt*5.,
