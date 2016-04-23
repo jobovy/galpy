@@ -49,9 +49,9 @@ def test_progenitor_coordtransformparams():
         # Should raise warning bc of Rnorm, might raise others
         raisedWarning= False
         for wa in w:
-            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables")
+            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's ro and R0; this may have unexpected consequences when projecting into observables")
             if raisedWarning: break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from Rnorm"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from ro"
     #Test w/ diff R0
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
@@ -64,7 +64,7 @@ def test_progenitor_coordtransformparams():
         # Should raise warning bc of R0, might raise others
         raisedWarning= False
         for wa in w:
-            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's Rnorm and R0; this may have unexpected consequences when projecting into observables")
+            raisedWarning= (str(wa.message) == "Warning: progenitor's ro does not agree with streamdf's ro and R0; this may have unexpected consequences when projecting into observables")
             if raisedWarning: break
         assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from R0"
     #Test w/ diff Vnorm
@@ -79,9 +79,9 @@ def test_progenitor_coordtransformparams():
         # Should raise warning bc of Vnorm, might raise others
         raisedWarning= False
         for wa in w:
-            raisedWarning= (str(wa.message) == "Warning: progenitor's vo does not agree with streamdf's Vnorm; this may have unexpected consequences when projecting into observables")
+            raisedWarning= (str(wa.message) == "Warning: progenitor's vo does not agree with streamdf's vo; this may have unexpected consequences when projecting into observables")
             if raisedWarning: break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  vo is different from Vnorm"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  vo is different from vo"
     #Test w/ diff zo
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
@@ -110,7 +110,7 @@ def test_progenitor_coordtransformparams():
         # Should raise warning bc of vsun, might raise others
         raisedWarning= False
         for wa in w:
-            raisedWarning= (str(wa.message) == "Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for Vnorm); this may have unexpected consequences when projecting into observables")
+            raisedWarning= (str(wa.message) == "Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for vo); this may have unexpected consequences when projecting into observables")
             if raisedWarning: break
         assert raisedWarning, "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
     return None
@@ -293,17 +293,17 @@ def test_density_ll_and_customra():
     # custom should be the same for this setup (see above)
     def dens_ll(apar):
         dapar= 10.**-9.
-        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
-            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._ro, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
                                            Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
-        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
                                                 Ysun=0.,
@@ -332,18 +332,18 @@ def test_density_ra():
     #Test that the density in ra is correctly computed, by doing this by hand
     def dens_ra(apar):
         dapar= 10.**-9.
-        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
-            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._ro, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
                                            Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
-        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
                                                 Ysun=0.,
@@ -369,9 +369,9 @@ def test_density_ll_wsampling():
     numpy.random.seed(1)
     def ll(apar):
         """Quick function that returns l for a given apar"""
-        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
-            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._ro, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                              Xsun=sdf_bovy14._R0,
                                              Ysun=0.,
@@ -408,17 +408,17 @@ def test_length_ang():
     # Test that this is roughly correct
     def dphidapar(apar):
         dapar= 10.**-9.
-        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._Rnorm, \
-            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._Rnorm
+        X,Y,Z= sdf_bovy14._interpTrackX(apar)*sdf_bovy14._ro, \
+            sdf_bovy14._interpTrackY(apar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
                                            Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
-        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._Rnorm,\
-            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._Rnorm
+        dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackY(apar+dapar)*sdf_bovy14._ro,\
+            sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
                                                 Ysun=0.,
@@ -451,7 +451,7 @@ def test_length_phys():
         jac= numpy.sqrt(((dX-X)/dapar)**2.\
                             +((dY-Y)/dapar)**2.\
                             +((dZ-Z)/dapar)**2.)
-        return jac*sdf_bovy14._Rnorm
+        return jac*sdf_bovy14._ro
     thresh= 0.2
     assert numpy.fabs(sdf_bovy14.length(threshold=thresh)*dxdapar(0.3)
                       -sdf_bovy14.length(threshold=thresh,phys=True)) < 1., 'Length in physical coordinates does not conform to rough expectation'
@@ -888,11 +888,11 @@ def test_bovy14_callMargDPMLL():
                                           lb=True)-
                       sdf_bovy14.callMarg([None,meanp[1],None,None,8.,None],
                                           lb=True,
-                                          Rnorm=sdf_bovy14._Rnorm,
-                                          Vnorm=sdf_bovy14._Vnorm,
+                                          ro=sdf_bovy14._ro,
+                                          vo=sdf_bovy14._vo,
                                           R0=sdf_bovy14._R0,
                                           Zsun=sdf_bovy14._Zsun,
-                                          vsun=sdf_bovy14._vsun)) < 10.**-10., 'callMarg with Rnorm, etc. options set to default does not agree with default'
+                                          vsun=sdf_bovy14._vsun)) < 10.**-10., 'callMarg with ro, etc. options set to default does not agree with default'
     cindx= sdf_bovy14.find_closest_trackpointLB(None,meanp[1],None,
                                                 None,8.,None,
                                                 usev=True)
@@ -994,12 +994,7 @@ def test_bovy14_sampleLB():
     assert numpy.fabs((meanp[1]-numpy.mean(LB[2][indx]))/meanp[1]) < 10.**-2., 'Sample track does not lie in the same location as the track'
     assert numpy.fabs((meanp[3]-numpy.mean(LB[4][indx]))/meanp[3]) < 10.**-2., 'Sample track does not lie in the same location as the track'
     #variance, use smaller range
-    LB= sdf_bovy14.sample(n=10000,lb=True,
-                          Rnorm=sdf_bovy14._Rnorm,
-                          Vnorm=sdf_bovy14._Vnorm,
-                          R0=sdf_bovy14._R0,
-                          Zsun=sdf_bovy14._Zsun,
-                          vsun=sdf_bovy14._vsun)
+    LB= sdf_bovy14.sample(n=10000,lb=True)
     indx= (LB[0] > 214.)*(LB[0] < 216.)
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(LB[1][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
     # Test that t is returned
@@ -1200,7 +1195,7 @@ def test_calcaAJacLB():
                                                      l,b,d,degree=True)
     jac= calcaAJac([l,b,d,vlos,pmll,pmbb,],aAI,dxv=10**-8.*numpy.ones(6),
                    lb=True,R0=8.,Zsun=0.02,vsun=[10.,240.,-10.],
-                   Rnorm=8.,Vnorm=220.)
+                   ro=8.,vo=220.)
     lbdjac= numpy.fabs(numpy.linalg.det(bovy_coords.lbd_to_XYZ_jac(l,b,d,
                                                                    vlos,pmll,pmbb,
                                                                    degree=True)))
@@ -1374,11 +1369,11 @@ def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     trackZ= sdf._parse_track_dim(d2,interp=True,phys=phys) #bit hacky to use private function
     ts= sdf._progenitor._orb.t[sdf._progenitor._orb.t < sdf._trackts[-1]]
     progR= sdf._parse_progenitor_dim(d1,ts,
-                                     ro=sdf._Rnorm,vo=sdf._Vnorm,
+                                     ro=sdf._ro,vo=sdf._vo,
                                      obs=observe,
                                      phys=phys)
     progZ= sdf._parse_progenitor_dim(d2,ts,
-                                     ro=sdf._Rnorm,vo=sdf._Vnorm,
+                                     ro=sdf._ro,vo=sdf._vo,
                                      obs=observe,
                                      phys=phys)
     #Interpolate progenitor, st we can put it on the same grid as the stream
