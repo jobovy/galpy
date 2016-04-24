@@ -3777,3 +3777,30 @@ def test_streamdf_setup_roAsQuantity_oddunits():
     assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in streamdf setup as Quantity does not work as expected'
     return None
 
+def test_streamdf_setup_paramsAsQuantity():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365*units.km/units.s
+    ro, vo= 9., 230.
+    df= streamdf(sigv,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5*units.Gyr,
+                 ro=ro,vo=vo,
+                 sigangle=0.01*units.deg,
+                 deltaAngleTrack=170.*units.deg,
+                 nosetup=True)
+    assert numpy.fabs(df._sigv-0.365/vo) < 10.**-10., 'sigv in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._tdisrupt-4.5/bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-10., 'tdisrupt in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._sigangle-0.01*(units.deg).to(units.rad)) < 10.**-10., 'sigangle in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._deltaAngleTrack-170.*(units.deg).to(units.rad)) < 10.**-10., 'deltaAngleTrack in streamdf setup as Quantity does not work as expected'
+    return None
+
