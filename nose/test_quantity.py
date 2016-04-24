@@ -3297,7 +3297,7 @@ def test_evolveddiskdf_setup_roAsQuantity():
     idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=ro*units.kpc)
     from galpy.df import evolveddiskdf
     df= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
-    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in evolveddiskdf setup as Quantity does not work as expected'
     return None
 
 def test_evolveddiskdf_setup_roAsQuantity_oddunits():
@@ -3311,7 +3311,7 @@ def test_evolveddiskdf_setup_roAsQuantity_oddunits():
     idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=ro*units.lyr)
     from galpy.df import evolveddiskdf
     df= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
-    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in evolveddiskdf setup as Quantity does not work as expected'
     return None
 
 def test_evolveddiskdf_setup_voAsQuantity():
@@ -3326,7 +3326,7 @@ def test_evolveddiskdf_setup_voAsQuantity():
                       vo=vo*units.km/units.s)
     from galpy.df import evolveddiskdf
     df= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
-    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in evolveddiskdf setup as Quantity does not work as expected'
     return None
 
 def test_evolveddiskdf_setup_voAsQuantity_oddunits():
@@ -3341,7 +3341,7 @@ def test_evolveddiskdf_setup_voAsQuantity_oddunits():
                       vo=vo*units.pc/units.Myr)
     from galpy.df import evolveddiskdf
     df= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
-    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in evolveddiskdf setup as Quantity does not work as expected'
     return None
 
 def test_quasiisothermaldf_method_returntype():
@@ -3584,7 +3584,7 @@ def test_quasiisothermaldf_setup_roAsQuantity():
     ro= 9.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                           cutcounter=True,ro=ro*units.kpc)
-    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
 def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
@@ -3595,7 +3595,7 @@ def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
     ro= 9000.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                           cutcounter=True,ro=ro*units.lyr)
-    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
 def test_quasiisothermaldf_setup_voAsQuantity():
@@ -3606,7 +3606,7 @@ def test_quasiisothermaldf_setup_voAsQuantity():
     vo= 230.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                           cutcounter=True,vo=vo*units.km/units.s)
-    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
 def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
@@ -3617,6 +3617,6 @@ def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
     vo= 230.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                           cutcounter=True,vo=vo*units.pc/units.Myr)
-    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
