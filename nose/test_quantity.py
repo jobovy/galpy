@@ -3149,6 +3149,34 @@ def test_diskdf_method_value():
     assert numpy.fabs(df.vmomentsurfacemass(1.1,1,1).to(units.Msun/units.pc**2*(units.km/units.s)**2).value-dfnou.vmomentsurfacemass(1.1,1,1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*vo**2) < 10.**-8., 'diskdf method vmomentsurfacemass does not return correct Quantity'
     return None
 
+def test_diskdf_setup_roAsQuantity():
+    from galpy.df import dehnendf
+    ro= 7.
+    df= dehnendf(ro=ro*units.kpc)
+    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_diskdf_setup_roAsQuantity_oddunits():
+    from galpy.df import dehnendf
+    ro= 7000.
+    df= dehnendf(ro=ro*units.lyr)
+    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_diskdf_setup_voAsQuantity():
+    from galpy.df import dehnendf
+    vo= 230.
+    df= dehnendf(vo=vo*units.km/units.s)
+    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_diskdf_setup_voAsQuantity_oddunits():
+    from galpy.df import dehnendf
+    vo= 230.
+    df= dehnendf(vo=vo*units.pc/units.Myr)
+    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    return None
+
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
     from galpy.potential import LogarithmicHaloPotential, \
