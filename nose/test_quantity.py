@@ -3689,6 +3689,119 @@ def test_test_quasiisothermaldf_setup_refrloAsQuantity():
     assert numpy.fabs(qdf._lo-10./vo/ro) < 10.**-10., 'lo in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
+def test_streamdf_method_returntype():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro,vo=vo,nosetup=True)
+    assert isinstance(sdf_bovy14.misalignment(),units.Quantity), 'streamdf method misalignment does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.estimateTdisrupt(0.1),units.Quantity), 'streamdf method estimateTdisrupt does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.meanOmega(0.1),units.Quantity), 'streamdf method meanOmega does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.sigOmega(0.1),units.Quantity), 'streamdf method sigOmega does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.meantdAngle(0.1),units.Quantity), 'streamdf method meantdAngle does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.sigtdAngle(0.1),units.Quantity), 'streamdf method sigtdAngle does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.meanangledAngle(0.1),units.Quantity), 'streamdf method meanangledAngle does not return Quantity when it should'
+    assert isinstance(sdf_bovy14.sigangledAngle(0.1),units.Quantity), 'streamdf method sigangledAngle does not return Quantity when it should'
+    return None
+
+def test_streamdf_method_returnunit():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro,vo=vo,nosetup=True)
+    try:
+        sdf_bovy14.misalignment().to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method misalignment does not return Quantity with the right units')
+    try:
+        sdf_bovy14.estimateTdisrupt(0.1).to(units.Myr)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method estimateTdisrupt does not return Quantity with the right units')
+    try:
+        sdf_bovy14.meanOmega(0.1).to(1/units.Myr)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method meanOmega does not return Quantity with the right units')
+    try:
+        sdf_bovy14.sigOmega(0.1).to(1/units.Myr)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method sigOmega does not return Quantity with the right units')
+    try:
+        sdf_bovy14.meantdAngle(0.1).to(units.Myr)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method meantdAngle does not return Quantity with the right units')
+    try:
+        sdf_bovy14.sigtdAngle(0.1).to(units.Myr)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method sigtdAngle does not return Quantity with the right units')
+    try:
+        sdf_bovy14.meanangledAngle(0.1).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method meanangledAngle does not return Quantity with the right units')
+    try:
+        sdf_bovy14.sigangledAngle(0.1).to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('streamdf method sigangledAngle does not return Quantity with the right units')
+    return None
+
+def test_streamdf_method_value():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro,vo=vo,nosetup=True)
+    sdf_bovy14_nou= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True)
+    assert numpy.fabs(sdf_bovy14.misalignment().to(units.deg).value-sdf_bovy14_nou.misalignment()) < 10.**-8., 'streamdf method misalignment does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.estimateTdisrupt(0.1).to(units.Gyr).value-sdf_bovy14_nou.estimateTdisrupt(0.1)*bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method estimateTdisrupt does not return correct Quantity'
+    assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.meanOmega(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8.), 'streamdf method meanOmega does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.sigOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.sigOmega(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method sigOmega does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.meantdAngle(0.1).to(units.Gyr).value-sdf_bovy14_nou.meantdAngle(0.1)*bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method meantdAngle does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.sigtdAngle(0.1).to(units.Gyr).value-sdf_bovy14_nou.sigtdAngle(0.1)*bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method sigtdAngle does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(0.1).to(units.rad).value-sdf_bovy14_nou.meanangledAngle(0.1)) < 10.**-8., 'streamdf method meanangledAngle does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.sigangledAngle(0.1).to(units.rad).value-sdf_bovy14_nou.sigangledAngle(0.1)) < 10.**-8., 'streamdf method sigangledAngle does not return correct Quantity'
+    return None
+
 def test_streamdf_setup_roAsQuantity():
     #Imports
     from galpy.df import streamdf
