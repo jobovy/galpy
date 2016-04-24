@@ -3652,6 +3652,27 @@ def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
     assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
+def test_test_quasiisothermaldf_setup_profileAsQuantity():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro, vo= 7., 250.
+    qdf= quasiisothermaldf(3.*units.kpc,
+                           30.*units.km/units.s,
+                           20.*units.pc/units.Myr,
+                           10.*units.kpc,
+                           8000.*units.lyr,
+                           pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=ro,vo=vo)
+    assert numpy.fabs(qdf._hr-3./ro) < 10.**-10., 'hr in quasiisothermaldf setup as Quantity does not work as expected'
+    assert numpy.fabs(qdf._sr-30./vo) < 10.**-10., 'sr in quasiisothermaldf setup as Quantity does not work as expected'
+    assert numpy.fabs(qdf._sz-20.*(units.pc/units.Myr).to(units.km/units.s)/vo) < 10.**-10., 'sz in quasiisothermaldf setup as Quantity does not work as expected'
+    assert numpy.fabs(qdf._hsr-10./ro) < 10.**-10., 'hr in quasiisothermaldf setup as Quantity does not work as expected'
+    assert numpy.fabs(qdf._hsz-8000.*(units.lyr).to(units.kpc)/ro) < 10.**-10., 'hsz in quasiisothermaldf setup as Quantity does not work as expected'
+    return None
+
 def test_streamdf_setup_roAsQuantity():
     #Imports
     from galpy.df import streamdf
