@@ -3620,3 +3620,91 @@ def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
     assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
+def test_streamdf_setup_roAsQuantity():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro= 9.
+    df= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro*units.kpc,
+                 nosetup=True)
+    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in streamdf setup as Quantity does not work as expected'
+    return None
+
+def test_streamdf_setup_roAsQuantity_oddunits():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro= 9000.
+    df= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro*units.lyr,
+                 nosetup=True)
+    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in quasiisothermaldf setup as Quantity does not work as expected'
+    return None
+
+def test_streamdf_setup_voAsQuantity():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    vo= 250.
+    df= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 vo=vo*units.km/units.s,
+                 nosetup=True)
+    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in streamdf setup as Quantity does not work as expected'
+    return None
+
+def test_streamdf_setup_roAsQuantity_oddunits():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    vo= 250.
+    df= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 vo=vo*units.pc/units.Myr,
+                 nosetup=True)
+    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in streamdf setup as Quantity does not work as expected'
+    return None
+
