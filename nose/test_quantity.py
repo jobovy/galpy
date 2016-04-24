@@ -3673,6 +3673,22 @@ def test_test_quasiisothermaldf_setup_profileAsQuantity():
     assert numpy.fabs(qdf._hsz-8000.*(units.lyr).to(units.kpc)/ro) < 10.**-10., 'hsz in quasiisothermaldf setup as Quantity does not work as expected'
     return None
 
+def test_test_quasiisothermaldf_setup_refrloAsQuantity():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro, vo= 7., 250.
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,
+                           refr=9.*units.kpc,
+                           lo=10.*units.kpc*units.km/units.s,
+                           ro=ro,vo=vo)
+    assert numpy.fabs(qdf._refr-9./ro) < 10.**-10., 'refr in quasiisothermaldf setup as Quantity does not work as expected'
+    assert numpy.fabs(qdf._lo-10./vo/ro) < 10.**-10., 'lo in quasiisothermaldf setup as Quantity does not work as expected'
+    return None
+
 def test_streamdf_setup_roAsQuantity():
     #Imports
     from galpy.df import streamdf
