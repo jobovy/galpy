@@ -3576,3 +3576,47 @@ def test_quasiisothermaldf_method_value():
     assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,2,1,1,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**4).value-qdfnou.jmomentdensity(1.1,0.1,2,1,1,nmc=100000)/ro**3*(ro*vo)**4) < 10000., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
     return None
 
+def test_quasiisothermaldf_setup_roAsQuantity():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro= 9.
+    df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                          cutcounter=True,ro=ro*units.kpc)
+    assert numpy.fabs(df._ro-ro) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro= 9000.
+    df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                          cutcounter=True,ro=ro*units.lyr)
+    assert numpy.fabs(df._ro-ro*(units.lyr).to(units.kpc)) < 10.**-10., 'ro in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_quasiisothermaldf_setup_voAsQuantity():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    vo= 230.
+    df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                          cutcounter=True,vo=vo*units.km/units.s)
+    assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    return None
+
+def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    vo= 230.
+    df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                          cutcounter=True,vo=vo*units.pc/units.Myr)
+    assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
+    return None
+
