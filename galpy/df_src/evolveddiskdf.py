@@ -66,6 +66,8 @@ class evolveddiskdf(df):
         df.__init__(self,ro=ro,vo=vo)
         self._initdf= initdf
         self._pot= pot
+        if _APY_LOADED and isinstance(to,units.Quantity):
+            to= to.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
         self._to= to
 
     @physical_conversion('phasespacedensity2d',pop=True)

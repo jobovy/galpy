@@ -3361,6 +3361,21 @@ def test_evolveddiskdf_setup_voAsQuantity_oddunits():
     assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in evolveddiskdf setup as Quantity does not work as expected'
     return None
 
+def test_evolveddiskdf_setup_toAsQuantity():
+    from galpy.util import bovy_conversion
+    from galpy.df import dehnendf
+    from galpy.potential import LogarithmicHaloPotential, \
+        EllipticalDiskPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
+                                tform=-150.,tsteady=125.)
+    ro, vo= 7., 230.
+    idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),vo=vo,ro=ro)
+    from galpy.df import evolveddiskdf
+    df= evolveddiskdf(idfwarm,[lp,ep],to=-3.*units.Gyr)
+    assert numpy.fabs(df._to+3./bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-10., 'to in evolveddiskdf setup as Quantity does not work as expected'
+    return None
+
 def test_quasiisothermaldf_method_returntype():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
