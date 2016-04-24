@@ -175,6 +175,10 @@ class streamdf(df):
             Zsun= Zsun.to(units.kpc).value
         if _APY_LOADED and isinstance(vsun,units.Quantity):
             vsun= vsun.to(units.km/units.s).value
+        elif _APY_LOADED and isinstance(vsun[0],units.Quantity):
+            vsun[0]= vsun[0].to(units.km/units.s).value
+            vsun[1]= vsun[1].to(units.km/units.s).value
+            vsun[2]= vsun[2].to(units.km/units.s).value
         self._setup_coord_transform(R0,Zsun,vsun,progenitor,custom_transform)
         #Determine the stream track
         if not nosetup:
