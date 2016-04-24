@@ -3177,6 +3177,23 @@ def test_diskdf_setup_voAsQuantity_oddunits():
     assert numpy.fabs(df._vo-vo*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in diskdf setup as Quantity does not work as expected'
     return None
 
+def test_diskdf_setup_profileAsQuantity():
+    from galpy.df import dehnendf,shudf
+    from galpy.orbit import Orbit
+    df= dehnendf(ro=8.,vo=220.,profileParams=(9.*units.kpc,
+                                              10.*units.kpc,
+                                              20.*units.km/units.s))
+    dfs= shudf(ro=8.,vo=220.,profileParams=(9.*units.kpc,
+                                            10.*units.kpc,
+                                            20.*units.km/units.s))
+    assert numpy.fabs(df._surfaceSigmaProfile._params[0]-9./8.) < 10.**-10., 'hR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._surfaceSigmaProfile._params[1]-10./8.) < 10.**-10., 'hsR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._surfaceSigmaProfile._params[2]-20./22.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(dfs._surfaceSigmaProfile._params[0]-9./8.) < 10.**-10., 'hR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(dfs._surfaceSigmaProfile._params[1]-10./8.) < 10.**-10., 'hsR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(dfs._surfaceSigmaProfile._params[2]-20./22.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
+    return None
+
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
     from galpy.potential import LogarithmicHaloPotential, \
