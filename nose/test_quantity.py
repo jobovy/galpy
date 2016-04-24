@@ -3804,3 +3804,47 @@ def test_streamdf_setup_paramsAsQuantity():
     assert numpy.fabs(df._deltaAngleTrack-170.*(units.deg).to(units.rad)) < 10.**-10., 'deltaAngleTrack in streamdf setup as Quantity does not work as expected'
     return None
 
+def test_streamdf_setup_coordtransformparamsAsQuantity():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 230.
+    df= streamdf(sigv/vo,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(vo,ro),
+                 ro=ro,vo=vo,
+                 nosetup=True,
+                 R0=8.*units.kpc,
+                 Zsun=25.*units.pc,
+                 vsun=[-10.*units.km/units.s,
+                        240.*units.pc/units.Myr,
+                        7.*units.km/units.s])
+    assert numpy.fabs(df._R0-8.) < 10.**-10., 'R0 in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._Zsun-0.025) < 10.**-10., 'Zsun in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vsun[0]+10.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vsun[1]-240.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vsun[2]-7.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    # Now with vsun as Quantity
+    df= streamdf(sigv/vo,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(vo,ro),
+                 ro=ro,vo=vo,
+                 nosetup=True,
+                 R0=8.*units.kpc,
+                 Zsun=25.*units.pc,
+                 vsun=units.Quantity([-10.,240.,7.],unit=units.km/units.s))
+    assert numpy.fabs(df._vsun[0]+10.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vsun[1]-240.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._vsun[2]-7.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
+    return None
+
