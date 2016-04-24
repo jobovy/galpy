@@ -3188,10 +3188,10 @@ def test_diskdf_setup_profileAsQuantity():
                                             20.*units.km/units.s))
     assert numpy.fabs(df._surfaceSigmaProfile._params[0]-9./8.) < 10.**-10., 'hR in diskdf setup as Quantity does not work as expected'
     assert numpy.fabs(df._surfaceSigmaProfile._params[1]-10./8.) < 10.**-10., 'hsR in diskdf setup as Quantity does not work as expected'
-    assert numpy.fabs(df._surfaceSigmaProfile._params[2]-20./22.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(df._surfaceSigmaProfile._params[2]-20./220.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
     assert numpy.fabs(dfs._surfaceSigmaProfile._params[0]-9./8.) < 10.**-10., 'hR in diskdf setup as Quantity does not work as expected'
     assert numpy.fabs(dfs._surfaceSigmaProfile._params[1]-10./8.) < 10.**-10., 'hsR in diskdf setup as Quantity does not work as expected'
-    assert numpy.fabs(dfs._surfaceSigmaProfile._params[2]-20./22.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
+    assert numpy.fabs(dfs._surfaceSigmaProfile._params[2]-20./220.) < 10.**-10., 'sR in diskdf setup as Quantity does not work as expected'
     return None
 
 def test_evolveddiskdf_method_returntype():
