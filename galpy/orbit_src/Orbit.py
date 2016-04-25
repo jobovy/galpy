@@ -404,6 +404,7 @@ class Orbit(object):
         _check_potential_dim(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
+            self._orb._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         from galpy.potential import MWPotential
@@ -462,6 +463,7 @@ class Orbit(object):
         _check_potential_dim(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
+            self._orb._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._orb.integrate_dxdv(dxdv,t,pot,method=method,

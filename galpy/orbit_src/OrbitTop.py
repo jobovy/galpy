@@ -1270,6 +1270,9 @@ class OrbitTop(object):
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        elif hasattr(self,'_integrate_t_asQuantity') \
+                    and self._integrate_t_asQuantity:
+            warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
