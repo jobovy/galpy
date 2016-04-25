@@ -919,8 +919,6 @@ class diskdf(df):
             if _APY_UNITS:
                 u= units.Msun/units.pc**2*(units.km/units.s)**(args[1]+args[2])
             out= self._vmomentsurfacemass(*args,**kwargs)
-            if out is None:
-                return out
             if _APY_UNITS:
                 return units.Quantity(out*fac,unit=u)
             else:
