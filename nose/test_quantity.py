@@ -4255,6 +4255,7 @@ def test_streamgapdf_method_returntype():
                                    leading=False,nTrackChunks=5,
                                    nTrackIterations=1,
                                    nTrackChunksImpact=5,
+                                   Vnorm=V0,Rnorm=R0,
                                    sigMeanOffset=4.5,
                                    tdisrupt=10.88\
                                        /bovy_conversion.time_in_Gyr(V0,R0),
@@ -4266,6 +4267,9 @@ def test_streamgapdf_method_returntype():
                                    GM=10.**-2.\
                                        /bovy_conversion.mass_in_1010msol(V0,R0),
                                    rs=0.625/R0)
+    # turn off units
+    sdf_sanders15_nou._roSet= False
+    sdf_sanders15_nou._voSet= False
     assert isinstance(sdf_sanders15.meanOmega(0.1),units.Quantity), 'streamgapdf method meanOmega does not return Quantity when it should'
     return None
 
@@ -4293,4 +4297,77 @@ def test_streamgapdf_setup_impactparamsAsQuantity():
 def test_streamgapdf_inputAsQuantity():
     from galpy.util import bovy_conversion
     assert numpy.fabs(sdf_sanders15.pOparapar(0.2/units.Gyr,30.*units.deg)-sdf_sanders15_nou.pOparapar(0.2/bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro),30.*numpy.pi/180.)) < 10.**-8., 'streamgapdf method pOparapar with Quantity input does not return correct Quantity'
+    return None
+
+def test_streamgapdf_sample():
+    from galpy.util import bovy_conversion
+    # RvR
+    numpy.random.seed(1)
+    RvR= sdf_sanders15.sample(1)
+    numpy.random.seed(1)
+    RvRnou= sdf_sanders15_nou.sample(1)
+    assert numpy.fabs(RvR[0].to(units.kpc).value/sdf_sanders15._ro-RvRnou[0]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    assert numpy.fabs(RvR[3].to(units.kpc).value/sdf_sanders15._ro-RvRnou[3]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    assert numpy.fabs(RvR[1].to(units.km/units.s).value/sdf_sanders15._vo-RvRnou[1]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    assert numpy.fabs(RvR[2].to(units.km/units.s).value/sdf_sanders15._vo-RvRnou[2]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    assert numpy.fabs(RvR[4].to(units.km/units.s).value/sdf_sanders15._vo-RvRnou[4]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    assert numpy.fabs(RvR[5].to(units.rad).value-RvRnou[5]) < 10.**-8., 'streamgapdf sample RvR does not return a correct Quantity'
+    # RvR,dt
+    numpy.random.seed(1)
+    RvRdt= sdf_sanders15.sample(1,returndt=True)
+    numpy.random.seed(1)
+    RvRdtnou= sdf_sanders15_nou.sample(1,returndt=True)
+    assert numpy.fabs(RvRdt[0].to(units.kpc).value/sdf_sanders15._ro-RvRdtnou[0]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[3].to(units.kpc).value/sdf_sanders15._ro-RvRdtnou[3]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[1].to(units.km/units.s).value/sdf_sanders15._vo-RvRdtnou[1]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[2].to(units.km/units.s).value/sdf_sanders15._vo-RvRdtnou[2]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[4].to(units.km/units.s).value/sdf_sanders15._vo-RvRdtnou[4]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[5].to(units.rad).value-RvRdtnou[5]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    assert numpy.fabs(RvRdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-RvRdtnou[6]) < 10.**-8., 'streamgapdf sample RvRdt does not return a correct Quantity'
+    # xy
+    numpy.random.seed(1)
+    xy= sdf_sanders15.sample(1,xy=True)
+    numpy.random.seed(1)
+    xynou= sdf_sanders15_nou.sample(1,xy=True)
+    assert numpy.fabs(xy[0].to(units.kpc).value/sdf_sanders15._ro-xynou[0]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[1].to(units.kpc).value/sdf_sanders15._ro-xynou[1]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[2].to(units.kpc).value/sdf_sanders15._ro-xynou[2]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[3].to(units.km/units.s).value/sdf_sanders15._vo-xynou[3]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[4].to(units.km/units.s).value/sdf_sanders15._vo-xynou[4]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[5].to(units.km/units.s).value/sdf_sanders15._vo-xynou[5]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    # xydt
+    numpy.random.seed(1)
+    xydt= sdf_sanders15.sample(1,xy=True,returndt=True)
+    numpy.random.seed(1)
+    xydtnou= sdf_sanders15_nou.sample(1,xy=True,returndt=True)
+    assert numpy.fabs(xy[0].to(units.kpc).value/sdf_sanders15._ro-xynou[0]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[1].to(units.kpc).value/sdf_sanders15._ro-xynou[1]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[2].to(units.kpc).value/sdf_sanders15._ro-xynou[2]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[3].to(units.km/units.s).value/sdf_sanders15._vo-xynou[3]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[4].to(units.km/units.s).value/sdf_sanders15._vo-xynou[4]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xy[5].to(units.km/units.s).value/sdf_sanders15._vo-xynou[5]) < 10.**-8., 'streamgapdf sample xy does not return a correct Quantity'
+    assert numpy.fabs(xydt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-xydtnou[6]) < 10.**-8., 'streamgapdf sample xydt does not return a correct Quantity'
+    # lb
+    numpy.random.seed(1)
+    lb= sdf_sanders15.sample(1,lb=True)
+    numpy.random.seed(1)
+    lbnou= sdf_sanders15_nou.sample(1,lb=True)
+    assert numpy.fabs(lb[0].to(units.deg).value-lbnou[0]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[1].to(units.deg).value-lbnou[1]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[2].to(units.kpc).value-lbnou[2]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[3].to(units.km/units.s).value-lbnou[3]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[4].to(units.mas/units.yr).value-lbnou[4]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[5].to(units.mas/units.yr).value-lbnou[5]) < 10.**-8., 'streamgapdf sample lb does not return a correct Quantity'
+    # lbdt
+    numpy.random.seed(1)
+    lbdt= sdf_sanders15.sample(1,lb=True,returndt=True)
+    numpy.random.seed(1)
+    lbdtnou= sdf_sanders15_nou.sample(1,lb=True,returndt=True)
+    assert numpy.fabs(lbdt[0].to(units.deg).value-lbdtnou[0]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[1].to(units.deg).value-lbdtnou[1]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[2].to(units.kpc).value-lbdtnou[2]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[3].to(units.km/units.s).value-lbdtnou[3]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[4].to(units.mas/units.yr).value-lbdtnou[4]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[5].to(units.mas/units.yr).value-lbdtnou[5]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    assert numpy.fabs(lbdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     return None
