@@ -387,8 +387,8 @@ class FullOrbit(OrbitTop):
            fit an Orbit to data using the current orbit as the initial 
            condition
         INPUT:
-           vxvv - [:,6] array of positions and velocities along the orbit
-           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
+           vxvv - [:,6] array of positions and velocities along the orbit [cannot be Quantities]
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) [cannot be Quantities]
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:

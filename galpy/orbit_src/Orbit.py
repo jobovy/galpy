@@ -614,9 +614,9 @@ class Orbit(object):
 
         INPUT:
 
-           vxvv - [:,6] array of positions and velocities along the orbit
+           vxvv - [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
 
-           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
 
            pot= Potential to fit the orbit in
 
