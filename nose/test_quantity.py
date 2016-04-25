@@ -4280,3 +4280,12 @@ def test_streamgapdf_method_value():
     from galpy.util import bovy_conversion
     assert numpy.all(numpy.fabs(sdf_sanders15.meanOmega(0.1).to(1/units.Gyr).value/bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-sdf_sanders15_nou.meanOmega(0.1)) < 10.**-8.), 'streamgapdf method meanOmega does not return correct Quantity'
     return None
+
+def test_streamgapdf_setup_impactparamsAsQuantity():
+    assert numpy.fabs(sdf_sanders15._impactb-sdf_sanders15_nou._impactb) < 10.**-8., 'impactb specified as Quantity for streamgapdf does not work as expected'
+    assert numpy.fabs(sdf_sanders15._impact_angle-sdf_sanders15_nou._impact_angle) < 10.**-8., 'impact_angle specified as Quantity for streamgapdf does not work as expected'
+    assert numpy.fabs(sdf_sanders15._timpact-sdf_sanders15_nou._timpact) < 10.**-8., 'timpact specified as Quantity for streamgapdf does not work as expected'
+    assert numpy.all(numpy.fabs(sdf_sanders15._subhalovel-sdf_sanders15_nou._subhalovel) < 10.**-8.), 'subhalovel specified as Quantity for streamgapdf does not work as expected'
+    # GM and rs are not currently stored in streamgapdf, so just check kick
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav-sdf_sanders15_nou._kick_deltav) < 10.**-8.), 'Calculated kick from parameters specified as Quantity for streamgapdf does not work as expected'
+    return None
