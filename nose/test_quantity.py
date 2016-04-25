@@ -4012,7 +4012,7 @@ def test_streamdf_setup_voAsQuantity():
     assert numpy.fabs(df._vo-vo) < 10.**-10., 'vo in streamdf setup as Quantity does not work as expected'
     return None
 
-def test_streamdf_setup_roAsQuantity_oddunits():
+def test_streamdf_setup_voAsQuantity_oddunits():
     #Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
