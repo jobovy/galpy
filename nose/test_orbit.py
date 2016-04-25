@@ -2687,6 +2687,48 @@ def test_orbit_dim_1dPot_2dOrb():
     o.integrate(ts,pota,method="leapfrog")
     return None
 
+# Test whether ro warning is sounded when calling ra etc.
+def test_orbit_radecetc_roWarning():
+    from galpy.orbit import Orbit
+    o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
+    check_radecetc_roWarning(o,'ra')
+    check_radecetc_roWarning(o,'dec')
+    check_radecetc_roWarning(o,'ll')
+    check_radecetc_roWarning(o,'bb')
+    check_radecetc_roWarning(o,'dist')
+    check_radecetc_roWarning(o,'pmra')
+    check_radecetc_roWarning(o,'pmdec')
+    check_radecetc_roWarning(o,'pmll')
+    check_radecetc_roWarning(o,'pmbb')
+    check_radecetc_roWarning(o,'vra')
+    check_radecetc_roWarning(o,'vdec')
+    check_radecetc_roWarning(o,'vll')
+    check_radecetc_roWarning(o,'vbb')
+    check_radecetc_roWarning(o,'helioX')
+    check_radecetc_roWarning(o,'helioY')
+    check_radecetc_roWarning(o,'helioZ')
+    check_radecetc_roWarning(o,'U')
+    check_radecetc_roWarning(o,'V')
+    check_radecetc_roWarning(o,'W')
+    return None
+
+# Test whether vo warning is sounded when calling pmra etc.
+def test_orbit_radecetc_voWarning():
+    from galpy.orbit import Orbit
+    o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
+    check_radecetc_voWarning(o,'pmra')
+    check_radecetc_voWarning(o,'pmdec')
+    check_radecetc_voWarning(o,'pmll')
+    check_radecetc_voWarning(o,'pmbb')
+    check_radecetc_voWarning(o,'vra')
+    check_radecetc_voWarning(o,'vdec')
+    check_radecetc_voWarning(o,'vll')
+    check_radecetc_voWarning(o,'vbb')
+    check_radecetc_voWarning(o,'U')
+    check_radecetc_voWarning(o,'V')
+    check_radecetc_voWarning(o,'W')
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
@@ -3176,3 +3218,30 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
             o= Orbit([1.,1.1,1.1,0.1,0.1,0.],ro=ro,vo=vo,zo=zo,
                      solarmotion=solarmotion)
     return o
+
+def check_radecetc_roWarning(o,funcName):
+    # Convenience function to check whether the ro-needs-to-be-specified 
+    # warning is sounded
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        getattr(o,funcName)()
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,8.))
+            if raisedWarning: break
+        assert raisedWarning, "Orbit method %s without ro specified should have thrown a warning, but didn't" % funcName
+    return None
+
+def check_radecetc_voWarning(o,funcName):
+    # Convenience function to check whether the vo-needs-to-be-specified 
+    # warning is sounded
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        getattr(o,funcName)()
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,220.))
+            if raisedWarning: break
+        assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
+    return None
+
