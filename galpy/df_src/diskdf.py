@@ -132,7 +132,7 @@ class diskdf(df):
               E - energy (/vo^2)
               L - angular momentun (/ro/vo)
 
-           3) array vxvv [3/4,nt]
+           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro
 
         KWARGS:
 
@@ -184,12 +184,6 @@ class diskdf(df):
             vR= args[0][1]
             vT= args[0][2]
             R= args[0][0]
-            if _APY_LOADED and isinstance(vR,units.Quantity):
-                vR= vR.to(units.km/units.s).value/self._vo
-            if _APY_LOADED and isinstance(vT,units.Quantity):
-                vT= vT.to(units.km/units.s).value/self._vo
-            if _APY_LOADED and isinstance(R,units.Quantity):
-                R= R.to(units.kpc).value/self._ro
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
         else:
             return sc.real(self.eval(*args))
