@@ -3159,13 +3159,13 @@ def test_diskdf_sample():
     dfnou= dehnendf()
     # sampledSurfacemassLOS
     numpy.random.seed(1)
-    du= df.sampledSurfacemassLOS(1.1,n=1).value/ro
+    du= df.sampledSurfacemassLOS(1.1,n=1).to(units.kpc).value/ro
     numpy.random.seed(1)
     dnou= dfnou.sampledSurfacemassLOS(1.1,n=1)
     assert numpy.fabs(du-dnou) < 10.**-8., 'diskdf sampling method sampledSurfacemassLOS does not return expected Quantity'
     # sampleVRVT
     numpy.random.seed(1)
-    du= df.sampleVRVT(1.1,n=1).value/vo
+    du= df.sampleVRVT(1.1,n=1).to(units.km/units.s).value/vo
     numpy.random.seed(1)
     dnou= dfnou.sampleVRVT(1.1,n=1)
     assert numpy.all(numpy.fabs(du-dnou) < 10.**-8.), 'diskdf sampling method sampleVRVT does not return expected Quantity'
@@ -3720,6 +3720,23 @@ def test_quasiisothermaldf_method_value():
     assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,0,1,1,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**2).value-qdfnou.jmomentdensity(1.1,0.1,0,1,1,nmc=100000)/ro**3*(ro*vo)**2) < 1., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
     assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,1,1,0,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**2).value-qdfnou.jmomentdensity(1.1,0.1,1,1,0,nmc=100000)/ro**3*(ro*vo)**2) < 10., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
     assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,2,1,1,nmc=100000).to(1/units.kpc**3*(units.kpc*units.km/units.s)**4).value-qdfnou.jmomentdensity(1.1,0.1,2,1,1,nmc=100000)/ro**3*(ro*vo)**4) < 10000., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    return None
+
+def test_quasiisothermaldf_sample():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro, vo= 9., 210.
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=ro,vo=vo)
+    qdfnou= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                              cutcounter=True)
+    numpy.random.seed(1)
+    vu= qdf.sampleV(1.1,0.1,n=1).to(units.km/units.s).value/vo
+    numpy.random.seed(1)
+    vnou= qdfnou.sampleV(1.1,0.1,n=1)
+    assert numpy.all(numpy.fabs(vu-vnou)< 10.**-8.), 'quasiisothermaldf sampleV does not return correct Quantity'
     return None
 
 def test_quasiisothermaldf_method_inputAsQuantity():
