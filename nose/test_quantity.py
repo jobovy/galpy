@@ -3341,6 +3341,55 @@ def test_evolveddiskdf_method_value():
     assert numpy.fabs(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvR does not return correct Quantity when it should'
     return None
 
+def test_evolveddiskdf_method_inputAsQuantity():
+    # Those that use the decorator
+    from galpy.util import bovy_conversion
+    from galpy.df import dehnendf
+    from galpy.potential import LogarithmicHaloPotential, \
+        EllipticalDiskPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
+                                tform=-150.,tsteady=125.)
+    ro, vo= 6., 230.
+    idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=ro,vo=vo)
+    from galpy.df import evolveddiskdf
+    edfwarm= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
+    idfwarmnou= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15))
+    edfwarmnou= evolveddiskdf(idfwarmnou,[lp,ep],to=-150.)
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1])
+    assert numpy.fabs(edfwarm.oortA(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortA(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortA does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.oortB(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortB(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortB does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.oortC(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortC(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortC does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.oortK(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortK(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortK does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.sigmaT2(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaT2 does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.sigmaR2(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaR2 does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.sigmaRT(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaRT does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.vertexdev(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.deg).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.meanvT(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvT does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.meanvR(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvR does not return correct Quantity when it should'
+    return None
+
+def test_evolveddiskdf_method_inputAsQuantity_special():
+    from galpy.util import bovy_conversion
+    from galpy.df import dehnendf
+    from galpy.potential import LogarithmicHaloPotential, \
+        EllipticalDiskPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
+                                tform=-150.,tsteady=125.)
+    ro, vo= 6., 230.
+    idfwarm= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15),ro=ro,vo=vo)
+    from galpy.df import evolveddiskdf
+    edfwarm= evolveddiskdf(idfwarm,[lp,ep],to=-150.)
+    idfwarmnou= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15))
+    edfwarmnou= evolveddiskdf(idfwarmnou,[lp,ep],to=-150.)
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1])
+    ts= numpy.linspace(0.,-150.,101)
+    assert numpy.all(numpy.fabs(edfwarm(o,ts*bovy_conversion.time_in_Gyr(vo,ro)*units.Gyr).to(1/units.kpc**2/(units.km/units.s)**2).value-edfwarmnou(o,ts)/ro**2/vo**2) < 10.**-8.), 'evolveddiskdf method __call__ does not return correct Quantity when it should'
+    return None
+
 def test_evolveddiskdf_setup_roAsQuantity():
     from galpy.df import dehnendf
     from galpy.potential import LogarithmicHaloPotential, \
