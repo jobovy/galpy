@@ -4289,3 +4289,8 @@ def test_streamgapdf_setup_impactparamsAsQuantity():
     # GM and rs are not currently stored in streamgapdf, so just check kick
     assert numpy.all(numpy.fabs(sdf_sanders15._kick_deltav-sdf_sanders15_nou._kick_deltav) < 10.**-8.), 'Calculated kick from parameters specified as Quantity for streamgapdf does not work as expected'
     return None
+
+def test_streamgapdf_inputAsQuantity():
+    from galpy.util import bovy_conversion
+    assert numpy.fabs(sdf_sanders15.pOparapar(0.2/units.Gyr,30.*units.deg)-sdf_sanders15_nou.pOparapar(0.2/bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro),30.*numpy.pi/180.)) < 10.**-8., 'streamgapdf method pOparapar with Quantity input does not return correct Quantity'
+    return None
