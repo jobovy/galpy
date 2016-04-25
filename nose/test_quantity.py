@@ -3936,6 +3936,41 @@ def test_streamdf_method_value():
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True)
+    assert numpy.fabs(sdf_bovy14.subhalo_encounters(\
+            venc=200.*units.km/units.s,
+            sigma=150.*units.km/units.s,
+            nsubhalo=38.35/(4.*(25.*units.kpc)**3.*numpy.pi/3.),
+            bmax=1.*units.kpc,yoon=False)-
+                      sdf_bovy14_nou.subhalo_encounters(\
+            venc=200./vo,sigma=150./vo,
+            nsubhalo=38.35/(4.*25.**3.*numpy.pi/3.)*ro**3.,
+            bmax=1./ro,yoon=False)) < 10.**-8., 'streamdf method subhalo_encounters with Quantity input does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.pOparapar(0.2/units.Gyr,30.*units.deg)-sdf_bovy14_nou.pOparapar(0.2/bovy_conversion.freq_in_Gyr(vo,ro),30.*numpy.pi/180.)) < 10.**-8., 'streamdf method pOparapar with Quantity input does not return correct Quantity'
+    return None
+
+def test_streamdf_method_inputAsQuantity():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro,vo=vo,nosetup=True)
+    sdf_bovy14_nou= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True)
     assert numpy.fabs(sdf_bovy14.misalignment().to(units.deg).value-sdf_bovy14_nou.misalignment()) < 10.**-8., 'streamdf method misalignment does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.estimateTdisrupt(0.1).to(units.Gyr).value-sdf_bovy14_nou.estimateTdisrupt(0.1)*bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method estimateTdisrupt does not return correct Quantity'
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.meanOmega(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8.), 'streamdf method meanOmega does not return correct Quantity'
