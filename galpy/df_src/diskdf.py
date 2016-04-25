@@ -573,7 +573,7 @@ class diskdf(df):
         if _APY_LOADED and isinstance(l,units.Quantity):
                 l= l.to(units.rad).value
         if _APY_LOADED and isinstance(maxd,units.Quantity):
-            maxd= maxd.to(units.rad).value/self._ro
+            maxd= maxd.to(units.kpc).value/self._ro
         if maxd is None:
             maxd= _MAXD_REJECTLOS
         out= []
@@ -681,7 +681,7 @@ class diskdf(df):
         """
         if _APY_LOADED and isinstance(los,units.Quantity):
             l= los.to(units.rad).value
-        if deg:
+        elif deg:
             l= los*_DEGTORAD
         else:
             l= los
