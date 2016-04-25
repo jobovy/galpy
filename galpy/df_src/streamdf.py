@@ -2758,19 +2758,6 @@ class streamdf(df):
 
             lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb coordinates
 
-            +Coordinate transformation inputs (all default to the instance-wide
-            values):
-
-              vo= circular velocity to normalize velocities with
-
-              ro= Galactocentric radius to normalize positions with
-
-              R0= Galactocentric radius of the Sun (kpc)
-
-              Zsun= Sun's height above the plane (kpc)
-
-              vsun= Sun's motion in cylindrical coordinates (vR positive away from center)
-
         OUTPUT:
 
             (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
@@ -2810,7 +2797,7 @@ class streamdf(df):
                         units.Quantity(\
                         dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
                         unit=units.Gyr))
-            return (RvR,dt)
+            return (RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],dt)
         elif not xy and not lb:
             if _APY_UNITS and self._voSet and self._roSet:
                 return (units.Quantity(RvR[0]*self._ro,unit=units.kpc),
@@ -2847,7 +2834,7 @@ class streamdf(df):
                             units.Quantity(\
                             dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
-                return (out,dt)
+                return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:
                 if _APY_UNITS and self._voSet and self._roSet:
                     return (units.Quantity(out[0]*self._ro,unit=units.kpc),
@@ -2886,7 +2873,7 @@ class streamdf(df):
             out[4]= svlbd[:,1]
             out[5]= svlbd[:,2]
             if returndt:
-                if _APY_UNITS:
+                if _APY_UNITS and self._voSet and self._roSet:
                     return (units.Quantity(out[0],unit=units.deg),
                             units.Quantity(out[1],unit=units.deg),
                             units.Quantity(out[2],unit=units.kpc),
@@ -2896,9 +2883,9 @@ class streamdf(df):
                             units.Quantity(\
                             dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
-                return (out,dt)
+                return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:
-                if _APY_UNITS:
+                if _APY_UNITS and self._voSet and self._roSet:
                     return (units.Quantity(out[0],unit=units.deg),
                             units.Quantity(out[1],unit=units.deg),
                             units.Quantity(out[2],unit=units.kpc),
