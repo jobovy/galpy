@@ -124,7 +124,9 @@ class evolveddiskdf(df):
         if isinstance(t,list):
             t= nu.array(t)
             tlist= True
-        elif isinstance(t,nu.ndarray): tlist= True
+        elif isinstance(t,nu.ndarray) and \
+                not (hasattr(t,'isscalar') and t.isscalar):
+            tlist= True
         else: tlist= False
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
