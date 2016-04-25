@@ -2348,6 +2348,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
+        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        _check_roSet(self,kwargs,'vra')
+        _check_voSet(self,kwargs,'vra')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
@@ -2390,6 +2393,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
+        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        _check_roSet(self,kwargs,'vdec')
+        _check_voSet(self,kwargs,'vdec')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
@@ -2432,6 +2438,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
+        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        _check_roSet(self,kwargs,'vll')
+        _check_voSet(self,kwargs,'vll')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
@@ -2474,6 +2483,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
+        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        _check_roSet(self,kwargs,'vbb')
+        _check_voSet(self,kwargs,'vbb')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*

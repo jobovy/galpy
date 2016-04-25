@@ -1,3 +1,4 @@
+import warnings
 import math as m
 import numpy as nu
 import scipy
@@ -11,7 +12,7 @@ from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.util import bovy_conversion
+from galpy.util import bovy_conversion, galpyWarning
 from galpy.util import config
 if int(scipy.__version__.split('.')[0]) < 1 and \
         int(scipy.__version__.split('.')[1]) < 15: #pragma: no cover
@@ -478,6 +479,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'ra')
         radec= self._radec(*args,**kwargs)
         return radec[:,0]
 
@@ -500,6 +502,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'dec')
         radec= self._radec(*args,**kwargs)
         return radec[:,1]
 
@@ -522,6 +525,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'ll')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,0]
 
@@ -544,6 +548,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'bb')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,1]
 
@@ -566,6 +571,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'dist')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,2].astype('float64')
 
@@ -589,6 +595,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmra')
+        _check_voSet(self,kwargs,'pmra')
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,0]
 
@@ -612,6 +620,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmdec')
+        _check_voSet(self,kwargs,'pmdec')
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,1]
 
@@ -635,6 +645,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmll')
+        _check_voSet(self,kwargs,'pmll')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,4]
 
@@ -658,6 +670,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmbb')
+        _check_voSet(self,kwargs,'pmbb')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,5]
 
@@ -681,6 +695,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'vlos')
+        _check_voSet(self,kwargs,'vlos')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,3]
 
@@ -703,6 +719,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioX')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return X
 
@@ -725,6 +742,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioY')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Y
 
@@ -747,6 +765,7 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioZ')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Z
 
@@ -770,6 +789,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'U')
+        _check_voSet(self,kwargs,'U')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return U
 
@@ -793,6 +814,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'V')
+        _check_voSet(self,kwargs,'V')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return V
 
@@ -816,6 +839,8 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'W')
+        _check_voSet(self,kwargs,'W')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return W
 
@@ -837,6 +862,7 @@ class OrbitTop(object):
         HISTORY:
            2015-06-02 - Written - Bovy (IAS)
         """
+        _check_roSet(self,kwargs,'SkyCoord')
         radec= self._radec(*args,**kwargs)
         tdist= self.dist(*args,**kwargs)
         return coordinates.SkyCoord(radec[:,0]*units.degree,
@@ -2039,3 +2065,14 @@ class _fakeInterp(object):
         else:
             return nu.array([self.x for i in t])
 
+def _check_roSet(orb,kwargs,funcName):
+    """Function to check whether ro is set, because it's required for funcName"""
+    if not orb._roSet and kwargs.get('ro',None) is None:
+        warnings.warn("Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,orb._ro),
+                      galpyWarning)
+
+def _check_voSet(orb,kwargs,funcName):
+    """Function to check whether vo is set, because it's required for funcName"""
+    if not orb._voSet and kwargs.get('vo',None) is None:
+        warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
+                      galpyWarning)
