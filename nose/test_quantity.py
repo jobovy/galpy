@@ -2123,14 +2123,30 @@ def test_potential_method_turnphysicalon():
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
     assert numpy.fabs(pot._ro-7.) < 10.**-10., 'Potential method does not work as expected'
     assert numpy.fabs(pot._vo-220.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
+    pot.turn_physical_on(ro=6.,vo=210.)
+    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
+    assert numpy.fabs(pot._vo-210.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
+    pot.turn_physical_on(ro=6.*units.kpc,vo=210.*units.km/units.s)
+    assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
+    assert numpy.fabs(pot._vo-210.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
     # 2D
     pot= potential.DehnenBarPotential(ro=6.*units.kpc)
     pot.turn_physical_on(ro=6.,vo=210.)
     assert isinstance(pot(1.1,phi=0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
     assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
     assert numpy.fabs(pot._vo-210.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
+    pot.turn_physical_on(ro=6.*units.kpc,vo=210.*units.km/units.s)
+    assert isinstance(pot(1.1,phi=0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
+    assert numpy.fabs(pot._vo-210.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
     # 1D
     pot= potential.KGPotential(ro=5.*units.kpc)
+    pot.turn_physical_on(ro=9,vo=230)
+    assert isinstance(pot(1.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(pot._ro-9.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
+    assert numpy.fabs(pot._vo-230.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
     pot.turn_physical_on(ro=9*units.kpc,vo=230*units.km/units.s)
     assert isinstance(pot(1.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
     assert numpy.fabs(pot._ro-9.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
