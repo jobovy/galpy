@@ -2729,6 +2729,55 @@ def test_orbit_radecetc_voWarning():
     check_radecetc_voWarning(o,'W')
     return None
 
+# Test whether orbit evaluation methods sound warning when called with
+# unitless time when orbit is integrated with unitfull times
+def test_orbit_method_integrate_t_asQuantity_warning():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from astropy import units
+    # Setup and integrate orbit
+    ts= numpy.linspace(0.,10.,1001)*units.Gyr
+    o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
+    o.integrate(ts,MWPotential2014)
+    # Now check
+    check_integrate_t_asQuantity_warning(o,'R')
+    check_integrate_t_asQuantity_warning(o,'vR')
+    check_integrate_t_asQuantity_warning(o,'vT')
+    check_integrate_t_asQuantity_warning(o,'z')
+    check_integrate_t_asQuantity_warning(o,'vz')
+    check_integrate_t_asQuantity_warning(o,'phi')
+    check_integrate_t_asQuantity_warning(o,'r')
+    check_integrate_t_asQuantity_warning(o,'x')
+    check_integrate_t_asQuantity_warning(o,'y')
+    check_integrate_t_asQuantity_warning(o,'vx')
+    check_integrate_t_asQuantity_warning(o,'vy')
+    check_integrate_t_asQuantity_warning(o,'ra')
+    check_integrate_t_asQuantity_warning(o,'dec')
+    check_integrate_t_asQuantity_warning(o,'ll')
+    check_integrate_t_asQuantity_warning(o,'bb')
+    check_integrate_t_asQuantity_warning(o,'dist')
+    check_integrate_t_asQuantity_warning(o,'pmra')
+    check_integrate_t_asQuantity_warning(o,'pmdec')
+    check_integrate_t_asQuantity_warning(o,'pmll')
+    check_integrate_t_asQuantity_warning(o,'pmbb')
+    check_integrate_t_asQuantity_warning(o,'vra')
+    check_integrate_t_asQuantity_warning(o,'vdec')
+    check_integrate_t_asQuantity_warning(o,'vll')
+    check_integrate_t_asQuantity_warning(o,'vbb')
+    check_integrate_t_asQuantity_warning(o,'vlos')
+    check_integrate_t_asQuantity_warning(o,'helioX')
+    check_integrate_t_asQuantity_warning(o,'helioY')
+    check_integrate_t_asQuantity_warning(o,'helioZ')
+    check_integrate_t_asQuantity_warning(o,'U')
+    check_integrate_t_asQuantity_warning(o,'V')
+    check_integrate_t_asQuantity_warning(o,'W')
+    check_integrate_t_asQuantity_warning(o,'E')
+    check_integrate_t_asQuantity_warning(o,'L')
+    check_integrate_t_asQuantity_warning(o,'Jacobi')
+    check_integrate_t_asQuantity_warning(o,'ER')
+    check_integrate_t_asQuantity_warning(o,'Ez')
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
@@ -3244,4 +3293,15 @@ def check_radecetc_voWarning(o,funcName):
             if raisedWarning: break
         assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
     return None
+
+def check_integrate_t_asQuantity_warning(o,funcName):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        getattr(o,funcName)(1.)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
+            if raisedWarning: break
+        assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
+    return None  
 
