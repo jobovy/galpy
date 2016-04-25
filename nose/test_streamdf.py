@@ -961,7 +961,7 @@ def test_bovy14_sample():
     assert numpy.fabs(numpy.sqrt(varp[4,4])/numpy.std(RvR[4][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
     # Test that t is returned
     RvRdt= sdf_bovy14.sample(n=10,returndt=True)
-    assert len(RvRdt) == 2, 'dt not returned with returndt in sample'
+    assert len(RvRdt) == 7, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleXY():
@@ -980,7 +980,7 @@ def test_bovy14_sampleXY():
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(XvX[0][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
     # Test that t is returned
     XvXdt= sdf_bovy14.sample(n=10,returndt=True,xy=True)
-    assert len(XvXdt) == 2, 'dt not returned with returndt in sample'
+    assert len(XvXdt) == 7, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleLB():
@@ -999,7 +999,7 @@ def test_bovy14_sampleLB():
     assert numpy.fabs(numpy.sqrt(varp[0,0])/numpy.std(LB[1][indx])-1.) < 10.**0., 'Sample spread not similar to track spread'
     # Test that t is returned
     LBdt= sdf_bovy14.sample(n=10,returndt=True,lb=True)
-    assert len(LBdt) == 2, 'dt not returned with returndt in sample'
+    assert len(LBdt) == 7, 'dt not returned with returndt in sample'
     return None
 
 def test_bovy14_sampleA():
