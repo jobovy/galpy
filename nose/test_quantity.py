@@ -3255,7 +3255,8 @@ def test_evolveddiskdf_method_returntype():
 =3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3),units.Quantity), 'evolveddiskdf method oortK does not return Quantity when it should'
     assert isinstance(edfwarm.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaT2 does not return Quantity when it should'
     assert isinstance(edfwarm.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaR2 does not return Quantity when it should'
-    assert isinstance(edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaR2 does not return Quantity when it should'
+    assert isinstance(edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method sigmaRT does not return Quantity when it should'
+    assert isinstance(edfwarm.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method vertexdev does not return Quantity when it should'
     assert isinstance(edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvT does not return Quantity when it should'
     assert isinstance(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3),units.Quantity), 'evolveddiskdf method meanvR does not return Quantity when it should'
     return None
@@ -3304,6 +3305,10 @@ def test_evolveddiskdf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('evolveddiskdf method sigmaRT does not return Quantity with the right units')
     try:
+        edfwarm.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('evolveddiskdf method vertexdev does not return Quantity with the right units')
+    try:
         edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s))
     except units.UnitConversionError:
         raise AssertionError('evolveddiskdf method meanvR does not return Quantity with the right units')
@@ -3337,6 +3342,7 @@ def test_evolveddiskdf_method_value():
     assert numpy.fabs(edfwarm.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaT2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaR2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaRT does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.deg).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvT does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvR does not return correct Quantity when it should'
     return None
@@ -3357,7 +3363,6 @@ def test_evolveddiskdf_method_inputAsQuantity():
     idfwarmnou= dehnendf(beta=0.,profileParams=(1./3.,1.,0.15))
     edfwarmnou= evolveddiskdf(idfwarmnou,[lp,ep],to=-150.)
     from galpy.orbit import Orbit
-    o= Orbit([1.,0.1,1.1,0.1])
     assert numpy.fabs(edfwarm.oortA(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortA(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortA does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.oortB(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortB(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortB does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.oortC(1.2*ro*units.kpc,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3).to(1/units.Gyr).value-edfwarmnou.oortC(1.2,grid=True,returnGrids=False,gridpoints=3,derivRGrid=True,derivphiGrid=True,derivGridpoints=3)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'evolveddiskdf method oortC does not return correct Quantity when it should'
