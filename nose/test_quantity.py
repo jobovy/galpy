@@ -4020,6 +4020,40 @@ def test_streamdf_method_inputAsQuantity():
     assert numpy.fabs(sdf_bovy14.sigangledAngle(0.1).to(units.rad).value-sdf_bovy14_nou.sigangledAngle(0.1)) < 10.**-8., 'streamdf method sigangledAngle does not return correct Quantity'
     return None
 
+def test_streamdf_sample():
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                 leading=True,
+                 nTrackChunks=11,
+                 tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                 ro=ro,vo=vo,nosetup=True)
+    sdf_bovy14_nou= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             nosetup=True)
+    # aa
+    numpy.random.seed(1)
+    acfsdt= sdf_bovy14.sample(1,returnaAdt=True)
+    numpy.random.seed(1)
+    acfsdtnou= sdf_bovy14_nou.sample(1,returnaAdt=True)
+    assert numpy.all(numpy.fabs(acfsdt[0].to(1/units.Gyr).value/bovy_conversion.freq_in_Gyr(vo,ro)-acfsdtnou[0]) < 10.**-8.), 'streamdf sample returnaAdt does not return correct Quantity'
+    assert numpy.all(numpy.fabs(acfsdt[1].to(units.rad).value-acfsdtnou[1]) < 10.**-8.), 'streamdf sample returnaAdt does not return correct Quantity'
+    assert numpy.all(numpy.fabs(acfsdt[2].to(units.Gyr).value/bovy_conversion.time_in_Gyr(vo,ro)-acfsdtnou[2]) < 10.**-8.), 'streamdf sample returnaAdt does not return correct Quantity'
+    # Test others as part of streamgapdf
+    return None
+
 def test_streamdf_setup_roAsQuantity():
     #Imports
     from galpy.df import streamdf
