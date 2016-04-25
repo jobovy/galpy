@@ -3169,17 +3169,18 @@ def test_diskdf_method_value():
 
 def test_diskdf_sample():
     # Test that the sampling routines work with Quantity output
-    from galpy.df import dehnendf
-    from galpy.orbit import Orbit
-    from galpy.util import bovy_conversion
+    from galpy.df import dehnendf, shudf
     ro, vo= 7., 230.
     df= dehnendf(ro=ro,vo=vo)
     dfnou= dehnendf()
+    dfs= shudf(ro=ro,vo=vo)
+    dfsnou= shudf()
     # sampledSurfacemassLOS
     numpy.random.seed(1)
-    du= df.sampledSurfacemassLOS(1.1,n=1).to(units.kpc).value/ro
+    du= df.sampledSurfacemassLOS(11.*units.deg,n=1,
+                                 maxd=10.*units.kpc).to(units.kpc).value/ro
     numpy.random.seed(1)
-    dnou= dfnou.sampledSurfacemassLOS(1.1,n=1)
+    dnou= dfnou.sampledSurfacemassLOS(11.*numpy.pi/180.,n=1,maxd=10./ro)
     assert numpy.fabs(du-dnou) < 10.**-8., 'diskdf sampling method sampledSurfacemassLOS does not return expected Quantity'
     # sampleVRVT
     numpy.random.seed(1)
@@ -3187,6 +3188,24 @@ def test_diskdf_sample():
     numpy.random.seed(1)
     dnou= dfnou.sampleVRVT(1.1,n=1)
     assert numpy.all(numpy.fabs(du-dnou) < 10.**-8.), 'diskdf sampling method sampleVRVT does not return expected Quantity'
+    # sampleLOS
+    numpy.random.seed(1)
+    du= df.sampleLOS(11.*units.deg,n=1)
+    numpy.random.seed(1)
+    dnou= dfnou.sampleLOS(11.,n=1,deg=True)
+    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sampleLOS does not work as expected with Quantity input'
+    # sample
+    numpy.random.seed(1)
+    du= df.sample(rrange=[4.*units.kpc,12.*units.kpc],n=1)
+    numpy.random.seed(1)
+    dnou= dfnou.sample(rrange=[4./ro,12./ro],n=1)
+    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
+    # sample for Shu
+    numpy.random.seed(1)
+    du= dfs.sample(rrange=[4.*units.kpc,12.*units.kpc],n=1)
+    numpy.random.seed(1)
+    dnou= dfsnou.sample(rrange=[4./ro,12./ro],n=1)
+    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
     return None
 
 def test_diskdf_method_inputAsQuantity():
