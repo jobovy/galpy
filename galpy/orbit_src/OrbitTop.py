@@ -1271,7 +1271,8 @@ class OrbitTop(object):
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         elif hasattr(self,'_integrate_t_asQuantity') \
-                    and self._integrate_t_asQuantity:
+                    and self._integrate_t_asQuantity \
+                    and not nu.all(t == self.t):
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
@@ -1387,6 +1388,8 @@ class OrbitTop(object):
                           'U':r'$U\ (\mathrm{km\,s}^{-1})$',
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
         #Defaults
         if not 'd1' in kwargs and not 'd2' in kwargs:
             if len(self.vxvv) == 3:
@@ -1557,6 +1560,7 @@ class OrbitTop(object):
         kwargs.pop('use_physical',None)
         kwargs.pop('pot',None)
         kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
@@ -1617,6 +1621,8 @@ class OrbitTop(object):
                           'U':r'$U\ (\mathrm{km\,s}^{-1})$',
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
         #Defaults
         if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
             if len(self.vxvv) == 3:
@@ -1810,6 +1816,7 @@ class OrbitTop(object):
         kwargs.pop('vo',None)
         kwargs.pop('obs',None)
         kwargs.pop('use_physical',None)
+        kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]

@@ -510,6 +510,8 @@ def physical_conversion(quantity,pop=False):
                 vo= args[0][0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
+            # Override Quantity output?
+            _apy_units= kwargs.get('quantity',_APY_UNITS)
             #Remove ro and vo kwargs if necessary
             if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
             if pop and 'ro' in kwargs: kwargs.pop('ro')
@@ -521,119 +523,119 @@ def physical_conversion(quantity,pop=False):
                 if isinstance(args[0],Orbit): print_physical_warning()
                 if quantity.lower() == 'time':
                     fac= time_in_Gyr(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Gyr
                 elif quantity.lower() == 'position':
                     fac= ro
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.kpc
                 elif quantity.lower() == 'position_kpc': # already in kpc
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.kpc
                 elif quantity.lower() == 'velocity':
                     fac= vo
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.km/units.s
                 elif quantity.lower() == 'velocity2':
                     fac= vo**2.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= (units.km/units.s)**2
                 elif quantity.lower() == 'velocity_kms': # already in km/s
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.km/units.s
                 elif quantity.lower() == 'frequency':
-                    if kwargs.get('kmskpc',False) and not _APY_UNITS:
+                    if kwargs.get('kmskpc',False) and not _apy_units:
                         fac= freq_in_kmskpc(vo,ro)
                     else:
                         fac= freq_in_Gyr(vo,ro)
-                        if _APY_UNITS:
+                        if _apy_units:
                             u= units.Gyr**-1.
                 elif quantity.lower() == 'frequency_kmskpc':
                     fac= freq_in_kmskpc(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.km/units.s/units.kpc
                 elif quantity.lower() == 'action':
                     fac= ro*vo
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.kpc*units.km/units.s
                 elif quantity.lower() == 'energy':
                     fac= vo**2.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.km**2./units.s**2.
                 elif quantity.lower() == 'angle': # in rad
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.rad
                 elif quantity.lower() == 'angle_deg': # already in deg
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.deg
                 elif quantity.lower() == 'proper-motion_masyr': # already in mas/yr
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.mas/units.yr
                 elif quantity.lower() == 'force':
                     fac= force_in_kmsMyr(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.km/units.s/units.Myr
                 elif quantity.lower() == 'density':
                     fac= dens_in_msolpc3(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Msun/units.pc**3
                 elif quantity.lower() == 'numberdensity':
                     fac= 1/ro**3.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/units.kpc**3
                 elif quantity.lower() == 'velocity2surfacedensity':
                     fac= surfdens_in_msolpc2(vo,ro)*vo**2
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Msun/units.pc**2*(units.km/units.s)**2
                 elif quantity.lower() == 'surfacedensity':
                     fac= surfdens_in_msolpc2(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Msun/units.pc**2
                 elif quantity.lower() == 'numbersurfacedensity':
                     fac= 1./ro**2.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/units.kpc**2
                 elif quantity.lower() == 'surfacedensitydistance':
                     fac= surfdens_in_msolpc2(vo,ro)*ro*1000.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Msun/units.pc
                 elif quantity.lower() == 'mass':
                     fac= mass_in_msol(vo,ro)
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Msun
                 elif quantity.lower() == 'forcederivative':
                     fac= freq_in_Gyr(vo,ro)**2.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.Gyr**-2.
                 elif quantity.lower() == 'phasespacedensity':
                     fac= 1./vo**3./ro**3.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/(units.km/units.s)**3/units.kpc**3
                 elif quantity.lower() == 'phasespacedensity2d':
                     fac= 1./vo**2./ro**2.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/(units.km/units.s)**2/units.kpc**2
                 elif quantity.lower() == 'phasespacedensityvelocity':
                     fac= 1./vo**2./ro**3.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/(units.km/units.s)**2/units.kpc**3
                 elif quantity.lower() == 'phasespacedensityvelocity2':
                     fac= 1./vo/ro**3.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= 1/(units.km/units.s)/units.kpc**3
                 elif quantity.lower() == 'dimensionless':
                     fac= 1.
-                    if _APY_UNITS:
+                    if _apy_units:
                         u= units.dimensionless_unscaled
                 out= method(*args,**kwargs)
                 if out is None:
                     return out
-                if _APY_UNITS:
+                if _apy_units:
                     return units.Quantity(out*fac,unit=u)
                 else:
                     return out*fac
