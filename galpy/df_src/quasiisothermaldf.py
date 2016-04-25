@@ -481,8 +481,6 @@ class quasiisothermaldf(df):
             if _APY_UNITS:
                 u= 1/units.kpc**3*(units.km/units.s)**(args[2]+args[3]+args[4])
             out= self._vmomentdensity(*args,**kwargs)
-            if out is None:
-                return out
             if _APY_UNITS:
                 return units.Quantity(out*fac,unit=u)
             else:
@@ -707,8 +705,6 @@ class quasiisothermaldf(df):
             if _APY_UNITS:
                 u= 1/units.kpc**3*(units.kpc*units.km/units.s)**(args[2]+args[3]+args[4])
             out= self._jmomentdensity(*args,**kwargs)
-            if out is None:
-                return out
             if _APY_UNITS:
                 return units.Quantity(out*fac,unit=u)
             else:
