@@ -178,7 +178,8 @@ class diskdf(df):
             vT= nu.array([o._orb.vxvv[2] for o in args[0]])
             R= nu.array([o._orb.vxvv[0] for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
-        elif isinstance(args[0],nu.ndarray):
+        elif isinstance(args[0],nu.ndarray) and \
+                not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
