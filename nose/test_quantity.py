@@ -4215,6 +4215,64 @@ def test_streamdf_setup_coordtransformparamsAsQuantity():
     assert numpy.fabs(df._vsun[2]-7.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'
     return None
 
+def test_streamdf_RnormWarning():
+    import warnings
+    from galpy.util import galpyWarning
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             Rnorm=ro,nosetup=True)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword")
+            if raisedWarning: break
+        assert raisedWarning,  'Rnorm warning not raised when it should have been'
+    return None
+
+def test_streamdf_VnormWarning():
+    import warnings
+    from galpy.util import galpyWarning
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    ro, vo= 9., 250.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
+                             leading=True,
+                             nTrackChunks=11,
+                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             Vnorm=vo,nosetup=True)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword")
+            if raisedWarning: break
+        assert raisedWarning,  'Vnorm warning not raised when it should have been'
+    return None
+
 def test_streamgapdf_method_returntype():
     #Imports
     from galpy.df import streamgapdf
