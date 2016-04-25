@@ -3149,6 +3149,28 @@ def test_diskdf_method_value():
     assert numpy.fabs(df.vmomentsurfacemass(1.1,1,1).to(units.Msun/units.pc**2*(units.km/units.s)**2).value-dfnou.vmomentsurfacemass(1.1,1,1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)*vo**2) < 10.**-8., 'diskdf method vmomentsurfacemass does not return correct Quantity'
     return None
 
+def test_diskdf_sample():
+    # Test that the sampling routines work with Quantity output
+    from galpy.df import dehnendf
+    from galpy.orbit import Orbit
+    from galpy.util import bovy_conversion
+    ro, vo= 7., 230.
+    df= dehnendf(ro=ro,vo=vo)
+    dfnou= dehnendf()
+    # sampledSurfacemassLOS
+    numpy.random.seed(1)
+    du= df.sampledSurfacemassLOS(1.1,n=1).value/ro
+    numpy.random.seed(1)
+    dnou= dfnou.sampledSurfacemassLOS(1.1,n=1)
+    assert numpy.fabs(du-dnou) < 10.**-8., 'diskdf sampling method sampledSurfacemassLOS does not return expected Quantity'
+    # sampleVRVT
+    numpy.random.seed(1)
+    du= df.sampleVRVT(1.1,n=1).value/vo
+    numpy.random.seed(1)
+    dnou= dfnou.sampleVRVT(1.1,n=1)
+    assert numpy.all(numpy.fabs(du-dnou) < 10.**-8.), 'diskdf sampling method sampleVRVT does not return expected Quantity'
+    return None
+
 def test_diskdf_method_inputAsQuantity():
     # Using the decorator
     from galpy.df import dehnendf
