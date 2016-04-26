@@ -78,7 +78,7 @@ def RZToverticalPotential(RZPot,R):
 
        RZPot - RZPotential instance or list of such instances
 
-       R - Galactocentric radius at which to evaluate the vertical potential
+       R - Galactocentric radius at which to evaluate the vertical potential (can be Quantity)
 
     OUTPUT:
 

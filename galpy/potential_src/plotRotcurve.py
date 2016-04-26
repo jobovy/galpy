@@ -26,7 +26,7 @@ def plotRotcurve(Pot,*args,**kwargs):
 
        Pot - Potential or list of Potential instances
 
-       Rrange - Range in R to consider (needs to be in the units that you are plotting)
+       Rrange - Range in R to consider (needs to be in the units that you are plotting; can be Quantity)
 
        grid= grid in R
 
@@ -165,7 +165,7 @@ def vcirc(Pot,R):
 
        Pot - Potential instance or list of such instances
 
-       R - Galactocentric radius
+       R - Galactocentric radius (can be Quantity)
 
     OUTPUT:
 
@@ -202,7 +202,7 @@ def dvcircdR(Pot,R):
 
        Pot - Potential instance or list of such instances
 
-       R - Galactocentric radius
+       R - Galactocentric radius (can be Quantity)
 
     OUTPUT:
 

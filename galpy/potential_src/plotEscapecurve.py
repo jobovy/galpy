@@ -27,7 +27,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
 
        Pot - Potential or list of Potential instances
 
-       Rrange= Range in R to consider
+       Rrange= Range in R to consider (can be Quantity)
 
        grid= grid in R
 
@@ -167,7 +167,7 @@ def vesc(Pot,R):
 
        Pot - Potential instances or list thereof
 
-       R - Galactocentric radius
+       R - Galactocentric radius (can be Quantity)
 
     OUTPUT:
 

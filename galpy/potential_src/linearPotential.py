@@ -78,9 +78,9 @@ class linearPotential(object):
 
         INPUT:
 
-           ro= reference distance (kpc)
+           ro= reference distance (kpc; can be Quantity)
 
-           vo= reference velocity (km/s)
+           vo= reference velocity (km/s; can be Quantity)
 
         OUTPUT:
 
@@ -115,9 +115,9 @@ class linearPotential(object):
 
         INPUT:
 
-           x - position
+           x - position (can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -151,9 +151,9 @@ class linearPotential(object):
 
         INPUT:
 
-           x - position
+           x - position (can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -241,9 +241,9 @@ def evaluatelinearPotentials(Pot,x,t=0.):
 
        Pot - (list of) linearPotential instance(s)
 
-       x - evaluate potentials at this position
+       x - evaluate potentials at this position (can be Quantity)
 
-       t - time to evaluate at
+       t - time to evaluate at  (can be Quantity)
 
     OUTPUT:
 
@@ -284,9 +284,9 @@ def evaluatelinearForces(Pot,x,t=0.):
 
        Pot - (list of) linearPotential instance(s)
 
-       x - evaluate forces at this position
+       x - evaluate forces at this position (can be Quantity)
 
-       t - time to evaluate at
+       t - time to evaluate at (can be Quantity)
 
     OUTPUT:
 

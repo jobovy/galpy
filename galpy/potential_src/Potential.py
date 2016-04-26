@@ -195,9 +195,9 @@ class Potential(object):
 
         INPUT:
 
-           ro= reference distance (kpc)
+           ro= reference distance (kpc; can be Quantity)
 
-           vo= reference velocity (km/s)
+           vo= reference velocity (km/s; can be Quantity)
 
         OUTPUT:
 
@@ -229,13 +229,13 @@ class Potential(object):
         PURPOSE:
            evaluate the potential at (R,z,phi,t)
         INPUT:
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z - vertical height
+           z - vertical height (can be Quantity)
 
-           phi - azimuth (optional)
+           phi - azimuth (optional; can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         OUTPUT:
            Phi(R,z,t)
@@ -279,13 +279,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z - vertical height
+           z - vertical height (can be Quantity)
 
-           phi - azimuth (optional)
+           phi - azimuth (optional; can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -319,13 +319,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z - vertical height
+           z - vertical height (can be Quantity)
 
-           phi - azimuth (optional)
+           phi - azimuth (optional; can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -359,13 +359,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z - vertical height
+           z - vertical height (can be Quantity)
 
-           phi - azimuth (optional)
+           phi - azimuth (optional; can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         KEYWORDS:
 
@@ -404,11 +404,11 @@ class Potential(object):
 
         INPUT:
 
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z= (None) vertical height
+           z= (None) vertical height (can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         KEYWORDS:
 
@@ -505,13 +505,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height
+           Z - vertical height (can be Quantity)
 
-           phi - Galactocentric azimuth
+           phi - Galactocentric azimuth (can be Quantity)
 
-           t - time
+           t - time (can be Quantity)
 
         OUTPUT:
 
@@ -541,13 +541,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height
+           Z - vertical height (can be Quantity)
 
-           phi - Galactocentric azimuth
+           phi - Galactocentric azimuth (can be Quantity)
 
-           t - time
+           t - time (can be Quantity)
 
         OUTPUT:
 
@@ -577,13 +577,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height
+           Z - vertical height (can be Quantity)
 
-           phi - Galactocentric azimuth
+           phi - Galactocentric azimuth (can be Quantity)
 
-           t - time
+           t - time (can be Quantity)
 
         OUTPUT:
 
@@ -640,13 +640,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Cylindrical Galactocentric radius
+           R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z - vertical height
+           z - vertical height (can be Quantity)
 
-           phi - azimuth (rad)
+           phi - azimuth (rad; can be Quantity)
 
-           t - time (optional)
+           t - time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -680,13 +680,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height
+           Z - vertical height (can be Quantity)
 
-           phi - Galactocentric azimuth
+           phi - Galactocentric azimuth (can be Quantity)
 
-           t - time
+           t - time (can be Quantity)
 
         OUTPUT:
 
@@ -716,13 +716,13 @@ class Potential(object):
 
         INPUT:
 
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height
+           Z - vertical height (can be Quantity)
 
-           phi - Galactocentric azimuth
+           phi - Galactocentric azimuth (can be Quantity)
 
-           t - time
+           t - time (can be Quantity)
 
         OUTPUT:
 
@@ -814,7 +814,7 @@ class Potential(object):
         PURPOSE:
            convert a 3D potential into a linear (vertical) potential at R
         INPUT:
-           R - Galactocentric radius at which to create the vertical potential
+           R - Galactocentric radius at which to create the vertical potential (can be Quantity)
         OUTPUT:
            linear (vertical) potential
         HISTORY
@@ -842,15 +842,15 @@ class Potential(object):
 
            t= time tp plot potential at
 
-           rmin= minimum R at which to calculate
+           rmin= minimum R at which to calculate (can be Quantity)
 
-           rmax= maximum R
+           rmax= maximum R (can be Quantity)
 
            nrs= grid in R
 
-           zmin= minimum z
+           zmin= minimum z (can be Quantity)
 
-           zmax= maximum z
+           zmax= maximum z (can be Quantity)
 
            nzs= grid in z
 
@@ -938,15 +938,15 @@ class Potential(object):
            plot the density of this potential
         INPUT:
 
-           rmin= minimum R
+           rmin= minimum R (can be Quantity)
 
-           rmax= maximum R
+           rmax= maximum R (can be Quantity)
 
            nrs= grid in R
 
-           zmin= minimum z
+           zmin= minimum z (can be Quantity)
 
-           zmax= maximum z
+           zmax= maximum z (can be Quantity)
 
            nzs= grid in z
 
@@ -984,7 +984,7 @@ class Potential(object):
 
         INPUT:
         
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -1013,7 +1013,7 @@ class Potential(object):
 
         INPUT:
         
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -1043,7 +1043,7 @@ class Potential(object):
 
         INPUT:
         
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -1071,7 +1071,7 @@ class Potential(object):
         
         INPUT:
         
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -1100,7 +1100,7 @@ class Potential(object):
         
         INPUT:
         
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -1127,7 +1127,7 @@ class Potential(object):
         
         INPUT:
         
-           OmegaP - pattern speed
+           OmegaP - pattern speed (can be Quantity)
 
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
@@ -1161,7 +1161,7 @@ class Potential(object):
 
         INPUT:
 
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
 
         OUTPUT:
 
@@ -1189,7 +1189,7 @@ class Potential(object):
         INPUT:
         
         
-            lz - Angular momentum
+            lz - Angular momentum (can be Quantity)
         
         OUTPUT:
         
@@ -1224,9 +1224,9 @@ class Potential(object):
         
         INPUT:
         
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           z - height
+           z - height (can be Quantity)
         
         OUTPUT:
         
@@ -1254,7 +1254,7 @@ class Potential(object):
 
         INPUT:
         
-            l - Galactic longitude [deg/rad]
+            l - Galactic longitude [deg/rad; can be Quantity)
 
             deg= if True (default), l in deg
         
@@ -1290,7 +1290,7 @@ class Potential(object):
 
         INPUT:
 
-           Rrange - range
+           Rrange - range (can be Quantity)
 
            grid= number of points to plot
 
@@ -1322,7 +1322,7 @@ class Potential(object):
 
         INPUT:
 
-           Rrange - range
+           Rrange - range (can be Quantity)
 
            grid= number of points to plot
 
@@ -1455,13 +1455,13 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     INPUT:
        Pot - potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth
+       phi - azimuth (can be Quantity)
 
-       t - time
+       t - time (can be Quantity)
 
        dR= dphi=, if set to non-zero integers, return the dR, dphi't derivative instead
     OUTPUT:
@@ -1499,13 +1499,13 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
 
        Pot - potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth
+       phi - azimuth (can be Quantity)
 
-       t - time
+       t - time (can be Quantity)
 
        forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
 
@@ -1543,13 +1543,13 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     INPUT:
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity))
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
     OUTPUT:
        F_R(R,z,phi,t)
     HISTORY:
@@ -1584,13 +1584,13 @@ def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     INPUT:
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity)
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -1631,13 +1631,13 @@ def evaluatezforces(Pot,R,z,phi=0.,t=0.):
 
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity)
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -1673,13 +1673,13 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
     INPUT:
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity)
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
     OUTPUT:
        d2Phi/d2R(R,z,phi,t)
     HISTORY:
@@ -1706,13 +1706,13 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
     INPUT:
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity)
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
     OUTPUT:
        d2Phi/d2z(R,z,phi,t)
     HISTORY:
@@ -1739,13 +1739,13 @@ def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
     INPUT:
        Pot - a potential or list of potentials
 
-       R - cylindrical Galactocentric distance
+       R - cylindrical Galactocentric distance (can be Quantity)
 
-       z - distance above the plane
+       z - distance above the plane (can be Quantity)
 
-       phi - azimuth (optional)
+       phi - azimuth (optional; can be Quantity)
 
-       t - time (optional)
+       t - time (optional; can be Quantity)
     OUTPUT:
        d2Phi/dz/dR(R,z,phi,t)
     HISTORY:
@@ -1777,15 +1777,15 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            Pot - Potential or list of Potential instances
 
-           rmin= minimum R
+           rmin= minimum R (can be Quantity)
 
-           rmax= maximum R
+           rmax= maximum R (can be Quantity)
 
            nrs= grid in R
 
-           zmin= minimum z
+           zmin= minimum z (can be Quantity)
 
-           zmax= maximum z
+           zmax= maximum z (can be Quantity)
 
            nzs= grid in z
 
@@ -1867,15 +1867,15 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            Pot - Potential or list of Potential instances
 
-           rmin= minimum R
+           rmin= minimum R (can be Quantity)
 
-           rmax= maximum R
+           rmax= maximum R (can be Quantity)
 
            nrs= grid in R
 
-           zmin= minimum z
+           zmin= minimum z (can be Quantity)
 
-           zmax= maximum z
+           zmax= maximum z (can be Quantity)
 
            nzs= grid in z
 
@@ -1957,7 +1957,7 @@ def epifreq(Pot,R):
 
         Pot - Potential instance or list thereof
     
-        R - Galactocentric radius
+        R - Galactocentric radius (can be Quantity)
     
     OUTPUT:
     
@@ -1999,7 +1999,7 @@ def verticalfreq(Pot,R):
 
        Pot - Potential instance or list thereof
     
-       R - Galactocentric radius
+       R - Galactocentric radius (can be Quantity)
     
     OUTPUT:
     
@@ -2032,9 +2032,9 @@ def flattening(Pot,R,z):
 
         Pot - Potential instance or list thereof
     
-        R - Galactocentric radius
+        R - Galactocentric radius (can be Quantity)
         
-        z - height
+        z - height (can be Quantity)
     
     OUTPUT:
     
@@ -2064,7 +2064,7 @@ def vterm(Pot,l,deg=True):
     
         Pot - Potential instance
     
-        l - Galactic longitude [deg/rad]
+        l - Galactic longitude [deg/rad; can be Quantity)
         
         deg= if True (default), l in deg
         
@@ -2102,7 +2102,7 @@ def rl(Pot,lz):
 
        Pot - Potential instance or list thereof
 
-       lz - Angular momentum
+       lz - Angular momentum (can be Quantity)
 
     OUTPUT:
 
@@ -2171,7 +2171,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
 
        Pot - Potential instance or list of such instances
 
-       OmegaP - pattern speed
+       OmegaP - pattern speed (can be Quantity)
 
        m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
           use m='corotation' for corotation
@@ -2241,7 +2241,7 @@ def omegac(Pot,R):
 
        Pot - Potential instance or list of such instances
 
-       R - Galactocentric radius
+       R - Galactocentric radius (can be Quantity)
 
     OUTPUT:
 
@@ -2374,9 +2374,9 @@ def turn_physical_on(Pot,ro=None,vo=None):
     
     INPUT:
     
-       ro= reference distance (kpc)
+       ro= reference distance (kpc; can be Quantity)
        
-       vo= reference velocity (km/s)
+       vo= reference velocity (km/s; can be Quantity)
 
     OUTPUT:
     

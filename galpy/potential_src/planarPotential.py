@@ -83,9 +83,9 @@ class planarPotential(object):
 
         INPUT:
 
-           ro= reference distance (kpc)
+           ro= reference distance (kpc; can be Quantity)
 
-           vo= reference velocity (km/s)
+           vo= reference velocity (km/s; can be Quantity)
 
         OUTPUT:
 
@@ -122,11 +122,11 @@ class planarPotential(object):
 
         INPUT: 
 
-           R - Cylindrica radius
+           R - Cylindrica radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional; can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -171,11 +171,11 @@ class planarPotential(object):
 
         INPUT:
 
-           R - Cylindrical radius
+           R - Cylindrical radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional; can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -209,11 +209,11 @@ class planarPotential(object):
 
         INPUT:
 
-           R - Cylindrical radius
+           R - Cylindrical radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional; can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -247,11 +247,11 @@ class planarPotential(object):
 
         INPUT:
 
-           R - Cylindrical radius
+           R - Cylindrical radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional; can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -281,11 +281,11 @@ class planarPotential(object):
 
         INPUT:
 
-           R - Cylindrical radius
+           R - Cylindrical radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional; can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -315,11 +315,11 @@ class planarPotential(object):
 
         INPUT:
 
-           R - Cylindrical radius
+           R - Cylindrical radius (can be Quantity)
 
-           phi= azimuth (optional)
+           phi= azimuth (optional can be Quantity)
 
-           t= time (optional)
+           t= time (optional; can be Quantity)
 
         OUTPUT:
 
@@ -342,7 +342,7 @@ class planarPotential(object):
         PURPOSE:
            plot the potential
         INPUT:
-           Rrange - range
+           Rrange - range (can be Quantity)
            grid - number of points to plot
            savefilename - save to or restore from this savefile (pickle)
            +bovy_plot(*args,**kwargs)
@@ -416,7 +416,7 @@ class planarAxiPotential(planarPotential):
         
             Pot - Potential instance or list of such instances
         
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -446,7 +446,7 @@ class planarAxiPotential(planarPotential):
         
             Pot - Potential instance or list of such instances
         
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -474,7 +474,7 @@ class planarAxiPotential(planarPotential):
         
         INPUT:
         
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
         
         OUTPUT:
         
@@ -502,7 +502,7 @@ class planarAxiPotential(planarPotential):
         
         INPUT:
         
-           OmegaP - pattern speed
+           OmegaP - pattern speed (can be Quantity)
 
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
@@ -538,7 +538,7 @@ class planarAxiPotential(planarPotential):
 
             Pot - Potential instances or list thereof
 
-            R - Galactocentric radius
+            R - Galactocentric radius (can be Quantity)
 
         OUTPUT:
 
@@ -564,7 +564,7 @@ class planarAxiPotential(planarPotential):
 
         INPUT:
 
-           Rrange - range
+           Rrange - range (can be Quantity)
 
            grid - number of points to plot
 
@@ -595,7 +595,7 @@ class planarAxiPotential(planarPotential):
 
         INPUT:
 
-           Rrange - range
+           Rrange - range (can be Quantity)
 
            grid - number of points to plot
 
@@ -744,11 +744,11 @@ def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
 
        Pot - (list of) planarPotential instance(s)
 
-       R - Cylindrical radius
+       R - Cylindrical radius (can be Quantity)
 
-       phi= azimuth (optional)
+       phi= azimuth (optional; can be Quantity)
 
-       t= time (optional)
+       t= time (optional; can be Quantity)
 
        dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative instead
 
@@ -805,11 +805,11 @@ def evaluateplanarRforces(Pot,R,phi=None,t=0.):
 
        Pot - (list of) planarPotential instance(s)
 
-       R - Cylindrical radius
+       R - Cylindrical radius (can be Quantity)
 
-       phi= azimuth (optional)
+       phi= azimuth (optional can be Quantity)
 
-       t= time (optional)
+       t= time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -865,11 +865,11 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
 
        Pot - (list of) planarPotential instance(s)
 
-       R - Cylindrical radius
+       R - Cylindrical radius (can be Quantity)
 
-       phi= azimuth (optional)
+       phi= azimuth (optional; can be Quantity)
 
-       t= time (optional)
+       t= time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -924,11 +924,11 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
 
        Pot - (list of) planarPotential instance(s)
 
-       R - Cylindrical radius
+       R - Cylindrical radius (can be Quantity)
 
-       phi= azimuth (optional)
+       phi= azimuth (optional; can be Quantity)
 
-       t= time (optional)
+       t= time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -979,9 +979,9 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
        axiPot - The background, axisymmetric potential
 
-       R - Cylindrical radius
+       R - Cylindrical radius (can be Quantity)
        
-       sigmar - radial velocity dispersion of the population
+       sigmar - radial velocity dispersion of the population (can be Quantity)
 
        Then either provide:
 
@@ -989,7 +989,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
           k= wavenumber (see Binney & Tremaine 2008)
 
-          OmegaP= pattern speed
+          OmegaP= pattern speed (can be Quantity)
 
        2) nonaxiPot= a non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber
 
@@ -1029,9 +1029,9 @@ def plotplanarPotentials(Pot,*args,**kwargs):
 
     INPUT:
 
-       Rrange - range
+       Rrange - range (can be Quantity)
 
-       xrange, yrange - if relevant
+       xrange, yrange - if relevant (can be Quantity)
 
        grid, gridx, gridy - number of points to plot
 
