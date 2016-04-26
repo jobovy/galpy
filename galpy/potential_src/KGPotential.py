@@ -23,9 +23,9 @@ class KGPotential(linearPotential):
 
         INPUT:
 
-           K= K parameter (= :math:`2\\pi \\Sigma_{\\mathrm{disk}}`; specify either as surface density or directly as force [i.e., including :math:`2\\pi G`])
+           K= K parameter (= :math:`2\\pi \\Sigma_{\\mathrm{disk}}`; specify either as surface density or directly as force [i.e., including :math:`2\\pi G`]; can be Quantity)
 
-           F= F parameter (= :math:`4\\pi\\rho_{\\mathrm{halo}}`; specify either as density or directly as second potential derivative [i.e., including :math:`4\\pi G`])
+           F= F parameter (= :math:`4\\pi\\rho_{\\mathrm{halo}}`; specify either as density or directly as second potential derivative [i.e., including :math:`4\\pi G`]; can be Quantity)
 
            D= D parameter (natural units or Quantity length units)
 

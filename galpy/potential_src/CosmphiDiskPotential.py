@@ -38,23 +38,23 @@ class CosmphiDiskPotential(planarPotential):
            amp=  amplitude to be applied to the potential (default:
            1.), see phio below
 
-           tform= start of growth (to smoothly grow this potential
+           tform= start of growth (to smoothly grow this potential (can be Quantity)
 
-           tsteady= time delay at which the perturbation is fully grown (default: 2.)
+           tsteady= time delay at which the perturbation is fully grown (default: 2; can be Quantity.)
 
            m= cos( m * (phi - phib) )
 
            p= power-law index of the phi(R) = (R/Ro)^p part
 
-           r1= (1.) normalization radius for the amplitude
+           r1= (1.) normalization radius for the amplitude (can be Quantity)
 
            Either:
            
-              a) phib= angle (in rad; default=25 degree)
+              a) phib= angle (in rad; default=25 degree; or can be Quantity)
 
-                 phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1)
+                 phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1; or can be Quantity with units of velocity-squared)
                  
-              b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib)
+              b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib); can be Quantity with units of velocity-squared)
 
         OUTPUT:
 

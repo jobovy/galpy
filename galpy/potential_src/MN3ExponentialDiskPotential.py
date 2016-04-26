@@ -43,17 +43,19 @@ class MN3ExponentialDiskPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           hr - disk scale-length
+           hr - disk scale-length (can be Quantity)
 
-           hz - scale-height
+           hz - scale-height (can be Quantity)
 
            sech= (False) if True, hz is the scale height of a sech vertical profile (default is exponential vertical profile)
 
            posdens= (False) if True, allow only positive density solutions (Table 2 in Smith et al. rather than Table 1)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 

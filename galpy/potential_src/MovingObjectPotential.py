@@ -44,9 +44,9 @@ class MovingObjectPotential(Potential):
 
            orbit - the Orbit of the object (Orbit object)
 
-           amp= - amplitude to be applied to the potential (default: 1)
+           amp= - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           GM - 'mass' of the object (degenerate with amp)
+           GM - 'mass' of the object (degenerate with amp, don't use both); can be a Quantity with units of mass or Gxmass
 
            Softening: either provide
 
@@ -54,7 +54,9 @@ class MovingObjectPotential(Potential):
 
               b) softening_model=  type of softening to use ('plummer')
 
-                 softening_length= (optional)
+                 softening_length= (optional; can be Quantity)
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 

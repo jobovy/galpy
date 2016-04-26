@@ -38,21 +38,21 @@ class EllipticalDiskPotential(planarPotential):
            amp=  amplitude to be applied to the potential (default:
            1.), see twophio below
 
-           tform= start of growth (to smoothly grow this potential
+           tform= start of growth (to smoothly grow this potential (can be Quantity)
 
-           tsteady= time delay at which the perturbation is fully grown (default: 2.)
+           tsteady= time delay at which the perturbation is fully grown (default: 2.; can be Quantity)
 
            p= power-law index of the phi(R) = (R/Ro)^p part
 
-           r1= (1.) normalization radius for the amplitude
+           r1= (1.) normalization radius for the amplitude (can be Quantity)
 
            Either:
            
-              a) phib= angle (in rad; default=25 degree)
+              a) phib= angle (in rad; default=25 degree; or can be Quantity)
 
-                 twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1)
+                 twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1; can be Quantity with units of velocity-squared)
                  
-              b) cp, sp= twophio * cos(2phib), twophio * sin(2phib)
+              b) cp, sp= twophio * cos(2phib), twophio * sin(2phib) (can be Quantity with units of velocity-squared)
 
         OUTPUT:
 

@@ -64,7 +64,7 @@ class DehnenBarPotential(planarPotential):
            1., see alpha or Ab below)
 
            barphi - angle between sun-GC line and the bar's major axis
-           (in rad; default=25 degree)
+           (in rad; default=25 degree; or can be Quantity))
 
            tform - start of bar growth / bar period (default: -4)
 
@@ -73,7 +73,7 @@ class DehnenBarPotential(planarPotential):
            Either provide:
 
               a) rolr - radius of the Outer Lindblad Resonance for a
-                 circular orbit
+                 circular orbit (can be Quantity)
               
                  chi - fraction R_bar / R_CR (corotation radius of bar)
 
@@ -82,11 +82,11 @@ class DehnenBarPotential(planarPotential):
                  beta - power law index of rotation curve (to
                  calculate OLR, etc.)
                
-              b) omegab - rotation speed of the bar
+              b) omegab - rotation speed of the bar (can be Quantity)
               
-                 rb - bar radius
+                 rb - bar radius (can be Quantity)
                  
-                 Af - bar strength
+                 Af - bar strength (can be Quantity)
               
         OUTPUT:
 

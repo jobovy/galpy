@@ -43,6 +43,8 @@ class SnapshotRZPotential(Potential):
 
            nazimuths= (4) number of azimuths to average over
 
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            instance
@@ -174,6 +176,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
            nazimuths= (4) number of azimuths to average over
 
            use_pkdgrav= (False) use PKDGRAV to calculate the snapshot's potential and forces (CURRENTLY NOT IMPLEMENTED)
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 

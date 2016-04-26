@@ -35,15 +35,17 @@ class TwoPowerSphericalPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            alpha - inner power
 
            beta - outer power
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -231,13 +233,14 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         PURPOSE:
            initialize a two-power-density potential for integer powers
         INPUT:
-           amp - amplitude to be applied to the potential (default: 1)
-           a - "scale" (in terms of Ro)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           a - scale radius (can be Quantity)
            alpha - inner power (default: NFW)
            beta - outer power (default: NFW)
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
         OUTPUT:
            (none)
         HISTORY:
@@ -380,11 +383,13 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -543,11 +548,13 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -710,9 +717,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro when conc is given)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -733,6 +740,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
               wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
            
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            (none)

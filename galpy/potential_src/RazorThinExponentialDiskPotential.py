@@ -36,15 +36,17 @@ class RazorThinExponentialDiskPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of surface-mass or Gxsurface-mass
 
-           hr - disk scale-length
+           hr - disk scale-length (can be Quantity)
 
            tol - relative accuracy of potential-evaluations
 
            maxiter - scipy.integrate keyword
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 

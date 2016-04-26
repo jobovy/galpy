@@ -35,11 +35,11 @@ class SteadyLogSpiralPotential(planarPotential):
            amp - amplitude to be applied to the potential (default:
            1., A below)
 
-           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree)
+           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree; or can be Quantity)
         
-           A - amplitude (alpha*potential-amplitude; default=0.035)
+           A - amplitude (alpha*potential-amplitude; default=0.035; can be Quantity
 
-           omegas= - pattern speed (default=0.65)
+           omegas= - pattern speed (default=0.65; can be Quantity)
 
            m= number of arms
            
@@ -47,7 +47,7 @@ class SteadyLogSpiralPotential(planarPotential):
 
               a) alpha=
                
-              b) p= pitch angle (rad)
+              b) p= pitch angle (rad; can be Quantity)
               
            tform - start of spiral growth / spiral period (default: -Infinity)
 
