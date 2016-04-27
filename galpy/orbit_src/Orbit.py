@@ -41,15 +41,15 @@ class Orbit(object):
            vxvv - initial conditions 
                   3D can be either
 
-              1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]
+              1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
 
-              2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec)
+              2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities
 
-              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]
+              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
 
-              4) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b)
+              4) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
 
-              5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]
+              5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
 
            4) and 5) also work when leaving out b and mu_b/W
 
@@ -61,14 +61,14 @@ class Orbit(object):
 
            lb - if True, input is 4) or 5) above
 
-           vo - circular velocity at ro (km/s)
+           vo - circular velocity at ro (km/s; can be Quantity)
 
-           ro - distance from vantage point to GC (kpc)
+           ro - distance from vantage point to GC (kpc; can be Quantity)
 
-           zo - offset toward the NGP of the Sun wrt the plane (kpc)
+           zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity)
 
            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
-           [-U,V,W]
+           [-U,V,W]; can be Quantity
 
         If ro and/or vo are specified, outputs involving distances or velocities (whether as instance methods or in plots) will by default be displayed in the physical coordinates implied by these scales. This can be overwritten for each individual method by using use_physical=False as a keyword for the method.
 
@@ -338,9 +338,9 @@ class Orbit(object):
 
         INPUT:
 
-           ro= reference distance (kpc)
+           ro= reference distance (kpc; can be Quantity)
 
-           vo= reference velocity (km/s)
+           vo= reference velocity (km/s; can be Quantity)
 
         OUTPUT:
 
@@ -375,7 +375,7 @@ class Orbit(object):
 
         INPUT:
 
-           t - list of times at which to output (0 has to be in this!)
+           t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
 
@@ -388,7 +388,7 @@ class Orbit(object):
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
                    'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
-           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize)
+           dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
         OUTPUT:
 
@@ -430,7 +430,7 @@ class Orbit(object):
 
            dxdv - [dR,dvR,dvT,dphi]
 
-           t - list of times at which to output (0 has to be in this!)
+           t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
 
@@ -631,12 +631,12 @@ class Orbit(object):
                customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
-                                      (in kpc and km/s) (default=Object-wide default)
+                                      (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
 
-                ro= distance in kpc corresponding to R=1. (default: taken from object)
+                ro= distance in kpc corresponding to R=1. (default: taken from object; can be Quantity)
 
-                vo= velocity in km/s corresponding to v=1. (default: taken from object)
+                vo= velocity in km/s corresponding to v=1. (default: taken from object; can be Quantity)
 
                 lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
 
@@ -644,7 +644,7 @@ class Orbit(object):
 
            Keywords related to the orbit integrations:
 
-               tintJ= (default: 10) time to integrate orbits for fitting the orbit
+               tintJ= (default: 10) time to integrate orbits for fitting the orbit (can be Quantity)
 
                ntintJ= (default: 1000) number of time-integration points
 
@@ -683,11 +683,11 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the energy
+           t - (optional) time at which to get the energy (can be Quantity)
 
            pot= Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -714,11 +714,11 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the angular momentum
+           t - (optional) time at which to get the angular momentum (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -745,13 +745,13 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the radial energy
+           t - (optional) time at which to get the radial energy (can be Quantity)
 
            pot= Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
-           use_physical= use to override Object-wide default for using a physical scale for output
+           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
 
         OUTPUT:
 
@@ -776,13 +776,13 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the vertical energy
+           t - (optional) time at which to get the vertical energy (can be Quantity)
 
            pot= Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
-           use_physical= use to override Object-wide default for using a physical scale for output
+           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
 
         OUTPUT:
 
@@ -807,13 +807,13 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the Jacobi integral
+           t - (optional) time at which to get the Jacobi integral (can be Quantity)
 
-           OmegaP= pattern speed
+           OmegaP= pattern speed (can be Quantity)
            
            pot= potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -871,7 +871,7 @@ class Orbit(object):
 
            pot - potential to use for analytical calculation
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -902,7 +902,7 @@ class Orbit(object):
 
            pot - potential to use for analytical calculation
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -933,7 +933,7 @@ class Orbit(object):
 
            pot - potential to use for analytical calculation
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1005,9 +1005,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1055,9 +1055,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1105,9 +1105,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1293,9 +1293,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1345,9 +1345,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1440,9 +1440,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1492,9 +1492,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1540,9 +1540,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1587,9 +1587,9 @@ class Orbit(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1619,11 +1619,11 @@ class Orbit(object):
 
         INPUT:
 
-           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
+           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1650,9 +1650,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the radius (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1679,9 +1679,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the radius
+           t - (optional) time at which to get the radius (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1706,13 +1706,13 @@ class Orbit(object):
 
            return radial velocity at time t
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
         INPUT:
 
            t - (optional) time at which to get the radial velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
@@ -1738,9 +1738,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the tangential velocity
+           t - (optional) time at which to get the tangential velocity (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1767,9 +1767,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the vertical height
+           t - (optional) time at which to get the vertical height (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1796,15 +1796,15 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the vertical velocity
+           t - (optional) time at which to get the vertical velocity (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
            vz(t)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
 
         HISTORY:
 
@@ -1825,7 +1825,7 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the azimuth
+           t - (optional) time at which to get the azimuth (can be Quantity)
 
         OUTPUT:
 
@@ -1850,9 +1850,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the angular velocity
+           t - (optional) time at which to get the angular velocity (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1879,9 +1879,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get x
+           t - (optional) time at which to get x (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1910,9 +1910,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get y
+           t - (optional) time at which to get y (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1941,9 +1941,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the velocity
+           t - (optional) time at which to get the velocity (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1973,9 +1973,9 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get the velocity
+           t - (optional) time at which to get the velocity (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -2004,12 +2004,13 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get ra
+           t - (optional) time at which to get ra (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+(default=Object-wide default; can be Quantity)
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2034,12 +2035,12 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get dec
+           t - (optional) time at which to get dec (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2064,12 +2065,12 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get ll
+           t - (optional) time at which to get ll (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2094,12 +2095,12 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get bb
+           t - (optional) time at which to get bb (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2124,12 +2125,12 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get dist
+           t - (optional) time at which to get dist (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2154,17 +2155,17 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get pmra
+           t - (optional) time at which to get pmra (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2189,17 +2190,17 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get pmdec
+           t - (optional) time at which to get pmdec (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2224,17 +2225,17 @@ class Orbit(object):
 
         INPUT:
 
-           t - (optional) time at which to get pmll
+           t - (optional) time at which to get pmll (can be Quantity)
 
 v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2259,17 +2260,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get pmbb
+           t - (optional) time at which to get pmbb (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2294,17 +2295,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get vlos
+           t - (optional) time at which to get vlos (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2329,17 +2330,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get vra
+           t - (optional) time at which to get vra (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2374,17 +2375,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get vdec
+           t - (optional) time at which to get vdec (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2419,17 +2420,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get vll
+           t - (optional) time at which to get vll (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2464,17 +2465,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get vbb
+           t - (optional) time at which to get vbb (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2509,15 +2510,15 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get X
+           t - (optional) time at which to get X (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2542,15 +2543,15 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get Y
+           t - (optional) time at which to get Y (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position and of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity))
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2575,15 +2576,15 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get Z
+           t - (optional) time at which to get Z (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2608,17 +2609,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get U
+           t - (optional) time at which to get U (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2643,17 +2644,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get U
+           t - (optional) time at which to get V (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2678,17 +2679,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get W
+           t - (optional) time at which to get W (can be Quantity)
 
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.])
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default: 8.0)         
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= velocity in km/s corresponding to v=1. (default: 220.)
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2713,14 +2714,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - (optional) time at which to get the position
+           t - (optional) time at which to get the position (can be Quantity)
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2745,7 +2746,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           t - desired time
+           t - desired time (can be Quantity)
 
            rect - if true, return rectangular coordinates
 
@@ -2789,9 +2790,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d2= second dimension to plot
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -2826,9 +2827,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d3= third dimension to plot
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -2866,9 +2867,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -2905,9 +2906,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -2942,9 +2943,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3011,9 +3012,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            normed= if set, plot E(t)/E(0) rather than E(t)
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3044,7 +3045,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3075,7 +3076,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3106,6 +3107,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -3132,6 +3135,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            bovy_plot.bovy_plot inputs
 
@@ -3186,6 +3191,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         INPUT:
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -3213,7 +3220,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3244,6 +3251,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
            bovy_plot.bovy_plot inputs
 
         OUTPUT:
@@ -3271,7 +3280,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -3301,6 +3310,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         INPUT:
 
            d1= plot vs d1: e.g., 't', 'z', 'R'
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            bovy_plot.bovy_plot inputs
 
