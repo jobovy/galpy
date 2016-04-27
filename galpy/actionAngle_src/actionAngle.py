@@ -140,9 +140,9 @@ class actionAngle(object):
 
               a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object (phi is optional)
+                 1) floats: phase-space value for single object (phi is optional) (all in galpy's natural units, use Orbit input below for physical units)
 
-                 2) numpy.ndarray: [N] phase-space values for N objects 
+                 2) numpy.ndarray: [N] phase-space values for N objects (all in galpy's natural units, use Orbit input below for physical units)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
@@ -170,9 +170,9 @@ class actionAngle(object):
 
               a) R,vR,vT,z,vz[,phi]:
 
-                 1) floats: phase-space value for single object (phi is optional)
+                 1) floats: phase-space value for single object (phi is optional) (all in galpy's natural units, use Orbit input below for physical units)
 
-                 2) numpy.ndarray: [N] phase-space values for N objects 
+                 2) numpy.ndarray: [N] phase-space values for N objects (all in galpy's natural units, use Orbit input below for physical units)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
@@ -201,9 +201,9 @@ class actionAngle(object):
 
               a) R,vR,vT,z,vz,phi:
 
-                 1) floats: phase-space value for single object (phi needs to be specified)
+                 1) floats: phase-space value for single object (phi is optional) (all in galpy's natural units, use Orbit input below for physical units)
 
-                 2) numpy.ndarray: [N] phase-space values for N objects 
+                 2) numpy.ndarray: [N] phase-space values for N objects (all in galpy's natural units, use Orbit input below for physical units)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  

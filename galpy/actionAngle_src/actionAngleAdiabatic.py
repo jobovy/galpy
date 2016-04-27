@@ -26,17 +26,31 @@ class actionAngleAdiabatic(actionAngle):
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleAdiabatic object
+
         INPUT:
 
            pot= potential or list of potentials (planarPotentials)
 
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+        
+           instance
+
         HISTORY:
+
             2012-07-26 - Written - Bovy (IAS@MPIA)
+
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))

@@ -46,10 +46,20 @@ class actionAngleAdiabaticGrid(actionAngle):
 
            c= if True, use C to calculate actions
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
            +scipy.integrate.quad keywords
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
             2012-07-27 - Written - Bovy (IAS@MPIA)
+
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))

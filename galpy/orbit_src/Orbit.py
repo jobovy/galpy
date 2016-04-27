@@ -55,19 +55,19 @@ class Orbit(object):
 
         OPTIONAL INPUTS:
 
-           radec - if True, input is 2) (or 3) above
+           radec= if True, input is 2) (or 3) above
 
-           uvw - if True, velocities are UVW
+           uvw= if True, velocities are UVW
 
-           lb - if True, input is 4) or 5) above
+           lb= if True, input is 4) or 5) above
 
-           vo - circular velocity at ro (km/s; can be Quantity)
+           ro= distance from vantage point to GC (kpc; can be Quantity)
 
-           ro - distance from vantage point to GC (kpc; can be Quantity)
+           vo= circular velocity at ro (km/s; can be Quantity)
 
-           zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity)
+           zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity)
 
-           solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in 
+           solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in 
            [-U,V,W]; can be Quantity
 
         If ro and/or vo are specified, outputs involving distances or velocities (whether as instance methods or in plots) will by default be displayed in the physical coordinates implied by these scales. This can be overwritten for each individual method by using use_physical=False as a keyword for the method.

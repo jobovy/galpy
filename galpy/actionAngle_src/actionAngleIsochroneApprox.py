@@ -43,7 +43,7 @@ class actionAngleIsochroneApprox(actionAngle):
 
            Either:
 
-              b= scale parameter of the isochrone parameter
+              b= scale parameter of the isochrone parameter (can be Quantity)
 
               ip= instance of a IsochronePotential
 
@@ -51,13 +51,20 @@ class actionAngleIsochroneApprox(actionAngle):
 
            pot= potential to calculate action-angle variables for
 
-           tintJ= (default: 100) time to integrate orbits for to estimate actions
+           tintJ= (default: 100) time to integrate orbits for to estimate actions (can be Quantity)
 
            ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """

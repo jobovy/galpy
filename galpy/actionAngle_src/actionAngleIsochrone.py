@@ -31,9 +31,14 @@ class actionAngleIsochrone(actionAngle):
         INPUT:
            Either:
 
-              b= scale parameter of the isochrone parameter
+              b= scale parameter of the isochrone parameter (can be Quantity)
 
               ip= instance of a IsochronePotential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
         
            instance

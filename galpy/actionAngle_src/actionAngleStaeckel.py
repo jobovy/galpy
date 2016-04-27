@@ -42,14 +42,24 @@ class actionAngleStaeckel(actionAngle):
         INPUT:
            pot= potential or list of potentials (3D)
 
-           delta= focus
+           delta= focus (can be Quantity)
 
            useu0 - use u0 to calculate dV (NOT recommended)
 
            c= if True, always use C for calculations
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
            2012-11-27 - Written - Bovy (IAS)
+
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))

@@ -38,18 +38,26 @@ class actionAngleStaeckelGrid(actionAngle):
         INPUT:
            pot= potential or list of potentials
 
-           delta= focus of prolate confocal coordinate system
+           delta= focus of prolate confocal coordinate system (can be Quantity)
 
-           Rmax = Rmax for building grids
+           Rmax = Rmax for building grids (natural units)
 
            nE=, npsi=, nLz= grid size
 
            numcores= number of cpus to use to parallellize
 
-           +scipy.integrate.quad keywords
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+         
+           instance
+
         HISTORY:
+
             2012-11-29 - Written - Bovy (IAS)
+
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))

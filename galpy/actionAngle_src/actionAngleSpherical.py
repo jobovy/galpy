@@ -22,14 +22,29 @@ class actionAngleSpherical(actionAngle):
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleSpherical object
+
         INPUT:
+
            pot= a Spherical potential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
            2013-12-28 - Written - Bovy (IAS)
+
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
