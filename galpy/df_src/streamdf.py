@@ -62,9 +62,9 @@ class streamdf(df):
 
         INPUT:
 
-           sigv - radial velocity dispersion of the progenitor
+           sigv - radial velocity dispersion of the progenitor (can be Quantity)
 
-           tdisrupt= (5 Gyr) time since start of disruption (natural units)
+           tdisrupt= (5 Gyr) time since start of disruption (can be Quantity)
 
            leading= (True) if True, model the leading part of the stream
                            if False, model the trailing part
@@ -84,9 +84,9 @@ class streamdf(df):
                           to model the trailing part, set leading=False
 
            sigangle= (sigv/122/[1km/s]=1.8sigv in natural coordinates)
-                     estimate of the angle spread of the debris initially
+                     estimate of the angle spread of the debris initially (can be Quantity)
 
-           deltaAngleTrack= (None) angle to estimate the stream track over (rad)
+           deltaAngleTrack= (None) angle to estimate the stream track over (rad; or can be Quantity)
 
            nTrackChunks= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in
 
@@ -107,15 +107,15 @@ class streamdf(df):
 
            Coordinate transformation inputs:
 
-              vo= (220) circular velocity to normalize velocities with [used to be Vnorm]
+              vo= (220) circular velocity to normalize velocities with [used to be Vnorm; can be Quantity]
 
-              ro= (8) Galactocentric radius to normalize positions with [used to be Rnorm]
+              ro= (8) Galactocentric radius to normalize positions with [used to be Rnorm; can be Quantity]
 
-              R0= (8) Galactocentric radius of the Sun (kpc) [can be different from ro]
+              R0= (8) Galactocentric radius of the Sun (kpc) [can be different from ro; can be Quantity]
 
-              Zsun= (0.025) Sun's height above the plane (kpc)
+              Zsun= (0.025) Sun's height above the plane (kpc; can be Quantity)
 
-              vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
+              vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity)
 
               custom_transform= (None) matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates
 
@@ -434,13 +434,13 @@ class streamdf(df):
 
         INPUT:
 
-           venc= (numpy.inf) count encounters with (relative) speeds less than this (relative radial velocity in cylindrical stream frame, unless yoon is True)
+           venc= (numpy.inf) count encounters with (relative) speeds less than this (relative radial velocity in cylindrical stream frame, unless yoon is True) (can be Quantity)
 
-           sigma= (150/220) velocity dispersion of the DM subhalo population
+           sigma= (150/220) velocity dispersion of the DM subhalo population (can be Quantity)
 
-           nsubhalo= (0.3) spatial number density of subhalos
+           nsubhalo= (0.3) spatial number density of subhalos (can be Quantity)
 
-           bmax= (0.025) maximum impact parameter (if larger than width of stream)
+           bmax= (0.025) maximum impact parameter (if larger than width of stream) (can be Quantity)
 
            yoon= (False) if True, use erroneous Yoon et al. formula
 
@@ -1638,9 +1638,9 @@ class streamdf(df):
 
         INPUT:
 
-           Opar - parallel frequency offset (array)
+           Opar - parallel frequency offset (array) (can be Quantity)
 
-           apar - parallel angle offset along the stream (scalar)
+           apar - parallel angle offset along the stream (scalar) (can be Quantity)
 
         OUTPUT:
 

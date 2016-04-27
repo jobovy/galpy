@@ -46,19 +46,19 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            Subhalo and impact parameters:
 
-              impactb= impact parameter
+              impactb= impact parameter (can be Quantity)
 
-              subhalovel= velocity of the subhalo shape=(3)
+              subhalovel= velocity of the subhalo shape=(3) (can be Quantity)
 
-              timpact time since impact
+              timpact time since impact (can be Quantity)
 
-              impact_angle= angle offset from progenitor at which the impact occurred (rad)
+              impact_angle= angle offset from progenitor at which the impact occurred (rad) (can be Quantity)
 
               Subhalo: specify either 1( mass and size of Plummer sphere or 2( general spherical-potential object (kick is numerically computed)
 
-                 1( GM= mass of the subhalo
+                 1( GM= mass of the subhalo (can be Quantity)
 
-                    rs= size parameter of the subhalo
+                    rs= size parameter of the subhalo (can be Quantity)
 
                  2( subhalopot= galpy potential object or list thereof (should be spherical)
 
@@ -180,9 +180,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
         INPUT:
 
-           Opar - parallel frequency offset (array)
+           Opar - parallel frequency offset (array) (can be Quantity)
 
-           apar - parallel angle offset along the stream (scalar)
+           apar - parallel angle offset along the stream (scalar) (can be Quantity)
 
         OUTPUT:
 

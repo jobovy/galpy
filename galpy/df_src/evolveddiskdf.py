@@ -48,7 +48,7 @@ class evolveddiskdf(df):
 
            pot - potential to integrate orbits in
 
-           to= initial time (time at which initdf is evaluated; orbits are integrated from current t back to to)
+           to= initial time (time at which initdf is evaluated; orbits are integrated from current t back to to) (can be Quantity)
 
         OUTPUT:
 
@@ -87,7 +87,7 @@ class evolveddiskdf(df):
 
               a) Orbit instance alone: use initial state and t=0
 
-              b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself)
+              b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself), t can be Quantity
 
                  If t is a list of t, DF is returned for each t, times must be in descending order and equally spaced (does not work with marginalize...)
 
@@ -345,7 +345,7 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (in natural units)
 
            phi= azimuth (rad unless deg=True)
 
@@ -491,11 +491,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            sigmaR2, sigmaT2, sigmaRT= if set the vertex deviation is simply calculated using these
 
@@ -601,11 +601,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment(/ro) (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass= if set use this pre-calculated surfacemass
 
@@ -703,11 +703,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass= if set use this pre-calculated surfacemass
 
@@ -807,11 +807,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvR= if set use this pre-calculated surfacemass and mean vR
 
@@ -924,11 +924,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvT= if set use this pre-calculated surfacemass and mean tangential velocity
 
@@ -1039,11 +1039,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvR, meavT= if set use this pre-calculated surfacemass and mean vR and vT
 
@@ -1165,11 +1165,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate A (/ro)
+           R - radius at which to calculate A (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
@@ -1332,11 +1332,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate B (/ro)
+           R - radius at which to calculate B (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
@@ -1499,11 +1499,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate C (/ro)
+           R - radius at which to calculate C (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
@@ -1666,11 +1666,11 @@ class evolveddiskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate K (/ro)
+           R - radius at which to calculate K (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 

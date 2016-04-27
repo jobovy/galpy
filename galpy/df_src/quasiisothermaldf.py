@@ -36,15 +36,15 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           hr - radial scale length
+           hr - radial scale length (can be Quantity)
 
-           sr - radial velocity dispersion at the solar radius
+           sr - radial velocity dispersion at the solar radius (can be Quantity)
 
-           sz - vertical velocity dispersion at the solar radius
+           sz - vertical velocity dispersion at the solar radius (can be Quantity)
 
-           hsr - radial-velocity-dispersion scale length
+           hsr - radial-velocity-dispersion scale length (can be Quantity)
 
-           hsz - vertial-velocity-dispersion scale length
+           hsz - vertial-velocity-dispersion scale length (can be Quantity)
 
            pot= Potential instance or list thereof
 
@@ -52,9 +52,13 @@ class quasiisothermaldf(df):
 
            cutcounter= if True, set counter-rotating stars' DF to zero
 
-           refr= reference radius for dispersions (can be different from ro)
+           refr= reference radius for dispersions (can be different from ro) (can be Quantity)
 
-           lo= reference angular momentum below where there are significant numbers of retrograde stars
+           lo= reference angular momentum below where there are significant numbers of retrograde stars (can be Quantity)
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
         OTHER INPUTS:
 
@@ -151,7 +155,7 @@ class quasiisothermaldf(df):
            return the DF
         INPUT:
            Either:
-              a)(jr,lz,jz) tuple
+              a)(jr,lz,jz) tuple; each can be a Quantity
                  where:
                     jr - radial action
                     lz - z-component of angular momentum
@@ -281,11 +285,11 @@ class quasiisothermaldf(df):
         PURPOSE:
            estimate the exponential scale length at R
         INPUT:
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           z= height (default: 0 pc)
+           z= height (default: 0 pc) (can be Quantity)
 
-           dR- range in R to use
+           dR- range in R to use (can be Quantity)
 
            density kwargs
         OUTPUT:
@@ -313,9 +317,9 @@ class quasiisothermaldf(df):
         PURPOSE:
            estimate the exponential scale height at R
         INPUT:
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           dz - z range to use
+           dz - z range to use (can be Quantity)
 
            density kwargs
         OUTPUT:
@@ -343,11 +347,11 @@ class quasiisothermaldf(df):
         PURPOSE:
            estimate the exponential scale length of the radial dispersion at R
         INPUT:
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           z= height (default: 0 pc)
+           z= height (default: 0 pc) (can be Quantity)
 
-           dR- range in R to use
+           dR- range in R to use (can be Quantity)
 
            density kwargs
         OUTPUT:
@@ -370,11 +374,11 @@ class quasiisothermaldf(df):
         PURPOSE:
            estimate the exponential scale length of the vertical dispersion at R
         INPUT:
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
-           z= height (default: 0 pc)
+           z= height (default: 0 pc) (can be Quantity)
 
-           dR- range in R to use
+           dR- range in R to use (can be Quantity)
 
            density kwargs
         OUTPUT:
@@ -398,7 +402,7 @@ class quasiisothermaldf(df):
         PURPOSE:
            calculate the vertically-integrated surface density
         INPUT:
-           R - Galactocentric radius
+           R - Galactocentric radius (can be Quantity)
 
            fixed_quad= if True (default), use Gauss-Legendre integration
 
@@ -406,7 +410,7 @@ class quasiisothermaldf(df):
 
            nz= number of zs to use to estimate
 
-           zmax= minimum z to use
+           zmax= maximum z to use (can be Quantity)
 
            density kwargs
         OUTPUT:
@@ -768,9 +772,9 @@ class quasiisothermaldf(df):
            calculate the density at R,z by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate the density
+           R - radius at which to calculate the density (can be Quantity)
 
-           z - height at which to calculate the density
+           z - height at which to calculate the density (can be Quantity)
 
         OPTIONAL INPUT:
            nsigma - number of sigma to integrate the velocities over
@@ -805,9 +809,9 @@ class quasiisothermaldf(df):
            calculate sigma_R^2 by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
         OPTIONAL INPUT:
 
            nsigma - number of sigma to integrate the velocities over
@@ -863,9 +867,9 @@ class quasiisothermaldf(df):
            calculate sigma_RZ^2 by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -922,9 +926,9 @@ class quasiisothermaldf(df):
            calculate the tilt of the velocity ellipsoid by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
         OPTIONAL INPUT:
 
            nsigma - number of sigma to integrate the velocities over
@@ -993,9 +997,9 @@ class quasiisothermaldf(df):
            calculate sigma_z^2 by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1056,9 +1060,9 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1115,9 +1119,9 @@ class quasiisothermaldf(df):
            calculate the mean radial velocity by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1174,9 +1178,9 @@ class quasiisothermaldf(df):
            calculate the mean vertical velocity by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1233,9 +1237,9 @@ class quasiisothermaldf(df):
            calculate sigma_T^2 by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1304,9 +1308,9 @@ class quasiisothermaldf(df):
            calculate the mean radial action by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1349,9 +1353,9 @@ class quasiisothermaldf(df):
            calculate the mean angular momemtum by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1394,9 +1398,9 @@ class quasiisothermaldf(df):
            calculate the mean vertical action by marginalizing over velocity
         INPUT:
 
-           R - radius at which to calculate this
+           R - radius at which to calculate this (can be Quantity)
 
-           z - height at which to calculate this
+           z - height at which to calculate this (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1438,9 +1442,9 @@ class quasiisothermaldf(df):
            sample a radial, azimuthal, and vertical velocity at R,z
         INPUT:
 
-           R - Galactocentric distance
+           R - Galactocentric distance (can be Quantity)
 
-           z - height
+           z - height (can be Quantity)
 
            n= number of distances to sample
 
@@ -1495,11 +1499,11 @@ class quasiisothermaldf(df):
            calculate the marginalized vR probability at this location (NOT normalized by the density)
         INPUT:
 
-           vR - radial velocity (/vo)
+           vR - radial velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 
@@ -1565,11 +1569,11 @@ class quasiisothermaldf(df):
            calculate the marginalized vT probability at this location (NOT normalized by the density)
         INPUT:
 
-           vT - tangential velocity (/vo)
+           vT - tangential velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 
@@ -1648,11 +1652,11 @@ class quasiisothermaldf(df):
         PURPOSE:
            calculate the marginalized vz probability at this location (NOT normalized by the density)
         INPUT:
-           vz - vertical velocity (/vo)
+           vz - vertical velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 
@@ -1789,13 +1793,13 @@ class quasiisothermaldf(df):
            calculate the marginalized (vR,vT) probability at this location (NOT normalized by the density)
         INPUT:
 
-           vR - radial velocity (/vo)
+           vR - radial velocity (can be Quantity)
 
-           vT - tangential velocity (/vo)
+           vT - tangential velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 
@@ -1853,13 +1857,13 @@ class quasiisothermaldf(df):
            calculate the marginalized (vT,vz) probability at this location (NOT normalized by the density)
         INPUT:
 
-           vT - tangential velocity (/vo)
+           vT - tangential velocity (can be Quantity)
 
-           vz - vertical velocity (/vo)
+           vz - vertical velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 
@@ -1917,13 +1921,13 @@ class quasiisothermaldf(df):
            calculate the marginalized (vR,vz) probability at this location (NOT normalized by the density)
         INPUT:
 
-           vR - radial velocity (/vo)
+           vR - radial velocity (can be Quantity)
 
-           vz - vertical velocity (/vo)
+           vz - vertical velocity (can be Quantity)
 
-           R - radius (/ro)
+           R - radius (can be Quantity)
 
-           z - height (/ro)
+           z - height (can be Quantity)
 
            gl - use Gauss-Legendre integration (True, currently the only option)
 

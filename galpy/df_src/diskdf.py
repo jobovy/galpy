@@ -129,10 +129,10 @@ class diskdf(df):
               b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
-              E - energy (/vo^2)
-              L - angular momentun (/ro/vo)
+              E - energy (/vo^2; or can be Quantity)
+              L - angular momentun (/ro/vo; or can be Quantity)
 
-           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro
+           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input)
 
         KWARGS:
 
@@ -380,7 +380,7 @@ class diskdf(df):
 
         INPUT:
 
-            R - radius at which to evaluate (/ro)
+            R - radius at which to evaluate (can be Quantity)
 
         OUTPUT:
 
@@ -408,7 +408,7 @@ class diskdf(df):
 
          INPUT:
 
-            R - radius at which to evaluate
+            R - radius at which to evaluate (can be Quantity)
 
             log - if True, return the log (default: False)
 
@@ -435,9 +435,9 @@ class diskdf(df):
 
         INPUT:
 
-            d - distance along the line of sight
+            d - distance along the line of sight (can be Quantity)
 
-            l - Galactic longitude (in deg, unless deg=False)
+            l - Galactic longitude (in deg, unless deg=False; can be Quantity)
 
             deg= if False, l is in radians
 
@@ -482,9 +482,9 @@ class diskdf(df):
 
         INPUT:
 
-           d - distance along the line of sight
+           d - distance along the line of sight (can be Quantity)
 
-           l - Galactic longitude (in deg, unless deg=False)
+           l - Galactic longitude (in deg, unless deg=False; can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -537,11 +537,11 @@ class diskdf(df):
 
         INPUT:
 
-           l - Galactic longitude (in rad)
+           l - Galactic longitude (in rad; can be Quantity)
 
            n= number of distances to sample
 
-           maxd= maximum distance to consider (for the rejection sampling)
+           maxd= maximum distance to consider (for the rejection sampling) (can be Quantity)
 
            target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
 
@@ -604,7 +604,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - Galactocentric distance
+           R - Galactocentric distance (can be Quantity)
 
            n= number of distances to sample
 
@@ -659,7 +659,7 @@ class diskdf(df):
 
         INPUT:
 
-           los - line of sight (in deg, unless deg=False)
+           los - line of sight (in deg, unless deg=False; can be Quantity)
 
            n= number of desired samples
 
@@ -716,7 +716,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the asymmetric drift (/ro)
+           R - radius at which to calculate the asymmetric drift (can be Quantity)
 
         OUTPUT:
 
@@ -747,7 +747,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the surfacemass density (/ro)
+           R - radius at which to calculate the surfacemass density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -814,7 +814,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the sigma_R^2 x surfacemass density (/ro)
+           R - radius at which to calculate the sigma_R^2 x surfacemass density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -878,7 +878,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (in natural units)
 
            n - vR^n
 
@@ -997,7 +997,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate A (/ro)
+           R - radius at which to calculate A (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1045,7 +1045,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate B (/ro)
+           R - radius at which to calculate B (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1093,7 +1093,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate C (/ro)
+           R - radius at which to calculate C (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1139,7 +1139,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate K (/ro)
+           R - radius at which to calculate K (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1185,7 +1185,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate sigma_R^2 density (/ro)
+           R - radius at which to calculate sigma_R^2 density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1221,7 +1221,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate sigma_T^2 (/ro)
+           R - radius at which to calculate sigma_T^2 (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1260,7 +1260,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate sigma_R^2 (/ro)
+           R - radius at which to calculate sigma_R^2 (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1294,7 +1294,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vT> (/ro)
+           R - radius at which to calculate <vT> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1330,7 +1330,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1365,7 +1365,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1407,7 +1407,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1449,7 +1449,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1493,7 +1493,7 @@ class diskdf(df):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1566,7 +1566,7 @@ class diskdf(df):
 
            n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
 
-           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit
+           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit) (can be Quantity)
 
            returnROrbit - if True, return a planarROrbit instance: 
                           [R,vR,vT] (default)
@@ -1575,7 +1575,7 @@ class diskdf(df):
 
            nphi - number of azimuths to sample for each E,L
 
-           los= line of sight sampling along this line of sight
+           los= line of sight sampling along this line of sight (can be Quantity)
 
            losdeg= los in degrees? (default=True)
 
@@ -1698,11 +1698,11 @@ class dehnendf(diskdf):
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
 
-                        xD - disk surface mass scalelength / Ro
+                        xD - disk surface mass scalelength (can be Quantity)
 
-                        xS - disk velocity dispersion scalelength / Ro
+                        xS - disk velocity dispersion scalelength (can be Quantity)
 
-                        Sro - disk velocity dispersion at Ro (/vo)
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
 
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
@@ -1710,6 +1710,10 @@ class dehnendf(diskdf):
            beta - power-law index of the rotation curve
 
            correct - if True, correct the DF
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
            +DFcorrection kwargs (except for those already specified)
 
@@ -1734,8 +1738,8 @@ class dehnendf(diskdf):
         PURPOSE:
            evaluate the distribution function
         INPUT:
-           E - energy (/vo^2)
-           L - angular momentun (/ro/vo)
+           E - energy (can be Quantity)
+           L - angular momentum (can be Quantity)
        OUTPUT:
            DF(E,L)
         HISTORY:
@@ -1918,11 +1922,11 @@ class shudf(diskdf):
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
           
-                        xD - disk surface mass scalelength / Ro
+                        xD - disk surface mass scalelength (can be Quantity)
               
-                        xS - disk velocity dispersion scalelength / Ro
+                        xS - disk velocity dispersion scalelength (can be Quantity)
                         
-                        Sro - disk velocity dispersion at Ro (/vo)
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
                         
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
@@ -1931,6 +1935,9 @@ class shudf(diskdf):
 
            correct - if True, correct the DF
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
            +DFcorrection kwargs (except for those already specified)
 
