@@ -217,7 +217,7 @@ class planarPotential(object):
 
         OUTPUT:
 
-           F_\phi(R,(\phi,t)))
+           F_phi(R,(phi,t)))
 
         HISTORY:
 

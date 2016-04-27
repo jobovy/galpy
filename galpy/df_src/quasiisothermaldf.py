@@ -150,17 +150,25 @@ class quasiisothermaldf(df):
     def __call__(self,*args,**kwargs):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            return the DF
+
         INPUT:
+
            Either:
+
               a)(jr,lz,jz) tuple; each can be a Quantity
                  where:
                     jr - radial action
                     lz - z-component of angular momentum
                     jz - vertical action
+
               b) R,vR,vT,z,vz
+
               c) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
 
@@ -171,10 +179,15 @@ class quasiisothermaldf(df):
            func= function of (jr,lz,jz) to multiply f with (useful for moments)
 
         OUTPUT:
+
            value of DF
+
         HISTORY:
+
            2012-07-25 - Written - Bovy (IAS@MPIA)
+
         NOTE:
+
            For Miyamoto-Nagai/adiabatic approximation this seems to take 
            about 30 ms / evaluation in the extended Solar neighborhood
            For a MWPotential/adiabatic approximation this takes about 
@@ -185,6 +198,7 @@ class quasiisothermaldf(df):
            neighborhood (includes some out of the grid)
 
            up to 200x faster when called with vector R,vR,vT,z,vz
+
         """
         #First parse log
         log= kwargs.pop('log',False)
@@ -281,10 +295,15 @@ class quasiisothermaldf(df):
     def estimate_hr(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
         NAME:
+
            estimate_hr
+
         PURPOSE:
+
            estimate the exponential scale length at R
+
         INPUT:
+
            R - Galactocentric radius (can be Quantity)
 
            z= height (default: 0 pc) (can be Quantity)
@@ -292,11 +311,17 @@ class quasiisothermaldf(df):
            dR- range in R to use (can be Quantity)
 
            density kwargs
+
         OUTPUT:
+
            estimated hR
+
         HISTORY:
+
            2012-09-11 - Written - Bovy (IAS)
+
            2013-01-28 - Re-written - Bovy
+
         """
         Rs= [R-dR/2.,R+dR/2.]
         if z is None:
@@ -313,21 +338,31 @@ class quasiisothermaldf(df):
     def estimate_hz(self,R,z,dz=10.**-8.,**kwargs):
         """
         NAME:
+
            estimate_hz
+
         PURPOSE:
+
            estimate the exponential scale height at R
+
         INPUT:
+
            R - Galactocentric radius (can be Quantity)
 
            dz - z range to use (can be Quantity)
 
            density kwargs
+
         OUTPUT:
+
            estimated hz
+
         HISTORY:
+
            2012-08-30 - Written - Bovy (IAS)
 
            2013-01-28 - Re-written - Bovy
+
         """
         if z == 0.:
             zs= [z,z+dz]
@@ -343,10 +378,15 @@ class quasiisothermaldf(df):
     def estimate_hsr(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
         NAME:
+
            estimate_hsr
+
         PURPOSE:
+
            estimate the exponential scale length of the radial dispersion at R
+
         INPUT:
+
            R - Galactocentric radius (can be Quantity)
 
            z= height (default: 0 pc) (can be Quantity)
@@ -354,10 +394,15 @@ class quasiisothermaldf(df):
            dR- range in R to use (can be Quantity)
 
            density kwargs
+
         OUTPUT:
+
            estimated hsR
+
         HISTORY:
+
            2013-03-08 - Written - Bovy (IAS)
+
         """
         Rs= [R-dR/2.,R+dR/2.]
         sf= numpy.array([self.sigmaR2(r,z,use_physical=False,
@@ -370,10 +415,15 @@ class quasiisothermaldf(df):
     def estimate_hsz(self,R,z=0.,dR=10.**-8.,**kwargs):
         """
         NAME:
+
            estimate_hsz
+
         PURPOSE:
+
            estimate the exponential scale length of the vertical dispersion at R
+
         INPUT:
+
            R - Galactocentric radius (can be Quantity)
 
            z= height (default: 0 pc) (can be Quantity)
@@ -381,10 +431,15 @@ class quasiisothermaldf(df):
            dR- range in R to use (can be Quantity)
 
            density kwargs
+
         OUTPUT:
+
            estimated hsz
+
         HISTORY:
+
            2013-03-08 - Written - Bovy (IAS)
+
         """
         Rs= [R-dR/2.,R+dR/2.]
         sf= numpy.array([self.sigmaz2(r,z,use_physical=False,
@@ -398,10 +453,15 @@ class quasiisothermaldf(df):
                       **kwargs):
         """
         NAME:
+
            surfacemass_z
+
         PURPOSE:
+
            calculate the vertically-integrated surface density
+
         INPUT:
+
            R - Galactocentric radius (can be Quantity)
 
            fixed_quad= if True (default), use Gauss-Legendre integration
@@ -413,10 +473,15 @@ class quasiisothermaldf(df):
            zmax= maximum z to use (can be Quantity)
 
            density kwargs
+
         OUTPUT:
+
            \Sigma(R)
+
         HISTORY:
+
            2012-08-30 - Written - Bovy (IAS)
+
         """
         if fixed_quad:
             return 2.*integrate.fixed_quad(lambda x: self.density(R*numpy.ones(fixed_order),x,use_physical=False),
@@ -436,11 +501,16 @@ class quasiisothermaldf(df):
     def vmomentdensity(self,*args,**kwargs):
         """
         NAME:
-           _vmomentdensity
+
+           vmomentdensity
+
         PURPOSE:
+
            calculate the an arbitrary moment of the velocity distribution 
            at R times the density
+
         INPUT:
+
            R - radius at which to calculate the moment(/ro)
 
            n - vR^n
@@ -450,6 +520,7 @@ class quasiisothermaldf(df):
            o - vz^o
 
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
 
            mc= if True, calculate using Monte Carlo integration
@@ -465,9 +536,13 @@ class quasiisothermaldf(df):
            _return_freqs= if True, return the evaluated frequencies and rg (does not work with _returngl currently)
 
         OUTPUT:
+
            <vR^n vT^m  x density> at R,z (no support for units)
+
         HISTORY:
+
            2012-08-06 - Written - Bovy (IAS@MPIA)
+
         """
         use_physical= kwargs.pop('use_physical',True)
         ro= kwargs.pop('ro',None)
@@ -667,12 +742,15 @@ class quasiisothermaldf(df):
     def jmomentdensity(self,*args,**kwargs):
         """
         NAME:
+
            jmomentdensity
         PURPOSE:
+
            calculate the an arbitrary moment of an action
            of the velocity distribution 
            at R times the surfacmass
         INPUT:
+
            R - radius at which to calculate the moment(/ro)
 
            n - jr^n
@@ -682,6 +760,7 @@ class quasiisothermaldf(df):
            o - jz^o
 
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
 
            mc= if True, calculate using Monte Carlo integration
@@ -689,9 +768,13 @@ class quasiisothermaldf(df):
            nmc= if mc, use nmc samples
 
         OUTPUT:
+
            <jr^n lz^m jz^o  x density> at R (no support for units)
+
         HISTORY:
+
            2012-08-09 - Written - Bovy (IAS@MPIA)
+
         """
         use_physical= kwargs.pop('use_physical',True)
         ro= kwargs.pop('ro',None)
@@ -767,9 +850,13 @@ class quasiisothermaldf(df):
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            density
+
         PURPOSE:
+
            calculate the density at R,z by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate the density (can be Quantity)
@@ -777,6 +864,7 @@ class quasiisothermaldf(df):
            z - height at which to calculate the density (can be Quantity)
 
         OPTIONAL INPUT:
+
            nsigma - number of sigma to integrate the velocities over
 
            scipy.integrate.tplquad kwargs epsabs and epsrel
@@ -788,10 +876,15 @@ class quasiisothermaldf(df):
            gl= if True, calculate using Gauss-Legendre integration
 
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
+
         OUTPUT:
+
            density at (R,z)
+
         HISTORY:
+
            2012-07-26 - Written - Bovy (IAS@MPIA)
+
         """
         return self._vmomentdensity(R,z,0.,0.,0.,
                                    nsigma=nsigma,mc=mc,nmc=nmc,
@@ -804,14 +897,19 @@ class quasiisothermaldf(df):
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            sigmaR2
+
         PURPOSE:
+
            calculate sigma_R^2 by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
 
            z - height at which to calculate this (can be Quantity)
+
         OPTIONAL INPUT:
 
            nsigma - number of sigma to integrate the velocities over
@@ -827,9 +925,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            sigma_R^2
+
         HISTORY:
+
            2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -862,9 +964,13 @@ class quasiisothermaldf(df):
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            sigmaRz
+
         PURPOSE:
+
            calculate sigma_RZ^2 by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -886,9 +992,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            sigma_Rz^2
+
         HISTORY:
+
            2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -921,14 +1031,19 @@ class quasiisothermaldf(df):
              gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            tilt
+
         PURPOSE:
+
            calculate the tilt of the velocity ellipsoid by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
 
            z - height at which to calculate this (can be Quantity)
+
         OPTIONAL INPUT:
 
            nsigma - number of sigma to integrate the velocities over
@@ -944,9 +1059,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            tilt in degree
+
         HISTORY:
+
            2012-12-23 - Written - Bovy (IAS)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -992,9 +1111,13 @@ class quasiisothermaldf(df):
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            sigmaz2
+
         PURPOSE:
+
            calculate sigma_z^2 by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1016,9 +1139,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            sigma_z^2
+
         HISTORY:
+
            2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1079,9 +1206,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            meanvT
+
         HISTORY:
+
            2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1114,9 +1245,13 @@ class quasiisothermaldf(df):
                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            meanvR
+
         PURPOSE:
+
            calculate the mean radial velocity by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1138,9 +1273,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            meanvR
+
         HISTORY:
+
            2012-12-23 - Written - Bovy (IAS)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1173,9 +1312,13 @@ class quasiisothermaldf(df):
                gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            meanvz
+
         PURPOSE:
+
            calculate the mean vertical velocity by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1197,9 +1340,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            meanvz
+
         HISTORY:
+
            2012-12-23 - Written - Bovy (IAS)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1232,9 +1379,13 @@ class quasiisothermaldf(df):
                 gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
         NAME:
+
            sigmaT2
+
         PURPOSE:
+
            calculate sigma_T^2 by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1256,9 +1407,13 @@ class quasiisothermaldf(df):
            ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
 
         OUTPUT:
+
            sigma_T^2
+
         HISTORY:
+
            2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1303,9 +1458,13 @@ class quasiisothermaldf(df):
     def meanjr(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
+
            meanjr
+
         PURPOSE:
+
            calculate the mean radial action by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1323,9 +1482,13 @@ class quasiisothermaldf(df):
            nmc= if mc, use nmc samples
 
         OUTPUT:
+
            meanjr
+
         HISTORY:
+
            2012-08-09 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1348,9 +1511,13 @@ class quasiisothermaldf(df):
     def meanlz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
+
            meanlz
+
         PURPOSE:
+
            calculate the mean angular momemtum by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1368,9 +1535,13 @@ class quasiisothermaldf(df):
            nmc= if mc, use nmc samples
 
         OUTPUT:
+
            meanlz
+
         HISTORY:
+
            2012-08-09 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1393,9 +1564,13 @@ class quasiisothermaldf(df):
     def meanjz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
         """
         NAME:
+
            meanjz
+
         PURPOSE:
+
            calculate the mean vertical action by marginalizing over velocity
+
         INPUT:
 
            R - radius at which to calculate this (can be Quantity)
@@ -1413,9 +1588,13 @@ class quasiisothermaldf(df):
            nmc= if mc, use nmc samples
 
         OUTPUT:
+
            meanjz
+
         HISTORY:
+
            2012-08-09 - Written - Bovy (IAS@MPIA)
+
         """
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
@@ -1437,9 +1616,13 @@ class quasiisothermaldf(df):
     def sampleV(self,R,z,n=1):
         """
         NAME:
+
            sampleV
+
         PURPOSE:
+
            sample a radial, azimuthal, and vertical velocity at R,z
+
         INPUT:
 
            R - Galactocentric distance (can be Quantity)
@@ -1449,9 +1632,13 @@ class quasiisothermaldf(df):
            n= number of distances to sample
 
         OUTPUT:
+
            list of samples
+
         HISTORY:
+
            2012-12-17 - Written - Bovy (IAS)
+
         """
         #Determine the maximum of the velocity distribution
         maxVR= 0.
@@ -1494,9 +1681,13 @@ class quasiisothermaldf(df):
     def pvR(self,vR,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
+
            pvR
+
         PURPOSE:
+
            calculate the marginalized vR probability at this location (NOT normalized by the density)
+
         INPUT:
 
            vR - radial velocity (can be Quantity)
@@ -1510,9 +1701,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vR,R,z)
+
         HISTORY:
+
            2012-12-22 - Written - Bovy (IAS)
+
         """
         sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         if gl:
@@ -1564,9 +1759,13 @@ class quasiisothermaldf(df):
     def pvT(self,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
+
            pvT
+
         PURPOSE:
+
            calculate the marginalized vT probability at this location (NOT normalized by the density)
+
         INPUT:
 
            vT - tangential velocity (can be Quantity)
@@ -1580,9 +1779,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vT,R,z)
+
         HISTORY:
+
            2012-12-22 - Written - Bovy (IAS)
+
         """
         sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
         sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
@@ -1648,10 +1851,15 @@ class quasiisothermaldf(df):
             _sigmaR1=None):
         """
         NAME:
+
            pvz
+
         PURPOSE:
+
            calculate the marginalized vz probability at this location (NOT normalized by the density)
+
         INPUT:
+
            vz - vertical velocity (can be Quantity)
 
            R - radius (can be Quantity)
@@ -1663,9 +1871,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vz,R,z)
+
         HISTORY:
+
            2012-12-22 - Written - Bovy (IAS)
+
         """
         if _sigmaR1 is None:
             sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
@@ -1788,9 +2000,13 @@ class quasiisothermaldf(df):
     def pvRvT(self,vR,vT,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
+
            pvRvT
+
         PURPOSE:
+
            calculate the marginalized (vR,vT) probability at this location (NOT normalized by the density)
+
         INPUT:
 
            vR - radial velocity (can be Quantity)
@@ -1806,9 +2022,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vR,vT,R,z)
+
         HISTORY:
+
            2013-01-02 - Written - Bovy (IAS)
+
         """
         sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
         if gl:
@@ -1852,9 +2072,13 @@ class quasiisothermaldf(df):
     def pvTvz(self,vT,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
+
            pvTvz
+
         PURPOSE:
+
            calculate the marginalized (vT,vz) probability at this location (NOT normalized by the density)
+
         INPUT:
 
            vT - tangential velocity (can be Quantity)
@@ -1870,9 +2094,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vT,vz,R,z)
+
         HISTORY:
+
            2012-12-22 - Written - Bovy (IAS)
+
         """
         sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
         if gl:
@@ -1916,9 +2144,13 @@ class quasiisothermaldf(df):
     def pvRvz(self,vR,vz,R,z,gl=True,ngl=_DEFAULTNGL2):
         """
         NAME:
+
            pvR
+
         PURPOSE:
+
            calculate the marginalized (vR,vz) probability at this location (NOT normalized by the density)
+
         INPUT:
 
            vR - radial velocity (can be Quantity)
@@ -1934,9 +2166,13 @@ class quasiisothermaldf(df):
            ngl - order of Gauss-Legendre integration
 
         OUTPUT:
+
            p(vR,vz,R,z)
+
         HISTORY:
+
            2013-01-02 - Written - Bovy (IAS)
+
         """
         if gl:
             if ngl % 2 == 1:

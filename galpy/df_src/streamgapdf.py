@@ -321,15 +321,25 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
         NAME:
+
            minOpar
+
         PURPOSE:
+
            return the approximate minimum parallel frequency at a given angle
+
         INPUT:
+
            dangle - parallel angle
+
         OUTPUT:
+
            minimum frequency that gets to this parallel angle
+
         HISTORY:
+
            2015-12-28 - Written - Bovy (UofT)
+
         """
         if tdisrupt is None: tdisrupt= self._tdisrupt
         # First construct the breakpoints for this dangle
@@ -1432,7 +1442,7 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
 
        rs - scale of Plummer
 
-       tmaxfac(10) - multiple of rs/|w-v0| to use for time integration interval
+       tmaxfac(10) - multiple of rs/fabs(w - v0) to use for time integration interval
 
        N(1000) - number of forward integration points
 

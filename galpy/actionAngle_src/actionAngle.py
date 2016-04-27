@@ -131,9 +131,13 @@ class actionAngle(object):
     def __call__(self,*args,**kwargs):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the actions (jr,lz,jz)
+
         INPUT:
 
            Either:
@@ -147,9 +151,13 @@ class actionAngle(object):
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
         OUTPUT:
+
            (jr,lz,jz)
+
         HISTORY:
+
            2014-01-03 - Written for top level - Bovy (IAS)
+
         """
         try:
             return self._evaluate(*args,**kwargs)
@@ -161,9 +169,13 @@ class actionAngle(object):
     def actionsFreqs(self,*args,**kwargs):
         """
         NAME:
+
            actionsFreqs
+
         PURPOSE:
+
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+
         INPUT:
 
            Either:
@@ -177,9 +189,13 @@ class actionAngle(object):
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
         OUTPUT:
+
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+
         HISTORY:
+
            2014-01-03 - Written for top level - Bovy (IAS)
+
         """
         try:
             return self._actionsFreqs(*args,**kwargs)
@@ -191,10 +207,14 @@ class actionAngle(object):
     def actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
+
            actionsFreqsAngles
+
         PURPOSE:
+
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+
         INPUT:
 
            Either:
@@ -208,9 +228,13 @@ class actionAngle(object):
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
                  
         OUTPUT:
+
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+
         HISTORY:
+
            2014-01-03 - Written for top level - Bovy (IAS)
+
         """
         try:
             return self._actionsFreqsAngles(*args,**kwargs)

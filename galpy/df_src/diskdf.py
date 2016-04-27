@@ -391,6 +391,7 @@ class diskdf(df):
         HISTORY:
 
            2010-03-28 - Written - Bovy (NYU)
+
         """
         return self._surfaceSigmaProfile.sigma2(R,log=log)
 
@@ -419,6 +420,7 @@ class diskdf(df):
          HISTORY:
 
             2010-03-28 - Written - Bovy (NYU)
+
          """
          return self._surfaceSigmaProfile.surfacemass(R,log=log)
 
@@ -450,6 +452,7 @@ class diskdf(df):
         HISTORY:
 
             2011-03-23 - Written - Bovy (NYU)
+
         """
         #Calculate R and phi
         if _APY_LOADED and isinstance(l,units.Quantity):
@@ -505,6 +508,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #Calculate R and phi
         if _APY_LOADED and isinstance(l,units.Quantity):
@@ -552,6 +556,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #First calculate where the maximum is
         if target:
@@ -623,6 +628,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #Determine where the max of the v-distribution is using asymmetric drift
         maxVR= 0.
@@ -678,6 +684,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-24 - Started  - Bovy (NYU)
+
         """
         if _APY_LOADED and isinstance(los,units.Quantity):
             l= los.to(units.rad).value
@@ -1018,6 +1025,7 @@ class diskdf(df):
         BUGS:
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
+
         """
         #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
@@ -1066,6 +1074,7 @@ class diskdf(df):
         BUGS:
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
+
         """
         #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
@@ -1115,6 +1124,7 @@ class diskdf(df):
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
+
         """
         #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
         meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
@@ -1161,6 +1171,7 @@ class diskdf(df):
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
+
         """
         #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
         meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
@@ -1202,6 +1213,7 @@ class diskdf(df):
         HISTORY:
 
            2010-03-XX - Written - Bovy (NYU)
+
         """
         return self.sigma2surfacemass(R,romberg,nsigma,use_physical=False)\
             /self.surfacemass(R,romberg,nsigma,use_physical=False)
@@ -1238,6 +1250,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
+
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                    use_physical=False)
@@ -1277,6 +1290,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
+
         """
         return self.sigma2(R,romberg=romberg,nsigma=nsigma,use_physical=False)
 
@@ -1311,6 +1325,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
+
         """
         return self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
@@ -1347,6 +1362,7 @@ class diskdf(df):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
+
         """
         return self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
@@ -1382,6 +1398,7 @@ class diskdf(df):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                    use_physical=False)
@@ -1424,6 +1441,7 @@ class diskdf(df):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                    use_physical=False)
@@ -1466,6 +1484,7 @@ class diskdf(df):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                    use_physical=False)
@@ -1510,6 +1529,7 @@ class diskdf(df):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
         surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
                                    use_physical=False)

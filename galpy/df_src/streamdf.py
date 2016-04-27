@@ -380,7 +380,7 @@ class streamdf(df):
 
         OUTPUT:
 
-           ratio between eigenvalues of |dO / dJ|
+           ratio between eigenvalues of fabs(dO / dJ)
 
         HISTORY:
 

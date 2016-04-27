@@ -225,10 +225,15 @@ class Potential(object):
     def __call__(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the potential at (R,z,phi,t)
+
         INPUT:
+
            R - Cylindrical Galactocentric radius (can be Quantity)
 
            z - vertical height (can be Quantity)
@@ -238,9 +243,13 @@ class Potential(object):
            t - time (optional; can be Quantity)
 
         OUTPUT:
+
            Phi(R,z,t)
+
         HISTORY:
+
            2010-04-16 - Written - Bovy (NYU)
+
         """
         return self._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
 
@@ -418,7 +427,7 @@ class Potential(object):
 
            1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
 
-           2) for axisymmetric potentials: M(<R,<|Z|)
+           2) for axisymmetric potentials: M(<R,<fabs(Z))
 
         HISTORY:
 
@@ -795,14 +804,25 @@ class Potential(object):
     def toPlanar(self):
         """
         NAME:
+
            toPlanar
+
         PURPOSE:
+
            convert a 3D potential into a planar potential in the mid-plane
+
         INPUT:
+
            (none)
+
         OUTPUT:
+
            planarPotential
-        HISTORY
+
+        HISTORY:
+
+           unknown
+
         """
         from galpy.potential import RZToplanarPotential
         return RZToplanarPotential(self)
@@ -810,14 +830,25 @@ class Potential(object):
     def toVertical(self,R):
         """
         NAME:
+
            toVertical
+
         PURPOSE:
+
            convert a 3D potential into a linear (vertical) potential at R
+
         INPUT:
+
            R - Galactocentric radius at which to create the vertical potential (can be Quantity)
+
         OUTPUT:
+
            linear (vertical) potential
+
         HISTORY
+
+           unknown
+
         """
         if _APY_LOADED and isinstance(R,units.Quantity):
             R= R.to(units.kpc).value/self._ro
@@ -933,9 +964,13 @@ class Potential(object):
                     justcontours=False):
         """
         NAME:
+
            plotDensity
+
         PURPOSE:
+
            plot the density of this potential
+
         INPUT:
 
            rmin= minimum R (can be Quantity)
@@ -959,9 +994,13 @@ class Potential(object):
            log= if True, plot the log density
 
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2014-01-05 - Written - Bovy (IAS)
+
         """
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
                              zmin=zmin,zmax=zmax,nzs=nzs,
@@ -1220,7 +1259,7 @@ class Potential(object):
         
         PURPOSE:
         
-           calculate the potential flattening, defined as sqrt(|z/R F_R/F_z|)
+           calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
         
         INPUT:
         
@@ -1449,10 +1488,15 @@ class PotentialError(Exception): #pragma: no cover
 def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     """
     NAME:
+
        evaluatePotentials
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        Pot - potential or list of potentials
 
        R - cylindrical Galactocentric distance (can be Quantity)
@@ -1464,10 +1508,15 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
        t - time (can be Quantity)
 
        dR= dphi=, if set to non-zero integers, return the dR, dphi't derivative instead
+
     OUTPUT:
+
        Phi(R,z)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
 
@@ -1537,10 +1586,15 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
 def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
+
        evaluateRforce
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        Pot - a potential or list of potentials
 
        R - cylindrical Galactocentric distance (can be Quantity)
@@ -1550,10 +1604,15 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
        phi - azimuth (optional; can be Quantity))
 
        t - time (optional; can be Quantity)
+
     OUTPUT:
+
        F_R(R,z,phi,t)
+
     HISTORY:
+
        2010-04-16 - Written - Bovy (NYU)
+
     """
     return _evaluateRforces(Pot,R,z,phi=phi,t=t)
 
@@ -1667,10 +1726,15 @@ def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
 def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
+
        evaluateR2derivs
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        Pot - a potential or list of potentials
 
        R - cylindrical Galactocentric distance (can be Quantity)
@@ -1680,10 +1744,15 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
        phi - azimuth (optional; can be Quantity)
 
        t - time (optional; can be Quantity)
+
     OUTPUT:
+
        d2Phi/d2R(R,z,phi,t)
+
     HISTORY:
+
        2012-07-25 - Written - Bovy (IAS)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -1700,10 +1769,15 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
 def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
+
        evaluatez2derivs
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        Pot - a potential or list of potentials
 
        R - cylindrical Galactocentric distance (can be Quantity)
@@ -1713,10 +1787,15 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
        phi - azimuth (optional; can be Quantity)
 
        t - time (optional; can be Quantity)
+
     OUTPUT:
+
        d2Phi/d2z(R,z,phi,t)
+
     HISTORY:
+
        2012-07-25 - Written - Bovy (IAS)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -1733,10 +1812,15 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
 def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
     """
     NAME:
+
        evaluateRzderivs
+
     PURPOSE:
+
        convenience function to evaluate a possible sum of potentials
+
     INPUT:
+
        Pot - a potential or list of potentials
 
        R - cylindrical Galactocentric distance (can be Quantity)
@@ -1746,10 +1830,15 @@ def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
        phi - azimuth (optional; can be Quantity)
 
        t - time (optional; can be Quantity)
+
     OUTPUT:
+
        d2Phi/dz/dR(R,z,phi,t)
+
     HISTORY:
+
        2013-08-28 - Written - Bovy (IAS)
+
     """
     if isinstance(Pot,list):
         sum= 0.
@@ -1886,10 +1975,15 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            savefilename= save to or restore from this savefile (pickle)
 
            log= if True, plot the log density
+
         OUTPUT:
+
            plot to output device
+
         HISTORY:
+
            2013-07-05 - Written - Bovy (IAS)
+
         """
         if _APY_LOADED:
             if hasattr(Pot,'_ro'):
@@ -2026,7 +2120,7 @@ def flattening(Pot,R,z):
     
     PURPOSE:
     
-       calculate the potential flattening, defined as sqrt(|z/R F_R/F_z|)
+       calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
     
     INPUT:
 
