@@ -407,6 +407,9 @@ class Orbit(object):
             self._orb._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
+            dt= dt.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
