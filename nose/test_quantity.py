@@ -718,6 +718,33 @@ def test_integrate_timeAsQuantity_Myr():
     assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     return None
 
+def test_integrate_dtimeAsQuantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    dt_nounits= (ts_nounits[1]-ts_nounits[0])/10.
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
+    dt= dt_nounits*units.Gyr
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    dt_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential,dt=dt)
+    oc.integrate(ts_nounits,MWPotential,dt=dt_nounits)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
 def test_integrate_dxdv_timeAsQuantity():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
