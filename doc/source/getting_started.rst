@@ -208,6 +208,9 @@ input to any galpy function that does not take a Quantity as an input
 (or that does it wrong), please report an `Issue
 <https://github.com/jobovy/galpy/issues>`__.
 
+.. WARNING::
+   If you combine potentials in a list, galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential).
+
 galpy can also return values with units as an astropy
 Quantity. Whether or not this is done is specified by the
 ``apy-units`` option in the :ref:`configuration file <configfile>`. If
@@ -302,6 +305,9 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
 >>> o.integrate(ts,mp,method='odeint')
+
+.. TIP::
+   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
 
 Now we plot the resulting orbit as
 
