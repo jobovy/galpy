@@ -402,6 +402,7 @@ class Orbit(object):
 
         """
         _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._orb._integrate_t_asQuantity= True
@@ -464,6 +465,7 @@ class Orbit(object):
 
         """
         _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._orb._integrate_t_asQuantity= True
@@ -665,6 +667,7 @@ class Orbit(object):
 
         """
         _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
         return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
                              radec=radec,lb=lb,
                              customsky=customsky,
@@ -703,6 +706,7 @@ class Orbit(object):
            2010-09-15 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.E(*args,**kwargs)
 
     def L(self,*args,**kwargs):
@@ -765,6 +769,7 @@ class Orbit(object):
            2013-11-30 - Written - Bovy (IAS)
 
         """
+        _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.ER(*args,**kwargs)
 
     def Ez(self,*args,**kwargs):
@@ -796,6 +801,7 @@ class Orbit(object):
            2013-11-30 - Written - Bovy (IAS)
 
         """
+        _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.Ez(*args,**kwargs)
 
     def Jacobi(self,*args,**kwargs):
@@ -829,6 +835,7 @@ class Orbit(object):
            2011-04-18 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.Jacobi(*args,**kwargs)
 
     def e(self,analytic=False,pot=None):
@@ -856,6 +863,7 @@ class Orbit(object):
            2010-09-15 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,pot)
         return self._orb.e(analytic=analytic,pot=pot)
 
     def rap(self,analytic=False,pot=None,**kwargs):
@@ -887,6 +895,7 @@ class Orbit(object):
            2010-09-20 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,pot)
         return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
 
     def rperi(self,analytic=False,pot=None,**kwargs):
@@ -918,6 +927,7 @@ class Orbit(object):
            2010-09-20 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,pot)
         return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
 
     def zmax(self,analytic=False,pot=None,**kwargs):
@@ -949,6 +959,7 @@ class Orbit(object):
            2010-09-20 - Written - Bovy (NYU)
 
         """
+        _check_consistent_units(self,pot)
         return self._orb.zmax(analytic=analytic,pot=pot,**kwargs)
 
     def resetaA(self,pot=None,type=None):
@@ -1025,6 +1036,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA(self(),use_physical=False)[0]
@@ -1075,6 +1087,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA(self(),use_physical=False)[1]
@@ -1125,6 +1138,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA(self(),use_physical=False)[2]
@@ -1169,6 +1183,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqsAngles(self(),
@@ -1215,6 +1230,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqsAngles(self(),
@@ -1261,6 +1277,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqsAngles(self(),
@@ -1313,6 +1330,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
@@ -1365,6 +1383,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
@@ -1410,6 +1429,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqs(self())[4][0]/self._orb._aA.actionsFreqs(self())[3][0]*nu.pi
@@ -1460,6 +1480,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
@@ -1510,6 +1531,7 @@ class Orbit(object):
            2013-11-27 - Written - Bovy (IAS)
 
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqs(self(),use_physical=False)[3][0]
@@ -1557,6 +1579,7 @@ class Orbit(object):
 
            2013-11-27 - Written - Bovy (IAS)
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqs(self(),use_physical=False)[4][0]
@@ -1604,6 +1627,7 @@ class Orbit(object):
 
            2013-11-27 - Written - Bovy (IAS)
         """
+        _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
             return self._orb._aA.actionsFreqs(self(),use_physical=False)[5][0]
@@ -3479,3 +3503,17 @@ def _check_potential_dim(orb,pot):
     from galpy.potential import _dim
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toLinear' % (orb.dim(),_dim(pot),orb.dim())
+
+def _check_consistent_units(orb,pot):
+    if pot is None: return None
+    if isinstance(pot,list):
+        if orb._roSet and pot[0]._roSet:
+            assert nu.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot[0]._voSet:
+            assert nu.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    else:
+        if orb._roSet and pot._roSet:
+            assert nu.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot._voSet:
+            assert nu.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    return None

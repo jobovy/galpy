@@ -791,6 +791,31 @@ def test_integrate_dxdv_timeAsQuantity_Myr():
     assert numpy.all(numpy.fabs(dx-dxc) < 10.**-8.), 'Orbit integrated_dxdv with times specified as Quantity does not agree with Orbit integrated_dxdv with time specified as array'
     return None
 
+def test_orbit_inconsistentPotentialUnits_error():
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+    ro, vo= 9., 220.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              45.*units.deg],ro=ro,vo=vo)
+    ts= numpy.linspace(0.,10.,1001)*units.Gyr
+    # single, ro wrong
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: o.integrate(ts,pot),())
+    # list, ro wrong
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
+    assert_raises(AssertionError,
+                  lambda x: o.integrate(ts,[pot]),())
+    # single, vo wrong
+    pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
+    assert_raises(AssertionError,
+                  lambda x: o.integrate(ts,pot),())
+    # list, vo wrong
+    pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
+    assert_raises(AssertionError,
+                  lambda x: o.integrate(ts,[pot]),())
+    return None
+
 def test_change_ro_config():
     from galpy.orbit import Orbit
     from galpy.util import config
