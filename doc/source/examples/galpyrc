@@ -1,0 +1,7 @@
+[normalization]
+ro = 8.
+vo = 220.
+
+[astropy]
+astropy-units = False
+

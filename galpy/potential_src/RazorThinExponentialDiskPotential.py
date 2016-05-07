@@ -8,7 +8,9 @@ import numpy as nu
 import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class RazorThinExponentialDiskPotential(Potential):
@@ -19,8 +21,9 @@ class RazorThinExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
 
     """
-    def __init__(self,amp=1.,ro=1.,hr=1./3.,
+    def __init__(self,amp=1.,hr=1./3.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
+                 ro=None,vo=None,
                  new=True,glorder=100):
         """
         NAME:
@@ -33,15 +36,17 @@ class RazorThinExponentialDiskPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of surface-mass or Gxsurface-mass
 
-           hr - disk scale-length in terms of ro
+           hr - disk scale-length (can be Quantity)
 
            tol - relative accuracy of potential-evaluations
 
            maxiter - scipy.integrate keyword
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -52,10 +57,11 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
+        if _APY_LOADED and isinstance(hr,units.Quantity):
+            hr= hr.to(units.kpc).value/self._ro
         self._new= new
         self._glorder= glorder
-        self._ro= ro
         self._hr= hr
         self._scale= self._hr
         self._alpha= 1./self._hr

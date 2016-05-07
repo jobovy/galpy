@@ -7,7 +7,10 @@
 import numpy
 import warnings
 from galpy.util import galpyWarning
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 from galpy.potential_src.MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
     """class that implements the three Miyamoto-Nagai approximation to a radially-exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
@@ -27,7 +30,8 @@ class MN3ExponentialDiskPotential(Potential):
     """
     def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  sech=False,posdens=False,
-                 normalize=False):
+                 normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -39,17 +43,19 @@ class MN3ExponentialDiskPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           hr - disk scale-length
+           hr - disk scale-length (can be Quantity)
 
-           hz - scale-height
+           hz - scale-height (can be Quantity)
 
            sech= (False) if True, hz is the scale height of a sech vertical profile (default is exponential vertical profile)
 
            posdens= (False) if True, allow only positive density solutions (Table 2 in Smith et al. rather than Table 1)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -60,10 +66,16 @@ class MN3ExponentialDiskPotential(Potential):
            2015-02-07 - Written - Bovy (IAS)
 
         """
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        if _APY_LOADED and isinstance(hr,units.Quantity):
+            hr= hr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(hz,units.Quantity):
+            hz= hz.to(units.kpc).value/self._ro
         self._hr= hr
         self._hz= hz
         self._scale= self._hr
-        Potential.__init__(self,amp=amp*4.*numpy.pi*self._hr**2.*self._hz)
+        # Adjust amp for definition
+        self._amp*= 4.*numpy.pi*self._hr**2.*self._hz
         # First determine b/rd
         if sech:
             self._brd= _b_sechhz(self._hz/self._hr)

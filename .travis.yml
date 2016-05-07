@@ -7,9 +7,11 @@ python:
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
+    - REQUIRES_ASTROPY=false
   matrix:
-    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
-    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_quantity|test_nemo' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_quantity).)*$' REQUIRES_ASTROPY=true # needs to be separate for different config
+    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!(test_qdf|test_pv2qdf|test_streamgapdf)).)*$'
@@ -48,6 +50,7 @@ install:
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
+ - if $REQUIRES_ASTROPY; then pip install astropy; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:

@@ -33,8 +33,13 @@ from galpy.df_src.surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.util import save_pickles
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
+from galpy.df_src.df import df, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -43,13 +48,13 @@ except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= math.pi/180.
-class diskdf(object):
+class diskdf(df):
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
                  surfaceSigma=expSurfaceSigmaProfile,
                  profileParams=(1./3.,1.0,0.2),
                  correct=False,
-                 beta=0.,**kwargs):
+                 beta=0.,ro=None,vo=None,**kwargs):
         """
         NAME:
            __init__
@@ -74,10 +79,19 @@ class diskdf(object):
         HISTORY:
             2010-03-10 - Written - Bovy (NYU)
         """
+        df.__init__(self,ro=ro,vo=vo)
         self._dftype= dftype
         if isinstance(surfaceSigma,surfaceSigmaProfile):
             self._surfaceSigmaProfile= surfaceSigma
         else:
+            if _APY_LOADED and isinstance(profileParams[0],units.Quantity):
+                newprofileParams=\
+                    (profileParams[0].to(units.kpc).value/self._ro,
+                     profileParams[1].to(units.kpc).value/self._ro,
+                     profileParams[2].to(units.km/units.s).value/self._vo)
+                self._roSet= True
+                self._voSet= True
+                profileParams= newprofileParams
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
         self._gamma= sc.sqrt(2./(1.+self._beta))
@@ -95,6 +109,7 @@ class diskdf(object):
                                                                    alpha=2.-2.*self._beta),gamma=0.)
         return None
     
+    @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -114,10 +129,10 @@ class diskdf(object):
               b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
-              E - energy (/vo^2)
-              L - angular momentun (/ro/vo)
+              E - energy (/vo^2; or can be Quantity)
+              L - angular momentun (/ro/vo; or can be Quantity)
 
-           3) array vxvv [3/4,nt]
+           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input)
 
         KWARGS:
 
@@ -163,7 +178,8 @@ class diskdf(object):
             vT= nu.array([o._orb.vxvv[2] for o in args[0]])
             R= nu.array([o._orb.vxvv[0] for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
-        elif isinstance(args[0],nu.ndarray):
+        elif isinstance(args[0],nu.ndarray) and \
+                not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
@@ -177,8 +193,8 @@ class diskdf(object):
         #Get l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
         vcirc= R**self._beta
         vcirclos= vcirc*math.sin(phi+l)
@@ -190,7 +206,7 @@ class diskdf(object):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -222,8 +238,8 @@ class diskdf(object):
         #Get d, l, vperp
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         vcirc= R**self._beta
@@ -236,7 +252,7 @@ class diskdf(object):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -349,7 +365,9 @@ class diskdf(object):
                 OE= xE**(self._beta-1.)
         sigma2xE= self._surfaceSigmaProfile.sigma2(xE,log=False)
         return OE/sigma2xE
-        
+
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -362,7 +380,7 @@ class diskdf(object):
 
         INPUT:
 
-            R - radius at which to evaluate (/ro)
+            R - radius at which to evaluate (can be Quantity)
 
         OUTPUT:
 
@@ -373,9 +391,12 @@ class diskdf(object):
         HISTORY:
 
            2010-03-28 - Written - Bovy (NYU)
+
         """
         return self._surfaceSigmaProfile.sigma2(R,log=log)
 
+    @potential_physical_input
+    @physical_conversion('surfacedensity',pop=True)        
     def targetSurfacemass(self,R,log=False):
          """
          NAME:
@@ -388,7 +409,7 @@ class diskdf(object):
 
          INPUT:
 
-            R - radius at which to evaluate
+            R - radius at which to evaluate (can be Quantity)
 
             log - if True, return the log (default: False)
 
@@ -399,9 +420,11 @@ class diskdf(object):
          HISTORY:
 
             2010-03-28 - Written - Bovy (NYU)
+
          """
          return self._surfaceSigmaProfile.surfacemass(R,log=log)
 
+    @physical_conversion('surfacedensitydistance',pop=True)        
     def targetSurfacemassLOS(self,d,l,log=False,deg=True):
         """
         NAME:
@@ -414,9 +437,9 @@ class diskdf(object):
 
         INPUT:
 
-            d - distance along the line of sight
+            d - distance along the line of sight (can be Quantity)
 
-            l - Galactic longitude (in deg, unless deg=False)
+            l - Galactic longitude (in deg, unless deg=False; can be Quantity)
 
             deg= if False, l is in radians
 
@@ -424,26 +447,31 @@ class diskdf(object):
 
         OUTPUT:
 
-            Sigma(d,l)
+            Sigma(d,l) x d
 
         HISTORY:
 
             2011-03-23 - Written - Bovy (NYU)
+
         """
         #Calculate R and phi
-        if deg:
+        if _APY_LOADED and isinstance(l,units.Quantity):
+            lrad= l.to(units.rad).value
+        elif deg:
             lrad= l*_DEGTORAD
         else:
             lrad= l
+        if _APY_LOADED and isinstance(d,units.Quantity):
+            d= d.to(units.kpc).value/self._ro
         R, phi= _dlToRphi(d,lrad)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 +math.log(d)
-            pass
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *d
 
+    @physical_conversion('surfacedensitydistance',pop=True)        
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
         """
@@ -457,9 +485,9 @@ class diskdf(object):
 
         INPUT:
 
-           d - distance along the line of sight
+           d - distance along the line of sight (can be Quantity)
 
-           l - Galactic longitude (in deg, unless deg=False)
+           l - Galactic longitude (in deg, unless deg=False; can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -475,26 +503,32 @@ class diskdf(object):
 
         OUTPUT:
 
-           Sigma(d,l)
+           Sigma(d,l) x d
 
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #Calculate R and phi
-        if deg:
+        if _APY_LOADED and isinstance(l,units.Quantity):
+            lrad= l.to(units.rad).value
+        elif deg:
             lrad= l*_DEGTORAD
         else:
             lrad= l
+        if _APY_LOADED and isinstance(d,units.Quantity):
+            d= d.to(units.kpc).value/self._ro
         R, phi= _dlToRphi(d,lrad)
         if target:
             if relative: return d
-            else: return self.targetSurfacemass(R)*d
+            else: return self.targetSurfacemass(R,use_physical=False)*d
         else:
             return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
-                                    relative=relative)\
+                                    relative=relative,use_physical=False)\
                                     *d
 
+    @physical_conversion('position',pop=True)
     def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
         """
         NAME:
@@ -507,11 +541,11 @@ class diskdf(object):
 
         INPUT:
 
-           l - Galactic longitude (in rad)
+           l - Galactic longitude (in rad; can be Quantity)
 
            n= number of distances to sample
 
-           maxd= maximum distance to consider (for the rejection sampling)
+           maxd= maximum distance to consider (for the rejection sampling) (can be Quantity)
 
            target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
 
@@ -522,21 +556,29 @@ class diskdf(object):
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #First calculate where the maximum is
         if target:
             minR= optimize.fmin_bfgs(lambda x: \
                                          -self.targetSurfacemassLOS(x,l,
-                                                                      deg=False),
+                                                                    use_physical=False,
+                                                                    deg=False),
                                      0.,disp=False)[0]
-            maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
+            maxSM= self.targetSurfacemassLOS(minR,l,deg=False,
+                                             use_physical=False)
         else:
             minR= optimize.fmin_bfgs(lambda x: \
                                          -self.surfacemassLOS(x,l,
-                                                              deg=False),
+                                                              deg=False,
+                                                              use_physical=False),
                                      0.,disp=False)[0]
-            maxSM= self.surfacemassLOS(minR,l,deg=False)
+            maxSM= self.surfacemassLOS(minR,l,deg=False,use_physical=False)
         #Now rejection-sample
+        if _APY_LOADED and isinstance(l,units.Quantity):
+                l= l.to(units.rad).value
+        if _APY_LOADED and isinstance(maxd,units.Quantity):
+            maxd= maxd.to(units.kpc).value/self._ro
         if maxd is None:
             maxd= _MAXD_REJECTLOS
         out= []
@@ -544,13 +586,17 @@ class diskdf(object):
             #sample
             prop= nu.random.random()*maxd
             if target:
-                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
+                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False,
+                                                          use_physical=False)
             else:
-                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
+                surfmassatprop= self.surfacemassLOS(prop,l,deg=False,
+                                                    use_physical=False)
             if surfmassatprop/maxSM > nu.random.random(): #accept
                 out.append(prop)
         return nu.array(out)
 
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def sampleVRVT(self,R,n=1,nsigma=None,target=True):
         """
         NAME:
@@ -563,7 +609,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - Galactocentric distance
+           R - Galactocentric distance (can be Quantity)
 
            n= number of distances to sample
 
@@ -582,6 +628,7 @@ class diskdf(object):
         HISTORY:
 
            2011-03-24 - Written - Bovy (NYU)
+
         """
         #Determine where the max of the v-distribution is using asymmetric drift
         maxVR= 0.
@@ -592,9 +639,9 @@ class diskdf(object):
             nsigma= _NSIGMA
         out= []
         if target:
-            sigma= math.sqrt(self.targetSigma2(R))
+            sigma= math.sqrt(self.targetSigma2(R,use_physical=False))
         else:
-            sigma= math.sqrt(self.sigma2(R))
+            sigma= math.sqrt(self.sigma2(R,use_physical=False))
         while len(out) < n:
             #sample
             vrg, vtg= nu.random.normal(), nu.random.normal()
@@ -618,7 +665,7 @@ class diskdf(object):
 
         INPUT:
 
-           los - line of sight (in deg, unless deg=False)
+           los - line of sight (in deg, unless deg=False; can be Quantity)
 
            n= number of desired samples
 
@@ -637,22 +684,33 @@ class diskdf(object):
         HISTORY:
 
            2011-03-24 - Started  - Bovy (NYU)
+
         """
-        if deg:
+        if _APY_LOADED and isinstance(los,units.Quantity):
+            l= los.to(units.rad).value
+        elif deg:
             l= los*_DEGTORAD
         else:
             l= los
         out= []
         #sample distances
-        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass)
+        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass,
+                                       use_physical=False)
         for ii in range(int(n)):
             #Calculate R and phi
             thisR,thisphi= _dlToRphi(ds[ii],l)
             #sample velocities
-            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
-            out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
+            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2,
+                                use_physical=False)[0]
+            if self._roSet and self._voSet:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi],ro=self._ro,
+                                 vo=self._vo))
+            else:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
         return out
 
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def asymmetricdrift(self,R):
         """
         NAME:
@@ -665,7 +723,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the asymmetric drift (/ro)
+           R - radius at which to calculate the asymmetric drift (can be Quantity)
 
         OUTPUT:
 
@@ -676,12 +734,14 @@ class diskdf(object):
            2011-04-02 - Written - Bovy (NYU)
 
         """
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                          -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                          -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
 
 
+    @potential_physical_input
+    @physical_conversion('surfacedensity',pop=True)        
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
@@ -694,7 +754,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the surfacemass density (/ro)
+           R - radius at which to calculate the surfacemass density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -715,8 +775,8 @@ class diskdf(object):
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -745,6 +805,8 @@ class diskdf(object):
                                       self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
+    @potential_physical_input
+    @physical_conversion('velocity2surfacedensity',pop=True)
     def sigma2surfacemass(self,R,romberg=False,nsigma=None,
                                 relative=False):
         """
@@ -759,7 +821,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the sigma_R^2 x surfacemass density (/ro)
+           R - radius at which to calculate the sigma_R^2 x surfacemass density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -780,8 +842,8 @@ class diskdf(object):
         """
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -810,13 +872,12 @@ class diskdf(object):
                                       self._gamma),
                                      epsrel=_EPSREL)[0]/sc.pi*norm
 
-    def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
-                           relative=False,phi=0.,deriv=None):
+    def vmomentsurfacemass(self,*args,**kwargs):
         """
         NAME:
 
            vmomentsurfacemass
-
+           
         PURPOSE:
 
            calculate the an arbitrary moment of the velocity distribution 
@@ -824,7 +885,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (in natural units)
 
            n - vR^n
 
@@ -842,20 +903,46 @@ class diskdf(object):
 
         OUTPUT:
 
-           <vR^n vT^m  x surface-mass> at R
+           <vR^n vT^m  x surface-mass> at R (no support for units)
 
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
 
         """
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if use_physical and not vo is None and not ro is None:
+            fac= surfdens_in_msolpc2(vo,ro)*vo**(args[1]+args[2])
+            if _APY_UNITS:
+                u= units.Msun/units.pc**2*(units.km/units.s)**(args[1]+args[2])
+            out= self._vmomentsurfacemass(*args,**kwargs)
+            if _APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._vmomentsurfacemass(*args,**kwargs)
+          
+    def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
+                           relative=False,phi=0.,deriv=None):
+        """Non-physical version of vmomentsurfacemass, otherwise the same"""
         #odd moments of vR are zero
         if isinstance(n,int) and n%2 == 1:
             return 0.
         if nsigma == None:
             nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         logsigmaR2= sc.log(sigmaR2)
         if relative:
@@ -902,6 +989,8 @@ class diskdf(object):
                                           self._gamma,n,m,deriv),
                                          epsrel=_EPSREL)[0]/sc.pi*norm/2.
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortA(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -915,7 +1004,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate A (/ro)
+           R - radius at which to calculate A (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -936,18 +1025,22 @@ class diskdf(object):
         BUGS:
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
+
         """
         #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
             /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortB(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -960,7 +1053,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate B (/ro)
+           R - radius at which to calculate B (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -981,18 +1074,22 @@ class diskdf(object):
         BUGS:
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
+
         """
         #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
         dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
             /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
         return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortC(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1005,7 +1102,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate C (/ro)
+           R - radius at which to calculate C (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1027,15 +1124,19 @@ class diskdf(object):
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
+
         """
         #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass #other terms is zero because f is even in vR
         return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortK(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1048,7 +1149,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate K (/ro)
+           R - radius at which to calculate K (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1070,15 +1171,19 @@ class diskdf(object):
 
            could be made more efficient, e.g., surfacemass is calculated multiple times
            we know this is zero, but it is calculated anyway (bug or feature?)
+
         """
         #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
         dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
             surfmass #other terms is zero because f is even in vR
         return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
 
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
     def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1091,7 +1196,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate sigma_R^2 density (/ro)
+           R - radius at which to calculate sigma_R^2 density (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1108,9 +1213,13 @@ class diskdf(object):
         HISTORY:
 
            2010-03-XX - Written - Bovy (NYU)
-        """
-        return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
 
+        """
+        return self.sigma2surfacemass(R,romberg,nsigma,use_physical=False)\
+            /self.surfacemass(R,romberg,nsigma,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
     def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -1124,7 +1233,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate sigma_T^2 (/ro)
+           R - radius at which to calculate sigma_T^2 (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1141,13 +1250,17 @@ class diskdf(object):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
+
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        return (self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
-                -self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        return (self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
+                -self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
                     **2.\
                     /surfmass)/surfmass
 
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
     def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1160,7 +1273,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate sigma_R^2 (/ro)
+           R - radius at which to calculate sigma_R^2 (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1177,9 +1290,12 @@ class diskdf(object):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.sigma2(R,romberg=romberg,nsigma=nsigma)
 
+        """
+        return self.sigma2(R,romberg=romberg,nsigma=nsigma,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1192,7 +1308,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vT> (/ro)
+           R - radius at which to calculate <vT> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1209,10 +1325,14 @@ class diskdf(object):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
+        """
+        return self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1225,7 +1345,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1242,10 +1362,13 @@ class diskdf(object):
         HISTORY:
 
            2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
 
+        """
+        return self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
+
+    @potential_physical_input
     def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1258,7 +1381,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1275,17 +1398,20 @@ class diskdf(object):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vt2-vt**2.
         return (vt3-3.*vt*vt2+2.*vt**3.)*s2**(-1.5)
 
+    @potential_physical_input
     def skewvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1298,7 +1424,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1315,17 +1441,20 @@ class diskdf(object):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vr2-vr**2.
         return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
 
+    @potential_physical_input
     def kurtosisvT(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1338,7 +1467,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1355,19 +1484,22 @@ class diskdf(object):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vt4= self.vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
+        vt4= self._vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vt2-vt**2.
         return (vt4-4.*vt*vt3+6.*vt**2.*vt2-3.*vt**4.)*s2**(-2.)-3.
 
+    @potential_physical_input
     def kurtosisvR(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1380,7 +1512,7 @@ class diskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate <vR> (/ro)
+           R - radius at which to calculate <vR> (can be Quantity)
 
         OPTIONAL INPUT:
 
@@ -1397,15 +1529,17 @@ class diskdf(object):
         HISTORY:
 
            2011-12-07 - Written - Bovy (NYU)
+
         """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
-        vr4= self.vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
+        vr4= self._vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
             /surfmass
         s2= vr2-vr**2.
         return (vr4-4.*vr*vr3+6.*vr**2.*vr2-3.*vr**4.)*s2**(-2.)-3.
@@ -1452,7 +1586,7 @@ class diskdf(object):
 
            n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
 
-           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit
+           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit) (can be Quantity)
 
            returnROrbit - if True, return a planarROrbit instance: 
                           [R,vR,vT] (default)
@@ -1461,7 +1595,7 @@ class diskdf(object):
 
            nphi - number of azimuths to sample for each E,L
 
-           los= line of sight sampling along this line of sight
+           los= line of sight sampling along this line of sight (can be Quantity)
 
            losdeg= los in degrees? (default=True)
 
@@ -1520,7 +1654,7 @@ class diskdf(object):
         HISTORY:
            2010-03-28 - Written - Bovy (NYU)
         """
-        return R**self._beta-self.asymmetricdrift(R)
+        return R**self._beta-self.asymmetricdrift(R,use_physical=False)
 
     def _estimateSigmaR2(self,R,phi=0.,log=False):
         """
@@ -1539,7 +1673,7 @@ class diskdf(object):
         HISTORY:
            2010-03-28 - Written - Bovy (NYU)
         """
-        return self.targetSigma2(R,log=log)
+        return self.targetSigma2(R,log=log,use_physical=False)
 
     def _estimateSigmaT2(self,R,phi=0.,log=False):
         """
@@ -1559,9 +1693,11 @@ class diskdf(object):
            2010-03-28 - Written - Bovy (NYU)
         """
         if log:
-            return self.targetSigma2(R,log=log)-2.*nu.log(self._gamma)
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                -2.*nu.log(self._gamma)
         else:
-            return self.targetSigma2(R,log=log)/self._gamma**2.
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                /self._gamma**2.
 
 
 class dehnendf(diskdf):
@@ -1582,11 +1718,11 @@ class dehnendf(diskdf):
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
 
-                        xD - disk surface mass scalelength / Ro
+                        xD - disk surface mass scalelength (can be Quantity)
 
-                        xS - disk velocity dispersion scalelength / Ro
+                        xS - disk velocity dispersion scalelength (can be Quantity)
 
-                        Sro - disk velocity dispersion at Ro (/vo)
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
 
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
@@ -1594,6 +1730,10 @@ class dehnendf(diskdf):
            beta - power-law index of the rotation curve
 
            correct - if True, correct the DF
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
            +DFcorrection kwargs (except for those already specified)
 
@@ -1618,8 +1758,8 @@ class dehnendf(diskdf):
         PURPOSE:
            evaluate the distribution function
         INPUT:
-           E - energy (/vo^2)
-           L - angular momentun (/ro/vo)
+           E - energy (can be Quantity)
+           L - angular momentum (can be Quantity)
        OUTPUT:
            DF(E,L)
         HISTORY:
@@ -1629,6 +1769,10 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             import time
             start= time.time()
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
             xE= sc.exp(E-.5)
@@ -1646,22 +1790,22 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             corr_time= (time.time()-start)
             start= time.time()
-        SRE2= self.targetSigma2(xE,log=True)+correction[1]
+        SRE2= self.targetSigma2(xE,log=True,use_physical=False)+correction[1]
         if _PROFILE: #pragma: no cover
             targSigma_time= (time.time()-start)
             start= time.time()
-            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
             out_time= (time.time()-start)
             tot_time= one_time+corr_time+targSigma_time+out_time
             print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
             return out
         else:
-            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
                targetSigma2=True,
-               maxd=None):
+               maxd=None,**kwargs):
         """
         NAME:
            sample
@@ -1685,7 +1829,7 @@ class dehnendf(diskdf):
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
            CAUTION: lists of EL need to be post-processed to account for the 
-                    \kappa/\omega_R discrepancy
+                    \kappa/\omega_R discrepancy; EL not returned in physical units        
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
@@ -1719,6 +1863,10 @@ class dehnendf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
+                rrange[0]= rrange[0].to(units.kpc).value/self._ro
+                rrange[1]= rrange[1].to(units.kpc).value/self._ro
             if not hasattr(self,'_psp'):
                 self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
@@ -1770,6 +1918,10 @@ class dehnendf(diskdf):
         if len(out) > n*nphi:
             print(n, nphi, n*nphi)
             out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
 class shudf(diskdf):
@@ -1790,11 +1942,11 @@ class shudf(diskdf):
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
           
-                        xD - disk surface mass scalelength / Ro
+                        xD - disk surface mass scalelength (can be Quantity)
               
-                        xS - disk velocity dispersion scalelength / Ro
+                        xS - disk velocity dispersion scalelength (can be Quantity)
                         
-                        Sro - disk velocity dispersion at Ro (/vo)
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
                         
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
@@ -1803,6 +1955,9 @@ class shudf(diskdf):
 
            correct - if True, correct the DF
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
            +DFcorrection kwargs (except for those already specified)
 
@@ -1834,6 +1989,10 @@ class shudf(diskdf):
         HISTORY:
            2010-05-09 - Written - Bovy (NYU)
         """
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
@@ -1847,12 +2006,12 @@ class shudf(diskdf):
             correction= self._corr.correct(xL,log=True)
         else:
             correction= sc.zeros(2)
-        SRE2= self.targetSigma2(xL,log=True)+correction[1]
-        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
+        SRE2= self.targetSigma2(xL,log=True,use_physical=False)+correction[1]
+        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True,use_physical=False)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
-               targetSurfmass=True,targetSigma2=True):
+               targetSurfmass=True,targetSigma2=True,**kwargs):
         """
         NAME:
            sample
@@ -1909,6 +2068,10 @@ class shudf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
+                rrange[0]= rrange[0].to(units.kpc).value/self._ro
+                rrange[1]= rrange[1].to(units.kpc).value/self._ro
             if not hasattr(self,'_psp'):
                 self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
@@ -1956,6 +2119,10 @@ class shudf(diskdf):
                                    returnOrbit=returnOrbit,nphi=nphi))
         if len(out) > n*nphi:
             out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
@@ -2206,9 +2373,12 @@ class DFcorrection(object):
                                         interp_k=self._interp_k)
             newcorrections= sc.zeros((self._npoints,2))
             for jj in range(self._npoints):
-                thisSurface= currentDF.surfacemass(self._rs[jj])
-                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj])/thisSurface
-                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj])*thisSurface/currentDF.sigma2surfacemass(self._rs[jj])
+                thisSurface= currentDF.surfacemass(self._rs[jj],
+                                                   use_physical=False)
+                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj],use_physical=False)/thisSurface
+                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj],use_physical=False)*thisSurface\
+                    /currentDF.sigma2surfacemass(self._rs[jj],
+                                                 use_physical=False)
                 #print(jj, newcorrections[jj,:])
             corrections*= newcorrections
         #Save

@@ -1,4 +1,4 @@
-galpy.df.quasiisothermaldf.vmomentdensity
-===========================================
+galpy.df.quasiisothermaldf._vmomentdensity
+============================================
 
-.. automethod:: galpy.df.quasiisothermaldf.vmomentdensity
+.. automethod:: galpy.df.quasiisothermaldf._vmomentdensity

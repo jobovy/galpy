@@ -1,6 +1,21 @@
 v1.2 (2016-XX-XX)
 ==================
 
+- Added support for providing inputs to all initializations, methods,
+  and functions as Quantities with units and for providing outputs as
+  astropy Quantities. See pull request #258 and the documentation for
+  full details.
+
+- quasiisothermaldf input ro replaced by refr to avoid clash with ro
+  that specifies units (see above).
+
+- Re-defined the amplitude parameters of a few potentials to allow for
+  easier setups with amplitudes provided as Quantities with
+  units. This is the case for FlattenedPowerPotential,
+  PowerSphericalPotential, and PowerSphericalPotentialwCutoff,
+  CosmphiDiskPotential, LopsidedDiskPotential, and
+  EllipticalDiskPotential.
+
 - Added a module for modeling the effect of a subhalo impact on a
   tidal stream (galpy.df.streamgapdf); see Sanders, Bovy, & Erkal
   (2016). Also includes the fast methods for computing the density

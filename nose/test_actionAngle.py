@@ -1622,21 +1622,21 @@ def test_orbit_interface_spherical():
                         obs.wp(pot=lp,type=type),
                         obs.wz(pot=lp,type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-15., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates'
-    assert numpy.abs(obs.Tr(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[3]) < 10.**-14., \
+    assert maxdev < 10.**-9., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates'
+    assert numpy.abs(obs.Tr(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[3]) < 10.**-8., \
         'Orbit.Tr does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.Tp(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[4]) < 10.**-14., \
+    assert numpy.abs(obs.Tp(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[4]) < 10.**-8., \
         'Orbit.Tp does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.Tz(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[5]) < 10.**-14., \
+    assert numpy.abs(obs.Tz(pot=lp,type=type)/ro*vo*1.0227121655399913-2.*numpy.pi/acfs[5]) < 10.**-8., \
         'Orbit.Tz does not agree with actionAngleSpherical frequency when using physical coordinates'
-    assert numpy.abs(obs.TrTp(pot=lp,type=type)-acfs[4]/acfs[3]*numpy.pi) < 10.**-15., \
+    assert numpy.abs(obs.TrTp(pot=lp,type=type)-acfs[4]/acfs[3]*numpy.pi) < 10.**-8., \
         'Orbit.TrTp does not agree with actionAngleSpherical frequency when using physical coordinates'
     #Test frequency in km/s/kpc
-    assert numpy.abs(obs.Or(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[3]) < 10.**-15., \
+    assert numpy.abs(obs.Or(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[3]) < 10.**-8., \
         'Orbit.Or does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
-    assert numpy.abs(obs.Op(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[4]) < 10.**-15., \
+    assert numpy.abs(obs.Op(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[4]) < 10.**-8., \
         'Orbit.Op does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
-    assert numpy.abs(obs.Oz(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[5]) < 10.**-15., \
+    assert numpy.abs(obs.Oz(pot=lp,type=type,kmskpc=True)/vo*ro-acfs[5]) < 10.**-8., \
         'Orbit.Oz does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc'
     return None
 
@@ -1709,6 +1709,28 @@ def test_orbit_interface_actionAngleIsochroneApprox():
         'Orbit.TrTp does not agree with actionAngleSpherical frequency'
     return None
 
+# Test physical output for actionAngleStaeckel
+def test_physical_staeckel():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    aA= actionAngleStaeckel(pot=MWPotential,delta=0.71,ro=ro,vo=vo)
+    aAnu= actionAngleStaeckel(pot=MWPotential,delta=0.71)
+    for ii in range(3):
+        assert numpy.fabs(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    for ii in range(3,6):
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    for ii in range(3,6):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    for ii in range(6,9):
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    return None
+
 #Test the b estimation
 def test_estimateBIsochrone():
     from galpy.potential import IsochronePotential
@@ -1718,7 +1740,7 @@ def test_estimateBIsochrone():
     o= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
     times= numpy.linspace(0.,100.,1001)
     o.integrate(times,ip)
-    bmin, bmed, bmax= estimateBIsochrone(o.R(times),o.z(times),pot=ip)
+    bmin, bmed, bmax= estimateBIsochrone(ip,o.R(times),o.z(times))
     assert numpy.fabs(bmed-1.2) < 10.**-15., \
         'Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong'
     return None
@@ -1731,7 +1753,7 @@ def test_estimateDeltaStaeckel():
     o= Orbit([1.1, 0.05, 1.1, 0.05,0.,2.])
     times= numpy.linspace(0.,100.,1001)
     o.integrate(times,MWPotential)
-    delta= estimateDeltaStaeckel(o.R(times),o.z(times),pot=MWPotential)
+    delta= estimateDeltaStaeckel(MWPotential,o.R(times),o.z(times))
     assert numpy.fabs(delta-0.71) < 10.**-3., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to the MWPotential is wrong'
     return None
@@ -1745,10 +1767,10 @@ def test_estimateDeltaStaeckel_spherical():
     times= numpy.linspace(0.,100.,1001)
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     o.integrate(times,lp)
-    delta= estimateDeltaStaeckel(o.R(),o.z(),pot=lp)
+    delta= estimateDeltaStaeckel(lp,o.R(),o.z())
     assert numpy.fabs(delta) < 10.**-6., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
-    delta= estimateDeltaStaeckel(o.R(times),o.z(times),pot=lp)
+    delta= estimateDeltaStaeckel(lp,o.R(times),o.z(times))
     assert numpy.fabs(delta) < 10.**-16., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
     return None
@@ -1771,7 +1793,8 @@ def test_MWPotential_warning_adiabatic():
     #Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
-        aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.)
+        aAA= actionAngleAdiabaticGrid(pot=MWPotential,gamma=1.,nEz=5,nEr=5,
+                                      nLz=5,nR=5)
         # Should raise warning bc of MWPotential, might raise others
         raisedWarning= False
         for wa in w:
@@ -1797,7 +1820,8 @@ def test_MWPotential_warning_staeckel():
     #Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
-        aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5)
+        aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.5,
+                                     nE=5,npsi=5,nLz=5)
         # Should raise warning bc of MWPotential, might raise others
         raisedWarning= False
         for wa in w:

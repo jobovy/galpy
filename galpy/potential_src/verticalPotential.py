@@ -1,5 +1,10 @@
 from galpy.potential_src.linearPotential import linearPotential
 from galpy.potential_src.Potential import PotentialError, Potential
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a RZPotential:
     phi(z;R)= phi(R,z)-phi(R,0.)"""
@@ -17,9 +22,12 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        linearPotential.__init__(self,amp=1.)
+        linearPotential.__init__(self,amp=1.,ro=RZPot._ro,vo=RZPot._vo)
         self._RZPot= RZPot
         self._R= R
+        # Also transfer roSet and voSet
+        self._roSet= RZPot._roSet
+        self._voSet= RZPot._voSet
         return None
 
     def _evaluate(self,z,t=0.):
@@ -36,7 +44,8 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(self._R,z,t=t)-self._RZPot(self._R,0.,t=t)
+        return self._RZPot(self._R,z,t=t,use_physical=False)\
+            -self._RZPot(self._R,0.,t=t,use_physical=False)
             
     def _force(self,z,t=0.):
         """
@@ -52,8 +61,8 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.zforce(self._R,z,t=t)\
-            -self._RZPot.zforce(self._R,0.,t=t)
+        return self._RZPot.zforce(self._R,z,t=t,use_physical=False)\
+            -self._RZPot.zforce(self._R,0.,t=t,use_physical=False)
 
 def RZToverticalPotential(RZPot,R):
     """
@@ -69,7 +78,7 @@ def RZToverticalPotential(RZPot,R):
 
        RZPot - RZPotential instance or list of such instances
 
-       R - Galactocentric radius at which to evaluate the vertical potential
+       R - Galactocentric radius at which to evaluate the vertical potential (can be Quantity)
 
     OUTPUT:
 
@@ -80,6 +89,11 @@ def RZToverticalPotential(RZPot,R):
        2010-07-21 - Written - Bovy (NYU)
 
     """
+    if _APY_LOADED and isinstance(R,units.Quantity):
+        if hasattr(RZPot,'_ro'):
+            R= R.to(units.kpc).value/RZPot._ro
+        else:
+            R= R.to(units.kpc).value/RZPot[0]._ro
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:

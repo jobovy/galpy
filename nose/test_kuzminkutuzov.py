@@ -35,7 +35,7 @@ def test_vcirc():
         V_H = KuzminKutuzovStaeckelPotential(amp=(1.-k),ac=ac_H,Delta=Delta,normalize=False)
         pot = [V_D,V_H]
         #normalization according to Batsleer & Dejonghe 1994:
-        V00 = evaluatePotentials(0.,0.,pot)
+        V00 = evaluatePotentials(pot,0.,0.)
         #second try, normalized:
         V_D = KuzminKutuzovStaeckelPotential(amp=    k  / (-V00),ac=ac_D,Delta=Delta,normalize=False)
         V_H = KuzminKutuzovStaeckelPotential(amp=(1.-k) / (-V00),ac=ac_H,Delta=Delta,normalize=False)
@@ -44,7 +44,7 @@ def test_vcirc():
         #_____calculate rotation curve_____
         Rs = numpy.linspace(0.,20.,100)
         z = 0.
-        vcirc_calc = numpy.sqrt(-Rs * evaluateRforces(Rs,z,pot))
+        vcirc_calc = numpy.sqrt(-Rs * evaluateRforces(pot,Rs,z))
             
         #_____vcirc by Batsleer & Dejonghe eq. (10) (with proper Jacobian)_____
         def vc2w(R):
@@ -119,7 +119,7 @@ def test_density():
             pot = [V_D,V_H]
 
             #_____local density_____
-            rho_calc = evaluateDensities(Rsun,zsun,pot) * 100. #units: [solar mass / pc^3]
+            rho_calc = evaluateDensities(pot,Rsun,zsun) * 100. #units: [solar mass / pc^3]
             rho_calc = round(rho_calc,2)
 
             #an error of 0.01 corresponds to the significant digit 
@@ -132,7 +132,7 @@ def test_density():
                 'by Batsleer & Dejonghe (1994)' 
 
             #_____surface density_____
-            Sig_calc, err = scipy.integrate.quad(lambda z: (evaluateDensities(Rsun,z/1000.,pot) * 100.), #units: [solar mass / pc^3]
+            Sig_calc, err = scipy.integrate.quad(lambda z: (evaluateDensities(pot,Rsun,z/1000.) * 100.), #units: [solar mass / pc^3]
                                             0., 1100.) #units: pc
             Sig_calc = round(2. * Sig_calc)
 
@@ -204,13 +204,13 @@ def test_estimateDelta():
     #for each time step individually:
     deltas_estimate = numpy.zeros(len(ts))
     for ii in range(len(ts)):
-        deltas_estimate[ii] = estimateDeltaStaeckel(o.R(ts[ii]),o.z(ts[ii]),pot=pot)
+        deltas_estimate[ii] = estimateDeltaStaeckel(pot,o.R(ts[ii]),o.z(ts[ii]))
 
     assert numpy.all(numpy.fabs(deltas_estimate - Delta) < 10.**-8), \
             'Focal length Delta estimated along the orbit is not constant.'
 
     #for all time steps together:
-    delta_estimate = estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=pot)
+    delta_estimate = estimateDeltaStaeckel(pot,o.R(ts),o.z(ts))
     
     assert numpy.fabs(delta_estimate - Delta) < 10.**-8, \
             'Focal length Delta estimated from the orbit is not the same as the input focal length.'

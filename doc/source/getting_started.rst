@@ -20,7 +20,9 @@ The following code example shows how to initialize a Miyamoto-Nagai disk potenti
 
 The ``normalize=1.`` option normalizes the potential such that the
 radial force is a fraction ``normalize=1.`` of the radial force
-necessary to make the circular velocity 1 at R=1.
+necessary to make the circular velocity 1 at R=1. Starting in v1.2 you
+can also initialize potentials with amplitudes and other parameters in
+physical units; see below and other parts of this documentation.
 
 Similarly we can initialize other potentials and plot the combined
 rotation curve
@@ -59,9 +61,13 @@ This is *not* the recommended Milky-Way-like potential in
 fit to various dynamical constraints on the Milky Way (see
 :ref:`here <potential-mw>` and the ``galpy`` paper). 
 
-Units in galpy
---------------
 .. _units:
+
+**UPDATED in v1.2**: Units in galpy
+------------------------------------
+
+Internal (natural) units
++++++++++++++++++++++++++
 
 Above we normalized the potentials such that they give a circular
 velocity of 1 at R=1. These are the standard galpy units (sometimes
@@ -74,9 +80,12 @@ natural units.
 
 For convenience, a utility module ``bovy_conversion`` is included in
 galpy that helps in converting between physical units and natural
-units for various quantities. For example, in natural units the
-orbital time of a circular orbit at R=1 is :math:`2\pi`; in
-physical units this corresponds to
+units for various quantities. Alternatively, you can use the
+``astropy`` `units <http://docs.astropy.org/en/stable/units/>`__
+module to specify inputs in physical units and get outputs with units
+(see the :ref:`next subsection <physunits>` below).  For example, in
+natural units the orbital time of a circular orbit at R=1 is
+:math:`2\pi`; in physical units this corresponds to
 
 >>> from galpy.util import bovy_conversion
 >>> print 2.*numpy.pi*bovy_conversion.time_in_Gyr(220.,8.)
@@ -122,12 +131,161 @@ or about :math:`0.0075\,M_\odot\,\mathrm{pc}^{-3} \approx
 `2012ApJ...756...89B
 <http://adsabs.harvard.edu/abs/2012ApJ...756...89B>`_).
 
-When ``galpy`` Orbits are initialized using a distance scale ``ro=``
-and a velocity scale ``vo=`` output quantities returned and plotted in
-physical coordinates. Specifically, positions are are returned in
-units of kpc, velocities in km/s, energies and the Jacobi integral in
-(km/s)^2, the angular momentum o.L() and actions in km/s kpc,
-frequencies in 1/Gyr, and times and periods in Gyr.
+When ``galpy`` Potentials, Orbits, actionAngles, or DFs are
+initialized using a distance scale ``ro=`` and a velocity scale
+``vo=`` output quantities returned and plotted in physical
+coordinates. Specifically, positions are returned in the units in the
+table below. If ``astropy-units = True`` in the :ref:`configuration
+file <configfile>`, then an `astropy Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+which includes the units is returned instead (see below).
+
+.. _unitstable:
+
+=================== =================
+Quantity            Default unit
+=================== =================
+position            kpc
+velocity            km/s
+energy              (km/s)^2
+Jacobi integral     (km/s)^2
+angular momentum    km/s x kpc
+actions             km/s x kpc
+frequencies         1/Gyr
+time                Gyr
+period              Gyr
+potential           (km/s)^2
+force               km/s/kpc
+force derivative    1/Gyr^2
+density             Msun/pc^3
+number density      1/pc^3
+surface density     Msun/pc^2
+mass                Msun
+angle               rad
+proper motion       mas/yr
+phase-space density 1/(kpc x km/s)^3
+=================== =================
+
+.. _physunits:
+
+Physical units
++++++++++++++++
+
+.. TIP::
+   With ``apy-units = True`` in the configuration file and specifying all inputs using astropy Quantity with units, ``galpy`` will return outputs in convenient, unambiguous units.
+
+Full support for unitful quantities using `astropy Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+was added in v1.2. Thus, *any* input to a galpy Potential, Orbit,
+actionAngle, or DF instantiation, method, or function can now be
+specified in physical units as a Quantity. For example, we can set up
+a Miyamoto-Nagai disk potential with a mass of
+:math:`5\times10^{10}\,M_\odot`, a scale length of 3 kpc, and a scale
+height of 300 pc as follows
+
+       >>> from galpy.potential import MiyamotoNagaiPotential
+       >>> from astropy import units
+       >>>  mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
+
+Internally, galpy uses a set of normalized units, where positions are
+divided by a scale ``ro`` and velocities are divided by a scale
+``vo``. If these are not specified, the default set from the
+:ref:`configuration file <configfile>` is used. However, they can also
+be specified on an instance-by-instance manner for all Potential,
+Orbit, actionAngle, and DF instances. For example
+
+       >>> mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc,ro=9*units.kpc,vo=230.*units.km/units.s)
+
+uses differently normalized internal units. When you specify the
+parameters of a Potential, Orbit, etc. in physical units (e.g., the
+Miyamoto-Nagai setup above), the internal set of units is unimportant
+as long as you receive output in physical units (see below) and it is
+unnecessary to change the values of ``ro`` and ``vo``, unless you are
+modeling a system with very different distance and velocity scales
+from the default set (for example, if you are looking at internal
+globular cluster dynamics rather than galaxy dynamics). If you find an
+input to any galpy function that does not take a Quantity as an input
+(or that does it wrong), please report an `Issue
+<https://github.com/jobovy/galpy/issues>`__.
+
+.. WARNING::
+   If you combine potentials in a list, galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential).
+
+galpy can also return values with units as an astropy
+Quantity. Whether or not this is done is specified by the
+``apy-units`` option in the :ref:`configuration file <configfile>`. If
+you want to get return values as a Quantity, set ``apy-units = True``
+in the configuration file. Then you can do for the Miyamoto-Nagai
+potential above
+
+	  >>> mp.vcirc(10.*units.kpc)
+	  <Quantity 135.72399857308042 km / s>
+
+Note that if you do not specify the argument as a Quantity with units,
+galpy will assume that it is given in natural units, viz.
+
+      >>> mp.vcirc(10.)
+      <Quantity 51.78776595740726 km / s>
+
+because this input is considered equal to 10 times the distance scale
+(this is for the case using the default ``ro`` and ``vo``, the first
+Miyamoto-Nagai instantiation of this subsection)
+
+	>>> mp.vcirc(10.*8.*units.kpc)
+	<Quantity 51.78776595740726 km / s>
+
+.. WARNING::
+   If you do not specify arguments of methods and functions using a Quantity with units, galpy assumes that the argument has internal (natural) units.
+
+If you do not use astropy Quantities (``apy-units = False`` in the
+configuration file), you can still get output in physical units when
+you have specified ``ro=`` and ``vo=`` during instantiation of the
+Potential, Orbit, etc. For example, for the Miyamoto-Nagai potential
+above in a session with ``apy-units = False``
+
+      >>> mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
+      >>> mp.vcirc(10.*units.kpc)
+      135.72399857308042
+
+This return value is in km/s (see the :ref:`table <unitstable>` at the
+end of the previous section for default units for different
+quantities). Note that as long as astropy is installed, we can still
+provide arguments as a Quantity, but the return value will not be a
+Quantity when ``apy-units = False``. If you setup a Potential, Orbit,
+actionAngle, or DF object with parameters specified as a Quantity, the
+default is to return any output in physical units. This is why
+``mp.vcirc`` returns the velocity in km/s above. Potential and Orbit
+instances (or lists of Potentials) also support the functions
+``turn_physical_off`` and ``turn_physical_on`` to turn physical output
+off or on. For example, if we do
+
+   >>> mp.turn_physical_off()
+
+outputs will be in internal units
+
+	>>> mp.vcirc(10.*units.kpc)
+	0.61692726624127459
+
+If you setup a Potential, Orbit, etc. object without specifying the
+parameters as a Quantity, the default is to return output in natural
+units, except when ``ro=`` and ``vo=`` scales are specified. ``ro=``
+and ``vo=`` can always be given as a Quantity themselves. ``ro=`` 
+and ``vo=`` can always also be specified on a method-by-method basis,
+overwriting an object's default. For example
+
+	    >>> mp.vcirc(10.*units.kpc,ro=12.*units.kpc)
+	    0.69273212489609337
+
+Physical output can also be turned off on a method-by-method or function-by-function basis, for example
+
+	 >>> mp.turn_physical_on() # turn overall physical output on
+	 >>> mp.vcirc(10.*units.kpc)
+	 135.72399857308042 # km/s
+	 >>> mp.vcirc(10.*units.kpc,use_physical=False)
+	 0.61692726624127459 # in natural units
+
+Further examples of specifying inputs with units will be given
+throughout the documentation.	
 
 Orbit integration
 -----------------
@@ -147,6 +305,9 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
 >>> o.integrate(ts,mp,method='odeint')
+
+.. TIP::
+   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
 
 Now we plot the resulting orbit as
 

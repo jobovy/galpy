@@ -35,6 +35,8 @@ Use as ``Potential-instance.method(...)``
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   turn_physical_off <potentialturnphysicaloff.rst>
+   turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
    verticalfreq <potentialverticalfreq.rst>
    vesc <potentialvesc.rst>
@@ -79,6 +81,8 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
@@ -168,6 +172,8 @@ Use as ``Potential-instance.method(...)``
    __call__ <potential2dcall.rst>
    phiforce <potential2dphiforce.rst>
    Rforce <potential2drforce.rst>
+   turn_physical_off <potential2dturnphysicaloff.rst>
+   turn_physical_on <potential2dturnphysicalon.rst>
 
 General axisymmetric potential instance routines
 ++++++++++++++++++++++++++++++++++++++++++++++++
@@ -203,6 +209,8 @@ Use as ``method(...)``
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
 ++++++++++++++++++++
@@ -243,7 +251,8 @@ Use as ``Potential-instance.method(...)``
    __call__ <potential1dcall.rst>
    force <potential1dforce.rst>
    plot <potential1dplot.rst>
-
+   turn_physical_off <potential1dturnphysicaloff.rst>
+   turn_physical_on <potential1dturnphysicalon.rst>
 
 General 1D potential routines
 +++++++++++++++++++++++++++++
@@ -256,6 +265,8 @@ Use as ``method(...)``
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
    plotlinearPotentials <potential1dplots.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
 ++++++++++++++++++++

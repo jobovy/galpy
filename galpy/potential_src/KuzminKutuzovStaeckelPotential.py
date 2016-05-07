@@ -7,7 +7,9 @@
 #                        \sqrt{lambda} + \sqrt{nu}  
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 from galpy.util import bovy_coords #for prolate spherical coordinate transforms
 class KuzminKutuzovStaeckelPotential(Potential):
     """Class that implements the Kuzmin-Kutuzov Staeckel potential
@@ -16,8 +18,11 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{\\lambda} + \\sqrt{\\nu}}
 
+    (see, e.g., `Batsleer & Dejonghe 1994 <http://adsabs.harvard.edu/abs/1994A%26A...287...43B>`__)
+
     """
-    def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False):
+    def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -29,13 +34,15 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
         INPUT:
 
-            amp       - amplitude to be applied to the potential (default: 1)
+            amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
             ac        - axis ratio of the coordinate surfaces; (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
 
-            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.); Delta=sqrt(gamma-alpha)
+            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.); Delta=sqrt(gamma-alpha) (can be Quantity)
 
             normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -46,7 +53,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
            2015-02-15 - Written - Trick (MPIA)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(Delta,units.Quantity):
+            Delta= Delta.to(units.kpc).value/self._ro
         self._ac    = ac
         self._Delta = Delta
         self._gamma = self._Delta**2 / (1.-self._ac**2)

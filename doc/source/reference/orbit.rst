@@ -73,6 +73,7 @@ Methods
    resetaA <orbitresetaa.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
+   SkyCoord <orbitskycoord.rst>
    time <orbittime.rst>
    toLinear <orbittolinear.rst>
    toPlanar <orbittoplanar.rst>
@@ -80,6 +81,7 @@ Methods
    Tr <orbittr.rst>
    TrTp <orbittrtp.rst>
    turn_physical_off <orbitturnphysicaloff.rst>
+   turn_physical_on <orbitturnphysicalon.rst>
    Tz <orbittz.rst>
    U <orbitu.rst>
    V <orbitv.rst>

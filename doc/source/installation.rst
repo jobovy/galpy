@@ -128,3 +128,44 @@ install without OpenMP, or specify to use ``gcc`` by specifying the
 ``CC`` and ``LDSHARED`` environment variables to use ``gcc``. Note
 that ``clang`` does not seem to have this issue anymore in more recent
 versions, but it still does not support ``OpenMP``.
+
+.. _configfile:
+
+**NEW in v1.2**: Configuration file
+-----------------------------
+
+Since v1.2, ``galpy`` uses a configuration file to set a small number
+of configuration variables. This configuration file is parsed using
+`ConfigParser
+<https://docs.python.org/2/library/configparser.html>`__/`configparser
+<https://docs.python.org/3/library/configparser.html>`__. It is
+currently used to set a default set of distance and velocity scales
+(``ro`` and ``vo`` throughout galpy) for conversion between physical
+and internal galpy units and to specify whether output from functions
+or methods should be given as an `astropy Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+with units as much as possible or not. The current configuration file
+therefore looks like this::
+
+	  [normalization]
+	  ro = 8.
+	  vo = 220.
+
+	  [astropy]
+	  astropy-units = False
+
+where ``ro`` is the distance scale specified in kpc, ``vo`` the
+velocity scale in km/s, and the setting is to *not* return output as a
+Quantity. These are the current default settings.
+
+A user-wide configuration file should be located at
+``$HOME/.galpyrc``. This user-wide file can be overridden by a
+``$PWD/.galpyrc`` file in the current directory. If no configuration
+file is found, the code will automatically write the default
+configuration to ``$HOME/.galpyrc``. Thus, after installing galpy, you
+can simply use some of its simplest functionality (e.g., integrate an
+orbit), and after this the default configuration file will be present
+at ``$HOME/.galpyrc``. If you want to change any of the settings (for
+example, you want Quantity output), you can edit this file. The
+default configuration file can also be found :download:`here
+<examples/galpyrc>`.

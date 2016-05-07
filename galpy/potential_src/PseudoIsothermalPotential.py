@@ -3,7 +3,9 @@
 #                                 halo potential
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PseudoIsothermalPotential(Potential):
     """Class that implements the pseudo-isothermal potential
 
@@ -12,7 +14,8 @@ class PseudoIsothermalPotential(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\pi\\, a^3}\\,\\frac{1}{1+(r/a)^2}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -24,11 +27,13 @@ class PseudoIsothermalPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a -core radius
+           a - core radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -39,7 +44,9 @@ class PseudoIsothermalPotential(Potential):
            2015-12-04 - Started - Bovy (UofT)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.hasC= True
         self.hasC_dxdv= True
         self._a= a

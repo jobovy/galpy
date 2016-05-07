@@ -14,16 +14,24 @@ import copy
 import warnings
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.potential import evaluatePotentials, evaluateRforces, \
-    evaluatezforces, evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    epifreq, omegac, verticalfreq, MWPotential
+from galpy.potential import evaluateR2derivs, evaluatez2derivs, \
+    evaluateRzderivs, epifreq, omegac, verticalfreq, MWPotential
+from galpy.potential_src.Potential import _evaluatePotentials, \
+    _evaluateRforces, _evaluatezforces
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
-class actionAngleStaeckel(object):
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
         """
@@ -34,15 +42,27 @@ class actionAngleStaeckel(object):
         INPUT:
            pot= potential or list of potentials (3D)
 
-           delta= focus
+           delta= focus (can be Quantity)
 
            useu0 - use u0 to calculate dV (NOT recommended)
 
            c= if True, always use C for calculations
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
            2012-11-27 - Written - Bovy (IAS)
+
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
         self._pot= kwargs['pot']
@@ -60,12 +80,16 @@ class actionAngleStaeckel(object):
             self._c= False
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
+        if _APY_LOADED and isinstance(self._delta,units.Quantity):
+            self._delta= self._delta.to(units.kpc).value/self._ro
+        # Check the units
+        self._check_consistent_units()
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -88,12 +112,12 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -106,7 +130,8 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                                 +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -148,10 +173,10 @@ class actionAngleStaeckel(object):
                         aASingle._R*aASingle._vT,
                         aASingle.Jz(**copy.copy(kwargs)))
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -173,12 +198,12 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -191,7 +216,8 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                                 +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -203,9 +229,9 @@ class actionAngleStaeckel(object):
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
-                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
-                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
-                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
+                Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz)
             else: #pragma: no cover
@@ -215,10 +241,10 @@ class actionAngleStaeckel(object):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
@@ -241,13 +267,13 @@ class actionAngleStaeckel(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
-                phi= meta._phi
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
+                phi= self._eval_phi
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -261,7 +287,8 @@ class actionAngleStaeckel(object):
                 if 'u0' in kwargs:
                     u0= nu.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([evaluatePotentials(R[ii],z[ii],self._pot) +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                                 +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
                                                                          self._pot,
                                                                          self._delta)[0]
@@ -273,9 +300,9 @@ class actionAngleStaeckel(object):
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
-                Omegar[indx]= [epifreq(self._pot,r) for r in R[indx]]
-                Omegaphi[indx]= [omegac(self._pot,r) for r in R[indx]]
-                Omegaz[indx]= [verticalfreq(self._pot,r) for r in R[indx]]
+                Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
+                Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
             if err == 0:
                 return (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
             else:
@@ -303,7 +330,12 @@ class actionAngleStaeckelSingle(actionAngle):
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
         """
-        actionAngle.__init__(self,*args,**kwargs)
+        self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
+        self._R= self._eval_R
+        self._vR= self._eval_vR
+        self._vT= self._eval_vT
+        self._z= self._eval_z
+        self._vz= self._eval_vz
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
@@ -710,7 +742,7 @@ def calcELStaeckel(R,vR,vT,z,vz,pot,vc=1.,ro=1.):
     HISTORY:
        2012-11-30 - Written - Bovy (IAS)
     """                           
-    return (evaluatePotentials(R,z,pot)+vR**2./2.+vT**2./2.+vz**2./2.,R*vT)
+    return (_evaluatePotentials(pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.,R*vT)
 
 def potentialStaeckel(u,v,pot,delta):
     """
@@ -729,7 +761,7 @@ def potentialStaeckel(u,v,pot,delta):
        2012-11-29 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluatePotentials(R,z,pot)
+    return _evaluatePotentials(pot,R,z)
 
 def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
@@ -748,7 +780,7 @@ def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
        2012-11-30 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluateRforces(R,z,pot)
+    return _evaluateRforces(pot,R,z)
 
 def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
     """
@@ -767,7 +799,7 @@ def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
        2012-11-30 - Written - Bovy (IAS)
     """
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    return evaluatezforces(R,z,pot)
+    return _evaluatezforces(pot,R,z)
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                          potu0v0,pot):
@@ -856,36 +888,39 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
     if vtry < 0.000000001: return 0.   
     return vtry
 
-def estimateDeltaStaeckel(R,z,pot=None):
+@potential_physical_input
+@physical_conversion('position',pop=True)
+def estimateDeltaStaeckel(pot,R,z):
     """
     NAME:
        estimateDeltaStaeckel
     PURPOSE:
        Estimate a good value for delta using eqn. (9) in Sanders (2012)
     INPUT:
-       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       pot= Potential instance or list thereof
+       pot - Potential instance or list thereof
+       R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
     OUTPUT:
        delta
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
+       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
     """
-    if pot is None: #pragma: no cover
-        raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
         delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
-                           +(3.*R[ii]*evaluatezforces(R[ii],z[ii],pot)
-                             -3.*z[ii]*evaluateRforces(R[ii],z[ii],pot)
-                             +R[ii]*z[ii]*(evaluateR2derivs(R[ii],z[ii],pot)
-                                           -evaluatez2derivs(R[ii],z[ii],pot)))/evaluateRzderivs(R[ii],z[ii],pot)) for ii in range(len(R))])
+                           +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
+                             -3.*z[ii]*_evaluateRforces(pot,R[ii],z[ii])
+                             +R[ii]*z[ii]*(evaluateR2derivs(pot,R[ii],z[ii],
+                                                            use_physical=False)
+                                           -evaluatez2derivs(pot,R[ii],z[ii],
+                                                             use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
         delta2= nu.median(delta2[True-nu.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
-                 +(3.*R*evaluatezforces(R,z,pot)
-                   -3.*z*evaluateRforces(R,z,pot)
-                   +R*z*(evaluateR2derivs(R,z,pot)
-                         -evaluatez2derivs(R,z,pot)))/evaluateRzderivs(R,z,pot))
+                 +(3.*R*_evaluatezforces(pot,R,z)
+                   -3.*z*_evaluateRforces(pot,R,z)
+                   +R*z*(evaluateR2derivs(pot,R,z,use_physical=False)
+                         -evaluatez2derivs(pot,R,z,use_physical=False)))/evaluateRzderivs(pot,R,z,use_physical=False))
         if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
     return nu.sqrt(delta2)

@@ -2,7 +2,9 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class BurkertPotential(Potential):
     """BurkertPotential.py: Potential with a Burkert density
 
@@ -11,7 +13,8 @@ class BurkertPotential(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{(1+r/a)\\,(1+[r/a]^2)}
 
     """
-    def __init__(self,amp=1.,a=2.,normalize=False):
+    def __init__(self,amp=1.,a=2.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -23,13 +26,15 @@ class BurkertPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           a = scale radius
+           a = scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -40,7 +45,9 @@ class BurkertPotential(Potential):
            2013-04-10 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a=a
         self._scale= self.a
         if normalize or \
@@ -48,6 +55,7 @@ class BurkertPotential(Potential):
                      and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
         self.hasC= False
+        return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """

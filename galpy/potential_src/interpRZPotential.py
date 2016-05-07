@@ -11,6 +11,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 from galpy.util import multi, galpyWarning
 from galpy.potential_src.Potential import Potential
+from galpy.util.bovy_conversion import physical_conversion
 _DEBUG= False
 #Find and load the library
 _lib= None
@@ -107,6 +108,7 @@ class interpRZPotential(Potential):
                  interpvcirc=False,
                  interpdvcircdr=False,
                  interpepifreq=False,interpverticalfreq=False,
+                 ro=None,vo=None,
                  use_c=False,enable_c=False,zsym=True,
                  numcores=None):
         """
@@ -138,6 +140,8 @@ class interpRZPotential(Potential):
 
            numcores= if set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE)
 
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            instance
@@ -152,7 +156,27 @@ class interpRZPotential(Potential):
         if isinstance(RZPot,interpRZPotential):
             from galpy.potential import PotentialError
             raise PotentialError('Cannot setup interpRZPotential with another interpRZPotential')
-        Potential.__init__(self,amp=1.)
+        # Propagate ro and vo
+        roSet= True
+        voSet= True
+        if ro is None:
+            if isinstance(RZPot,list):
+                ro= RZPot[0]._ro
+                roSet= RZPot[0]._roSet
+            else:
+                ro= RZPot._ro
+                roSet= RZPot._roSet
+        if vo is None:
+            if isinstance(RZPot,list):
+                vo= RZPot[0]._vo
+                voSet= RZPot[0]._voSet
+            else:
+                vo= RZPot._vo
+                voSet= RZPot._voSet
+        Potential.__init__(self,amp=1.,ro=ro,vo=vo)
+        # Turn off physical if it hadn't been on
+        if not roSet: self._roSet= False
+        if not voSet: self._voSet= False
         self._origPot= RZPot
         self._rgrid= numpy.linspace(*rgrid)
         self._logR= logR
@@ -179,7 +203,7 @@ class interpRZPotential(Potential):
                 potGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
-                        potGrid[ii,jj]= evaluatePotentials(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                        potGrid[ii,jj]= evaluatePotentials(self._origPot,self._rgrid[ii],self._zgrid[jj])
                 self._potGrid= potGrid
             if self._logR:
                 self._potInterp= interpolate.RectBivariateSpline(self._logrgrid,
@@ -201,7 +225,7 @@ class interpRZPotential(Potential):
                 rforceGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
-                        rforceGrid[ii,jj]= evaluateRforces(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                        rforceGrid[ii,jj]= evaluateRforces(self._origPot,self._rgrid[ii],self._zgrid[jj])
                 self._rforceGrid= rforceGrid
             if self._logR:
                 self._rforceInterp= interpolate.RectBivariateSpline(self._logrgrid,
@@ -223,7 +247,7 @@ class interpRZPotential(Potential):
                 zforceGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
-                        zforceGrid[ii,jj]= evaluatezforces(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                        zforceGrid[ii,jj]= evaluatezforces(self._origPot,self._rgrid[ii],self._zgrid[jj])
                 self._zforceGrid= zforceGrid
             if self._logR:
                 self._zforceInterp= interpolate.RectBivariateSpline(self._logrgrid,
@@ -242,7 +266,7 @@ class interpRZPotential(Potential):
             densGrid= numpy.zeros((len(self._rgrid),len(self._zgrid)))
             for ii in range(len(self._rgrid)):
                 for jj in range(len(self._zgrid)):
-                    densGrid[ii,jj]= evaluateDensities(self._rgrid[ii],self._zgrid[jj],self._origPot)
+                    densGrid[ii,jj]= evaluateDensities(self._origPot,self._rgrid[ii],self._zgrid[jj])
             self._densGrid= densGrid
             if self._logR:
                 self._densInterp= interpolate.RectBivariateSpline(self._logrgrid,
@@ -324,12 +348,12 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= self._potInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluatePotentials(R[True-indx],
-                                                   z[True-indx],
-                                                   self._origPot)
+                out[True-indx]= evaluatePotentials(self._origPot,
+                                                   R[True-indx],
+                                                   z[True-indx])
             return out
         else:
-            return evaluatePotentials(R,z,self._origPot)
+            return evaluatePotentials(self._origPot,R,z)
 
     @scalarVectorDecorator
     @zsymDecorator(False)
@@ -348,12 +372,12 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= self._rforceInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluateRforces(R[True-indx],
-                                                z[True-indx],
-                                                self._origPot)
+                out[True-indx]= evaluateRforces(self._origPot,
+                                                R[True-indx],
+                                                z[True-indx])
             return out
         else:
-            return evaluateRforces(R,z,self._origPot)
+            return evaluateRforces(self._origPot,R,z)
 
     @scalarVectorDecorator
     @zsymDecorator(True)
@@ -374,16 +398,16 @@ class interpRZPotential(Potential):
                     else:
                         out[indx]= self._zforceInterp.ev(R[indx],z[indx])
             if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluatezforces(R[True-indx],
-                                                z[True-indx],
-                                                self._origPot)
+                out[True-indx]= evaluatezforces(self._origPot,
+                                                R[True-indx],
+                                                z[True-indx])
             return out
         else:
-            return evaluatezforces(R,z,self._origPot)
+            return evaluatezforces(self._origPot,R,z)
     
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         from galpy.potential import evaluateRzderivs
-        return evaluateRzderivs(R,z,self._origPot)
+        return evaluateRzderivs(self._origPot,R,z)
     
     @scalarVectorDecorator
     @zsymDecorator(False)
@@ -399,13 +423,14 @@ class interpRZPotential(Potential):
                 else:
                     out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
             if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluateDensities(R[True-indx],
-                                                  z[True-indx],
-                                                  self._origPot)
+                out[True-indx]= evaluateDensities(self._origPot,
+                                                  R[True-indx],
+                                                  z[True-indx])
             return out
         else:
-            return evaluateDensities(R,z,self._origPot)
+            return evaluateDensities(self._origPot,R,z)
 
+    @physical_conversion('velocity',pop=True)
     @scalarDecorator
     def vcirc(self,R):
         from galpy.potential import vcirc
@@ -423,6 +448,7 @@ class interpRZPotential(Potential):
         else:
             return vcirc(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def dvcircdR(self,R):
         from galpy.potential import dvcircdR
@@ -440,6 +466,7 @@ class interpRZPotential(Potential):
         else:
             return dvcircdR(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def epifreq(self,R):
         from galpy.potential import epifreq
@@ -457,6 +484,7 @@ class interpRZPotential(Potential):
         else:
             return epifreq(self._origPot,R)
 
+    @physical_conversion('frequency',pop=True)
     @scalarDecorator
     def verticalfreq(self,R):
         from galpy.potential import verticalfreq

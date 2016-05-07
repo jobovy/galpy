@@ -51,6 +51,9 @@ function
 >>> evaluatePotentials(1.,0.,MWPotential2014)
 -1.3733506513947895
 
+.. TIP::
+   As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``apy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
+
 We can plot the potential of axisymmetric potentials (or of
 non-axisymmetric potentials at phi=0) using the ``plot`` member
 function
@@ -269,8 +272,30 @@ be used anywhere that general three-dimensional galpy potentials can
 be used. Some care must be taken with outside-the-interpolation-grid
 evaluations for functions that use ``C`` to speed up computations.
 
-**NEW**: The potential of N-body simulations
-----------------------------------------------
+.. _physunits_pot:
+
+**NEW in v1.2**: Initializing potentials with parameters with units
+-------------------------------------------------------------------
+
+As already discussed in the section on :ref:`physical units
+<physunits>`, potentials in galpy can be specified with parameters
+with units since v1.2. For most inputs to the initialization it is
+straightforward to know what type of units the input Quantity needs to
+have. For example, the scale length parameter ``a=`` of a
+Miyamoto-Nagai disk needs to have units of distance. 
+
+The amplitude of a potential is specified through the ``amp=``
+initialization parameter. The units of this parameter vary from
+potential to potential. For example, for a logarithmic potential the
+units are velocity squared, while for a Miyamoto-Nagai potential they
+are units of mass. Check the documentation of each potential on the
+:ref:`API page <potential-api>` for the units of the ``amp=``
+parameter of the potential that you are trying to initialize and
+please report an `Issue <https://github.com/jobovy/galpy/issues>`__ if
+you find any problems with this.
+
+**NEW in v1.1**: The potential of N-body simulations
+-----------------------------------------------------
 
 .. _potnbody:
 
@@ -425,8 +450,8 @@ keywords when instantiating the ``InterpSnapshotRZPotential`` object.
 
 .. _nemopot:
 
-**NEW**: Conversion to NEMO potentials
----------------------------------------
+**NEW in v1.1**: Conversion to NEMO potentials
+-----------------------------------------------
 
 `NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
 studying stellar dynamics. Some of its functionality overlaps with
@@ -525,7 +550,7 @@ used. Adding a new class of potentials to galpy consists of the
 following series of steps (some of these are also given in the file
 ``README.dev`` in the galpy distribution):
 
-1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp)`` method should   be called to setup the amplitude. To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
 
   The new potential class should implement some of the following
   functions: 

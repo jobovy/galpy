@@ -3,22 +3,25 @@
 #   potential
 ###############################################################################
 import math
-from galpy.potential_src.planarPotential import planarPotential
+from galpy.util import bovy_conversion
+from galpy.potential_src.planarPotential import planarPotential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _degtorad= math.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
 
     .. math::
 
-        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(m\\,(\\phi-\\phi_b)\\right)
+        \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(m\\,(\\phi-\\phi_b)\\right)
 
     This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,phio=0.01,m=1.,
+                 p=1.,phio=0.01,m=1.,r1=1.,
                  tform=None,tsteady=None,
-                 cp=None,sp=None):
+                 cp=None,sp=None,ro=None,vo=None):
         """
         NAME:
 
@@ -33,23 +36,25 @@ class CosmphiDiskPotential(planarPotential):
         INPUT:
 
            amp=  amplitude to be applied to the potential (default:
-           1.), see twophio below
+           1.), see phio below
 
-           tform= start of growth (to smoothly grow this potential
+           tform= start of growth (to smoothly grow this potential (can be Quantity)
 
-           tsteady= time delay at which the perturbation is fully grown (default: 2.)
+           tsteady= time delay at which the perturbation is fully grown (default: 2; can be Quantity.)
 
            m= cos( m * (phi - phib) )
 
            p= power-law index of the phi(R) = (R/Ro)^p part
 
+           r1= (1.) normalization radius for the amplitude (can be Quantity)
+
            Either:
            
-              a) phib= angle (in rad; default=25 degree)
+              a) phib= angle (in rad; default=25 degree; or can be Quantity)
 
-                 phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1)
+                 phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1; or can be Quantity with units of velocity-squared)
                  
-              b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib)
+              b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib); can be Quantity with units of velocity-squared)
 
         OUTPUT:
 
@@ -60,7 +65,25 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-27 - Started - Bovy (IAS)
 
         """
-        planarPotential.__init__(self,amp=amp)
+        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(phib,units.Quantity):
+            phib= phib.to(units.rad).value
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(tform,units.Quantity):
+            tform= tform.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(tsteady,units.Quantity):
+            tsteady= tsteady.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(phio,units.Quantity):
+            phio= phio.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(cp,units.Quantity):
+            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(sp,units.Quantity):
+            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+        # Back to old definition
+        self._amp/= r1**p
         self.hasC= False
         self._m= m
         if cp is None or sp is None:
@@ -247,19 +270,19 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
 
     .. math::
 
-        \\Phi(R,\\phi) = \\phi_0\\,R^p\\,\\cos\\left(\\phi-\\phi_b\\right)
+        \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(\\phi-\\phi_b\\right)
 
     See documentation for CosmphiDiskPotential
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,phio=0.01,
+                 p=1.,phio=0.01,r1=1.,
                  tform=None,tsteady=None,
-                 cp=None,sp=None):
+                 cp=None,sp=None,ro=None,vo=None):
         CosmphiDiskPotential.__init__(self,
                                       amp=amp,
                                       phib=phib,
                                       p=p,phio=phio,m=1.,
                                       tform=tform,tsteady=tsteady,
-                                      cp=cp,sp=sp)
+                                      cp=cp,sp=sp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True

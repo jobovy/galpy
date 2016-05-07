@@ -5,11 +5,15 @@ import numpy
 import warnings
 import multiprocessing
 from scipy import integrate, interpolate, special
-from galpy.util import galpyWarning, bovy_coords, multi
+from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
+from galpy.df_src.df import df, _APY_LOADED
+from galpy.util.bovy_conversion import physical_conversion
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
+if _APY_LOADED:
+    from astropy import units
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -42,19 +46,19 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
            Subhalo and impact parameters:
 
-              impactb= impact parameter
+              impactb= impact parameter (can be Quantity)
 
-              subhalovel= velocity of the subhalo shape=(3)
+              subhalovel= velocity of the subhalo shape=(3) (can be Quantity)
 
-              timpact time since impact
+              timpact time since impact (can be Quantity)
 
-              impact_angle= angle offset from progenitor at which the impact occurred (rad)
+              impact_angle= angle offset from progenitor at which the impact occurred (rad) (can be Quantity)
 
               Subhalo: specify either 1( mass and size of Plummer sphere or 2( general spherical-potential object (kick is numerically computed)
 
-                 1( GM= mass of the subhalo
+                 1( GM= mass of the subhalo (can be Quantity)
 
-                    rs= size parameter of the subhalo
+                    rs= size parameter of the subhalo (can be Quantity)
 
                  2( subhalopot= galpy potential object or list thereof (should be spherical)
 
@@ -81,15 +85,39 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-06-02 - Started - Bovy (IAS)
 
         """
+        df.__init__(self,ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
+        if _APY_LOADED and isinstance(impactb,units.Quantity):
+            impactb= impactb.to(units.kpc).value/self._ro
         subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
+        if _APY_LOADED and isinstance(subhalovel,units.Quantity):
+            subhalovel= subhalovel.to(units.km/units.s).value/self._vo
         hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
+        if not GM is None \
+                and _APY_LOADED and isinstance(GM,units.Quantity):
+            # GM can be GM or M
+            try:
+                GM= GM.to(units.pc*units.km**2/units.s**2)\
+                    .value\
+                    /bovy_conversion.mass_in_msol(self._vo,self._ro)\
+                    /bovy_conversion._G
+            except units.UnitConversionError: pass
+            GM= GM.to(units.Msun).value\
+                /bovy_conversion.mass_in_msol(self._vo,self._ro)
         rs= kwargs.pop('rs',None)
+        if not rs is None \
+                and _APY_LOADED and isinstance(rs,units.Quantity):
+            rs= rs.to(units.kpc).value/self._ro
         subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
+        if _APY_LOADED and isinstance(timpact,units.Quantity):
+            timpact= timpact.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         impact_angle= kwargs.pop('impact_angle',1.)
+        if _APY_LOADED and isinstance(impact_angle,units.Quantity):
+            impact_angle= impact_angle.to(units.rad).value
         nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
@@ -152,9 +180,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
 
         INPUT:
 
-           Opar - parallel frequency offset (array)
+           Opar - parallel frequency offset (array) (can be Quantity)
 
-           apar - parallel angle offset along the stream (scalar)
+           apar - parallel angle offset along the stream (scalar) (can be Quantity)
 
         OUTPUT:
 
@@ -165,6 +193,11 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
            2015-11-17 - Written - Bovy (UofT)
 
         """
+        if _APY_LOADED and isinstance(Opar,units.Quantity):
+            Opar= Opar.to(1/units.Gyr).value\
+                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(apar,units.Quantity):
+            apar= apar.to(units.rad).value
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
         out= numpy.zeros(len(Opar))
@@ -288,15 +321,25 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
     def minOpar(self,dangle,tdisrupt=None,_return_raw=False):
         """
         NAME:
+
            minOpar
+
         PURPOSE:
+
            return the approximate minimum parallel frequency at a given angle
+
         INPUT:
+
            dangle - parallel angle
+
         OUTPUT:
+
            minimum frequency that gets to this parallel angle
+
         HISTORY:
+
            2015-12-28 - Written - Bovy (UofT)
+
         """
         if tdisrupt is None: tdisrupt= self._tdisrupt
         # First construct the breakpoints for this dangle
@@ -314,6 +357,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         else:
             return Oparb[lowbindx]-lowx[lowbindx]
 
+    @physical_conversion('frequency',pop=True)
     def meanOmega(self,dangle,oned=False,tdisrupt=None,approx=True,
                   higherorder=None):
         """
@@ -711,7 +755,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         dmOs= numpy.array([\
                 super(streamgapdf,self).meanOmega(da,oned=True,
                                                   tdisrupt=self._tdisrupt
-                                                  -self._timpact)
+                                                  -self._timpact,
+                                                  use_physical=False)
                 for da in self._kick_interpolatedThetasTrack])
         self._kick_interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
@@ -781,7 +826,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
@@ -795,7 +840,8 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
             auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
             auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
-        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3)
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
+                                    use_physical=False)
         auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
 )
         auxiliary_Omega_along_dOmega= \
@@ -817,7 +863,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            thetasTrack[ii])
                 allAcfsTrack[ii,:]= multiOut[0]
                 alljacsTrack[ii,:,:]= multiOut[1]
@@ -833,7 +879,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                            self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                            self._gap_sigMeanSign,
                                            self._dsigomeanProgDirection,
-                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                           lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                            thetasTrack[x])),
                 range(self._nTrackChunksImpact),
                 numcores=numpy.amin([self._nTrackChunksImpact,
@@ -856,7 +902,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                              self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                              self._gap_sigMeanSign,
                                                              self._dsigomeanProgDirection,
-                                                             lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                                             lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                                              thetasTrack[ii])
                     allAcfsTrack[ii,:]= multiOut[0]
                     alljacsTrack[ii,:,:]= multiOut[1]
@@ -870,7 +916,7 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
                                                               self._progenitor_angle-self._timpact*self._progenitor_Omega,
                                                               self._gap_sigMeanSign,
                                                               self._dsigomeanProgDirection,
-                                                              lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact),
+                                                              lambda da: super(streamgapdf,self).meanOmega(da,offset_sign=self._gap_sigMeanSign,tdisrupt=self._tdisrupt-self._timpact,use_physical=False),
                                                               thetasTrack[x])),
                     range(self._nTrackChunksImpact),
                     numcores=numpy.amin([self._nTrackChunksImpact,
@@ -1193,7 +1239,7 @@ def _a_integrand(T,y,b,w,pot,compt):
     t = T/(1-T*T)
     X = b+w*t+y*numpy.array([0,1,0])
     r = numpy.sqrt(numpy.sum(X**2))
-    return (1+T*T)/(1-T*T)**2*evaluateRforces(r,0.,pot)*X[compt]/r
+    return (1+T*T)/(1-T*T)**2*evaluateRforces(pot,r,0.)*X[compt]/r
 
 def _deltav_integrate(y,b,w,pot):
     return numpy.array([integrate.quad(_a_integrand,-1.,1.,args=(y,b,w,pot,i))[0] for i in range(3)])
@@ -1361,7 +1407,7 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
     nsamp = len(times)
     X = b0+xres-x0-numpy.outer(times,w)
     r = numpy.sqrt(numpy.sum(X**2,axis=-1))
-    acc = (numpy.reshape(evaluateRforces(r.flatten(),0.,pot),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
+    acc = (numpy.reshape(evaluateRforces(pot,r.flatten(),0.),(nstar,nsamp))/r)[:,:,numpy.newaxis]*X
     return integrate.simps(acc,x=times,axis=1)
 
 def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
@@ -1396,7 +1442,7 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
 
        rs - scale of Plummer
 
-       tmaxfac(10) - multiple of rs/|w-v0| to use for time integration interval
+       tmaxfac(10) - multiple of rs/fabs(w - v0) to use for time integration interval
 
        N(1000) - number of forward integration points
 

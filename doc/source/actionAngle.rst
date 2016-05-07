@@ -399,7 +399,7 @@ the median) estimates at positions around the orbit (which we
 integrated in the example above)
 
 >>> from galpy.actionAngle import estimateDeltaStaeckel
->>> estimateDeltaStaeckel(o.R(ts),o.z(ts),pot=MWPotential2014)
+>>> estimateDeltaStaeckel(MWPotential2014,o.R(ts),o.z(ts))
 0.40272708556203662
 
 We will use :math:`\Delta = 0.4` in what follows. We set up the
@@ -609,7 +609,7 @@ and maximum b if multiple *R* and *z* are given
 >>> o= Orbit(obs)
 >>> ts= numpy.linspace(0.,100.,1001)
 >>> o.integrate(ts,lp)
->>> estimateBIsochrone(o.R(ts),o.z(ts),pot=lp)
+>>> estimateBIsochrone(lp,o.R(ts),o.z(ts))
 (0.78065062339131952, 1.2265541473461612, 1.4899326335155412) #bmin,bmedian,bmax over the orbit
 
 Experience shows that a scale parameter somewhere in the range
@@ -843,7 +843,7 @@ information see `2010MNRAS.409..145S
 <http://adsabs.harvard.edu/abs/2010MNRAS.409..145S>`_.
 
 
-**NEW**: Example: actions in an N-body simulation
+**NEW in v1.1**: Example: actions in an N-body simulation
 ---------------------------------------------------
 
 To illustrate how we can use ``galpy`` to calculate actions in a
