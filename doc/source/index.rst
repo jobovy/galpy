@@ -146,7 +146,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
 #. *PSR J1024-0719: A Millisecond Pulsar in an Unusual Long-Period Orbit*, D. L. Kaplan, T. Kupfer, D. J. Nice, et al. (2016), *Astrophys. J.*, submitted (`arXiv/1604.00131 <http://arxiv.org/abs/1604.00131>`_):
 #. *A millisecond pulsar in an extremely wide binary system*, C. G. Bassa, G. H. Janssen, B. W. Stappers, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1604.00129 <http://arxiv.org/abs/1604.00129>`_):
      Both of these papers use ``galpy.orbit`` integration in ``MWPotential2014`` to determine the orbit of the milli-second pulsar PSR J1024−0719, a pulsar in an unusual binary system.
-
+#. *The first low-mass black hole X-ray binary identified in quiescence outside of a globular cluster*, B. E. Tetarenko, A. Bahramian, R. M. Arnason, et al. (2016), *Astrophys. J.*, in press (`arXiv/1605.00270 <http://arxiv.org/abs/1605.00270>`_):
+     This paper employs ``galpy.orbit`` integration of orbits within the position-velocity uncertainty ellipse of the radio source VLA J213002.08+120904 to help characterize its nature (specifically, to rule out that it is a magnetar based on its birth location).
 
 Indices and tables
 ==================
