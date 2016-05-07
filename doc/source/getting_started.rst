@@ -134,20 +134,45 @@ or about :math:`0.0075\,M_\odot\,\mathrm{pc}^{-3} \approx
 When ``galpy`` Potentials, Orbits, actionAngles, or DFs are
 initialized using a distance scale ``ro=`` and a velocity scale
 ``vo=`` output quantities returned and plotted in physical
-coordinates. Specifically, positions are are returned in units of kpc,
-velocities in km/s, energies and the Jacobi integral in (km/s)^2, the
-angular momentum o.L() and actions in km/s kpc, frequencies in 1/Gyr,
-times and periods in Gyr, potentials in (km/s)^2, forces in km/s/kpc,
-force-derivatives as 1/Gyr^2, densities in Msun/pc^3,
-surface-densities in Msun/pc^2, etc. If ``astropy-units = True`` in
-the :ref:`configuration file <configfile>`, then an `astropy Quantity
+coordinates. Specifically, positions are returned in the units in the
+table below. If ``astropy-units = True`` in the :ref:`configuration
+file <configfile>`, then an `astropy Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
 which includes the units is returned instead (see below).
+
+.. _unitstable:
+
+=================== =================
+Quantity            Default unit
+=================== =================
+position            kpc
+velocity            km/s
+energy              (km/s)^2
+Jacobi integral     (km/s)^2
+angular momentum    km/s x kpc
+actions             km/s x kpc
+frequencies         1/Gyr
+time                Gyr
+period              Gyr
+potential           (km/s)^2
+force               km/s/kpc
+force derivative    1/Gyr^2
+density             Msun/pc^3
+number density      1/pc^3
+surface density     Msun/pc^2
+mass                Msun
+angle               rad
+proper motion       mas/yr
+phase-space density 1/(kpc x km/s)^3
+=================== =================
 
 .. _physunits:
 
 Physical units
 +++++++++++++++
+
+.. TIP::
+   With ``apy-units = True`` in the configuration file and specifying all inputs using astropy Quantity with units, ``galpy`` will return outputs in convenient, unambiguous units.
 
 Full support for unitful quantities using `astropy Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
@@ -219,16 +244,17 @@ above in a session with ``apy-units = False``
       >>> mp.vcirc(10.*units.kpc)
       135.72399857308042
 
-This return value is in km/s (see end of previous section for default
-units for different quantities). Note that as long as astropy is
-installed, we can still provide arguments as a Quantity, but the
-return value will not be a Quantity when ``apy-units = False``. If you
-setup a Potential, Orbit, actionAngle, or DF object with parameters
-specified as a Quantity, the default is to return any output in
-physical units. This is why ``mp.vcirc`` returns the velocity in km/s
-above. Potential and Orbit instances (or lists of Potentials) also
-support the functions ``turn_physical_off`` and ``turn_physical_on``
-to turn physical output off or on. For example, if we do
+This return value is in km/s (see the :ref:`table <unitstable>` at the
+end of the previous section for default units for different
+quantities). Note that as long as astropy is installed, we can still
+provide arguments as a Quantity, but the return value will not be a
+Quantity when ``apy-units = False``. If you setup a Potential, Orbit,
+actionAngle, or DF object with parameters specified as a Quantity, the
+default is to return any output in physical units. This is why
+``mp.vcirc`` returns the velocity in km/s above. Potential and Orbit
+instances (or lists of Potentials) also support the functions
+``turn_physical_off`` and ``turn_physical_on`` to turn physical output
+off or on. For example, if we do
 
    >>> mp.turn_physical_off()
 
@@ -240,8 +266,8 @@ outputs will be in internal units
 If you setup a Potential, Orbit, etc. object without specifying the
 parameters as a Quantity, the default is to return output in natural
 units, except when ``ro=`` and ``vo=`` scales are specified. ``ro=``
-and ``vo=`` can always be given as a Quantity themselves. ``ro=``
-and``vo=`` can always also be specified on a method-by-method basis,
+and ``vo=`` can always be given as a Quantity themselves. ``ro=`` 
+and ``vo=`` can always also be specified on a method-by-method basis,
 overwriting an object's default. For example
 
 	    >>> mp.vcirc(10.*units.kpc,ro=12.*units.kpc)
