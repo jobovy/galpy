@@ -843,7 +843,7 @@ information see `2010MNRAS.409..145S
 <http://adsabs.harvard.edu/abs/2010MNRAS.409..145S>`_.
 
 
-**NEW**: Example: actions in an N-body simulation
+**NEW in v1.1**: Example: actions in an N-body simulation
 ---------------------------------------------------
 
 To illustrate how we can use ``galpy`` to calculate actions in a

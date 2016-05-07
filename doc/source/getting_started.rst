@@ -63,8 +63,8 @@ fit to various dynamical constraints on the Milky Way (see
 
 .. _units:
 
-**UPDATED**: Units in galpy
-----------------------------
+**UPDATED in v1.2**: Units in galpy
+------------------------------------
 
 Internal (natural) units
 +++++++++++++++++++++++++

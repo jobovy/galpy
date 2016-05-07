@@ -131,7 +131,7 @@ versions, but it still does not support ``OpenMP``.
 
 .. _configfile:
 
-**NEW**: Configuration file
+**NEW in v1.2**: Configuration file
 -----------------------------
 
 Since v1.2, ``galpy`` uses a configuration file to set a small number
