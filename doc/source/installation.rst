@@ -129,6 +129,8 @@ install without OpenMP, or specify to use ``gcc`` by specifying the
 that ``clang`` does not seem to have this issue anymore in more recent
 versions, but it still does not support ``OpenMP``.
 
+.. _configfile:
+
 **NEW**: Configuration file
 -----------------------------
 
