@@ -23,6 +23,8 @@ Quick-start guide
 
    installation.rst
 
+   whatsnew.rst
+
    getting_started.rst
 
    potential.rst
