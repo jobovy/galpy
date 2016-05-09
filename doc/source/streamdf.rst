@@ -13,7 +13,9 @@ Milky Way:
 
 .. raw:: html
 
-   <embed src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_orbplane_comov.mpg" AUTOPLAY="false" LOOP="false" width="600" height="515" Pluginspage="http://www.apple.com/quicktime/" CONTROLLER=True></embed>
+   <video width="600" height="400" controls>
+     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_orbplane_comov.mpg" type="video/mp4">
+   </video>
 
 The blue line is the orbit of the progenitor cluster and the black
 points are cluster members. The disruption is shown in an approximate
@@ -28,7 +30,9 @@ generation of the stream in action space
 
 .. raw:: html
 
-   <embed src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_jrjzlz_debris.mpg" AUTOPLAY="false" LOOP="false" width="600" height="515" Pluginspage="http://www.apple.com/quicktime/" CONTROLLER=True></embed>
+   <video width="600" height="400" controls>
+     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_jrjzlz_debris.mpg" type="video/mp4">
+   </video>
 
 The color-coding gives the angular momentum :math:`J_\phi` and the
 black dot shows the progenitor orbit. These actions were calculated
@@ -46,7 +50,9 @@ linearly with time, which is shown in the following movie:
 
 .. raw:: html
 
-   <embed src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_arazap.mpg" AUTOPLAY="false" LOOP="false" width="600" height="515" Pluginspage="http://www.apple.com/quicktime/" CONTROLLER=True></embed>
+   <video width="600" height="400" controls>
+     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_arazap.mpg" type="video/mp4">
+   </video>
 
 where the radial and vertical angle difference with respect to the
 progenitor (co-moving at :math:`(\theta_R,\theta_\phi,\theta_Z) =
@@ -62,7 +68,9 @@ by the time at which they were removed from the progenitor cluster.
 
 .. raw:: html
 
-   <embed src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_oparapar.mpg" AUTOPLAY="false" LOOP="false" width="600" height="515" Pluginspage="http://www.apple.com/quicktime/" CONTROLLER=True></embed>
+   <video width="600" height="400" controls>
+     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_oparapar.mpg" type="video/mp4">
+   </video>
 
 It is clear that disruption happens in bursts (at pericenter passages)
 and that the initial frequency distribution at the time of removal
