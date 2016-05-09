@@ -12,7 +12,7 @@ galpy
 .. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
-.. image:: https://readthedocs.io/projects/galpy/badge/?version=latest
+.. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
   :target: http://galpy.readthedocs.io/en/latest/
 
 .. image:: http://img.shields.io/pypi/v/galpy.svg
@@ -102,7 +102,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
 .. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
-.. image:: https://readthedocs.io/projects/galpy/badge/?branch=master?version=latest
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
   :target: http://galpy.readthedocs.io/en/master/
 
 
@@ -117,7 +117,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
 .. image:: http://codecov.io/github/jobovy/galpy/coverage.svg?branch=dev
   :target: http://codecov.io/github/jobovy/galpy?branch=dev
 
-.. image:: https://readthedocs.io/projects/galpy/badge/?branch=master?version=latest
+.. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
   :target: http://galpy.readthedocs.io/en/dev/
 
 DISK DF CORRECTIONS
