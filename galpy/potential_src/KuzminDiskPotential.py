@@ -10,7 +10,10 @@ import numpy as nu
 import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
-from galpy.potential_src.Potential import Potential, _APY_LOADED
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 
 class KuzminDiskPotential(Potential):
 	"""Class that implements the Kuzmin-Kutuzov Staeckel potential
@@ -78,7 +81,7 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-09 - Written - Aladdin 
         """
-		return -denom(R, z)**-0.5
+		return -self._denom(R, z)**-0.5
 
 	def _Rforce(self,R,z,phi=0.,t=0.):
 		"""
@@ -96,7 +99,7 @@ class KuzminDiskPotential(Potential):
         HISTORY:
             2016-05-09 - Written - Aladdin 
 		"""
-		return -denom(R, z)**-1.5 * R
+		return -self._denom(R, z)**-1.5 * R
 
 	def _zforce(self, R, z, phi=0., t=0.):
 		"""
@@ -114,7 +117,7 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-09 - Written - Aladdin 
 		"""
-		return -nu.sign(z) * denom(R,z)**-1.5 * (a + nu.abs(z))
+		return -nu.sign(z) * self._denom(R,z)**-1.5 * (self._a + nu.fabs(z))
 		
 
 	def _denom(self, R, z):
@@ -132,5 +135,5 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-09 - Written - Aladdin 
 		"""
-		return (R**2. + (self._a + nu.abs(z))**2.)
+		return (R**2. + (self._a + nu.fabs(z))**2.)
 
