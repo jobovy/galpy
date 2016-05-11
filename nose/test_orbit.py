@@ -1011,6 +1011,7 @@ def test_zmax():
     tol= {}
     tol['default']= -16.
     tol['RazorThinExponentialDiskPotential']= -6. #these are more difficult
+    tol['KuzminDiskPotential']= -6. #these are more difficult
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     firstTest= True
     for p in pots:
@@ -1123,6 +1124,7 @@ def test_analytic_ecc_rperi_rap():
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['KeplerPotential']= -8. #these are more difficult
     tol['PseudoIsothermalPotential']= -7. #these are more difficult
+    tol['KuzminDiskPotential'] = -8
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1234,9 +1236,10 @@ def test_analytic_ecc_rperi_rap():
                 #Apocenter radius
                 trap= o.rap()
                 trap_analytic= o.rap(analytic=True)
-                #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
+                #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.             
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                                
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
                     "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Do this also for an orbit starting at apocenter
@@ -1324,6 +1327,7 @@ def test_analytic_zmax():
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['testMWPotential']= -6. #these are more difficult
+    tol['KuzminDiskPotential']=-4
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
