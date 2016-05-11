@@ -180,6 +180,9 @@ def test_forceAsDeriv_potential():
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
+
+        if isinstance(tp,potential.KuzminDiskPotential) \
+                or isinstance(tp,potential.KuzminDiskPotential): continue
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
                 dz= 10.**-8.
