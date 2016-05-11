@@ -21,7 +21,8 @@ if _APY_LOADED:
 _INTERPDURINGSETUP= True
 _USEINTERP= True
 _USESIMPLE= True
-_TWOPIWRAPS= numpy.arange(5)*2.*numpy.pi
+# cast a wide net
+_TWOPIWRAPS= numpy.arange(-4,5)*2.*numpy.pi
 _labelDict= {'x': r'$X$',
              'y': r'$Y$',
              'z': r'$Z$',
@@ -1612,13 +1613,18 @@ class streamdf(df):
         HISTORY:
            2013-12-22 - Written - Bovy (IAS)
         """
-        #Calculate angle offset along the stream parallel to the stream track
-        da= numpy.vstack((ar+_TWOPIWRAPS-self._progenitor_angle[0],
-                          ap+_TWOPIWRAPS-self._progenitor_angle[1],
-                          az+_TWOPIWRAPS-self._progenitor_angle[2])).T
-        dapar= numpy.amin(numpy.fabs(\
-                self._sigMeanSign\
-                    *numpy.dot(da,self._dsigomeanProgDirection)))
+        #Calculate angle offset along the stream parallel to the stream track,
+        # finding first the angle among a few wraps where the point is 
+        # closest to the parallel track and then the closest trackpoint to that
+        # point
+        da= numpy.stack(\
+            numpy.meshgrid(_TWOPIWRAPS+ar-self._progenitor_angle[0],
+                           _TWOPIWRAPS+ap-self._progenitor_angle[1],
+                           _TWOPIWRAPS+az-self._progenitor_angle[2],
+                           indexing='xy')).T.reshape((len(_TWOPIWRAPS)**3,3))
+        dapar= self._sigMeanSign*numpy.dot(da[numpy.argmin(numpy.linalg.norm(\
+                        numpy.cross(da,self._dsigomeanProgDirection),axis=1))],
+                                           self._dsigomeanProgDirection)       
         if interp:
             dist= numpy.fabs(dapar-self._interpolatedThetasTrack)
         else:
@@ -2304,12 +2310,17 @@ class streamdf(df):
                 dOa[5]= az[ii]-self._ObsTrackAA[closestIndx[ii],5]
                 jacIndx= closestIndx[ii]
             # Find 2nd closest Jacobian point for smoothing
-            da= numpy.vstack((ar[ii]+_TWOPIWRAPS-self._progenitor_angle[0],
-                              ap[ii]+_TWOPIWRAPS-self._progenitor_angle[1],
-                              az[ii]+_TWOPIWRAPS-self._progenitor_angle[2])).T
-            dapar= numpy.amin(numpy.fabs(\
-                    self._sigMeanSign\
-                        *numpy.dot(da,self._dsigomeanProgDirection)))
+            da= numpy.stack(\
+                numpy.meshgrid(_TWOPIWRAPS+ar[ii]-self._progenitor_angle[0],
+                               _TWOPIWRAPS+ap[ii]-self._progenitor_angle[1],
+                               _TWOPIWRAPS+az[ii]-self._progenitor_angle[2],
+                               indexing='xy')).T\
+                               .reshape((len(_TWOPIWRAPS)**3,3))
+            dapar= self._sigMeanSign\
+                *numpy.dot(da[numpy.argmin(numpy.linalg.norm(\
+                            numpy.cross(da,self._dsigomeanProgDirection),
+                            axis=1))],
+                           self._dsigomeanProgDirection)       
             dmJacIndx= numpy.fabs(dapar-self._thetasTrack[jacIndx])
             if jacIndx == 0:
                 jacIndx2= jacIndx+1
