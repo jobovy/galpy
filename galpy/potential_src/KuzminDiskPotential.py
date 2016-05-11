@@ -16,7 +16,7 @@ if _APY_LOADED:
     from astropy import units
 
 class KuzminDiskPotential(Potential):
-	"""Class that implements the Kuzmin-Kutuzov Staeckel potential
+	"""Class that implements the Kuzmin Disk potential
 
     .. math::
 
