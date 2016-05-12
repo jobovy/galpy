@@ -774,7 +774,7 @@ def test_bovy14_gaussApproxLB_onemissing():
 def test_bovy14_gaussApproxLB_threemissing():
     #Test the Gaussian approximation
     #First, test near an interpolated point, without using interpolation (non-trivial)
-    tol= -2.
+    tol= -1.8
     trackp= 102
     LB= list(sdf_bovy14._interpolatedObsTrackLB[trackp,:].flatten())
     # l,vlos,pmll

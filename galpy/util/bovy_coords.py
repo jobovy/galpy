@@ -1067,10 +1067,10 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[-costheta,0.,sintheta],
+    return nu.dot(nu.array([[costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [sintheta,0.,costheta]]),
-                  nu.array([vx,vy,vz])).T+nu.array(vsun)
+                  nu.array([-vx,vy,vz])).T+nu.array(vsun)
 
 @scalarDecorator
 def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
@@ -1157,10 +1157,10 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[costheta,0.,sintheta],
+    return nu.dot(nu.array([[-costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [-sintheta,0.,costheta]]),
-                  nu.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+                  nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
 
 @scalarDecorator
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
@@ -1184,6 +1184,10 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        phi - Galactocentric azimuth
 
        vsun - velocity of the sun in the GC frame ndarray[3]
+
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
 
     OUTPUT:
 
@@ -1348,6 +1352,10 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
 
        if 3: X,Y,Z
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        jacobian d(galcen.)/d(Galactic)
@@ -1357,14 +1365,20 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        2013-12-09 - Written - Bovy (IAS)
 
     """
+    dgc= nu.sqrt(kwargs.get('Xsun',1.)**2.+kwargs.get('Zsun',0.)**2.)
+    costheta, sintheta= kwargs.get('Xsun',1.)/dgc, kwargs.get('Zsun',0.)/dgc
     out= sc.zeros((6,6))
-    out[0,0]= -1.
+    out[0,0]= -costheta
+    out[0,2]= -sintheta
     out[1,1]= 1.
-    out[2,2]= 1.
+    out[2,0]= -sintheta
+    out[2,2]= costheta
     if len(args) == 3: return out[:3,:3]
-    out[3,3]= -1.
+    out[3,3]= -costheta
+    out[3,5]= -sintheta
     out[4,4]= 1.
-    out[5,5]= 1.
+    out[5,3]= -sintheta
+    out[5,5]= costheta
     return out
 
 def lbd_to_XYZ_jac(*args,**kwargs):
