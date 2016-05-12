@@ -857,7 +857,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
 
        2010-09-24 - Written - Bovy (NYU)
 
-       2016-05-12 - Edited to properly take into account the Sun's vertical position; droped Ysun keyword - Bovy (UofT)
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
@@ -867,7 +867,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
                             [sintheta,0.,costheta]]),
                   nu.array([-X+Xsun,Y,Z])).T
 
-def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -889,8 +889,15 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        2011-02-23 - Written - Bovy (NYU)
 
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+
     """
-    return (-X+Xsun,Y-Ysun,Z-Zsun)
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                            [0.,1.,0.],
+                            [-sintheta,0.,costheta]]),
+                  nu.array([X,Y,Z])).T+nu.array([Xsun,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
     """
@@ -976,7 +983,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
     XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun))
     return rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])
     
-def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -1000,7 +1007,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
-    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
+    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun)
     
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
     """
