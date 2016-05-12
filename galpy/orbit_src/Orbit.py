@@ -173,7 +173,9 @@ class Orbit(object):
             R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
-                                                  vsun=vsun,galcen=True)
+                                                  vsun=vsun,
+                                                  Xsun=1.,Zsun=zo/ro,
+                                                  galcen=True)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
         # Parse vxvv if it consists of Quantities
