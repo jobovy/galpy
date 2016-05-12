@@ -1011,6 +1011,7 @@ def test_zmax():
     tol= {}
     tol['default']= -16.
     tol['RazorThinExponentialDiskPotential']= -6. #these are more difficult
+    tol['KuzminDiskPotential']= -6. #these are more difficult
 #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     firstTest= True
     for p in pots:
@@ -1123,6 +1124,8 @@ def test_analytic_ecc_rperi_rap():
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['KeplerPotential']= -8. #these are more difficult
     tol['PseudoIsothermalPotential']= -7. #these are more difficult
+    tol['KuzminDiskPotential'] = -8  #these are more difficult
+    
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1324,6 +1327,7 @@ def test_analytic_zmax():
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['testMWPotential']= -6. #these are more difficult
+    tol['KuzminDiskPotential']=-4 #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
