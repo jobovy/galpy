@@ -1365,12 +1365,12 @@ class streamdf(df):
         XYZ= bovy_coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*ro,
                                           self._ObsTrack[:,5],
                                           self._ObsTrack[:,3]*ro,
-                                          Xsun=R0,Zsun=Zsun)
+                                          Xsun=R0,Zsun=Zsun).T
         vXYZ= bovy_coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*vo,
                                               self._ObsTrack[:,2]*vo,
                                               self._ObsTrack[:,4]*vo,
                                               self._ObsTrack[:,5],
-                                              vsun=vsun,Xsun=R0,Zsun=Zsun)
+                                              vsun=vsun,Xsun=R0,Zsun=Zsun).T
         slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                     degree=True)
         svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
@@ -1391,13 +1391,13 @@ class streamdf(df):
                 self._interpolatedObsTrackXY[:,0]*ro,
                 self._interpolatedObsTrackXY[:,1]*ro,
                 self._interpolatedObsTrackXY[:,2]*ro,
-                Xsun=R0,Zsun=Zsun)
+                Xsun=R0,Zsun=Zsun).T
             vXYZ=\
                 bovy_coords.galcenrect_to_vxvyvz(\
                 self._interpolatedObsTrackXY[:,3]*vo,
                 self._interpolatedObsTrackXY[:,4]*vo,
                 self._interpolatedObsTrackXY[:,5]*vo,
-                vsun=vsun,Xsun=R0,Zsun=Zsun)
+                vsun=vsun,Xsun=R0,Zsun=Zsun).T
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                         degree=True)
             svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
@@ -2610,7 +2610,7 @@ class streamdf(df):
                                          degree=True)
             iR,iphi,iZ= bovy_coords.XYZ_to_galcencyl(tXYZ[:,0],tXYZ[:,1],
                                                      tXYZ[:,2],
-                                                     Xsun=R0,Zsun=Zsun)
+                                                     Xsun=R0,Zsun=Zsun).T
             tvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(ivX.flatten(),
                                                       ivY.flatten(),
                                                       ivZ.flatten(),
@@ -2622,7 +2622,7 @@ class streamdf(df):
                                                          iR,iphi,iZ,
                                                          galcen=True,
                                                          vsun=vsun,
-                                                         Xsun=R0,Zsun=Zsun)
+                                                         Xsun=R0,Zsun=Zsun).T
             iR/= ro
             iZ/= ro
             ivR/= vo
@@ -2865,12 +2865,12 @@ class streamdf(df):
             XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*ro,
                                               RvR[5],
                                               RvR[3]*ro,
-                                              Xsun=R0,Zsun=Zsun)
+                                              Xsun=R0,Zsun=Zsun).T
             vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*vo,
                                                   RvR[2]*vo,
                                                   RvR[4]*vo,
                                                   RvR[5],
-                                                  vsun=vsun,Xsun=R0,Zsun=Zsun)
+                                                  vsun=vsun,Xsun=R0,Zsun=Zsun).T
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                         degree=True)
             svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
