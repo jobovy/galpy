@@ -200,13 +200,13 @@ def test_vxvyvz_to_vrpmllpmbb():
 
 def test_XYZ_to_galcenrect():
     X,Y,Z= 1.,3.,-2.
-    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
     assert numpy.fabs(gcXYZ[0]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     #Another test
     X,Y,Z= -1.,3.,-2.
-    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
     assert numpy.fabs(gcXYZ[0]-2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
@@ -214,7 +214,7 @@ def test_XYZ_to_galcenrect():
 
 def test_galcenrect_to_XYZ():
     gcX, gcY, gcZ= -1.,4.,2.
-    XYZ= bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Ysun=0.,Zsun=0.)
+    XYZ= bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.)
     assert numpy.fabs(XYZ[0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
@@ -222,13 +222,13 @@ def test_galcenrect_to_XYZ():
 
 def test_XYZ_to_galcencyl():
     X,Y,Z= 5.,4.,-2.
-    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Ysun=0.,Zsun=0.)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
     assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     #Another X
     X,Y,Z= 11.,4.,-2.
-    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Ysun=0.,Zsun=0.)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
     assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
     assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
@@ -236,7 +236,7 @@ def test_XYZ_to_galcencyl():
 
 def test_galcencyl_to_XYZ():
     gcR, gcp, gcZ= 5.,numpy.arctan(4./3.),2.
-    XYZ= bovy_coords.galcencyl_to_XYZ(gcR,gcp,gcZ,Xsun=8.,Ysun=0.,Zsun=0.)
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR,gcp,gcZ,Xsun=8.,Zsun=0.)
     assert numpy.fabs(XYZ[0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
@@ -771,7 +771,6 @@ def test_radec_to_custom_againstlb():
     s= numpy.arange(2)
     lb_direct= bovy_coords.radec_to_lb(ra*s,dec*s,degree=True)
     lb_custom= bovy_coords.radec_to_custom(ra*s,dec*s,T=T.T,degree=True)
-    print(lb_direct, lb_custom)
     assert numpy.all(numpy.fabs(lb_direct-lb_custom) < 10.**-8.), 'radec_to_custom for transformation to l,b does not work properly'
     return None
 
