@@ -2610,7 +2610,7 @@ class streamdf(df):
                                          degree=True)
             iR,iphi,iZ= bovy_coords.XYZ_to_galcencyl(tXYZ[:,0],tXYZ[:,1],
                                                      tXYZ[:,2],
-                                                     Xsun=R0,Ysun=0.,Zsun=Zsun)
+                                                     Xsun=R0,Zsun=Zsun)
             tvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(ivX.flatten(),
                                                       ivY.flatten(),
                                                       ivZ.flatten(),
@@ -3184,7 +3184,7 @@ def lbCoordFunc(xv,vo,ro,R0,Zsun,vsun):
     #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
     X,Y,Z= bovy_coords.lbd_to_XYZ(xv[0],xv[1],xv[2],degree=True)
     R,phi,Z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,
-                                          Xsun=R0,Ysun=0.,Zsun=Zsun)
+                                          Xsun=R0,Zsun=Zsun)
     vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(xv[3],xv[4],xv[5],
                                                X,Y,Z,XYZ=True)
     vR,vT,vZ= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,

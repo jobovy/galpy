@@ -638,6 +638,7 @@ class Orbit(object):
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                                       (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
+                                      Y is ignored and always assumed to be zero
 
                 ro= distance in kpc corresponding to R=1. (default: taken from object; can be Quantity)
 
@@ -2036,6 +2037,7 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
 (default=Object-wide default; can be Quantity)
+           Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2066,6 +2068,7 @@ class Orbit(object):
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2096,6 +2099,7 @@ class Orbit(object):
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2126,6 +2130,7 @@ class Orbit(object):
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2156,6 +2161,7 @@ class Orbit(object):
 
            obs=[X,Y,Z] - (optional) position of observer (in kpc; entries can be Quantity) 
            (default=[8.0,0.,0.]) OR Orbit object that corresponds to the orbit of the observer
+           Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2189,6 +2195,7 @@ class Orbit(object):
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2224,6 +2231,7 @@ class Orbit(object):
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2259,6 +2267,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantities)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2294,6 +2303,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2329,7 +2339,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
-
+                         Y is ignored and always assumed to be zero
+           
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
@@ -2364,6 +2375,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2409,6 +2421,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2454,6 +2467,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2499,6 +2513,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2544,6 +2559,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2577,6 +2593,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity))
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2610,6 +2627,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2643,6 +2661,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2678,6 +2697,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2713,6 +2733,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2747,6 +2768,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
