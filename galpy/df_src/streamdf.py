@@ -1370,7 +1370,7 @@ class streamdf(df):
                                               self._ObsTrack[:,2]*vo,
                                               self._ObsTrack[:,4]*vo,
                                               self._ObsTrack[:,5],
-                                              vsun=vsun)
+                                              vsun=vsun,Xsun=R0,Zsun=Zsun)
         slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                     degree=True)
         svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
@@ -1397,7 +1397,7 @@ class streamdf(df):
                 self._interpolatedObsTrackXY[:,3]*vo,
                 self._interpolatedObsTrackXY[:,4]*vo,
                 self._interpolatedObsTrackXY[:,5]*vo,
-                vsun=vsun)
+                vsun=vsun,Xsun=R0,Zsun=Zsun)
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                         degree=True)
             svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
@@ -2621,7 +2621,8 @@ class streamdf(df):
                                                          tvxvyvz[:,2],
                                                          iR,iphi,iZ,
                                                          galcen=True,
-                                                         vsun=vsun)
+                                                         vsun=vsun,
+                                                         Xsun=R0,Zsun=Zsun)
             iR/= ro
             iZ/= ro
             ivR/= vo
@@ -2869,7 +2870,7 @@ class streamdf(df):
                                                   RvR[2]*vo,
                                                   RvR[4]*vo,
                                                   RvR[5],
-                                                  vsun=vsun)
+                                                  vsun=vsun,Xsun=R0,Zsun=Zsun)
             slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
                                         degree=True)
             svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
@@ -3188,7 +3189,7 @@ def lbCoordFunc(xv,vo,ro,R0,Zsun,vsun):
     vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(xv[3],xv[4],xv[5],
                                                X,Y,Z,XYZ=True)
     vR,vT,vZ= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,
-                                              vsun=vsun)
+                                              vsun=vsun,Xsun=R0,Zsun=Zsun)
     R/= ro
     Z/= ro
     vR/= vo

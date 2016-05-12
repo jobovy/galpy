@@ -745,12 +745,11 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
         X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
                                         iz.flatten(),
                                         Xsun=obs[0]/ro,
-                                        Ysun=obs[1]/ro,
                                         Zsun=obs[2]/ro)
         vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
                                               ivz.flatten(),iphi.flatten(),
                                               vsun=nu.array(\
-                obs[3:6])/vo)
+                obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx: X[bad_indx]+= ro/10000.
         lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,
