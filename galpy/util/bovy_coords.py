@@ -869,7 +869,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
     return nu.dot(nu.array([[costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [sintheta,0.,costheta]]),
-                  nu.array([-X+Xsun,Y,Z])).T
+                  nu.array([-X+dgc,Y,Z])).T
 
 def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     """
@@ -905,7 +905,7 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     return nu.dot(nu.array([[-costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [-sintheta,0.,costheta]]),
-                  nu.array([X,Y,Z])).T+nu.array([Xsun,0.,0.])
+                  nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
     """
