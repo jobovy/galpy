@@ -298,7 +298,6 @@ def test_density_ll_and_customra():
             sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
-                                           Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._ro,\
@@ -306,7 +305,6 @@ def test_density_ll_and_customra():
             sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
-                                                Ysun=0.,
                                                 Zsun=sdf_bovy14._Zsun)
         dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
         jac= numpy.fabs((dl-l)/dapar)
@@ -337,7 +335,6 @@ def test_density_ra():
             sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
-                                           Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
@@ -346,7 +343,6 @@ def test_density_ra():
             sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
-                                                Ysun=0.,
                                                 Zsun=sdf_bovy14._Zsun)
         dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
         dra,ddec= bovy_coords.lb_to_radec(dl,db,degree=True)
@@ -374,7 +370,6 @@ def test_density_ll_wsampling():
             sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                              Xsun=sdf_bovy14._R0,
-                                             Ysun=0.,
                                              Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         return l   
@@ -413,7 +408,6 @@ def test_length_ang():
             sdf_bovy14._interpTrackZ(apar)*sdf_bovy14._ro
         X,Y,Z= bovy_coords.galcenrect_to_XYZ(X,Y,Z,
                                            Xsun=sdf_bovy14._R0,
-                                           Ysun=0.,
                                            Zsun=sdf_bovy14._Zsun)
         l,b,d= bovy_coords.XYZ_to_lbd(X,Y,Z,degree=True)
         dX,dY,dZ= sdf_bovy14._interpTrackX(apar+dapar)*sdf_bovy14._ro,\
@@ -421,7 +415,6 @@ def test_length_ang():
             sdf_bovy14._interpTrackZ(apar+dapar)*sdf_bovy14._ro
         dX,dY,dZ= bovy_coords.galcenrect_to_XYZ(dX,dY,dZ,
                                                 Xsun=sdf_bovy14._R0,
-                                                Ysun=0.,
                                                 Zsun=sdf_bovy14._Zsun)
         dl,db,dd= bovy_coords.XYZ_to_lbd(dX,dY,dZ,degree=True)
         jac= numpy.fabs((dl-l)/dapar)
@@ -1187,7 +1180,7 @@ def test_calcaAJacLB():
     R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
         0.88719443,-0.47713334,0.12019596
     #First convert these to l,b,d,vlos,pmll,pmbb
-    XYZ= bovy_coords.galcencyl_to_XYZ(R*8.,phi,z*8.,Xsun=8.,Ysun=0.,Zsun=0.02)
+    XYZ= bovy_coords.galcencyl_to_XYZ(R*8.,phi,z*8.,Xsun=8.,Zsun=0.02)
     l,b,d= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],degree=True)
     vXYZ= bovy_coords.galcencyl_to_vxvyvz(vR*220.,vT*220.,vz*220.,phi=phi,
                                           vsun=[10.,240.,-10.])
