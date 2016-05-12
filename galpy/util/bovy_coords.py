@@ -831,6 +831,7 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
                  [-m.cos(l)*m.sin(b),-m.sin(l)*m.sin(b), m.cos(b)]])
     return sc.dot(R.T,sc.dot(cov_vrvlvb,R))
 
+@scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -871,6 +872,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
                             [sintheta,0.,costheta]]),
                   nu.array([-X+dgc,Y,Z])).T
 
+@scalarDecorator
 def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -961,6 +963,7 @@ def cyl_to_rect(R,phi,Z):
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
 
+@scalarDecorator
 def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -993,8 +996,9 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
 
     """
     XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun))
-    return rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])
+    return nu.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
     
+@scalarDecorator
 def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -1025,6 +1029,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
     return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun)
     
+@scalarDecorator
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -1067,6 +1072,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
                             [sintheta,0.,costheta]]),
                   nu.array([vx,vy,vz])).T+nu.array(vsun)
 
+@scalarDecorator
 def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
                         galcen=False):
     """
@@ -1109,9 +1115,11 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
-    return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=galcen)
+    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
+    return nu.array(\
+        rect_to_cyl_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,cyl=galcen)).T
 
+@scalarDecorator
 def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
@@ -1154,6 +1162,7 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
                             [-sintheta,0.,costheta]]),
                   nu.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
 
+@scalarDecorator
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
