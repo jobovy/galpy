@@ -159,6 +159,8 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
+
     """
     if _APY_COORDS:
         epoch, frame= _parse_epoch_frame_apy(epoch)
@@ -200,7 +202,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        degree - (Bool) if True, l and b are given in degree and ra and dec will be as well
 
-       epoch - epoch of target ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -214,7 +216,19 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
+
     """
+    if _APY_COORDS:
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(l*units.rad,b*units.rad,frame='galactic')
+        if not epoch is None and 'J' in epoch:
+            c= c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and 'B' in epoch:
+            c= c.transform_to(apycoords.FK4(equinox=epoch))
+        else:
+            c= c.transform_to(apycoords.ICRS)
+        return nu.array([c.ra.to(units.rad).value,c.dec.to(units.rad).value]).T
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(ra_ngp),-sc.sin(ra_ngp),0.],[sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]])))
@@ -1948,6 +1962,8 @@ def get_epoch_angles(epoch=2000.0):
     HISTORY:
 
        2010-04-07 - Written - Bovy (NYU)
+
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
 
     """
     if epoch == 2000.0:
