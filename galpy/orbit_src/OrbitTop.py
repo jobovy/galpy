@@ -473,6 +473,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            ra(t)
@@ -496,6 +497,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            dec(t)
@@ -519,6 +521,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            l(t)
@@ -542,6 +545,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            b(t)
@@ -565,6 +569,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            dist(t) in kpc
@@ -588,6 +593,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -613,6 +619,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -638,6 +645,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -663,6 +671,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -688,6 +697,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -713,6 +723,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioX(t) in kpc
@@ -736,6 +747,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioY(t) in kpc
@@ -759,6 +771,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioZ(t) in kpc
@@ -782,6 +795,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -807,6 +821,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -832,6 +847,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -856,6 +872,7 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            SkyCoord(t)
@@ -868,7 +885,7 @@ class OrbitTop(object):
         return coordinates.SkyCoord(radec[:,0]*units.degree,
                                     radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,
-                                    frame='icrs')
+                                    frame='fk5',equinox='J2000')
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
@@ -903,42 +920,36 @@ class OrbitTop(object):
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                 thiso[3,:],
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X,Y,Z)
 
@@ -962,31 +973,30 @@ class OrbitTop(object):
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],thiso[2,:],0.,
                                                       thiso[3,:],
                                                       vsun=nu.array(\
-                        obs[3:6])/vo)
+                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
                                                           thiso[3,:],
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]))
+                                nu.zeros(len(thiso[0,:]))]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
@@ -994,42 +1004,41 @@ class OrbitTop(object):
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]))
+                                obs.vz(*args,**kwargs)]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                 thiso[3,:],
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                       thiso[2,:],
                                                       thiso[4,:],
                                                       thiso[5,:],
                                                       vsun=nu.array(\
-                        obs[3:6])/vo)
+                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
                                                           thiso[5,:],
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]))
+                                nu.zeros(len(thiso[0,:]))]),Xsun=obs.x(*args,**kwargs),Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
@@ -1037,7 +1046,9 @@ class OrbitTop(object):
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]))
+                                obs.vz(*args,**kwargs)]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 

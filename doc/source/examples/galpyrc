@@ -4,4 +4,5 @@ vo = 220.
 
 [astropy]
 astropy-units = False
+astropy-coords = True
 

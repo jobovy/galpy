@@ -24,6 +24,11 @@ v1.2
 * ``galpy.potential.PseudoIsothermalPotential``, a standard
   pseudo-isothermal-sphere potential.
 
+* Internal transformations between equatorial and Galactic coordinates
+  are now performed by default using astropy's `coordinates
+  <http://docs.astropy.org/en/stable/coordinates/index.html>`__
+  module.
+
 v1.1
 +++++
 
