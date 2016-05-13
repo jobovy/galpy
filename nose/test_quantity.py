@@ -1608,6 +1608,11 @@ def test_potential_ampunits():
                                           a=2.,b=0.5,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"   
+    # KuzminDiskPotential
+    pot= potential.KuzminDiskPotential(amp=20*units.Msun,
+                                       a=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"   
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
@@ -1701,6 +1706,11 @@ def test_potential_ampunits_altunits():
                                           a=2.,b=0.5,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"   
+    # KuzminDiskPotential
+    pot= potential.KuzminDiskPotential(amp=20*units.Msun*constants.G,
+                                       a=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"   
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun*constants.G/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
@@ -1789,6 +1799,10 @@ def test_potential_ampunits_wrongunits():
     assert_raises(units.UnitConversionError,
                   lambda x:potential.MiyamotoNagaiPotential(amp=20*units.km**2/units.s**2,
                                           a=2.,b=0.5,ro=ro,vo=vo),())
+    # KuzminDiskPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.KuzminDiskPotential(amp=20*units.km**2/units.s**2,
+                                          a=2.,ro=ro,vo=vo),())
     # MN3ExponentialDiskPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.MN3ExponentialDiskPotential(\
@@ -1893,6 +1907,11 @@ def test_potential_paramunits():
                                           ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+numpy.sqrt(1.+(0.3/ro)**2.))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ parameters w/ units does not behave as expected"   
+    # KuzminDiskPotential
+    pot= potential.KuzminDiskPotential(amp=20*units.Msun,
+                                       a=5.*units.kpc,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ parameters w/ units does not behave as expected"   
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun/units.pc**3.,hr=6.*units.kpc,hz=300.*units.pc,
