@@ -249,6 +249,36 @@ def test_lb_to_radec_apy():
     assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
     return None
 
+# Test that radec_to_lb and lb_to_radec are each other's inverse, using astropy
+def test_lb_to_radec_apy_icrs():
+    ra, dec= 120, 60.
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=None)
+    rat, dect= bovy_coords.lb_to_radec(lb[0],lb[1],degree=True,epoch=None)
+    assert numpy.fabs(ra-rat) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(dec-dect) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=None)
+    rat, dect= bovy_coords.lb_to_radec(lb[0],lb[1],degree=False,epoch=None)
+    assert numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    # And also test this for arrays
+    os= numpy.ones(2)
+    lb= bovy_coords.radec_to_lb(os*ra/180.*numpy.pi,os*dec/180.*numpy.pi,
+                                degree=False,epoch=None)
+    ratdect= bovy_coords.lb_to_radec(lb[:,0],lb[:,1],degree=False,epoch=None)
+    rat= ratdect[:,0]
+    dect= ratdect[:,1]
+    assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    #Also test for a negative l
+    l,b= 240., 60.
+    ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
+    lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    return None
+
 # Test lb_to_XYZ
 def test_lbd_to_XYZ():
     l,b,d= 90., 30.,1.
