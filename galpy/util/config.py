@@ -10,6 +10,7 @@ except ImportError:
     _APY_LOADED= False
 # The default configuration
 default_configuration= {'astropy-units':'False',
+                        'astropy-coords':'True',
                         'ro':'8.',
                         'vo':'220.'}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
@@ -24,6 +25,8 @@ def write_default(filename):
     writeconfig.add_section('astropy')
     writeconfig.set('astropy','astropy-units',
                     default_configuration['astropy-units'])
+    writeconfig.set('astropy','astropy-coords',
+                    default_configuration['astropy-coords'])
     with open(filename,'w') as configfile:
         writeconfig.write(configfile)
     return None
