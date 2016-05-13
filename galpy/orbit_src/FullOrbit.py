@@ -392,7 +392,7 @@ class FullOrbit(OrbitTop):
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
-               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates; Note that for speed reasons, galpy's internal transformation between (l,b) and (ra,dec) is used, rather than astropy's
                lb= if True, input vxvv and vxvv_err are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
@@ -699,6 +699,8 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
                ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
+    # Need to turn this off for speed
+    coords._APY_COORDS= False
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox, actionAngle
     #Mock this up, bc we want to use its orbit-integration routines
@@ -724,6 +726,7 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                                customsky,lb_to_customsky,pmllpmbb_to_customsky,
                                tmockAA,
                                ro,vo,obs)
+    coords._APY_COORDS= True
     return (opt_vxvv,maxLogL)
 
 def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
