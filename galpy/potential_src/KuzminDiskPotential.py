@@ -36,7 +36,7 @@ class KuzminDiskPotential(Potential):
 
 			amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-			a        - Parameter
+			a - scale length (can be Quantity)
 	
 			normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
