@@ -9,8 +9,8 @@ env: #split tests
     - REQUIRES_PYNBODY=false
     - REQUIRES_ASTROPY=false
   matrix:
-    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_quantity|test_nemo' REQUIRES_PYNBODY=true
-    - NOSE_IGNORE_FILES='^((?!test_quantity).)*$' REQUIRES_ASTROPY=true # needs to be separate for different config
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_quantity|test_nemo|test_coords' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_quantity|test_coords).)*$' REQUIRES_ASTROPY=true # needs to be separate for different config
     - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'

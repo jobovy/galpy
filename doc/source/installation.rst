@@ -141,11 +141,15 @@ of configuration variables. This configuration file is parsed using
 <https://docs.python.org/3/library/configparser.html>`__. It is
 currently used to set a default set of distance and velocity scales
 (``ro`` and ``vo`` throughout galpy) for conversion between physical
-and internal galpy units and to specify whether output from functions
-or methods should be given as an `astropy Quantity
+and internal galpy units, to specify whether output from functions or
+methods should be given as an `astropy Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
-with units as much as possible or not. The current configuration file
-therefore looks like this::
+with units as much as possible or not, and whether or not to use
+astropy's `coordinate transformations
+<http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these
+are typically somewhat slower than galpy's own coordinate
+transformations, but they are more accurate and more general). The
+current configuration file therefore looks like this::
 
 	  [normalization]
 	  ro = 8.
@@ -153,6 +157,7 @@ therefore looks like this::
 
 	  [astropy]
 	  astropy-units = False
+	  astropy-coords = True
 
 where ``ro`` is the distance scale specified in kpc, ``vo`` the
 velocity scale in km/s, and the setting is to *not* return output as a

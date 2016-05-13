@@ -41,7 +41,7 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2012, Jo Bovy
+#Copyright (c) 2010 - 2016, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -72,6 +72,15 @@ from functools import wraps
 import math as m
 import numpy as nu
 import scipy as sc
+from galpy.util.config import __config__
+_APY_COORDS= __config__.getboolean('astropy','astropy-coords')
+_APY_LOADED= True
+try:
+    import astropy.coordinates as apycoords
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+_APY_COORDS*= _APY_LOADED
 _DEGTORAD= m.pi/180.
 _K=4.74047
 def scalarDecorator(func):
@@ -136,7 +145,7 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -150,7 +159,15 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
+
     """
+    if _APY_COORDS:
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
+                              equinox=epoch,frame=frame)
+        c= c.transform_to(apycoords.Galactic)
+        return nu.array([c.l.to(units.rad).value,c.b.to(units.rad).value]).T
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(ra_ngp),sc.sin(ra_ngp),0.],[-sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]])))
@@ -185,7 +202,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        degree - (Bool) if True, l and b are given in degree and ra and dec will be as well
 
-       epoch - epoch of target ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -199,7 +216,19 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
+
     """
+    if _APY_COORDS:
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(l*units.rad,b*units.rad,frame='galactic')
+        if not epoch is None and 'J' in epoch:
+            c= c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and 'B' in epoch:
+            c= c.transform_to(apycoords.FK4(equinox=epoch))
+        else:
+            c= c.transform_to(apycoords.ICRS)
+        return nu.array([c.ra.to(units.rad).value,c.dec.to(units.rad).value]).T
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(ra_ngp),-sc.sin(ra_ngp),0.],[sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]])))
@@ -551,7 +580,7 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
 
        degree - if True, ra and dec are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -608,7 +637,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
        degree - if True, l and b are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -664,7 +693,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
 
        degree - if True, ra and dec are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -701,7 +730,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
        ra - right ascension
        dec - declination
        degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
     OUTPUT:
        cov_pmllbb
     HISTORY:
@@ -831,7 +860,8 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
                  [-m.cos(l)*m.sin(b),-m.sin(l)*m.sin(b), m.cos(b)]])
     return sc.dot(R.T,sc.dot(cov_vrvlvb,R))
 
-def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+@scalarDecorator
+def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -849,6 +879,10 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        Z - Z
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        (Xg, Yg, Zg)
@@ -857,10 +891,18 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        2010-09-24 - Written - Bovy (NYU)
 
-    """
-    return (-X+Xsun,Y+Ysun,Z+Zsun)
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
-def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+    """
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    return nu.dot(nu.array([[costheta,0.,-sintheta],
+                            [0.,1.,0.],
+                            [sintheta,0.,costheta]]),
+                  nu.array([-X+dgc,Y,Z])).T
+
+@scalarDecorator
+def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -874,6 +916,10 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        X, Y, Z - Galactocentric rectangular coordinates
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        (X, Y, Z)
@@ -882,8 +928,15 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        2011-02-23 - Written - Bovy (NYU)
 
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+
     """
-    return (-X+Xsun,Y-Ysun,Z-Zsun)
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                            [0.,1.,0.],
+                            [-sintheta,0.,costheta]]),
+                  nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
     """
@@ -939,7 +992,8 @@ def cyl_to_rect(R,phi,Z):
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
 
-def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+@scalarDecorator
+def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -957,6 +1011,10 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        Z - Z
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        R,phi,z
@@ -966,10 +1024,11 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Ysun=0.,Zsun=0.):
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    Xg,Yg,Zg= XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
-    return rect_to_cyl(Xg,Yg,Zg)
+    XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun))
+    return nu.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
     
-def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
+@scalarDecorator
+def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -983,6 +1042,10 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
        R, phi, Z - Galactocentric cylindrical coordinates
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        X,Y,Z
@@ -993,9 +1056,10 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Ysun=0.,Zsun=0.):
 
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
-    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Ysun=Ysun,Zsun=Zsun)
+    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun)
     
-def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
+@scalarDecorator
+def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -1015,6 +1079,10 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
 
        vsun - velocity of the sun in the GC frame ndarray[3]
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        [:,3]= vXg, vYg, vZg
@@ -1023,10 +1091,19 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.]):
 
        2010-09-24 - Written - Bovy (NYU)
 
-    """
-    return sc.array([-vx+vsun[0],vy+vsun[1],vz+vsun[2]])
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
-def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
+    """
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    return nu.dot(nu.array([[costheta,0.,-sintheta],
+                            [0.,1.,0.],
+                            [sintheta,0.,costheta]]),
+                  nu.array([-vx,vy,vz])).T+nu.array(vsun)
+
+@scalarDecorator
+def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
+                        galcen=False):
     """
     NAME:
 
@@ -1052,6 +1129,10 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
 
        vsun - velocity of the sun in the GC frame ndarray[3]
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
 
     OUTPUT:
@@ -1063,10 +1144,12 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],galcen=False):
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    vx,vy,vz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun)
-    return rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=galcen)
+    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
+    return nu.array(\
+        rect_to_cyl_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,cyl=galcen)).T
 
-def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
+@scalarDecorator
+def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -1086,6 +1169,10 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
 
        vsun - velocity of the sun in the GC frame ndarray[3]
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        [:,3]= vx, vy, vz
@@ -1094,19 +1181,18 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.]):
 
        2011-02-24 - Written - Bovy (NYU)
 
-    """
-    return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
-#Old form, does not seem to be necessary anymore? Bovy 06/08/14
-"""
-    try:
-        return sc.array([-vXg+vsun[0],vYg-vsun[1],vZg-vsun[2]])
-    except ValueError: #annoying bug for one-d, make sure they are arrays
-        return sc.array([-sc.array([vXg]).flatten()[0]+vsun[0],
-                          sc.array([vYg]).flatten()[0]-vsun[1],
-                          sc.array([vZg]).flatten()[0]-vsun[2]])      
-"""
+       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
-def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
+    """
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                            [0.,1.,0.],
+                            [-sintheta,0.,costheta]]),
+                  nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+
+@scalarDecorator
+def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
     NAME:
 
@@ -1128,6 +1214,10 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
 
        vsun - velocity of the sun in the GC frame ndarray[3]
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        vx,vy,vz
@@ -1138,7 +1228,7 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.]):
 
     """
     vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
-    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun)
+    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
 
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
@@ -1291,6 +1381,10 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
 
        if 3: X,Y,Z
 
+       Xsun - cylindrical distance to the GC
+       
+       Zsun - Sun's height above the midplane
+
     OUTPUT:
 
        jacobian d(galcen.)/d(Galactic)
@@ -1300,14 +1394,20 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        2013-12-09 - Written - Bovy (IAS)
 
     """
+    dgc= nu.sqrt(kwargs.get('Xsun',1.)**2.+kwargs.get('Zsun',0.)**2.)
+    costheta, sintheta= kwargs.get('Xsun',1.)/dgc, kwargs.get('Zsun',0.)/dgc
     out= sc.zeros((6,6))
-    out[0,0]= -1.
+    out[0,0]= -costheta
+    out[0,2]= -sintheta
     out[1,1]= 1.
-    out[2,2]= 1.
+    out[2,0]= -sintheta
+    out[2,2]= costheta
     if len(args) == 3: return out[:3,:3]
-    out[3,3]= -1.
+    out[3,3]= -costheta
+    out[3,5]= -sintheta
     out[4,4]= 1.
-    out[5,5]= 1.
+    out[5,3]= -sintheta
+    out[5,5]= costheta
     return out
 
 def lbd_to_XYZ_jac(*args,**kwargs):
@@ -1816,8 +1916,6 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
 
        degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
-
     OUTPUT:
 
        custom longitude, custom latitude (with longitude -180 to 180)
@@ -1853,7 +1951,7 @@ def get_epoch_angles(epoch=2000.0):
        get the angles relevant for the transformation from ra, dec to l,b for the given epoch
     INPUT:
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -1862,6 +1960,8 @@ def get_epoch_angles(epoch=2000.0):
     HISTORY:
 
        2010-04-07 - Written - Bovy (NYU)
+
+       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
 
     """
     if epoch == 2000.0:
@@ -1872,8 +1972,31 @@ def get_epoch_angles(epoch=2000.0):
         theta= 123./180.*sc.pi
         dec_ngp= 27.4/180.*sc.pi
         ra_ngp= 192.25/180.*sc.pi
+    elif _APY_LOADED:
+        # Use astropy to get the angles
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
+                              frame=frame,equinox=epoch)
+        c= c.transform_to(apycoords.Galactic)
+        theta= c.l.to(units.rad).value
+        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
+                              frame='galactic')
+        if not epoch is None and 'J' in epoch:
+            c= c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and 'B' in epoch:
+            c= c.transform_to(apycoords.FK4(equinox=epoch))
+        else:
+            c= c.transform_to(apycoords.ICRS)
+        dec_ngp= c.dec.to(units.rad).value
+        ra_ngp= c.ra.to(units.rad).value
     else:
-        raise IOError("Only epochs 1950 and 2000 are supported")
+        raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
 
-
+def _parse_epoch_frame_apy(epoch):
+    if epoch == 2000.0 or epoch == '2000': epoch= 'J2000'
+    elif epoch == 1950.0 or epoch == '1950': epoch= 'B1950'
+    if not epoch is None and 'J' in epoch: frame= 'fk5'
+    elif not epoch is None and 'B' in epoch: frame= 'fk4'
+    else: frame= 'icrs'
+    return (epoch,frame)
