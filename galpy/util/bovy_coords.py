@@ -580,7 +580,7 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
 
        degree - if True, ra and dec are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -637,7 +637,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
        degree - if True, l and b are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -693,7 +693,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
 
        degree - if True, ra and dec are given in degrees (default=False)
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -730,7 +730,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
        ra - right ascension
        dec - declination
        degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
     OUTPUT:
        cov_pmllbb
     HISTORY:
@@ -1915,8 +1915,6 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
        T= matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect
 
        degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
 
     OUTPUT:
 
