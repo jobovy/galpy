@@ -41,7 +41,7 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2012, Jo Bovy
+#Copyright (c) 2010 - 2016, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -73,13 +73,14 @@ import math as m
 import numpy as nu
 import scipy as sc
 from galpy.util.config import __config__
-_APY_LOADED= __config__.getboolean('astropy','astropy-coords')
-if _APY_LOADED:
-    try:
-        import astropy.coordinates as apycoords
-        from astropy import units
-    except ImportError:
-        _APY_LOADED= False
+_APY_COORDS= __config__.getboolean('astropy','astropy-coords')
+_APY_LOADED= True
+try:
+    import astropy.coordinates as apycoords
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+_APY_COORDS*= _APY_LOADED
 _DEGTORAD= m.pi/180.
 _K=4.74047
 def scalarDecorator(func):
@@ -159,7 +160,7 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    if _APY_LOADED:
+    if _APY_COORDS:
         epoch, frame= _parse_epoch_frame_apy(epoch)
         c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
                               equinox=epoch,frame=frame)
@@ -1938,7 +1939,7 @@ def get_epoch_angles(epoch=2000.0):
        get the angles relevant for the transformation from ra, dec to l,b for the given epoch
     INPUT:
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -1957,8 +1958,25 @@ def get_epoch_angles(epoch=2000.0):
         theta= 123./180.*sc.pi
         dec_ngp= 27.4/180.*sc.pi
         ra_ngp= 192.25/180.*sc.pi
+    elif _APY_LOADED:
+        # Use astropy to get the angles
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
+                              frame=frame,equinox=epoch)
+        c= c.transform_to(apycoords.Galactic)
+        theta= c.l.to(units.rad).value
+        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
+                              frame='galactic')
+        if not epoch is None and 'J' in epoch:
+            c= c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and 'B' in epoch:
+            c= c.transform_to(apycoords.FK4(equinox=epoch))
+        else:
+            c= c.transform_to(apycoords.ICRS)
+        dec_ngp= c.dec.to(units.rad).value
+        ra_ngp= c.ra.to(units.rad).value
     else:
-        raise IOError("Only epochs 1950 and 2000 are supported")
+        raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
 
 def _parse_epoch_frame_apy(epoch):
