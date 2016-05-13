@@ -33,6 +33,9 @@ v1.2 (2016-XX-XX)
 
 - Added the spherical radius as an Orbit method.
 
+- Added KuzminDiskPotential, a potential represented by a razor thin
+  disk
+
 v1.1 (2015-06-30)
 ==================
 

@@ -31,6 +31,7 @@ from galpy.potential_src import MN3ExponentialDiskPotential
 from galpy.potential_src import KuzminKutuzovStaeckelPotential
 from galpy.potential_src import PlummerPotential
 from galpy.potential_src import PseudoIsothermalPotential
+from galpy.potential_src import KuzminDiskPotential
 #
 # Functions
 #
@@ -111,7 +112,7 @@ MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPoten
 KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
 PlummerPotential = PlummerPotential.PlummerPotential
 PseudoIsothermalPotential = PseudoIsothermalPotential.PseudoIsothermalPotential
-
+KuzminDiskPotential = KuzminDiskPotential.KuzminDiskPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
