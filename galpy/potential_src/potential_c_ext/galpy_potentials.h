@@ -225,9 +225,12 @@ double KuzminDiskPotentialEval(double,double,double,double,
                         struct potentialArg *);
 double KuzminDiskPotentialRforce(double,double,double,double,
                         struct potentialArg *);
+double KuzminDiskPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
 double KuzminDiskPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
-
+double KuzminDiskPotentialPlanarR2deriv(double,double,double, 
+					    struct potentialArg *);
 //PlummerPotential
 double PlummerPotentialEval(double,double,double,double,
                         struct potentialArg *);
