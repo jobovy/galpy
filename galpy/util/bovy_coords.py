@@ -72,6 +72,14 @@ from functools import wraps
 import math as m
 import numpy as nu
 import scipy as sc
+from galpy.util.config import __config__
+_APY_LOADED= __config__.getboolean('astropy','astropy-coords')
+if _APY_LOADED:
+    try:
+        import astropy.coordinates as apycoords
+        from astropy import units
+    except ImportError:
+        _APY_LOADED= False
 _DEGTORAD= m.pi/180.
 _K=4.74047
 def scalarDecorator(func):
@@ -136,7 +144,7 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
        degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -151,6 +159,12 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
+    if _APY_LOADED:
+        epoch, frame= _parse_epoch_frame_apy(epoch)
+        c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
+                              equinox=epoch,frame=frame)
+        c= c.transform_to(apycoords.Galactic)
+        return nu.array([c.l.to(units.rad).value,c.b.to(units.rad).value]).T
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= sc.dot(sc.array([[sc.cos(theta),sc.sin(theta),0.],[sc.sin(theta),-sc.cos(theta),0.],[0.,0.,1.]]),sc.dot(sc.array([[-sc.sin(dec_ngp),0.,sc.cos(dec_ngp)],[0.,1.,0.],[sc.cos(dec_ngp),0.,sc.sin(dec_ngp)]]),sc.array([[sc.cos(ra_ngp),sc.sin(ra_ngp),0.],[-sc.sin(ra_ngp),sc.cos(ra_ngp),0.],[0.,0.,1.]])))
@@ -1947,4 +1961,10 @@ def get_epoch_angles(epoch=2000.0):
         raise IOError("Only epochs 1950 and 2000 are supported")
     return (theta,dec_ngp,ra_ngp)
 
-
+def _parse_epoch_frame_apy(epoch):
+    if epoch == 2000.0 or epoch == '2000': epoch= 'J2000'
+    elif epoch == 1950.0 or epoch == '1950': epoch= 'B1950'
+    if not epoch is None and 'J' in epoch: frame= 'fk5'
+    elif not epoch is None and 'B' in epoch: frame= 'fk4'
+    else: frame= 'icrs'
+    return (epoch,frame)
