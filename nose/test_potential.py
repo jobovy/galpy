@@ -184,8 +184,7 @@ def test_forceAsDeriv_potential():
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
                 ##Excluding KuzminDiskPotential when z = 0
-                if Zs[jj]==0 and (isinstance(tp,potential.KuzminDiskPotential) \
-                or isinstance(tp,potential.KuzminDiskPotential)):
+                if Zs[jj]==0 and isinstance(tp,potential.KuzminDiskPotential):
                     continue
                 dz= 10.**-8.
                 newZ= Zs[jj]+dz
@@ -351,6 +350,8 @@ def test_2ndDeriv_potential():
                     if p == 'HernquistTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'JaffeTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'NFWTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
+                    #Excluding KuzminDiskPotential at z = 0
+                    if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue  
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
@@ -366,8 +367,11 @@ def test_2ndDeriv_potential():
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_Rzderiv'):
+             
             for ii in range(len(Rs)):
                 for jj in range(len(Zs)):
+                    #Excluding KuzminDiskPotential at z = 0
+                    if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue 
 #                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
