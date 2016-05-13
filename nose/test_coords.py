@@ -31,6 +31,17 @@ def test_radec_to_lb_ngp_apyangles():
     _turn_on_apy()
     return None
 
+def test_radec_to_lb_ngp_apy():
+    # Test that the NGP is at b=90, using astropy's coordinate transformations
+    ra, dec= 192.25, 27.4
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
+    assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=1950.)
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    return None
+
 def test_radec_to_lb_ngp_j2000():
     _turn_off_apy()
     # Test that the NGP is at b=90
@@ -42,6 +53,18 @@ def test_radec_to_lb_ngp_j2000():
                                 degree=False,epoch=2000.)
     assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-8., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
     _turn_on_apy()
+    return None
+
+def test_radec_to_lb_ngp_j2000_apy():
+    # Test that the NGP is at b=90
+    ra, dec= 192.85948, 27.12825
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
+    assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    return None
 
 def test_radec_to_lb_ngp_j2000_apyangles():
     # Same test, but using transformation angles derived from astropy
@@ -55,6 +78,7 @@ def test_radec_to_lb_ngp_j2000_apyangles():
                                 degree=False,epoch='J2000')
     assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
     _turn_on_apy()
+    return None
 
 def test_radec_to_lb_ngp_j2000_apyangles_icrs():
     # Test, but using transformation angles derived from astropy, for ICRS
@@ -165,6 +189,38 @@ def test_radec_to_lb_otherepochs_apy():
 
 # Test that radec_to_lb and lb_to_radec are each other's inverse
 def test_lb_to_radec():
+    _turn_off_apy()
+    ra, dec= 120, 60.
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
+    rat, dect= bovy_coords.lb_to_radec(lb[0],lb[1],degree=True,epoch=2000.)
+    assert numpy.fabs(ra-rat) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(dec-dect) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    rat, dect= bovy_coords.lb_to_radec(lb[0],lb[1],degree=False,epoch=2000.)
+    assert numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    # And also test this for arrays
+    os= numpy.ones(2)
+    lb= bovy_coords.radec_to_lb(os*ra/180.*numpy.pi,os*dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    ratdect= bovy_coords.lb_to_radec(lb[:,0],lb[:,1],degree=False,epoch=2000.)
+    rat= ratdect[:,0]
+    dect= ratdect[:,1]
+    assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    #Also test for a negative l
+    l,b= 240., 60.
+    ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
+    lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    _turn_on_apy()
+    return None
+
+# Test that radec_to_lb and lb_to_radec are each other's inverse, using astropy
+def test_lb_to_radec_apy():
     ra, dec= 120, 60.
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
     rat, dect= bovy_coords.lb_to_radec(lb[0],lb[1],degree=True,epoch=2000.)
