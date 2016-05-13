@@ -17,6 +17,59 @@ def test_radec_to_lb_ngp():
     _turn_on_apy()
     return None
 
+def test_radec_to_lb_ngp_apyangles():
+    # Test, but using transformation angles derived from astropy
+    _turn_off_apy(keep_loaded=True)
+    # Test that the NGP is at b=90
+    ra, dec= 192.25, 27.4
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='B1950')
+    assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch='B1950')
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    _turn_on_apy()
+    return None
+
+def test_radec_to_lb_ngp_j2000():
+    _turn_off_apy()
+    # Test that the NGP is at b=90
+    ra, dec= 192.85948, 27.12825
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
+    assert numpy.fabs(lb[1]-90.) < 10.**-8., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-8., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    _turn_on_apy()
+
+def test_radec_to_lb_ngp_j2000_apyangles():
+    # Same test, but using transformation angles derived from astropy
+    _turn_off_apy(keep_loaded=True)
+    # Test that the NGP is at b=90
+    ra, dec= 192.85948, 27.12825
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
+    assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch='J2000')
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    _turn_on_apy()
+
+def test_radec_to_lb_ngp_j2000_apyangles_icrs():
+    # Test, but using transformation angles derived from astropy, for ICRS
+    _turn_off_apy(keep_loaded=True)
+    # Test that the NGP is at b=90
+    ra, dec= 192.85948, 27.12825
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=None)
+    assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=None)
+    assert numpy.fabs(lb[1]-numpy.pi/2.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not pi/2'
+    _turn_on_apy()
+    return None
+
 def test_radec_to_lb_sgp():
     _turn_off_apy()
     # Test that the SGP is at b=90
@@ -48,7 +101,41 @@ def test_radec_to_lb_ncp():
     _turn_on_apy()
     return None
 
-# Test that other epochs do not work
+def test_radec_to_lb_ncp_apyangles():
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 180., 90.
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='B1950')
+    assert numpy.fabs(lb[0]-123.) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 123'
+    _turn_on_apy()
+    return None
+
+# Test the longitude of the north celestial pole
+def test_radec_to_lb_ncp_j2000():
+    _turn_off_apy()
+    ra, dec= 180., 90.
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
+    assert numpy.fabs(lb[0]-122.932) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    # Also test this for degree=False
+    lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    assert numpy.fabs(lb[0]-122.932/180.*numpy.pi) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    # Also test the latter for vector inputs
+    os= numpy.ones(2)
+    lb= bovy_coords.radec_to_lb(os*ra/180.*numpy.pi,os*dec/180.*numpy.pi,
+                                degree=False,epoch=2000.)
+    assert numpy.all(numpy.fabs(lb[:,0]-122.932/180.*numpy.pi) < 10.**-8.), 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    _turn_on_apy()
+    return None
+
+def test_radec_to_lb_ncp_j2000_apyangles():
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 180., 90.
+    lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
+    assert numpy.fabs(lb[0]-122.932) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    _turn_on_apy()
+    return None
+
+# Test that other epochs do not work when not using astropy
 def test_radec_to_lb_otherepochs():
     _turn_off_apy()
     ra, dec= 180., 90.
@@ -59,6 +146,20 @@ def test_radec_to_lb_otherepochs():
         pass
     else:
         raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
+    _turn_on_apy()
+    return None
+
+# Test that other epochs do work when using astropy
+def test_radec_to_lb_otherepochs_apy():
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 180., 90.
+    try:
+        lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
+                                    degree=False,epoch='J2015')   
+    except IOError:
+        raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
+    else:
+        pass
     _turn_on_apy()
     return None
 
@@ -804,9 +905,10 @@ def test_radec_to_custom_pal5():
     assert numpy.fabs(xieta[1]-6.) < 0.2, 'radec_to_custom does not work properly for Pal 5 transformation'
     return None
 
-def _turn_off_apy():
+def _turn_off_apy(keep_loaded=False):
     bovy_coords._APY_COORDS= False
-    bovy_coords._APY_LOADED= False
+    if not keep_loaded:
+        bovy_coords._APY_LOADED= False
 
 def _turn_on_apy():
     bovy_coords._APY_COORDS= True
