@@ -860,7 +860,7 @@ def test_actionAngleStaeckel_conserved_actions_ecc():
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
-        FlattenedPowerPotential, interpRZPotential
+        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
@@ -872,6 +872,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
            DoubleExponentialDiskPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.,alpha=0.),
+           KuzminDiskPotential(normalize=1.,a=1./8.),
            ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
@@ -882,7 +883,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
                                                 inclphi=True)
         else:
             check_actionAngle_conserved_actions(aAS,obs,pot,
-                                                -1.7,-8.,-1.65,ntimes=101,
+                                                -1.6,-8.,-1.65,ntimes=101,
                                                 inclphi=True)
     return None
 
