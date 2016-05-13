@@ -6,6 +6,10 @@ v1.2 (2016-XX-XX)
   astropy Quantities. See pull request #258 and the documentation for
   full details.
 
+- Internally use astropy.coordinates transformations to transform
+  between (ra,dec) and (l,b). Can be tuned using the astropy-coords
+  configuration parameter.
+
 - quasiisothermaldf input ro replaced by refr to avoid clash with ro
   that specifies units (see above).
 
