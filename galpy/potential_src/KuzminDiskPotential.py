@@ -5,16 +5,10 @@
 #               Phi(R, z)=  ---------------------------
 #                            \sqrt{R^2 + (a + |z|)^2} 
 ###############################################################################
-
 import numpy as nu
-import warnings
-from scipy import special, integrate
-from galpy.util import galpyWarning
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
-	_APY_LOADED
+from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
-	from astropy import units
-
+    from astropy import units
 class KuzminDiskPotential(Potential):
 	"""Class that implements the Kuzmin Disk potential
 
@@ -54,18 +48,16 @@ class KuzminDiskPotential(Potential):
 		Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
 		if _APY_LOADED and isinstance(a,units.Quantity): 
 			a= a.to(units.kpc).value/self._ro 
-
-		self._a = a ## a must be greator or equal to 0. 
-		##Should there be a check for this? Or should I just take the absolute value of a?
-		
+		self._a = a ## a must be greater or equal to 0. 
 		if normalize or \
 				(isinstance(normalize,(int,float)) \
 					 and not isinstance(normalize,bool)): 
+			print "Here"
 			self.normalize(normalize)
 
 		self.hasC = True
 		self.hasC_dxdv= True
-
+		return None
 
 
 	def _evaluate(self,R,z,phi=0.,t=0.):
