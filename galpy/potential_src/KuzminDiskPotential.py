@@ -53,7 +53,7 @@ class KuzminDiskPotential(Potential):
         """
 		Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
 		if _APY_LOADED and isinstance(a,units.Quantity): 
-			a= a.to(units.kpc).value/self._ro ##is this correct?
+			a= a.to(units.kpc).value/self._ro 
 
 		self._a = a ## a must be greator or equal to 0. 
 		##Should there be a check for this? Or should I just take the absolute value of a?
@@ -62,6 +62,8 @@ class KuzminDiskPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
 			self.normalize(normalize)
+
+                self.hasC = True
 
 
 
