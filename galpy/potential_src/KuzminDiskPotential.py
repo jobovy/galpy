@@ -52,7 +52,6 @@ class KuzminDiskPotential(Potential):
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
-            print "Here"
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv= True
