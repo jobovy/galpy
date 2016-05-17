@@ -32,6 +32,7 @@ from galpy.potential_src import KuzminKutuzovStaeckelPotential
 from galpy.potential_src import PlummerPotential
 from galpy.potential_src import PseudoIsothermalPotential
 from galpy.potential_src import KuzminDiskPotential
+from galpy.potential_src import SCFPotential
 #
 # Functions
 #
@@ -113,6 +114,7 @@ KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovSta
 PlummerPotential = PlummerPotential.PlummerPotential
 PseudoIsothermalPotential = PseudoIsothermalPotential.PseudoIsothermalPotential
 KuzminDiskPotential = KuzminDiskPotential.KuzminDiskPotential
+SCFPotential = SCFPotential.SCFPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
