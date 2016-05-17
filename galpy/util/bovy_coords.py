@@ -991,6 +991,35 @@ def cyl_to_rect(R,phi,Z):
 
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
+    
+def cyl_to_spher(R,phi,Z):
+    """
+    NAME:
+
+       cyl_to_spher
+
+    PURPOSE:
+
+       convert from cylindrical to spherical coordinates
+
+    INPUT:
+
+       R, phi, Z - cylindrical coordinates
+
+    OUTPUT:
+
+       R, theta, phi - spherical coordinates
+
+    HISTORY:
+
+       2016-05-16 - Written - Aladdin
+
+    """
+    theta = phi
+    if Z == 0: phi = nu.pi/2
+    else: phi = nu.arctan(float(R)/Z)
+    r = (R**2 + Z**2)**.5
+    return (r,theta, phi)
 
 @scalarDecorator
 def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
