@@ -1016,8 +1016,7 @@ def cyl_to_spher(R,phi,Z):
 
     """
     theta = phi
-    if Z == 0: phi = nu.pi/2
-    else: phi = nu.arctan(float(R)/Z)
+    phi = nu.arctan2(R, Z)
     r = (R**2 + Z**2)**.5
     return (r,theta, phi)
 
