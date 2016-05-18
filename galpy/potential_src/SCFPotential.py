@@ -6,6 +6,7 @@ if _APY_LOADED:
     
 from galpy.util import bovy_coords
 from scipy.special import eval_gegenbauer, lpmn
+from scipy.integrate import quad
 
 class SCFPotential(Potential):
    
@@ -72,7 +73,8 @@ class SCFPotential(Potential):
             for m in range(l + 1):
                 NN[l][m] = ((2*l + 1.)/(4*nu.pi) * fact(l - m)/fact(l + m))**.5 * (2. - (m==0))
         return NN
-        
+    def _calculateXi(r):
+        return  (r - 1.)/(1. + r)  
     def _rhoTilde(self, r, N,L):
         """
         NAME:
@@ -88,7 +90,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        xi = (r - 1.)/(1. + r)
+        xi = self._calculateXi(r)
         rho = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
@@ -111,7 +113,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        xi = (r - 1.)/(1. + r)
+        xi = self._calculateXi(r)
         phi = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
@@ -188,4 +190,35 @@ class SCFPotential(Potential):
            2016-05-17 - Written - Aladdin 
         """
         return nu.sum(self._compute(self._phiTilde, R, z, phi))
+         
+    
+def xiToR(xi):
+    return nu.divide((1. + xi),(1. - xi))    
+        
+def compute_coeffs_spherical(dens, N):
+        """
+        NAME:
+           _compute_coeffs_spherical
+        PURPOSE:
+           Numerically compute the expansion coefficients for a given spherical density
+        INPUT:
+           dens - A density function that takes a parameter xi
+           N - size of expansion coefficients
+        OUTPUT:
+           Expansion coefficients for density dens
+        HISTORY:
+           2016-05-18 - Written - Aladdin 
+        """
+        def integrand(xi):
+            r = xiToR(xi)
+            return dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+               
+        Acos = nu.zeros((N,1,1), float)
+        Asin = nu.zeros((N,1,1), float)
+        
+        for n in range(N):
+            K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+            Acos[n,0,0] = K*quad(integrand, -1., 1.)[0]
+        return Acos, Asin
+        
         
