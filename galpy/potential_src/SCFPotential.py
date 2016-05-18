@@ -90,7 +90,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        xi = (1. - r)/(1. + r)
+        xi = (r - 1.)/(1. + r)
         rho = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
@@ -112,7 +112,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        xi = (1. - r)/(1. + r)
+        xi = (r - 1.)/(1. + r)
         phi = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
@@ -185,5 +185,5 @@ class SCFPotential(Potential):
         for l in range(L):
             for m in range(l + 1):
                 coeff(l,m)
-                Phi[:,l,m]*= PP[l,m]
+                Phi[:,l,m]*= PP[l,m]*NN[l,m]
         return nu.sum(phi) 
