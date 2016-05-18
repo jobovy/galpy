@@ -150,7 +150,8 @@ class SCFPotential(Potential):
         for l in range(L):
             for m in range(l + 1):
                 coeff(l,m)
-                rho[:,l,m]*= PP[l,m]
+                
+                rho[:,l,m] *= PP[l,m]*NN[l,m]
         return nu.sum(rho) 
        
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -175,7 +176,6 @@ class SCFPotential(Potential):
         NN = self._Nroot(L)
         PP = lpmn(L,L,nu.cos(theta))
         Phi = nu.zeros((N,L,L), float) ## rho_n,l,m
-        ##TODO
         Phi_tilde = self._phiTilde(r, N, L) ##tilde rho_n,l
         def coeff(l,m): ##Duplicate Code :(
             for n in range(N):
