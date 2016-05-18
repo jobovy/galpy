@@ -9,7 +9,7 @@ from scipy.special import eval_gegenbauer, lpmn
 
 class SCFPotential(Potential):
    
-    def __init__(self, amp=1., Areal=nu.ones((10,10,10), float), Aimag=nu.ones((10,10,10), float) ,normalize=False, ro=None,vo=None):
+    def __init__(self, amp=1., Acos=nu.ones((10,10,10), float), Asin=nu.ones((10,10,10), float) ,normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -23,9 +23,9 @@ class SCFPotential(Potential):
 
             amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-            Areal - The real part of the expansion coefficent  (NxLxL matrix)
+            Acos - The real part of the expansion coefficent  (NxLxL matrix)
             
-            Aimag - The imaginary part of the expansion coefficent (NxLxL matrix)
+            Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
     
             normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -40,18 +40,16 @@ class SCFPotential(Potential):
            2016-05-13 - Written - Aladdin 
 
         """        
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(Areal,units.Quantity): 
-            Areal= Areal.to(units.kpc).value/self._ro 
-        if _APY_LOADED and isinstance(Aimag,units.Quantity): 
-            Aimag= Aimag.to(units.kpc).value/self._ro 
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='unitless')
+        
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-        self._Areal, self._Aimag = Areal, Aimag
+        ##Acos and Asin must have the same shape
+        self._Acos, self._Asin = Acos, Asin
 
-        
+        self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
         return None
 
  
@@ -97,6 +95,7 @@ class SCFPotential(Potential):
                 K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
                 rho[n][l] = K/(2*nu.pi) * (r**l)/ (r*(1 + r)**(2*l + 3)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
         return rho   
+
     def _phiTilde(self, r, N,L):
         """
         NAME:
@@ -119,6 +118,40 @@ class SCFPotential(Potential):
                 phi[n][l] = - (r**l)/ ((1 + r)**(2*l + 1)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
         return phi  
         
+    def _compute(self, funcTilde, R, z, phi):
+        """
+        NAME:
+           _compute
+        PURPOSE:
+           evaluate the NxLxL density or potential
+        INPUT:
+           funcTidle - must be _rhoTilde or _phiTilde
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           An NxLxL density or potential at (R,z, phi)
+        HISTORY:
+           2016-05-18 - Written - Aladdin 
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape    
+        r, theta, phi = bovy_coords.cyl_to_spher(R,phi,z)
+        
+        NN = self._NN
+        PP = lpmn(L,L,nu.cos(theta))[0] ##Get the Legendre polynomials
+        func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
+        
+        func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        
+        m = nu.arange(0, L)
+        mcos = nu.cos(m*phi)
+        msin = nu.sin(m*phi)
+        for l in range(L):
+            for m in range(m + 1):
+                    func[:,l,m] = (func_tilde[:,l]*(Acos[:,l,m]*mcos + Asin[:,l,m]*msin))*PP[l,m]*NN[l,m]
+        return func
+        
     def _dens(self, R, z, phi=0., t=0.):
         """
         NAME:
@@ -135,24 +168,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        Areal, Aimag = self._Areal, self._Aimag
-        N, L, M = Areal.shape
-        r, theta, phi = bovy_coords.cyl_to_spher(R,phi,z)
-        NN = self._Nroot(L)
-
-        PP = lpmn(L,L,nu.cos(theta))[0]
-        rho = nu.zeros((N,L,L), float) ## rho_n,l,m
-        rho_tilde = self._rhoTilde(r, N, L) ##tilde rho_n,l
-        def coeff(l,m):
-            for n in range(N):
-                rh_tmp = rho_tilde[n][l]*(Areal[n][l][m]*nu.cos(m*phi) + Aimag[n][l][m]*nu.sin(m*phi))
-                rho[n][l][m] = rh_tmp
-        for l in range(L):
-            for m in range(l + 1):
-                coeff(l,m)
-                
-                rho[:,l,m] *= PP[l,m]*NN[l,m]
-        return nu.sum(rho) 
+        return nu.sum(self._compute(self._rhoTilde, R, z, phi))
+        
        
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -170,20 +187,5 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        Areal, Aimag = self._Areal, self._Aimag
-        r, theta, phi = bovy_coords.cyl_to_spher(R,phi,z)
-        N, L, M = Areal.shape
-        NN = self._Nroot(L)
-        PP = lpmn(L,L,nu.cos(theta))
-        Phi = nu.zeros((N,L,L), float) ## rho_n,l,m
-        Phi_tilde = self._phiTilde(r, N, L) ##tilde rho_n,l
-        def coeff(l,m): ##Duplicate Code :(
-            for n in range(N):
-                Ph_tmp = Phi_tilde[n][l]*(Areal[n][l][m]*nu.cos(m*phi) + Aimag[n][l][m]*nu.sin(m*phi))
-                
-                Phi[n][l][m] = Ph_tmp
-        for l in range(L):
-            for m in range(l + 1):
-                coeff(l,m)
-                Phi[:,l,m]*= PP[l,m]*NN[l,m]
-        return nu.sum(phi) 
+        return nu.sum(self._compute(self._phiTilde, R, z, phi))
+        
