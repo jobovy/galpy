@@ -73,7 +73,19 @@ class SCFPotential(Potential):
             for m in range(l + 1):
                 NN[l][m] = ((2*l + 1.)/(4*nu.pi) * fact(l - m)/fact(l + m))**.5 * (2. - (m==0))
         return NN
-    def _calculateXi(r):
+    def _calculateXi(self, r):
+        """
+        NAME:
+           _calculateXi
+        PURPOSE:
+           Calculate xi given r
+        INPUT:
+           r - Evaluate at radius r
+        OUTPUT:
+           xi
+        HISTORY:
+           2016-05-18 - Written - Aladdin 
+        """
         return  (r - 1.)/(1. + r)  
     def _rhoTilde(self, r, N,L):
         """
