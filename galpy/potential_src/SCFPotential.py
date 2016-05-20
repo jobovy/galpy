@@ -10,7 +10,7 @@ from scipy.integrate import quad
 
 class SCFPotential(Potential):
    
-    def __init__(self, amp=1., Acos=nu.ones((10,10,10), float), Asin=nu.ones((10,10,10), float) ,normalize=False, ro=None,vo=None):
+    def __init__(self, amp=1., Acos=nu.ones((10,10,10), float), Asin=nu.ones((10,10,10), float), a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -27,6 +27,8 @@ class SCFPotential(Potential):
             Acos - The real part of the expansion coefficent  (NxLxL matrix)
             
             Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
+            
+            a - scale length (can be Quantity)
     
             normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -42,13 +44,17 @@ class SCFPotential(Potential):
 
         """        
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='unitless')
-        
+        if _APY_LOADED and isinstance(a,units.Quantity): 
+            a= a.to(units.kpc).value/self._ro 
+            
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
         ##Acos and Asin must have the same shape
         self._Acos, self._Asin = Acos, Asin
+        
+        self._a = a
 
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
         return None
@@ -86,7 +92,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-18 - Written - Aladdin 
         """
-        return  (r - 1.)/(1. + r)  
+        a = self._a
+        return  (r - a)/(r + a)  
     def _rhoTilde(self, r, N,L):
         """
         NAME:
@@ -102,12 +109,13 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        a = self._a
         xi = self._calculateXi(r)
         rho = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
                 K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
-                rho[n][l] = K/(2*nu.pi) * (r**l)/ (r*(1 + r)**(2*l + 3)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
+                rho[n][l] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
         return rho   
 
     def _phiTilde(self, r, N,L):
@@ -125,11 +133,12 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        a = self._a
         xi = self._calculateXi(r)
         phi = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
-                phi[n][l] = - (r**l)/ ((1 + r)**(2*l + 1)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
+                phi[n][l] = - (r*a)**l/ ((a + r)**(2*l + 1)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):
@@ -204,10 +213,10 @@ class SCFPotential(Potential):
         return nu.sum(self._compute(self._phiTilde, R, z, phi))
          
     
-def xiToR(xi):
-    return nu.divide((1. + xi),(1. - xi))    
+def xiToR(xi, a =1):
+    return a*nu.divide((1. + xi),(1. - xi))    
         
-def compute_coeffs_spherical(dens, N):
+def compute_coeffs_spherical(dens, N, a=1.):
         """
         NAME:
            _compute_coeffs_spherical
@@ -216,6 +225,7 @@ def compute_coeffs_spherical(dens, N):
         INPUT:
            dens - A density function that takes a parameter xi
            N - size of expansion coefficients
+           parem - Any other needed parameters
         OUTPUT:
            Expansion coefficients for density dens
         HISTORY:
@@ -223,7 +233,7 @@ def compute_coeffs_spherical(dens, N):
         """
         def integrand(xi):
             r = xiToR(xi)
-            return dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            return a**2 * dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
