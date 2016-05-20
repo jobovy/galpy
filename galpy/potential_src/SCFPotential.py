@@ -77,13 +77,14 @@ class SCFPotential(Potential):
         fact = nu.math.factorial
         CC = nu.zeros((N,L), float) 
         for l in range(L):
-            for n in range(N - 1):
+            for n in range(N):
                 alpha = 2*l + 3./2.
                 if n==0:
                     CC[n][l] = 1
-                    continue
+                    continue 
                 elif n==1: CC[n][l] = 2*alpha*xi
-                CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
+                if n + 1 != N:
+                    CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
         return CC
  
     def _Nroot(self, L):
