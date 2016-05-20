@@ -6,7 +6,7 @@ if _APY_LOADED:
     
 from galpy.util import bovy_coords
 from scipy.special import eval_gegenbauer, lpmn, gamma
-from scipy.integrate import quad
+from scipy.integrate import quad, nquad
 
 class SCFPotential(Potential):
    
@@ -252,7 +252,7 @@ def compute_coeffs_spherical(dens, N):
         PURPOSE:
            Numerically compute the expansion coefficients for a given spherical density
         INPUT:
-           dens - A density function that takes a parameter xi
+           dens - A density function that takes a parameter r
            N - size of expansion coefficients
         OUTPUT:
            Expansion coefficients for density dens
@@ -280,7 +280,7 @@ def compute_coeffs_axi(dens, N, L):
         PURPOSE:
            Numerically compute the expansion coefficients for a given axi-symmetric density
         INPUT:
-           dens - A density function that takes a parameter xi
+           dens - A density function that takes a parameter r and theta
            N - size of the Nth dimension of the expansion coefficients
            L - size of the Lth dimension of the expansion coefficients
         OUTPUT:
@@ -288,14 +288,11 @@ def compute_coeffs_axi(dens, N, L):
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
-        def xi_integrand(xi, l):
+        def integrand(xi, theta, *arg):
+            l = arg[0]
             r = xiToR(xi)
-            return -2**(-2*l) * dens(r)*(1 + xi)**(l + 2.) * (1 - xi)**(l - 3.) * eval_gegenbauer(n,2*l + 3./2, xi)
+            return -2**(-2*l) * dens(r,theta)*(1 + xi)**(l + 2.) * (1 - xi)**(l - 3.) * eval_gegenbauer(n,2*l + 3./2, xi) * lpmn(L,L,nu.cos(theta))[0][l,0]
             
-        ##TODO: figure out how to integrate the Legendre functions as a matrix for performance reasons
-        def theta_integrand(theta, l):
-            P = lpmn(L,L,nu.cos(theta))[0]
-            return  P[l,0]
                
         Acos = nu.zeros((N,L,1), float)
         Asin = nu.zeros((N,L,1), float)
@@ -306,7 +303,7 @@ def compute_coeffs_axi(dens, N, L):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
                 I = -K*(4*nu.pi)/(2.)**(2*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Acos[n,l,0] = I**-1. *quad(xi_integrand, -1., 1., args=(l))[0]*quad(theta_integrand, 0, 2*nu.pi, args=(l))[0]*(2*l + 1)**0.5 *2
+                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1,1],[0,2*nu.pi]] , args=((l), (l)))[0]*(2*l + 1)**0.5 *2
         return Acos, Asin
         
         
