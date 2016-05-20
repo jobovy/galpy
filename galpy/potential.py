@@ -78,6 +78,7 @@ turn_physical_off= Potential.turn_physical_off
 turn_physical_on= Potential.turn_physical_on
 _dim= Potential._dim
 compute_coeffs_spherical = SCFPotential.compute_coeffs_spherical
+compute_coeffs_axi = SCFPotential.compute_coeffs_axi
 #
 # Classes
 #

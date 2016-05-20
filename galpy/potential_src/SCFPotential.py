@@ -5,7 +5,7 @@ if _APY_LOADED:
     from astropy import units
     
 from galpy.util import bovy_coords
-from scipy.special import eval_gegenbauer, lpmn
+from scipy.special import eval_gegenbauer, lpmn, gamma
 from scipy.integrate import quad
 
 class SCFPotential(Potential):
@@ -216,7 +216,7 @@ class SCFPotential(Potential):
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
-def compute_coeffs_spherical(dens, N, a=1.):
+def compute_coeffs_spherical(dens, N):
         """
         NAME:
            _compute_coeffs_spherical
@@ -225,7 +225,6 @@ def compute_coeffs_spherical(dens, N, a=1.):
         INPUT:
            dens - A density function that takes a parameter xi
            N - size of expansion coefficients
-           parem - Any other needed parameters
         OUTPUT:
            Expansion coefficients for density dens
         HISTORY:
@@ -233,7 +232,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
         """
         def integrand(xi):
             r = xiToR(xi)
-            return a**2 * dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            return dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
@@ -241,6 +240,44 @@ def compute_coeffs_spherical(dens, N, a=1.):
         for n in range(N):
             K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
             Acos[n,0,0] = K*quad(integrand, -1., 1.)[0]
+        return Acos, Asin
+        
+        
+        
+def compute_coeffs_axi(dens, N, L):
+        """
+        NAME:
+           _compute_coeffs_axi
+        PURPOSE:
+           Numerically compute the expansion coefficients for a given axi-symmetric density
+        INPUT:
+           dens - A density function that takes a parameter xi
+           N - size of the Nth dimension of the expansion coefficients
+           L - size of the Lth dimension of the expansion coefficients
+        OUTPUT:
+           Expansion coefficients for density dens
+        HISTORY:
+           2016-05-20 - Written - Aladdin 
+        """
+        def xi_integrand(xi, l):
+            r = xiToR(xi)
+            return -2**(-2*l) * dens(r)*(1 + xi)**(l + 2.) * (1 - xi)**(l - 3.) * eval_gegenbauer(n,2*l + 3./2, xi)
+            
+        ##TODO: figure out how to integrate the Legendre functions as a matrix for performance reasons
+        def theta_integrand(theta, l):
+            P = lpmn(L,L,nu.cos(theta))[0]
+            return  P[l,0]
+               
+        Acos = nu.zeros((N,L,1), float)
+        Asin = nu.zeros((N,L,1), float)
+        
+        
+        
+        for n in range(N):
+            for l in range(L):
+                K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
+                I = -K*(4*nu.pi)/(2.)**(2*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+                Acos[n,l,0] = I**-1. *quad(xi_integrand, -1., 1., args=(l))[0]*quad(theta_integrand, 0, 2*nu.pi, args=(l))[0]*(2*l + 1)**0.5 *2
         return Acos, Asin
         
         
