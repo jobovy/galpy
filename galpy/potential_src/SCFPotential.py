@@ -59,6 +59,32 @@ class SCFPotential(Potential):
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
         return None
 
+    def _C(self,xi, L, N):
+        """
+        NAME:
+           _C
+        PURPOSE:
+           Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
+        INPUT:
+           xi - radial transformed variable
+           L - Size of the L dimension
+           N - Size of the N dimension
+        OUTPUT:
+           An LxN Gegenbauer Polynomial 
+        HISTORY:
+           2016-05-16 - Written - Aladdin 
+        """
+        fact = nu.math.factorial
+        CC = nu.zeros((N,L), float) 
+        for l in range(L):
+            for n in range(N - 1):
+                alpha = 2*l + 3./2.
+                if n==0:
+                    CC[n][l] = 1
+                    continue
+                elif n==1: CC[n][l] = 2*alpha*xi
+                CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
+        return CC
  
     def _Nroot(self, L):
         """
@@ -94,7 +120,7 @@ class SCFPotential(Potential):
         """
         a = self._a
         return  (r - a)/(r + a)  
-    def _rhoTilde(self, r, N,L):
+    def _rhoTilde(self, r, CC, N,L):
         """
         NAME:
            _rhoTilde
@@ -102,6 +128,7 @@ class SCFPotential(Potential):
            Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
         INPUT:
            r - Evaluate at radius r
+           CC - The Gegenbauer polynomial matrix
            N - size of the N dimension
            L - size of the L dimension
         OUTPUT:
@@ -110,15 +137,14 @@ class SCFPotential(Potential):
            2016-05-17 - Written - Aladdin 
         """
         a = self._a
-        xi = self._calculateXi(r)
         rho = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
                 K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
-                rho[n][l] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
+                rho[n][l] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * CC[n][l]* (4*nu.pi)**0.5
         return rho   
 
-    def _phiTilde(self, r, N,L):
+    def _phiTilde(self, r, CC, N,L):
         """
         NAME:
            _phiTilde
@@ -126,6 +152,7 @@ class SCFPotential(Potential):
            Evaluate phi_tilde as defined in equation 3.10 and 2.25 for 0 <= n < N and 0 <= l < L
         INPUT:
            r - Evaluate at radius r
+           CC - The Gegenbauer polynomial matrix
            N - size of the N dimension
            L - size of the L dimension
         OUTPUT:
@@ -134,11 +161,10 @@ class SCFPotential(Potential):
            2016-05-17 - Written - Aladdin 
         """
         a = self._a
-        xi = self._calculateXi(r)
         phi = nu.zeros((N,L), float)
         for n in range(N):
             for l in range(L):
-                phi[n][l] = - (r*a)**l/ ((a + r)**(2*l + 1)) * eval_gegenbauer(n,2*l + 3./2, xi)* (4*nu.pi)**0.5
+                phi[n][l] = - (r*a)**l/ ((a + r)**(2*l + 1)) * CC[n,l]* (4*nu.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):
@@ -160,10 +186,12 @@ class SCFPotential(Potential):
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,phi,z)
+        xi = self._calculateXi(r)
         
         NN = self._NN
         PP = lpmn(L,L,nu.cos(theta))[0] ##Get the Legendre polynomials
-        func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
+        CC = self._C(xi,L,N)
+        func_tilde = funcTilde(r, CC, N, L) ## Tilde of the function of interest 
         
         func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
         
