@@ -186,7 +186,7 @@ class SCFPotential(Potential):
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
-        r, theta, phi = bovy_coords.cyl_to_spher(R,phi,z)
+        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         xi = self._calculateXi(r)
         
         NN = self._NN
@@ -252,7 +252,7 @@ def compute_coeffs_spherical(dens, N):
         PURPOSE:
            Numerically compute the expansion coefficients for a given spherical density
         INPUT:
-           dens - A density function that takes a parameter r
+           dens - A density function that takes a parameter R
            N - size of expansion coefficients
         OUTPUT:
            Expansion coefficients for density dens
@@ -261,7 +261,8 @@ def compute_coeffs_spherical(dens, N):
         """
         def integrand(xi):
             r = xiToR(xi)
-            return dens(r)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            R = r
+            return dens(R)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
@@ -280,7 +281,7 @@ def compute_coeffs_axi(dens, N, L):
         PURPOSE:
            Numerically compute the expansion coefficients for a given axi-symmetric density
         INPUT:
-           dens - A density function that takes a parameter r and theta
+           dens - A density function that takes a parameter R and z
            N - size of the Nth dimension of the expansion coefficients
            L - size of the Lth dimension of the expansion coefficients
         OUTPUT:
@@ -288,11 +289,16 @@ def compute_coeffs_axi(dens, N, L):
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
-        def integrand(xi, theta, *arg):
+        def integrand(xi, phi, *arg):
             l = arg[0]
             r = xiToR(xi)
-            return -2**(-2*l) * dens(r,theta)*(1 + xi)**(l + 2.) * (1 - xi)**(l - 3.) * eval_gegenbauer(n,2*l + 3./2, xi) * lpmn(L,L,nu.cos(theta))[0][l,0]
+            theta = phi
+            R, z, phi = bovy_coords.spher_to_cyl(r, 0, phi)
+            return -2**(-2*l) * dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * eval_gegenbauer(n,2*l + 3./2, xi) * nu.sin(theta)
             
+        def theta_integrand(theta, l):
+            P = lpmn(L,L,nu.cos(theta))[0]
+            return  P[l,0]
                
         Acos = nu.zeros((N,L,1), float)
         Asin = nu.zeros((N,L,1), float)
@@ -303,7 +309,8 @@ def compute_coeffs_axi(dens, N, L):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
                 I = -K*(4*nu.pi)/(2.)**(2*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1,1],[0,2*nu.pi]] , args=((l), (l)))[0]*(2*l + 1)**0.5 *2
+                Pintegrated = quad(theta_integrand, 0, 2*nu.pi, args=(l))[0]
+                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*Pintegrated*(2*l + 1)**0.5
         return Acos, Asin
         
         
