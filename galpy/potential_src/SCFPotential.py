@@ -190,7 +190,7 @@ class SCFPotential(Potential):
         xi = self._calculateXi(r)
         
         NN = self._NN
-        PP = lpmn(L,L,nu.cos(theta))[0] ##Get the Legendre polynomials
+        PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
         CC = self._C(xi,L,N)
         func_tilde = funcTilde(r, CC, N, L) ## Tilde of the function of interest 
         
@@ -200,8 +200,8 @@ class SCFPotential(Potential):
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
         for l in range(L):
-            for m in range(m + 1):
-                    func[:,l,m] = (func_tilde[:,l]*(Acos[:,l,m]*mcos + Asin[:,l,m]*msin))*PP[l,m]*NN[l,m]
+            for m in range(l + 1):
+                    func[:,l,m] = (func_tilde[:,l]*(Acos[:,l,m]*mcos[m] + Asin[:,l,m]*msin[m]))*PP[l,m]*NN[l,m]
         return func
         
     def _dens(self, R, z, phi=0., t=0.):
@@ -240,7 +240,48 @@ class SCFPotential(Potential):
            2016-05-17 - Written - Aladdin 
         """
         return nu.sum(self._compute(self._phiTilde, R, z, phi))
-         
+
+def gaussLegendre(L, a, b, N=100):
+    """
+        NAME:
+           _gaussLegendre
+        PURPOSE:
+           Take the integral of the legendre functions for all l and m once.
+        INPUT:
+           L - Size of the legendre functions
+           a - Lower limit of integration
+           b - Upper limit of integration
+        OUTPUT:
+           the integral of the legendre functions
+        HISTORY:
+           2016-05-17 - Written - Aladdin 
+    """
+    def gaussxw(N):
+        a = nu.linspace(3,4*N-1,N)/(4*N+2)
+        x = nu.cos(nu.pi*a+1/(8*N*N*nu.tan(a)))
+        epsilon = 1e-15
+        delta = 1.0
+        while delta>epsilon:
+            p0 = nu.ones(N,float)
+            p1 = nu.copy(x)
+            for k in range(1,N):
+                p0,p1 = p1,((2*k+1)*x*p1-k*p0)/(k+1)
+            dp = (N+1)*(p0-x*p1)/(1-x*x)
+            dx = p1/dp
+            x -= dx
+            delta = max(abs(dx))
+
+        # Calculate the weights
+        w = 2*(N+1)*(N+1)/(N*N*(1-x*x)*dp*dp)
+
+        return x,w
+    x,w = gaussxw(N)
+    xp = .5*(b-a)*x + .5*(b+a)
+    wp = .5*(b - a)*w
+    s = nu.zeros((L,L), float)
+    for k in range(N):
+        s+= wp[k]*lpmn(L-1,L-1,nu.cos(xp[k]))[0]
+    return s
     
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
@@ -295,22 +336,18 @@ def compute_coeffs_axi(dens, N, L):
             theta = phi
             R, z, phi = bovy_coords.spher_to_cyl(r, 0, phi)
             return -2**(-2*l) * dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * eval_gegenbauer(n,2*l + 3./2, xi) * nu.sin(theta)
-            
-        def theta_integrand(theta, l):
-            P = lpmn(L,L,nu.cos(theta))[0]
-            return  P[l,0]
+        
                
-        Acos = nu.zeros((N,L,1), float)
-        Asin = nu.zeros((N,L,1), float)
-        
-        
+        Acos = nu.zeros((N,L,L), float)
+        Asin = nu.zeros((N,L,L), float)
+        ##This should save us some computation time since we're only taking the integral once, instead of L times
+        Pintegrated = gaussLegendre(L, 0, 2*nu.pi).T
         
         for n in range(N):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-                I = -K*(4*nu.pi)/(2.)**(2*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Pintegrated = quad(theta_integrand, 0, 2*nu.pi, args=(l))[0]
-                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*Pintegrated*(2*l + 1)**0.5
+                I = -K*(4*nu.pi)/(2.)**(8*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*Pintegrated[l,0]*(2*l + 1)**0.5
         return Acos, Asin
         
         
