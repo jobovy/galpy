@@ -286,7 +286,7 @@ def gaussLegendre(L, a, b, N=100):
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
-def compute_coeffs_spherical(dens, N):
+def compute_coeffs_spherical(dens, N, a=1.):
         """
         NAME:
            _compute_coeffs_spherical
@@ -301,9 +301,9 @@ def compute_coeffs_spherical(dens, N):
            2016-05-18 - Written - Aladdin 
         """
         def integrand(xi):
-            r = xiToR(xi)
+            r = xiToR(xi, a)
             R = r
-            return dens(R)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            return a**3. * dens(R, a=a)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
