@@ -303,7 +303,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
         def integrand(xi):
             r = xiToR(xi, a)
             R = r
-            return a**3. * dens(R, a=a)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
