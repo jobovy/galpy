@@ -1015,8 +1015,7 @@ def cyl_to_spher(R,Z, phi):
        2016-05-16 - Written - Aladdin
 
     """
-    theta = phi
-    phi = nu.arctan2(R, Z)
+    theta = nu.arctan2(R, Z)
     r = (R**2 + Z**2)**.5
     return (r,theta, phi)
     
@@ -1043,9 +1042,8 @@ def spher_to_cyl(r, theta, phi):
        2016-05-20 - Written - Aladdin
 
     """
-    R = r*nu.sin(phi)
-    z = r*nu.cos(phi)
-    phi = theta
+    R = r*nu.sin(theta)
+    z = r*nu.cos(theta)
     return (R,z, phi)
 
 
