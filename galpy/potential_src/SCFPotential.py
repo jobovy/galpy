@@ -280,7 +280,7 @@ def gaussLegendre(L, a, b, N=100):
     wp = .5*(b - a)*w
     s = nu.zeros((L,L), float)
     for k in range(N):
-        s+= wp[k]*lpmn(L-1,L-1,nu.cos(xp[k]))[0]
+        s+= wp[k]*lpmn(L-1,L-1,nu.cos(xp[k]))[0]*nu.sin(xp[k])
     return s
     
 def xiToR(xi, a =1):
@@ -330,24 +330,23 @@ def compute_coeffs_axi(dens, N, L):
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
-        def integrand(xi, phi, *arg):
+        def integrand(xi, theta, *arg):
             l = arg[0]
             r = xiToR(xi)
-            theta = phi
-            R, z, phi = bovy_coords.spher_to_cyl(r, 0, phi)
-            return -2**(-2*l) * dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * eval_gegenbauer(n,2*l + 3./2, xi) * nu.sin(theta)
+            R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
+            return -2**(-2*l) * dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * eval_gegenbauer(n,2*l + 3./2, xi) *nu.sin(theta)*lpmn(l,l,nu.cos(theta))[0][0,l]
         
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         ##This should save us some computation time since we're only taking the integral once, instead of L times
-        Pintegrated = gaussLegendre(L, 0, 2*nu.pi).T
+        Pintegrated = gaussLegendre(L, 0, nu.pi).T
         
         for n in range(N):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
                 I = -K*(4*nu.pi)/(2.)**(8*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Acos[n,l,0] = I**-1. *nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*Pintegrated[l,0]*(2*l + 1)**0.5
+                Acos[n,l,0] = I**-1. * 2*nu.pi*nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*(2*l + 1)**0.5
         return Acos, Asin
         
         
