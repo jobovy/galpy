@@ -8,6 +8,8 @@ from galpy.util import bovy_coords
 from scipy.special import eval_gegenbauer, lpmn, gamma
 from scipy.integrate import quad, nquad
 
+import itertools
+
 class SCFPotential(Potential):
    
     def __init__(self, amp=1., Acos=nu.ones((10,10,10), float), Asin=nu.ones((10,10,10), float), a = 1., normalize=False, ro=None,vo=None):
@@ -241,48 +243,8 @@ class SCFPotential(Potential):
         """
         return nu.sum(self._compute(self._phiTilde, R, z, phi))
 
-def gaussLegendre(L, a, b, N=100):
-    """
-        NAME:
-           _gaussLegendre
-        PURPOSE:
-           Take the integral of the legendre functions for all l and m once.
-        INPUT:
-           L - Size of the legendre functions
-           a - Lower limit of integration
-           b - Upper limit of integration
-        OUTPUT:
-           the integral of the legendre functions
-        HISTORY:
-           2016-05-17 - Written - Aladdin 
-    """
-    def gaussxw(N):
-        a = nu.linspace(3,4*N-1,N)/(4*N+2)
-        x = nu.cos(nu.pi*a+1/(8*N*N*nu.tan(a)))
-        epsilon = 1e-15
-        delta = 1.0
-        while delta>epsilon:
-            p0 = nu.ones(N,float)
-            p1 = nu.copy(x)
-            for k in range(1,N):
-                p0,p1 = p1,((2*k+1)*x*p1-k*p0)/(k+1)
-            dp = (N+1)*(p0-x*p1)/(1-x*x)
-            dx = p1/dp
-            x -= dx
-            delta = max(abs(dx))
 
-        # Calculate the weights
-        w = 2*(N+1)*(N+1)/(N*N*(1-x*x)*dp*dp)
 
-        return x,w
-    x,w = gaussxw(N)
-    xp = .5*(b-a)*x + .5*(b+a)
-    wp = .5*(b - a)*w
-    s = nu.zeros((L,L), float)
-    for k in range(N):
-        s+= wp[k]*lpmn(L-1,L-1,nu.cos(xp[k]))[0]*nu.sin(xp[k])
-    return s
-    
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
@@ -313,7 +275,33 @@ def compute_coeffs_spherical(dens, N, a=1.):
             Acos[n,0,0] = K*quad(integrand, -1., 1.)[0]
         return Acos, Asin
         
-        
+def C(xi, L, N):
+        """
+        NAME:
+           _C
+        PURPOSE:
+           Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
+        INPUT:
+           xi - radial transformed variable
+           L - Size of the L dimension
+           N - Size of the N dimension
+        OUTPUT:
+           An LxN Gegenbauer Polynomial 
+        HISTORY:
+           2016-05-16 - Written - Aladdin 
+        """
+        fact = nu.math.factorial
+        CC = nu.zeros((N,L), float) 
+        for l in range(L):
+            for n in range(N):
+                alpha = 2*l + 3./2.
+                if n==0:
+                    CC[n][l] = 1
+                    continue 
+                elif n==1: CC[n][l] = 2*alpha*xi
+                if n + 1 != N:
+                    CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
+        return CC       
         
 def compute_coeffs_axi(dens, N, L):
         """
@@ -330,23 +318,90 @@ def compute_coeffs_axi(dens, N, L):
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
-        def integrand(xi, theta, *arg):
-            l = arg[0]
+        def integrand(xi, theta):
+            l = nu.arange(0, L)
+            l = nu.repeat([l], [N], axis=0)
             r = xiToR(xi)
             R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
-            return -2**(-2*l) * dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * eval_gegenbauer(n,2*l + 3./2, xi) *nu.sin(theta)*lpmn(l,l,nu.cos(theta))[0][0,l]
+            Legandre = lpmn(L - 1,L - 1,nu.cos(theta))[0].T[:,0]
+            Legandre = nu.repeat([Legandre], [N], axis=0)
+            return dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * C(xi, L, L)*nu.sin(theta)*Legandre
         
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
-        ##This should save us some computation time since we're only taking the integral once, instead of L times
-        Pintegrated = gaussLegendre(L, 0, nu.pi).T
+        
+        ##This should save us some computation time since we're only taking the double integral once, rather then L times
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]], shape=(N, L))
         
         for n in range(N):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
                 I = -K*(4*nu.pi)/(2.)**(8*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Acos[n,l,0] = I**-1. * 2*nu.pi*nquad(integrand, [[-1.,1.],[0,nu.pi]] , args=((l), (l)))[0]*(2*l + 1)**0.5
+                Acos[n,l,0] = -2**(-2*l) * I**-1. * 2*nu.pi*integrated[n,l] * (2*l + 1)**0.5
         return Acos, Asin
         
+def gaussianQuadrature(integrand, bounds, N=100, shape=None):
+        """
+        NAME:
+           _gaussianQuadrature
+        PURPOSE:
+           Numerically take n integrals over a function that returns a float or an array 
+        INPUT:
+           integrand - The function you're integrating over.
+           bounds - The bounds of the integral in the form of [[a_0, b_0], [a_1, b_1], ... , [a_n, b_n]] 
+           where a_i is the lower bound and b_i is the upper bound
+           N - Number of sample points
+           shape - the shape of the array that integrand returns. None if it returns a float
+        OUTPUT:
+           The integral of the function integrand 
+        HISTORY:
+           2016-05-24 - Written - Aladdin 
+        """
+    def gaussxw(N):
+        a = nu.linspace(3,4*N-1,N)/(4*N+2)
+        x = nu.cos(nu.pi*a+1/(8*N*N*nu.tan(a)))
+        epsilon = 1e-15
+        delta = 1.0
+        while delta>epsilon:
+            p0 = nu.ones(N,float)
+            p1 = nu.copy(x)
+            for k in range(1,N):
+                p0,p1 = p1,((2*k+1)*x*p1-k*p0)/(k+1)
+            dp = (N+1)*(p0-x*p1)/(1-x*x)
+            dx = p1/dp
+            x -= dx
+            delta = max(abs(dx))
+        # Calculate the weights
+        w = 2*(N+1)*(N+1)/(N*N*(1-x*x)*dp*dp)
+        return x,w
+        
+    ##Calculates the sample points and weights
+    x,w = gaussxw(N)
+    
+    ##Maps the sample point and weights
+    xp = nu.zeros((len(bounds), N), float)
+    wp = nu.zeros((len(bounds), N), float)
+    for i in range(len(bounds)):
+        bound = bounds[i]
+        a,b = bound
+        xp[i] = .5*(b-a)*x + .5*(b+a)
+        wp[i] = .5*(b - a)*w
+
+    ##Performs the actual integration
+    
+    s = 0
+    if shape != None: ##This will allow us to integrate a matrix
+        s = nu.zeros(shape, float)
+    
+    ## i is a tuple of size n(number of integrals we're taking), that iterates over the range of N
+    for i in itertools.product(range(N), repeat=len(bounds)):
+        index = [[],[]]
+        for j in range(len(i)):
+            index[0].append(j)
+            index[1].append(i[j])
+        s+= nu.prod(wp[index])*integrand(*xp[index])
+   
+    return s
+                
         
