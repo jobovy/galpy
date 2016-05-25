@@ -201,9 +201,7 @@ class SCFPotential(Potential):
         m = nu.arange(0, L)
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
-        for l in range(L):
-            for m in range(l + 1):
-                    func[:,l,m] = (func_tilde[:,l]*(Acos[:,l,m]*mcos[m] + Asin[:,l,m]*msin[m]))*PP[l,m]*NN[l,m]
+        func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos[None,None, :] + Asin[:,:,:]*msin[None,None,:])*PP[None,:,:]*NN[None,:,:]
         return func
         
     def _dens(self, R, z, phi=0., t=0.):
@@ -320,12 +318,10 @@ def compute_coeffs_axi(dens, N, L):
         """
         def integrand(xi, theta):
             l = nu.arange(0, L)
-            l = nu.repeat([l], [N], axis=0)
             r = xiToR(xi)
             R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
-            Legandre = lpmn(L - 1,L - 1,nu.cos(theta))[0].T[:,0]
-            Legandre = nu.repeat([Legandre], [N], axis=0)
-            return dens(R,z)*(1 + xi)**(l + 2.) * nu.power((1 - xi),(l - 3.)) * C(xi, L, L)*nu.sin(theta)*Legandre
+            Legandre = lpmn(L - 1,L - 1,nu.cos(theta))[0].T
+            return dens(R,z)*(1 + xi)**(l[None,:] + 2.) * nu.power((1 - xi),(l[None,:] - 3.)) * C(xi, L, L)[:,:]*nu.sin(theta)*Legandre[None,:,0]
         
                
         Acos = nu.zeros((N,L,L), float)
@@ -333,16 +329,15 @@ def compute_coeffs_axi(dens, N, L):
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
         integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]], shape=(N, L))
-        
         for n in range(N):
             for l in range(L):
                 K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-                I = -K*(4*nu.pi)/(2.)**(8*l + 6) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+                I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
                 Acos[n,l,0] = -2**(-2*l) * I**-1. * 2*nu.pi*integrated[n,l] * (2*l + 1)**0.5
         return Acos, Asin
         
 def gaussianQuadrature(integrand, bounds, N=100, shape=None):
-        """
+    """
         NAME:
            _gaussianQuadrature
         PURPOSE:
@@ -357,7 +352,7 @@ def gaussianQuadrature(integrand, bounds, N=100, shape=None):
            The integral of the function integrand 
         HISTORY:
            2016-05-24 - Written - Aladdin 
-        """
+    """
     def gaussxw(N):
         a = nu.linspace(3,4*N-1,N)/(4*N+2)
         x = nu.cos(nu.pi*a+1/(8*N*N*nu.tan(a)))
