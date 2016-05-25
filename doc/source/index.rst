@@ -145,6 +145,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` for orbit integration of pulsars kicked out of the central region of the Milky Way.
 #. *Abundances and kinematics for ten anticentre open clusters*, T. Cantat-Gaudin, P. Donati, A. Vallenari, R. Sordo, A. Bragaglia, L. Magrini (2016), *Astron. & Astrophys.*, **588**, A120 (`2016A&A...588A.120C <http://adsabs.harvard.edu/abs/2016A%26A...588A.120C>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 10 open clusters located toward the Galactic anti-center, finding that the most distant clusters have high-eccentricity orbits.
+#. *A Magellanic Origin of the DES Dwarfs*, P. Jethwa, D. Erkal, & V. Belokurov (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1603.04420 <http://arxiv.org/abs/1603.04420>`_):
+     Employs the C implementations of ``galpy.potential``\s to compute forces in orbit integrations of the LMC's satellite-galaxy population.
 #. *PSR J1024-0719: A Millisecond Pulsar in an Unusual Long-Period Orbit*, D. L. Kaplan, T. Kupfer, D. J. Nice, et al. (2016), *Astrophys. J.*, submitted (`arXiv/1604.00131 <http://arxiv.org/abs/1604.00131>`_):
 #. *A millisecond pulsar in an extremely wide binary system*, C. G. Bassa, G. H. Janssen, B. W. Stappers, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1604.00129 <http://arxiv.org/abs/1604.00129>`_):
      Both of these papers use ``galpy.orbit`` integration in ``MWPotential2014`` to determine the orbit of the milli-second pulsar PSR J1024−0719, a pulsar in an unusual binary system.
