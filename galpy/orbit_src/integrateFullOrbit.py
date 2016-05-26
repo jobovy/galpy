@@ -121,6 +121,9 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.KuzminDiskPotential):
             pot_type.append(19)
             pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.BurkertPotential):
+            pot_type.append(20)
+            pot_args.extend([p._amp,p.a])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

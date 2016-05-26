@@ -148,6 +148,13 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
+    case 20: //BurkertPotential, 2 arguments
+      potentialArgs->potentialEval= &BurkertPotentialEval;
+      potentialArgs->nargs= 2;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

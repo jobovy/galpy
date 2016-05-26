@@ -54,7 +54,8 @@ class BurkertPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover 
             self.normalize(normalize)
-        self.hasC= False
+        self.hasC= True
+        self.hasC_dxdv= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):

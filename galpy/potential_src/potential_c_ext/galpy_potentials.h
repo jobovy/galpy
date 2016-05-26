@@ -253,4 +253,15 @@ double PseudoIsothermalPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+//BurkertPotential
+double BurkertPotentialEval(double,double,double,double,
+				     struct potentialArg *);
+double BurkertPotentialRforce(double,double,double,double,
+				       struct potentialArg *);
+double BurkertPotentialPlanarRforce(double,double,double,
+					     struct potentialArg *);
+double BurkertPotentialzforce(double,double,double,double,
+				       struct potentialArg *);
+double BurkertPotentialPlanarR2deriv(double,double,double,
+					      struct potentialArg *);
 #endif /* galpy_potentials.h */
