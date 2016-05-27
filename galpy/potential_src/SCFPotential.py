@@ -10,6 +10,8 @@ from scipy.integrate import quad, nquad
 
 from numpy.polynomial.legendre import leggauss
 
+from scipy.special import gammaln
+
 import itertools
 
 class SCFPotential(Potential):
@@ -77,11 +79,13 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-16 - Written - Aladdin 
         """
-        fact = nu.math.factorial
         NN = nu.zeros((L,L),float)
-        for l in range(L):
-            for m in range(l + 1):
-                NN[l][m] = ((2*l + 1.)/(4*nu.pi) * fact(l - m)/fact(l + m))**.5 * (2. - (m==0))
+        l = nu.arange(0,L)[:,nu.newaxis]
+        m = nu.arange(0,L)[nu.newaxis, :]
+        nLn = gammaln(l-m+1) - gammaln(l+m+1)
+        NN[:,:] = ((2*l+1.)/(4.*nu.pi) * nu.e**nLn)**.5 * 2
+        NN[:,0] /= 2.
+        NN = nu.tril(NN)
         return NN
     def _calculateXi(self, r):
         """
@@ -299,6 +303,7 @@ def compute_coeffs_axi(dens, N, L):
             Legandre = lpmn(L - 1,L-1,nu.cos(theta))[0].T
             dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) * nu.sin(theta)
             phi_nl = -2.**(-2*l - 1.)*(2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre[nu.newaxis,:,0]
+            
             return dens(R,z) * phi_nl*dV
             
                
@@ -310,7 +315,10 @@ def compute_coeffs_axi(dens, N, L):
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-        I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+        #I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+        ##Taking the ln of I will allow bigger size coefficients 
+        lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
+        I = -K*(4*nu.pi) * nu.e**(lnI)
         Acos[:,:,0] = I**-1 * integrated
         
         return Acos, Asin
