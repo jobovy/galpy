@@ -323,7 +323,7 @@ def compute_coeffs_axi(dens, N, L):
         
         return Acos, Asin
         
-def gaussianQuadrature(integrand, bounds, N=50, shape=None):
+def gaussianQuadrature(integrand, bounds, N=50, shape=None, roundoff=1e-14):
     """
         NAME:
            _gaussianQuadrature
@@ -335,6 +335,7 @@ def gaussianQuadrature(integrand, bounds, N=50, shape=None):
            where a_i is the lower bound and b_i is the upper bound
            N - Number of sample points
            shape - the shape of the array that integrand returns. None if it returns a float
+           roundoff - if the integral is less than this value, round it to 0.
         OUTPUT:
            The integral of the function integrand 
         HISTORY:
@@ -363,6 +364,10 @@ def gaussianQuadrature(integrand, bounds, N=50, shape=None):
     for i in itertools.product(range(N), repeat=len(bounds)):
         index = [range(len(i)),i]
         s+= nu.prod(wp[index])*integrand(*xp[index])
+        
+    if shape!= None:
+        s[nu.where(nu.fabs(s) < roundoff)] = 0
+    else: s *= nu.fabs(s) >roundoff
     return s
                 
         
