@@ -247,7 +247,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
-        integrated = gaussianQuadrature(integrand, [[-1., 1.]], shape=(N))
+        integrated = gaussianQuadrature(integrand, [[-1., 1.]])
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
         Acos[n,0,0] = K*integrated
@@ -311,7 +311,7 @@ def compute_coeffs_axi(dens, N, L):
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]], shape=(N, L))*(2*nu.pi)
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]])*(2*nu.pi)
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -323,7 +323,54 @@ def compute_coeffs_axi(dens, N, L):
         
         return Acos, Asin
         
-def gaussianQuadrature(integrand, bounds, N=50, shape=None, roundoff=1e-14):
+def compute_coeffs(dens, N, L):
+        """
+        NAME:
+           _compute_coeffs
+        PURPOSE:
+           Numerically compute the expansion coefficients for a given density
+        INPUT:
+           dens - A density function that takes a parameter R, z and phi
+           N - size of the Nth dimension of the expansion coefficients
+           L - size of the Lth and Mth dimension of the expansion coefficients
+        OUTPUT:
+           Expansion coefficients for density dens
+        HISTORY:
+           2016-05-27 - Written - Aladdin 
+        """
+        def integrand(xi, theta, phi):
+            l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
+            m = nu.arange(0, L)[nu.newaxis,nu.newaxis,:]
+            r = xiToR(xi)
+            R, z, phi = bovy_coords.spher_to_cyl(r, theta, phi)
+            Legandre = lpmn(L - 1,L-1,nu.cos(theta))[0].T[nu.newaxis,:,:]
+            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) * nu.sin(theta)
+            
+            Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l + 1)*nu.log(2)
+            NN = nu.e**(Nln)
+            NN[nu.where(NN == nu.inf)] = 0
+            phi_nl = -NN* (2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
+            
+            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
+            
+               
+        Acos = nu.zeros((N,L,L), float)
+        Asin = nu.zeros((N,L,L), float)
+        
+        ##This should save us some computation time since we're only taking the double integral once, rather then L times
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]])
+        n = nu.arange(0,N)[:,nu.newaxis]
+        l = nu.arange(0,L)[nu.newaxis,:]
+        K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
+        #I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+        ##Taking the ln of I will allow bigger size coefficients 
+        lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
+        I = -K*(4*nu.pi) * nu.e**(lnI)
+        Acos[:,:,:],Asin[:,:,:] = I**-1 * integrated
+        
+        return Acos, Asin
+        
+def gaussianQuadrature(integrand, bounds, N=50, roundoff=1e-14):
     """
         NAME:
            _gaussianQuadrature
@@ -334,7 +381,6 @@ def gaussianQuadrature(integrand, bounds, N=50, shape=None, roundoff=1e-14):
            bounds - The bounds of the integral in the form of [[a_0, b_0], [a_1, b_1], ... , [a_n, b_n]] 
            where a_i is the lower bound and b_i is the upper bound
            N - Number of sample points
-           shape - the shape of the array that integrand returns. None if it returns a float
            roundoff - if the integral is less than this value, round it to 0.
         OUTPUT:
            The integral of the function integrand 
@@ -354,17 +400,23 @@ def gaussianQuadrature(integrand, bounds, N=50, shape=None, roundoff=1e-14):
         xp[i] = .5*(b-a)*x + .5*(b+a)
         wp[i] = .5*(b - a)*w
 
+    
+    ##Determines the shape of the integrand
+    s = 0.
+    shape=None
+    s_temp = integrand(*nu.zeros(len(bounds)))
+    if type(s_temp).__module__ == nu.__name__:
+        shape = s_temp.shape
+        s = nu.zeros(shape, float)
     ##Performs the actual integration
     
-    s = 0
-    if shape != None: ##This will allow us to integrate a matrix
-        s = nu.zeros(shape, float)
     
-    ## i is a tuple of size n(number of integrals we're taking), that iterates over the range of N
+    ## i is a tuple of size n(number of integrals we're taking), that iterates over the range of N  
     for i in itertools.product(range(N), repeat=len(bounds)):
         index = [range(len(i)),i]
         s+= nu.prod(wp[index])*integrand(*xp[index])
-        
+    
+    ##Rounds values that are less than roundoff to zero    
     if shape!= None:
         s[nu.where(nu.fabs(s) < roundoff)] = 0
     else: s *= nu.fabs(s) >roundoff
