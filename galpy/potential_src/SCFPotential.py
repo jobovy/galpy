@@ -8,6 +8,8 @@ from galpy.util import bovy_coords
 from scipy.special import eval_gegenbauer, lpmn, gamma
 from scipy.integrate import quad, nquad
 
+from numpy.polynomial.legendre import leggauss
+
 import itertools
 
 class SCFPotential(Potential):
@@ -248,33 +250,32 @@ def compute_coeffs_spherical(dens, N, a=1.):
         return Acos, Asin
         
 def _C(xi, L, N):
-        """
-        NAME:
-           _C
-        PURPOSE:
-           Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
-        INPUT:
-           xi - radial transformed variable
-           L - Size of the L dimension
-           N - Size of the N dimension
-        OUTPUT:
-           An LxN Gegenbauer Polynomial 
-        HISTORY:
-           2016-05-16 - Written - Aladdin 
-        """
-        CC = nu.zeros((N,L), float) 
-
-        
-        for l in range(L):
-            for n in range(N):
-                alpha = 2*l + 3./2.
-                if n==0:
-                    CC[n][l] = 1.
-                    continue 
-                elif n==1: CC[n][l] = 2.*alpha*xi
-                if n + 1 != N:
-                    CC[n+1][l] = (n + 1.)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
-        return CC       
+    """
+    NAME:
+       _C
+    PURPOSE:
+       Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
+    INPUT:
+       xi - radial transformed variable
+       L - Size of the L dimension
+       N - Size of the N dimension
+    OUTPUT:
+       An LxN Gegenbauer Polynomial 
+    HISTORY:
+       2016-05-16 - Written - Aladdin 
+    """
+    CC = nu.zeros((N,L), float) 
+     
+    for l in range(L):
+        for n in range(N):
+            alpha = 2*l + 3./2.
+            if n==0:
+                CC[n][l] = 1.
+                continue 
+            elif n==1: CC[n][l] = 2.*alpha*xi
+            if n + 1 != N:
+                CC[n+1][l] = (n + 1.)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
+    return CC       
         
 def compute_coeffs_axi(dens, N, L):
         """
@@ -331,26 +332,9 @@ def gaussianQuadrature(integrand, bounds, N=50, shape=None):
         HISTORY:
            2016-05-24 - Written - Aladdin 
     """
-    def gaussxw(N):
-        a = nu.linspace(3,4*N-1,N)/(4*N+2)
-        x = nu.cos(nu.pi*a+1/(8*N*N*nu.tan(a)))
-        epsilon = 1e-15
-        delta = 1.0
-        while delta>epsilon:
-            p0 = nu.ones(N,float)
-            p1 = nu.copy(x)
-            for k in range(1,N):
-                p0,p1 = p1,((2*k+1)*x*p1-k*p0)/(k+1)
-            dp = (N+1)*(p0-x*p1)/(1-x*x)
-            dx = p1/dp
-            x -= dx
-            delta = max(abs(dx))
-        # Calculate the weights
-        w = 2*(N+1)*(N+1)/(N*N*(1-x*x)*dp*dp)
-        return x,w
         
     ##Calculates the sample points and weights
-    x,w = gaussxw(N)
+    x,w = leggauss(N)
     
     ##Maps the sample point and weights
     xp = nu.zeros((len(bounds), N), float)
