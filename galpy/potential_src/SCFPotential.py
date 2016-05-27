@@ -61,33 +61,6 @@ class SCFPotential(Potential):
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
         return None
 
-    def _C(self,xi, L, N):
-        """
-        NAME:
-           _C
-        PURPOSE:
-           Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
-        INPUT:
-           xi - radial transformed variable
-           L - Size of the L dimension
-           N - Size of the N dimension
-        OUTPUT:
-           An LxN Gegenbauer Polynomial 
-        HISTORY:
-           2016-05-16 - Written - Aladdin 
-        """
-        fact = nu.math.factorial
-        CC = nu.zeros((N,L), float) 
-        for l in range(L):
-            for n in range(N):
-                alpha = 2*l + 3./2.
-                if n==0:
-                    CC[n][l] = 1
-                    continue 
-                elif n==1: CC[n][l] = 2*alpha*xi
-                if n + 1 != N:
-                    CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
-        return CC
  
     def _Nroot(self, L):
         """
@@ -141,10 +114,10 @@ class SCFPotential(Potential):
         """
         a = self._a
         rho = nu.zeros((N,L), float)
-        for n in range(N):
-            for l in range(L):
-                K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
-                rho[n][l] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * CC[n][l]* (4*nu.pi)**0.5
+        n = nu.arange(0,N)[:, nu.newaxis]
+        l = nu.arange(0, L)[nu.newaxis,:]
+        K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
+        rho[:,:] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * CC[:,:]* (4*nu.pi)**0.5
         return rho   
 
     def _phiTilde(self, r, CC, N,L):
@@ -165,9 +138,9 @@ class SCFPotential(Potential):
         """
         a = self._a
         phi = nu.zeros((N,L), float)
-        for n in range(N):
-            for l in range(L):
-                phi[n][l] = - (r*a)**l/ ((a + r)**(2*l + 1)) * CC[n,l]* (4*nu.pi)**0.5
+        n = nu.arange(0,N)[:, nu.newaxis]
+        l = nu.arange(0, L)[nu.newaxis,:]
+        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1)) * CC[:,:]* (4*nu.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):
@@ -193,7 +166,7 @@ class SCFPotential(Potential):
         
         NN = self._NN
         PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
-        CC = self._C(xi,L,N)
+        CC = _C(xi,L,N)
         func_tilde = funcTilde(r, CC, N, L) ## Tilde of the function of interest 
         
         func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
@@ -263,17 +236,18 @@ def compute_coeffs_spherical(dens, N, a=1.):
         def integrand(xi):
             r = xiToR(xi, a)
             R = r
-            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * eval_gegenbauer(n,3./2, xi)
+            
+            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, 1, N)[:,0]
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
-        
-        for n in range(N):
-            K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
-            Acos[n,0,0] = K*quad(integrand, -1., 1.)[0]
+        integrated = gaussianQuadrature(integrand, [[-1., 1.]], shape=(N))
+        n = nu.arange(0,N)
+        K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+        Acos[n,0,0] = K*integrated
         return Acos, Asin
         
-def C(xi, L, N):
+def _C(xi, L, N):
         """
         NAME:
            _C
@@ -288,17 +262,18 @@ def C(xi, L, N):
         HISTORY:
            2016-05-16 - Written - Aladdin 
         """
-        fact = nu.math.factorial
         CC = nu.zeros((N,L), float) 
+
+        
         for l in range(L):
             for n in range(N):
                 alpha = 2*l + 3./2.
                 if n==0:
-                    CC[n][l] = 1
+                    CC[n][l] = 1.
                     continue 
-                elif n==1: CC[n][l] = 2*alpha*xi
+                elif n==1: CC[n][l] = 2.*alpha*xi
                 if n + 1 != N:
-                    CC[n+1][l] = (n + 1)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
+                    CC[n+1][l] = (n + 1.)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
         return CC       
         
 def compute_coeffs_axi(dens, N, L):
@@ -317,26 +292,29 @@ def compute_coeffs_axi(dens, N, L):
            2016-05-20 - Written - Aladdin 
         """
         def integrand(xi, theta):
-            l = nu.arange(0, L)
+            l = nu.arange(0, L)[nu.newaxis, :]
             r = xiToR(xi)
             R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
-            Legandre = lpmn(L - 1,L - 1,nu.cos(theta))[0].T
-            return dens(R,z)*(1 + xi)**(l[None,:] + 2.) * nu.power((1 - xi),(l[None,:] - 3.)) * C(xi, L, L)[:,:]*nu.sin(theta)*Legandre[None,:,0]
-        
+            Legandre = lpmn(L - 1,L-1,nu.cos(theta))[0].T
+            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) * nu.sin(theta)
+            phi_nl = -2.**(-2*l - 1.)*(2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre[nu.newaxis,:,0]
+            return dens(R,z) * phi_nl*dV
+            
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]], shape=(N, L))
-        for n in range(N):
-            for l in range(L):
-                K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-                I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-                Acos[n,l,0] = -2**(-2*l) * I**-1. * 2*nu.pi*integrated[n,l] * (2*l + 1)**0.5
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]], shape=(N, L))*(2*nu.pi)
+        n = nu.arange(0,N)[:,nu.newaxis]
+        l = nu.arange(0,L)[nu.newaxis,:]
+        K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
+        I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+        Acos[:,:,0] = I**-1 * integrated
+        
         return Acos, Asin
         
-def gaussianQuadrature(integrand, bounds, N=100, shape=None):
+def gaussianQuadrature(integrand, bounds, N=50, shape=None):
     """
         NAME:
            _gaussianQuadrature
@@ -391,12 +369,8 @@ def gaussianQuadrature(integrand, bounds, N=100, shape=None):
     
     ## i is a tuple of size n(number of integrals we're taking), that iterates over the range of N
     for i in itertools.product(range(N), repeat=len(bounds)):
-        index = [[],[]]
-        for j in range(len(i)):
-            index[0].append(j)
-            index[1].append(i[j])
+        index = [range(len(i)),i]
         s+= nu.prod(wp[index])*integrand(*xp[index])
-   
     return s
                 
         
