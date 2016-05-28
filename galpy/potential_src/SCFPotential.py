@@ -6,13 +6,11 @@ if _APY_LOADED:
     
 from galpy.util import bovy_coords
 from scipy.special import eval_gegenbauer, lpmn, gamma
-from scipy.integrate import quad, nquad
 
 from numpy.polynomial.legendre import leggauss
 
 from scipy.special import gammaln
 
-import itertools
 
 class SCFPotential(Potential):
    
@@ -348,7 +346,9 @@ def compute_coeffs(dens, N, L):
             
             Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l + 1)*nu.log(2)
             NN = nu.e**(Nln)
-            NN[nu.where(NN == nu.inf)] = 0
+
+            NN[nu.where(NN == nu.inf)] = 0 ## To account for the fact that m cant be bigger than l
+            
             phi_nl = -NN* (2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
             
             return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
@@ -357,16 +357,15 @@ def compute_coeffs(dens, N, L):
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
-        ##This should save us some computation time since we're only taking the double integral once, rather then L times
+        ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
         integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]])
-        n = nu.arange(0,N)[:,nu.newaxis]
-        l = nu.arange(0,L)[nu.newaxis,:]
+        n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
+        l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-        #I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
-        ##Taking the ln of I will allow bigger size coefficients 
+
         lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
         I = -K*(4*nu.pi) * nu.e**(lnI)
-        Acos[:,:,:],Asin[:,:,:] = I**-1 * integrated
+        Acos[:,:,:],Asin[:,:,:] = I[nu.newaxis,:,:,:]**-1 * integrated
         
         return Acos, Asin
         
@@ -408,12 +407,19 @@ def gaussianQuadrature(integrand, bounds, N=50, roundoff=1e-14):
     if type(s_temp).__module__ == nu.__name__:
         shape = s_temp.shape
         s = nu.zeros(shape, float)
+        
+        
     ##Performs the actual integration
+       
+
+    def nuProduct(some_list, some_length):
+        return nu.array(some_list)[nu.rollaxis(nu.indices((len(some_list),) * some_length), 0, some_length + 1)
+        .reshape(-1, some_length)]
     
-    
-    ## i is a tuple of size n(number of integrals we're taking), that iterates over the range of N  
-    for i in itertools.product(range(N), repeat=len(bounds)):
-        index = [range(len(i)),i]
+    li = nuProduct(nu.arange(0,N), len(bounds))
+    for i in range(li.shape[0]):
+        
+        index = [nu.arange(len(bounds)),li[i]]
         s+= nu.prod(wp[index])*integrand(*xp[index])
     
     ##Rounds values that are less than roundoff to zero    
