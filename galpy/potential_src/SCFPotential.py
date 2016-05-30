@@ -294,12 +294,13 @@ def compute_coeffs_axi(dens, N, L):
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
-        def integrand(xi, theta):
+        def integrand(xi, costheta):
             l = nu.arange(0, L)[nu.newaxis, :]
             r = xiToR(xi)
+            theta = nu.arccos(costheta)
             R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
-            Legandre = lpmn(L - 1,L-1,nu.cos(theta))[0].T
-            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) * nu.sin(theta)
+            Legandre = lpmn(0,L-1,costheta)[0].T
+            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) 
             phi_nl = -2.**(-2*l - 1.)*(2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre[nu.newaxis,:,0]
             
             return dens(R,z) * phi_nl*dV
@@ -309,7 +310,7 @@ def compute_coeffs_axi(dens, N, L):
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi]])*(2*nu.pi)
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1, 1]])*(2*nu.pi)
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -369,7 +370,7 @@ def compute_coeffs(dens, N, L):
         
         return Acos, Asin
         
-def gaussianQuadrature(integrand, bounds, N=50, roundoff=1e-14):
+def gaussianQuadrature(integrand, bounds, N=50, roundoff=0):
     """
         NAME:
            _gaussianQuadrature
