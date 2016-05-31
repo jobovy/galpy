@@ -174,9 +174,9 @@ def test_forceAsDeriv_potential():
                         assert((tphiforce-mpotderivphi)**2./tphiforce**2. < 10.**ttol)
                 except AssertionError:
                     if isinstance(tp,potential.planarPotential):
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
                     else:
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
