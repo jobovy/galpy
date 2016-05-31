@@ -279,7 +279,7 @@ def _C(xi, L, N):
                 CC[n+1][l] = (n + 1.)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
     return CC       
         
-def compute_coeffs_axi(dens, N, L):
+def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         """
         NAME:
            _compute_coeffs_axi
@@ -289,6 +289,8 @@ def compute_coeffs_axi(dens, N, L):
            dens - A density function that takes a parameter R and z
            N - size of the Nth dimension of the expansion coefficients
            L - size of the Lth dimension of the expansion coefficients
+           radial_order - Number of sample points in the radial integral. If None, radial_order=max(20, N + 3/2L )
+           costheta_order - Number of sample points in the costheta integral. If None, If costheta_order=max(20, L )
         OUTPUT:
            Expansion coefficients for density dens
         HISTORY:
@@ -299,18 +301,25 @@ def compute_coeffs_axi(dens, N, L):
             r = xiToR(xi)
             theta = nu.arccos(costheta)
             R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
-            Legandre = lpmn(0,L-1,costheta)[0].T
-            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) 
-            phi_nl = -2.**(-2*l - 1.)*(2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre[nu.newaxis,:,0]
+            Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
+            dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
+            phi_nl =  (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre
             
-            return dens(R,z) * phi_nl*dV
+            return  phi_nl*dV * dens(R, z)
             
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1, 1]])*(2*nu.pi)
+        Ksample = [max(N + 3*L/2, 20) ,  max(L,20) ]
+        if radial_order != None:
+            Ksample[0] = radial_order
+        if costheta_order != None:
+            Ksample[1] = costheta_order
+            
+        
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -318,7 +327,9 @@ def compute_coeffs_axi(dens, N, L):
         ##Taking the ln of I will allow bigger size coefficients 
         lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
         I = -K*(4*nu.pi) * nu.e**(lnI)
-        Acos[:,:,0] = I**-1 * integrated
+        
+        constants = -2.**(-2*l)*(2*l + 1.)**.5 
+        Acos[:,:,0] = I**-1 * integrated*constants
         
         return Acos, Asin
         
@@ -359,7 +370,8 @@ def compute_coeffs(dens, N, L):
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]])
+        Ksample = N + 3*L/2 + L%2, L, L
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]], Ksample = Ksample)
         n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -370,7 +382,7 @@ def compute_coeffs(dens, N, L):
         
         return Acos, Asin
         
-def gaussianQuadrature(integrand, bounds, N=50, roundoff=0):
+def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     """
         NAME:
            _gaussianQuadrature
@@ -380,7 +392,8 @@ def gaussianQuadrature(integrand, bounds, N=50, roundoff=0):
            integrand - The function you're integrating over.
            bounds - The bounds of the integral in the form of [[a_0, b_0], [a_1, b_1], ... , [a_n, b_n]] 
            where a_i is the lower bound and b_i is the upper bound
-           N - Number of sample points
+           Ksample - Number of sample points in the form of [K_0, K_1, ..., K_n] where K_i is the sample point
+           of the ith integral.
            roundoff - if the integral is less than this value, round it to 0.
         OUTPUT:
            The integral of the function integrand 
@@ -389,23 +402,23 @@ def gaussianQuadrature(integrand, bounds, N=50, roundoff=0):
     """
         
     ##Calculates the sample points and weights
-    x,w = leggauss(N)
+
     
     ##Maps the sample point and weights
-    xp = nu.zeros((len(bounds), N), float)
-    wp = nu.zeros((len(bounds), N), float)
+    xp = nu.zeros((len(bounds), nu.max(Ksample)), float)
+    wp = nu.zeros((len(bounds), nu.max(Ksample)), float)
     for i in range(len(bounds)):
-        bound = bounds[i]
-        a,b = bound
-        xp[i] = .5*(b-a)*x + .5*(b+a)
-        wp[i] = .5*(b - a)*w
+        x,w = leggauss(Ksample[i])
+        a,b = bounds[i]
+        xp[i, :Ksample[i]] = .5*(b-a)*x + .5*(b+a)
+        wp[i, :Ksample[i]] = .5*(b - a)*w
 
     
     ##Determines the shape of the integrand
     s = 0.
     shape=None
     s_temp = integrand(*nu.zeros(len(bounds)))
-    if type(s_temp).__module__ == nu.__name__:
+    if type(s_temp).__module__ == nu.ndarray.__name__:
         shape = s_temp.shape
         s = nu.zeros(shape, float)
         
@@ -416,10 +429,32 @@ def gaussianQuadrature(integrand, bounds, N=50, roundoff=0):
     def nuProduct(some_list, some_length):
         return nu.array(some_list)[nu.rollaxis(nu.indices((len(some_list),) * some_length), 0, some_length + 1)
         .reshape(-1, some_length)]
-    
-    li = nuProduct(nu.arange(0,N), len(bounds))
-    for i in range(li.shape[0]):
         
+
+    def cartesian(arraySizes, out=None):
+        ##http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
+        arrays = []
+        for i in range(len(arraySizes)):
+            arrays.append(nu.arange(0, arraySizes[i]))
+
+        arrays = [nu.asarray(x) for x in arrays]
+        dtype = arrays[0].dtype
+    
+        n = nu.prod([x.size for x in arrays])
+        if out is None:
+            out = nu.zeros([n, len(arrays)], dtype=dtype)
+    
+        m = n / arrays[0].size
+        out[:,0] = nu.repeat(arrays[0], m)
+        if arrays[1:]:
+            cartesian(arraySizes[1:], out=out[0:m,1:])
+            for j in xrange(1, arrays[0].size):
+                out[j*m:(j+1)*m,1:] = out[0:m,1:]
+        return out
+    
+    #li = nuProduct(nu.arange(0,K), len(bounds))
+    li = cartesian(Ksample)
+    for i in range(li.shape[0]):
         index = [nu.arange(len(bounds)),li[i]]
         s+= nu.prod(wp[index])*integrand(*xp[index])
     
