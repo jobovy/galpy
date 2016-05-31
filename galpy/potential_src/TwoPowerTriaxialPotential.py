@@ -10,6 +10,7 @@
 #
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
+import hashlib
 import numpy
 from scipy import integrate
 from galpy.util import bovy_conversion, bovy_coords
@@ -558,7 +559,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.,b=1.,c=1.,normalize=False,
+    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,normalize=False,
                  conc=None,mvir=None,
                  vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
@@ -569,7 +570,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
         PURPOSE:
 
-           Initialize a NFW potential
+           Initialize a triaxial NFW potential
 
         INPUT:
 
@@ -614,6 +615,11 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
+        self._b= b
+        self._b2= self._b**2.
+        self._c= c
+        self._c2= self._c**2.
+        self._force_hash= None
         if conc is None:
             self.a= a
             self.alpha= 1
@@ -636,10 +642,6 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
         self._scale= self.a
-        self._b= b
-        self._b2= self._b**2.
-        self._c= c
-        self._c2= self._c**2.
         self.hasC= False
         self.hasC_dxdv= False
         return None
@@ -681,7 +683,24 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (UofT)
         """
-        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
+        if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
+        else:
+            Fx= -self._b*self._c/self.a**3.\
+                *_forceInt(x,y,z,
+                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                           self._b2,self._c2,0)
+            Fy= -self._b*self._c/self.a**3.\
+                *_forceInt(x,y,z,
+                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                           self._b2,self._c2,1)
+            self._force_hash= new_hash
+            self._cached_Fx= Fx
+            self._cached_Fy= Fy
+        return numpy.cos(phi)*Fx+numpy.sin(phi)*Fy
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -699,7 +718,46 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (UofT)
         """
-        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,2)
+
+    def _phiforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phiforce
+        PURPOSE:
+           evaluate the azimuthal force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2010-07-09 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
+        if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
+        else:
+            Fx= -self._b*self._c/self.a**3.\
+                *_forceInt(x,y,z,
+                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                           self._b2,self._c2,0)
+            Fy= -self._b*self._c/self.a**3.\
+                *_forceInt(x,y,z,
+                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                           self._b2,self._c2,1)
+            self._force_hash= new_hash
+            self._cached_Fx= Fx
+            self._cached_Fy= Fy
+        return R*(-numpy.sin(phi)*Fx+numpy.cos(phi)*Fy)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -759,5 +817,14 @@ def _potInt(x,y,z,psi,b2,c2):
     def integrand(s):
         t= 1/s**2.-1.
         return psi(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
+            /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
+    return integrate.quad(integrand,0.,1.)[0]                              
+
+def _forceInt(x,y,z,dens,b2,c2,i):
+    """Integral that gives the force in x,y,z"""
+    def integrand(s):
+        t= 1/s**2.-1.
+        return dens(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
+            *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))\
             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
     return integrate.quad(integrand,0.,1.)[0]                              
