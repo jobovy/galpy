@@ -755,52 +755,6 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    @bovy_conversion.physical_conversion('position',pop=True)
-    def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
-        """
-        NAME:
-
-           rvir
-
-        PURPOSE:
-
-           calculate the virial radius for this density distribution
-
-        INPUT:
-
-           H= (default: 70) Hubble constant in km/s/Mpc
-           
-           Om= (default: 0.3) Omega matter
-       
-           overdens= (200) overdensity which defines the virial radius
-
-           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-
-           ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
-
-           vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
-
-        OUTPUT:
-        
-           virial radius
-        
-        HISTORY:
-
-           2014-01-29 - Written - Bovy (UofT)
-
-        """
-        if wrtcrit:
-            od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
-                                                              self._ro,H=H)
-        else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
-                                                                self._ro,
-                                                                H=H,Om=Om)
-        dc= 12.*self.dens(self.a,0.,use_physical=False)/od
-        x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
-                           0.01,100.)
-        return x*self.a
-
 def _potInt(x,y,z,psi,b2,c2):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
     where psi~(m) = [psi(\infty)-psi(m)]/[2Aa^2], with A=amp/[4pia^3]"""
