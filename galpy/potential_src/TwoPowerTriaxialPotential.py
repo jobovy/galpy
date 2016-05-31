@@ -206,6 +206,21 @@ class TwoPowerTriaxialPotential(Potential):
         m= numpy.sqrt(x**2.+y**2./self._b2+z**2./self._c2)
         return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
         
+    def OmegaP(self):
+        """
+        NAME:
+           OmegaP
+        PURPOSE:
+           return the pattern speed
+        INPUT:
+           (none)
+        OUTPUT:
+           pattern speed
+        HISTORY:
+           2016-05-31 - Written - Bovy (UofT)
+        """
+        return 0.
+
 class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial Hernquist potential
 
