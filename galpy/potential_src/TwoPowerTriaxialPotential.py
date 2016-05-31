@@ -751,9 +751,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (UofT)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
+        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
 
 def _potInt(x,y,z,psi,b2,c2):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
