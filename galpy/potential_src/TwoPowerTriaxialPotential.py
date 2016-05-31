@@ -101,6 +101,8 @@ class TwoPowerTriaxialPotential(Potential):
         self.beta= beta
         self._b= b
         self._c= c
+        self._b2= self._b**2.
+        self._c2= self._c**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -182,6 +184,26 @@ class TwoPowerTriaxialPotential(Potential):
         else:
             raise NotImplementedError("General potential expression not yet implemented")
 
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2016-05-31 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        m= numpy.sqrt(x**2.+y**2./self._b2+z**2./self._c2)
+        return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
+        
 class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial Hernquist potential
 
