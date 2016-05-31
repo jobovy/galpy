@@ -673,6 +673,8 @@ class Potential(object):
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -709,6 +711,8 @@ class Potential(object):
         try:
             return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -745,61 +749,9 @@ class Potential(object):
         try:
             return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
-
-    def _phiforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phiforce
-        PURPOSE:
-           evaluate the azimuthal force F_phi  (R,z,phi,t)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           F_phi (R,z,phi,t)
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        return 0. #default is to assume axisymmetry
-
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the azimuthal second derivative of the potential
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           d2Phi/dphi2
-        HISTORY:
-           2013-09-24 - Written - Bovy (NYU)
-        """
-        return 0. #default is to assume axisymmetry
-
-    def _Rphideriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial and azimuthal derivative of the potential
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           d2Phi/dphidR
-        HISTORY:
-           2014-06-30 - Written - Bovy (IAS)
-        """
-        return 0. #default is to assume axisymmetry
 
     def toPlanar(self):
         """
