@@ -322,60 +322,6 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
         """
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _mass(self,R,z=0.,t=0.):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           calculate the mass out to a given radius
-        INPUT:
-           R - radius at which to return the enclosed mass
-           z - (don't specify this) vertical height
-        OUTPUT:
-           mass in natural units
-        HISTORY:
-           2014-01-29 - Written - Bovy (UofT)
-        """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**2./2./(1.+r/self.a)**2.
-
 class TriaxialJaffePotential(TwoPowerTriaxialPotential):
     """Class that implements the Jaffe potential
 
@@ -491,60 +437,6 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
            2010-07-09 - Written - Bovy (UofT)
         """
         raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
-
-    def _R2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
-
-    def _mass(self,R,z=0.,t=0.):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           calculate the mass out to a given radius
-        INPUT:
-           R - radius at which to return the enclosed mass
-           z - (don't specify this) vertical height
-        OUTPUT:
-           mass in natural units
-        HISTORY:
-           2014-01-29 - Written - Bovy (UofT)
-        """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return r/self.a/(1.+r/self.a)
 
 class TriaxialNFWPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial NFW potential
@@ -758,58 +650,6 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             self._cached_Fx= Fx
             self._cached_Fy= Fy
         return R*(-numpy.sin(phi)*Fx+numpy.cos(phi)*Fy)
-
-    def _R2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
-
-    def _mass(self,R,z=0.,t=0.):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           calculate the mass out to a given radius
-        INPUT:
-           R - radius at which to return the enclosed mass
-           z - (don't specify this) vertical height
-        OUTPUT:
-           mass in natural units
-        HISTORY:
-           2014-01-29 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial NFW potential expression not yet implemented")
 
 def _potInt(x,y,z,psi,b2,c2):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
