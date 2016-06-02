@@ -118,10 +118,10 @@ class SCFPotential(Potential):
         """
         a = self._a
         rho = nu.zeros((N,L), float)
-        n = nu.arange(0,N)[:, nu.newaxis]
-        l = nu.arange(0, L)[nu.newaxis,:]
-        K = 0.5 * n * (n + 4*l + 3) + (l + 1)*(2*l + 1)
-        rho[:,:] = K/(2*nu.pi) * (a*r)**l/ ((r/a)*(a + r)**(2*l + 3)) * CC[:,:]* (4*nu.pi)**0.5
+        n = nu.arange(0,N, dtype=float)[:, nu.newaxis]
+        l = nu.arange(0, L, dtype=float)[nu.newaxis,:]
+        K = 0.5 * n * (n + 4*l + 3) + (l + 1.)*(2*l + 1)
+        rho[:,:] = K * ((a*r)**l) / ((r/a)*(a + r)**(2*l + 3.)) * CC[:,:]* (nu.pi)**-0.5
         return rho   
 
     def _phiTilde(self, r, CC, N,L):
@@ -144,7 +144,7 @@ class SCFPotential(Potential):
         phi = nu.zeros((N,L), float)
         n = nu.arange(0,N)[:, nu.newaxis]
         l = nu.arange(0, L)[nu.newaxis,:]
-        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1)) * CC[:,:]* (4*nu.pi)**0.5
+        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1.)) * CC[:,:]* (4*nu.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):
@@ -175,11 +175,48 @@ class SCFPotential(Potential):
         
         func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
         
-        m = nu.arange(0, L)
+        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
-        func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos[None,None, :] + Asin[:,:,:]*msin[None,None,:])*PP[None,:,:]*NN[None,:,:]
+        func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]*NN[None,:,:]
         return func
+    def _computeArray(self, funcTilde, R, z, phi):
+        """
+        NAME:
+           _computeArray
+        PURPOSE:
+           evaluate the density or potential for a given array of coordinates
+        INPUT:
+           funcTidle - must be _rhoTilde or _phiTilde
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           density or potential evaluated at (R,z, phi)
+        HISTORY:
+           2016-06-02 - Written - Aladdin 
+        """
+        shape=None
+        ##Determine which of these are arrays
+        if type(R).__name__ == nu.ndarray.__name__:
+            shape = R.shape
+        elif type(z).__name__ == nu.ndarray.__name__:
+            shape = z.shape
+        elif type(phi).__name__ == nu.ndarray.__name__:
+            shape = phi.shape
+        else:
+            return nu.sum(self._compute(funcTilde, R,z,phi))
+            
+        func = nu.zeros(shape, float)
+        R =nu.ones(shape, float)*R  
+        z =nu.ones(shape, float)*z 
+        phi =nu.ones(shape, float)*phi  
+          
+        li = cartesian(shape)
+        for i in range(li.shape[0]):
+            func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
+        return func
+        
         
     def _dens(self, R, z, phi=0., t=0.):
         """
@@ -197,7 +234,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        return nu.sum(self._compute(self._rhoTilde, R, z, phi))
+        return self._computeArray(self._rhoTilde, R,z,phi)
         
        
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -216,7 +253,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        return nu.sum(self._compute(self._phiTilde, R, z, phi))
+        return self._computeArray(self._phiTilde, R,z,phi)
 
 
 
@@ -245,7 +282,9 @@ def compute_coeffs_spherical(dens, N, a=1.):
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
-        integrated = gaussianQuadrature(integrand, [[-1., 1.]])
+        
+        Ksample = [max(N + 1, 20)]
+        integrated = gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
         Acos[n,0,0] = K*integrated
@@ -299,8 +338,8 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         def integrand(xi, costheta):
             l = nu.arange(0, L)[nu.newaxis, :]
             r = xiToR(xi)
-            theta = nu.arccos(costheta)
-            R, z, phi = bovy_coords.spher_to_cyl(r, theta, 0)
+            R = r*nu.sqrt(1 - costheta**2.)
+            z = r*costheta
             Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
             phi_nl =  (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre
@@ -312,7 +351,7 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        Ksample = [max(N + 3*L/2, 20) ,  max(L,20) ]
+        Ksample = [max(N + 3*L/2 + 1, 20) ,  max(L + 1,20) ]
         if radial_order != None:
             Ksample[0] = radial_order
         if costheta_order != None:
@@ -370,7 +409,7 @@ def compute_coeffs(dens, N, L):
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
-        Ksample = N + 3*L/2 + L%2, L, L
+        Ksample = N + 3*L//2 + 1, L, L
         integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]], Ksample = Ksample)
         n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
@@ -381,7 +420,42 @@ def compute_coeffs(dens, N, L):
         Acos[:,:,:],Asin[:,:,:] = I[nu.newaxis,:,:,:]**-1 * integrated
         
         return Acos, Asin
-        
+
+def cartesian(arraySizes, out=None):
+    """
+    NAME:
+        cartesian
+    PURPOSE:
+        Generate a cartesian product of input arrays.
+    INPUT: 
+        arraySizes - list of size of arrays
+        out - Array to place the cartesian product in.
+    OUTPUT: 
+        2-D array of shape (product(arraySizes), len(arraySizes)) containing cartesian products
+        formed of input arrays.
+    HISTORY:
+        2016-06-02 - Obtained from
+        http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
+    """
+    arrays = []
+    for i in range(len(arraySizes)):
+        arrays.append(nu.arange(0, arraySizes[i]))
+
+    arrays = [nu.asarray(x) for x in arrays]
+    dtype = arrays[0].dtype
+   
+    n = nu.prod([x.size for x in arrays])
+    if out is None:
+        out = nu.zeros([n, len(arrays)], dtype=dtype)
+    
+    m = n / arrays[0].size
+    out[:,0] = nu.repeat(arrays[0], m)
+    if arrays[1:]:
+        cartesian(arraySizes[1:], out=out[0:m,1:])
+        for j in xrange(1, arrays[0].size):
+            out[j*m:(j+1)*m,1:] = out[0:m,1:]
+    return out
+                
 def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     """
         NAME:
@@ -400,15 +474,12 @@ def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
         HISTORY:
            2016-05-24 - Written - Aladdin 
     """
-        
-    ##Calculates the sample points and weights
-
-    
+     
     ##Maps the sample point and weights
     xp = nu.zeros((len(bounds), nu.max(Ksample)), float)
     wp = nu.zeros((len(bounds), nu.max(Ksample)), float)
     for i in range(len(bounds)):
-        x,w = leggauss(Ksample[i])
+        x,w = leggauss(Ksample[i]) ##Calculates the sample points and weights
         a,b = bounds[i]
         xp[i, :Ksample[i]] = .5*(b-a)*x + .5*(b+a)
         wp[i, :Ksample[i]] = .5*(b - a)*w
@@ -418,42 +489,17 @@ def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     s = 0.
     shape=None
     s_temp = integrand(*nu.zeros(len(bounds)))
-    if type(s_temp).__module__ == nu.ndarray.__name__:
+    if type(s_temp).__name__ == nu.ndarray.__name__ :
         shape = s_temp.shape
         s = nu.zeros(shape, float)
         
         
-    ##Performs the actual integration
-       
-
-    def nuProduct(some_list, some_length):
-        return nu.array(some_list)[nu.rollaxis(nu.indices((len(some_list),) * some_length), 0, some_length + 1)
-        .reshape(-1, some_length)]
-        
-
-    def cartesian(arraySizes, out=None):
-        ##http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
-        arrays = []
-        for i in range(len(arraySizes)):
-            arrays.append(nu.arange(0, arraySizes[i]))
-
-        arrays = [nu.asarray(x) for x in arrays]
-        dtype = arrays[0].dtype
     
-        n = nu.prod([x.size for x in arrays])
-        if out is None:
-            out = nu.zeros([n, len(arrays)], dtype=dtype)
-    
-        m = n / arrays[0].size
-        out[:,0] = nu.repeat(arrays[0], m)
-        if arrays[1:]:
-            cartesian(arraySizes[1:], out=out[0:m,1:])
-            for j in xrange(1, arrays[0].size):
-                out[j*m:(j+1)*m,1:] = out[0:m,1:]
-        return out
-    
-    #li = nuProduct(nu.arange(0,K), len(bounds))
+
+    #gets all combinations of indices from each integrand 
     li = cartesian(Ksample)
+    
+    ##Performs the actual integration
     for i in range(li.shape[0]):
         index = [nu.arange(len(bounds)),li[i]]
         s+= nu.prod(wp[index])*integrand(*xp[index])
