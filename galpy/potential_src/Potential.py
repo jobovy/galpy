@@ -1440,7 +1440,7 @@ class PotentialError(Exception): #pragma: no cover
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
+def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """
     NAME:
 
