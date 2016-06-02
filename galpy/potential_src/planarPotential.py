@@ -728,6 +728,186 @@ def RZToplanarPotential(RZPot):
     else:
         raise PotentialError("Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances")
 
+class planarPotentialFromFullPotential(planarPotential):
+    """Class that represents a planar potential derived from a non-axisymmetric
+    3D potential"""
+    def __init__(self,Pot):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize
+        INPUT:
+           Pot - Potential instance
+        OUTPUT:
+           planarPotential instance
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        planarPotential.__init__(self,amp=1.,ro=Pot._ro,vo=Pot._vo)
+        # Also transfer roSet and voSet
+        self._roSet= Pot._roSet
+        self._voSet= Pot._voSet
+        self._Pot= Pot
+        self.hasC= Pot.hasC
+        self.hasC_dxdv= Pot.hasC_dxdv
+        return None
+
+    def _evaluate(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _evaluate
+        PURPOSE:
+           evaluate the potential
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+          Pot(R(,\phi,t))
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot(R,0.,phi=phi,t=t,use_physical=False)
+            
+    def _Rforce(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the radial force
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+          F_R(R(,\phi,t))
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot.Rforce(R,0.,phi=phi,t=t,use_physical=False)
+
+    def _phiforce(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _phiforce
+        PURPOSE:
+           evaluate the azimuthal force
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+          F_phi(R(,\phi,t))
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot.phiforce(R,0.,phi=phi,t=t,use_physical=False)
+
+    def _R2deriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+           d2phi/dR2
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot.R2deriv(R,0.,phi=phi,t=t,use_physical=False)
+            
+    def _phi2deriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _phi2deriv
+        PURPOSE:
+           evaluate the second azimuthal derivative
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+           d2phi/dphi2
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot.phi2deriv(R,0.,phi=phi,t=t,use_physical=False)
+            
+    def _Rphideriv(self,R,phi=0.,t=0.):
+        """
+        NAME:
+           _Rphideriv
+        PURPOSE:
+           evaluate the mixed radial-azimuthal derivative
+        INPUT:
+           R
+           phi
+           t
+        OUTPUT:
+           d2phi/dRdphi
+        HISTORY:
+           2016-06-02 - Written - Bovy (UofT)
+        """
+        return self._Pot.Rphideriv(R,0.,phi=phi,t=t,use_physical=False)
+            
+    def OmegaP(self):
+        """
+        NAME:
+           OmegaP
+        PURPOSE:
+           return the pattern speed
+        INPUT:
+           (none)
+        OUTPUT:
+           pattern speed
+        HISTORY:
+           2016-05-31 - Written - Bovy (UofT)
+        """
+        return self._Pot.OmegaP()
+            
+def FullToplanarPotential(Pot):
+    """
+    NAME:
+
+       FullToplanarPotential
+
+    PURPOSE:
+
+       convert an Potential to a planarPotential in the mid-plane (z=0)
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances (existing planarPotential instances are just copied to the output)
+
+    OUTPUT:
+
+       planarPotential instance(s)
+
+    HISTORY:
+
+       2016-06-02 - Written - Bovy (UofT)
+
+    """
+    if isinstance(Pot,list):
+        out= []
+        for pot in Pot:
+            if isinstance(pot,planarPotential):
+                out.append(pot)
+            else:
+                out.append(planarPotentialFromFullPotential(pot))
+        return out
+    elif isinstance(Pot,Potential):
+        return planarPotentialFromFullPotential(Pot)
+    elif isinstance(Pot,planarPotential):
+        return Pot
+    else:
+        raise PotentialError("Input to 'FullToplanarPotential' is neither an Potential-instance or a list of such instances")
+
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):

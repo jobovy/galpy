@@ -776,8 +776,11 @@ class Potential(object):
            unknown
 
         """
-        from galpy.potential import RZToplanarPotential
-        return RZToplanarPotential(self)
+        from galpy.potential import RZToplanarPotential, FullToplanarPotential
+        if self.isNonAxi:
+            return FullToplanarPotential(self)
+        else:
+            return RZToplanarPotential(self)
 
     def toVertical(self,R):
         """
@@ -1472,9 +1475,17 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     """
     return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
 
-def _evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
+def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
@@ -1486,7 +1497,7 @@ def _evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
 
 @potential_physical_input
 @physical_conversion('density',pop=True)
-def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
+def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     """
     NAME:
 
@@ -1521,7 +1532,15 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
        2013-12-28 - Added forcepoisson - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
@@ -1535,7 +1554,7 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluateRforces(Pot,R,z,phi=0.,t=0.):
+def evaluateRforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1568,9 +1587,17 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluateRforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluateRforces(Pot,R,z,phi=0.,t=0.):
+def _evaluateRforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
@@ -1582,7 +1609,7 @@ def _evaluateRforces(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
+def evaluatephiforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1614,9 +1641,17 @@ def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluatephiforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluatephiforces(Pot,R,z,phi=0.,t=0.):
+def _evaluatephiforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
@@ -1628,7 +1663,7 @@ def _evaluatephiforces(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatezforces(Pot,R,z,phi=0.,t=0.):
+def evaluatezforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1661,9 +1696,17 @@ def evaluatezforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluatezforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
+def _evaluatezforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
@@ -1675,7 +1718,7 @@ def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
+def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1706,7 +1749,15 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
        2012-07-25 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1718,7 +1769,7 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
+def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1749,7 +1800,15 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
        2012-07-25 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1761,7 +1820,7 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
+def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1792,7 +1851,15 @@ def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
        2013-08-28 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
