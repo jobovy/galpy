@@ -44,6 +44,7 @@ evaluateR2derivs= Potential.evaluateR2derivs
 evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
+FullToplanarPotential= planarPotential.FullToplanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
