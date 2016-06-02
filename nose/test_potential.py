@@ -12,7 +12,7 @@ def test_normalize_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -41,6 +41,8 @@ def test_normalize_potential():
         except AttributeError:
             tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
+        if hasattr(tp,'isNonAxi') and tp.isNonAxi:
+            continue # skip, bc vcirc not well defined
         if not hasattr(tp,'normalize'): continue
         tp.normalize(1.)
         assert (tp.Rforce(1.,0.)+1.)**2. < 10.**-16., \
@@ -62,7 +64,7 @@ def test_forceAsDeriv_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -143,9 +145,9 @@ def test_forceAsDeriv_potential():
                     tRforce= potential.evaluateplanarRforces(tp,Rs[ii],
                                                              phi=Zs[jj])
                 else:
-                    mpotderivR= (potential.evaluatePotentials(tp,Rs[ii],Zs[jj])
-                                 -potential.evaluatePotentials(tp,Rs[ii]+dr,Zs[jj]))/dr
-                    tRforce= potential.evaluateRforces(tp,Rs[ii],Zs[jj])
+                    mpotderivR= (potential.evaluatePotentials(tp,Rs[ii],Zs[jj],phi=0.)
+                                 -potential.evaluatePotentials(tp,Rs[ii]+dr,Zs[jj],phi=0.))/dr
+                    tRforce= potential.evaluateRforces(tp,Rs[ii],Zs[jj],phi=0.)
                 if tRforce**2. < 10.**ttol:
                     assert mpotderivR**2. < 10.**ttol, \
                         "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
@@ -189,8 +191,8 @@ def test_forceAsDeriv_potential():
                 dz= 10.**-8.
                 newZ= Zs[jj]+dz
                 dz= newZ-Zs[jj] #Representable number
-                mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz))/dz
-                tzforce= potential.evaluatezforces(tp,Rs[ii],Zs[jj])
+                mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz,phi=0.))/dz
+                tzforce= potential.evaluatezforces(tp,Rs[ii],Zs[jj],phi=0.)
                 if tzforce**2. < 10.**ttol:
                     assert mpotderivz**2. < 10.**ttol, \
                         "Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
@@ -203,7 +205,7 @@ def test_2ndDeriv_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -415,7 +417,7 @@ def test_poisson_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -488,7 +490,7 @@ def test_evaluateAndDerivs_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -746,7 +748,7 @@ def test_toVertical_toPlanar():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
