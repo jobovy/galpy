@@ -387,38 +387,44 @@ def compute_coeffs(dens, N, L):
         HISTORY:
            2016-05-27 - Written - Aladdin 
         """
-        def integrand(xi, theta, phi):
+        def integrand(xi, costheta, phi):
             l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
             m = nu.arange(0, L)[nu.newaxis,nu.newaxis,:]
             r = xiToR(xi)
-            R, z, phi = bovy_coords.spher_to_cyl(r, theta, phi)
-            Legandre = lpmn(L - 1,L-1,nu.cos(theta))[0].T[nu.newaxis,:,:]
-            dV = 2.*(1. + xi)**2. * nu.power(1. - xi, -4.) * nu.sin(theta) 
+            R = r*nu.sqrt(1 - costheta**2.)
+            z = r*costheta
             
-            Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l + 1)*nu.log(2)
-            NN = nu.e**(Nln)
-
-            NN[nu.where(NN == nu.inf)] = 0 ## To account for the fact that m cant be bigger than l
+            Legandre = lpmn(L - 1,L-1,costheta)[0].T[nu.newaxis,:,:]
+            dV = (1. + xi)**2. * nu.power(1. - xi, -4.)
             
-            phi_nl = -NN* (2*l + 1.)**.5 * (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
             
-            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
+            phi_nl = - (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
+            
+            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), -nu.sin(m*phi)])*dV
             
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
-        Ksample = max(N + 3*L//2 + 1,20), max(L,20 ), max(L//2 + 1,20)
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [0, nu.pi], [0, 2*nu.pi]], Ksample = Ksample)
+        Ksample = max(N + 3*L//2 + 1,20), max(L + 1,20 ), max(L + 1,20)
+        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*nu.pi]], Ksample = Ksample)
         n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
+        m = nu.arange(0,L)[nu.newaxis,nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
         
         
+        Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l)*nu.log(2)
+        NN = nu.e**(Nln)
+
+        NN[nu.where(NN == nu.inf)] = 0 ## To account for the fact that m cant be bigger than l
+            
+        constants = NN*(2*l + 1.)**.5
+        
         lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
         I = -K*(4*nu.pi) * nu.e**(lnI)
-        Acos[:,:,:],Asin[:,:,:] = I[nu.newaxis,:,:,:]**-1 * integrated
+        Acos[:,:,:],Asin[:,:,:] = (I**-1.)[nu.newaxis,:,:,:] * integrated * constants[nu.newaxis,:,:,:]
         
         return Acos, Asin
 
