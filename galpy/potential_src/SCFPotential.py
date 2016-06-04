@@ -328,8 +328,8 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
            dens - A density function that takes a parameter R and z
            N - size of the Nth dimension of the expansion coefficients
            L - size of the Lth dimension of the expansion coefficients
-           radial_order - Number of sample points in the radial integral. If None, radial_order=max(20, N + 3/2L )
-           costheta_order - Number of sample points in the costheta integral. If None, If costheta_order=max(20, L )
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
         OUTPUT:
            Expansion coefficients for density dens
         HISTORY:
@@ -372,7 +372,7 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         
         return Acos, Asin
         
-def compute_coeffs(dens, N, L):
+def compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order=None):
         """
         NAME:
            _compute_coeffs
@@ -382,6 +382,9 @@ def compute_coeffs(dens, N, L):
            dens - A density function that takes a parameter R, z and phi
            N - size of the Nth dimension of the expansion coefficients
            L - size of the Lth and Mth dimension of the expansion coefficients
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L )
         OUTPUT:
            Expansion coefficients for density dens
         HISTORY:
@@ -400,14 +403,20 @@ def compute_coeffs(dens, N, L):
             
             phi_nl = - (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
             
-            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), -nu.sin(m*phi)])*dV
+            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
             
                
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
-        Ksample = max(N + 3*L//2 + 1,20), max(L + 1,20 ), max(L + 1,20)
+        Ksample = [max(N + 3*L//2 + 1,20), max(L + 1,20 ), max(L + 1,20)]
+        if radial_order != None:
+            Ksample[0] = radial_order
+        if costheta_order != None:
+            Ksample[1] = costheta_order
+        if phi_order != None:
+            Ksample[2] = phi_order
         integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*nu.pi]], Ksample = Ksample)
         n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
