@@ -11,6 +11,8 @@ from numpy.polynomial.legendre import leggauss
 
 from scipy.special import gammaln
 
+import hashlib
+
 
 class SCFPotential(Potential):
    
@@ -61,6 +63,8 @@ class SCFPotential(Potential):
         self._a = a
 
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
+        
+        self._force_hash= None
         return None
 
  
@@ -320,21 +324,33 @@ class SCFPotential(Potential):
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        new_hash= hashlib.md5(nu.array([R, z,phi])).hexdigest()
         
         NN = self._NN[None,:,:]
-        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
-        PP = PP.T[None,:,:]
-        dPP = dPP.T[None,:,:]
-        phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
-        dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
-        Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        if new_hash == self._force_hash:
+            dPhi_dr = self._cached_dPhi_dr  
+            dPhi_dtheta = self._cached_dPhi_dtheta 
+            dPhi_dphi = self._cached_dPhi_dphi
+            
+        else:        
+            PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+            PP = PP.T[None,:,:]
+            dPP = dPP.T[None,:,:]
+            phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
+            dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
+            Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
         
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
-        mcos = nu.cos(m*phi)
-        msin = nu.sin(m*phi)
-        dPhi_dr = (Acos*mcos + Asin*msin)*NN*PP*dphi_tilde
-        dPhi_dtheta = (Acos*mcos + Asin*msin)*NN*phi_tilde*dPP*(-nu.sin(theta))
-        dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
+            m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+            mcos = nu.cos(m*phi)
+            msin = nu.sin(m*phi)
+            dPhi_dr = (Acos*mcos + Asin*msin)*NN*PP*dphi_tilde
+            dPhi_dtheta = (Acos*mcos + Asin*msin)*NN*phi_tilde*dPP*(-nu.sin(theta))
+            dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
+            
+            self._force_hash = new_hash
+            self._cashed_dPhi_dr = dPhi_dr
+            self._cashed_dPhi_dtheta = dPhi_dtheta
+            self._cashed_dPhi_dphi = dPhi_dphi
         
         return -(dPhi_dr*dr_dx + dPhi_dtheta * dtheta_dx + dPhi_dphi *dphi_dx)
         
