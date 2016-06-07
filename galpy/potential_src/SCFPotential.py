@@ -182,6 +182,35 @@ class SCFPotential(Potential):
         msin = nu.sin(m*phi)
         func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]*NN[None,:,:]
         return func
+        
+    def _getShape(self, R, z, phi):
+        """
+        NAME:
+           _getShape
+        PURPOSE:
+           get the shape of R, z and phi
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+        OUTPUT:
+           R, z and phi as numpy arrays
+        HISTORY:
+           2016-06-02 - Written - Aladdin 
+        """
+        shape=None
+        ##Determine which of these are arrays
+        if type(R).__name__ == nu.ndarray.__name__:
+            shape = R.shape
+        elif type(z).__name__ == nu.ndarray.__name__:
+            shape = z.shape
+        elif type(phi).__name__ == nu.ndarray.__name__:
+            shape = phi.shape
+        else:
+            shape = None
+            
+        return shape
+        
     def _computeArray(self, funcTilde, R, z, phi):
         """
         NAME:
@@ -198,27 +227,16 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        shape=None
-        ##Determine which of these are arrays
-        if type(R).__name__ == nu.ndarray.__name__:
-            shape = R.shape
-        elif type(z).__name__ == nu.ndarray.__name__:
-            shape = z.shape
-        elif type(phi).__name__ == nu.ndarray.__name__:
-            shape = phi.shape
-        else:
-            return nu.sum(self._compute(funcTilde, R,z,phi))
-            
+        shape = self._getShape(R,z,phi) 
+        if shape == None: return nu.sum(self._compute(funcTilde, R,z,phi))
+        R *= nu.ones(shape); z *= nu.ones(shape); phi *= nu.ones(shape);
         func = nu.zeros(shape, float)
-        R =nu.ones(shape, float)*R  
-        z =nu.ones(shape, float)*z 
-        phi =nu.ones(shape, float)*phi  
+       
           
         li = cartesian(shape)
         for i in range(li.shape[0]):
             func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
         return func
-        
         
     def _dens(self, R, z, phi=0., t=0.):
         """
@@ -279,7 +297,7 @@ class SCFPotential(Potential):
         (1 - xi)**2 * r**l / (1 + r)**(2*l + 1) *dC/2.)
         
         
-    def _computeforces(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
+    def _computeforce(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
         """
         NAME:
            _computeforces
@@ -319,6 +337,40 @@ class SCFPotential(Potential):
         dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
         
         return -(dPhi_dr*dr_dx + dPhi_dtheta * dtheta_dx + dPhi_dphi *dphi_dx)
+        
+    def _computeforceArray(self,dr_dx, dtheta_dx, dphi_dx, R, z, phi):
+        """
+        NAME:
+           _computeforceArray
+        PURPOSE:
+           evaluate the forces in the x direction for a given array of coordinates
+        INPUT:
+           dr_dx - the derivative of r with respect to the chosen variable x
+           dtheta_dx - the derivative of theta with respect to the chosen variable x
+           dphi_dx - the derivative of phi with respect to the chosen variable x
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           density or potential evaluated at (R,z, phi)
+        HISTORY:
+           2016-06-02 - Written - Aladdin 
+        """
+        shape = self._getShape(R,z,phi)  
+        if shape == None: return nu.sum(self._computeforce(dr_dx, dtheta_dx, dphi_dx, R,z,phi))
+        R *= nu.ones(shape);z *= nu.ones(shape);phi *= nu.ones(shape);
+        dr_dx *=nu.ones(shape); dtheta_dx *=nu.ones(shape); dphi_dx *=nu.ones(shape);
+        force = nu.zeros(shape, float)
+       
+          
+        li = cartesian(shape)
+       
+        for i in range(li.shape[0]):
+            force[li[i]] = nu.sum(self._computeforce(dr_dx[li[i]][0], dtheta_dx[li[i]][0], dphi_dx[li[i]][0], R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
+            #print force[li[i]]
+        if shape == (1,): return force[0]
+        else: return force
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -338,7 +390,7 @@ class SCFPotential(Potential):
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
         dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
-        return nu.sum(self._computeforces(dr_dR, dtheta_dR, dphi_dR, R,z,phi,t))
+        return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
         
     def _zforce(self, R, z, phi=0, t=0):
         """
@@ -359,7 +411,7 @@ class SCFPotential(Potential):
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
         dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
-        return nu.sum(self._computeforces(dr_dz, dtheta_dz, dphi_dz ,R,z,phi,t))
+        return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
         
     def _phiforce(self, R,z,phi=0,t=0):
         """
@@ -380,7 +432,7 @@ class SCFPotential(Potential):
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = phi
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
-        return nu.sum(self._computeforces(dr_dphi,dtheta_dphi, dphi_dphi ,R,z,phi,t))
+        return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)
         
         
 def xiToR(xi, a =1):
