@@ -100,7 +100,7 @@ class SCFPotential(Potential):
         """
         a = self._a
         return  (r - a)/(r + a)  
-    def _rhoTilde(self, r, CC, N,L):
+    def _rhoTilde(self, r, N,L):
         """
         NAME:
            _rhoTilde
@@ -116,6 +116,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        xi = self._calculateXi(r)
+        CC = _C(xi,N,L)
         a = self._a
         rho = nu.zeros((N,L), float)
         n = nu.arange(0,N, dtype=float)[:, nu.newaxis]
@@ -124,7 +126,7 @@ class SCFPotential(Potential):
         rho[:,:] = K * ((a*r)**l) / ((r/a)*(a + r)**(2*l + 3.)) * CC[:,:]* (nu.pi)**-0.5
         return rho   
 
-    def _phiTilde(self, r, CC, N,L):
+    def _phiTilde(self, r, N,L):
         """
         NAME:
            _phiTilde
@@ -132,7 +134,6 @@ class SCFPotential(Potential):
            Evaluate phi_tilde as defined in equation 3.10 and 2.25 for 0 <= n < N and 0 <= l < L
         INPUT:
            r - Evaluate at radius r
-           CC - The Gegenbauer polynomial matrix
            N - size of the N dimension
            L - size of the L dimension
         OUTPUT:
@@ -140,6 +141,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        xi = self._calculateXi(r)
+        CC = _C(xi,N,L)
         a = self._a
         phi = nu.zeros((N,L), float)
         n = nu.arange(0,N)[:, nu.newaxis]
@@ -166,12 +169,11 @@ class SCFPotential(Potential):
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
-        xi = self._calculateXi(r)
+        
         
         NN = self._NN
         PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
-        CC = _C(xi,N,L)
-        func_tilde = funcTilde(r, CC, N, L) ## Tilde of the function of interest 
+        func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
         
         func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
         
@@ -276,6 +278,47 @@ class SCFPotential(Potential):
         return -(4*nu.pi)**.5 * ((l*r**l - r**(l + 1)*(1 + l))/(r*(1 + r)**(2*l + 2))*_C(xi,N,L) + 
         (1 - xi)**2 * r**l / (1 + r)**(2*l + 1) *dC/2.)
         
+        
+    def _computeforces(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
+        """
+        NAME:
+           _computeforces
+        PURPOSE:
+           Evaluate the force at (R,z,phi) in the x direction, where x can be R, z, or phi (corresponding to Rforce, zforce, and phiforce)
+           F_x = dPhi/dx = dPhi/dr * dr/dx + dPhi/dtheta * dtheta/dx + dPhi/dphi *dphi/dx
+        INPUT:
+           dr_dx - the derivative of r with respect to the chosen variable x
+           dtheta_dx - the derivative of theta with respect to the chosen variable x
+           dphi_dx - the derivative of phi with respect to the chosen variable x
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the derivative of phiTilde with respect to r
+        HISTORY:
+           2016-06-07 - Written - Aladdin 
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape    
+        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        
+        NN = self._NN[None,:,:]
+        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+        PP = PP.T[None,:,:]
+        dPP = dPP.T[None,:,:]
+        phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
+        dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
+        Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        
+        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        mcos = nu.cos(m*phi)
+        msin = nu.sin(m*phi)
+        dPhi_dr = (Acos*mcos + Asin*msin)*NN*PP*dphi_tilde
+        dPhi_dtheta = (Acos*mcos + Asin*msin)*NN*phi_tilde*dPP*(-nu.sin(theta))
+        dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
+        
+        return -(dPhi_dr*dr_dx + dPhi_dtheta * dtheta_dx + dPhi_dphi *dphi_dx)
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -292,26 +335,11 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
-        xi = self._calculateXi(r)
+        #x = R
+        dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
+        return nu.sum(self._computeforces(dr_dR, dtheta_dR, dphi_dR, R,z,phi,t))
         
-        NN = self._NN[None,:,:]
-        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
-        PP = PP.T[None,:,:]
-        dPP = dPP.T[None,:,:]
-        CC = _C(xi,N,L)
-        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
-        
-        Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
-        
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
-        mcos = nu.cos(m*phi)
-        msin = nu.sin(m*phi)
-        Rforce = (Acos*mcos + Asin*msin)*NN*(PP* self._dphiTilde(r,N,L)[:,:,nu.newaxis] - 
-        dPP*phi_tilde[:,:,nu.newaxis]*z/r**2)*nu.sin(theta)
-        return -nu.sum(Rforce)
     def _zforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -328,26 +356,10 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
-        xi = self._calculateXi(r)
-        
-        NN = self._NN
-        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
-        PP = PP.T
-        dPP = dPP.T
-        CC = _C(xi,N,L)
-        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
-        
-        zforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
-        
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
-        mcos = nu.cos(m*phi)
-        msin = nu.sin(m*phi)
-        zforce = (Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*NN[None,:,:]*(phi_tilde[:,:,None]*dPP[None,:,:]*nu.sin(theta)**2./r +
-        PP[nu.newaxis, :,:]* self._dphiTilde(r,N,L)[:,:,nu.newaxis]*nu.cos(theta))
-        return -nu.sum(zforce)
+        #x = z
+        dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
+        return nu.sum(self._computeforces(dr_dz, dtheta_dz, dphi_dz ,R,z,phi,t))
         
     def _phiforce(self, R,z,phi=0,t=0):
         """
@@ -365,23 +377,12 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
-        xi = self._calculateXi(r)
+        #x = phi
+        dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
+        return nu.sum(self._computeforces(dr_dphi,dtheta_dphi, dphi_dphi ,R,z,phi,t))
         
-        NN = self._NN
-        PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
-        CC = _C(xi,N,L)
-        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
         
-        phiforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
-        
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
-        mcos = -m*nu.sin(m*phi)
-        msin = m*nu.cos(m*phi)
-        phiforce = phi_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]*NN[None,:,:]
-        return nu.sum(phiforce)
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
