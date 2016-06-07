@@ -170,7 +170,7 @@ class SCFPotential(Potential):
         
         NN = self._NN
         PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
-        CC = _C(xi,L,N)
+        CC = _C(xi,N,L)
         func_tilde = funcTilde(r, CC, N, L) ## Tilde of the function of interest 
         
         func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
@@ -254,9 +254,134 @@ class SCFPotential(Potential):
            2016-05-17 - Written - Aladdin 
         """
         return self._computeArray(self._phiTilde, R,z,phi)
-
-
-
+    def _dphiTilde(self, r, N, L):
+        """
+        NAME:
+           _dphiTilde
+        PURPOSE:
+           Evaluate the derivative of phiTilde with respect to r
+        INPUT:
+           r - spherical radius
+           N - size of the N dimension
+           L - size of the L dimension
+        OUTPUT:
+           the derivative of phiTilde with respect to r
+        HISTORY:
+           2016-06-06 - Written - Aladdin 
+        """
+        l = nu.arange(0, L, dtype=float)[nu.newaxis, :]
+        n = nu.arange(0, N, dtype=float)[:, nu.newaxis]
+        xi = self._calculateXi(r)
+        dC = _dC(xi,N,L)
+        return -(4*nu.pi)**.5 * ((l*r**l - r**(l + 1)*(1 + l))/(r*(1 + r)**(2*l + 2))*_C(xi,N,L) + 
+        (1 - xi)**2 * r**l / (1 + r)**(2*l + 1) *dC/2.)
+        
+    def _Rforce(self, R, z, phi=0, t=0):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the radial force at (R,z, phi)
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           radial force at (R,z, phi)
+        HISTORY:
+           2016-06-06 - Written - Aladdin 
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape    
+        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        xi = self._calculateXi(r)
+        
+        NN = self._NN[None,:,:]
+        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+        PP = PP.T[None,:,:]
+        dPP = dPP.T[None,:,:]
+        CC = _C(xi,N,L)
+        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
+        
+        Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        
+        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        mcos = nu.cos(m*phi)
+        msin = nu.sin(m*phi)
+        Rforce = (Acos*mcos + Asin*msin)*NN*(PP* self._dphiTilde(r,N,L)[:,:,nu.newaxis] - 
+        dPP*phi_tilde[:,:,nu.newaxis]*z/r**2)*nu.sin(theta)
+        return -nu.sum(Rforce)
+    def _zforce(self, R, z, phi=0, t=0):
+        """
+        NAME:
+           _zforce
+        PURPOSE:
+           evaluate the vertical force at (R,z, phi)
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           vertical force at (R,z, phi)
+        HISTORY:
+           2016-06-06 - Written - Aladdin 
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape    
+        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        xi = self._calculateXi(r)
+        
+        NN = self._NN
+        PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+        PP = PP.T
+        dPP = dPP.T
+        CC = _C(xi,N,L)
+        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
+        
+        zforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        
+        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        mcos = nu.cos(m*phi)
+        msin = nu.sin(m*phi)
+        zforce = (Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*NN[None,:,:]*(phi_tilde[:,:,None]*dPP[None,:,:]*nu.sin(theta)**2./r +
+        PP[nu.newaxis, :,:]* self._dphiTilde(r,N,L)[:,:,nu.newaxis]*nu.cos(theta))
+        return -nu.sum(zforce)
+        
+    def _phiforce(self, R,z,phi=0,t=0):
+        """
+        NAME:
+           _phiforce
+        PURPOSE:
+           evaluate the azimuth force at (R,z, phi)
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           azimuth force at (R,z, phi)
+        HISTORY:
+           2016-06-06 - Written - Aladdin 
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape    
+        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        xi = self._calculateXi(r)
+        
+        NN = self._NN
+        PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
+        CC = _C(xi,N,L)
+        phi_tilde = self._phiTilde(r, CC, N, L) ## Tilde of the function of interest 
+        
+        phiforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        
+        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        mcos = -m*nu.sin(m*phi)
+        msin = m*nu.cos(m*phi)
+        phiforce = phi_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]*NN[None,:,:]
+        return nu.sum(phiforce)
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
@@ -278,7 +403,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
             r = xiToR(xi, a)
             R = r
             
-            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, 1, N)[:,0]
+            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
                
         Acos = nu.zeros((N,1,1), float)
         Asin = nu.zeros((N,1,1), float)
@@ -290,7 +415,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
         Acos[n,0,0] = K*integrated
         return Acos, Asin
         
-def _C(xi, L, N):
+def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
     """
     NAME:
        _C
@@ -309,14 +434,24 @@ def _C(xi, L, N):
      
     for l in range(L):
         for n in range(N):
-            alpha = 2*l + 3./2.
+            a = alpha(l)
             if n==0:
                 CC[n][l] = 1.
                 continue 
-            elif n==1: CC[n][l] = 2.*alpha*xi
+            elif n==1: CC[n][l] = 2.*a*xi
             if n + 1 != N:
-                CC[n+1][l] = (n + 1.)**-1. * (2*(n + alpha)*xi*CC[n][l] - (n + 2*alpha - 1)*CC[n-1][l])
-    return CC       
+                CC[n+1][l] = (n + 1.)**-1. * (2*(n + a)*xi*CC[n][l] - (n + 2*a - 1)*CC[n-1][l])
+    return CC 
+    
+def _dC(xi, N, L):
+    l = nu.arange(0,L)[nu.newaxis, :]
+    CC = _C(xi,N + 1,L, alpha = lambda x: 2*x + 5./2)
+    CC = nu.roll(CC, 1, axis=0)[:-1,:]
+    CC[0, :] = 0
+    CC *= 2*(2*l + 3./2)
+    return CC
+     
+    
         
 def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         """
@@ -342,7 +477,7 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
             z = r*costheta
             Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
-            phi_nl =  (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:] * Legandre
+            phi_nl =  (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:] * Legandre
             
             return  phi_nl*dV * dens(R, z)
             
@@ -401,7 +536,7 @@ def compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.)
             
             
-            phi_nl = - (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, L, N)[:,:,nu.newaxis] * Legandre
+            phi_nl = - (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,nu.newaxis] * Legandre
             
             return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
             
