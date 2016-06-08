@@ -16,7 +16,7 @@ import hashlib
 
 class SCFPotential(Potential):
    
-    def __init__(self, amp=1., Acos=nu.ones((10,10,10), float), Asin=nu.ones((10,10,10), float), a = 1., normalize=False, ro=None,vo=None):
+    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=nu.array([[[0]]]), a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -49,7 +49,7 @@ class SCFPotential(Potential):
            2016-05-13 - Written - Aladdin 
 
         """        
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='unitless')
+        Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='unitless')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
             
@@ -59,7 +59,6 @@ class SCFPotential(Potential):
             self.normalize(normalize)
         ##Acos and Asin must have the same shape
         self._Acos, self._Asin = Acos, Asin
-        self._amp = amp
         self._a = a
 
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
@@ -306,7 +305,7 @@ class SCFPotential(Potential):
     def _computeforce(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
         """
         NAME:
-           _computeforces
+           _computeforce
         PURPOSE:
            Evaluate the force at (R,z,phi) in the x direction, where x can be R, z, or phi (corresponding to Rforce, zforce, and phiforce)
            F_x = dPhi/dx = dPhi/dr * dr/dx + dPhi/dtheta * dtheta/dx + dPhi/dphi *dphi/dx
@@ -454,7 +453,7 @@ class SCFPotential(Potential):
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
-def compute_coeffs_spherical(dens, N, a=1.):
+def scf_compute_coeffs_spherical(dens, N, a=1.):
         """
         NAME:
            _compute_coeffs_spherical
@@ -481,7 +480,7 @@ def compute_coeffs_spherical(dens, N, a=1.):
         integrated = gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
-        Acos[n,0,0] = K*integrated
+        Acos[n,0,0] = 2*K*integrated
         return Acos, Asin
         
 def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
@@ -522,7 +521,7 @@ def _dC(xi, N, L):
      
     
         
-def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
+def scf_compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         """
         NAME:
            _compute_coeffs_axi
@@ -572,11 +571,11 @@ def compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         I = -K*(4*nu.pi) * nu.e**(lnI)
         
         constants = -2.**(-2*l)*(2*l + 1.)**.5 
-        Acos[:,:,0] = I**-1 * integrated*constants
+        Acos[:,:,0] = 2*I**-1 * integrated*constants
         
         return Acos, Asin
         
-def compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order=None):
+def scf_compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order=None):
         """
         NAME:
            _compute_coeffs
@@ -637,7 +636,7 @@ def compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order
         
         lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
         I = -K*(4*nu.pi) * nu.e**(lnI)
-        Acos[:,:,:],Asin[:,:,:] = (I**-1.)[nu.newaxis,:,:,:] * integrated * constants[nu.newaxis,:,:,:]
+        Acos[:,:,:],Asin[:,:,:] = 2*(I**-1.)[nu.newaxis,:,:,:] * integrated * constants[nu.newaxis,:,:,:]
         
         return Acos, Asin
 
