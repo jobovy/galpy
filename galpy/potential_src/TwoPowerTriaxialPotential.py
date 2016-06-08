@@ -624,6 +624,18 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         return -self._b*self._c/self.a\
             *_potInt(x,y,z,psi,self._b2,self._c2)
 
+    def _xforce(self,x,y,z):
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,0)
+        
+    def _yforce(self,x,y,z):
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,1)
+
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -646,14 +658,8 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             Fx= self._cached_Fx
             Fy= self._cached_Fy
         else:
-            Fx= -self._b*self._c/self.a**3.\
-                *_forceInt(x,y,z,
-                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                           self._b2,self._c2,0)
-            Fy= -self._b*self._c/self.a**3.\
-                *_forceInt(x,y,z,
-                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                           self._b2,self._c2,1)
+            Fx= self._xforce(x,y,z)
+            Fy= self._yforce(x,y,z)
             self._force_hash= new_hash
             self._cached_Fx= Fx
             self._cached_Fy= Fy
@@ -703,14 +709,8 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             Fx= self._cached_Fx
             Fy= self._cached_Fy
         else:
-            Fx= -self._b*self._c/self.a**3.\
-                *_forceInt(x,y,z,
-                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                           self._b2,self._c2,0)
-            Fy= -self._b*self._c/self.a**3.\
-                *_forceInt(x,y,z,
-                           lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                           self._b2,self._c2,1)
+            Fx= self._xforce(x,y,z)
+            Fy= self._yforce(x,y,z)
             self._force_hash= new_hash
             self._cached_Fx= Fx
             self._cached_Fy= Fy
