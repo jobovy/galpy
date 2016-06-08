@@ -33,7 +33,7 @@ class TwoPowerTriaxialPotential(Potential):
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
     def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,b=1.,c=1.,
-                 zuvec=None,pa=None,
+                 zvec=None,pa=None,
                  normalize=False,ro=None,vo=None):
         """
         NAME:
@@ -58,7 +58,7 @@ class TwoPowerTriaxialPotential(Potential):
 
            c - z-to-x axis ratio of the density
 
-           zuvec= (None) If set, a unit vector that corresponds to the z axis
+           zvec= (None) If set, a unit vector that corresponds to the z axis
 
            pa= (None) If set, the position angle of the x axis (rad or Quantity)
 
@@ -78,7 +78,7 @@ class TwoPowerTriaxialPotential(Potential):
         if alpha == 1 and beta == 4:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             HernquistSelf= TriaxialHernquistPotential(amp=1.,a=a,b=b,c=c,
-                                                      zuvec=zuvec,pa=pa,
+                                                      zvec=zvec,pa=pa,
                                                       normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
@@ -86,7 +86,7 @@ class TwoPowerTriaxialPotential(Potential):
         elif alpha == 2 and beta == 4:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             JaffeSelf= TriaxialJaffePotential(amp=1.,a=a,b=b,c=c,
-                                              zuvec=zuvec,pa=pa,
+                                              zvec=zvec,pa=pa,
                                               normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
@@ -94,7 +94,7 @@ class TwoPowerTriaxialPotential(Potential):
         elif alpha == 1 and beta == 3:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             NFWSelf= TriaxialNFWPotential(amp=1.,a=a,b=b,c=c,pa=pa,
-                                          zuvec=zuvec,normalize=False)
+                                          zvec=zvec,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
@@ -113,7 +113,7 @@ class TwoPowerTriaxialPotential(Potential):
         self._c= c
         self._b2= self._b**2.
         self._c2= self._c**2.
-        self._setup_zuvec_pa(zuvec,pa)
+        self._setup_zvec_pa(zvec,pa)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -122,8 +122,8 @@ class TwoPowerTriaxialPotential(Potential):
             self.isNonAxi= True
         return None
 
-    def _setup_zuvec_pa(self,zuvec,pa):
-        if zuvec is None and pa is None:
+    def _setup_zvec_pa(self,zvec,pa):
+        if zvec is None and pa is None:
             self._aligned= True
         else:
             self._aligned= False
@@ -135,12 +135,12 @@ class TwoPowerTriaxialPotential(Potential):
                                      [0.,0.,1.]])
             else:
                 pa_rot= numpy.eye(3)
-            if not zuvec is None:
-                zuvec_rot= _rotate_to_arbitrary_vector(\
-                    numpy.array([[0.,0.,1.]]),zuvec)[0]
+            if not zvec is None:
+                zvec_rot= _rotate_to_arbitrary_vector(\
+                    numpy.array([[0.,0.,1.]]),zvec)[0]
             else:
-                zuvec_rot= numpy.eye(3)
-            self._rot= numpy.dot(pa_rot,zuvec_rot)
+                zvec_rot= numpy.eye(3)
+            self._rot= numpy.dot(pa_rot,zvec_rot)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -511,7 +511,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,zuvec=None,pa=None,
+    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,zvec=None,pa=None,
                  normalize=False,
                  conc=None,mvir=None,
                  vo=None,ro=None,
@@ -535,7 +535,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
            c - z-to-x axis ratio of the density
 
-           zuvec= (None) If set, a unit vector that corresponds to the z axis
+           zvec= (None) If set, a unit vector that corresponds to the z axis
 
            pa= (None) If set, the position angle of the x axis
 
@@ -576,7 +576,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._b2= self._b**2.
         self._c= c
         self._c2= self._c**2.
-        self._setup_zuvec_pa(zuvec,pa)
+        self._setup_zvec_pa(zvec,pa)
         self._force_hash= None
         if conc is None:
             self.a= a
