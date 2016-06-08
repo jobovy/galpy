@@ -6,6 +6,7 @@ import warnings
 import multiprocessing
 from scipy import integrate, interpolate, special
 from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
+from galpy.util import _rotate_to_arbitrary_vector
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
 from galpy.df_src.df import df, _APY_LOADED
@@ -1671,25 +1672,3 @@ def impulse_deltav_plummerstream_curvedstream(v,x,t,b,w,x0,v0,GSigma,rs,
 
 def _rotation_vy(v,inv=False):
     return _rotate_to_arbitrary_vector(v,[0,1,0],inv)
-
-def _rotate_to_arbitrary_vector(v,a,inv=False):
-    """ Return a rotation matrix that rotates v to align with unit vector a
-        i.e. R . v = |v|\hat{a} """
-    normv= v/numpy.tile(numpy.sqrt(numpy.sum(v**2.,axis=1)),(3,1)).T
-    rotaxis= numpy.cross(normv,a)
-    rotaxis/= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.,axis=1)),(3,1)).T
-    crossmatrix= numpy.empty((len(v),3,3))
-    crossmatrix[:,0,:]= numpy.cross(rotaxis,[1,0,0])
-    crossmatrix[:,1,:]= numpy.cross(rotaxis,[0,1,0])
-    crossmatrix[:,2,:]= numpy.cross(rotaxis,[0,0,1])
-    costheta= numpy.dot(normv,a)
-    sintheta= numpy.sqrt(1.-costheta**2.)
-    if inv: sgn= 1.
-    else: sgn= -1.
-    out= numpy.tile(costheta,(3,3,1)).T*numpy.tile(numpy.eye(3),(len(v),1,1))\
-        +sgn*numpy.tile(sintheta,(3,3,1)).T*crossmatrix\
-        +numpy.tile(1.-costheta,(3,3,1)).T\
-        *(rotaxis[:,:,numpy.newaxis]*rotaxis[:,numpy.newaxis,:])
-    out[numpy.fabs(costheta-1.) < 10.**-10.]= numpy.eye(3)
-    out[numpy.fabs(costheta+1.) < 10.**-10.]= -numpy.eye(3)
-    return out
