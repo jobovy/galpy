@@ -130,12 +130,15 @@ class TwoPowerTriaxialPotential(Potential):
             if not pa is None:
                 if _APY_LOADED and isinstance(pa,units.Quantity):
                     pa= pa.to(units.rad).value
-                pa_rot= numpy.array([[numpy.cos(pa),-numpy.sin(pa),0.],
-                                     [numpy.sin(pa),numpy.cos(pa),0.],
+                pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
+                                     [-numpy.sin(pa),numpy.cos(pa),0.],
                                      [0.,0.,1.]])
             else:
                 pa_rot= numpy.eye(3)
             if not zvec is None:
+                if not isinstance(zvec,numpy.ndarray):
+                    zvec= numpy.array(zvec)
+                zvec/= numpy.sqrt(numpy.sum(zvec**2.))
                 zvec_rot= _rotate_to_arbitrary_vector(\
                     numpy.array([[0.,0.,1.]]),zvec)[0]
             else:
