@@ -14,6 +14,7 @@ import hashlib
 import numpy
 from scipy import integrate
 from galpy.util import bovy_conversion, bovy_coords
+from galpy.util import _rotate_to_arbitrary_vector
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -31,8 +32,9 @@ class TwoPowerTriaxialPotential(Potential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,b=1.,c=1.,normalize=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,b=1.,c=1.,
+                 zuvec=None,pa=None,
+                 normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -56,6 +58,10 @@ class TwoPowerTriaxialPotential(Potential):
 
            c - z-to-x axis ratio of the density
 
+           zuvec= (None) If set, a unit vector that corresponds to the z axis
+
+           pa= (None) If set, the position angle of the x axis (rad or Quantity)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -72,6 +78,7 @@ class TwoPowerTriaxialPotential(Potential):
         if alpha == 1 and beta == 4:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             HernquistSelf= TriaxialHernquistPotential(amp=1.,a=a,b=b,c=c,
+                                                      zuvec=zuvec,pa=pa,
                                                       normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
@@ -79,13 +86,15 @@ class TwoPowerTriaxialPotential(Potential):
         elif alpha == 2 and beta == 4:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             JaffeSelf= TriaxialJaffePotential(amp=1.,a=a,b=b,c=c,
+                                              zuvec=zuvec,pa=pa,
                                               normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
             Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            NFWSelf= TriaxialNFWPotential(amp=1.,a=a,b=b,c=c,normalize=False)
+            NFWSelf= TriaxialNFWPotential(amp=1.,a=a,b=b,c=c,pa=pa,
+                                          zuvec=zuvec,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
@@ -104,12 +113,34 @@ class TwoPowerTriaxialPotential(Potential):
         self._c= c
         self._b2= self._b**2.
         self._c2= self._c**2.
+        self._setup_zuvec_pa(zuvec,pa)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         if numpy.fabs(self._b-1.) > 10.**-10.:
             self.isNonAxi= True
+        return None
+
+    def _setup_zuvec_pa(self,zuvec,pa):
+        if zuvec is None and pa is None:
+            self._aligned= True
+        else:
+            self._aligned= False
+            if not pa is None:
+                if _APY_LOADED and isinstance(pa,units.Quantity):
+                    pa= pa.to(units.rad).value
+                pa_rot= numpy.array([[numpy.cos(pa),-numpy.sin(pa),0.],
+                                     [numpy.sin(pa),numpy.cos(pa),0.],
+                                     [0.,0.,1.]])
+            else:
+                pa_rot= numpy.eye(3)
+            if not zuvec is None:
+                zuvec_rot= _rotate_to_arbitrary_vector(\
+                    numpy.array([[0.,0.,1.]]),zuvec)[0]
+            else:
+                zuvec_rot= numpy.eye(3)
+            self._rot= numpy.dot(pa_rot,zuvec_rot)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -128,12 +159,20 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-05-30 - Started - Bovy (UofT)
         """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if self._aligned:
+            return self._evaluate_xyz(x,y,z)
+        else:
+            xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+            return self._evaluate_xyz(xyzp[0],xyzp[1],xyzp[2])
+
+    def _evaluate_xyz(self,x,y,z):
         if not self.HernquistSelf == None:
-            return self.HernquistSelf._evaluate(R,z,phi=phi,t=t)
+            return self.HernquistSelf._evaluate_xyz(x,y,z)
         elif not self.JaffeSelf == None:
-            return self.JaffeSelf._evaluate(R,z,phi=phi,t=t)
+            return self.JaffeSelf._evaluate_xyz(x,y,z)
         elif not self.NFWSelf == None:
-            return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
+            return self.NFWSelf._evaluate_xyz(x,y,z)
         else:
             raise NotImplementedError("General potential expression not yet implemented")
 
@@ -472,7 +511,8 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,normalize=False,
+    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,zuvec=None,pa=None,
+                 normalize=False,
                  conc=None,mvir=None,
                  vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
@@ -494,6 +534,10 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
            b - y-to-x axis ratio of the density
 
            c - z-to-x axis ratio of the density
+
+           zuvec= (None) If set, a unit vector that corresponds to the z axis
+
+           pa= (None) If set, the position angle of the x axis
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -532,6 +576,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._b2= self._b**2.
         self._c= c
         self._c2= self._c**2.
+        self._setup_zuvec_pa(zuvec,pa)
         self._force_hash= None
         if conc is None:
             self.a= a
@@ -561,23 +606,20 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             self.isNonAxi= True
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate_xyz(self,x,y,z):
         """
         NAME:
-           _evaluate
+           __evaluate_xyz
         PURPOSE:
-           evaluate the potential at R,z
+           evaluate the potential at x,y,z
         INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
+           x,y,z- rectangular position
         OUTPUT:
-           Phi(R,z)
+           Phi(x,y,z)
         HISTORY:
            2016-05-30 - Started - Bovy (UofT)
+           2016-06-08 - Re-written to be a function of (x,y,z) - Bovy (UofT)
         """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         psi= lambda m: 1./(1.+m/self.a)
         return -self._b*self._c/self.a\
             *_potInt(x,y,z,psi,self._b2,self._c2)
