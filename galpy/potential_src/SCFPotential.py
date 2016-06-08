@@ -59,12 +59,14 @@ class SCFPotential(Potential):
             self.normalize(normalize)
         ##Acos and Asin must have the same shape
         self._Acos, self._Asin = Acos, Asin
-        
+        self._amp = amp
         self._a = a
 
         self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
         
         self._force_hash= None
+        
+
         return None
 
  
@@ -297,7 +299,7 @@ class SCFPotential(Potential):
         n = nu.arange(0, N, dtype=float)[:, nu.newaxis]
         xi = self._calculateXi(r)
         dC = _dC(xi,N,L)
-        return -(4*nu.pi)**.5 * ((l*r**l - r**(l + 1)*(1 + l))/(r*(1 + r)**(2*l + 2))*_C(xi,N,L) + 
+        return -(4*nu.pi)**.5 * (nu.power(r, -1)*(l*r**l - r**(l + 1)*(1 + l))/((1 + r)**(2*l + 2))*_C(xi,N,L) + 
         (1 - xi)**2 * r**l / (1 + r)**(2*l + 1) *dC/2.)
         
         
@@ -348,9 +350,9 @@ class SCFPotential(Potential):
             dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
             
             self._force_hash = new_hash
-            self._cashed_dPhi_dr = dPhi_dr
-            self._cashed_dPhi_dtheta = dPhi_dtheta
-            self._cashed_dPhi_dphi = dPhi_dphi
+            self._cached_dPhi_dr = dPhi_dr
+            self._cached_dPhi_dtheta = dPhi_dtheta
+            self._cached_dPhi_dphi = dPhi_dphi
         
         return -(dPhi_dr*dr_dx + dPhi_dtheta * dtheta_dx + dPhi_dphi *dphi_dx)
         
@@ -384,9 +386,7 @@ class SCFPotential(Potential):
        
         for i in range(li.shape[0]):
             force[li[i]] = nu.sum(self._computeforce(dr_dx[li[i]][0], dtheta_dx[li[i]][0], dphi_dx[li[i]][0], R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
-            #print force[li[i]]
-        if shape == (1,): return force[0]
-        else: return force
+        return force
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -408,7 +408,7 @@ class SCFPotential(Potential):
         dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
         
-    def _zforce(self, R, z, phi=0, t=0):
+    def _zforce(self, R, z, phi=0., t=0.):
         """
         NAME:
            _zforce
