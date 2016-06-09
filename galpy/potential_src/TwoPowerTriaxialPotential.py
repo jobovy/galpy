@@ -296,35 +296,26 @@ class TwoPowerTriaxialPotential(Potential):
     def _xforce_xyz(self,x,y,z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._xforce_xyz(x,y,z)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._xforce_xyz(x,y,z)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._xforce_xyz(x,y,z)
-        else:
-            raise NotImplementedError("General potential expression not yet implemented")
-
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,0)
+        
     def _yforce_xyz(self,x,y,z):
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._yforce_xyz(x,y,z)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._yforce_xyz(x,y,z)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._zforce(x,y,z)
-        else:
-            raise NotImplementedError("General potential expression not yet implemented")
+        """Evaluation of the y force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,1)
 
     def _zforce_xyz(self,x,y,z):
-        """Raw vertical force as a function of (x,y,z)"""
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._zforce_xyz(x,y,z)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._zforce_xyz(x,y,z)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._zforce_xyz(x,y,z)
-        else:
-            raise NotImplementedError("General potential expression not yet implemented")
+        """Evaluation of the z force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        return -self._b*self._c/self.a**3.\
+            *_forceInt(x,y,z,
+                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                       self._b2,self._c2,2)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -644,30 +635,6 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         psi= lambda m: 1./(1.+m/self.a)
         return -self._b*self._c/self.a\
             *_potInt(x,y,z,psi,self._b2,self._c2)
-
-    def _xforce_xyz(self,x,y,z):
-        """Evaluation of the x force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        return -self._b*self._c/self.a**3.\
-            *_forceInt(x,y,z,
-                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,0)
-        
-    def _yforce_xyz(self,x,y,z):
-        """Evaluation of the y force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        return -self._b*self._c/self.a**3.\
-            *_forceInt(x,y,z,
-                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,1)
-
-    def _zforce_xyz(self,x,y,z):
-        """Evaluation of the z force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        return -self._b*self._c/self.a**3.\
-            *_forceInt(x,y,z,
-                       lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,2)
 
 def _potInt(x,y,z,psi,b2,c2):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
