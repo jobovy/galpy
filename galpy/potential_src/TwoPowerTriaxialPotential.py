@@ -113,6 +113,7 @@ class TwoPowerTriaxialPotential(Potential):
         self._c= c
         self._b2= self._b**2.
         self._c2= self._c**2.
+        self._force_hash= None
         self._setup_zvec_pa(zvec,pa)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -170,6 +171,8 @@ class TwoPowerTriaxialPotential(Potential):
             return self._evaluate_xyz(xyzp[0],xyzp[1],xyzp[2])
 
     def _evaluate_xyz(self,x,y,z):
+        """Evaluation of the potential as a function of (x,y,z) in the 
+        aligned coordinate frame"""
         if not self.HernquistSelf == None:
             return self.HernquistSelf._evaluate_xyz(x,y,z)
         elif not self.JaffeSelf == None:
@@ -193,16 +196,65 @@ class TwoPowerTriaxialPotential(Potential):
         OUTPUT:
            the radial force
         HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
+           2016-06-09 - Written - Bovy (UofT)
         """
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._Rforce(R,z,phi=phi,t=t)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._Rforce(R,z,phi=phi,t=t)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._Rforce(R,z,phi=phi,t=t)
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        # Compute all rectangular forces
+        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
+        if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
+            Fz= self._cached_Fz
         else:
-            raise NotImplementedError("General potential expression not yet implemented")
+            if self._aligned:
+                xp, yp, zp= x, y, z
+            else:
+                xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+                xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
+            Fx= self._xforce_xyz(xp,yp,zp)
+            Fy= self._yforce_xyz(xp,yp,zp)
+            Fz= self._zforce_xyz(xp,yp,zp)
+        if not self._aligned:
+            Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
+            Fx, Fy= Fxyz[0], Fxyz[1]
+        return numpy.cos(phi)*Fx+numpy.sin(phi)*Fy
+
+    def _phiforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phiforce
+        PURPOSE:
+           evaluate the azimuthal force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the azimuthal force
+        HISTORY:
+           2016-06-09 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        # Compute all rectangular forces
+        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
+        if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
+            Fz= self._cached_Fz
+        else:
+            if self._aligned:
+                xp, yp, zp= x, y, z
+            else:
+                xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+                xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
+            Fx= self._xforce_xyz(xp,yp,zp)
+            Fy= self._yforce_xyz(xp,yp,zp)
+            Fz= self._zforce_xyz(xp,yp,zp)
+        if not self._aligned:
+            Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
+            Fx, Fy= Fxyz[0], Fxyz[1]
+        return R*(-numpy.sin(phi)*Fx+numpy.cos(phi)*Fy)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -218,14 +270,59 @@ class TwoPowerTriaxialPotential(Potential):
         OUTPUT:
            the vertical force
         HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
+           2016-06-09 - Written - Bovy (UofT)
         """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        # Compute all rectangular forces
+        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
+        if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
+            Fz= self._cached_Fz
+        else:
+            if self._aligned:
+                xp, yp, zp= x, y, z
+            else:
+                xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+                xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
+            Fx= self._xforce_xyz(xp,yp,zp)
+            Fy= self._yforce_xyz(xp,yp,zp)
+            Fz= self._zforce_xyz(xp,yp,zp)
+        if not self._aligned:
+            Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
+            Fz= Fxyz[2]
+        return Fz
+
+    def _xforce_xyz(self,x,y,z):
+        """Evaluation of the x force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         if not self.HernquistSelf == None:
-            return self.HernquistSelf._zforce(R,z,phi=phi,t=t)
+            return self.HernquistSelf._xforce_xyz(x,y,z)
         elif not self.JaffeSelf == None:
-            return self.JaffeSelf._zforce(R,z,phi=phi,t=t)
+            return self.JaffeSelf._xforce_xyz(x,y,z)
         elif not self.NFWSelf == None:
-            return self.NFWSelf._zforce(R,z,phi=phi,t=t)
+            return self.NFWSelf._xforce_xyz(x,y,z)
+        else:
+            raise NotImplementedError("General potential expression not yet implemented")
+
+    def _yforce_xyz(self,x,y,z):
+        if not self.HernquistSelf == None:
+            return self.HernquistSelf._yforce_xyz(x,y,z)
+        elif not self.JaffeSelf == None:
+            return self.JaffeSelf._yforce_xyz(x,y,z)
+        elif not self.NFWSelf == None:
+            return self.NFWSelf._zforce(x,y,z)
+        else:
+            raise NotImplementedError("General potential expression not yet implemented")
+
+    def _zforce_xyz(self,x,y,z):
+        """Raw vertical force as a function of (x,y,z)"""
+        if not self.HernquistSelf == None:
+            return self.HernquistSelf._zforce_xyz(x,y,z)
+        elif not self.JaffeSelf == None:
+            return self.JaffeSelf._zforce_xyz(x,y,z)
+        elif not self.NFWSelf == None:
+            return self.NFWSelf._zforce_xyz(x,y,z)
         else:
             raise NotImplementedError("General potential expression not yet implemented")
 
@@ -330,57 +427,24 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
             self.isNonAxi= True
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2010-07-09 - Started - Bovy (UofT)
-        """
+    def _evaluate_xyz(self,x,y,z):
+        """Evaluation of the potential as a function of (x,y,z) in the 
+        aligned coordinate frame"""
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
+    def _xforce_xyz(self,x,y,z):
+        """Evaluation of the x force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _zforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
+    def _yforce_xyz(self,x,y,z):
+        """Evaluation of the y force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
+
+    def _zforce_xyz(self,x,y,z):
+        """Evaluation of the z force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
 class TriaxialJaffePotential(TwoPowerTriaxialPotential):
@@ -447,59 +511,24 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
             self.isNonAxi= True
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2010-07-09 - Started - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
+        """Evaluation of the potential as a function of (x,y,z) in the 
+        aligned coordinate frame"""
+        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
+    def _xforce_xyz(self,x,y,z):
+        """Evaluation of the x force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _zforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
-        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
+    def _yforce_xyz(self,x,y,z):
+        """Evaluation of the y force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
+
+    def _zforce_xyz(self,x,y,z):
+        """Evaluation of the z force as a function of (x,y,z) in the aligned
+        coordinate frame"""
+        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
 class TriaxialNFWPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial NFW potential
@@ -610,114 +639,35 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         return None
 
     def _evaluate_xyz(self,x,y,z):
-        """
-        NAME:
-           __evaluate_xyz
-        PURPOSE:
-           evaluate the potential at x,y,z
-        INPUT:
-           x,y,z- rectangular position
-        OUTPUT:
-           Phi(x,y,z)
-        HISTORY:
-           2016-05-30 - Started - Bovy (UofT)
-           2016-06-08 - Re-written to be a function of (x,y,z) - Bovy (UofT)
-        """
+        """Evaluation of the potential as a function of (x,y,z) in the 
+        aligned coordinate frame"""
         psi= lambda m: 1./(1.+m/self.a)
         return -self._b*self._c/self.a\
             *_potInt(x,y,z,psi,self._b2,self._c2)
 
-    def _xforce(self,x,y,z):
+    def _xforce_xyz(self,x,y,z):
+        """Evaluation of the x force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
                        self._b2,self._c2,0)
         
-    def _yforce(self,x,y,z):
+    def _yforce_xyz(self,x,y,z):
+        """Evaluation of the y force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
                        self._b2,self._c2,1)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx= self._cached_Fx
-            Fy= self._cached_Fy
-        else:
-            Fx= self._xforce(x,y,z)
-            Fy= self._yforce(x,y,z)
-            self._force_hash= new_hash
-            self._cached_Fx= Fx
-            self._cached_Fy= Fy
-        return numpy.cos(phi)*Fx+numpy.sin(phi)*Fy
-
-    def _zforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+    def _zforce_xyz(self,x,y,z):
+        """Evaluation of the z force as a function of (x,y,z) in the aligned
+        coordinate frame"""
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
                        self._b2,self._c2,2)
-
-    def _phiforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phiforce
-        PURPOSE:
-           evaluate the azimuthal force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-09 - Written - Bovy (UofT)
-        """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx= self._cached_Fx
-            Fy= self._cached_Fy
-        else:
-            Fx= self._xforce(x,y,z)
-            Fy= self._yforce(x,y,z)
-            self._force_hash= new_hash
-            self._cached_Fx= Fx
-            self._cached_Fy= Fy
-        return R*(-numpy.sin(phi)*Fx+numpy.cos(phi)*Fy)
 
 def _potInt(x,y,z,psi,b2,c2):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
