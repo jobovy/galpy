@@ -429,7 +429,9 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
     def _evaluate_xyz(self,x,y,z):
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
+        psi= lambda m: 1./(1.+m/self.a)**2./2.
+        return -self._b*self._c/self.a\
+            *_potInt(x,y,z,psi,self._b2,self._c2)
 
 class TriaxialJaffePotential(TwoPowerTriaxialPotential):
     """Class that implements the Jaffe potential
@@ -508,7 +510,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
     def _evaluate_xyz(self,x,y,z):
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
+        raise NotImplementedError("Triaxial Jaffe potential expression not yet implemented")
 
 class TriaxialNFWPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial NFW potential
