@@ -165,6 +165,7 @@ class TwoPowerTriaxialPotential(Potential):
             self._glx= 0.5*self._glx+0.5
             self._glw*= 0.5
         return None
+
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -656,7 +657,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
         self._scale= self.a
-        self.hasC= False
+        self.hasC= True
         self.hasC_dxdv= False
         if numpy.fabs(self._b-1.) > 10.**-10.:
             self.isNonAxi= True
