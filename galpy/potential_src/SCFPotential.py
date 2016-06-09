@@ -521,7 +521,7 @@ def _dC(xi, N, L):
      
     
         
-def scf_compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
+def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=None):
         """
         NAME:
            _compute_coeffs_axi
@@ -540,12 +540,12 @@ def scf_compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         """
         def integrand(xi, costheta):
             l = nu.arange(0, L)[nu.newaxis, :]
-            r = xiToR(xi)
+            r = xiToR(xi,a)
             R = r*nu.sqrt(1 - costheta**2.)
             z = r*costheta
             Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
-            phi_nl =  (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:] * Legandre
+            phi_nl =  a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:] * Legandre
             
             return  phi_nl*dV * dens(R, z)
             
@@ -575,7 +575,7 @@ def scf_compute_coeffs_axi(dens, N, L, radial_order=None, costheta_order=None):
         
         return Acos, Asin
         
-def scf_compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_order=None):
+def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
         """
         NAME:
            _compute_coeffs
@@ -596,15 +596,14 @@ def scf_compute_coeffs(dens, N, L, radial_order=None, costheta_order=None, phi_o
         def integrand(xi, costheta, phi):
             l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
             m = nu.arange(0, L)[nu.newaxis,nu.newaxis,:]
-            r = xiToR(xi)
+            r = xiToR(xi, a)
             R = r*nu.sqrt(1 - costheta**2.)
             z = r*costheta
-            
             Legandre = lpmn(L - 1,L-1,costheta)[0].T[nu.newaxis,:,:]
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.)
             
             
-            phi_nl = - (1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,nu.newaxis] * Legandre
+            phi_nl = - a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,nu.newaxis] * Legandre
             
             return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
             
