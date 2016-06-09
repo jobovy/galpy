@@ -140,7 +140,7 @@ class TwoPowerTriaxialPotential(Potential):
                     zvec= numpy.array(zvec)
                 zvec/= numpy.sqrt(numpy.sum(zvec**2.))
                 zvec_rot= _rotate_to_arbitrary_vector(\
-                    numpy.array([[0.,0.,1.]]),zvec)[0]
+                    numpy.array([[0.,0.,1.]]),zvec,inv=True)[0]
             else:
                 zvec_rot= numpy.eye(3)
             self._rot= numpy.dot(pa_rot,zvec_rot)
