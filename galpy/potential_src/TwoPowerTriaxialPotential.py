@@ -12,7 +12,7 @@
 ###############################################################################
 import hashlib
 import numpy
-from scipy import integrate
+from scipy import integrate, special
 from galpy.util import bovy_conversion, bovy_coords
 from galpy.util import _rotate_to_arbitrary_vector
 from galpy.potential_src.Potential import Potential, _APY_LOADED
@@ -107,6 +107,8 @@ class TwoPowerTriaxialPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
+        if beta <= 2. or alpha < 0. or alpha >= 3.:
+            raise IOError('TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2')
         self.alpha= alpha
         self.beta= beta
         self._b= b
@@ -180,7 +182,20 @@ class TwoPowerTriaxialPotential(Potential):
         elif not self.NFWSelf == None:
             return self.NFWSelf._evaluate_xyz(x,y,z)
         else:
-            raise NotImplementedError("General potential expression not yet implemented")
+            if self.alpha == 2.:
+                raise NotImplementedError('alpha=2 potential evaluation case not implemented')
+            else:
+                psi_inf=\
+                    special.gamma(self.beta-2.)*special.gamma(3.-self.alpha)\
+                    /special.gamma(self.beta-self.alpha)
+                psi= lambda m:\
+                    psi_inf-(m/self.a)**(2.-self.alpha)\
+                                 /(2.-self.alpha)\
+                                 *special.hyp2f1(2.-self.alpha,
+                                                 self.beta-self.alpha,
+                                                 3.-self.alpha,-m/self.a)
+            return -self._b*self._c/self.a\
+                *_potInt(x,y,z,psi,self._b2,self._c2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
