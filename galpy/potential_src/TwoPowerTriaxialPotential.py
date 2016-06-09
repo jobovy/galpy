@@ -365,7 +365,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.,normalize=False,b=1.,c=1.,
+    def __init__(self,amp=1.,a=1.,normalize=False,b=1.,c=1.,zvec=None,pa=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -385,6 +385,10 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
            b - y-to-x axis ratio of the density
 
            c - z-to-x axis ratio of the density
+
+           zvec= (None) If set, a unit vector that corresponds to the z axis
+
+           pa= (None) If set, the position angle of the x axis
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -407,7 +411,11 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
         self.alpha= 1
         self.beta= 4
         self._b= b
+        self._b2= self._b**2
         self._c= c
+        self._c2= self._c**2
+        self._setup_zvec_pa(zvec,pa)
+        self._force_hash= None
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
@@ -423,21 +431,6 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
         aligned coordinate frame"""
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
-    def _xforce_xyz(self,x,y,z):
-        """Evaluation of the x force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _yforce_xyz(self,x,y,z):
-        """Evaluation of the y force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _zforce_xyz(self,x,y,z):
-        """Evaluation of the z force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
 class TriaxialJaffePotential(TwoPowerTriaxialPotential):
     """Class that implements the Jaffe potential
 
@@ -451,7 +444,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.,b=1.,c=1.,normalize=False,
+    def __init__(self,amp=1.,a=1.,b=1.,c=1.,zvec=None,pa=None,normalize=False,
                  ro=None,vo=None):
         """
         NAME:
@@ -471,6 +464,10 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
            b - y-to-x axis ratio of the density
 
            c - z-to-x axis ratio of the density
+
+           zvec= (None) If set, a unit vector that corresponds to the z axis
+
+           pa= (None) If set, the position angle of the x axis
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -492,6 +489,12 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
         self._scale= self.a
         self.alpha= 2
         self.beta= 4
+        self._b= b
+        self._b2= self._b**2.
+        self._c= c
+        self._c2= self._c**2.
+        self._setup_zvec_pa(zvec,pa)
+        self._force_hash= None
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -502,23 +505,9 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
             self.isNonAxi= True
         return None
 
+    def _evaluate_xyz(self,x,y,z):
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _xforce_xyz(self,x,y,z):
-        """Evaluation of the x force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _yforce_xyz(self,x,y,z):
-        """Evaluation of the y force as a function of (x,y,z) in the aligned
-        coordinate frame"""
-        raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
-
-    def _zforce_xyz(self,x,y,z):
-        """Evaluation of the z force as a function of (x,y,z) in the aligned
-        coordinate frame"""
         raise NotImplementedError("Triaxial Hernquist potential expression not yet implemented")
 
 class TriaxialNFWPotential(TwoPowerTriaxialPotential):
@@ -595,6 +584,8 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
+        self.alpha= 1
+        self.beta= 3
         self._b= b
         self._b2= self._b**2.
         self._c= c
@@ -603,8 +594,6 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._force_hash= None
         if conc is None:
             self.a= a
-            self.alpha= 1
-            self.beta= 3
             if normalize or \
                     (isinstance(normalize,(int,float)) \
                          and not isinstance(normalize,bool)):
