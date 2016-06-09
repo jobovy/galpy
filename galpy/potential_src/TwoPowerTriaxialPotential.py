@@ -121,7 +121,7 @@ class TwoPowerTriaxialPotential(Potential):
         self._c2= self._c**2.
         self._force_hash= None
         self._setup_zvec_pa(zvec,pa)
-        self.glorder= glorder
+        self._setup_gl(glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -154,6 +154,17 @@ class TwoPowerTriaxialPotential(Potential):
             self._rot= numpy.dot(pa_rot,zvec_rot)
         return None
 
+    def _setup_gl(self,glorder):
+        self._glorder= glorder
+        if self._glorder is None:
+            self._glx, self._glw= None, None
+        else:
+            self._glx, self._glw=\
+                numpy.polynomial.legendre.leggauss(self._glorder)
+            # Interval change
+            self._glx= 0.5*self._glx+0.5
+            self._glw*= 0.5
+        return None
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -200,7 +211,7 @@ class TwoPowerTriaxialPotential(Potential):
                                                  self.beta-self.alpha,
                                                  3.-self.alpha,-m/self.a)
             return -self._b*self._c/self.a\
-                *_potInt(x,y,z,psi,self._b2,self._c2,glorder=self.glorder)
+                *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -319,7 +330,7 @@ class TwoPowerTriaxialPotential(Potential):
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,0,glorder=self.glorder)
+                       self._b2,self._c2,0,glx=self._glx,glw=self._glw)
         
     def _yforce_xyz(self,x,y,z):
         """Evaluation of the y force as a function of (x,y,z) in the aligned
@@ -327,7 +338,7 @@ class TwoPowerTriaxialPotential(Potential):
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,1,glorder=self.glorder)
+                       self._b2,self._c2,1,glx=self._glx,glw=self._glw)
 
     def _zforce_xyz(self,x,y,z):
         """Evaluation of the z force as a function of (x,y,z) in the aligned
@@ -335,7 +346,7 @@ class TwoPowerTriaxialPotential(Potential):
         return -self._b*self._c/self.a**3.\
             *_forceInt(x,y,z,
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-                       self._b2,self._c2,2,glorder=self.glorder)
+                       self._b2,self._c2,2,glx=self._glx,glw=self._glw)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -436,7 +447,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
         self._b2= self._b**2
         self._c= c
         self._c2= self._c**2
-        self.glorder= glorder
+        self._setup_gl(glorder)
         self._setup_zvec_pa(zvec,pa)
         self._force_hash= None
         if normalize or \
@@ -454,7 +465,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
         aligned coordinate frame"""
         psi= lambda m: 1./(1.+m/self.a)**2./2.
         return -self._b*self._c/self.a\
-            *_potInt(x,y,z,psi,self._b2,self._c2,glorder=self.glorder)
+            *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
 
 class TriaxialJaffePotential(TwoPowerTriaxialPotential):
     """Class that implements the Jaffe potential
@@ -520,7 +531,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
         self._b2= self._b**2.
         self._c= c
         self._c2= self._c**2.
-        self.glorder= glorder
+        self._setup_gl(glorder)
         self._setup_zvec_pa(zvec,pa)
         self._force_hash= None
         if normalize or \
@@ -538,7 +549,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
         aligned coordinate frame"""
         psi= lambda m: -1./(1.+m/self.a)-numpy.log(m/self.a/(1.+m/self.a))
         return -self._b*self._c/self.a\
-            *_potInt(x,y,z,psi,self._b2,self._c2,glorder=self.glorder)
+            *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
 
 class TriaxialNFWPotential(TwoPowerTriaxialPotential):
     """Class that implements the triaxial NFW potential
@@ -622,7 +633,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._b2= self._b**2.
         self._c= c
         self._c2= self._c**2.
-        self.glorder= glorder
+        self._setup_gl(glorder)
         self._setup_zvec_pa(zvec,pa)
         self._force_hash= None
         if conc is None:
@@ -656,28 +667,28 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         aligned coordinate frame"""
         psi= lambda m: 1./(1.+m/self.a)
         return -self._b*self._c/self.a\
-            *_potInt(x,y,z,psi,self._b2,self._c2,glorder=self.glorder)
+            *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
 
-def _potInt(x,y,z,psi,b2,c2,glorder=None):
+def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
     where psi~(m) = [psi(\infty)-psi(m)]/[2Aa^2], with A=amp/[4pia^3]"""
     def integrand(s):
         t= 1/s**2.-1.
         return psi(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
-    if glorder is None:
+    if glx is None:
         return integrate.quad(integrand,0.,1.)[0]                              
     else:
-        return integrate.fixed_quad(integrand,0.,1.,n=glorder)[0]
+        return numpy.sum(glw*integrand(glx))
 
-def _forceInt(x,y,z,dens,b2,c2,i,glorder=None):
+def _forceInt(x,y,z,dens,b2,c2,i,glx=None,glw=None):
     """Integral that gives the force in x,y,z"""
     def integrand(s):
         t= 1/s**2.-1.
         return dens(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
             *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))\
             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
-    if glorder is None:
+    if glx is None:
         return integrate.quad(integrand,0.,1.)[0]                              
     else:
-        return integrate.fixed_quad(integrand,0.,1.,n=glorder)[0]
+        return numpy.sum(glw*integrand(glx))
