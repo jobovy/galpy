@@ -294,12 +294,13 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        a = self._a
         l = nu.arange(0, L, dtype=float)[nu.newaxis, :]
         n = nu.arange(0, N, dtype=float)[:, nu.newaxis]
         xi = self._calculateXi(r)
         dC = _dC(xi,N,L)
-        return -(4*nu.pi)**.5 * (nu.power(r, -1)*(l*r**l - r**(l + 1)*(1 + l))/((1 + r)**(2*l + 2))*_C(xi,N,L) + 
-        (1 - xi)**2 * r**l / (1 + r)**(2*l + 1) *dC/2.)
+        return -(4*nu.pi)**.5 * (nu.power(a*r, l)*(l*(a + r)*nu.power(r,-1) -(2*l + 1))/((a + r)**(2*l + 2))*_C(xi,N,L) + 
+        a**-1*(1 - xi)**2 * (a*r)**l / (a + r)**(2*l + 1) *dC/2.)
         
         
     def _computeforce(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
