@@ -246,6 +246,10 @@ class TwoPowerTriaxialPotential(Potential):
             Fx= self._xforce_xyz(xp,yp,zp)
             Fy= self._yforce_xyz(xp,yp,zp)
             Fz= self._zforce_xyz(xp,yp,zp)
+            self._force_hash= new_hash
+            self._cached_Fx= Fx
+            self._cached_Fy= Fy
+            self._cached_Fz= Fz
         if not self._aligned:
             Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
             Fx, Fy= Fxyz[0], Fxyz[1]
@@ -283,6 +287,10 @@ class TwoPowerTriaxialPotential(Potential):
             Fx= self._xforce_xyz(xp,yp,zp)
             Fy= self._yforce_xyz(xp,yp,zp)
             Fz= self._zforce_xyz(xp,yp,zp)
+            self._force_hash= new_hash
+            self._cached_Fx= Fx
+            self._cached_Fy= Fy
+            self._cached_Fz= Fz
         if not self._aligned:
             Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
             Fx, Fy= Fxyz[0], Fxyz[1]
@@ -320,6 +328,10 @@ class TwoPowerTriaxialPotential(Potential):
             Fx= self._xforce_xyz(xp,yp,zp)
             Fy= self._yforce_xyz(xp,yp,zp)
             Fz= self._zforce_xyz(xp,yp,zp)
+            self._force_hash= new_hash
+            self._cached_Fx= Fx
+            self._cached_Fy= Fy
+            self._cached_Fz= Fz
         if not self._aligned:
             Fxyz= numpy.dot(self._rot.T,numpy.array([Fx,Fy,Fz]))
             Fz= Fxyz[2]
