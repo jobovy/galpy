@@ -134,6 +134,7 @@ def _parse_pot(pot,potforactions=False):
             pot_args.append(p._glorder)
             pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
             pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
+            pot_args.extend([0.,0.,0.,0.,0.,0.])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
