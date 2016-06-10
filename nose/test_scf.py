@@ -119,50 +119,35 @@ def test_scfHernquist_energyConserved():
   
 
 ##Tests that the numerically calculated results from axi_density1 matches with the analytic results
-
 def test_scf_compute_axi_density1():
-    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
-    axi_coeffsTest(Acos, Asin)
-     
-##I should probably combine the four following function into one
+    A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
+    axi_coeffsTest(A[0], A[1])
+    analytically_calculated = numpy.array([[4./3, 7.* 3**(-5/2.), 2*11*5**(-5./2), 0],
+                                            [0, 0,0,0],
+                                            [0,11. / (3.**(5./2) * 5 * 7. * 2), 1. / (2*3.*5**.5*7.), 0]])
+    numerically_calculated = A[0][:3,:4,0]
+    shape = numerically_calculated.shape
+    for n in range(shape[0]):
+        for l in range(shape[1]):
+            assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
+        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
 
-def test_axi_density1_n0():
-    A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
-    analytically_calculated = numpy.array([4./3, 7.* 3**(-5/2.), 2*11*5**(-5./2), 0])
-    numerically_calculated = A[0][0,:4,0]
-    
-    for l in range(len(analytically_calculated)):
-        assert numpy.fabs(numerically_calculated[l] - analytically_calculated[l]) < EPS, \
-        "Acos(0,l={0},0) = {1}, whereas it was analytically calculated to be {2}".format(l, numerically_calculated[l], analytically_calculated[l])
-     
-def test_axi_density1_l0():
-    A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
-    analytically_calculated = numpy.array([4./3, 0,0, 0])
-    numerically_calculated = A[0][:4,0,0]
-    
-    for n in range(len(analytically_calculated)):
-        assert numpy.fabs(numerically_calculated[n] - analytically_calculated[n]) < EPS, \
-        "Acos(n={0},0,0) = {1}, whereas it was analytically calculated to be {2}".format(l, numerically_calculated[n], analytically_calculated[n])
-        
-def test_axi_density1_n1():
-    A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
-    analytically_calculated = numpy.array([0,0,0, 0])
-    numerically_calculated = A[0][1,:4,0]
-    
-    for l in range(len(analytically_calculated)):
-        assert numpy.fabs(numerically_calculated[l] - analytically_calculated[l]) < EPS, \
-        "Acos(1,l={0},0) = {1}, whereas it was analytically calculated to be {2}".format(l, numerically_calculated[l], analytically_calculated[l])
+
+##Tests that the numerically calculated results from axi_density2 matches with the analytic results
+def test_scf_compute_axi_density2():
+    A = potential.scf_compute_coeffs_axi(axi_density2, 10,10)
+    axi_coeffsTest(A[0], A[1])
+    analytically_calculated = 2*numpy.array([[1., 7.* 3**(-3/2.) /4., 3*11*5**(-5./2)/2., 0],
+                                            [0,0,0,0], ##I never did analytically solve for n=1
+                                            [0, 11./(7*5*3**(3./2)*2**(3.)), (7 * 5**(.5)*2**3.)**-1., 0]])
+    numerically_calculated = A[0][:3,:4,0]
+    shape = numerically_calculated.shape
+    for n in range(shape[0]):
+        if n ==1: continue 
+        for l in range(shape[1]):
+            assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
+        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
  
-def test_axi_density1_n2():
-    A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
-    analytically_calculated = numpy.array([0,11. / (3.**(5./2) * 5 * 7. * 2), 1. / (2*3.*5**.5*7.), 0])
-    numerically_calculated = A[0][2,:4,0]
-    
-    for l in range(len(analytically_calculated)):
-        assert numpy.fabs(numerically_calculated[l] - analytically_calculated[l]) < EPS, \
-        "Acos(2,l={0},0) = {1}, whereas it was analytically calculated to be {2}".format(l, numerically_calculated[l], analytically_calculated[l])
-     
-
 ##############GENERIC FUNCTIONS BELOW###############
 
 ## This is used to compare scf functions with its corresponding galpy function
@@ -227,3 +212,9 @@ def axi_density1(R, z=0, phi=0.):
     r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential()
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
+    
+    
+def axi_density2(R, z=0, phi=0.):
+    spherical_coords = bovy_coords.cyl_to_spher(R,z, phi)
+    theta = spherical_coords[1]
+    return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
