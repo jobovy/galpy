@@ -1328,6 +1328,7 @@ def test_analytic_zmax():
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['testMWPotential']= -6. #these are more difficult
     tol['KuzminDiskPotential']=-4 #these are more difficult
+    tol['SCFPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1356,6 +1357,7 @@ def test_analytic_zmax():
                     o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
                 tzmax_analytic= o.zmax(analytic=True)
+                print(p,(tzmax-tzmax_analytic)**2.)
                 #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
