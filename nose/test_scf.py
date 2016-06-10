@@ -66,7 +66,7 @@ def test_densMatches_hernquist():
     compareFunctions(h.dens,scf.dens, assertmsg) 
     
 ## Tests whether scf density matches with Hernquist density
-def test_densMatches_hernquist():
+def test_densMatches_zeeuw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw,10)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the density of Zeeuw's perfect ellipsoid with SCF fails at R={0}, Z={1}, phi={2}"
@@ -147,6 +147,8 @@ def test_scf_compute_axi_density2():
         for l in range(shape[1]):
             assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
         "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
+ 
+ 
  
 ##############GENERIC FUNCTIONS BELOW###############
 
