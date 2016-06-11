@@ -65,12 +65,26 @@ def test_densMatches_hernquist():
     assertmsg = "Comparing the density of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(h.dens,scf.dens, assertmsg) 
     
-## Tests whether scf density matches with Hernquist density
+## Tests whether scf density matches with Zeeuw density
 def test_densMatches_zeeuw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw,10)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the density of Zeeuw's perfect ellipsoid with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(rho_Zeeuw,scf.dens, assertmsg) 
+    
+## Tests whether scf density matches with axi_density1
+def test_densMatches_axi_density1():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,10,10)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
+    assertmsg = "Comparing axi_density1 with SCF fails at R={0}, Z={1}, phi={2}"
+    compareFunctions(axi_density1,scf.dens, assertmsg) 
+    
+## Tests whether scf density matches with axi_density2
+def test_densMatches_axi_density2():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,10)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
+    assertmsg = "Comparing axi_density2 with SCF fails at R={0}, Z={1}, phi={2}"
+    compareFunctions(axi_density2,scf.dens, assertmsg) 
 
 ## Tests whether scf potential matches with Hernquist potential
 def test_potentialMatches_hernquist():
@@ -116,6 +130,40 @@ def test_scfHernquist_energyConserved():
     tEs= o.E(times)
     
     assert (numpy.std(tEs)/numpy.mean(tEs))**2. < EPS, "SCF Hernquist Conserved Energy fails."
+  
+  
+## Checks Energy conservation for the SCF Zeeuw Potential    
+def test_scfZeuuw_energyConserved():
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw,10)
+    scf = SCFPotential()
+    times= numpy.linspace(0.,280.,1001)
+    o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+    o.integrate(times,scf,method='odeint')
+    tEs= o.E(times)
+    
+    assert (numpy.std(tEs)/numpy.mean(tEs))**2. < EPS, "SCF Zeeuw Conserved Energy fails."
+    
+## Checks Energy conservation for the SCF axi_density1 Potential    
+def test_scfaxi_density1_energyConserved():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,10,10)
+    scf = SCFPotential()
+    times= numpy.linspace(0.,280.,1001)
+    o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+    o.integrate(times,scf,method='odeint')
+    tEs= o.E(times)
+    
+    assert (numpy.std(tEs)/numpy.mean(tEs))**2. < EPS, "SCF axi_density1 Conserved Energy fails."
+    
+    ## Checks Energy conservation for the SCF axi_density2 Potential    
+def test_scfaxi_density2_energyConserved():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,10)
+    scf = SCFPotential()
+    times= numpy.linspace(0.,280.,1001)
+    o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+    o.integrate(times,scf,method='odeint')
+    tEs= o.E(times)
+    
+    assert (numpy.std(tEs)/numpy.mean(tEs))**2. < EPS, "SCF axi_density2 Conserved Energy fails."
   
 
 ##Tests that the numerically calculated results from axi_density1 matches with the analytic results
