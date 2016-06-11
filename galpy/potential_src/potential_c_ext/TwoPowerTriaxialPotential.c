@@ -49,9 +49,9 @@ void TwoPowerTriaxialPotentialxyzforces_xyz(double x,double y, double z,
   int ii;
   double t;
   double td;
-  *(args + 2 * glorder + 1)= x;
-  *(args + 2 * glorder + 2)= y;
-  *(args + 2 * glorder + 3)= z;
+  *args= x;
+  *(args + 1)= y;
+  *(args + 2)= z;
   if ( !aligned ) 
     rotate(&x,&y,&z,rot);
   *Fx= 0.;
@@ -65,9 +65,9 @@ void TwoPowerTriaxialPotentialxyzforces_xyz(double x,double y, double z,
     *Fy+= td * y / ( b2 + t );
     *Fz+= td * z / ( c2 + t );
   }
-  *(args + 2 * glorder + 4)= *Fx;
-  *(args + 2 * glorder + 5)= *Fy;
-  *(args + 2 * glorder + 6)= *Fz;
+  *(args + 3)= *Fx;
+  *(args + 4)= *Fy;
+  *(args + 5)= *Fz;
 }
 double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
 				       double t,
@@ -85,18 +85,19 @@ double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
   int glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
-  double cached_x= *(args + 2 * glorder + 1);
-  double cached_y= *(args + 2 * glorder + 2);
-  double cached_z= *(args + 2 * glorder + 3);
+  args+= 2 * glorder;
+  double cached_x= *args;
+  double cached_y= *(args + 1);
+  double cached_z= *(args + 2);
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
     //LCOV_EXCL_START
-    Fx= *(args + 2 * glorder + 4);
-    Fy= *(args + 2 * glorder + 5);
-    Fz= *(args + 2 * glorder + 6);
+    Fx= *(args + 3);
+    Fy= *(args + 4);
+    Fz= *(args + 5);
     //LCOV_EXCL_STOP
   }
   else 
@@ -123,17 +124,18 @@ double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
   int glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
-  double cached_x= *(args + 2 * glorder + 1);
-  double cached_y= *(args + 2 * glorder + 2);
-  double cached_z= *(args + 2 * glorder + 3);
+  args+= 2 * glorder;
+  double cached_x= *args;
+  double cached_y= *(args + 1);
+  double cached_z= *(args + 2);
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *(args + 2 * glorder + 4);
-    Fy= *(args + 2 * glorder + 5);
-    Fz= *(args + 2 * glorder + 6);
+    Fx= *(args + 3);
+    Fy= *(args + 4);
+    Fz= *(args + 5);
   }
   else 
     //LCOV_EXCL_START
@@ -161,17 +163,18 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
   int glorder= (int) *args++;
   double * glx= args;
   double * glw= args + glorder;
-  double cached_x= *(args + 2 * glorder + 1);
-  double cached_y= *(args + 2 * glorder + 2);
-  double cached_z= *(args + 2 * glorder + 3);
+  args+= 2 * glorder;
+  double cached_x= *args;
+  double cached_y= *(args + 1);
+  double cached_z= *(args + 2);
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *(args + 2 * glorder + 4);
-    Fy= *(args + 2 * glorder + 5);
-    Fz= *(args + 2 * glorder + 6);
+    Fx= *(args + + 3);
+    Fy= *(args + + 4);
+    Fz= *(args + + 5);
   }
   else 
     //LCOV_EXCL_START
