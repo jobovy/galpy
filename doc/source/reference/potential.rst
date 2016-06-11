@@ -128,7 +128,7 @@ Axisymmetric potentials
    potentialsnapshotrzpotential.rst
 
 Triaxial potentials
-********************
+*********************
 
 .. toctree::
    :maxdepth: 2
@@ -243,7 +243,9 @@ potentials in the mid-plane.
 .. toctree::
    :maxdepth: 2
 
-   RZToplanarPotential <potential2dRZtoplanar.rst>
+   toPlanarPotential (general) <potential2dtoplanar.rst>
+   FullToplanarPotential (low-level) <potential2dFulltoplanar.rst>
+   RZToplanarPotential (low-level) <potential2dRZtoplanar.rst>
 
 In addition, a two-dimensional bar potential and a two spiral potentials are included
 
