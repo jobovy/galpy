@@ -265,8 +265,8 @@ double BurkertPotentialzforce(double,double,double,double,
 double BurkertPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
 //TriaxialHernquistPotential
-//double TriaxialHernquistPotentialEval(double,double,double,double,
-//				struct potentialArg *);
+double TriaxialHernquistPotentialEval(double,double,double,double,
+				struct potentialArg *);
 double TriaxialHernquistPotentialRforce(double,double,double,double,
 					struct potentialArg *);
 double TriaxialHernquistPotentialPlanarRforce(double,double,double,
@@ -278,8 +278,8 @@ double TriaxialHernquistPotentialPlanarphiforce(double,double,double,
 double TriaxialHernquistPotentialzforce(double,double,double,double,
 					struct potentialArg *);
 //TriaxialNFWPotential
-//double TriaxialNFWPotentialEval(double,double,double,double,
-//				struct potentialArg *);
+double TriaxialNFWPotentialEval(double,double,double,double,
+				struct potentialArg *);
 double TriaxialNFWPotentialRforce(double,double,double,double,
 				  struct potentialArg *);
 double TriaxialNFWPotentialPlanarRforce(double,double,double,
@@ -291,8 +291,8 @@ double TriaxialNFWPotentialPlanarphiforce(double,double,double,
 double TriaxialNFWPotentialzforce(double,double,double,double,
 				  struct potentialArg *);
 //TriaxialJaffePotential
-//double TriaxialJaffePotentialEval(double,double,double,double,
-//				struct potentialArg *);
+double TriaxialJaffePotentialEval(double,double,double,double,
+				struct potentialArg *);
 double TriaxialJaffePotentialRforce(double,double,double,double,
 				    struct potentialArg *);
 double TriaxialJaffePotentialPlanarRforce(double,double,double,

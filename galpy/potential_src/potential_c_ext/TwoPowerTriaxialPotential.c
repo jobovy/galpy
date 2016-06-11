@@ -221,7 +221,6 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * Fz;
 }
-//NFW
 double TriaxialNFWPotentialRforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
@@ -292,5 +291,138 @@ double TriaxialJaffePotentialzforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
   return TwoPowerTriaxialPotentialzforce(R,z,phi,t,2,4,potentialArgs);
+}
+// Implement the potentials separately
+//NFW
+inline double TriaxialNFWPotential_psi(double x){
+  return 1. / ( 1. + x );
+}
+double TriaxialNFWPotentialpotential_xyz_integrand(double s,
+						   double x,double y,
+						   double z,double a,
+						   double b2,double c2){
+  double t= 1. / s / s - 1.;
+  return TriaxialNFWPotential_psi( sqrt ( x * x / ( 1. + t ) \
+					  + y * y / ( b2 + t )	\
+					  + z * z / ( c2 + t ) ) / a ) \
+    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+}
+double TriaxialNFWPotentialEval(double R,double z, double phi,
+				double t,
+				struct potentialArg * potentialArgs){
+  int ii;
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args++;
+  double b2= *args++;
+  double c= *args++;
+  double c2= *args++;
+  bool aligned= (bool) *args++;
+  double * rot= args;
+  args+= 9;
+  int glorder= (int) *args++;
+  double * glx= args;
+  double * glw= args + glorder;
+  //Calculate potential
+  double x, y;
+  double out= 0.;
+  cyl_to_rect(R,phi,&x,&y);
+  if ( !aligned ) 
+    rotate(&x,&y,&z,rot);
+  for (ii=0; ii < glorder; ii++)
+    out+= *(glw+ii)							\
+      * TriaxialNFWPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
+						    a,b2,c2);
+  return -amp * b * c / a * out;
+}
+//Hernquist
+inline double TriaxialHernquistPotential_psi(double x){
+  return 0.5 / ( 1. + x ) / ( 1. + x );
+}
+double TriaxialHernquistPotentialpotential_xyz_integrand(double s,
+						   double x,double y,
+						   double z,double a,
+						   double b2,double c2){
+  double t= 1. / s / s - 1.;
+  return TriaxialHernquistPotential_psi( sqrt ( x * x / ( 1. + t ) \
+					  + y * y / ( b2 + t )	\
+					  + z * z / ( c2 + t ) ) / a ) \
+    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+}
+double TriaxialHernquistPotentialEval(double R,double z, double phi,
+				double t,
+				struct potentialArg * potentialArgs){
+  int ii;
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args++;
+  double b2= *args++;
+  double c= *args++;
+  double c2= *args++;
+  bool aligned= (bool) *args++;
+  double * rot= args;
+  args+= 9;
+  int glorder= (int) *args++;
+  double * glx= args;
+  double * glw= args + glorder;
+  //Calculate potential
+  double x, y;
+  double out= 0.;
+  cyl_to_rect(R,phi,&x,&y);
+  if ( !aligned ) 
+    rotate(&x,&y,&z,rot);
+  for (ii=0; ii < glorder; ii++)
+    out+= *(glw+ii)							\
+      * TriaxialHernquistPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
+							  a,b2,c2);
+  return -amp * b * c / a * out;
+}
+//Jaffe
+inline double TriaxialJaffePotential_psi(double x){
+  return - 1. / ( 1. + x ) - log ( x / ( 1. + x ) ) ;
+}
+double TriaxialJaffePotentialpotential_xyz_integrand(double s,
+						   double x,double y,
+						   double z,double a,
+						   double b2,double c2){
+  double t= 1. / s / s - 1.;
+  return TriaxialJaffePotential_psi( sqrt ( x * x / ( 1. + t ) \
+					  + y * y / ( b2 + t )	\
+					  + z * z / ( c2 + t ) ) / a ) \
+    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+}
+double TriaxialJaffePotentialEval(double R,double z, double phi,
+				double t,
+				struct potentialArg * potentialArgs){
+  int ii;
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args++;
+  double b2= *args++;
+  double c= *args++;
+  double c2= *args++;
+  bool aligned= (bool) *args++;
+  double * rot= args;
+  args+= 9;
+  int glorder= (int) *args++;
+  double * glx= args;
+  double * glw= args + glorder;
+  //Calculate potential
+  double x, y;
+  double out= 0.;
+  cyl_to_rect(R,phi,&x,&y);
+  if ( !aligned ) 
+    rotate(&x,&y,&z,rot);
+  for (ii=0; ii < glorder; ii++)
+    out+= *(glw+ii)							\
+      * TriaxialJaffePotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
+						      a,b2,c2);
+  return -amp * b * c / a * out;
 }
 
