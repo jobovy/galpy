@@ -131,14 +131,18 @@ def _parse_pot(pot,potforactions=False):
                 pot_type.append(22)
             elif isinstance(p,potential.TriaxialJaffePotential):
                 pot_type.append(23)
-            pot_args.extend([p._amp,p.a,p._b,p._b2,p._c,p._c2,int(p._aligned)])
+            pot_args.extend([p._amp,p.a,p._b2,p._c2,int(p._aligned)])
             if not p._aligned:
                 pot_args.extend(list(p._rot.flatten()))
             else:
                 pot_args.extend(list(nu.eye(3).flatten())) # not actually used
             pot_args.append(p._glorder)
             pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
+            # this adds some common factors to the integration weights
+            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**(3.-2.*potforactions)\
+                                 /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+                                          *(1.+(p._c2-1.)*p._glx[ii]**2.))
+                             for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')

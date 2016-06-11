@@ -25,56 +25,30 @@ inline void rotate_force(double *Fx, double *Fy, double *Fz, double *rot){
   *Fy= Fyp;
   *Fz= Fzp;
 }
-inline double dens(double m, double a, double alpha, double beta){
-  return pow ( a / m, alpha) * pow ( 1. + m / a, alpha - beta);
-}
-double TwoPowerTriaxialPotentialxforce_xyz_integrand(double s,
-						     double x,double y,
-						     double z,double a,
-						     double alpha, double beta,
-						     double b2,double c2){
-  double t= 1. / s / s - 1.;
-  return dens( sqrt ( x * x / ( 1. + t ) \
-		      + y * y / ( b2 + t ) \
-		      + z * z / ( c2 + t ) ),a,alpha,beta)\
-    * x / ( 1. + t )							\
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
-}
-double TwoPowerTriaxialPotentialyforce_xyz_integrand(double s,
-						     double x,double y,
-						     double z,double a,
-						     double alpha, double beta,
-						     double b2,double c2){
-  double t= 1. / s / s - 1.;
-  return dens( sqrt ( x * x / ( 1. + t ) \
-		      + y * y / ( b2 + t ) \
-		      + z * z / ( c2 + t ) ),a,alpha,beta)\
-    * y / ( b2 + t )							\
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
-}
-double TwoPowerTriaxialPotentialzforce_xyz_integrand(double s,
-						     double x,double y,
-						     double z,double a,
-						     double alpha, double beta,
-						     double b2,double c2){
-  double t= 1. / s / s - 1.;
-  return dens( sqrt ( x * x / ( 1. + t ) \
-		      + y * y / ( b2 + t ) \
-		      + z * z / ( c2 + t ) ),a,alpha,beta)\
-    * z / ( c2 + t )							\
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+inline double dens(double m, double alpha, double beta){
+  if ( alpha == 1 && beta == 3) // NFW case
+    return 1. / m / ( 1. + m ) / ( 1. + m );
+  else if ( alpha == 1 && beta == 4) // Hernquist case
+    return 1. / m / ( 1. + m ) / ( 1. + m ) / ( 1. + m );
+  else if ( alpha == 2 && beta == 4) // Jaffe case
+    return 1. / m / m / ( 1. + m ) / ( 1. + m );
+  else // not currently used
+    //LCOV_EXCL_START
+    return pow ( m, -alpha) * pow ( 1. + m , alpha - beta);
+    //LCOV_EXCL_STOP
 }
 void TwoPowerTriaxialPotentialxyzforces_xyz(double x,double y, double z,
 					    double * Fx, double * Fy, 
 					    double * Fz,double *args,
 					    double a,
 					    double alpha, double beta,
-					    double b, double c, 
 					    double b2, double c2,
 					    bool aligned, double * rot, 
 					    int glorder,
 					    double * glx, double * glw){
   int ii;
+  double t;
+  double td;
   *(args + 2 * glorder + 1)= x;
   *(args + 2 * glorder + 2)= y;
   *(args + 2 * glorder + 3)= z;
@@ -84,19 +58,13 @@ void TwoPowerTriaxialPotentialxyzforces_xyz(double x,double y, double z,
   *Fy= 0.;
   *Fz= 0.;
   for (ii=0; ii < glorder; ii++) {
-    *Fx+= *(glw+ii)							\
-      * TwoPowerTriaxialPotentialxforce_xyz_integrand(*(glx+ii),x,y,z,
-						      a,alpha,beta,b2,c2);
-    *Fy+= *(glw+ii)							\
-      * TwoPowerTriaxialPotentialyforce_xyz_integrand(*(glx+ii),x,y,z,
-						      a,alpha,beta,b2,c2);
-    *Fz+= *(glw+ii)							\
-      * TwoPowerTriaxialPotentialzforce_xyz_integrand(*(glx+ii),x,y,z,
-						      a,alpha,beta,b2,c2);
+    t= 1. / *(glx+ii) / *(glx+ii) - 1.;
+    td= *(glw+ii) * dens( sqrt ( x * x / ( 1. + t )	+ y * y / ( b2 + t ) \
+				 + z * z / ( c2 + t ) ) / a,alpha,beta);
+    *Fx+= td * x / ( 1. + t );
+    *Fy+= td * y / ( b2 + t );
+    *Fz+= td * z / ( c2 + t );
   }
-  *Fx*= -b * c / a / a / a;
-  *Fy*= -b * c / a / a / a;
-  *Fz*= -b * c / a / a / a;
   *(args + 2 * glorder + 4)= *Fx;
   *(args + 2 * glorder + 5)= *Fy;
   *(args + 2 * glorder + 6)= *Fz;
@@ -109,9 +77,7 @@ double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -135,7 +101,7 @@ double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
   }
   else 
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
-					   a,alpha,beta,b,c,b2,c2,
+					   a,alpha,beta,b2,c2,
 					   aligned,rot,glorder,glx,glw);
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
@@ -149,9 +115,7 @@ double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -174,7 +138,7 @@ double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
   else 
     //LCOV_EXCL_START
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
-					   a,alpha,beta,b,c,b2,c2,
+					   a,alpha,beta,b2,c2,
 					   aligned,rot,glorder,glx,glw);
     //LCOV_EXCL_STOP
   if ( !aligned )
@@ -189,9 +153,7 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -214,7 +176,7 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
   else 
     //LCOV_EXCL_START
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
-					   a,alpha,beta,b,c,b2,c2,
+					   a,alpha,beta,b2,c2,
 					   aligned,rot,glorder,glx,glw);
     //LCOV_EXCL_STOP
   if ( !aligned )
@@ -304,8 +266,7 @@ double TriaxialNFWPotentialpotential_xyz_integrand(double s,
   double t= 1. / s / s - 1.;
   return TriaxialNFWPotential_psi( sqrt ( x * x / ( 1. + t ) \
 					  + y * y / ( b2 + t )	\
-					  + z * z / ( c2 + t ) ) / a ) \
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+					  + z * z / ( c2 + t ) ) / a );
 }
 double TriaxialNFWPotentialEval(double R,double z, double phi,
 				double t,
@@ -315,9 +276,7 @@ double TriaxialNFWPotentialEval(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -335,7 +294,7 @@ double TriaxialNFWPotentialEval(double R,double z, double phi,
     out+= *(glw+ii)							\
       * TriaxialNFWPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 						    a,b2,c2);
-  return -amp * b * c / a * out;
+  return amp * out;
 }
 //Hernquist
 inline double TriaxialHernquistPotential_psi(double x){
@@ -347,9 +306,8 @@ double TriaxialHernquistPotentialpotential_xyz_integrand(double s,
 						   double b2,double c2){
   double t= 1. / s / s - 1.;
   return TriaxialHernquistPotential_psi( sqrt ( x * x / ( 1. + t ) \
-					  + y * y / ( b2 + t )	\
-					  + z * z / ( c2 + t ) ) / a ) \
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+						+ y * y / ( b2 + t )	\
+						+ z * z / ( c2 + t ) ) / a );
 }
 double TriaxialHernquistPotentialEval(double R,double z, double phi,
 				double t,
@@ -359,9 +317,7 @@ double TriaxialHernquistPotentialEval(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -379,7 +335,7 @@ double TriaxialHernquistPotentialEval(double R,double z, double phi,
     out+= *(glw+ii)							\
       * TriaxialHernquistPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 							  a,b2,c2);
-  return -amp * b * c / a * out;
+  return amp * out;
 }
 //Jaffe
 inline double TriaxialJaffePotential_psi(double x){
@@ -390,10 +346,9 @@ double TriaxialJaffePotentialpotential_xyz_integrand(double s,
 						   double z,double a,
 						   double b2,double c2){
   double t= 1. / s / s - 1.;
-  return TriaxialJaffePotential_psi( sqrt ( x * x / ( 1. + t ) \
-					  + y * y / ( b2 + t )	\
-					  + z * z / ( c2 + t ) ) / a ) \
-    / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
+  return TriaxialJaffePotential_psi( sqrt ( x * x / ( 1. + t )		\
+					    + y * y / ( b2 + t )	\
+					    + z * z / ( c2 + t ) ) / a );
 }
 double TriaxialJaffePotentialEval(double R,double z, double phi,
 				double t,
@@ -403,9 +358,7 @@ double TriaxialJaffePotentialEval(double R,double z, double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  double b= *args++;
   double b2= *args++;
-  double c= *args++;
   double c2= *args++;
   bool aligned= (bool) *args++;
   double * rot= args;
@@ -423,6 +376,6 @@ double TriaxialJaffePotentialEval(double R,double z, double phi,
     out+= *(glw+ii)							\
       * TriaxialJaffePotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 						      a,b2,c2);
-  return -amp * b * c / a * out;
+  return amp * out;
 }
 

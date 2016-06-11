@@ -157,21 +157,21 @@ void parse_actionAngleArgs(int npot,
       break;
     case 21: //TriaxialHernquistPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialHernquistPotentialEval;
-      potentialArgs->nargs= (int) (23 + 2 * *(pot_args+16));
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialNFWPotentialEval;
-      potentialArgs->nargs= (int) (23 + 2 * *(pot_args+16));
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialJaffePotentialEval;
-      potentialArgs->nargs= (int) (23 + 2 * *(pot_args+16));
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
