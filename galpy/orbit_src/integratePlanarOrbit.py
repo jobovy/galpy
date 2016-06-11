@@ -159,6 +159,18 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.BurkertPotential):
             pot_type.append(20)
             pot_args.extend([p._RZPot._amp,p._RZPot.a])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential)  and isinstance(p._Pot,potential.TriaxialNFWPotential):
+            pot_type.append(21)
+            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot._b,p._Pot._b2,
+                             p._Pot._c,p._Pot._c2,int(p._Pot._aligned)])
+            if not p._Pot._aligned:
+                pot_args.extend(list(p._Pot._rot.flatten()))
+            else:
+                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+            pot_args.append(p._Pot._glorder)
+            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
+            pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
+            pot_args.extend([0.,0.,0.,0.,0.,0.])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

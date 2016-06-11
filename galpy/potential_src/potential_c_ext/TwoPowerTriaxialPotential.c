@@ -273,10 +273,18 @@ double TriaxialNFWPotentialRforce(double R,double z, double phi,
 				  struct potentialArg * potentialArgs){
   return TwoPowerTriaxialPotentialRforce(R,z,phi,t,1,3,potentialArgs);
 }
+double TriaxialNFWPotentialPlanarRforce(double R,double phi,double t,
+					struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,0.,phi,t,1,3,potentialArgs);
+}
 double TriaxialNFWPotentialphiforce(double R,double z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
   return TwoPowerTriaxialPotentialphiforce(R,z,phi,t,1,3,potentialArgs);
+}
+double TriaxialNFWPotentialPlanarphiforce(double R,double phi,double t,
+					  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,0.,phi,t,1,3,potentialArgs);
 }
 double TriaxialNFWPotentialzforce(double R,double z, double phi,
 				  double t,

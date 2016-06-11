@@ -269,10 +269,12 @@ double BurkertPotentialPlanarR2deriv(double,double,double,
 //				struct potentialArg *);
 double TriaxialNFWPotentialRforce(double,double,double,double,
 				  struct potentialArg *);
+double TriaxialNFWPotentialPlanarRforce(double,double,double,
+					struct potentialArg *);
 double TriaxialNFWPotentialphiforce(double,double,double,double,
 				    struct potentialArg *);
-//double TriaxialNFWPotentialPlanarRforce(double,double,double,
-//					struct potentialArg *);
+double TriaxialNFWPotentialPlanarphiforce(double,double,double,
+					  struct potentialArg *);
 double TriaxialNFWPotentialzforce(double,double,double,double,
 				  struct potentialArg *);
 #endif /* galpy_potentials.h */
