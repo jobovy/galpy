@@ -109,9 +109,10 @@ double TwoPowerTriaxialPotentialzforce_xyz(double x,double y, double z,
 						      a,alpha,beta,b2,c2);
   return -b * c / a / a / a * out; 
 }
-double TriaxialNFWPotentialRforce(double R,double z, double phi,
-				  double t,
-				  struct potentialArg * potentialArgs){
+double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
+				       double t,
+				       double alpha, double beta,
+				       struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
@@ -147,11 +148,11 @@ double TriaxialNFWPotentialRforce(double R,double z, double phi,
     *(args + 2 * glorder + 3)= z;
     if ( !aligned ) 
       rotate(&x,&y,&z,rot);
-    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
-    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
-    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
     *(args + 2 * glorder + 4)= Fx;
     *(args + 2 * glorder + 5)= Fy;
@@ -161,9 +162,10 @@ double TriaxialNFWPotentialRforce(double R,double z, double phi,
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
 }
-double TriaxialNFWPotentialphiforce(double R,double z, double phi,
-				    double t,
-				    struct potentialArg * potentialArgs){
+double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
+					 double t,
+					 double alpha, double beta,
+					 struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
@@ -199,11 +201,11 @@ double TriaxialNFWPotentialphiforce(double R,double z, double phi,
     *(args + 2 * glorder + 3)= z;
     if ( !aligned ) 
       rotate(&x,&y,&z,rot);
-    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
-    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
-    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					    glorder,glx,glw);
     *(args + 2 * glorder + 4)= Fx;
     *(args + 2 * glorder + 5)= Fy;
@@ -213,9 +215,10 @@ double TriaxialNFWPotentialphiforce(double R,double z, double phi,
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
 }
-double TriaxialNFWPotentialzforce(double R,double z, double phi,
-				  double t,
-				  struct potentialArg * potentialArgs){
+double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
+				       double t,
+				       double alpha, double beta,
+				       struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
   double amp= *args++;
@@ -251,11 +254,11 @@ double TriaxialNFWPotentialzforce(double R,double z, double phi,
     *(args + 2 * glorder + 3)= z;
       if ( !aligned ) 
 	rotate(&x,&y,&z,rot);
-      Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+      Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					      glorder,glx,glw);
-      Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+      Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					      glorder,glx,glw);
-      Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,1,3,b,c,b2,c2,
+      Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
 					      glorder,glx,glw);
       *(args + 2 * glorder + 4)= Fx;
       *(args + 2 * glorder + 5)= Fy;
@@ -265,3 +268,19 @@ double TriaxialNFWPotentialzforce(double R,double z, double phi,
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * Fz;
 }
+double TriaxialNFWPotentialRforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,z,phi,t,1,3,potentialArgs);
+}
+double TriaxialNFWPotentialphiforce(double R,double z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,z,phi,t,1,3,potentialArgs);
+}
+double TriaxialNFWPotentialzforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialzforce(R,z,phi,t,1,3,potentialArgs);
+}
+
