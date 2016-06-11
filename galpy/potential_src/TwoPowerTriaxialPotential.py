@@ -466,7 +466,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
-        self.hasC= True
+        self.hasC= not self._glorder is None
         self.hasC_dxdv= False
         self.isNonAxi= True
         return None
@@ -549,7 +549,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        self.hasC= True
+        self.hasC= not self._glorder is None
         self.hasC_dxdv= False
         self.isNonAxi= True
         return None
@@ -666,7 +666,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
         self._scale= self.a
-        self.hasC= True
+        self.hasC= not self._glorder is None
         self.hasC_dxdv= False
         self.isNonAxi= True
         return None
