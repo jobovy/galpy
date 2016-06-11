@@ -127,9 +127,11 @@ double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
+    //LCOV_EXCL_START
     Fx= *(args + 2 * glorder + 4);
     Fy= *(args + 2 * glorder + 5);
     Fz= *(args + 2 * glorder + 6);
+    //LCOV_EXCL_STOP
   }
   else 
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
