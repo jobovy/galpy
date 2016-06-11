@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import os
 import sys
+from nose.tools import raises
 import numpy
 import pynbody
 from galpy import potential
@@ -1482,6 +1483,21 @@ def test_TwoPowerTriaxialPotential_vs_TwoPowerSphericalPotential():
     np= potential.JaffePotential(normalize=1.,a=1.5)
     assert numpy.all(numpy.fabs(numpy.array(\
                 [numpy.sqrt(tnp.Rforce(r,0.)/np.Rforce(r,0.)) for r in rs])-1.) < 10.**tol), 'Vcirc not the same for Jaffe and spherical version of TriaxialJaffe'
+    return None
+
+# Test that TwoPowerTriaxial setup raises an error for bad values of alpha
+# and beta
+@raises(IOError)
+def test_TwoPowerTriaxialPotential_alphalowerror():
+    dummy= potential.TwoPowerTriaxialPotential(alpha=-1.)
+    return None
+@raises(IOError)
+def test_TwoPowerTriaxialPotential_alphahigherror():
+    dummy= potential.TwoPowerTriaxialPotential(alpha=3.5)
+    return None
+@raises(IOError)
+def test_TwoPowerTriaxialPotential_betalowerror():
+    dummy= potential.TwoPowerTriaxialPotential(beta=1.)
     return None
 
 def test_plotting():

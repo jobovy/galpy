@@ -50,9 +50,9 @@ class TwoPowerTriaxialPotential(Potential):
 
            a - scale radius (can be Quantity)
 
-           alpha - inner power
+           alpha - inner power (0 <= alpha < 3)
 
-           beta - outer power
+           beta - outer power ( beta > 2)
 
            b - y-to-x axis ratio of the density
 
