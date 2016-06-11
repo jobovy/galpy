@@ -170,9 +170,11 @@ double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
     Fz= *(args + 2 * glorder + 6);
   }
   else 
+    //LCOV_EXCL_START
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
 					   a,alpha,beta,b,c,b2,c2,
 					   aligned,rot,glorder,glx,glw);
+    //LCOV_EXCL_STOP
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
@@ -208,9 +210,11 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
     Fz= *(args + 2 * glorder + 6);
   }
   else 
+    //LCOV_EXCL_START
     TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
 					   a,alpha,beta,b,c,b2,c2,
 					   aligned,rot,glorder,glx,glw);
+    //LCOV_EXCL_STOP
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * Fz;
