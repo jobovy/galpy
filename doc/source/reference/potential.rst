@@ -103,7 +103,7 @@ Specific potentials
    potentialinterprz.rst
    potentialinterpsnapshotrzpotential.rst
    potentialisochrone.rst
-   potentialkepler.rs
+   potentialkepler.rst
    potentialkuzmindisk.rst
    potentialkuzminkutuzov.rst
    potentialloghalo.rst
