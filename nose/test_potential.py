@@ -12,7 +12,8 @@ def test_normalize_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -64,7 +65,8 @@ def test_forceAsDeriv_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -97,6 +99,18 @@ def test_forceAsDeriv_potential():
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     pots.append('mockMovingObjectPotential')
     pots.append('mockMovingObjectExplSoftPotential')
+    pots.append('oblateHernquistPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential')
+    pots.append('yRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -205,7 +219,8 @@ def test_2ndDeriv_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -234,6 +249,18 @@ def test_2ndDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
+    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential')
+    pots.append('yRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -417,7 +444,8 @@ def test_poisson_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -431,6 +459,18 @@ def test_poisson_potential():
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
+    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential')
+    pots.append('yRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -490,7 +530,8 @@ def test_evaluateAndDerivs_potential():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -515,6 +556,18 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockMovingObjectPotential')
+    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential')
+    pots.append('yRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -748,7 +801,8 @@ def test_toVertical_toPlanar():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1588,7 +1642,8 @@ def test_plotting():
 # cases of some other potentials
 from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
-    MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential
+    MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
+    TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -1628,6 +1683,58 @@ class specialMN3ExponentialDiskPotentialPD(MN3ExponentialDiskPotential):
 class specialMN3ExponentialDiskPotentialSECH(MN3ExponentialDiskPotential):
     def __init__(self):
         MN3ExponentialDiskPotential.__init__(self,normalize=1.,sech=True)
+        return None
+class oblateHernquistPotential(TriaxialHernquistPotential):
+    def __init__(self):
+        TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.,c=.2)
+        return None
+class oblateNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=.2)
+        return None
+class oblateJaffePotential(TriaxialJaffePotential):
+    def __init__(self):
+        TriaxialJaffePotential.__init__(self,normalize=1.,b=1.,c=.2)
+        return None
+class prolateHernquistPotential(TriaxialHernquistPotential):
+    def __init__(self):
+        TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.,c=1.8)
+        return None
+class prolateNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=1.8)
+        return None
+class prolateJaffePotential(TriaxialJaffePotential):
+    def __init__(self):
+        TriaxialJaffePotential.__init__(self,normalize=1.,b=1.,c=1.8)
+        return None
+class triaxialHernquistPotential(TriaxialHernquistPotential):
+    def __init__(self):
+        TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.4,c=0.6)
+        return None
+class triaxialNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=.2,c=1.8)
+        return None
+class triaxialJaffePotential(TriaxialJaffePotential):
+    def __init__(self):
+        TriaxialJaffePotential.__init__(self,normalize=1.,b=0.4,c=0.7)
+        return None
+class zRotatedTriaxialNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
+                                      zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)])
+        return None
+class yRotatedTriaxialNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
+                                      pa=0.2)
+        return None
+class fullyRotatedTriaxialNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
+                                      zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)],
+                                      pa=0.2)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
