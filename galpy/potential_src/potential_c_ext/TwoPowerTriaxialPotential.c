@@ -40,21 +40,6 @@ double TwoPowerTriaxialPotentialxforce_xyz_integrand(double s,
     * x / ( 1. + t )							\
     / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
 }
-double TwoPowerTriaxialPotentialxforce_xyz(double x,double y, double z,
-					   double a,
-					   double alpha, double beta,
-					   double b, double c, 
-					   double b2, double c2,
-					   int glorder,
-					   double * glx, double * glw){
-  double out= 0;
-  int ii;
-  for (ii=0; ii < glorder; ii++) 
-    out+= *(glw+ii) \
-      * TwoPowerTriaxialPotentialxforce_xyz_integrand(*(glx+ii),x,y,z,
-						      a,alpha,beta,b2,c2);
-  return -b * c / a / a / a * out; 
-}
 double TwoPowerTriaxialPotentialyforce_xyz_integrand(double s,
 						     double x,double y,
 						     double z,double a,
@@ -66,21 +51,6 @@ double TwoPowerTriaxialPotentialyforce_xyz_integrand(double s,
 		      + z * z / ( c2 + t ) ),a,alpha,beta)\
     * y / ( b2 + t )							\
     / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
-}
-double TwoPowerTriaxialPotentialyforce_xyz(double x,double y, double z,
-					   double a,
-					   double alpha, double beta,
-					   double b, double c, 
-					   double b2, double c2,
-					   int glorder,
-					   double * glx, double * glw){
-  double out= 0;
-  int ii;
-  for (ii=0; ii < glorder; ii++) 
-    out+= *(glw+ii) \
-      * TwoPowerTriaxialPotentialyforce_xyz_integrand(*(glx+ii),x,y,z,
-						      a,alpha,beta,b2,c2);
-  return -b * c / a / a / a * out; 
 }
 double TwoPowerTriaxialPotentialzforce_xyz_integrand(double s,
 						     double x,double y,
@@ -94,20 +64,42 @@ double TwoPowerTriaxialPotentialzforce_xyz_integrand(double s,
     * z / ( c2 + t )							\
     / sqrt ( ( 1. + ( b2 - 1. ) * s * s ) * ( 1. + ( c2 - 1. ) * s * s ));
 }
-double TwoPowerTriaxialPotentialzforce_xyz(double x,double y, double z,
-					   double a,
-					   double alpha, double beta,
-					   double b, double c, 
-					   double b2, double c2,
-					   int glorder,
-					   double * glx, double * glw){
-  double out= 0;
+void TwoPowerTriaxialPotentialxyzforces_xyz(double x,double y, double z,
+					    double * Fx, double * Fy, 
+					    double * Fz,double *args,
+					    double a,
+					    double alpha, double beta,
+					    double b, double c, 
+					    double b2, double c2,
+					    bool aligned, double * rot, 
+					    int glorder,
+					    double * glx, double * glw){
   int ii;
-  for (ii=0; ii < glorder; ii++) 
-    out+= *(glw+ii) \
+  *(args + 2 * glorder + 1)= x;
+  *(args + 2 * glorder + 2)= y;
+  *(args + 2 * glorder + 3)= z;
+  if ( !aligned ) 
+    rotate(&x,&y,&z,rot);
+  *Fx= 0.;
+  *Fy= 0.;
+  *Fz= 0.;
+  for (ii=0; ii < glorder; ii++) {
+    *Fx+= *(glw+ii)							\
+      * TwoPowerTriaxialPotentialxforce_xyz_integrand(*(glx+ii),x,y,z,
+						      a,alpha,beta,b2,c2);
+    *Fy+= *(glw+ii)							\
+      * TwoPowerTriaxialPotentialyforce_xyz_integrand(*(glx+ii),x,y,z,
+						      a,alpha,beta,b2,c2);
+    *Fz+= *(glw+ii)							\
       * TwoPowerTriaxialPotentialzforce_xyz_integrand(*(glx+ii),x,y,z,
 						      a,alpha,beta,b2,c2);
-  return -b * c / a / a / a * out; 
+  }
+  *Fx*= -b * c / a / a / a;
+  *Fy*= -b * c / a / a / a;
+  *Fz*= -b * c / a / a / a;
+  *(args + 2 * glorder + 4)= *Fx;
+  *(args + 2 * glorder + 5)= *Fy;
+  *(args + 2 * glorder + 6)= *Fz;
 }
 double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
 				       double t,
@@ -130,34 +122,19 @@ double TwoPowerTriaxialPotentialRforce(double R,double z, double phi,
   double cached_x= *(args + 2 * glorder + 1);
   double cached_y= *(args + 2 * glorder + 2);
   double cached_z= *(args + 2 * glorder + 3);
-  double * cached_Fx= args + 2 * glorder + 4;
-  double * cached_Fy= args + 2 * glorder + 5;
-  double * cached_Fz= args + 2 * glorder + 6;
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *cached_Fx;
-    Fy= *cached_Fy;
-    Fz= *cached_Fz;
+    Fx= *(args + 2 * glorder + 4);
+    Fy= *(args + 2 * glorder + 5);
+    Fz= *(args + 2 * glorder + 6);
   }
-  else {
-    *(args + 2 * glorder + 1)= x;
-    *(args + 2 * glorder + 2)= y;
-    *(args + 2 * glorder + 3)= z;
-    if ( !aligned ) 
-      rotate(&x,&y,&z,rot);
-    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    *(args + 2 * glorder + 4)= Fx;
-    *(args + 2 * glorder + 5)= Fy;
-    *(args + 2 * glorder + 6)= Fz;
-  }
+  else 
+    TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
+					   a,alpha,beta,b,c,b2,c2,
+					   aligned,rot,glorder,glx,glw);
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
@@ -183,34 +160,19 @@ double TwoPowerTriaxialPotentialphiforce(double R,double z, double phi,
   double cached_x= *(args + 2 * glorder + 1);
   double cached_y= *(args + 2 * glorder + 2);
   double cached_z= *(args + 2 * glorder + 3);
-  double * cached_Fx= args + 2 * glorder + 4;
-  double * cached_Fy= args + 2 * glorder + 5;
-  double * cached_Fz= args + 2 * glorder + 6;
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *cached_Fx;
-    Fy= *cached_Fy;
-    Fz= *cached_Fz;
+    Fx= *(args + 2 * glorder + 4);
+    Fy= *(args + 2 * glorder + 5);
+    Fz= *(args + 2 * glorder + 6);
   }
-  else {
-    *(args + 2 * glorder + 1)= x;
-    *(args + 2 * glorder + 2)= y;
-    *(args + 2 * glorder + 3)= z;
-    if ( !aligned ) 
-      rotate(&x,&y,&z,rot);
-    Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					    glorder,glx,glw);
-    *(args + 2 * glorder + 4)= Fx;
-    *(args + 2 * glorder + 5)= Fy;
-    *(args + 2 * glorder + 6)= Fz;
-  }
+  else 
+    TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
+					   a,alpha,beta,b,c,b2,c2,
+					   aligned,rot,glorder,glx,glw);
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
@@ -236,34 +198,19 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
   double cached_x= *(args + 2 * glorder + 1);
   double cached_y= *(args + 2 * glorder + 2);
   double cached_z= *(args + 2 * glorder + 3);
-  double * cached_Fx= args + 2 * glorder + 4;
-  double * cached_Fy= args + 2 * glorder + 5;
-  double * cached_Fz= args + 2 * glorder + 6;
   //Calculate potential
   double x, y;
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *cached_Fx;
-    Fy= *cached_Fy;
-    Fz= *cached_Fz;
+    Fx= *(args + 2 * glorder + 4);
+    Fy= *(args + 2 * glorder + 5);
+    Fz= *(args + 2 * glorder + 6);
   }
-  else {
-    *(args + 2 * glorder + 1)= x;
-    *(args + 2 * glorder + 2)= y;
-    *(args + 2 * glorder + 3)= z;
-      if ( !aligned ) 
-	rotate(&x,&y,&z,rot);
-      Fx= TwoPowerTriaxialPotentialxforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					      glorder,glx,glw);
-      Fy= TwoPowerTriaxialPotentialyforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					      glorder,glx,glw);
-      Fz= TwoPowerTriaxialPotentialzforce_xyz(x,y,z,a,alpha,beta,b,c,b2,c2,
-					      glorder,glx,glw);
-      *(args + 2 * glorder + 4)= Fx;
-      *(args + 2 * glorder + 5)= Fy;
-      *(args + 2 * glorder + 6)= Fz;
-  }
+  else 
+    TwoPowerTriaxialPotentialxyzforces_xyz(x,y,z,&Fx,&Fy,&Fz,args,
+					   a,alpha,beta,b,c,b2,c2,
+					   aligned,rot,glorder,glx,glw);
   if ( !aligned )
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * Fz;
