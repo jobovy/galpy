@@ -22,7 +22,13 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockSimpleLinearPotential, \
     mockMovingObjectLongIntPotential, \
     specialFlattenedPowerPotential, \
-    specialMiyamotoNagaiPotential
+    specialMiyamotoNagaiPotential, \
+    oblateHernquistPotential, \
+    oblateNFWPotential, \
+    prolateNFWPotential, \
+    prolateJaffePotential, \
+    triaxialNFWPotential, \
+    fullyRotatedTriaxialNFWPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -202,7 +208,8 @@ def test_energy_jacobi_conservation():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
@@ -220,6 +227,12 @@ def test_energy_jacobi_conservation():
     pots.append('mockCombLinearPotential')
     pots.append('mockSimpleLinearPotential')
     pots.append('mockMovingObjectLongIntPotential')
+    pots.append('oblateHernquistPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -327,7 +340,8 @@ def test_energy_jacobi_conservation():
             if isinstance(tp,potential.linearPotential) \
                     or 'MovingObject' in p:
                 if _QUICKTEST \
-                        and not ('NFW' in p or 'linearMWPotential' in p \
+                        and not (('NFW' in p and not tp.isNonAxi)
+                                 or 'linearMWPotential' in p \
                                      or ('Burkert' in p and not tp.hasC)):
                     break
                 else: continue
@@ -371,7 +385,7 @@ def test_energy_jacobi_conservation():
                     else:
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None:
-                if _QUICKTEST and not ('NFW' in p \
+                if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
                                            or ('Burkert' in p and not tp.hasC)): break
                 else: continue
             #Same for a planarPotential
@@ -420,9 +434,9 @@ def test_energy_jacobi_conservation():
             o= setup_orbit_energy(ptp,axi=False)
             o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
@@ -459,16 +473,17 @@ def test_energy_jacobi_conservation():
                 firstTest= False
             #Same for a planarPotential, but integrating w/ the potential directly, rather than the toPlanar instance; this tests that those potential attributes are passed to C correctly
 #            print integrator
-            o= setup_orbit_energy(ptp,axi=True)
-            o.integrate(ttimes,tp,method=integrator)
-            tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            #Jacobi
-            tJacobis= o.Jacobi(ttimes)
-            assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            if not ptp is None and not ptp.isNonAxi:
+                o= setup_orbit_energy(ptp,axi=True)
+                o.integrate(ttimes,tp,method=integrator)
+                tEs= o.E(ttimes)
+                #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
+                #Jacobi
+                tJacobis= o.Jacobi(ttimes)
+                assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+                    "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
             o.integrate(ttimes,tp,method=integrator)
@@ -480,7 +495,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not ('NFW' in p \
+            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
                                      or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
     return None
@@ -536,7 +551,8 @@ def test_liouville_planar():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
@@ -559,7 +575,9 @@ def test_liouville_planar():
     #Doesn't have the R2deriv
     rmpots.append('TwoPowerSphericalPotential')
     rmpots.append('TwoPowerTriaxialPotential')
+    rmpots.append('TriaxialHernquistPotential')
     rmpots.append('TriaxialNFWPotential')
+    rmpots.append('TriaxialJaffePotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -629,7 +647,7 @@ def test_liouville_planar():
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
                 firstTest= False                    
-            if _QUICKTEST and not ('NFW' in p \
+            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
                                        or ('Burkert' in p and not tp.hasC)): break
     return None
 
@@ -646,7 +664,8 @@ def test_eccentricity():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -716,7 +735,7 @@ def test_eccentricity():
             assert tecc**2. < 10.**ttol, \
                 "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
             if ptp is None:
-                if _QUICKTEST and not 'NFW' in p: break
+                if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_eccentricity(ptp,axi=True)
@@ -747,7 +766,7 @@ def test_eccentricity():
 #            print p, integrator, tecc
             assert tecc**2. < 10.**ttol, \
                 "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
     
@@ -764,7 +783,8 @@ def test_pericenter():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -834,7 +854,7 @@ def test_pericenter():
             assert (tperi-o.R())**2. < 10.**ttol, \
                 "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             if ptp is None:
-                if _QUICKTEST and not 'NFW' in p: break
+                if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_pericenter(ptp,axi=True)
@@ -865,7 +885,7 @@ def test_pericenter():
 #            print p, integrator, tperi
             assert (tperi-o.R())**2. < 10.**ttol, \
                 "Pericenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
 
@@ -882,7 +902,8 @@ def test_apocenter():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -953,7 +974,7 @@ def test_apocenter():
             assert (tapo-o.R())**2. < 10.**ttol, \
                 "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
             if ptp is None:
-                if _QUICKTEST and not 'NFW' in p: break
+                if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
             #Same for a planarPotential
 #            print integrator
             o= setup_orbit_apocenter(ptp,axi=True)
@@ -984,7 +1005,7 @@ def test_apocenter():
 #            print p, integrator, tapo
             assert (tapo-o.R())**2. < 10.**ttol, \
                 "Apocenter radius for an orbit launched with vR=0 and vT > Vc is not equal to the initial radius for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
 
@@ -1001,7 +1022,8 @@ def test_zmax():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -1085,7 +1107,7 @@ def test_zmax():
                     pass
                 else:
                     raise AssertionError("o.zmax() for a planarROrbit did not throw an AttributeError")
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
 
@@ -1105,7 +1127,8 @@ def test_analytic_ecc_rperi_rap():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -1292,7 +1315,7 @@ def test_analytic_ecc_rperi_rap():
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
                     "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
 
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
     
@@ -1308,7 +1331,8 @@ def test_analytic_zmax():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'evaluate' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -1373,7 +1397,7 @@ def test_analytic_zmax():
                     "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
                 assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \
                     "Zmax in physical coordinates does not agree with physical-scale times zmax in normalized coordinates for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not 'NFW' in p: break
+            if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
 
