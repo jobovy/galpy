@@ -1454,6 +1454,36 @@ def test_MN3ExponentialDiskPotential_approx():
     assert numpy.fabs(mn.mass(10.,10.*0.6)-dpmass)/dpmass > 0.03, "MN3ExponentialDiskPotential does not approximate the enclosed mass as advertised"
     return None
 
+def test_TwoPowerTriaxialPotential_vs_TwoPowerSphericalPotential():
+    # Test that TwoPowerTriaxialPotential with spherical parameters is the same
+    # as TwoPowerSphericalPotential
+    tol= -4. # tough general case
+    rs= numpy.linspace(0.001,25.,1001)
+    tnp= potential.TwoPowerTriaxialPotential(normalize=1.,b=1.,c=1.,a=1.5,
+                                             alpha=1.5,beta=3.5)
+    np= potential.TwoPowerSphericalPotential(normalize=1.,a=1.5,
+                                             alpha=1.5,beta=3.5)
+    assert numpy.all(numpy.fabs(numpy.array(\
+                [numpy.sqrt(tnp.Rforce(r,0.)/np.Rforce(r,0.)) for r in rs])-1.) < 10.**tol), 'Vcirc not the same for TwoPowerSphericalPotential and spherical version of TwoPowerTriaxialPotential'
+    # Also do specific cases
+    tol= -8. # much better
+    # Hernquist
+    tnp= potential.TriaxialHernquistPotential(normalize=1.,b=1.,c=1.,a=1.5)
+    np= potential.HernquistPotential(normalize=1.,a=1.5)
+    assert numpy.all(numpy.fabs(numpy.array(\
+                [numpy.sqrt(tnp.Rforce(r,0.)/np.Rforce(r,0.)) for r in rs])-1.) < 10.**tol), 'Vcirc not the same for Hernquist and spherical version of TriaxialHernquist'
+    # NFW
+    tnp= potential.TriaxialNFWPotential(normalize=1.,b=1.,c=1.,a=1.5)
+    np= potential.NFWPotential(normalize=1.,a=1.5)
+    assert numpy.all(numpy.fabs(numpy.array(\
+                [numpy.sqrt(tnp.Rforce(r,0.)/np.Rforce(r,0.)) for r in rs])-1.) < 10.**tol), 'Vcirc not the same for NFW and spherical version of TriaxialNFW'
+    # Jaffe
+    tnp= potential.TriaxialJaffePotential(normalize=1.,b=1.,c=1.,a=1.5)
+    np= potential.JaffePotential(normalize=1.,a=1.5)
+    assert numpy.all(numpy.fabs(numpy.array(\
+                [numpy.sqrt(tnp.Rforce(r,0.)/np.Rforce(r,0.)) for r in rs])-1.) < 10.**tol), 'Vcirc not the same for Jaffe and spherical version of TriaxialJaffe'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
