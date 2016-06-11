@@ -653,18 +653,11 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
                          and not isinstance(normalize,bool)):
                 self.normalize(normalize)
         else:
-            if wrtcrit:
-                od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
-                                                                  self._ro,H=H)
-            else:
-                od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
-                                                                    self._ro,
-                                                                    H=H,Om=Om)
-            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
-                                                                    self._ro)
-            rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
-            self.a= rvir/conc
-            self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
+            from galpy.potential import NFWPotential
+            dum= NFWPotential(mvir=mvir,conc=conc,ro=self._ro,vo=self._vo,
+                              H=H,Om=Om,wrtcrit=wrtcrit,overdens=overdens)
+            self.a= dum.a
+            self._amp= dum._amp
         self._scale= self.a
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False

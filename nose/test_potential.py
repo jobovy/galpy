@@ -1165,6 +1165,36 @@ def test_NFW_virialsetup_wrtcrit():
                                    wrtcrit=wrtcrit)/10.**12.) < 10.**-6., "NFWPotential virial setup's virial mass does not work"
     return None
 
+def test_TriaxialNFW_virialsetup_wrtmeanmatter():
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., False
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    tnp= potential.TriaxialNFWPotential(b=0.3,c=0.7,
+                                        conc=conc,mvir=mvir,vo=vo,ro=ro,
+                                        H=H,Om=Om,overdens=overdens,
+                                        wrtcrit=wrtcrit)
+    assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    return None
+
+def test_TriaxialNFW_virialsetup_wrtcrit():
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., True
+    ro, vo= 220., 8.
+    conc, mvir= 12., 1.1
+    np= potential.NFWPotential(conc=conc,mvir=mvir,vo=vo,ro=ro,
+                               H=H,Om=Om,overdens=overdens,
+                               wrtcrit=wrtcrit)
+    tnp= potential.TriaxialNFWPotential(b=0.3,c=0.7,
+                                        conc=conc,mvir=mvir,vo=vo,ro=ro,
+                                        H=H,Om=Om,overdens=overdens,
+                                        wrtcrit=wrtcrit)
+    assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
+    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    return None
+
 def test_conc_attributeerror():
     pp= potential.PowerSphericalPotential(normalize=1.)
     #This potential doesn't have a scale, so we cannot calculate the concentration
