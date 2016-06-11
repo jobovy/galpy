@@ -126,8 +126,7 @@ class TwoPowerTriaxialPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
-            self.isNonAxi= True
+        self.isNonAxi= True
         return None
 
     def _setup_zvec_pa(self,zvec,pa):
@@ -409,7 +408,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.,normalize=False,b=1.,c=1.,zvec=None,pa=None,
+    def __init__(self,amp=1.,a=2.,normalize=False,b=1.,c=1.,zvec=None,pa=None,
                  glorder=50,ro=None,vo=None):
         """
         NAME:
@@ -469,8 +468,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= False
-        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
-            self.isNonAxi= True
+        self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):
@@ -493,7 +491,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.,b=1.,c=1.,zvec=None,pa=None,normalize=False,
+    def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,normalize=False,
                  glorder=50,ro=None,vo=None):
         """
         NAME:
@@ -553,8 +551,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= False
-        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
-            self.isNonAxi= True
+        self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):
@@ -577,7 +574,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
         m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
     """
-    def __init__(self,amp=1.,a=1.5,b=0.9,c=0.7,zvec=None,pa=None,
+    def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,
                  normalize=False,
                  conc=None,mvir=None,
                  glorder=50,vo=None,ro=None,
@@ -671,8 +668,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= False
-        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
-            self.isNonAxi= True
+        self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):
