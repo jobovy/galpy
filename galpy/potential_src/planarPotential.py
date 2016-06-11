@@ -908,6 +908,48 @@ def FullToplanarPotential(Pot):
     else:
         raise PotentialError("Input to 'FullToplanarPotential' is neither an Potential-instance or a list of such instances")
 
+def toPlanarPotential(Pot):
+    """
+    NAME:
+
+       toPlanarPotential
+
+    PURPOSE:
+
+       convert an Potential to a planarPotential in the mid-plane (z=0)
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances (existing planarPotential instances are just copied to the output)
+
+    OUTPUT:
+
+       planarPotential instance(s)
+
+    HISTORY:
+
+       2016-06-11 - Written - Bovy (UofT)
+
+    """
+    if isinstance(Pot,list):
+        out= []
+        for pot in Pot:
+            if isinstance(pot,planarPotential):
+                out.append(pot)
+            elif pot.isNonAxi:
+                out.append(planarPotentialFromFullPotential(pot))
+            else:
+                out.append(planarPotentialFromRZPotential(pot))
+        return out
+    elif isinstance(Pot,Potential) and Pot.isNonAxi:
+        return planarPotentialFromFullPotential(Pot)
+    elif isinstance(Pot,Potential):
+        return planarPotentialFromRZPotential(Pot)
+    elif isinstance(Pot,planarPotential):
+        return Pot
+    else:
+        raise PotentialError("Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances")
+
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
