@@ -860,7 +860,9 @@ def test_actionAngleStaeckel_conserved_actions_ecc():
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
-        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential
+        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
+        TriaxialHernquistPotential, TriaxialJaffePotential, \
+        TriaxialNFWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
@@ -873,6 +875,9 @@ def test_actionAngleStaeckel_conserved_actions_c():
            FlattenedPowerPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.,alpha=0.),
            KuzminDiskPotential(normalize=1.,a=1./8.),
+           TriaxialHernquistPotential(normalize=1.,c=0.2),
+           TriaxialNFWPotential(normalize=1.,c=0.3),
+           TriaxialJaffePotential(normalize=1.,c=0.4),
            ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
