@@ -268,6 +268,7 @@ double TwoPowerTriaxialPotentialzforce(double R,double z, double phi,
     rotate_force(&Fx,&Fy,&Fz,rot);
   return amp * Fz;
 }
+//NFW
 double TriaxialNFWPotentialRforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
@@ -290,5 +291,53 @@ double TriaxialNFWPotentialzforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
   return TwoPowerTriaxialPotentialzforce(R,z,phi,t,1,3,potentialArgs);
+}
+//Hernquist
+double TriaxialHernquistPotentialRforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,z,phi,t,1,4,potentialArgs);
+}
+double TriaxialHernquistPotentialPlanarRforce(double R,double phi,double t,
+					struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,0.,phi,t,1,4,potentialArgs);
+}
+double TriaxialHernquistPotentialphiforce(double R,double z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,z,phi,t,1,4,potentialArgs);
+}
+double TriaxialHernquistPotentialPlanarphiforce(double R,double phi,double t,
+					  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,0.,phi,t,1,4,potentialArgs);
+}
+double TriaxialHernquistPotentialzforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialzforce(R,z,phi,t,1,4,potentialArgs);
+}
+//Jaffe
+double TriaxialJaffePotentialRforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,z,phi,t,2,4,potentialArgs);
+}
+double TriaxialJaffePotentialPlanarRforce(double R,double phi,double t,
+					struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialRforce(R,0.,phi,t,2,4,potentialArgs);
+}
+double TriaxialJaffePotentialphiforce(double R,double z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,z,phi,t,2,4,potentialArgs);
+}
+double TriaxialJaffePotentialPlanarphiforce(double R,double phi,double t,
+					  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialphiforce(R,0.,phi,t,2,4,potentialArgs);
+}
+double TriaxialJaffePotentialzforce(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  return TwoPowerTriaxialPotentialzforce(R,z,phi,t,2,4,potentialArgs);
 }
 

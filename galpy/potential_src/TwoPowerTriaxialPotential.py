@@ -467,7 +467,7 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
             self.normalize(normalize)
-        self.hasC= False
+        self.hasC= True
         self.hasC_dxdv= False
         if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
             self.isNonAxi= True
@@ -551,7 +551,7 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        self.hasC= False
+        self.hasC= True
         self.hasC_dxdv= False
         if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
             self.isNonAxi= True

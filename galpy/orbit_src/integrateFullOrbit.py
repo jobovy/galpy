@@ -124,8 +124,13 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.BurkertPotential):
             pot_type.append(20)
             pot_args.extend([p._amp,p.a])
-        elif isinstance(p,potential.TriaxialNFWPotential):
-            pot_type.append(21)
+        elif isinstance(p,potential.TwoPowerTriaxialPotential):
+            if isinstance(p,potential.TriaxialHernquistPotential):
+                pot_type.append(21)
+            elif isinstance(p,potential.TriaxialNFWPotential):
+                pot_type.append(22)
+            elif isinstance(p,potential.TriaxialJaffePotential):
+                pot_type.append(23)
             pot_args.extend([p._amp,p.a,p._b,p._b2,p._c,p._c2,int(p._aligned)])
             if not p._aligned:
                 pot_args.extend(list(p._rot.flatten()))
