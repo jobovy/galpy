@@ -112,6 +112,7 @@ def test_forceAsDeriv_potential():
     pots.append('zRotatedTriaxialNFWPotential')
     pots.append('yRotatedTriaxialNFWPotential')
     pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatednoGLTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -250,7 +251,7 @@ def test_2ndDeriv_potential():
     pots.append('mockSteadyLogSpiralPotentialTm5')
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
-    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateHernquistPotential') # in case these are ever implemented
     pots.append('oblateNFWPotential')
     pots.append('oblateJaffePotential')
     pots.append('prolateHernquistPotential')
@@ -262,6 +263,7 @@ def test_2ndDeriv_potential():
     pots.append('zRotatedTriaxialNFWPotential')
     pots.append('yRotatedTriaxialNFWPotential')
     pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatednoGLTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1840,6 +1842,12 @@ class fullyRotatedTriaxialNFWPotential(TriaxialNFWPotential):
         TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
                                       zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)],
                                       pa=0.2)
+        return None
+class fullyRotatednoGLTriaxialNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
+                                      zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)],
+                                      pa=0.2,glorder=None)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
