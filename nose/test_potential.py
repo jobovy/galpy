@@ -1500,6 +1500,65 @@ def test_TwoPowerTriaxialPotential_betalowerror():
     dummy= potential.TwoPowerTriaxialPotential(beta=1.)
     return None
 
+def test_planeRotatedNFWPotential():
+    # Test that the rotation according to pa works as expected
+    tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.5,
+                                        pa=30./180.*numpy.pi)
+    # Compute the potential at a fixed radius, minimum should be at pa!
+    Rs= 0.8
+    phis= numpy.linspace(0.,numpy.pi,1001)
+    pot= numpy.array([tnp(Rs,0.,phi=phi) for phi in phis])
+    minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
+    # Also do a negative angle
+    tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.5,
+                                        pa=-60./180.*numpy.pi)
+    # Compute the potential at a fixed radius, minimum should be at pa!
+    Rs= 0.8
+    phis= numpy.linspace(0.,numpy.pi,1001)
+    pot= numpy.array([tnp(Rs,0.,phi=phi) for phi in phis])
+    minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
+    return None
+
+def test_zaxisRotatedNFWPotential():
+    from galpy.util import bovy_coords
+    # Test that the rotation according to zvec works as expected
+    pa= 30./180.*numpy.pi
+    tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,c=0.5,
+                                        zvec=[0.,-numpy.sin(pa),numpy.cos(pa)])
+    # Compute the potential at a fixed radius in the y/z plane,
+    # minimum should be at pa!
+    Rs= 0.8
+    phis= numpy.linspace(0.,numpy.pi,1001)
+    xs= numpy.zeros_like(phis)
+    ys= Rs*numpy.cos(phis)
+    zs= Rs*numpy.sin(phis)
+    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
+    minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
+    # Another one
+    pa= -60./180.*numpy.pi
+    tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,c=0.5,
+                                        zvec=[-numpy.sin(pa),0.,numpy.cos(pa)])
+    # Compute the potential at a fixed radius in the z/z plane,
+    # minimum should be at pa!
+    Rs= 0.8
+    phis= numpy.linspace(0.,numpy.pi,1001)
+    xs= Rs*numpy.cos(phis)
+    ys= numpy.zeros_like(phis)
+    zs= Rs*numpy.sin(phis)
+    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
+    minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
