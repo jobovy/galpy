@@ -1969,7 +1969,7 @@ def test_potential_paramunits():
     pot= potential.TriaxialNFWPotential(amp=20.*units.Msun,a=15.*units.kpc,
                                         pa=30.*units.deg,
                                         b=1.3,c=0.2,ro=ro,vo=vo)
-    assert numpy.fabs(pot._pa-30./180.*numpy.pi) < 10.**-8., 'TriaxialNFWPotential w/ parameters w/ units does not behave as expected'
+    assert numpy.fabs(numpy.arccos(pot._rot[0,0])-30./180.*numpy.pi) < 10.**-8., 'TriaxialNFWPotential w/ parameters w/ units does not behave as expected'
     # FlattenedPowerPotential
     pot= potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s**2,
                                            r1=10.*units.kpc,
