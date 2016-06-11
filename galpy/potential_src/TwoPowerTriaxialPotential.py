@@ -30,7 +30,10 @@ class TwoPowerTriaxialPotential(Potential):
 
     .. math::
 
-        m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
+        m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
+
+    and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
+
     """
     def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,b=1.,c=1.,
                  zvec=None,pa=None,glorder=50,
@@ -406,7 +409,10 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
 
     .. math::
 
-        m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
+        m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
+
+    and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
+
     """
     def __init__(self,amp=1.,a=2.,normalize=False,b=1.,c=1.,zvec=None,pa=None,
                  glorder=50,ro=None,vo=None):
@@ -489,7 +495,10 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
 
     .. math::
 
-        m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
+        m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
+
+    and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
+
     """
     def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,normalize=False,
                  glorder=50,ro=None,vo=None):
@@ -572,7 +581,10 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
     .. math::
 
-        m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
+        m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
+
+    and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
+
     """
     def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,
                  normalize=False,

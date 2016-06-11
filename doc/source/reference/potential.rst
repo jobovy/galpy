@@ -91,32 +91,53 @@ Use as ``method(...)``
 Specific potentials
 ++++++++++++++++++++
 
+Spherical potentials
+*********************
+
 .. toctree::
    :maxdepth: 2
 
    potentialburkert.rst
-   potentialdoubleexp.rst
    potentialdoublepowerspher.rst
    potentialjaffe.rst
-   potentialflattenedpower.rst
    potentialhernquist.rst
-   potentialinterprz.rst
-   potentialinterpsnapshotrzpotential.rst
    potentialisochrone.rst
    potentialkepler.rs
-   potentialkuzmindisk.rst
-   potentialkuzminkutuzov.rst
-   potentialloghalo.rst
-   potentialmiyamoto.rst
-   potential3mn.rst
-   potentialmovingobj.rst
    potentialnfw.rst
    potentialplummer.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialpseudoiso.rst
+
+Axisymmetric potentials
+************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdoubleexp.rst
+   potentialflattenedpower.rst
+   potentialinterprz.rst
+   potentialinterpsnapshotrzpotential.rst
+   potentialkuzmindisk.rst
+   potentialkuzminkutuzov.rst
+   potentialloghalo.rst
+   potentialmiyamoto.rst
+   potential3mn.rst
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
+
+Triaxial potentials
+********************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdoublepowertriaxial.rst
+   potentialmovingobj.rst
+   potentialtriaxialjaffe.rst
+   potentialtriaxialhernquist.rst
+   potentialtriaxialnfw.rst
 
 .. _potential-mw:
 
