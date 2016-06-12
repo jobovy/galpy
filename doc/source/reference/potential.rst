@@ -244,8 +244,7 @@ potentials in the mid-plane.
    :maxdepth: 2
 
    toPlanarPotential (general) <potential2dtoplanar.rst>
-   FullToplanarPotential (low-level) <potential2dFulltoplanar.rst>
-   RZToplanarPotential (low-level) <potential2dRZtoplanar.rst>
+   RZToplanarPotential <potential2dRZtoplanar.rst>
 
 In addition, a two-dimensional bar potential and a two spiral potentials are included
 
