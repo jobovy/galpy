@@ -875,9 +875,9 @@ def test_actionAngleStaeckel_conserved_actions_c():
            FlattenedPowerPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.,alpha=0.),
            KuzminDiskPotential(normalize=1.,a=1./8.),
-           TriaxialHernquistPotential(normalize=1.,c=0.2),
-           TriaxialNFWPotential(normalize=1.,c=0.3),
-           TriaxialJaffePotential(normalize=1.,c=0.4),
+           TriaxialHernquistPotential(normalize=1.,c=0.2,pa=1.1), # tests rot, but not well
+           TriaxialNFWPotential(normalize=1.,c=0.3,pa=1.1),
+           TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
