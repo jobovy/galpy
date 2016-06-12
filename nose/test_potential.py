@@ -2,7 +2,7 @@
 from __future__ import print_function, division
 import os
 import sys
-from nose.tools import raises
+from nose.tools import raises, assert_raises
 import numpy
 import pynbody
 from galpy import potential
@@ -1598,6 +1598,28 @@ def test_zaxisRotatedNFWPotential():
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
     assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
+    return None
+
+def test_nonaxierror_function():
+    # Test that the code throws an exception when calling a non-axisymmetric 
+    # potential without phi
+    tnp= potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.9)
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluatePotentials(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluateDensities(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluateRforces(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluatezforces(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluatephiforces(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluateR2derivs(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluatez2derivs(tnp,1.,0.),())
+    assert_raises(potential.PotentialError,
+                  lambda x: potential.evaluateRzderivs(tnp,1.,0.),())
     return None
 
 def test_plotting():
