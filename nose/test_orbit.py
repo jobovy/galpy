@@ -23,6 +23,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockMovingObjectLongIntPotential, \
     specialFlattenedPowerPotential, \
     specialMiyamotoNagaiPotential, \
+    BurkertPotentialNoC, \
     oblateHernquistPotential, \
     oblateNFWPotential, \
     prolateNFWPotential, \
@@ -221,6 +222,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialFlattenedPowerPotential')
+    pots.append('BurkertPotentialNoC')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
@@ -560,6 +562,7 @@ def test_liouville_planar():
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('specialFlattenedPowerPotential')
+    pots.append('BurkertPotentialNoC')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',

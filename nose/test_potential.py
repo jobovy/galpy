@@ -1790,7 +1790,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
-    TwoPowerTriaxialPotential
+    TwoPowerTriaxialPotential, BurkertPotential
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
@@ -1830,6 +1830,13 @@ class specialMN3ExponentialDiskPotentialPD(MN3ExponentialDiskPotential):
 class specialMN3ExponentialDiskPotentialSECH(MN3ExponentialDiskPotential):
     def __init__(self):
         MN3ExponentialDiskPotential.__init__(self,normalize=1.,sech=True)
+        return None
+class BurkertPotentialNoC(BurkertPotential):
+    def __init__(self):
+        # Just to force not using C
+        BurkertPotential.__init__(self)
+        self.hasC= False
+        self.hasC_dxdv= False
         return None
 class oblateHernquistPotential(TriaxialHernquistPotential):
     def __init__(self):
