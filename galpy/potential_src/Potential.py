@@ -776,11 +776,8 @@ class Potential(object):
            unknown
 
         """
-        from galpy.potential import RZToplanarPotential, FullToplanarPotential
-        if self.isNonAxi:
-            return FullToplanarPotential(self)
-        else:
-            return RZToplanarPotential(self)
+        from galpy.potential import toPlanarPotential
+        return toPlanarPotential(self)
 
     def toVertical(self,R):
         """

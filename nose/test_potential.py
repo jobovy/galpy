@@ -859,6 +859,24 @@ def test_RZToplanarPotential():
         raise AssertionError('Using RZToplanarPotential with a string rather than an RZPotential or a planarPotential did not raise PotentialError')
     return None
 
+def test_toPlanarPotential():
+    tnp= potential.TriaxialNFWPotential(normalize=1.)
+    ptnp= potential.toPlanarPotential(tnp)
+    assert isinstance(ptnp,potential.planarPotential), 'Running a non-axisymmetric Potential through toPlanarPotential does not produce a planarPotential'
+    # Also for list
+    ptnp= potential.toPlanarPotential([tnp])
+    assert isinstance(ptnp[0],potential.planarPotential), 'Running a non-axisymmetric Potential through toPlanarPotential does not produce a planarPotential'
+    #Check that a planarPotential through toPlanarPotential is still planar
+    pptnp= potential.toPlanarPotential(tnp)
+    assert isinstance(pptnp,potential.planarPotential), 'Running a planarPotential through toPlanarPotential does not produce a planarPotential'
+    try:
+        ptnp= potential.toPlanarPotential('something else')
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError')
+    return None
+
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
 def test_dvcircdR_omegac_epifreq_rl_vesc():
     #Derivative of rotation curve
