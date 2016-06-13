@@ -152,6 +152,10 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Both of these papers use ``galpy.orbit`` integration in ``MWPotential2014`` to determine the orbit of the milli-second pulsar PSR J1024−0719, a pulsar in an unusual binary system.
 #. *The first low-mass black hole X-ray binary identified in quiescence outside of a globular cluster*, B. E. Tetarenko, A. Bahramian, R. M. Arnason, et al. (2016), *Astrophys. J.*, in press (`arXiv/1605.00270 <http://arxiv.org/abs/1605.00270>`_):
      This paper employs ``galpy.orbit`` integration of orbits within the position-velocity uncertainty ellipse of the radio source VLA J213002.08+120904 to help characterize its nature (specifically, to rule out that it is a magnetar based on its birth location).
+#. *Action-based Dynamical Modelling for the Milky Way Disk*, Wilma H. Trick, Jo Bovy, & Hans-Walter Rix(2016), *Astrophys. J.*, in press (`arXiv/1605.08601 <http://arxiv.org/abs/1605.08601>`_):
+     Makes use of potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to develop a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars.
+#. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, in press (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
+     Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
 
 Indices and tables
 ==================
