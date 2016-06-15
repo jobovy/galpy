@@ -363,6 +363,54 @@ class TwoPowerTriaxialPotential(Potential):
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
                        self._b2,self._c2,2,glx=self._glx,glw=self._glw)
 
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2016-06-15 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+        phixx= self._2ndderiv_xyz(x,y,z,0,0)
+        phixy= self._2ndderiv_xyz(x,y,z,0,1)
+        phiyy= self._2ndderiv_xyz(x,y,z,1,1)
+        return numpy.cos(phi)**2.*phixx+numpy.sin(phi)**2.*phiyy\
+            +2.*numpy.cos(phi)*numpy.sin(phi)*phixy
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed radial, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, vertical derivative
+        HISTORY:
+           2016-06-15 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+        phixz= self._2ndderiv_xyz(x,y,z,0,2)
+        phiyz= self._2ndderiv_xyz(x,y,z,1,2)
+        return numpy.cos(phi)*phixz+numpy.sin(phi)*phiyz
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -383,6 +431,62 @@ class TwoPowerTriaxialPotential(Potential):
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         return self._2ndderiv_xyz(x,y,z,2,2)
+
+    def _phi2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phi2deriv
+        PURPOSE:
+           evaluate the second azimuthal derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second azimuthal derivative
+        HISTORY:
+           2016-06-15 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+        Fx= self._xforce_xyz(x,y,z)
+        Fy= self._yforce_xyz(x,y,z)
+        phixx= self._2ndderiv_xyz(x,y,z,0,0)
+        phixy= self._2ndderiv_xyz(x,y,z,0,1)
+        phiyy= self._2ndderiv_xyz(x,y,z,1,1)
+        return R**2.*(numpy.sin(phi)**2.*phixx+numpy.cos(phi)**2.*phiyy\
+                          -2.*numpy.cos(phi)*numpy.sin(phi)*phixy)\
+                          +R*(numpy.cos(phi)*Fx+numpy.sin(phi)*Fy)
+
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rphideriv
+        PURPOSE:
+           evaluate the mixed radial, azimuthal derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, azimuthal derivative
+        HISTORY:
+           2016-06-15 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+        Fx= self._xforce_xyz(x,y,z)
+        Fy= self._yforce_xyz(x,y,z)
+        phixx= self._2ndderiv_xyz(x,y,z,0,0)
+        phixy= self._2ndderiv_xyz(x,y,z,0,1)
+        phiyy= self._2ndderiv_xyz(x,y,z,1,1)
+        return R*numpy.cos(phi)*numpy.sin(phi)*\
+            (phiyy-phixx)+R*numpy.cos(2.*phi)*phixy\
+            +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
 
     def _yxderivs_xyz(self,x,y,z):
         """Evaluation of the (xx,xy,yy) 2nd derivatives as a function of 
