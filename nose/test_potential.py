@@ -958,7 +958,7 @@ def test_vcirc_vesc_special():
     dp= potential.DehnenBarPotential()
     try:
         potential.plotRotcurve([dp])
-    except AttributeError: #should be raised
+    except (AttributeError,potential.PotentialError): #should be raised
         pass
     else:
         raise AssertionError("plotRotcurve for non-axisymmetric potential should have raised AttributeError, but didn't")
