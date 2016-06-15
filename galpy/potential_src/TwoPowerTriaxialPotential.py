@@ -363,6 +363,43 @@ class TwoPowerTriaxialPotential(Potential):
                        lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
                        self._b2,self._c2,2,glx=self._glx,glw=self._glw)
 
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2016-06-15 - Written - Bovy (UofT)
+        """
+        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+        return self._2ndderiv_xyz(x,y,z,2,2)
+
+    def _yxderivs_xyz(self,x,y,z):
+        """Evaluation of the (xx,xy,yy) 2nd derivatives as a function of 
+        (x,y,z) in the aligned coordinate frame"""
+        return (self._2ndderiv_xyz(x,y,z,0,0),
+                self._2ndderiv_xyz(x,y,z,0,1),
+                self._2ndderiv_xyz(x,y,z,1,1))
+
+    def _2ndderiv_xyz(self,x,y,z,i,j):
+        """General 2nd derivative of the potential as a function of (x,y,z)
+        in the aligned coordinate frame"""
+        return self._b*self._c/self.a**3.\
+            *_2ndDerivInt(x,y,z,
+                          lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
+                          lambda m: -(self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/self.a*(self.alpha*(self.a/m)+(self.beta-self.alpha)/(1.+m/self.a)),
+                          self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
+                 
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -706,3 +743,19 @@ def _forceInt(x,y,z,dens,b2,c2,i,glx=None,glw=None):
         return integrate.quad(integrand,0.,1.)[0]                              
     else:
         return numpy.sum(glw*integrand(glx))
+
+def _2ndDerivInt(x,y,z,dens,densDeriv,b2,c2,i,j,glx=None,glw=None):
+    """Integral that gives the 2nd derivative of the potential in x,y,z"""
+    def integrand(s):
+        t= 1/s**2.-1.
+        m= numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t))
+        return (densDeriv(m)
+                *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))
+                *(x/(1.+t)*(j==0)+y/(b2+t)*(j==1)+z/(c2+t)*(j==2))/m\
+                    +dens(m)*(i==j)*((1./(1.+t)*(i==0)+1./(b2+t)*(i==1)+1./(c2+t)*(i==2))))\
+                    /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
+    if glx is None:
+        return integrate.quad(integrand,0.,1.)[0]
+    else:
+        return numpy.sum(glw*integrand(glx))
+
