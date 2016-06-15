@@ -962,7 +962,7 @@ class Potential(object):
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vcirc(self,R):
+    def vcirc(self,R,phi=None):
         """
         
         NAME:
@@ -977,6 +977,8 @@ class Potential(object):
         
             R - Galactocentric radius (can be Quantity)
         
+            phi= (None) azimuth to use for non-axisymmetric potentials
+
         OUTPUT:
         
             circular rotation velocity
@@ -985,8 +987,10 @@ class Potential(object):
         
             2011-10-09 - Written - Bovy (IAS)
         
+       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
         """
-        return nu.sqrt(R*-self.Rforce(R,0.,use_physical=False))
+        return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
