@@ -579,7 +579,6 @@ def test_liouville_planar():
     rmpots.append('TwoPowerSphericalPotential')
     rmpots.append('TwoPowerTriaxialPotential')
     rmpots.append('TriaxialHernquistPotential')
-    rmpots.append('TriaxialNFWPotential')
     rmpots.append('TriaxialJaffePotential')
     for p in rmpots:
         pots.remove(p)
@@ -587,6 +586,7 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
+    tol['TriaxialNFWPotential']= -4. #more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
