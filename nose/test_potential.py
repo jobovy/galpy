@@ -263,10 +263,6 @@ def test_2ndDeriv_potential():
     pots.append('triaxialHernquistPotential')
     pots.append('triaxialNFWPotential')
     pots.append('triaxialJaffePotential')
-    pots.append('zRotatedTriaxialNFWPotential')
-    pots.append('yRotatedTriaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
-    pots.append('fullyRotatednoGLTriaxialNFWPotential')
     pots.append('HernquistTwoPowerTriaxialPotential')
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
@@ -320,7 +316,7 @@ def test_2ndDeriv_potential():
                                                                    phi=Zs[jj])
                     else:
                         mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii]+dr,Zs[jj]))/dr
-                        tR2deriv= potential.evaluateR2derivs(tp,Rs[ii],Zs[jj])
+                        tR2deriv= potential.evaluateR2derivs(tp,Rs[ii],Zs[jj],phi=0.)
                     if tR2deriv**2. < 10.**ttol:
                         assert mRforcederivR**2. < 10.**ttol, \
                             "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
@@ -388,11 +384,6 @@ def test_2ndDeriv_potential():
                     if p == 'HernquistTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'JaffeTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'NFWTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
-
-                    if p == 'zRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
-                    if p == 'yRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
-                    if p == 'fullyRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
-                    if p == 'fullyRotatednoGLTriaxialNFWPotential': continue #Not implemented, or badly defined
                     #Excluding KuzminDiskPotential at z = 0
                     if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue  
                     dz= 10.**-8.
@@ -409,8 +400,7 @@ def test_2ndDeriv_potential():
         #mixed radial vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
-                and hasattr(tp,'_Rzderiv'):
-             
+                and hasattr(tp,'_Rzderiv'):             
             for ii in range(len(Rs)):
                 for jj in range(len(Zs)):
                     #Excluding KuzminDiskPotential at z = 0
@@ -420,7 +410,7 @@ def test_2ndDeriv_potential():
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
                     mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii],Zs[jj]+dz))/dz
-                    tRzderiv= potential.evaluateRzderivs(tp,Rs[ii],Zs[jj])
+                    tRzderiv= potential.evaluateRzderivs(tp,Rs[ii],Zs[jj],phi=0.)
                     if tRzderiv**2. < 10.**ttol:
                         assert mRforcederivz**2. < 10.**ttol, \
                             "Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
@@ -482,9 +472,6 @@ def test_poisson_potential():
     pots.append('triaxialHernquistPotential')
     pots.append('triaxialNFWPotential')
     pots.append('triaxialJaffePotential')
-    pots.append('zRotatedTriaxialNFWPotential')
-    pots.append('yRotatedTriaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
     pots.append('HernquistTwoPowerTriaxialPotential')
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
@@ -582,9 +569,6 @@ def test_evaluateAndDerivs_potential():
     pots.append('triaxialHernquistPotential')
     pots.append('triaxialNFWPotential')
     pots.append('triaxialJaffePotential')
-    pots.append('zRotatedTriaxialNFWPotential')
-    pots.append('yRotatedTriaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1889,7 +1873,7 @@ class oblateHernquistPotential(TriaxialHernquistPotential):
         return None
 class oblateNFWPotential(TriaxialNFWPotential):
     def __init__(self):
-        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=.2)
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=.2,glorder=None)
         return None
 class oblateJaffePotential(TriaxialJaffePotential):
     def __init__(self):
