@@ -953,6 +953,33 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "KeplerPotential's escape velocity does not agree between kp.vesc and vesc(kp.toPlanar)"
     return None
 
+def test_vcirc_phi_axi():
+    # Test that giving phi to vcirc for an axisymmetric potential doesn't
+    # affect the answer
+    kp= potential.KeplerPotential(normalize=1.)
+    phis= numpy.linspace(0.,numpy.pi,101)
+    vcs= numpy.array([kp.vcirc(1.,phi) for phi in phis])
+    assert numpy.all(numpy.fabs(vcs-1.) < 10.**-8.), 'Setting phi= in vcirc for axisymmetric potential gives different answers for different phi'
+    # One at a different radius
+    R= 0.5
+    vcs= numpy.array([kp.vcirc(R,phi) for phi in phis])
+    assert numpy.all(numpy.fabs(vcs-kp.vcirc(R)) < 10.**-8.), 'Setting phi= in vcirc for axisymmetric potential gives different answers for different phi'
+    return None
+
+def test_vcirc_phi_nonaxi():
+    # Test that giving phi to vcirc for a non-axisymmetric potential does
+    # affect the answer
+    tnp= potential.TriaxialNFWPotential(b=0.4,normalize=1.)
+    # limited phi range
+    phis= numpy.linspace(numpy.pi/5.,numpy.pi/2.,5)
+    vcs= numpy.array([tnp.vcirc(1.,phi) for phi in phis])
+    assert numpy.all(numpy.fabs(vcs-1.) > 0.01), 'Setting phi= in vcirc for axisymmetric potential does not give different answers for different phi'
+    # One at a different radius
+    R= 0.5
+    vcs= numpy.array([tnp.vcirc(R,phi) for phi in phis])
+    assert numpy.all(numpy.fabs(vcs-tnp.vcirc(R,phi=0.)) > 0.01), 'Setting phi= in vcirc for axisymmetric potential does not give different answers for different phi'
+    return None
+
 def test_vcirc_vesc_special():
     #Test some special cases of vcirc and vesc
     dp= potential.DehnenBarPotential()
