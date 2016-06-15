@@ -388,13 +388,18 @@ def test_2ndDeriv_potential():
                     if p == 'HernquistTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'JaffeTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'NFWTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
+
+                    if p == 'zRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
+                    if p == 'yRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
+                    if p == 'fullyRotatedTriaxialNFWPotential': continue #Not implemented, or badly defined
+                    if p == 'fullyRotatednoGLTriaxialNFWPotential': continue #Not implemented, or badly defined
                     #Excluding KuzminDiskPotential at z = 0
                     if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue  
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
                     mzforcederivz= (tp.zforce(Rs[ii],Zs[jj])-tp.zforce(Rs[ii],Zs[jj]+dz))/dz
-                    tz2deriv= potential.evaluatez2derivs(tp,Rs[ii],Zs[jj])
+                    tz2deriv= potential.evaluatez2derivs(tp,Rs[ii],Zs[jj],phi=0.)
                     if tz2deriv**2. < 10.**ttol:
                         assert mzforcederivz**2. < 10.**ttol, \
                             "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
