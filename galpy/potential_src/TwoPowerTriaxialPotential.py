@@ -488,13 +488,6 @@ class TwoPowerTriaxialPotential(Potential):
             (phiyy-phixx)+R*numpy.cos(2.*phi)*phixy\
             +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
 
-    def _yxderivs_xyz(self,x,y,z):
-        """Evaluation of the (xx,xy,yy) 2nd derivatives as a function of 
-        (x,y,z) in the aligned coordinate frame"""
-        return (self._2ndderiv_xyz(x,y,z,0,0),
-                self._2ndderiv_xyz(x,y,z,0,1),
-                self._2ndderiv_xyz(x,y,z,1,1))
-
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame"""
