@@ -102,6 +102,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockMovingObjectExplSoftPotential')
     pots.append('oblateHernquistPotential')
     pots.append('oblateNFWPotential')
+    pots.append('oblatenoGLNFWPotential')
     pots.append('oblateJaffePotential')
     pots.append('prolateHernquistPotential')
     pots.append('prolateNFWPotential')
@@ -256,6 +257,7 @@ def test_2ndDeriv_potential():
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     pots.append('oblateHernquistPotential') # in case these are ever implemented
     pots.append('oblateNFWPotential')
+    pots.append('oblatenoGLNFWPotential')
     pots.append('oblateJaffePotential')
     pots.append('prolateHernquistPotential')
     pots.append('prolateNFWPotential')
@@ -1899,6 +1901,10 @@ class oblateHernquistPotential(TriaxialHernquistPotential):
         TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.,c=.2)
         return None
 class oblateNFWPotential(TriaxialNFWPotential):
+    def __init__(self):
+        TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=.2)
+        return None
+class oblatenoGLNFWPotential(TriaxialNFWPotential):
     def __init__(self):
         TriaxialNFWPotential.__init__(self,normalize=1.,b=1.,c=.2,glorder=None)
         return None
