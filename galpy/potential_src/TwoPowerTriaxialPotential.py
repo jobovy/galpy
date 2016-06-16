@@ -514,7 +514,12 @@ class TwoPowerTriaxialPotential(Potential):
            2016-05-31 - Written - Bovy (UofT)
         """
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        m= numpy.sqrt(x**2.+y**2./self._b2+z**2./self._c2)
+        if self._aligned:
+            xp, yp, zp= x, y, z
+        else:
+            xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+            xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
+        m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
         return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
         
     def OmegaP(self):
