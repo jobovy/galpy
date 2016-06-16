@@ -912,6 +912,7 @@ class Potential(object):
                                                    ncontours))
         
     def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                    phi=None,
                     ncontours=21,savefilename=None,aspect=None,log=False,
                     justcontours=False):
         """
@@ -937,6 +938,8 @@ class Potential(object):
 
            nzs= grid in z
 
+           phi= (None) azimuth to use for non-axisymmetric potentials
+
            ncontours= number of contours
 
            justcontours= (False) if True, just plot contours
@@ -955,7 +958,7 @@ class Potential(object):
 
         """
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                             zmin=zmin,zmax=zmax,nzs=nzs,
+                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
                              aspect=aspect,log=log)
@@ -1961,6 +1964,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                  phi=None,
                   ncontours=21,savefilename=None,aspect=None,log=False,
                   justcontours=False):
         """
@@ -1987,6 +1991,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            zmax= maximum z (can be Quantity)
 
            nzs= grid in z
+
+           phi= (None) azimuth to use for non-axisymmetric potentials
 
            ncontours= number of contours
 
@@ -2032,7 +2038,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(Rs[ii]),
-                                                    zs[jj],use_physical=False)
+                                                    zs[jj],phi=phi,
+                                                    use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
