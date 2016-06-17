@@ -47,9 +47,9 @@ def _parse_pot(pot):
     npot= len(pot)
     for p in pot:
         if isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.LogarithmicHaloPotential):
+                 and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.extend([p._RZPot._amp,p._RZPot._core2])
+            pot_args.extend([p._Pot._amp,p._Pot._core2])
         elif isinstance(p,potential.DehnenBarPotential):
             pot_type.append(1)
             pot_args.extend([p._amp,p._tform,p._tsteady,p._rb,p._af,p._omegab,
@@ -76,9 +76,9 @@ def _parse_pot(pot):
                 pot_args.extend([p._amp,p._tform,p._tsteady,
                                  p._twophio,p._p,p._phib])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.MiyamotoNagaiPotential):
+                 and isinstance(p._Pot,potential.MiyamotoNagaiPotential):
             pot_type.append(5)
-            pot_args.extend([p._RZPot._amp,p._RZPot._a,p._RZPot._b])
+            pot_args.extend([p._Pot._amp,p._Pot._a,p._Pot._b])
         elif isinstance(p,potential.LopsidedDiskPotential):
             pot_type.append(6)
             if p._tform is None:
@@ -88,78 +88,78 @@ def _parse_pot(pot):
                 pot_args.extend([p._amp,p._tform,p._tsteady,
                                  p._mphio,p._p,p._phib])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.PowerSphericalPotential):
+                 and isinstance(p._Pot,potential.PowerSphericalPotential):
             pot_type.append(7)
-            pot_args.extend([p._RZPot._amp,p._RZPot.alpha])
+            pot_args.extend([p._Pot._amp,p._Pot.alpha])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.HernquistPotential):
+                 and isinstance(p._Pot,potential.HernquistPotential):
             pot_type.append(8)
-            pot_args.extend([p._RZPot._amp,p._RZPot.a])
+            pot_args.extend([p._Pot._amp,p._Pot.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.NFWPotential):
+                 and isinstance(p._Pot,potential.NFWPotential):
             pot_type.append(9)
-            pot_args.extend([p._RZPot._amp,p._RZPot.a])
+            pot_args.extend([p._Pot._amp,p._Pot.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.JaffePotential):
+                 and isinstance(p._Pot,potential.JaffePotential):
             pot_type.append(10)
-            pot_args.extend([p._RZPot._amp,p._RZPot.a])
+            pot_args.extend([p._Pot._amp,p._Pot.a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                and isinstance(p._RZPot,potential.DoubleExponentialDiskPotential):
+                and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([p._RZPot._amp,p._RZPot._alpha,
-                             p._RZPot._beta,p._RZPot._kmaxFac,
-                             p._RZPot._nzeros,p._RZPot._glorder])
-            pot_args.extend([p._RZPot._glx[ii] for ii in range(p._RZPot._glorder)])
-            pot_args.extend([p._RZPot._glw[ii] for ii in range(p._RZPot._glorder)])
-            pot_args.extend([p._RZPot._j0zeros[ii] for ii in range(p._RZPot._nzeros+1)])
-            pot_args.extend([p._RZPot._dj0zeros[ii] for ii in range(p._RZPot._nzeros+1)])
-            pot_args.extend([p._RZPot._j1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
-            pot_args.extend([p._RZPot._dj1zeros[ii] for ii in range(p._RZPot._nzeros+1)])
-            pot_args.extend([p._RZPot._kp._amp,p._RZPot._kp.alpha])
+            pot_args.extend([p._Pot._amp,p._Pot._alpha,
+                             p._Pot._beta,p._Pot._kmaxFac,
+                             p._Pot._nzeros,p._Pot._glorder])
+            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
+            pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
+            pot_args.extend([p._Pot._j0zeros[ii] for ii in range(p._Pot._nzeros+1)])
+            pot_args.extend([p._Pot._dj0zeros[ii] for ii in range(p._Pot._nzeros+1)])
+            pot_args.extend([p._Pot._j1zeros[ii] for ii in range(p._Pot._nzeros+1)])
+            pot_args.extend([p._Pot._dj1zeros[ii] for ii in range(p._Pot._nzeros+1)])
+            pot_args.extend([p._Pot._kp._amp,p._Pot._kp.alpha])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                and isinstance(p._RZPot,potential.FlattenedPowerPotential):
+                and isinstance(p._Pot,potential.FlattenedPowerPotential):
             pot_type.append(12)
-            pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.core2])
+            pot_args.extend([p._Pot._amp,p._Pot.alpha,p._Pot.core2])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.IsochronePotential):
+                 and isinstance(p._Pot,potential.IsochronePotential):
             pot_type.append(14)
-            pot_args.extend([p._RZPot._amp,p._RZPot.b])
+            pot_args.extend([p._Pot._amp,p._Pot.b])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.PowerSphericalPotentialwCutoff):
+                 and isinstance(p._Pot,potential.PowerSphericalPotentialwCutoff):
             pot_type.append(15)
-            pot_args.extend([p._RZPot._amp,p._RZPot.alpha,p._RZPot.rc])
+            pot_args.extend([p._Pot._amp,p._Pot.alpha,p._Pot.rc])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.MN3ExponentialDiskPotential):
+                 and isinstance(p._Pot,potential.MN3ExponentialDiskPotential):
             # Three Miyamoto-Nagai disks
             npot+= 2
             pot_type.extend([5,5,5])
-            pot_args.extend([p._RZPot._amp*p._RZPot._mn3[0]._amp,
-                             p._RZPot._mn3[0]._a,p._RZPot._mn3[0]._b,
-                             p._RZPot._amp*p._RZPot._mn3[1]._amp,
-                             p._RZPot._mn3[1]._a,p._RZPot._mn3[1]._b,
-                             p._RZPot._amp*p._RZPot._mn3[2]._amp,
-                             p._RZPot._mn3[2]._a,p._RZPot._mn3[2]._b])
+            pot_args.extend([p._Pot._amp*p._Pot._mn3[0]._amp,
+                             p._Pot._mn3[0]._a,p._Pot._mn3[0]._b,
+                             p._Pot._amp*p._Pot._mn3[1]._amp,
+                             p._Pot._mn3[1]._a,p._Pot._mn3[1]._b,
+                             p._Pot._amp*p._Pot._mn3[2]._amp,
+                             p._Pot._mn3[2]._a,p._Pot._mn3[2]._b])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.KuzminKutuzovStaeckelPotential):
+                 and isinstance(p._Pot,potential.KuzminKutuzovStaeckelPotential):
             pot_type.append(16)
-            pot_args.extend([p._RZPot._amp,p._RZPot._ac,p._RZPot._Delta])
+            pot_args.extend([p._Pot._amp,p._Pot._ac,p._Pot._Delta])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.PlummerPotential):
+                 and isinstance(p._Pot,potential.PlummerPotential):
             pot_type.append(17)
-            pot_args.extend([p._RZPot._amp,p._RZPot._b])
+            pot_args.extend([p._Pot._amp,p._Pot._b])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.PseudoIsothermalPotential):
+                 and isinstance(p._Pot,potential.PseudoIsothermalPotential):
             pot_type.append(18)
-            pot_args.extend([p._RZPot._amp,p._RZPot._a])
+            pot_args.extend([p._Pot._amp,p._Pot._a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.KuzminDiskPotential):
+                 and isinstance(p._Pot,potential.KuzminDiskPotential):
             pot_type.append(19)
-            pot_args.extend([p._RZPot._amp,p._RZPot._a])
+            pot_args.extend([p._Pot._amp,p._Pot._a])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
-                 and isinstance(p._RZPot,potential.BurkertPotential):
+                 and isinstance(p._Pot,potential.BurkertPotential):
             pot_type.append(20)
-            pot_args.extend([p._RZPot._amp,p._RZPot.a])
-        elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential)  and isinstance(p._Pot,potential.TwoPowerTriaxialPotential):
+            pot_args.extend([p._Pot._amp,p._Pot.a])
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) and isinstance(p._Pot,potential.TwoPowerTriaxialPotential):
             if isinstance(p._Pot,potential.TriaxialHernquistPotential):
                 pot_type.append(21)
             elif isinstance(p._Pot,potential.TriaxialNFWPotential):

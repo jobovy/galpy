@@ -396,7 +396,7 @@ def test_energy_jacobi_conservation():
                 o= setup_orbit_energy(ptp,axi=True)
                 o.integrate(ttimes,ptp,method=integrator)
                 tEs= o.E(ttimes)
-    #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+#                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
                 #Jacobi

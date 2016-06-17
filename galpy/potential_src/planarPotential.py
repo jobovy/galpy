@@ -638,7 +638,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         # Also transfer roSet and voSet
         self._roSet= RZPot._roSet
         self._voSet= RZPot._voSet
-        self._RZPot= RZPot
+        self._Pot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
         return None
@@ -658,7 +658,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot(R,0.,t=t,use_physical=False)
+        return self._Pot(R,0.,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -675,7 +675,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._RZPot.Rforce(R,0.,t=t,use_physical=False)
+        return self._Pot.Rforce(R,0.,t=t,use_physical=False)
 
     def _R2deriv(self,R,phi=0.,t=0.):
         """
@@ -692,7 +692,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        return self._RZPot.R2deriv(R,0.,t=t,use_physical=False)
+        return self._Pot.R2deriv(R,0.,t=t,use_physical=False)
             
 def RZToplanarPotential(RZPot):
     """
