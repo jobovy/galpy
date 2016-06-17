@@ -1514,7 +1514,7 @@ def test_actionAngleIsochroneApprox_bovy14():
     times= numpy.linspace(0.,100.,51)
     obs.integrate(times,lp,method='dopr54_c')
     js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-            obs.vz(times),obs.phi(times),nonaxi=True) #nonaxi to test that part of the code
+            obs.vz(times),obs.phi(times))
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 3.*10.**-2., 'Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**-2., 'Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[1])

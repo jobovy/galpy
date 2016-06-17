@@ -17,7 +17,7 @@ import warnings
 import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
-from galpy.potential import dvcircdR, vcirc
+from galpy.potential import dvcircdR, vcirc, _isNonAxi
 from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
 from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
@@ -127,8 +127,6 @@ class actionAngleIsochroneApprox(actionAngle):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
            cumul= if True, return the cumulative average actions (to look 
                   at convergence)
         OUTPUT:
@@ -165,7 +163,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 sumFunc= nu.sum
             jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
             jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            if kwargs.get('nonaxi',False):
+            if _isNonAxi(self._pot):
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
@@ -191,8 +189,6 @@ class actionAngleIsochroneApprox(actionAngle):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -217,8 +213,6 @@ class actionAngleIsochroneApprox(actionAngle):
                     times
               b) Orbit instance or list thereof; can be integrated already
            maxn= (default: 3) Use a grid in vec(n) up to this n (zero-based)
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
            _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
@@ -227,7 +221,7 @@ class actionAngleIsochroneApprox(actionAngle):
            2013-09-10 - Written - Bovy (IAS)
         """
         from galpy.orbit import Orbit
-        if kwargs.get('nonaxi',False):
+        if _isNonAxi(self._pot):
             raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
@@ -275,7 +269,7 @@ class actionAngleIsochroneApprox(actionAngle):
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
             jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
-            if kwargs.get('nonaxi',False): #pragma: no cover
+            if _isNonAxi(self._pot): #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
@@ -467,7 +461,7 @@ class actionAngleIsochroneApprox(actionAngle):
                                     colorbar=True,
                                     **kwargs)
         else:
-            if kwargs.get('nonaxi',False):
+            if _isNonAxi(self._pot):
                 raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
                 if 'ar' in type:
