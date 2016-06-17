@@ -21,6 +21,10 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockCombLinearPotential, \
     mockSimpleLinearPotential, \
     mockMovingObjectLongIntPotential, \
+    mockSCFZeeuwPotential, \
+    mockSCFNFWPotential, \
+    mockSCFAxiDensity1Potential, \
+    mockSCFAxiDensity2Potential, \
     specialFlattenedPowerPotential, \
     specialMiyamotoNagaiPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -220,6 +224,10 @@ def test_energy_jacobi_conservation():
     pots.append('mockCombLinearPotential')
     pots.append('mockSimpleLinearPotential')
     pots.append('mockMovingObjectLongIntPotential')
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -263,7 +271,8 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p: ttimes= times
+                    and not 'MovingObject' in p\
+                    and not 'SCF' in p: ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
