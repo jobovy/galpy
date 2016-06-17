@@ -129,7 +129,8 @@ class TwoPowerTriaxialPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        self.isNonAxi= True
+        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
+            self.isNonAxi= True
         return None
 
     def _setup_zvec_pa(self,zvec,pa):
@@ -184,6 +185,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-05-30 - Started - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if self._aligned:
             return self._evaluate_xyz(x,y,z)
@@ -232,6 +235,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-09 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
@@ -273,6 +278,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-09 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
@@ -314,6 +321,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-09 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
@@ -379,6 +388,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-15 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
@@ -404,6 +415,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-15 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
@@ -427,6 +440,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-15 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
@@ -448,6 +463,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-15 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
@@ -476,6 +493,8 @@ class TwoPowerTriaxialPotential(Potential):
         HISTORY:
            2016-06-15 - Written - Bovy (UofT)
         """
+        if not self.isNonAxi:
+            phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
@@ -613,7 +632,8 @@ class TriaxialHernquistPotential(TwoPowerTriaxialPotential):
             self.normalize(normalize)
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
-        self.isNonAxi= True
+        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
+            self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):
@@ -699,7 +719,8 @@ class TriaxialJaffePotential(TwoPowerTriaxialPotential):
             self.normalize(normalize)
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
-        self.isNonAxi= True
+        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
+            self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):
@@ -812,7 +833,8 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
         self._scale= self.a
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
-        self.isNonAxi= True
+        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
+            self.isNonAxi= True
         return None
 
     def _evaluate_xyz(self,x,y,z):

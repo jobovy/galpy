@@ -2560,7 +2560,7 @@ def _isNonAxi(Pot):
 
     OUTPUT:
 
-       True or False depending on whether the potential is non-axisymmetric (note that some potentials, like TwoPowerTriaxial, will return True, even though for some parameter values they are axisymmetric)
+       True or False depending on whether the potential is non-axisymmetric (note that some potentials might return True, even though for some parameter values they are axisymmetric)
 
     HISTORY:
 
