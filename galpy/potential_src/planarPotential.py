@@ -952,16 +952,12 @@ def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     return _evaluateplanarPotentials(Pot,R,phi=phi,t=t,dR=dR,dphi=dphi)
 
 def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
+    from galpy.potential_src.Potential import _isNonAxi
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+    if isList and nu.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1012,12 +1008,9 @@ def evaluateplanarRforces(Pot,R,phi=None,t=0.):
 
 def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
+    from galpy.potential_src.Potential import _isNonAxi
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
@@ -1071,12 +1064,9 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     return _evaluateplanarphiforces(Pot,R,phi=phi,t=t)
 
 def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+    from galpy.potential_src.Potential import _isNonAxi
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
@@ -1127,12 +1117,9 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
        2010-10-09 - Written - Bovy (IAS)
 
     """
+    from galpy.potential_src.Potential import _isNonAxi
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \

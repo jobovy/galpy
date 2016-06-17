@@ -78,6 +78,7 @@ nemo_accpars= Potential.nemo_accpars
 turn_physical_off= Potential.turn_physical_off
 turn_physical_on= Potential.turn_physical_on
 _dim= Potential._dim
+_isNonAxi= Potential._isNonAxi
 #
 # Classes
 #

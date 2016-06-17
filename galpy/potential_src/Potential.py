@@ -1484,14 +1484,10 @@ def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
 
 def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """Raw, undecorated function for internal use"""
-    isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    isList= isinstance(Pot,list)
     if isList:
         sum= 0.
         for pot in Pot:
@@ -1540,11 +1536,7 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
 
     """
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1597,11 +1589,7 @@ def evaluateRforces(Pot,R,z,phi=None,t=0.):
 def _evaluateRforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1651,11 +1639,7 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.):
 def _evaluatephiforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1706,11 +1690,7 @@ def evaluatezforces(Pot,R,z,phi=None,t=0.):
 def _evaluatezforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1757,11 +1737,7 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
 
     """
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1808,11 +1784,7 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
 
     """
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -1859,11 +1831,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
 
     """
     isList= isinstance(Pot,list)
-    if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
-    else:
-        nonAxi= Pot.isNonAxi
+    nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
@@ -2575,6 +2543,37 @@ def _dim(Pot):
         return nu.amin(nu.array([p.dim for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
         return Pot.dim
+
+def _isNonAxi(Pot):
+    """
+    NAME:
+
+       _isNonAxi
+
+    PURPOSE:
+
+       Determine whether this potential is non-axisymmetric
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+    OUTPUT:
+
+       True or False depending on whether the potential is non-axisymmetric (note that some potentials, like TwoPowerTriaxial, will return True, even though for some parameter values they are axisymmetric)
+
+    HISTORY:
+
+       2016-06-16 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    return nonAxi
 
 def kms_to_kpcGyrDecorator(func):
     """Decorator to convert velocities from km/s to kpc/Gyr"""
