@@ -686,6 +686,7 @@ def test_eccentricity():
     tol['default']= -16.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['NFWPotential']= -12. #these are more difficult
+    tol['TriaxialNFWPotential']= -12. #these are more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -722,7 +723,7 @@ def test_eccentricity():
             tecc= o.e()
 #            print p, integrator, tecc
             assert tecc**2. < 10.**ttol, \
-                "Eccentricity of a circular orbit is not equal to zero for potential %s and integrator %s" %(p,integrator)
+                "Eccentricity of a circular orbit is not equal to zero by %g for potential %s and integrator %s" %(tecc**2.,p,integrator)
             #add tracking azimuth
             o= setup_orbit_eccentricity(tp,axi=False)
             if firstTest:
@@ -1153,13 +1154,15 @@ def test_analytic_ecc_rperi_rap():
     tol['RazorThinExponentialDiskPotential']= -8. #these are more difficult
     tol['IsochronePotential']= -6. #these are more difficult
     tol['JaffePotential']= -6. #these are more difficult
+    tol['TriaxialHernquistPotential']= -8. #these are more difficult
+    tol['TriaxialJaffePotential']= -8. #these are more difficult
+    tol['TriaxialNFWPotential']= -8. #these are more difficult
     tol['PowerSphericalPotential']= -8. #these are more difficult
     tol['PowerSphericalPotentialwCutoff']= -8. #these are more difficult
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['KeplerPotential']= -8. #these are more difficult
     tol['PseudoIsothermalPotential']= -7. #these are more difficult
     tol['KuzminDiskPotential'] = -8  #these are more difficult
-    
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1300,7 +1303,7 @@ def test_analytic_ecc_rperi_rap():
                 tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
-                    "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                    "Analytically computed eccentricity does not agree with numerical estimate by %g for potential %s and integrator %s" %((tecc-tecc_analytic)**2.,p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
                 trperi_analytic= o.rperi(analytic=True)
@@ -1356,7 +1359,10 @@ def test_analytic_zmax():
     tol['PlummerPotential']= -4. #these are more difficult
     tol['PseudoIsothermalPotential']= -4. #these are more difficult
     tol['HernquistPotential']= -8. #these are more difficult
+    tol['TriaxialHernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
+    tol['TriaxialJaffePotential']= -8. #these are more difficult
+    tol['TriaxialNFWPotential']= -8. #these are more difficult
     tol['MiyamotoNagaiPotential']= -7. #these are more difficult
     tol['MN3ExponentialDiskPotential']= -6. #these are more difficult
     tol['LogarithmicHaloPotential']= -7. #these are more difficult
