@@ -1588,6 +1588,11 @@ def test_planeRotatedNFWPotential():
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
     assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
+    # Same for density, but max instead
+    dens= numpy.array([tnp.dens(Rs,0.,phi=phi) for phi in phis])
+    minphi= numpy.argmax(dens)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
     # Also do a negative angle
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.5,
                                         pa=-60./180.*numpy.pi)
@@ -1596,6 +1601,11 @@ def test_planeRotatedNFWPotential():
     phis= numpy.linspace(0.,numpy.pi,1001)
     pot= numpy.array([tnp(Rs,0.,phi=phi) for phi in phis])
     minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
+    # Same for density, but max instead
+    dens= numpy.array([tnp.dens(Rs,0.,phi=phi) for phi in phis])
+    minphi= numpy.argmax(dens)
     minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
     assert minphi == minphi_pred, 'Flattened NFW potential rotated around the z axis does not behave as expected'
     return None
@@ -1618,6 +1628,11 @@ def test_zaxisRotatedNFWPotential():
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
     assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
+    # Same for density, but max instead
+    dens= numpy.array([tnp.dens(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
+    minphi= numpy.argmax(dens)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
     # Another one
     pa= -60./180.*numpy.pi
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,c=0.5,
@@ -1632,6 +1647,11 @@ def test_zaxisRotatedNFWPotential():
     tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
     pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
     minphi= numpy.argmin(pot)
+    minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
+    assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
+    # Same for density, but max instead
+    dens= numpy.array([tnp.dens(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
+    minphi= numpy.argmax(dens)
     minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
     assert minphi == minphi_pred, 'Flattened NFW potential with rotated z axis does not behave as expected'
     return None
