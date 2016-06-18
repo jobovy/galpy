@@ -221,8 +221,8 @@ class actionAngleIsochroneApprox(actionAngle):
            2013-09-10 - Written - Bovy (IAS)
         """
         from galpy.orbit import Orbit
-        if _isNonAxi(self._pot):
-            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
+#        if _isNonAxi(self._pot):
+#            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
         if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
@@ -292,7 +292,11 @@ class actionAngleIsochroneApprox(actionAngle):
             #Write the angle-fit as Y=AX, build A and Y
             nt= len(ts)
             no= R.shape[0]
-            nn= maxn*(2*maxn-1)-maxn #remove 0,0,0
+            #remove 0,0,0 and half-plane
+            if _isNonAxi(self._pot):
+                nn= (2*maxn-1)**2*maxn-(maxn-1)*(2*maxn-1)-maxn
+            else:
+                nn= maxn*(2*maxn-1)-maxn 
             A= nu.zeros((no,nt,2+nn))
             A[:,:,0]= 1.
             A[:,:,1]= ts
@@ -300,19 +304,33 @@ class actionAngleIsochroneApprox(actionAngle):
             phig= list(nu.arange(-maxn+1,maxn,1))
             phig.sort(key = lambda x: abs(x))
             phig= nu.array(phig,dtype='int')
-            grid= nu.meshgrid(nu.arange(maxn),
-                              phig)
+            if _isNonAxi(self._pot):
+                grid= nu.meshgrid(nu.arange(maxn),phig,phig)
+            else:
+                grid= nu.meshgrid(nu.arange(maxn),phig)
             gridR= grid[0].T.flatten()[1:] #remove 0,0,0
             gridZ= grid[1].T.flatten()[1:]
             mask = nu.ones(len(gridR),dtype=bool)
-            mask[:2*maxn-3:2]= False
+            # excludes axis that is not in half-space
+            if _isNonAxi(self._pot):
+                gridphi= grid[2].T.flatten()[1:]
+                mask= True\
+                    -(gridR == 0)*((gridphi < 0)+((gridphi==0)*(gridZ < 0)))
+            else:
+                mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
             gridZ= gridZ[mask]
             tangleR= nu.tile(angleRT.T,(nn,1,1)).T
             tgridR= nu.tile(gridR,(no,nt,1))
             tangleZ= nu.tile(angleZT.T,(nn,1,1)).T
             tgridZ= nu.tile(gridZ,(no,nt,1))
-            sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
+            if _isNonAxi(self._pot):
+                gridphi= gridphi[mask]
+                tgridphi= nu.tile(gridphi,(no,nt,1))
+                tanglephi= nu.tile(anglephiT.T,(nn,1,1)).T
+                sinnR= nu.sin(tgridR*tangleR+tgridphi*tanglephi+tgridZ*tangleZ)
+            else:
+                sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
             A[:,:,2:]= sinnR
             #Matrix magic
             atainv= nu.empty((no,2+nn,2+nn))
