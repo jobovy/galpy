@@ -1521,6 +1521,32 @@ def test_actionAngleIsochroneApprox_bovy14():
     assert maxdj[2] < 2.*10.**-2., 'Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[2])
     return None
 
+#Test the actionAngleIsochroneApprox for a triaxial potential
+def test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions():   
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    tnp= TriaxialNFWPotential(b=.9,c=.8,normalize=1.)
+    aAI= actionAngleIsochroneApprox(pot=tnp,b=0.8,tintJ=200.)
+    obs= Orbit([1.,0.2,1.1,0.1,0.1,0.])
+    check_actionAngle_conserved_actions(aAI,obs,tnp,
+                                        -1.7,-2.,-1.7,ntimes=51,inclphi=True)
+    return None
+
+def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():   
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    tnp= TriaxialNFWPotential(b=.9,c=.8,normalize=1.)
+    aAI= actionAngleIsochroneApprox(pot=tnp,b=0.8,tintJ=200.)
+    obs= Orbit([1.,0.2,1.1,0.1,0.1,0.])
+    check_actionAngle_linear_angles(aAI,obs,tnp,
+                                    -5.,-5.,-5.,
+                                    -5.,-5.,-5.,
+                                    -4.,-4.,-4.,
+                                    maxt=4.,ntimes=51) # quick, essentially tests that nothing is grossly wrong
+    return None
+
 def test_actionAngleIsochroneApprox_plotting():   
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
@@ -1881,11 +1907,11 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolinitar,tolinitap,tolinitaz,
                                     tolor,tolop,toloz,
                                     toldar,toldap,toldaz,
-                                    ntimes=1001,
+                                    maxt=100.,ntimes=1001,
                                     fixed_quad=False,
                                     u0=None):
     from galpy.actionAngle import dePeriod
-    times= numpy.linspace(0.,100.,ntimes)
+    times= numpy.linspace(0.,maxt,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
     if fixed_quad:
         acfs_init= aA.actionsFreqsAngles(obs,fixed_quad=True) #to check the init. angles
@@ -1898,7 +1924,7 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     obs.z(times),obs.vz(times),obs.phi(times),
                                     u0=(u0+times*0.)) #array
     else:
-        acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
+        acfs_init= aA.actionsFreqsAngles(obs()) #to check the init. angles
         acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
                                     obs.z(times),obs.vz(times),obs.phi(times))
     ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
