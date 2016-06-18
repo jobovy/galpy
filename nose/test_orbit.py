@@ -235,6 +235,7 @@ def test_energy_jacobi_conservation():
     pots.append('prolateNFWPotential')
     pots.append('prolateJaffePotential')
     pots.append('triaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
     pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
