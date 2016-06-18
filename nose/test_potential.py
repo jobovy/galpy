@@ -1968,6 +1968,7 @@ class NFWTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=2.,alpha=1.,beta=3.,
                                            b=1.3,c=0.8)
+        self.isNonAxi= True # to test planar-from-full
         return None
 class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):

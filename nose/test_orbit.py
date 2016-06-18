@@ -29,6 +29,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     prolateNFWPotential, \
     prolateJaffePotential, \
     triaxialNFWPotential, \
+    NFWTwoPowerTriaxialPotential, \
     fullyRotatedTriaxialNFWPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
@@ -234,7 +235,7 @@ def test_energy_jacobi_conservation():
     pots.append('prolateNFWPotential')
     pots.append('prolateJaffePotential')
     pots.append('triaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -563,6 +564,7 @@ def test_liouville_planar():
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('specialFlattenedPowerPotential')
     pots.append('BurkertPotentialNoC')
+    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
