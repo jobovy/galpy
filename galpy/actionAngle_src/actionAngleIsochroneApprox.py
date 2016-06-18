@@ -221,8 +221,6 @@ class actionAngleIsochroneApprox(actionAngle):
            2013-09-10 - Written - Bovy (IAS)
         """
         from galpy.orbit import Orbit
-#        if _isNonAxi(self._pot):
-#            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
         if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
@@ -479,8 +477,6 @@ class actionAngleIsochroneApprox(actionAngle):
                                     colorbar=True,
                                     **kwargs)
         else:
-            if _isNonAxi(self._pot):
-                raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
                 if 'ar' in type:
                     angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
