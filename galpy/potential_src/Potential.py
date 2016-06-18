@@ -889,7 +889,8 @@ class Potential(object):
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluatePotentials(self,
-                                                     Rs[ii],zs[jj],t=t,phi=phi)
+                                                     Rs[ii],zs[jj],t=t,phi=phi,
+                                                     use_physical=False)
                 if effective:
                     potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
             #Don't plot outside of the desired range
