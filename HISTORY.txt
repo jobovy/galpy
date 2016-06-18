@@ -10,6 +10,22 @@ v1.2 (2016-XX-XX)
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
   configuration parameter.
 
+- Added TwoPowerTriaxialPotential, a set of triaxial potentials with
+  iso-density contours that are arbitrary, similar, coaxial ellipsoids
+  whose 'radial' density is a (different) power-law at small and large
+  radii: 1/m^alpha/(1+m)^beta-alpha (the triaxial generalization of
+  TwoPowerSphericalPotential, with flattening in the density rather
+  than in the potential, see Merritt & Fridman 1996, Binney & Tremaine
+  2008). These include triaxial Hernquist and NFW potentials. Includes
+  fast C implementations that allow efficient orbit integration in
+  these potentials (<~5 ms / orbit).
+
+- Implemented galpy.actionAngle.actionAngleIsochroneApprox (Bovy 2014)
+  for the general case of a time-independent potential, allowing
+  action-angle coordinates to be computed for triaxial
+  potentials. Previously, this module only supported axisymmetric
+  potentials.
+
 - quasiisothermaldf input ro replaced by refr to avoid clash with ro
   that specifies units (see above).
 
