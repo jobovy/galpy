@@ -851,7 +851,7 @@ def test_RZToplanarPotential():
     return None
 
 def test_toPlanarPotential():
-    tnp= potential.TriaxialNFWPotential(normalize=1.)
+    tnp= potential.TriaxialNFWPotential(normalize=1.,b=0.5)
     ptnp= potential.toPlanarPotential(tnp)
     assert isinstance(ptnp,potential.planarPotential), 'Running a non-axisymmetric Potential through toPlanarPotential does not produce a planarPotential'
     # Also for list
