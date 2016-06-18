@@ -735,7 +735,7 @@ class TriaxialNFWPotential(TwoPowerTriaxialPotential):
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{2}}
+        \\rho(x,y,z) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(m/a)\\,(1+m/a)^{2}}
 
     with
 
