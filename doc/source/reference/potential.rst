@@ -102,7 +102,7 @@ Spherical potentials
    potentialjaffe.rst
    potentialhernquist.rst
    potentialisochrone.rst
-   potentialkepler.rs
+   potentialkepler.rst
    potentialnfw.rst
    potentialplummer.rst
    potentialpowerspher.rst
