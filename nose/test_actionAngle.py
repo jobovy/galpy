@@ -1544,6 +1544,7 @@ def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():
                                     -5.,-5.,-5.,
                                     -5.,-5.,-5.,
                                     -4.,-4.,-4.,
+                                    separate_times=True, # otherwise, memory issues on travis
                                     maxt=4.,ntimes=51) # quick, essentially tests that nothing is grossly wrong
     return None
 
@@ -1907,7 +1908,7 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolinitar,tolinitap,tolinitaz,
                                     tolor,tolop,toloz,
                                     toldar,toldap,toldaz,
-                                    maxt=100.,ntimes=1001,
+                                    maxt=100.,ntimes=1001,separate_times=False,
                                     fixed_quad=False,
                                     u0=None):
     from galpy.actionAngle import dePeriod
@@ -1925,8 +1926,18 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     u0=(u0+times*0.)) #array
     else:
         acfs_init= aA.actionsFreqsAngles(obs()) #to check the init. angles
-        acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
-                                    obs.z(times),obs.vz(times),obs.phi(times))
+        if separate_times:
+            acfs= numpy.array([aA.actionsFreqsAngles(obs.R(t),obs.vR(t),
+                                                     obs.vT(t),obs.z(t),
+                                                     obs.vz(t),obs.phi(t))
+                               for t in times])[:,:,0].T
+            acfs= (acfs[0],acfs[1],acfs[2],
+                   acfs[3],acfs[4],acfs[5],
+                   acfs[6],acfs[7],acfs[8])
+        else:
+            acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),
+                                        obs.vT(times),obs.z(times),
+                                        obs.vz(times),obs.phi(times))
     ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
     ap= dePeriod(numpy.reshape(acfs[7],(1,len(times)))).flatten()
     az= dePeriod(numpy.reshape(acfs[8],(1,len(times)))).flatten()
