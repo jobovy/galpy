@@ -253,4 +253,12 @@ double PseudoIsothermalPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+					      
+//SCFDiskPotential
+double SCFPotentialRforce(double,double,double,double,
+                        struct potentialArg *);
+double SCFPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double SCFPotentialphiforce(double,double,double,double,
+				        struct potentialArg *);
 #endif /* galpy_potentials.h */
