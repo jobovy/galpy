@@ -24,7 +24,7 @@ def test_scf_compute_spherical_hernquist():
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 10)
     spherical_coeffsTest(Acos, Asin)
     assert numpy.fabs(Acos[0,0,0] - 1.) < EPS, "Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
-    
+    assert numpy.all(numpy.fabs(Acos[1:,0,0]) < EPS), "Acos(n>0,l=0,m=0) = 0 fails."
     
 ## tests whether scf_compute_spherical computes the correct coefficients for Zeeuw's Potential
 def test_scf_compute_spherical_zeeuw():
@@ -32,7 +32,8 @@ def test_scf_compute_spherical_zeeuw():
     spherical_coeffsTest(Acos, Asin)
     assert numpy.fabs(Acos[0,0,0] - 2*3./4) < EPS, "Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
     assert numpy.fabs(Acos[1,0,0] - 2*1./12) < EPS, "Acos(n=1,l=0,m=0) = 1/6 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
- 
+    assert numpy.all(numpy.fabs(Acos[2:,0,0]) < EPS), "Acos(n>1,l=0,m=0) = 0 fails."
+    
 ##Tests that the numerically calculated results from axi_density1 matches with the analytic results
 def test_scf_compute_axi_density1():
     A = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
@@ -45,8 +46,16 @@ def test_scf_compute_axi_density1():
     for n in range(shape[0]):
         for l in range(shape[1]):
             assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
-        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
-
+        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])  
+    #Checks that A at l != 0,1,2 are always zero    
+    assert numpy.all(numpy.fabs(A[0][:,3:,0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
+    
+    #Checks that A at n odd is always zero    
+    assert numpy.all(numpy.fabs(A[0][1::2,:,0]) < 1e-10), "Acos(n odd,l,m=0) = 0 fails."
+    
+    #Checks that A = 0 when n != 0 and l = 0  
+    assert numpy.all(numpy.fabs(A[0][1:,0,0]) < 1e-10), "Acos(n > 1,l=0,m=0) = 0 fails."
+    
 
 ##Tests that the numerically calculated results from axi_density2 matches with the analytic results
 def test_scf_compute_axi_density2():
@@ -62,7 +71,13 @@ def test_scf_compute_axi_density2():
         for l in range(shape[1]):
             assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
         "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
- 
+    
+    #Checks that A at l != 0,1,2 are always zero    
+    assert numpy.all(numpy.fabs(A[0][:,3:,0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
+    
+    #Checks that A = 0 when n = 2,4,..,2*n and l = 0  
+    assert numpy.all(numpy.fabs(A[0][2::2,0,0]) < 1e-10), "Acos(n > 1,l = 0,m=0) = 0 fails."
+
 def test_scf_compute_nfw(): 
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
@@ -110,32 +125,27 @@ def test_densMatches_zeeuw():
     
 ## Tests whether scf density matches with axi_density1
 def test_densMatches_axi_density1():
-    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,10,10)
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,50,3)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing axi_density1 with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(axi_density1,scf.dens, assertmsg) 
+    compareFunctions(axi_density1,scf.dens, assertmsg, eps=1e-3) 
     
 ## Tests whether scf density matches with axi_density2
 def test_densMatches_axi_density2():
-    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,10)
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,50,3)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing axi_density2 with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(axi_density2,scf.dens, assertmsg) 
+    compareFunctions(axi_density2,scf.dens, assertmsg, eps=1e-3) 
     
     
 ## Tests whether scf density matches with NFW 
 def test_densMatches_nfw():
-    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
-    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
+    nfw = potential.NFWPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing nfw with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(rho_NFW,scf.dens, assertmsg) 
-    
-## Tests whether scf Potential matches with density1
-def test_densMatches_density1():
-    Acos, Asin = potential.scf_compute_coeffs(density1, 5,10, phi_order=30)
-    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
-    assertmsg = "Comparing density1 with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(density1,scf.dens, assertmsg, eps=1e-10) 
+    compareFunctions(nfw,scf, assertmsg, eps=1e-4) 
+
 
 ## Tests whether scf potential matches with Hernquist potential
 def test_potentialMatches_hernquist():
@@ -146,37 +156,37 @@ def test_potentialMatches_hernquist():
     compareFunctions(h,scf, assertmsg)
   
 ## Tests whether scf Potential matches with NFW 
-def test_densMatches_nfw():
+def test_potentialMatches_nfw():
     nfw = potential.NFWPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
-    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing nfw with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw,scf, assertmsg) 
+    compareFunctions(nfw,scf, assertmsg, eps=1e-4) 
     
    
       
 ## Tests whether scf Rforce matches with Hernquist Rforce
 def test_RforceMatches_hernquist():
     h = potential.HernquistPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,10)
-    scf = SCFPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the radial force of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(h.Rforce,scf.Rforce, assertmsg)
     
-## Tests whether scf zforce matches with Hernquist Rforce
+## Tests whether scf zforce matches with Hernquist zforce
 def test_zforceMatches_hernquist():
     h = potential.HernquistPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,10)
-    scf = SCFPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the vertical force of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(h.zforce,scf.zforce, assertmsg)
     
     
-## Tests whether scf phiforce matches with Hernquist Rforce
+## Tests whether scf phiforce matches with Hernquist phiforce
 def test_phiforceMatches_hernquist():
     h = potential.HernquistPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,10)
-    scf = SCFPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(h.phiforce,scf.phiforce, assertmsg)
     
@@ -184,24 +194,24 @@ def test_phiforceMatches_hernquist():
 ## Tests whether scf Rforce matches with NFW Rforce
 def test_RforceMatches_nfw():
     nfw = potential.NFWPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
-    scf = SCFPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing the radial force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw.Rforce,scf.Rforce, assertmsg)
+    compareFunctions(nfw.Rforce,scf.Rforce, assertmsg, eps=1e-3)
       
-## Tests whether scf zforce matches with NFW Rforce
+## Tests whether scf zforce matches with NFW zforce
 def test_zforceMatches_nfw():
     nfw = potential.NFWPotential()
-    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
-    scf = SCFPotential()
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing the vertical force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw.zforce,scf.zforce, assertmsg)
+    compareFunctions(nfw.zforce,scf.zforce, assertmsg, eps=1e-3)
     
 ## Tests whether scf phiforce matches with NFW Rforce
 def test_phiforceMatches_nfw():
     nfw = potential.NFWPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
-    scf = SCFPotential()
+    scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
  
@@ -215,8 +225,7 @@ def compareFunctions(galpyFunc, scfFunc, assertmsg, Rs=DEFAULT_R, Zs = DEFAULT_Z
             for kk in range(len(phis)):
                 e = numpy.divide(galpyFunc(Rs[ii],Zs[jj],phis[kk]) - scfFunc(Rs[ii],Zs[jj],phis[kk]), galpyFunc(Rs[ii],Zs[jj],phis[kk]))
                 e = numpy.fabs(numpy.fabs(e))
-                if galpyFunc(Rs[ii],Zs[jj],phis[kk]) == 0: continue ## Ignoring divide by zero 
-                print(e)               
+                if galpyFunc(Rs[ii],Zs[jj],phis[kk]) == 0: continue ## Ignoring divide by zero               
                 assert e < eps, \
                 assertmsg.format(Rs[ii],Zs[jj],phis[kk])
 
