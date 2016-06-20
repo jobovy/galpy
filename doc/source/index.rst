@@ -158,6 +158,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Makes use of potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to develop a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars.
 #. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, in press (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
      Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
+#. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
+     Uses and extends ``galpy.df.streamdf`` and ``galpy.df.streamgapdf`` to quickly compute the effect of impacts from dark-matter subhalos on stellar streams and investigates the structure of perturbed streams and how this structure relates to the CDM subhalo mass spectrum.
 
 Indices and tables
 ==================
