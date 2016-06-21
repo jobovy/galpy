@@ -6,35 +6,23 @@
 //4 arguments: amp, Acos, Asin, a
 
 
+inline void cyl_to_spher(double R, double Z, double phi,double *r, double *theta){
+  *r = sqrt(R*R + Z*Z);
+  *theta = atan2(R, Z);
+}
+
+
 double SCFPotentialRforce(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
   double a = *args++;
   int N = *args++;
   int L = *args++;
   int M = *args++;
-  double Acos[N][L][M];
-  double Asin[N][L][M];
-  
-  // Get Acos
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Acos[n][l][m] = *args++;
-  }
-  } 
-  }
-  // Get Asin
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Asin[n][l][m] = *args++;
-  }
-  } 
-  }
+  double* Acos = args;
+  double* Asin = args + N*L*M;
 
  return 1.;
 }
@@ -44,30 +32,13 @@ double SCFPotentialzforce(double R,double Z, double phi,
 				struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
   double a = *args++;
   int N = *args++;
   int L = *args++;
   int M = *args++;
-  double Acos[N][L][M];
-  double Asin[N][L][M];
-  
-  // Get Acos
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Acos[n][l][m] = *args++;
-  }
-  } 
-  }
-  // Get Asin
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Asin[n][l][m] = *args++;
-  }
-  } 
-  }
+  double* Acos = args;
+  double* Asin = args + N*L*M;
+
   
   //Calculate zforce
   return 1.;
@@ -78,30 +49,13 @@ double SCFPotentialphiforce(double R,double Z, double phi,
 				struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
   double a = *args++;
   int N = *args++;
   int L = *args++;
   int M = *args++;
-  double Acos[N][L][M];
-  double Asin[N][L][M];
-  
-  // Get Acos
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Acos[n][l][m] = *args++;
-  }
-  } 
-  }
-  // Get Asin
-  for (int n=0; n <N;n= n+1){
-     for (int l=0; l <L;l= l+1){
-      for (int m=0; m <M;m= m+1){
-      Asin[n][l][m] = *args++;
-  }
-  } 
-  }
+  double* Acos = args;
+  double* Asin = args + N*L*M;
+
   //Calculate phiforce
   
   return 1.;
