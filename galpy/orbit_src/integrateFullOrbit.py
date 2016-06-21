@@ -123,10 +123,10 @@ def _parse_pot(pot,potforactions=False):
             pot_args.extend([p._amp,p._a])
         elif isinstance(p,potential.SCFPotential):
             pot_type.append(24)
-            pot_args.extend([p._amp, p._a])
+            pot_args.extend([p._a])
             pot_args.extend(p._Acos.shape)
-            pot_args.extend(p._Acos.flatten(order='C'))
-            pot_args.extend(p._Asin.flatten(order='C'))            
+            pot_args.extend(p._amp*p._Acos.flatten(order='C'))
+            pot_args.extend(p._amp*p._Asin.flatten(order='C'))            
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
