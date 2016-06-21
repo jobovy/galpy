@@ -58,13 +58,14 @@ class SCFPotential(Potential):
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
         ##Acos and Asin must have the same shape
-        self._Acos, self._Asin = Acos, Asin
+        
         self._a = a
 
-        self._NN = self._Nroot(Acos.shape[1]) ## We only ever need to compute this once
+        NN = self._Nroot(Acos.shape[1])
         
+        self._Acos, self._Asin = Acos*NN[nu.newaxis,:,:], Asin*NN[nu.newaxis,:,:]
         self._force_hash= None
-        
+        self.hasC= True
 
         return None
 
@@ -176,7 +177,7 @@ class SCFPotential(Potential):
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         
         
-        NN = self._NN
+   
         PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
         func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
         
@@ -185,7 +186,7 @@ class SCFPotential(Potential):
         m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
-        func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]*NN[None,:,:]
+        func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]
         return func
         
     def _getShape(self, R, z, phi):
@@ -328,7 +329,6 @@ class SCFPotential(Potential):
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         new_hash= hashlib.md5(nu.array([R, z,phi])).hexdigest()
         
-        NN = self._NN[None,:,:]
         if new_hash == self._force_hash:
             dPhi_dr = self._cached_dPhi_dr  
             dPhi_dtheta = self._cached_dPhi_dtheta 
@@ -345,9 +345,9 @@ class SCFPotential(Potential):
             m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
             mcos = nu.cos(m*phi)
             msin = nu.sin(m*phi)
-            dPhi_dr = (Acos*mcos + Asin*msin)*NN*PP*dphi_tilde
-            dPhi_dtheta = (Acos*mcos + Asin*msin)*NN*phi_tilde*dPP*(-nu.sin(theta))
-            dPhi_dphi = m*(Asin*mcos - Acos*msin)*NN*phi_tilde*PP
+            dPhi_dr = (Acos*mcos + Asin*msin)*PP*dphi_tilde
+            dPhi_dtheta = (Acos*mcos + Asin*msin)*phi_tilde*dPP*(-nu.sin(theta))
+            dPhi_dphi = m*(Asin*mcos - Acos*msin)*phi_tilde*PP
             
             self._force_hash = new_hash
             self._cached_dPhi_dr = dPhi_dr
