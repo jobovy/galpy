@@ -698,6 +698,17 @@ def test_evaluateAndDerivs_potential():
     else: raise AssertionError('Higher-order derivative request in potential __call__ does not raise NotImplementedError')
     return None
 
+# Test that the spherically radial force is correct
+def test_rforce():
+    # Spherical potentials: Rforce = rforce x R / r; zforce = rforce x z /r
+    pp= potential.PlummerPotential(amp=2.,b=2.)
+    R,z= 1.3, 0.4
+    r= numpy.sqrt(R*R+z*z)
+    assert numpy.fabs(pp.Rforce(R,z)*r/R-pp.rforce(R,z)) < 10.**-10., 'rforce does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluateRforces(pp,R,z)*r/R-potential.evaluaterforces(pp,R,z)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials'
+    return None
+    
+
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
