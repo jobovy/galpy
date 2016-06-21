@@ -871,6 +871,7 @@ def test_potential_method_returntype():
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
     assert isinstance(pot.Rforce(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot.rforce(1.1,0.1),units.Quantity), 'Potential method rforce does not return Quantity when it should'
     assert isinstance(pot.zforce(1.1,0.1),units.Quantity), 'Potential method zforce does not return Quantity when it should'
     assert isinstance(pot.phiforce(1.1,0.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
     assert isinstance(pot.dens(1.1,0.1),units.Quantity), 'Potential method dens does not return Quantity when it should'
@@ -928,6 +929,10 @@ def test_potential_method_returnunit():
         pot.Rforce(1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential method Rforce does not return Quantity with the right units')
+    try:
+        pot.rforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method rforce does not return Quantity with the right units')
     try:
         pot.zforce(1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
@@ -1076,6 +1081,7 @@ def test_potential_method_value():
     potu= PlummerPotential(normalize=True)
     assert numpy.fabs(pot(1.1,0.1).to(units.km**2/units.s**2).value-potu(1.1,0.1)*vo**2.) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.Rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.Rforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(pot.rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.rforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method rforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.zforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.zforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method zforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.phiforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.phiforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.dens(1.1,0.1).to(units.Msun/units.pc**3).value-potu.dens(1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential method dens does not return the correct value as Quantity'
@@ -1376,6 +1382,7 @@ def test_potential_method_inputAsQuantity():
     # Few more cases for Rforce
     assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=9.,use_physical=False)-potu.Rforce(1.1*8./9.,0.1*8./9.)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,vo=230.,use_physical=False)-potu.Rforce(1.1,0.1)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.rforce(1.1,0.1)) < 10.**-4., 'Potential method rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.zforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.zforce(1.1,0.1)) < 10.**-4., 'Potential method zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.phiforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phiforce(1.1,0.1)) < 10.**-4., 'Potential method phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.dens(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.dens(1.1,0.1)) < 10.**-8., 'Potential method dens does not return the correct value when input is Quantity'
