@@ -1137,6 +1137,7 @@ def test_potential_function_returntype():
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.)]
     assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
     assert isinstance(potential.evaluateRforces(pot,1.1,0.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
+    assert isinstance(potential.evaluaterforces(pot,1.1,0.1),units.Quantity), 'Potential function rforce does not return Quantity when it should'
     assert isinstance(potential.evaluatezforces(pot,1.1,0.1),units.Quantity), 'Potential function zforce does not return Quantity when it should'
     assert isinstance(potential.evaluatephiforces(pot,1.1,0.1),units.Quantity), 'Potential function phiforce does not return Quantity when it should'
     assert isinstance(potential.evaluateDensities(pot,1.1,0.1),units.Quantity), 'Potential function dens does not return Quantity when it should'
@@ -1192,6 +1193,10 @@ def test_potential_function_returnunit():
         potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function Rforce does not return Quantity with the right units')
+    try:
+        potential.evaluaterforces(pot,1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function rforce does not return Quantity with the right units')
     try:
         potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
@@ -1325,6 +1330,7 @@ def test_potential_function_value():
     potu= [PlummerPotential(normalize=True)]
     assert numpy.fabs(potential.evaluatePotentials(pot,1.1,0.1).to(units.km**2/units.s**2).value-potential.evaluatePotentials(potu,1.1,0.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateRforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluaterforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluaterforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function rforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatezforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function zforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatephiforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1,0.1).to(units.Msun/units.pc**3).value-potential.evaluateDensities(potu,1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential function dens does not return the correct value as Quantity'
@@ -1455,6 +1461,7 @@ def test_potential_function_inputAsQuantity():
     potu= [PlummerPotential(normalize=True)]
     assert numpy.fabs(potential.evaluatePotentials(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatePotentials(potu,1.1,0.1)) < 10.**-8., 'Potential function __call__ does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateRforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,use_physical=False)-potential.evaluateRforces(potu,1.1,0.1)) < 10.**-4., 'Potential function Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.evaluaterforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,use_physical=False)-potential.evaluaterforces(potu,1.1,0.1)) < 10.**-4., 'Potential function rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatezforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatezforces(potu,1.1,0.1)) < 10.**-4., 'Potential function zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatephiforces(potu,1.1,0.1)) < 10.**-4., 'Potential function phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateDensities(potu,1.1,0.1)) < 10.**-8., 'Potential function dens does not return the correct value when input is Quantity'
