@@ -32,6 +32,7 @@ Use as ``Potential-instance.method(...)``
    R2deriv <potentialr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
+   rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
@@ -69,6 +70,7 @@ Use as ``method(...)``
    evaluateR2derivs <potentialr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
+   evaluaterforces <potentialsphrforces.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
    flattening <potentialflattenings.rst>
