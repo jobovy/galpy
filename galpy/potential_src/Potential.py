@@ -1741,6 +1741,53 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
+def evaluaterforces(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluaterforces
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       F_r(R,z,phi,t)
+
+    HISTORY:
+
+       2016-06-10 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
 def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
