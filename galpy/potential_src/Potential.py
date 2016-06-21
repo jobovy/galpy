@@ -284,7 +284,7 @@ class Potential(object):
 
         PURPOSE:
 
-           evaluate radial force F_R  (R,z)
+           evaluate cylindrical radial force F_R  (R,z)
 
         INPUT:
 
@@ -354,6 +354,41 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_zforce' function not implemented for this potential")
 
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
+    def rforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+
+           rforce
+
+        PURPOSE:
+
+           evaluate spherical radial force F_r  (R,z)
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius (can be Quantity)
+
+           z - vertical height (can be Quantity)
+
+           phi - azimuth (optional; can be Quantity)
+
+           t - time (optional; can be Quantity)
+
+        OUTPUT:
+
+           F_r (R,z,phi,t)
+
+        HISTORY:
+
+           2016-06-20 - Written - Bovy (UofT)
+
+        """
+        r= nu.sqrt(R**2.+z**2.)
+        return self.Rforce(R,z,phi=phi,t=t,use_physical=False)*R/r\
+            +self.zforce(R,z,phi=phi,t=t,use_physical=False)*z/r
+        
     @potential_physical_input
     @physical_conversion('density',pop=True)
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
