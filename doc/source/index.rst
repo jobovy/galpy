@@ -108,6 +108,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
     Introduces ``galpy.df.streamdf`` and ``galpy.actionAngle.actionAngleIsochroneApprox`` for modeling tidal streams using simple models formulated in action-angle space (see the tutorial above).
 #. *The Milky Way Tomography with SDSS. V. Mapping the Dark Matter Halo*, Sarah R. Loebman, Zeljko Ivezic Thomas R. Quinn, Jo Bovy, Charlotte R. Christensen, Mario Juric, Rok Roskar, Alyson M. Brooks, & Fabio Governato (2014), *Astrophys. J.*, **794**, 151 (`2014ApJ...794..151L <http://adsabs.harvard.edu/abs/2014ApJ...794..151L>`_):
     Uses ``galpy.potential`` functions to calculate the acceleration field of the best-fit potential in Bovy & Rix (2013) above.
+#. *The Proper Motion of the Galactic Center Pulsar Relative to Sagittarius A**, Geoffrey C. Bower, Adam Deller, Paul Demorest, et al. (2015), *Astrophys. J.*, **798**, 120 (`2015ApJ...798..120B <http://adsabs.harvard.edu/abs/2015ApJ...798..120B>`_):
+    Utilizes ``galpy.orbit`` integration in Monte Carlo simulations of the possible origin of the pulsar PSR J1745-2900 near the black hole at the center of the Milky Way.
 #. *The power spectrum of the Milky Way: Velocity fluctuations in the Galactic disk*, Jo Bovy, Jonathan C. Bird, Ana E. Garcia Perez, Steven M. Majewski, David L. Nidever, & Gail Zasowski (2015), *Astrophys. J.*, **800**, 83 (`2015ApJ...800...83B <http://adsabs.harvard.edu/abs/2015ApJ...800...83B>`_):
     Uses ``galpy.df.evolveddiskdf`` to calculate the mean non-axisymmetric velocity field due to different non-axisymmetric perturbations and compares it to APOGEE data.
 #. *The LMC geometry and outer stellar populations from early DES data*, Eduardo Balbinot, B. X. Santiago, L. Girardi, et al. (2015), *Mon. Not. Roy. Astron. Soc.*, **449**, 1129 (`2015MNRAS.449.1129B <http://adsabs.harvard.edu/abs/2015MNRAS.449.1129B>`_):
@@ -156,6 +158,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Makes use of potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to develop a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars.
 #. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, in press (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
      Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
+#. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
+     Uses and extends ``galpy.df.streamdf`` and ``galpy.df.streamgapdf`` to quickly compute the effect of impacts from dark-matter subhalos on stellar streams and investigates the structure of perturbed streams and how this structure relates to the CDM subhalo mass spectrum.
 
 Indices and tables
 ==================
