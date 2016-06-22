@@ -174,6 +174,11 @@ class FerrersPotential(Potential):
         #return -self._b*self._c/self.a\
         #    *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
 
+        def integrand(tau):
+            return (1 - x/(self.a + tau) - y/(self.a*self._b + tau) - z/(self.a*self._c + tau))**(self.n + 1)/numpy.sqrt((self.a + tau)*(self.a*self._b + tau)*(self.a*self._c + tau))
+        return -G/4*amp/(n+1)*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
+        #AJ: Q: What about the constants (G, 4) in the potential?    
+
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -497,9 +502,13 @@ class FerrersPotential(Potential):
         else:
             xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
             xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
-        m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
+        #m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
+        #AJ: I think there is no need to evaluate the sqrt of m2, for it is used only as m2 in this function, so I used m2 directly
         #TODO
         # return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
+        
+        m2 = xp**2.+yp**2./self._b2+zp**2./self._c2)
+        return amp/(4*numpy.pi*self.a**3)*(1-m2/self.a**2)**self.n
 
     def OmegaP(self):
         """
