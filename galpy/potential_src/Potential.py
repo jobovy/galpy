@@ -1740,7 +1740,7 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('force',pop=True)
 def evaluaterforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
