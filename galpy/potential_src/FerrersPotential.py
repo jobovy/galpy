@@ -8,6 +8,7 @@
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
 import numpy
+import hashlib #????????????????????????
 from scipy import integrate, special
 from galpy.util import bovy_conversion, bovy_coords
 from galpy.util import _rotate_to_arbitrary_vector
@@ -175,7 +176,7 @@ class FerrersPotential(Potential):
         #return -self._b*self._c/self.a\
         #    *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
         def integrand(tau):
-            return (1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**(self.n + 1)/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+            return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n + 1)
         return -1/4/(self.n+1)*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]  
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -316,7 +317,7 @@ class FerrersPotential(Potential):
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                self._b2,self._c2,0,glx=self._glx,glw=self._glw)        
         def integrand(tau):
-            return -x/(self._a2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+            return -x/(self._a2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
         return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]          
             
     def _yforce_xyz(self,x,y,z):
@@ -328,7 +329,7 @@ class FerrersPotential(Potential):
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                self._b2,self._c2,1,glx=self._glx,glw=self._glw)
         def integrand(tau):
-            return -y/(self._a2*self._b2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+            return -y/(self._a2*self._b2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
         return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
 
     def _zforce_xyz(self,x,y,z):
@@ -340,7 +341,7 @@ class FerrersPotential(Potential):
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                self._b2,self._c2,2,glx=self._glx,glw=self._glw)
         def integrand(tau):
-            return -z/(self._a2*self._c2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+            return -z/(self._a2*self._c2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
         return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -487,8 +488,16 @@ class FerrersPotential(Potential):
         #                   lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                   lambda m: -(self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/self.a*(self.alpha*(self.a/m)+(self.beta-self.alpha)/(1.+m/self.a)),
         #                   self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
-############################################################################################################################################################################        
-
+      
+        def integrand(tau):
+            if i!=j:
+                return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n-1)*(1+(-1-2*x/(tau+self._a2))*(i==0 or j==0))*(1+(-1-2*y/(tau+self._a2*self._b2))*(i==1 or j==1))*(1+(-1-2*z/(tau+self._a2*self._c2))*(i==2 or j==2))
+            else:
+                var2 = x**2*(i==0) + y**2*(i==1) + z**2*(i==2)
+                coef2 = self._a2*(i==0) + self_a2*self_b2*(i==1) + self_a2*self_c2*(i==2)
+                return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n-1)*self.n*(4*var2)/(tau+coef2)**2 + _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)*(-2/(tau+coef2))                  
+        return -1/4*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]  
+        
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -575,3 +584,7 @@ class FerrersPotential(Potential):
 #         return integrate.quad(integrand,0.,1.)[0]
 #     else:
 #         return numpy.sum(glw*integrand(glx))
+
+def _FracInt(x,y,z,a2,b2,c2,tau,expon):
+    return (1 - x**2/(a2 + tau) - y**2/(a2*b2 + tau) - z**2/(a2*c2 + tau))**expon/numpy.sqrt((a2 + tau)*(a2*b2 + tau)*(a2*c2 + tau))
+        
