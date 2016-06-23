@@ -84,6 +84,7 @@ class FerrersPotential(Potential):
         self.n= n
         self._b= b
         self._c= c
+        self._a2 = self.a**2
         self._b2= self._b**2.
         self._c2= self._c**2.
         self._force_hash= None
@@ -173,11 +174,9 @@ class FerrersPotential(Potential):
         #                                    3.-self.alpha,-m/self.a)
         #return -self._b*self._c/self.a\
         #    *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
-
         def integrand(tau):
-            return (1 - x/(self.a + tau) - y/(self.a*self._b + tau) - z/(self.a*self._c + tau))**(self.n + 1)/numpy.sqrt((self.a + tau)*(self.a*self._b + tau)*(self.a*self._c + tau))
-        return -G/4*amp/(n+1)*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
-        #AJ: Q: What about the constants (G, 4) in the potential?    
+            return (1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**(self.n + 1)/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+        return -1/4/(self.n+1)*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]  
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -315,8 +314,11 @@ class FerrersPotential(Potential):
         # return -self._b*self._c/self.a**3.\
         #     *_forceInt(x,y,z,
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-        #                self._b2,self._c2,0,glx=self._glx,glw=self._glw)
-
+        #                self._b2,self._c2,0,glx=self._glx,glw=self._glw)        
+        def integrand(tau):
+            return -x/(self._a2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]          
+            
     def _yforce_xyz(self,x,y,z):
         """Evaluation of the y force as a function of (x,y,z) in the aligned
         coordinate frame"""
@@ -325,6 +327,9 @@ class FerrersPotential(Potential):
         #     *_forceInt(x,y,z,
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                self._b2,self._c2,1,glx=self._glx,glw=self._glw)
+        def integrand(tau):
+            return -y/(self._a2*self._b2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
 
     def _zforce_xyz(self,x,y,z):
         """Evaluation of the z force as a function of (x,y,z) in the aligned
@@ -334,6 +339,9 @@ class FerrersPotential(Potential):
         #     *_forceInt(x,y,z,
         #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                self._b2,self._c2,2,glx=self._glx,glw=self._glw)
+        def integrand(tau):
+            return -z/(self._a2*self._c2 + tau)*(1 - x**2/(self._a2 + tau) - y**2/(self._a2*self._b2 + tau) - z**2/(self._a2*self._c2 + tau))**self.n/numpy.sqrt((self._a2 + tau)*(self._a2*self._b2 + tau)*(self._a2*self._c2 + tau))
+        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -479,6 +487,7 @@ class FerrersPotential(Potential):
         #                   lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
         #                   lambda m: -(self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/self.a*(self.alpha*(self.a/m)+(self.beta-self.alpha)/(1.+m/self.a)),
         #                   self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
+############################################################################################################################################################################        
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -506,9 +515,8 @@ class FerrersPotential(Potential):
         #AJ: I think there is no need to evaluate the sqrt of m2, for it is used only as m2 in this function, so I used m2 directly
         #TODO
         # return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
-        
-        m2 = xp**2.+yp**2./self._b2+zp**2./self._c2)
-        return amp/(4*numpy.pi*self.a**3)*(1-m2/self.a**2)**self.n
+        m2 = xp**2.+yp**2./self._b2+zp**2./self._c2
+        return 1/(4*numpy.pi*self.a**3)*(1-m2/self.a**2)**self.n
 
     def OmegaP(self):
         """
@@ -524,6 +532,8 @@ class FerrersPotential(Potential):
            2016-05-31 - Written - Bovy (UofT)
         """
         return 0.
+
+############################################################################################################################################################################
 #TODO
 # def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
 #     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
