@@ -17,91 +17,118 @@ inline void calculateXi(double r, double a, double *xi){
 *xi = (r - a)/(r + a);
 }
 
-inline void compute_phiTilde(double r, double a, int N, int L, double * phiTilde){
+inline void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde){
     double xi;
     calculateXi(r, a, &xi);
     double rterms = -1./(r + a);
 
-
     for (int l = 0; l < L; l++){
-        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, &phiTilde[l*N]);
 
         if (l != 0)
             rterms *= r*a/((a + r)*(a + r));
+
         for (int n = 0; n < N; n++){
-            phiTilde[l*N + n] *= rterms;
+            *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
         }
     }
 
 }
 
-inline void compute_dphiTilde(double r, double a, int N, int L, double * phiTilde){
+inline void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * phiTilde){
     double xi;
     calculateXi(r, a, &xi);
     double rterm1 = -1./((a + r)*(a + r));
     double rterm2 = -1.;
     double rterm3 = -(1. - xi)*(1. - xi) / (2*a*(a + r));
 
-    double dC[N*L];
-    dGegenPoly(xi, N, L, &dC);
-
     for (int l = 0; l < L; l++){
-        double C[N];
-        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, &C);
-
         if (l != 0){
-            rterm1 *= (a*r)/((a + r)*(a + r));
+            double rterm = (a*r)/((a + r)*(a + r)); 
+            rterm1 *= rterm;
             rterm2 = (l*(a + r)/r - (2*l + 1));
-            rterm3 *= (a*r)/(a + r);
+            rterm3 *= rterm;
             }
         for (int n = 0; n < N; n++){
-            phiTilde[l*N + n] = rterm1*rterm2*C[n] +
-            rterm3*dC[l*N + n];
+           *( phiTilde + l*N + n) = rterm1*rterm2* (*(C + l*N + n)) +
+            rterm3*(*(dC + l*N + n));
         }
     }
 
 }
 
-inline void dGegenPoly(double xi, int N, int L, double *dC){
+inline void compute_C(double xi, int N, int L, double * C_array){
+  for (int l = 0; l < L; l++){
+        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
+    }
+}
+
+
+inline void compute_dC(double xi, int N, int L, double * dC_array){
     for (int l = 0; l < L; l++){
-        dC[l*N] = 0;
-        gsl_sf_gegenpoly_array(N - 1, 5./2 + 2*l, xi, &dC[l*N + 1]);
+        *(dC_array +l*N) = 0;
+        gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
+        for (int n = 0; n<N; n++){
+        *(dC_array +l*N + n) *= 2*(2*l + 3./2);
+        }
     }
 
 }
 
+inline void compute_P(double x, int L, double * P_array, double *dP_array){
+  for (int l = 0; l < L; l++){
+        gsl_sf_legendre_Plm_deriv_array(L - 1, l, x, P_array + l*L + l, dP_array + l*L + l);
+    }
+}
 
 inline double computeForce(double a, int N, int L, int M, 
                         double *Acos, double *Asin,
                         double dr_dx, double dtheta_dx, double dphi_dx,
                         double r, double theta, double phi){
 
-                           
-                                
-                                double phiTilde[L*N];
-                                compute_phiTilde(r, a, N, L,phiTilde);
-                                
-                                double dphiTilde[L*N];
-                                compute_dphiTilde(r, a, N, L, dphiTilde);
                                 double dPhi_dr[N][L][M];
                                 double dPhi_dtheta[N][L][M];
                                 double dPhi_dphi[N][L][M];
+                                
+                                double xi;
+                                calculateXi(r, a, &xi);
+    
+                                //Compute the gegenbauer polynomials and its derivative. 
+                                double C[N*L];
+                                double dC[N*L];
+
+                                compute_C(xi, N, L, &C);
+                                compute_dC(xi, N, L, &dC);
+                                
+                                //Compute phiTilde and its derivative
+                                double phiTilde[L*N];
+                                compute_phiTilde(r, a, N, L, &C, &phiTilde);
+                                
+                                double dphiTilde[L*N];
+                                compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
+                                
+                                //Compute Associated Legendre Polynomials
+                                double P[L*L];
+                                double dP[L*L];
+                                
+                                compute_P(cos(theta), L, &P, &dP);
+                                
                                 for (int l = 0; l < L; l++){
                                     for (int m = 0; m<=l;m++){
-                                        double P[L];
-                                        double dP[L];
-                                        gsl_sf_legendre_Plm_deriv_array(l,m,cos(theta), P, dP);
                                         for (int n = 0;n < N; n++){
-                                            dPhi_dr[n][l][m] = (*(Acos +n + l*N + m*L*N)*cos(m*phi) +
-                                                            *(Asin +n + l*N + m*L*N)*sin(m*phi))*
-                                                            P[l]*dphiTilde[l*N + n];
+                                        
+                                        double Acos_val = *(Acos +m + M*l + M*L*n);
+                                        double Asin_val = *(Asin +m + M*l + M*L*n);
+                                            dPhi_dr[n][l][m] = (Acos_val*cos(m*phi) +
+                                                            Asin_val*sin(m*phi))*
+                                                            P[m*L + l]*dphiTilde[l*N + n];
                                                             
-                                            dPhi_dtheta[n][l][m] = (*(Acos +n + l*N + m*L*N)*cos(m*phi) +
-                                                            *(Asin +n + l*N + m*L*N)*sin(m*phi))*
-                                                            dP[l]*phiTilde[l*N + n]*(-sin(theta));
-                                            dPhi_dphi[n][l][m] = m*(*(Asin +n + l*N + m*L*N)*cos(m*phi) -
-                                                            *(Acos +n + l*N + m*L*N)*sin(m*phi))*
-                                                            P[l]*phiTilde[l*N + n];
+                                            dPhi_dtheta[n][l][m] = (Acos_val*cos(m*phi) +
+                                                            Asin_val*sin(m*phi))*
+                                                            dP[m*L + l]*phiTilde[l*N + n]*(-sin(theta));
+                                                            
+                                            dPhi_dphi[n][l][m] = m*(Asin_val*cos(m*phi) -
+                                                            Acos_val*sin(m*phi))*
+                                                            P[m*L + l]*phiTilde[l*N + n];
 
                                         }                                    
                                     }                                
@@ -118,6 +145,7 @@ inline double computeForce(double a, int N, int L, int M,
                                         }
                                     }
                              }
+                             
                              return force;
                            
                         }
