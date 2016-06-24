@@ -1691,7 +1691,7 @@ class streamdf(df):
            dangle - parallel angle offset for this coordinate value
 
            coord - coordinate to return the density in ('apar' [default],
-                   'll','phi')
+                   'll','ra','customra','phi')
 
         OUTPUT:
 
@@ -1766,7 +1766,8 @@ class streamdf(df):
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
                                  
-    def length(self,threshold=0.2,phys=False,ang=False,tdisrupt=None):
+    def length(self,threshold=0.2,phys=False,ang=False,tdisrupt=None,
+               **kwargs):
         """
         NAME:
 
@@ -1778,11 +1779,14 @@ class streamdf(df):
 
         INPUT:
 
-           threshold - threshold down from peak at which to define the 'end' of the stream
+           threshold - threshold down from the density near the progenitor at which to define the 'end' of the stream
 
            phys= (False) if True, return the length in physical kpc
 
            ang= (False) if True, return the length in sky angular arc length in degree
+
+           coord - coordinate to return the density in ('apar' [default],
+                   'll','ra','customra','phi')
 
         OUTPUT:
 
@@ -1793,11 +1797,12 @@ class streamdf(df):
            2015-12-22 - Written - Bovy (UofT)
 
         """
-        peak_dens= self.density_par(0.1,tdisrupt=tdisrupt) # assume that this is the peak
+        peak_dens= self.density_par(0.1,tdisrupt=tdisrupt,**kwargs) # assume that this is the peak
         try:
             result=\
                 optimize.brentq(lambda x: self.density_par(x,
-                                                           tdisrupt=tdisrupt)\
+                                                           tdisrupt=tdisrupt,
+                                                           **kwargs)\
                                     -peak_dens*threshold,
                                 0.1,self._deltaAngleTrack)
         except RuntimeError: #pragma: no cover
