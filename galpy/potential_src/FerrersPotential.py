@@ -8,7 +8,7 @@
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
 import numpy
-import hashlib #????????????????????????
+import hashlib
 from scipy import integrate, special
 from galpy.util import bovy_conversion, bovy_coords
 from galpy.util import _rotate_to_arbitrary_vector
@@ -160,24 +160,10 @@ class FerrersPotential(Potential):
             xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
             return self._evaluate_xyz(xyzp[0],xyzp[1],xyzp[2])
 
-    def _evaluate_xyz(self,x,y,z):
+    def _evaluate_xyz(self,x,y,z): #TODO ok
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        #TODO
-        #psi_inf=\
-        #    special.gamma(self.beta-2.)*special.gamma(3.-self.alpha)\
-        #    /special.gamma(self.beta-self.alpha)
-        #psi= lambda m:\
-        #    psi_inf-(m/self.a)**(2.-self.alpha)\
-        #                    /(2.-self.alpha)\
-        #                    *special.hyp2f1(2.-self.alpha,
-        #                                    self.beta-self.alpha,
-        #                                    3.-self.alpha,-m/self.a)
-        #return -self._b*self._c/self.a\
-        #    *_potInt(x,y,z,psi,self._b2,self._c2,glx=self._glx,glw=self._glw)
-        def integrand(tau):
-            return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n + 1)
-        return -1/4/(self.n+1)*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]  
+        return -1/4/(self.n+1)*self._b*self._c*_potInt(x,y,z,self._a2,self._b2,self._c2,self.n,glx=self._glx,glw=self._glw)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -308,41 +294,20 @@ class FerrersPotential(Potential):
             Fz= Fxyz[2]
         return Fz
 
-    def _xforce_xyz(self,x,y,z):
+    def _xforce_xyz(self,x,y,z): #TODO ok
         """Evaluation of the x force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        #TODO
-        # return -self._b*self._c/self.a**3.\
-        #     *_forceInt(x,y,z,
-        #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-        #                self._b2,self._c2,0,glx=self._glx,glw=self._glw)        
-        def integrand(tau):
-            return -x/(self._a2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
-        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]          
+        return 1/2*self._b*self._c*_forceInt(x,y,z,self._a2,self._b2,self._c2,0,self.n,glx=self._glx,glw=self._glw)         
             
-    def _yforce_xyz(self,x,y,z):
+    def _yforce_xyz(self,x,y,z): #TODO ok
         """Evaluation of the y force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        #TODO
-        # return -self._b*self._c/self.a**3.\
-        #     *_forceInt(x,y,z,
-        #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-        #                self._b2,self._c2,1,glx=self._glx,glw=self._glw)
-        def integrand(tau):
-            return -y/(self._a2*self._b2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
-        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
+        return 1/2*self._b*self._c*_forceInt(x,y,z,self._a2,self._b2,self._c2,1,self.n,glx=self._glx,glw=self._glw)  
 
-    def _zforce_xyz(self,x,y,z):
+    def _zforce_xyz(self,x,y,z): #TODO ok
         """Evaluation of the z force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        #TODO
-        # return -self._b*self._c/self.a**3.\
-        #     *_forceInt(x,y,z,
-        #                lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-        #                self._b2,self._c2,2,glx=self._glx,glw=self._glw)
-        def integrand(tau):
-            return -z/(self._a2*self._c2 + tau)*_FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)
-        return 1/2*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]
+        return 1/2*self._b*self._c*_forceInt(x,y,z,self._a2,self._b2,self._c2,2,self.n,glx=self._glx,glw=self._glw)  
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -479,24 +444,10 @@ class FerrersPotential(Potential):
             (phiyy-phixx)+R*numpy.cos(2.*phi)*phixy\
             +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
 
-    def _2ndderiv_xyz(self,x,y,z,i,j):
+    def _2ndderiv_xyz(self,x,y,z,i,j): #TODO ok
         """General 2nd derivative of the potential as a function of (x,y,z)
-        in the aligned coordinate frame"""
-        #TODO
-        # return self._b*self._c/self.a**3.\
-        #     *_2ndDerivInt(x,y,z,
-        #                   lambda m: (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha),
-        #                   lambda m: -(self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/self.a*(self.alpha*(self.a/m)+(self.beta-self.alpha)/(1.+m/self.a)),
-        #                   self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
-      
-        def integrand(tau):
-            if i!=j:
-                return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n-1)*(1+(-1-2*x/(tau+self._a2))*(i==0 or j==0))*(1+(-1-2*y/(tau+self._a2*self._b2))*(i==1 or j==1))*(1+(-1-2*z/(tau+self._a2*self._c2))*(i==2 or j==2))
-            else:
-                var2 = x**2*(i==0) + y**2*(i==1) + z**2*(i==2)
-                coef2 = self._a2*(i==0) + self_a2*self_b2*(i==1) + self_a2*self_c2*(i==2)
-                return _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n-1)*self.n*(4*var2)/(tau+coef2)**2 + _FracInt(x,y,z,self._a2,self._b2,self._c2,tau,self.n)*(-2/(tau+coef2))                  
-        return -1/4*self._b*self._c*integrate.quad(integrand,0,numpy.inf)[0]  
+        in the aligned coordinate frame"""                          
+        return -1/4*self._b*self._c*_2ndDerivInt(x,y,z,self._a2,self._b2,self._c2,i,j,self.n,glx=self._glx,glw=self._glw)
         
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -520,10 +471,7 @@ class FerrersPotential(Potential):
         else:
             xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
             xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
-        #m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
-        #AJ: I think there is no need to evaluate the sqrt of m2, for it is used only as m2 in this function, so I used m2 directly
         #TODO
-        # return (self.a/m)**self.alpha/(1.+m/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
         m2 = xp**2.+yp**2./self._b2+zp**2./self._c2
         return 1/(4*numpy.pi*self.a**3)*(1-m2/self.a**2)**self.n
 
@@ -542,49 +490,40 @@ class FerrersPotential(Potential):
         """
         return 0.
 
-############################################################################################################################################################################
-#TODO
-# def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
-#     """int_0^\infty psi~(m))/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau, 
-#     where psi~(m) = [psi(\infty)-psi(m)]/[2Aa^2], with A=amp/[4pia^3]"""
-#     def integrand(s):
-#         t= 1/s**2.-1.
-#         return psi(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
-#             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
-#     if glx is None:
-#         return integrate.quad(integrand,0.,1.)[0]                              
-#     else:
-#         return numpy.sum(glw*integrand(glx))
 
-#TODO
-# def _forceInt(x,y,z,dens,b2,c2,i,glx=None,glw=None):
-#     """Integral that gives the force in x,y,z"""
-#     def integrand(s):
-#         t= 1/s**2.-1.
-#         return dens(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
-#             *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))\
-#             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
-#     if glx is None:
-#         return integrate.quad(integrand,0.,1.)[0]                              
-#     else:
-#         return numpy.sum(glw*integrand(glx))
 
-#TODO
-# def _2ndDerivInt(x,y,z,dens,densDeriv,b2,c2,i,j,glx=None,glw=None):
-#     """Integral that gives the 2nd derivative of the potential in x,y,z"""
-#     def integrand(s):
-#         t= 1/s**2.-1.
-#         m= numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t))
-#         return (densDeriv(m)
-#                 *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))
-#                 *(x/(1.+t)*(j==0)+y/(b2+t)*(j==1)+z/(c2+t)*(j==2))/m\
-#                     +dens(m)*(i==j)*((1./(1.+t)*(i==0)+1./(b2+t)*(i==1)+1./(c2+t)*(i==2))))\
-#                     /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
-#     if glx is None:
-#         return integrate.quad(integrand,0.,1.)[0]
-#     else:
-#         return numpy.sum(glw*integrand(glx))
+
+def _potInt(x,y,z,a2,b2,c2,n,glx=None,glw=None): #TODO ok
+    def integrand(tau):
+        return _FracInt(x,y,z,a2,b2,c2,tau,n + 1)
+    if glx is None:
+        return integrate.quad(integrand,0.,numpy.inf)[0]                              
+    else:
+        return numpy.sum(glw*integrand(glx))
+
+def _forceInt(x,y,z,a2,b2,c2,i,n,glx=None,glw=None): #TODO ok
+    """Integral that gives the force in x,y,z"""
+    def integrand(tau):
+        return -(x*(i==0) + y*(i==1) + z*(i==2))/(a2*(i==0) + a2*b2*(i==1) + a2*c2*(i==2) + tau)*_FracInt(x,y,z,a2,b2,c2,tau,n)
+    if glx is None:
+        return integrate.quad(integrand,0.,numpy.inf)[0]                              
+    else:
+        return numpy.sum(glw*integrand(glx))
+
+
+def _2ndDerivInt(x,y,z,a2,b2,c2,i,j,n,glx=None,glw=None): #TODO ok
+    """Integral that gives the 2nd derivative of the potential in x,y,z"""
+    def integrand(tau):
+        if i!=j:
+            return _FracInt(x,y,z,a2,b2,c2,tau,n-1)*(1+(-1-2*x/(tau+a2))*(i==0 or j==0))*(1+(-1-2*y/(tau+a2*b2))*(i==1 or j==1))*(1+(-1-2*z/(tau+a2*c2))*(i==2 or j==2))
+        else:
+            var2 = x**2*(i==0) + y**2*(i==1) + z**2*(i==2)
+            coef2 = a2*(i==0) + a2*b2*(i==1) + a2*c2*(i==2)
+            return _FracInt(x,y,z,a2,b2,c2,tau,n-1)*n*(4*var2)/(tau+coef2)**2 + _FracInt(x,y,z,a2,b2,c2,tau,n)*(-2/(tau+coef2))
+    if glx is None:
+        return integrate.quad(integrand,0.,numpy.inf)[0]
+    else:
+        return numpy.sum(glw*integrand(glx))
 
 def _FracInt(x,y,z,a2,b2,c2,tau,expon):
     return (1 - x**2/(a2 + tau) - y**2/(a2*b2 + tau) - z**2/(a2*c2 + tau))**expon/numpy.sqrt((a2 + tau)*(a2*b2 + tau)*(a2*c2 + tau))
-        
