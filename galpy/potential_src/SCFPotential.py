@@ -304,7 +304,7 @@ class SCFPotential(Potential):
         a**-1*(1 - xi)**2 * (a*r)**l / (a + r)**(2*l + 1) *dC/2.)
         
         
-    def _computeforce(self, dr_dx, dtheta_dx, dphi_dx, R,z,phi=0,t=0):
+    def _computeforce(self,R,z,phi=0,t=0):
         """
         NAME:
            _computeforce
@@ -340,21 +340,19 @@ class SCFPotential(Potential):
             dPP = dPP.T[None,:,:]
             phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
             dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
-            Rforce = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
-        
+            
             m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
             mcos = nu.cos(m*phi)
             msin = nu.sin(m*phi)
-            dPhi_dr = (Acos*mcos + Asin*msin)*PP*dphi_tilde
-            dPhi_dtheta = (Acos*mcos + Asin*msin)*phi_tilde*dPP*(-nu.sin(theta))
-            dPhi_dphi = m*(Asin*mcos - Acos*msin)*phi_tilde*PP
+            dPhi_dr = -nu.sum((Acos*mcos + Asin*msin)*PP*dphi_tilde)
+            dPhi_dtheta = -nu.sum((Acos*mcos + Asin*msin)*phi_tilde*dPP*(-nu.sin(theta)))
+            dPhi_dphi =-nu.sum(m*(Asin*mcos - Acos*msin)*phi_tilde*PP)
             
             self._force_hash = new_hash
             self._cached_dPhi_dr = dPhi_dr
             self._cached_dPhi_dtheta = dPhi_dtheta
             self._cached_dPhi_dphi = dPhi_dphi
-        
-        return -(dPhi_dr*dr_dx + dPhi_dtheta * dtheta_dx + dPhi_dphi *dphi_dx)
+        return dPhi_dr,dPhi_dtheta,dPhi_dphi
         
     def _computeforceArray(self,dr_dx, dtheta_dx, dphi_dx, R, z, phi):
         """
@@ -376,7 +374,10 @@ class SCFPotential(Potential):
            2016-06-02 - Written - Aladdin 
         """
         shape = self._getShape(R,z,phi)  
-        if shape == None: return nu.sum(self._computeforce(dr_dx, dtheta_dx, dphi_dx, R,z,phi))
+        if shape == None: 
+            dPhi_dr,dPhi_dtheta,dPhi_dphi = \
+            self._computeforce(R,z,phi)
+            return dr_dx*dPhi_dr + dtheta_dx*dPhi_dtheta +dPhi_dphi*dphi_dx
         R *= nu.ones(shape);z *= nu.ones(shape);phi *= nu.ones(shape);
         dr_dx *=nu.ones(shape); dtheta_dx *=nu.ones(shape); dphi_dx *=nu.ones(shape);
         force = nu.zeros(shape, float)
@@ -385,7 +386,9 @@ class SCFPotential(Potential):
         li = cartesian(shape)
        
         for i in range(li.shape[0]):
-            force[li[i]] = nu.sum(self._computeforce(dr_dx[li[i]][0], dtheta_dx[li[i]][0], dphi_dx[li[i]][0], R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
+            dPhi_dr,dPhi_dtheta,dPhi_dphi = \
+            self._computeforce(R[li[i]][0],z[li[i]][0],phi[li[i]][0])
+            force[li[i]] = dr_dx[li[i]][0]*dPhi_dr + dtheta_dx[li[i]][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[li[i]][0]
         return force
     def _Rforce(self, R, z, phi=0, t=0):
         """
