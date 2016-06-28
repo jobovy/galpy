@@ -18,62 +18,36 @@ if _APY_LOADED:
 
 class FerrersPotential(Potential):
     """Class that implements triaxial Ferrers potentials
-
     .. math::
-
         \\rho(x,y,z) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,(1-(m/a)^2)^n
-
     with
-
     .. math::
-
         m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
-
     and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
-
     """
     def __init__(self,amp=1.,a=5.,n=2,b=1.,c=1.,
                  zvec=None,pa=None,glorder=50,
                  normalize=False,ro=None,vo=None):
         """
         NAME:
-
            __init__
-
         PURPOSE:
-
            initialize a triaxial two-power-density potential
-
         INPUT:
-
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
            a - scale radius (can be Quantity)
-
            n - power of Ferrers density (n > 0)
-
            b - y-to-x axis ratio of the density
-
            c - z-to-x axis ratio of the density
-
            zvec= (None) If set, a unit vector that corresponds to the z axis
-
            pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
            glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
         OUTPUT:
-
            (none)
-
         HISTORY:
-
            2016-06-30 - Started - Semyeong Oh
-
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
@@ -515,7 +489,7 @@ def _2ndDerivInt(x,y,z,a2,b2,c2,i,j,n,glx=None,glw=None): #TODO ok
     """Integral that gives the 2nd derivative of the potential in x,y,z"""
     def integrand(tau):
         if i!=j:
-            return _FracInt(x,y,z,a2,b2,c2,tau,n-1)*(1+(-1-2*x/(tau+a2))*(i==0 or j==0))*(1+(-1-2*y/(tau+a2*b2))*(i==1 or j==1))*(1+(-1-2*z/(tau+a2*c2))*(i==2 or j==2))
+            return _FracInt(x,y,z,a2,b2,c2,tau,n-1)*n*(1+(-1-2*x/(tau+a2))*(i==0 or j==0))*(1+(-1-2*y/(tau+a2*b2))*(i==1 or j==1))*(1+(-1-2*z/(tau+a2*c2))*(i==2 or j==2))
         else:
             var2 = x**2*(i==0) + y**2*(i==1) + z**2*(i==2)
             coef2 = a2*(i==0) + a2*b2*(i==1) + a2*c2*(i==2)
