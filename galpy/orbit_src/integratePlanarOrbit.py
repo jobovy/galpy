@@ -154,7 +154,14 @@ def _parse_pot(pot):
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._RZPot,potential.KuzminDiskPotential):
             pot_type.append(19)
-            pot_args.extend([p._RZPot._amp,p._RZPot._a])
+            pot_args.extend([p._RZPot._amp,p._RZPot._a])  
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.SCFPotential):
+            pot_type.append(24)
+            pot_args.extend([p._RZPot._a])
+            pot_args.extend(p._RZPot._Acos.shape)
+            pot_args.extend(p._RZPot._amp*p._RZPot._Acos.flatten(order='C'))
+            pot_args.extend(p._RZPot._amp*p._RZPot._Asin.flatten(order='C'))   
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
