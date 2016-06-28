@@ -696,26 +696,44 @@ class actionAngleIsochroneApprox(actionAngle):
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def estimateBIsochrone(pot,R,z):
+def estimateBIsochrone(pot,R,z,phi=None):
     """
     NAME:
+
        estimateBIsochrone
+
     PURPOSE:
+
        Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
+
     INPUT:
+
        pot- Potential instance or list thereof
+
        R,z - coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
+
+       phi= (None) azimuth to use for non-axisymmetric potentials (array if R and z are arrays)
+
     OUTPUT:
+
        b if 1 R,Z given
+
        bmin,bmedian,bmax if multiple R given       
+
     HISTORY:
+
        2013-09-12 - Written - Bovy (IAS)
+
        2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+
+       2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
     """
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
-        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],use_physical=False)
+        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
+                                         use_physical=False)
                       for ii in range(len(R))])
         return nu.array([nu.amin(bs[True-nu.isnan(bs)]),
                          nu.median(bs[True-nu.isnan(bs)]),
@@ -723,7 +741,7 @@ def estimateBIsochrone(pot,R,z):
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)
-        dlvcdlr= dvcircdR(pot,r,use_physical=False)/vcirc(pot,r,use_physical=False)*r
+        dlvcdlr= dvcircdR(pot,r,phi=phi,use_physical=False)/vcirc(pot,r,phi=phi,use_physical=False)*r
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)

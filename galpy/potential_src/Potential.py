@@ -1036,7 +1036,7 @@ class Potential(object):
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def dvcircdR(self,R):
+    def dvcircdR(self,R,phi=None):
         """
         
         NAME:
@@ -1052,6 +1052,8 @@ class Potential(object):
         
             R - Galactocentric radius (can be Quantity)
         
+            phi= (None) azimuth to use for non-axisymmetric potentials
+
         OUTPUT:
         
             derivative of the circular rotation velocity wrt R
@@ -1060,10 +1062,12 @@ class Potential(object):
         
             2013-01-08 - Written - Bovy (IAS)
         
+            2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
         """
-        return 0.5*(-self.Rforce(R,0.,use_physical=False)\
-                         +R*self.R2deriv(R,0.,use_physical=False))\
-                         /self.vcirc(R,use_physical=False)
+        return 0.5*(-self.Rforce(R,0.,phi=phi,use_physical=False)\
+                    +R*self.R2deriv(R,0.,phi=phi,use_physical=False))\
+            /self.vcirc(R,phi=phi,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
