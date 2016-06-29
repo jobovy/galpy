@@ -189,7 +189,6 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       break;
     
     case 24: //SCFPotential
-      break;
       potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
       potentialArgs->planarphiforce= &SCFPotentialPlanarphiforce;
       potentialArgs->planarR2deriv= &SCFPotentialPlanarR2deriv;
