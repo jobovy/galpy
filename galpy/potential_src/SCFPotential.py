@@ -66,6 +66,7 @@ class SCFPotential(Potential):
         self._Acos, self._Asin = Acos*NN[nu.newaxis,:,:], Asin*NN[nu.newaxis,:,:]
         self._force_hash= None
         self.hasC= True
+        self.hasC_dxdv=True
 
         return None
 
