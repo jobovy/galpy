@@ -575,6 +575,7 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
+    tol['SCFPotential']= -7. #more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
