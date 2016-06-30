@@ -732,6 +732,7 @@ def estimateBIsochrone(pot,R,z,phi=None):
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
+        if phi is None: phi= [None for r in R]
         bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
                                          use_physical=False)
                       for ii in range(len(R))])
