@@ -119,180 +119,193 @@ inline void compute_P(double x, int L, double * P_array, double *dP_array){
     }
 }
 
-
-inline void computePlanarderiv(double a, int N, int L, int M,
-                        double *Acos, double *Asin,
-                        double r, double theta, double phi,
-                        double *Farray){
-                                double xi;
-                                calculateXi(r, a, &xi);
-    
-                                //Compute the gegenbauer polynomials and its derivative. 
-                                double C[N*L];
-                                double dC[N*L];
-                                double d2C[N*L];
-
-                                compute_C(xi, N, L, &C);
-                                compute_dC(xi, N, L, &dC);
-                                compute_d2C(xi, N, L, &d2C);
-                                
-                                //Compute phiTilde and its derivative
-                                double phiTilde[L*N];
-                                compute_phiTilde(r, a, N, L, &C, &phiTilde);
-                                
-                                double dphiTilde[L*N];
-                                compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
-                                
-                                double d2phiTilde[L*N];
-                                compute_d2phiTilde(r, a, N, L, &C, &dC, &d2C, &d2phiTilde);
-                                
-                                
-                                //Compute Associated Legendre Polynomials
-                                double P[L*L];
-                                double dP[L*L];
-                                double d2P[L*L]; //TODO
-                                
-                                compute_P(cos(theta), L, &P, &dP);
-                                
-                                double F_r = 0;
-                                double F_theta = 0;
-                                double F_phi = 0;
-                                double F_rr = 0;
-                                double F_thetatheta = 0;
-                                double F_phiphi = 0;
-                                double F_rtheta = 0;
-                                double F_rphi = 0;
-                                double F_thetaphi = 0;
-                                
-                                for (int l = 0; l < L; l++){
+typedef struct equations equations;
+struct equations {
+   double ((**Eq)(double, double, double, double, double, double, int));
+   double *(*phiTilde);
+   double *(*P);
+   double *Constant;
+};
+                    
+inline void compute(double a, int N, int L, int M,
+    double r, double theta, double phi,
+    double *Acos, double *Asin, int eq_size,
+    equations e,
+    double *F){
+            for (int i = 0; i < eq_size; i++){
+        *(F + i) =0;
+    } 
+        
+   
+      for (int l = 0; l < L; l++){
                                     for (int m = 0; m<=l;m++){
                                         double mCos = cos(m*phi);
                                         double mSin = sin(m*phi);
                                         for (int n = 0;n < N; n++){
-                                            
-                                        
-                                        double Acos_val = *(Acos +m + M*l + M*L*n);
-                                        double Asin_val = *(Asin +m + M*l + M*L*n);
-                                        /*
-                                            F_r -= (Acos_val*mCos + Asin_val*mSin)*
-                                                            P[m*L + l]*dphiTilde[l*N + n];
-                                                            
-                                            F_theta += (Acos_val*mCos + Asin_val*mSin)*
-                                                            dP[m*L + l]*phiTilde[l*N + n]*(sin(theta));
-                                                            
-                                            F_phi -= m*(Asin_val*mCos - Acos_val*mSin)*
-                                                            P[m*L + l]*phiTilde[l*N + n];
-                                                            
-                                            */
-                                            F_rr -= (Acos_val*mCos + Asin_val*mSin)*
-                                                            P[m*L + l]*d2phiTilde[l*N + n];
-                                            /*
-                                            F_thetatheta -= (Acos_val*mCos + Asin_val*mSin)*
-                                                            (dP[m*L + l]*phiTilde[l*N + n]*(-cos(theta)) + 
-                                                            d2P[m*L + l]*phiTilde[l*N + n]*(sin(theta)*sin(theta)));
-                                            */                                            
-                                            //F_phiphi
-                                            F_phiphi += m*m*(Acos_val*mCos + Asin_val*mSin)*
-                                                            P[m*L + l]*phiTilde[l*N + n];
-                                            /*
-                                            //F_rtheta
-                                            F_rtheta += (Acos_val*mCos + Asin_val*mSin)*
-                                                            dP[m*L + l]*dphiTilde[l*N + n]*(sin(theta));
-                                            */
-                                            //TODO F_rphi
-                                            F_rphi -= m*(Asin_val*mCos - Acos_val*mSin)*
-                                                            P[m*L + l]*dphiTilde[l*N + n];
-                                            /*
-                                            //F_thetaphi
-                                            F_thetaphi -= m*(Asin_val*mCos - Acos_val*mSin)*
-                                                            dP[m*L + l]*phiTilde[l*N + n]*(-sin(theta));
-                                            */
-                                            
-                                        }                                    
-                                    }     
-                            }
-                              
-                            //*(Farray + 0) = F_r*sqrt(4*M_PI);
-                            //*(Farray + 1) = F_theta*sqrt(4*M_PI);
-                            //*(Farray + 2) = F_phi*sqrt(4*M_PI);
-                            
-                            *(Farray + 3) = F_rr*sqrt(4*M_PI);
-                            //*(Farray + 4) = F_thetatheta*sqrt(4*M_PI);
-                            *(Farray + 5) = F_phiphi*sqrt(4*M_PI);
-                            
-                            //*(Farray + 6) = F_rtheta*sqrt(4*M_PI);
-                            *(Farray + 7) = F_rphi*sqrt(4*M_PI);
-                            //*(Farray + 8) = F_thetaphi*sqrt(4*M_PI);
-
-                           
-                        }
-
-inline double computeForce(double a, int N, int L, int M, 
-                        double *Acos, double *Asin,
-                        double dr_dx, double dtheta_dx, double dphi_dx,
-                        double r, double theta, double phi){
-
-                                
-                                
-                                double xi;
-                                calculateXi(r, a, &xi);
+    double Acos_val = *(Acos +m + M*l + M*L*n);
+    double Asin_val = *(Asin +m + M*l + M*L*n);
     
-                                //Compute the gegenbauer polynomials and its derivative. 
-                                double C[N*L];
-                                double dC[N*L];
+    for (int i = 0; i < eq_size; i++){
+        double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
+        double *P = *(e.phiTilde + i);
+        double *phiTilde = *(e.P + i);
+        *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[m*L + l], phiTilde[l*N + n], m);
+    }
+    
+          
+            
 
-                                compute_C(xi, N, L, &C);
-                                compute_dC(xi, N, L, &dC);
+
+                }}}
+    for (int i = 0; i < eq_size; i++){
+        double constant = *(e.Constant + i);
+        *(F + i) *= constant*sqrt(4*M_PI);
+    } 
+
+}
+  
+
+double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m){
+    return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
+}
+
+double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m){
+    return -(Acos_val*mCos + Asin_val*mSin)*P*dphiTilde;
+}
+
+double computeF_theta(double Acos_val, double Asin_val, double mCos, double mSin, double dP, double phiTilde, int m){
+    return -(Acos_val*mCos + Asin_val*mSin)*dP*phiTilde;
+}
+
+double computeF_phi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m){
+    return m*(Acos_val*mSin - Asin_val*mCos)*P*phiTilde;
+}
+
+double computeF_rr(double Acos_val, double Asin_val, double mCos, double mSin, double P, double d2phiTilde, int m){
+    return -(Acos_val*mCos + Asin_val*mSin)*P*d2phiTilde;
+}
+
+double computeF_rphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m){
+    return m*(Acos_val*mSin - Asin_val*mCos)*P*dphiTilde;
+}
+
+double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m){
+    return m*m*(Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
+}
+
+
+
+double computeForce(double R,double Z, double phi,
+				double t,
+				struct potentialArg * potentialArgs, double * F){
+	double * args= potentialArgs->args;
+  //Get args
+  double a = *args++;
+  int N = *args++;
+  int L = *args++;
+  int M = *args++;
+  double* Acos = args;
+  double* Asin = args + N*L*M;
+  double r;
+  double theta;
+  cyl_to_spher(R, Z, &r, &theta);	
+
+double xi;
+calculateXi(r, a, &xi);
+    
+//Compute the gegenbauer polynomials and its derivative. 
+double C[N*L];
+double dC[N*L];
+
+compute_C(xi, N, L, &C);
+compute_dC(xi, N, L, &dC);
                                 
-                                //Compute phiTilde and its derivative
-                                double phiTilde[L*N];
-                                compute_phiTilde(r, a, N, L, &C, &phiTilde);
+//Compute phiTilde and its derivative
+double phiTilde[L*N];
+compute_phiTilde(r, a, N, L, &C, &phiTilde);
                                 
-                                double dphiTilde[L*N];
-                                compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
+double dphiTilde[L*N];
+compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
                                 
-                                //Compute Associated Legendre Polynomials
-                                double P[L*L];
-                                double dP[L*L];
+//Compute Associated Legendre Polynomials
+double P[L*L];
+double dP[L*L];
+    
+compute_P(cos(theta), L, &P, &dP);
+
+int num_eq = 3;
+double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
+double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
+double (*P_Pointer[3]) = {&P, &dP, &P};
+
+double Constant[3] = {1., -sin(theta), 1.};
+equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+
+  
+  compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+
+  
+  	    
+}
+double computeDeriv(double R,double Z, double phi,
+				double t,
+				struct potentialArg * potentialArgs, double * F){
+	double * args= potentialArgs->args;
+  //Get args
+  double a = *args++;
+  int N = *args++;
+  int L = *args++;
+  int M = *args++;
+  double* Acos = args;
+  double* Asin = args + N*L*M;
+  double r;
+  double theta;
+  cyl_to_spher(R, Z, &r, &theta);	
+
+double xi;
+calculateXi(r, a, &xi);
+    
+//Compute the gegenbauer polynomials and its derivative. 
+double C[N*L];
+double dC[N*L];
+double d2C[N*L];
+
+compute_C(xi, N, L, &C);
+compute_dC(xi, N, L, &dC);
+compute_d2C(xi, N, L, &d2C);
                                 
-                                compute_P(cos(theta), L, &P, &dP);
+//Compute phiTilde and its derivative
+double phiTilde[L*N];
+compute_phiTilde(r, a, N, L, &C, &phiTilde);
                                 
-                                double F_r = 0;
-                                double F_theta = 0;
-                                double F_phi = 0;
+double dphiTilde[L*N];
+compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
+
+double d2phiTilde[L*N];
+compute_d2phiTilde(r, a, N, L, &C, &dC, &d2C, &d2phiTilde);
                                 
-                                for (int l = 0; l < L; l++){
-                                    for (int m = 0; m<=l;m++){
-                                        double mCos = cos(m*phi);
-                                        double mSin = sin(m*phi);
-                                        for (int n = 0;n < N; n++){
-                                            
-                                        
-                                        double Acos_val = *(Acos +m + M*l + M*L*n);
-                                        double Asin_val = *(Asin +m + M*l + M*L*n);
-                                            F_r -= (Acos_val*mCos + Asin_val*mSin)*
-                                                            P[m*L + l]*dphiTilde[l*N + n];
-                                                            
-                                            F_theta += (Acos_val*mCos + Asin_val*mSin)*
-                                                            dP[m*L + l]*phiTilde[l*N + n]*(sin(theta));
-                                                            
-                                            F_phi -= m*(Asin_val*mCos - Acos_val*mSin)*
-                                                            P[m*L + l]*phiTilde[l*N + n];
-                                          
-                                            
-                                        }                                    
-                                    }     
-                            }
-                              
-                            F_r *= dr_dx;
-                            F_theta *= dtheta_dx;
-                            F_phi *= dphi_dx;
-                            double force = (F_r + F_theta + F_phi)*sqrt(4*M_PI);
-                             
-                            return force;
-                           
-                        }
-                       
+//Compute Associated Legendre Polynomials
+double P[L*L];
+double dP[L*L];
+                                
+compute_P(cos(theta), L, &P, &dP);
+           int num_eq = 3;
+double (*Eq)(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
+double (*PhiTilde_Pointer)[3] = {&d2phiTilde, &phiTilde, &dphiTilde};
+double (*P_Pointer)[3] = {&P, &P, &P};
+
+double Constant[3] = {1., 1, 1.};
+equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+
+  
+  compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+                     
+  
+  
+  	    
+}
+
+                     
 double SCFPotentialEval(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs){
@@ -326,59 +339,42 @@ double SCFPotentialEval(double R,double Z, double phi,
                                 
   compute_P(cos(theta), L, &P, &dP);
                                 
-  double potential = 0;                              
-                                
-  for (int l = 0; l < L; l++){
-      for (int m = 0; m<=l;m++){
-          double mCos = cos(m*phi);
-          double mSin = sin(m*phi);
-          for (int n = 0;n < N; n++){
-              double Acos_val = *(Acos +m + M*l + M*L*n);
-              double Asin_val = *(Asin +m + M*l + M*L*n);
-              potential += (Acos_val*mCos + Asin_val*mSin)*P[m*L + l]*phiTilde[l*N + n];
-          }
-      }
-  }
-  potential *= sqrt(4*M_PI);
+  double potential;                              
+            
+int num_eq = 1;
+double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
+double (*PhiTilde_Pointer[1]) = {&phiTilde};
+double (*P_Pointer[1]) = {&P};
+
+double Constant[1] = {1.};
+equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+
+  
+  compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, &potential);                    
   return potential;   
 }
 
 double SCFPotentialRforce(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
-
-  //convert R,Z to r, theta
+				    
   double r;
   double theta;
-  cyl_to_spher(R, Z,&r, &theta);
-
+  cyl_to_spher(R, Z, &r, &theta);	
   // The derivatives 
   double dr_dR = R/r; 
   double dtheta_dR = Z/(r*r);
   double dphi_dR = 0;
-
- return computeForce(a, N, L, M, Acos, Asin, dr_dR,dtheta_dR, dphi_dR, r, theta, phi);
+  
+  
+  double F[3];
+  computeForce(R, Z, phi, t,potentialArgs, &F) ;
+  return *(F + 0)*dr_dR + *(F + 1)*dtheta_dR + *(F + 2)*dphi_dR;
 }
 
 double SCFPotentialzforce(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
   double r;
   double theta;
   cyl_to_spher(R, Z,&r, &theta);
@@ -387,20 +383,15 @@ double SCFPotentialzforce(double R,double Z, double phi,
   double dtheta_dz = -R/(r*r); 
   double dphi_dz = 0;
   
- return computeForce(a, N, L, M, Acos, Asin, dr_dz,dtheta_dz, dphi_dz, r, theta, phi);
+  double F[3];
+  computeForce(R, Z, phi, t,potentialArgs, &F) ;
+  return *(F + 0)*dr_dz + *(F + 1)*dtheta_dz + *(F + 2)*dphi_dz;
 }
 
 double SCFPotentialphiforce(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
+
   double r;
   double theta;
   cyl_to_spher(R, Z, &r, &theta);
@@ -408,7 +399,11 @@ double SCFPotentialphiforce(double R,double Z, double phi,
   double dr_dphi = 0; 
   double dtheta_dphi = 0; 
   double dphi_dphi = 1;
- return computeForce(a, N, L, M, Acos, Asin, dr_dphi,dtheta_dphi, dphi_dphi, r, theta, phi);
+  
+  double F[3];
+  computeForce(R, Z, phi, t,potentialArgs, &F) ;
+  
+  return *(F + 0)*dr_dphi + *(F + 1)*dtheta_dphi + *(F + 2)*dphi_dphi;
 }
 
 double SCFPotentialPlanarRforce(double R,double Z, double phi,
@@ -429,21 +424,13 @@ double SCFPotentialPlanarphiforce(double R,double Z, double phi,
 double SCFPotentialPlanarR2deriv(double R, double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs){
-                            double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
-  double r;
-  double theta;
-  cyl_to_spher(R, 0, &r, &theta);  
-  double Farray[9];
- computePlanarderiv(a, N, L, M, Acos, Asin, r, theta, phi, &Farray);
+
+  
+  double Farray[3];
+  
+ computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
  
-    return Farray[3];
+    return Farray[0];
  
                                                         
    }
@@ -452,24 +439,13 @@ double SCFPotentialPlanarR2deriv(double R, double Z, double phi,
 double SCFPotentialPlanarphi2deriv(double R, double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs){
-                            double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
-  double r;
-  double theta;
-  cyl_to_spher(R, 0, &r, &theta);
-
-  
-  double Farray[9];
-  
- computePlanarderiv(a, N, L, M, Acos, Asin, r, theta, phi, &Farray);
  
-    return Farray[5];
+  
+  double Farray[3];
+  
+ computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
+ 
+    return Farray[1];
  
                                                         
    }
@@ -477,22 +453,11 @@ double SCFPotentialPlanarphi2deriv(double R, double Z, double phi,
 double SCFPotentialPlanarRphideriv(double R, double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs){
-                            double * args= potentialArgs->args;
-  //Get args
-  double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
-  double* Acos = args;
-  double* Asin = args + N*L*M;
-  double r;
-  double theta;
-  cyl_to_spher(R, 0, &r, &theta);
   
+  double Farray[3];
   
-  double F[9];
-  
-  computePlanarderiv(a, N, L, M, Acos, Asin, r, theta, phi, &F);
-    return F[7];
+ computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
+ 
+    return Farray[2];
                                                         
    }
