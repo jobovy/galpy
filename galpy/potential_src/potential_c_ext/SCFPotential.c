@@ -398,7 +398,7 @@ double Constant[1] = {1.};
 equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
 
   
-  compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, &potential);                    
+  compute(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);                    
   return potential;   
 }
 
