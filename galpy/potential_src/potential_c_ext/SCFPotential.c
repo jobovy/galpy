@@ -272,7 +272,7 @@ equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
   
   	    
 }
-double computeDeriv(double R,double Z, double phi,
+void computeDeriv(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs, double * F){
 	double * args= potentialArgs->args;
@@ -321,21 +321,23 @@ compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
 
 double d2phiTilde[L*N];
 compute_d2phiTilde(r, a, N, L, &C, &dC, &d2C, &d2phiTilde);
+
                                 
 //Compute Associated Legendre Polynomials
 double P[L*L];
 double dP[L*L];
                                 
 compute_P(cos(theta), L, &P, &dP);
-           int num_eq = 3;
-double (*Eq)(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
+
+int num_eq = 3;
+
+double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
 double (*PhiTilde_Pointer)[3] = {&d2phiTilde, &phiTilde, &dphiTilde};
 double (*P_Pointer)[3] = {&P, &P, &P};
 
 double Constant[3] = {1., 1, 1.};
 equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
 
-  
   compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
                      
     //Caching
@@ -347,9 +349,8 @@ equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
   * (cached_coords + 2) = phi;
   * (cached_values) = *F;
   * (cached_values + 1) = *(F + 1);
-  * (cached_values + 2) = *(F + 2);
+  * (cached_values + 2) = *(F + 2); 
   
-  	    
 }
 
                      
@@ -472,12 +473,11 @@ double SCFPotentialPlanarR2deriv(double R, double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs){
 
-  
   double Farray[3];
   
  computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
  
-    return Farray[0];
+    return *Farray;
  
                                                         
    }
@@ -492,7 +492,7 @@ double SCFPotentialPlanarphi2deriv(double R, double Z, double phi,
   
  computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
  
-    return Farray[1];
+    return *(Farray + 1);
  
                                                         
    }
@@ -505,6 +505,6 @@ double SCFPotentialPlanarRphideriv(double R, double Z, double phi,
   
  computeDeriv(R, Z, phi, t,potentialArgs, &Farray) ;
  
-    return Farray[2];
+    return *(Farray + 2);
                                                         
    }
