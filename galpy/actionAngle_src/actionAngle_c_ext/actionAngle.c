@@ -148,7 +148,7 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
-    case 24: //KuzminDiskPotential, 2 arguments
+    case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
       potentialArgs->nargs= (int) (4 + 2 * *(pot_args+1) * *(pot_args+2)* *(pot_args+3));
       potentialArgs->i2d= NULL;
