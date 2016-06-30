@@ -53,10 +53,7 @@ class SCFPotential(Potential):
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
             
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): 
-            self.normalize(normalize)
+        
         ##Acos and Asin must have the same shape
         
         self._a = a
@@ -67,6 +64,11 @@ class SCFPotential(Potential):
         self._force_hash= None
         self.hasC= True
         self.hasC_dxdv=True
+        
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)): 
+            self.normalize(normalize)
 
         return None
 
