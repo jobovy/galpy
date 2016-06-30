@@ -7,7 +7,8 @@
 //SCF Disk potential
 //4 arguments: amp, Acos, Asin, a
 
-
+const int FORCE =1;
+const int DERIV =2; 
 inline void cyl_to_spher(double R, double Z,double *r, double *theta){
   *r = sqrt(R*R + Z*Z);
   *theta = atan2(R, Z);
@@ -147,8 +148,8 @@ inline void compute(double a, int N, int L, int M,
     
     for (int i = 0; i < eq_size; i++){
         double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
-        double *P = *(e.phiTilde + i);
-        double *phiTilde = *(e.P + i);
+        double *P = *(e.P + i);
+        double *phiTilde = *(e.phiTilde + i);
         *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[m*L + l], phiTilde[l*N + n], m);
     }
     
@@ -168,7 +169,7 @@ inline void compute(double a, int N, int L, int M,
 double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m){
     return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
-
+           
 double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m){
     return -(Acos_val*mCos + Asin_val*mSin)*P*dphiTilde;
 }
@@ -195,7 +196,7 @@ double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSi
 
 
 
-double computeForce(double R,double Z, double phi,
+void computeForce(double R,double Z, double phi,
 				double t,
 				struct potentialArg * potentialArgs, double * F){
 	double * args= potentialArgs->args;
@@ -206,6 +207,20 @@ double computeForce(double R,double Z, double phi,
   int M = *args++;
   double* Acos = args;
   double* Asin = args + N*L*M;
+  
+  double *cached_type = (args + 2*N*L*M);
+  double * cached_coords = (args + 2*N*L*M + 1);
+  double * cached_values = (args + 2*N*L*M + 4);
+  if ((int)*cached_type==FORCE){
+  if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi){
+          *F = *cached_values;
+          *(F + 1) = *(cached_values + 1);
+          *(F + 2) = *(cached_values + 2);
+          return;
+  }
+  }
+  
+  
   double r;
   double theta;
   cyl_to_spher(R, Z, &r, &theta);	
@@ -233,7 +248,6 @@ double dP[L*L];
     
 compute_P(cos(theta), L, &P, &dP);
 
-int num_eq = 3;
 double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
 double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
 double (*P_Pointer[3]) = {&P, &dP, &P};
@@ -243,6 +257,17 @@ equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
 
   
   compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+  
+  //Caching
+  
+  *cached_type = (double)FORCE;
+  
+  * cached_coords = R;
+  * (cached_coords + 1) = Z;
+  * (cached_coords + 2) = phi;
+  * (cached_values) = *F;
+  * (cached_values + 1) = *(F + 1);
+  * (cached_values + 2) = *(F + 2);
 
   
   	    
@@ -258,6 +283,19 @@ double computeDeriv(double R,double Z, double phi,
   int M = *args++;
   double* Acos = args;
   double* Asin = args + N*L*M;
+  
+  double *cached_type = (args + 2*N*L*M);
+  double * cached_coords = (args + 2*N*L*M + 1);
+  double * cached_values = (args + 2*N*L*M + 4);
+  if ((int)*cached_type==DERIV){
+  if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi){
+          *F = *cached_values;
+          *(F + 1) = *(cached_values + 1);
+          *(F + 2) = *(cached_values + 2);
+          return;
+  }
+  }  
+  
   double r;
   double theta;
   cyl_to_spher(R, Z, &r, &theta);	
@@ -300,7 +338,16 @@ equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
   
   compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
                      
+    //Caching
   
+  *cached_type = (double)DERIV;
+  
+  * cached_coords = R;
+  * (cached_coords + 1) = Z;
+  * (cached_coords + 2) = phi;
+  * (cached_values) = *F;
+  * (cached_values + 1) = *(F + 1);
+  * (cached_values + 2) = *(F + 2);
   
   	    
 }
