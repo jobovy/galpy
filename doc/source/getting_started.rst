@@ -155,7 +155,7 @@ frequencies         1/Gyr
 time                Gyr
 period              Gyr
 potential           (km/s)^2
-force               km/s/kpc
+force               km/s/Myr
 force derivative    1/Gyr^2
 density             Msun/pc^3
 number density      1/pc^3
