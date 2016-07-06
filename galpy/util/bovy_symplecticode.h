@@ -31,10 +31,16 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef __BOVY_SYMPLECTICODE_H__
 #define __BOVY_SYMPLECTICODE_H__
+#include "signal.h"
 #include <galpy_potentials.h>
+/*
+  Global variables
+*/
+volatile sig_atomic_t interrupted;
 /*
   Function declarations
 */
+void handle_sigint(int);
 void leapfrog(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,
