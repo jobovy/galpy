@@ -2913,6 +2913,22 @@ def test_orbit_c_sigint_planar():
             raise AssertionError("Planar orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
     return None
 
+# Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
+def test_orbit_c_sigint_planardxdv():
+    integrators= ['dopr54_c','rk4_c','rk6_c']
+    for integrator in integrators:
+        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
+                             'planardxdv'],
+                            stdin=subprocess.PIPE,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr)
+        time.sleep(4)
+        os.kill(p.pid,signal.SIGINT)
+        time.sleep(4)
+        if p.poll() is None:
+            raise AssertionError("Planar dxdv orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
+    return None
+
 # Check plotting routines
 def test_full_plotting():
     from galpy.orbit import Orbit
