@@ -2798,8 +2798,8 @@ def test_orbit_c_sigint_full():
         p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
                              'full'],
                             stdin=subprocess.PIPE,
-                            stdout=sys.stdout,
-                            stderr=sys.stderr)
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
@@ -2817,8 +2817,8 @@ def test_orbit_c_sigint_planar():
         p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
                              'planar'],
                             stdin=subprocess.PIPE,
-                            stdout=sys.stdout,
-                            stderr=sys.stderr)
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
@@ -2833,8 +2833,8 @@ def test_orbit_c_sigint_planardxdv():
         p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
                              'planardxdv'],
                             stdin=subprocess.PIPE,
-                            stdout=sys.stdout,
-                            stderr=sys.stderr)
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
