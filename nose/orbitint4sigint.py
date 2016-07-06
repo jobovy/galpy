@@ -17,7 +17,6 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             sys.exit(1)
         except:
-            raise
             sys.exit(2)
     elif sys.argv[2] == 'planardxdv':
         o= Orbit([1.,0.1,1.1,0.1])
@@ -26,6 +25,5 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             sys.exit(1)
         except:
-            raise
             sys.exit(2)
     sys.exit(0)
