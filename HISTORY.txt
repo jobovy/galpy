@@ -48,6 +48,10 @@ v1.2 (2016-XX-XX)
   probability p(freq_parallel,angle_parallel), and to estimate the
   number of encounters with DM subhalos.
 
+- Properly intercept CTRL-C (SIGINT) signals during orbit integration
+  in C, allowing long orbit integrations to be interrupted without
+  killing an entire Python session.
+
 - Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
   potential.
 

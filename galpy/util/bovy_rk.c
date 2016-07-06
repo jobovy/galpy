@@ -32,6 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "signal.h"
+#include <bovy_symplecticode.h>
 #include <bovy_rk.h>
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
@@ -58,6 +60,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void bovy_rk4(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
@@ -87,7 +90,17 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a);
       to+= dt;
@@ -102,6 +115,9 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -172,7 +188,17 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a,
 		       k1,k2,k3,k4,k5);
@@ -189,6 +215,9 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -432,7 +461,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
-       int * err: if non-zero, something bad happened (1: maximum step reduction happened)
+       int * err: if non-zero, something bad happened (1: maximum step reduction happened; -10: interrupted by CTRL-C (SIGINT)
 */
 void bovy_dopr54(void (*func)(double t, double *q, double *a,
 			      int nargs, struct potentialArg * potentialArgs),
@@ -469,7 +498,17 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   double to= *t;
   //set up a1
   func(to,yn,a1,nargs,potentialArgs);
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
 			nargs,potentialArgs,rtol,atol,
 			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,err);
@@ -477,6 +516,10 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
     save_rk(dim,yn,result);
     result+= dim;
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
+  // Free allocated memory
   free(a);
   free(a1);
   free(k1);
