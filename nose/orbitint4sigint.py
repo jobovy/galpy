@@ -6,7 +6,7 @@ from galpy.potential import  MiyamotoNagaiPotential
 if __name__ == '__main__':
     # python orbitint4sigint.py symplec4_c full
     mp= MiyamotoNagaiPotential(normalize=1.,a=0.5,b=0.05)
-    ts= numpy.linspace(0.,100000.,10001)
+    ts= numpy.linspace(0.,10000000.,1000001)
     if sys.argv[2] == 'full' or sys.argv[2] == 'planar':
         if sys.argv[2] == 'full':
             o= Orbit([1.,0.1,1.1,0.1,0.1,0.])
