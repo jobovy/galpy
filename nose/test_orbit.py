@@ -35,161 +35,6 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
-# Test whether ro in methods using physical_conversion can be specified
-# as a Quantity
-def test_orbit_method_inputro_quantity():
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-    from astropy import units
-    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
-    ro= 11.
-    assert numpy.fabs(o.E(pot=MWPotential2014,ro=ro*units.kpc)-o.E(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method E does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.ER(pot=MWPotential2014,ro=ro*units.kpc)-o.ER(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method ER does not return the correct value as Quantity'
-    assert numpy.fabs(o.Ez(pot=MWPotential2014,ro=ro*units.kpc)-o.Ez(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method Ez does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Jacobi(pot=MWPotential2014,ro=ro*units.kpc)-o.Jacobi(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method Jacobi does not return the correct value when input ro is Quantity'
-    assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014,ro=ro*units.kpc)-o.L(pot=MWPotential2014,ro=ro)) < 10.**-8.), 'Orbit method L does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.rap(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method rap does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.rperi(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method rperi does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.zmax(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method zmax does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jr does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jp does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jz does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wr does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wp does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wz does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tr does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tp does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tz does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Or does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Opbit method Or does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Ozbit method Or does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.time(ro=ro*units.kpc)-o.time(ro=ro)) < 10.**-8., 'Orbit method time does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.R(ro=ro*units.kpc)-o.R(ro=ro)) < 10.**-8., 'Orbit method R does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vR(ro=ro*units.kpc)-o.vR(ro=ro)) < 10.**-8., 'Orbit method vR does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vT(ro=ro*units.kpc)-o.vT(ro=ro)) < 10.**-8., 'Orbit method vT does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.z(ro=ro*units.kpc)-o.z(ro=ro)) < 10.**-8., 'Orbit method z does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vz(ro=ro*units.kpc)-o.vz(ro=ro)) < 10.**-8., 'Orbit method vz does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.phi(ro=ro*units.kpc)-o.phi(ro=ro)) < 10.**-8., 'Orbit method phi does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vphi(ro=ro*units.kpc)-o.vphi(ro=ro)) < 10.**-8., 'Orbit method vphi does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.x(ro=ro*units.kpc)-o.x(ro=ro)) < 10.**-8., 'Orbit method x does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.y(ro=ro*units.kpc)-o.y(ro=ro)) < 10.**-8., 'Orbit method y does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vx(ro=ro*units.kpc)-o.vx(ro=ro)) < 10.**-8., 'Orbit method vx does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vy(ro=ro*units.kpc)-o.vy(ro=ro)) < 10.**-8., 'Orbit method vy does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.ra(ro=ro*units.kpc)-o.ra(ro=ro)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.dec(ro=ro*units.kpc)-o.dec(ro=ro)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.ll(ro=ro*units.kpc)-o.ll(ro=ro)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.bb(ro=ro*units.kpc)-o.bb(ro=ro)) < 10.**-8., 'Orbit method bb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.dist(ro=ro*units.kpc)-o.dist(ro=ro)) < 10.**-8., 'Orbit method dist does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmra(ro=ro*units.kpc)-o.pmra(ro=ro)) < 10.**-8., 'Orbit method pmra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmdec(ro=ro*units.kpc)-o.pmdec(ro=ro)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmll(ro=ro*units.kpc)-o.pmll(ro=ro)) < 10.**-8., 'Orbit method pmll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmbb(ro=ro*units.kpc)-o.pmbb(ro=ro)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vlos(ro=ro*units.kpc)-o.vlos(ro=ro)) < 10.**-8., 'Orbit method vlos does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vra(ro=ro*units.kpc)-o.vra(ro=ro)) < 10.**-8., 'Orbit method vra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vdec(ro=ro*units.kpc)-o.vdec(ro=ro)) < 10.**-8., 'Orbit method vdec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vll(ro=ro*units.kpc)-o.vll(ro=ro)) < 10.**-8., 'Orbit method vll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vbb(ro=ro*units.kpc)-o.vbb(ro=ro)) < 10.**-8., 'Orbit method vbb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioX(ro=ro*units.kpc)-o.helioX(ro=ro)) < 10.**-8., 'Orbit method helioX does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioY(ro=ro*units.kpc)-o.helioY(ro=ro)) < 10.**-8., 'Orbit method helioY does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioZ(ro=ro*units.kpc)-o.helioZ(ro=ro)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.U(ro=ro*units.kpc)-o.U(ro=ro)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.V(ro=ro*units.kpc)-o.V(ro=ro)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.W(ro=ro*units.kpc)-o.W(ro=ro)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
-    return None
-
-# Test whether vo in methods using physical_conversion can be specified
-# as a Quantity
-def test_orbit_method_inputvo_quantity():
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-    from astropy import units
-    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
-    vo= 222.
-    assert numpy.fabs(o.E(pot=MWPotential2014,vo=vo*units.km/units.s)-o.E(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method E does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.ER(pot=MWPotential2014,vo=vo*units.km/units.s)-o.ER(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method ER does not return the correct value as Quantity'
-    assert numpy.fabs(o.Ez(pot=MWPotential2014,vo=vo*units.km/units.s)-o.Ez(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method Ez does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Jacobi(pot=MWPotential2014,vo=vo*units.km/units.s)-o.Jacobi(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method Jacobi does not return the correct value when input vo is Quantity'
-    assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014,vo=vo*units.km/units.s)-o.L(pot=MWPotential2014,vo=vo)) < 10.**-8.), 'Orbit method L does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.rap(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method rap does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.rperi(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method rperi does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.zmax(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method zmax does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jr does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jp does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jz does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wr does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wp does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wz does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tr does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tp does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tz does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Or does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Opbit method Or does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Ozbit method Or does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.time(vo=vo*units.km/units.s)-o.time(vo=vo)) < 10.**-8., 'Orbit method time does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.R(vo=vo*units.km/units.s)-o.R(vo=vo)) < 10.**-8., 'Orbit method R does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vR(vo=vo*units.km/units.s)-o.vR(vo=vo)) < 10.**-8., 'Orbit method vR does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vT(vo=vo*units.km/units.s)-o.vT(vo=vo)) < 10.**-8., 'Orbit method vT does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.z(vo=vo*units.km/units.s)-o.z(vo=vo)) < 10.**-8., 'Orbit method z does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vz(vo=vo*units.km/units.s)-o.vz(vo=vo)) < 10.**-8., 'Orbit method vz does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.phi(vo=vo*units.km/units.s)-o.phi(vo=vo)) < 10.**-8., 'Orbit method phi does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vphi(vo=vo*units.km/units.s)-o.vphi(vo=vo)) < 10.**-8., 'Orbit method vphi does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.x(vo=vo*units.km/units.s)-o.x(vo=vo)) < 10.**-8., 'Orbit method x does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.y(vo=vo*units.km/units.s)-o.y(vo=vo)) < 10.**-8., 'Orbit method y does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vx(vo=vo*units.km/units.s)-o.vx(vo=vo)) < 10.**-8., 'Orbit method vx does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vy(vo=vo*units.km/units.s)-o.vy(vo=vo)) < 10.**-8., 'Orbit method vy does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.ra(vo=vo*units.km/units.s)-o.ra(vo=vo)) < 10.**-8., 'Orbit method ra does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.dec(vo=vo*units.km/units.s)-o.dec(vo=vo)) < 10.**-8., 'Orbit method dec does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.ll(vo=vo*units.km/units.s)-o.ll(vo=vo)) < 10.**-8., 'Orbit method ll does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.bb(vo=vo*units.km/units.s)-o.bb(vo=vo)) < 10.**-8., 'Orbit method bb does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.dist(vo=vo*units.km/units.s)-o.dist(vo=vo)) < 10.**-8., 'Orbit method dist does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.pmra(vo=vo*units.km/units.s)-o.pmra(vo=vo)) < 10.**-8., 'Orbit method pmra does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.pmdec(vo=vo*units.km/units.s)-o.pmdec(vo=vo)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.pmll(vo=vo*units.km/units.s)-o.pmll(vo=vo)) < 10.**-8., 'Orbit method pmll does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.pmbb(vo=vo*units.km/units.s)-o.pmbb(vo=vo)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vlos(vo=vo*units.km/units.s)-o.vlos(vo=vo)) < 10.**-8., 'Orbit method vlos does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vra(vo=vo*units.km/units.s)-o.vra(vo=vo)) < 10.**-8., 'Orbit method vra does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vdec(vo=vo*units.km/units.s)-o.vdec(vo=vo)) < 10.**-8., 'Orbit method vdec does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vll(vo=vo*units.km/units.s)-o.vll(vo=vo)) < 10.**-8., 'Orbit method vll does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.vbb(vo=vo*units.km/units.s)-o.vbb(vo=vo)) < 10.**-8., 'Orbit method vbb does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.helioX(vo=vo*units.km/units.s)-o.helioX(vo=vo)) < 10.**-8., 'Orbit method helioX does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.helioY(vo=vo*units.km/units.s)-o.helioY(vo=vo)) < 10.**-8., 'Orbit method helioY does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.helioZ(vo=vo*units.km/units.s)-o.helioZ(vo=vo)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.U(vo=vo*units.km/units.s)-o.U(vo=vo)) < 10.**-8., 'Orbit method U does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.V(vo=vo*units.km/units.s)-o.V(vo=vo)) < 10.**-8., 'Orbit method V does not return the correct value when input vo is Quantity'
-    assert numpy.fabs(o.W(vo=vo*units.km/units.s)-o.W(vo=vo)) < 10.**-8., 'Orbit method W does not return the correct value when input vo is Quantity'
-    return None
-
-# Test whether obs in methods using physical_conversion can be specified
-# as a Quantity
-def test_orbit_method_inputobs_quantity():
-    from galpy.orbit import Orbit
-    from astropy import units
-    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
-    obs= [11.,0.1,0.2,-10.,245.,7.]
-    obs_units= [11.*units.kpc,0.1*units.kpc,0.2*units.kpc,
-                -10.*units.km/units.s,245.*units.km/units.s,7.*units.km/units.s]
-    assert numpy.fabs(o.ra(obs=obs_units)-o.ra(obs=obs)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.dec(obs=obs_units)-o.dec(obs=obs)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.ll(obs=obs_units)-o.ll(obs=obs)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.bb(obs=obs_units)-o.bb(obs=obs)) < 10.**-8., 'Orbit method bb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.dist(obs=obs_units)-o.dist(obs=obs)) < 10.**-8., 'Orbit method dist does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmra(obs=obs_units)-o.pmra(obs=obs)) < 10.**-8., 'Orbit method pmra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmdec(obs=obs_units)-o.pmdec(obs=obs)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmll(obs=obs_units)-o.pmll(obs=obs)) < 10.**-8., 'Orbit method pmll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.pmbb(obs=obs_units)-o.pmbb(obs=obs)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vlos(obs=obs_units)-o.vlos(obs=obs)) < 10.**-8., 'Orbit method vlos does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vra(obs=obs_units)-o.vra(obs=obs)) < 10.**-8., 'Orbit method vra does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vdec(obs=obs_units)-o.vdec(obs=obs)) < 10.**-8., 'Orbit method vdec does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vll(obs=obs_units)-o.vll(obs=obs)) < 10.**-8., 'Orbit method vll does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.vbb(obs=obs_units)-o.vbb(obs=obs)) < 10.**-8., 'Orbit method vbb does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioX(obs=obs_units)-o.helioX(obs=obs)) < 10.**-8., 'Orbit method helioX does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioY(obs=obs_units)-o.helioY(obs=obs)) < 10.**-8., 'Orbit method helioY does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.helioZ(obs=obs_units)-o.helioZ(obs=obs)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.U(obs=obs_units)-o.U(obs=obs)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.V(obs=obs_units)-o.V(obs=obs)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
-    assert numpy.fabs(o.W(obs=obs_units)-o.W(obs=obs)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
-    return None
-
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
@@ -2786,6 +2631,161 @@ def test_orbit_method_integrate_t_asQuantity_warning():
     check_integrate_t_asQuantity_warning(o,'Jacobi')
     check_integrate_t_asQuantity_warning(o,'ER')
     check_integrate_t_asQuantity_warning(o,'Ez')
+    return None
+
+# Test whether ro in methods using physical_conversion can be specified
+# as a Quantity
+def test_orbit_method_inputro_quantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from astropy import units
+    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
+    ro= 11.
+    assert numpy.fabs(o.E(pot=MWPotential2014,ro=ro*units.kpc)-o.E(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method E does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.ER(pot=MWPotential2014,ro=ro*units.kpc)-o.ER(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method ER does not return the correct value as Quantity'
+    assert numpy.fabs(o.Ez(pot=MWPotential2014,ro=ro*units.kpc)-o.Ez(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method Ez does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Jacobi(pot=MWPotential2014,ro=ro*units.kpc)-o.Jacobi(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method Jacobi does not return the correct value when input ro is Quantity'
+    assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014,ro=ro*units.kpc)-o.L(pot=MWPotential2014,ro=ro)) < 10.**-8.), 'Orbit method L does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.rap(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method rap does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.rperi(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method rperi does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,ro=ro*units.kpc)-o.zmax(pot=MWPotential2014,analytic=True,ro=ro)) < 10.**-8., 'Orbit method zmax does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jr does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jp does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method jz does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wr does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wp does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method wz does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tr does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tp does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Tz does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Orbit method Or does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Opbit method Or does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro*units.kpc)-o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,ro=ro)) < 10.**-8., 'Ozbit method Or does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.time(ro=ro*units.kpc)-o.time(ro=ro)) < 10.**-8., 'Orbit method time does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.R(ro=ro*units.kpc)-o.R(ro=ro)) < 10.**-8., 'Orbit method R does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vR(ro=ro*units.kpc)-o.vR(ro=ro)) < 10.**-8., 'Orbit method vR does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vT(ro=ro*units.kpc)-o.vT(ro=ro)) < 10.**-8., 'Orbit method vT does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.z(ro=ro*units.kpc)-o.z(ro=ro)) < 10.**-8., 'Orbit method z does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vz(ro=ro*units.kpc)-o.vz(ro=ro)) < 10.**-8., 'Orbit method vz does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.phi(ro=ro*units.kpc)-o.phi(ro=ro)) < 10.**-8., 'Orbit method phi does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vphi(ro=ro*units.kpc)-o.vphi(ro=ro)) < 10.**-8., 'Orbit method vphi does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.x(ro=ro*units.kpc)-o.x(ro=ro)) < 10.**-8., 'Orbit method x does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.y(ro=ro*units.kpc)-o.y(ro=ro)) < 10.**-8., 'Orbit method y does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vx(ro=ro*units.kpc)-o.vx(ro=ro)) < 10.**-8., 'Orbit method vx does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vy(ro=ro*units.kpc)-o.vy(ro=ro)) < 10.**-8., 'Orbit method vy does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.ra(ro=ro*units.kpc)-o.ra(ro=ro)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dec(ro=ro*units.kpc)-o.dec(ro=ro)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.ll(ro=ro*units.kpc)-o.ll(ro=ro)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.bb(ro=ro*units.kpc)-o.bb(ro=ro)) < 10.**-8., 'Orbit method bb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dist(ro=ro*units.kpc)-o.dist(ro=ro)) < 10.**-8., 'Orbit method dist does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmra(ro=ro*units.kpc)-o.pmra(ro=ro)) < 10.**-8., 'Orbit method pmra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmdec(ro=ro*units.kpc)-o.pmdec(ro=ro)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmll(ro=ro*units.kpc)-o.pmll(ro=ro)) < 10.**-8., 'Orbit method pmll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmbb(ro=ro*units.kpc)-o.pmbb(ro=ro)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vlos(ro=ro*units.kpc)-o.vlos(ro=ro)) < 10.**-8., 'Orbit method vlos does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vra(ro=ro*units.kpc)-o.vra(ro=ro)) < 10.**-8., 'Orbit method vra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vdec(ro=ro*units.kpc)-o.vdec(ro=ro)) < 10.**-8., 'Orbit method vdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vll(ro=ro*units.kpc)-o.vll(ro=ro)) < 10.**-8., 'Orbit method vll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vbb(ro=ro*units.kpc)-o.vbb(ro=ro)) < 10.**-8., 'Orbit method vbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioX(ro=ro*units.kpc)-o.helioX(ro=ro)) < 10.**-8., 'Orbit method helioX does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioY(ro=ro*units.kpc)-o.helioY(ro=ro)) < 10.**-8., 'Orbit method helioY does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioZ(ro=ro*units.kpc)-o.helioZ(ro=ro)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.U(ro=ro*units.kpc)-o.U(ro=ro)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.V(ro=ro*units.kpc)-o.V(ro=ro)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.W(ro=ro*units.kpc)-o.W(ro=ro)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
+    return None
+
+# Test whether vo in methods using physical_conversion can be specified
+# as a Quantity
+def test_orbit_method_inputvo_quantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from astropy import units
+    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
+    vo= 222.
+    assert numpy.fabs(o.E(pot=MWPotential2014,vo=vo*units.km/units.s)-o.E(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method E does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.ER(pot=MWPotential2014,vo=vo*units.km/units.s)-o.ER(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method ER does not return the correct value as Quantity'
+    assert numpy.fabs(o.Ez(pot=MWPotential2014,vo=vo*units.km/units.s)-o.Ez(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method Ez does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Jacobi(pot=MWPotential2014,vo=vo*units.km/units.s)-o.Jacobi(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method Jacobi does not return the correct value when input vo is Quantity'
+    assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014,vo=vo*units.km/units.s)-o.L(pot=MWPotential2014,vo=vo)) < 10.**-8.), 'Orbit method L does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.rap(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method rap does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.rperi(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method rperi does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,vo=vo*units.km/units.s)-o.zmax(pot=MWPotential2014,analytic=True,vo=vo)) < 10.**-8., 'Orbit method zmax does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jr does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jp does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.jz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method jz does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wr does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wp does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.wz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method wz does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tr(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tr does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tp(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tp does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Tz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Tz does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Or(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Orbit method Or does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Op(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Opbit method Or does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo*units.km/units.s)-o.Oz(pot=MWPotential2014,type='staeckel',delta=0.5,vo=vo)) < 10.**-8., 'Ozbit method Or does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.time(vo=vo*units.km/units.s)-o.time(vo=vo)) < 10.**-8., 'Orbit method time does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.R(vo=vo*units.km/units.s)-o.R(vo=vo)) < 10.**-8., 'Orbit method R does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vR(vo=vo*units.km/units.s)-o.vR(vo=vo)) < 10.**-8., 'Orbit method vR does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vT(vo=vo*units.km/units.s)-o.vT(vo=vo)) < 10.**-8., 'Orbit method vT does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.z(vo=vo*units.km/units.s)-o.z(vo=vo)) < 10.**-8., 'Orbit method z does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vz(vo=vo*units.km/units.s)-o.vz(vo=vo)) < 10.**-8., 'Orbit method vz does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.phi(vo=vo*units.km/units.s)-o.phi(vo=vo)) < 10.**-8., 'Orbit method phi does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vphi(vo=vo*units.km/units.s)-o.vphi(vo=vo)) < 10.**-8., 'Orbit method vphi does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.x(vo=vo*units.km/units.s)-o.x(vo=vo)) < 10.**-8., 'Orbit method x does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.y(vo=vo*units.km/units.s)-o.y(vo=vo)) < 10.**-8., 'Orbit method y does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vx(vo=vo*units.km/units.s)-o.vx(vo=vo)) < 10.**-8., 'Orbit method vx does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vy(vo=vo*units.km/units.s)-o.vy(vo=vo)) < 10.**-8., 'Orbit method vy does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.ra(vo=vo*units.km/units.s)-o.ra(vo=vo)) < 10.**-8., 'Orbit method ra does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.dec(vo=vo*units.km/units.s)-o.dec(vo=vo)) < 10.**-8., 'Orbit method dec does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.ll(vo=vo*units.km/units.s)-o.ll(vo=vo)) < 10.**-8., 'Orbit method ll does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.bb(vo=vo*units.km/units.s)-o.bb(vo=vo)) < 10.**-8., 'Orbit method bb does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.dist(vo=vo*units.km/units.s)-o.dist(vo=vo)) < 10.**-8., 'Orbit method dist does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.pmra(vo=vo*units.km/units.s)-o.pmra(vo=vo)) < 10.**-8., 'Orbit method pmra does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.pmdec(vo=vo*units.km/units.s)-o.pmdec(vo=vo)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.pmll(vo=vo*units.km/units.s)-o.pmll(vo=vo)) < 10.**-8., 'Orbit method pmll does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.pmbb(vo=vo*units.km/units.s)-o.pmbb(vo=vo)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vlos(vo=vo*units.km/units.s)-o.vlos(vo=vo)) < 10.**-8., 'Orbit method vlos does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vra(vo=vo*units.km/units.s)-o.vra(vo=vo)) < 10.**-8., 'Orbit method vra does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vdec(vo=vo*units.km/units.s)-o.vdec(vo=vo)) < 10.**-8., 'Orbit method vdec does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vll(vo=vo*units.km/units.s)-o.vll(vo=vo)) < 10.**-8., 'Orbit method vll does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vbb(vo=vo*units.km/units.s)-o.vbb(vo=vo)) < 10.**-8., 'Orbit method vbb does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.helioX(vo=vo*units.km/units.s)-o.helioX(vo=vo)) < 10.**-8., 'Orbit method helioX does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.helioY(vo=vo*units.km/units.s)-o.helioY(vo=vo)) < 10.**-8., 'Orbit method helioY does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.helioZ(vo=vo*units.km/units.s)-o.helioZ(vo=vo)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.U(vo=vo*units.km/units.s)-o.U(vo=vo)) < 10.**-8., 'Orbit method U does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.V(vo=vo*units.km/units.s)-o.V(vo=vo)) < 10.**-8., 'Orbit method V does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.W(vo=vo*units.km/units.s)-o.W(vo=vo)) < 10.**-8., 'Orbit method W does not return the correct value when input vo is Quantity'
+    return None
+
+# Test whether obs in methods using physical_conversion can be specified
+# as a Quantity
+def test_orbit_method_inputobs_quantity():
+    from galpy.orbit import Orbit
+    from astropy import units
+    o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
+    obs= [11.,0.1,0.2,-10.,245.,7.]
+    obs_units= [11.*units.kpc,0.1*units.kpc,0.2*units.kpc,
+                -10.*units.km/units.s,245.*units.km/units.s,7.*units.km/units.s]
+    assert numpy.fabs(o.ra(obs=obs_units)-o.ra(obs=obs)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dec(obs=obs_units)-o.dec(obs=obs)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.ll(obs=obs_units)-o.ll(obs=obs)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.bb(obs=obs_units)-o.bb(obs=obs)) < 10.**-8., 'Orbit method bb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.dist(obs=obs_units)-o.dist(obs=obs)) < 10.**-8., 'Orbit method dist does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmra(obs=obs_units)-o.pmra(obs=obs)) < 10.**-8., 'Orbit method pmra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmdec(obs=obs_units)-o.pmdec(obs=obs)) < 10.**-8., 'Orbit method pmdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmll(obs=obs_units)-o.pmll(obs=obs)) < 10.**-8., 'Orbit method pmll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.pmbb(obs=obs_units)-o.pmbb(obs=obs)) < 10.**-8., 'Orbit method pmbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vlos(obs=obs_units)-o.vlos(obs=obs)) < 10.**-8., 'Orbit method vlos does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vra(obs=obs_units)-o.vra(obs=obs)) < 10.**-8., 'Orbit method vra does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vdec(obs=obs_units)-o.vdec(obs=obs)) < 10.**-8., 'Orbit method vdec does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vll(obs=obs_units)-o.vll(obs=obs)) < 10.**-8., 'Orbit method vll does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vbb(obs=obs_units)-o.vbb(obs=obs)) < 10.**-8., 'Orbit method vbb does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioX(obs=obs_units)-o.helioX(obs=obs)) < 10.**-8., 'Orbit method helioX does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioY(obs=obs_units)-o.helioY(obs=obs)) < 10.**-8., 'Orbit method helioY does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.helioZ(obs=obs_units)-o.helioZ(obs=obs)) < 10.**-8., 'Orbit method helioZ does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.U(obs=obs_units)-o.U(obs=obs)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.V(obs=obs_units)-o.V(obs=obs)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.W(obs=obs_units)-o.W(obs=obs)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
     return None
 
 def test_linear_plotting():
