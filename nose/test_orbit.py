@@ -35,6 +35,26 @@ _NOLONGINTEGRATIONS= False
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
+# Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
+def test_orbit_c_sigint_full():
+    integrators= ['dopr54_c',
+                  'leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    for integrator in integrators:
+        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
+                             'full'],
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+        time.sleep(4)
+        os.kill(p.pid,signal.SIGINT)
+        time.sleep(4)
+        if p.poll() is None or p.poll() != 1:
+            for line in p.stderr.readlines(): print(line)
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+    return None
+
 # Test whether the energy of simple orbits is conserved for different
 # integrators
 def test_energy_jacobi_conservation():
@@ -2786,26 +2806,6 @@ def test_orbit_method_inputobs_quantity():
     assert numpy.fabs(o.U(obs=obs_units)-o.U(obs=obs)) < 10.**-8., 'Orbit method U does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.V(obs=obs_units)-o.V(obs=obs)) < 10.**-8., 'Orbit method V does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.W(obs=obs_units)-o.W(obs=obs)) < 10.**-8., 'Orbit method W does not return the correct value when input ro is Quantity'
-    return None
-
-# Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
-def test_orbit_c_sigint_full():
-    integrators= ['dopr54_c',
-                  'leapfrog_c',
-                  'rk4_c','rk6_c',
-                  'symplec4_c','symplec6_c']
-    for integrator in integrators:
-        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
-                             'full'],
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-        time.sleep(4)
-        os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
-        if p.poll() is None or p.poll() != 1:
-            for line in p.stderr.readlines(): print(line)
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
     return None
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
