@@ -343,6 +343,9 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
 
+    if err.value == -10:
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
