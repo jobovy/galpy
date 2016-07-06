@@ -2804,6 +2804,7 @@ def test_orbit_c_sigint_full():
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
+            for line in p.stderr.readlines(): print(line)
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
     return None
 
