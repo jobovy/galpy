@@ -1,7 +1,7 @@
 ##############################TESTS ON ORBITS##################################
 from __future__ import print_function, division
 import warnings
-import os
+import os, os.path
 import sys
 import time
 import signal
@@ -2794,9 +2794,11 @@ def test_orbit_c_sigint_full():
                   'leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
+    scriptpath= 'orbitint4sigint.py'
+    if not 'nose' in os.getcwd():
+        scriptpath= os.path.join('nose',scriptpath)
     for integrator in integrators:
-        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
-                             'full'],
+        p= subprocess.Popen(['python',scriptpath,integrator,'full'],
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -2813,9 +2815,11 @@ def test_orbit_c_sigint_planar():
                   'leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
+    scriptpath= 'orbitint4sigint.py'
+    if not 'nose' in os.getcwd():
+        scriptpath= os.path.join('nose',scriptpath)
     for integrator in integrators:
-        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
-                             'planar'],
+        p= subprocess.Popen(['python',scriptpath,integrator,'planar'],
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -2829,9 +2833,11 @@ def test_orbit_c_sigint_planar():
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
     integrators= ['dopr54_c','rk4_c','rk6_c']
+    scriptpath= 'orbitint4sigint.py'
+    if not 'nose' in os.getcwd():
+        scriptpath= os.path.join('nose',scriptpath)
     for integrator in integrators:
-        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
-                             'planardxdv'],
+        p= subprocess.Popen(['python',scriptpath,integrator,'planardxdv'],
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
