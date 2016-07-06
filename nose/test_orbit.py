@@ -3,6 +3,9 @@ from __future__ import print_function, division
 import warnings
 import os
 import sys
+import time
+import signal
+import subprocess
 from nose.tools import raises
 import numpy
 from galpy import potential
@@ -2870,6 +2873,44 @@ def test_planar_plotting():
     o.plot3d(d1='vx',d2='y',d3='vy')
     o.plot3d(d1='y',d2='vy',d3='x')
     o.plot3d(d1='vy',d2='x',d3='vx')
+    return None
+
+# Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
+def test_orbit_c_sigint_full():
+    integrators= ['dopr54_c',
+                  'leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    for integrator in integrators:
+        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
+                             'full'],
+                            stdin=subprocess.PIPE,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr)
+        time.sleep(4)
+        os.kill(p.pid,signal.SIGINT)
+        time.sleep(4)
+        if p.poll() is None:
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
+    return None
+
+# Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
+def test_orbit_c_sigint_planar():
+    integrators= ['dopr54_c',
+                  'leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    for integrator in integrators:
+        p= subprocess.Popen(['python','nose/orbitint4sigint.py',integrator,
+                             'planar'],
+                            stdin=subprocess.PIPE,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr)
+        time.sleep(4)
+        os.kill(p.pid,signal.SIGINT)
+        time.sleep(4)
+        if p.poll() is None:
+            raise AssertionError("Planar orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
     return None
 
 # Check plotting routines
