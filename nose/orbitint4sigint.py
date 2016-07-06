@@ -12,8 +12,18 @@ if __name__ == '__main__':
             o= Orbit([1.,0.1,1.1,0.1,0.1,0.])
         elif sys.argv[2] == 'planar':
             o= Orbit([1.,0.1,1.1,0.1])
-        o.integrate(ts,mp,method=sys.argv[1])
+        try:
+            o.integrate(ts,mp,method=sys.argv[1])
+        except KeyboardInterrupt:
+            sys.exit(1)
+        except:
+            sys.exit(2)
     elif sys.argv[2] == 'planardxdv':
         o= Orbit([1.,0.1,1.1,0.1])
-        o.integrate_dxdv([0.1,0.1,0.1,0.1],ts,mp,method=sys.argv[1])
+        try:
+            o.integrate_dxdv([0.1,0.1,0.1,0.1],ts,mp,method=sys.argv[1])
+        except KeyboardInterrupt:
+            sys.exit(1)
+        except:
+            sys.exit(2)
     sys.exit(0)

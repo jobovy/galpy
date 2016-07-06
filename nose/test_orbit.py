@@ -2803,7 +2803,7 @@ def test_orbit_c_sigint_full():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None:
+        if p.poll() is None or p.poll() != 1:
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
     return None
 
@@ -2822,7 +2822,7 @@ def test_orbit_c_sigint_planar():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None:
+        if p.poll() is None or p.poll() != 1:
             raise AssertionError("Planar orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
     return None
 
@@ -2838,7 +2838,7 @@ def test_orbit_c_sigint_planardxdv():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None:
+        if p.poll() is None or p.poll() != 1:
             raise AssertionError("Planar dxdv orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not" % integrator)
     return None
 
