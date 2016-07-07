@@ -1066,8 +1066,8 @@ class Potential(object):
 
         """
         return 0.5*(-self.Rforce(R,0.,phi=phi,use_physical=False)\
-                    +R*self.R2deriv(R,0.,phi=phi,use_physical=False))\
-            /self.vcirc(R,phi=phi,use_physical=False)
+                         +R*self.R2deriv(R,0.,phi=phi,use_physical=False))\
+                         /self.vcirc(R,phi=phi,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
