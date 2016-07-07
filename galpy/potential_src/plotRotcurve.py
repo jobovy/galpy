@@ -208,7 +208,7 @@ def vcirc(Pot,R,phi=None):
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def dvcircdR(Pot,R):
+def dvcircdR(Pot,R,phi=None):
     """
 
     NAME:
@@ -225,6 +225,8 @@ def dvcircdR(Pot,R):
 
        R - Galactocentric radius (can be Quantity)
 
+       phi= (None) azimuth to use for non-axisymmetric potentials
+
     OUTPUT:
 
        derivative of the circular rotation velocity wrt R
@@ -236,11 +238,11 @@ def dvcircdR(Pot,R):
     """
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
-    tvc= vcirc(Pot,R,use_physical=False)
+    tvc= vcirc(Pot,R,phi=phi,use_physical=False)
     try:
-        return 0.5*(-evaluateplanarRforces(Pot,R,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return 0.5*(-evaluateplanarRforces(Pot,R,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
 
