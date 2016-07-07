@@ -1746,43 +1746,43 @@ class mockTransientLogSpiralPotential(TransientLogSpiralPotential):
         TransientLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
                                              m=2,gamma=numpy.pi/4.,
                                              p=-0.3)
-                                             
+
+##Potentials used for mock SCF
+def rho_Zeeuw(R, z=0., phi=0., a=1.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
+   
+    
+def axi_density1(R, z=0, phi=0.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    h = potential.HernquistPotential()
+    return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
+    
+def axi_density2(R, z=0, phi=0.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
+
+##Mock SCF class                                                         
 class mockSCFZeeuwPotential(potential.SCFPotential):
-    def rho_Zeeuw(self, R, z=0., phi=0., a=1.):
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
-        return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
     def __init__(self):
-        Acos, Asin = potential.scf_compute_coeffs_spherical(self.rho_Zeeuw,2)
+        Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw,2)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
 
 class mockSCFNFWPotential(potential.SCFPotential):
-    def rho_NFW(self,R, z=0, phi=0.):
-        nfw = potential.NFWPotential()
-        return nfw.dens(R,z, phi)
     def __init__(self):
-        Acos, Asin = potential.scf_compute_coeffs_spherical(self.rho_NFW,10)
+        nfw = potential.NFWPotential()
+        Acos, Asin = potential.scf_compute_coeffs_spherical(nfw.dens,10)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
 class mockSCFAxiDensity1Potential(potential.SCFPotential):
     def __init__(self):
-        def axi_density1(R, z=0, phi=0.):
-            r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
-            h = potential.HernquistPotential()
-            return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
         Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,10,2)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
               
               
 class mockSCFAxiDensity2Potential(potential.SCFPotential):
     def __init__(self):
-        def axi_density2(R, z=0, phi=0.):
-            def rho_Zeeuw(self, R, z=0., phi=0., a=1.):
-                r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
-                return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
-            spherical_coords = bovy_coords.cyl_to_spher(R,z, phi)
-            theta = spherical_coords[1]
-            return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
         Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,2)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
               
