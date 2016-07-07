@@ -264,14 +264,14 @@ double SCFPotentialzforce(double,double,double,double,
 double SCFPotentialphiforce(double,double,double,double,
 				        struct potentialArg *);
 				        
-double SCFPotentialPlanarRforce(double,double,double,double,
+double SCFPotentialPlanarRforce(double,double,double,
                         struct potentialArg *);
-double SCFPotentialPlanarphiforce(double,double,double,double,
+double SCFPotentialPlanarphiforce(double,double,double,
 				        struct potentialArg *);
-double SCFPotentialPlanarR2deriv(double,double,double,double,
+double SCFPotentialPlanarR2deriv(double,double,double,
 				        struct potentialArg *);
-double SCFPotentialPlanarphi2deriv(double,double,double,double,
+double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
-double SCFPotentialPlanarRphideriv(double,double,double,double,
+double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
 #endif /* galpy_potentials.h */
