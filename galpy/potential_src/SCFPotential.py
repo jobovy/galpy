@@ -12,6 +12,7 @@ from numpy.polynomial.legendre import leggauss
 from scipy.special import gammaln
 
 import hashlib
+import inspect
 
 
 class SCFPotential(Potential):
@@ -460,35 +461,6 @@ class SCFPotential(Potential):
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
-def scf_compute_coeffs_spherical(dens, N, a=1.):
-        """
-        NAME:
-           _compute_coeffs_spherical
-        PURPOSE:
-           Numerically compute the expansion coefficients for a given spherical density
-        INPUT:
-           dens - A density function that takes a parameter R
-           N - size of expansion coefficients
-        OUTPUT:
-           Expansion coefficients for density dens
-        HISTORY:
-           2016-05-18 - Written - Aladdin 
-        """
-        def integrand(xi):
-            r = xiToR(xi, a)
-            R = r
-            
-            return a**3. * dens(R)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
-               
-        Acos = nu.zeros((N,1,1), float)
-        Asin = nu.zeros((N,1,1), float)
-        
-        Ksample = [max(N + 1, 20)]
-        integrated = gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
-        n = nu.arange(0,N)
-        K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
-        Acos[n,0,0] = 2*K*integrated
-        return Acos, Asin
         
 def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
     """
@@ -526,7 +498,48 @@ def _dC(xi, N, L):
     CC *= 2*(2*l + 3./2)
     return CC
      
-    
+def scf_compute_coeffs_spherical(dens, N, a=1.):
+        """
+        NAME:
+           _compute_coeffs_spherical
+        PURPOSE:
+           Numerically compute the expansion coefficients for a given spherical density
+        INPUT:
+           dens - A density function that takes a parameter R
+           N - size of expansion coefficients
+        OUTPUT:
+           Expansion coefficients for density dens
+        HISTORY:
+           2016-05-18 - Written - Aladdin 
+        """
+        numOfParam = 0
+        try:
+            dens(0)
+            numOfParam=1
+        except:
+            try:
+                dens(0,0)
+                numOfParam=2
+            except:
+                numOfParam=3
+        param = [0]*numOfParam;
+        
+        
+        def integrand(xi):
+            r = xiToR(xi, a)
+            R = r
+            param[0] = R
+            return a**3. * dens(*param)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
+               
+        Acos = nu.zeros((N,1,1), float)
+        Asin = nu.zeros((N,1,1), float)
+        
+        Ksample = [max(N + 1, 20)]
+        integrated = gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
+        n = nu.arange(0,N)
+        K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+        Acos[n,0,0] = 2*K*integrated
+        return Acos, Asin    
         
 def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=None):
         """
@@ -545,6 +558,13 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         HISTORY:
            2016-05-20 - Written - Aladdin 
         """
+        numOfParam = 0
+        try:
+            dens(0,0)
+            numOfParam=2
+        except:
+            numOfParam=3
+        param = [0]*numOfParam;
         def integrand(xi, costheta):
             l = nu.arange(0, L)[nu.newaxis, :]
             r = xiToR(xi,a)
@@ -553,8 +573,9 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
             Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
             dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
             phi_nl =  a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:] * Legandre
-            
-            return  phi_nl*dV * dens(R, z)
+            param[0] = R
+            param[1] = z
+            return  phi_nl*dV * dens(*param)
             
                
         Acos = nu.zeros((N,L,L), float)
