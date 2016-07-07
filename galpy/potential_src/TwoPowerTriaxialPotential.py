@@ -134,7 +134,7 @@ class TwoPowerTriaxialPotential(Potential):
         return None
 
     def _setup_zvec_pa(self,zvec,pa):
-        if zvec is None and pa is None:
+        if zvec is None and (pa is None or numpy.fabs(pa) < 10.**-10.):
             self._aligned= True
         else:
             self._aligned= False
