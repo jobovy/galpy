@@ -271,8 +271,7 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p\
-                    and not 'SCF' in p: ttimes= times
+                    and not 'MovingObject' in p: ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
@@ -337,7 +336,7 @@ def test_energy_jacobi_conservation():
                     or (ptp is None and tp.isNonAxi) \
                     or 'MovingObject' in p:
                 if _QUICKTEST \
-                        and not ('NFW' in p or 'linearMWPotential' in p \
+                        and not (('NFW' in p and 'SCF' not in p) or 'linearMWPotential' in p \
                                      or ('Burkert' in p and not tp.hasC)):
                     break
                 else: continue
@@ -555,6 +554,10 @@ def test_liouville_planar():
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('specialFlattenedPowerPotential')
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -575,7 +578,11 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
-    tol['SCFPotential']= -7. #more difficult
+    tol['SCFPotential']= -6. #more difficult
+    tol['mockSCFZeeuwPotential']= -6. #more difficult
+    tol['mockSCFNFWPotential']= -6. #more difficult
+    tol['mockSCFAxiDensity1Potential']= -6. #more difficult
+    tol['mockSCFAxiDensity2Potential']= -6. #more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -639,7 +646,7 @@ def test_liouville_planar():
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
                 firstTest= False                    
-            if _QUICKTEST and not ('NFW' in p \
+            if _QUICKTEST and not (('NFW' in p and 'SCF' not in p) \
                                        or ('Burkert' in p and not tp.hasC)): break
     return None
 
@@ -1367,7 +1374,6 @@ def test_analytic_zmax():
                     o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
                 tzmax_analytic= o.zmax(analytic=True)
-                print(p,(tzmax-tzmax_analytic)**2.)
                 #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
