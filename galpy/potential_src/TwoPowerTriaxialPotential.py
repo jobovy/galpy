@@ -134,13 +134,14 @@ class TwoPowerTriaxialPotential(Potential):
         return None
 
     def _setup_zvec_pa(self,zvec,pa):
+        if not pa is None:
+            if _APY_LOADED and isinstance(pa,units.Quantity):
+                pa= pa.to(units.rad).value
         if zvec is None and (pa is None or numpy.fabs(pa) < 10.**-10.):
             self._aligned= True
         else:
             self._aligned= False
             if not pa is None:
-                if _APY_LOADED and isinstance(pa,units.Quantity):
-                    pa= pa.to(units.rad).value
                 pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
                                      [-numpy.sin(pa),numpy.cos(pa),0.],
                                      [0.,0.,1.]])
