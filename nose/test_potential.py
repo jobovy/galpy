@@ -1797,7 +1797,7 @@ class mockSCFAxiDensity2Potential(potential.SCFPotential):
         
 class mockSCFDensityPotential(potential.SCFPotential):
     def __init__(self):
-        Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
+        Acos, Asin = potential.scf_compute_coeffs(scf_density,20,20,phi_order=30)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
 class mockSCFAcosPotential(potential.SCFPotential):
