@@ -100,6 +100,9 @@ def test_forceAsDeriv_potential():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -522,6 +525,9 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1761,6 +1767,9 @@ def axi_density1(R, z=0, phi=0.):
 def axi_density2(R, z=0, phi=0.):
     r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
     return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
+    
+def scf_density(R, z=0, phi=0.):
+    return axi_density2(R,z,phi)*(1 + numpy.cos(phi) + numpy.sin(phi))
 
 ##Mock SCF class                                                         
 class mockSCFZeeuwPotential(potential.SCFPotential):
@@ -1784,6 +1793,26 @@ class mockSCFAxiDensity1Potential(potential.SCFPotential):
 class mockSCFAxiDensity2Potential(potential.SCFPotential):
     def __init__(self):
         Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,2)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+class mockSCFDensityPotential(potential.SCFPotential):
+    def __init__(self):
+        Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+class mockSCFAcosPotential(potential.SCFPotential):
+    def __init__(self):
+        N, L = 5,5
+        Acos = numpy.ones((N,L,L), dtype=float);
+        Asin = numpy.zeros((N,L,L), dtype=float);
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+class mockSCFAsinPotential(potential.SCFPotential):
+    def __init__(self):
+        N, L = 5,5
+        Acos = numpy.zeros((N,L,L), dtype=float);
+        Acos[1,:,0] =1.
+        Asin = -numpy.ones((N,L,L), dtype=float);
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
               
         
