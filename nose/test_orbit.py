@@ -25,6 +25,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockSCFNFWPotential, \
     mockSCFAxiDensity1Potential, \
     mockSCFAxiDensity2Potential, \
+    mockSCFAcosPotential, \
+    mockSCFAsinPotential, \
+    mockSCFDensityPotential, \
     specialFlattenedPowerPotential, \
     specialMiyamotoNagaiPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -228,6 +231,9 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -340,11 +346,12 @@ def test_energy_jacobi_conservation():
                                      or ('Burkert' in p and not tp.hasC)):
                     break
                 else: continue
+            if p == 'mockSCFDensityPotential' or p == "mockSCFAcosPotential" or p=="mockSCFAsinPotential": break
             #Now do axisymmetric
             o= setup_orbit_energy(tp,axi=True)
             o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2
             assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
@@ -380,7 +387,7 @@ def test_energy_jacobi_conservation():
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None:
-                if _QUICKTEST and not ('NFW' in p \
+                if _QUICKTEST and not (('NFW' in p and 'SCF' not in p)\
                                            or ('Burkert' in p and not tp.hasC)): break
                 else: continue
             #Same for a planarPotential
@@ -490,7 +497,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not ('NFW' in p \
+            if _QUICKTEST and not (('NFW' in p and 'SCF' not in p) \
                                      or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
     return None
@@ -558,6 +565,9 @@ def test_liouville_planar():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -578,11 +588,6 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
-    tol['SCFPotential']= -6. #more difficult
-    tol['mockSCFZeeuwPotential']= -6. #more difficult
-    tol['mockSCFNFWPotential']= -6. #more difficult
-    tol['mockSCFAxiDensity1Potential']= -6. #more difficult
-    tol['mockSCFAxiDensity2Potential']= -6. #more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
