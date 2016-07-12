@@ -899,7 +899,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
     return nu.dot(nu.array([[costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [sintheta,0.,costheta]]),
-                  nu.array([-X+dgc,Y,Z])).T
+                  nu.array([-X+dgc,Y,nu.sign(Xsun)*Z])).T
 
 @scalarDecorator
 def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
@@ -935,7 +935,8 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[-costheta,0.,-sintheta],
                             [0.,1.,0.],
-                            [-sintheta,0.,costheta]]),
+                            [-nu.sign(Xsun)*sintheta,0.,
+                              nu.sign(Xsun)*costheta]]),
                   nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
@@ -1154,7 +1155,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     return nu.dot(nu.array([[costheta,0.,-sintheta],
                             [0.,1.,0.],
                             [sintheta,0.,costheta]]),
-                  nu.array([-vx,vy,vz])).T+nu.array(vsun)
+                  nu.array([-vx,vy,nu.sign(Xsun)*vz])).T+nu.array(vsun)
 
 @scalarDecorator
 def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
@@ -1243,7 +1244,8 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[-costheta,0.,-sintheta],
                             [0.,1.,0.],
-                            [-sintheta,0.,costheta]]),
+                            [-nu.sign(Xsun)*sintheta,0.,
+                              nu.sign(Xsun)*costheta]]),
                   nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
 
 @scalarDecorator
@@ -1449,20 +1451,21 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        2013-12-09 - Written - Bovy (IAS)
 
     """
-    dgc= nu.sqrt(kwargs.get('Xsun',1.)**2.+kwargs.get('Zsun',0.)**2.)
-    costheta, sintheta= kwargs.get('Xsun',1.)/dgc, kwargs.get('Zsun',0.)/dgc
+    Xsun= kwargs.get('Xsun',1.)
+    dgc= nu.sqrt(Xsun**2.+kwargs.get('Zsun',0.)**2.)
+    costheta, sintheta= Xsun/dgc, kwargs.get('Zsun',0.)/dgc
     out= sc.zeros((6,6))
     out[0,0]= -costheta
     out[0,2]= -sintheta
     out[1,1]= 1.
-    out[2,0]= -sintheta
-    out[2,2]= costheta
+    out[2,0]= -nu.sign(Xsun)*sintheta
+    out[2,2]= nu.sign(Xsun)*costheta
     if len(args) == 3: return out[:3,:3]
     out[3,3]= -costheta
     out[3,5]= -sintheta
     out[4,4]= 1.
-    out[5,3]= -sintheta
-    out[5,5]= costheta
+    out[5,3]= -nu.sign(Xsun)*sintheta
+    out[5,5]= nu.sign(Xsun)*costheta
     return out
 
 def lbd_to_XYZ_jac(*args,**kwargs):

@@ -871,6 +871,7 @@ def test_potential_method_returntype():
     pot= PlummerPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(pot(1.1,0.1),units.Quantity), 'Potential method __call__ does not return Quantity when it should'
     assert isinstance(pot.Rforce(1.1,0.1),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot.rforce(1.1,0.1),units.Quantity), 'Potential method rforce does not return Quantity when it should'
     assert isinstance(pot.zforce(1.1,0.1),units.Quantity), 'Potential method zforce does not return Quantity when it should'
     assert isinstance(pot.phiforce(1.1,0.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
     assert isinstance(pot.dens(1.1,0.1),units.Quantity), 'Potential method dens does not return Quantity when it should'
@@ -928,6 +929,10 @@ def test_potential_method_returnunit():
         pot.Rforce(1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential method Rforce does not return Quantity with the right units')
+    try:
+        pot.rforce(1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method rforce does not return Quantity with the right units')
     try:
         pot.zforce(1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
@@ -1076,6 +1081,7 @@ def test_potential_method_value():
     potu= PlummerPotential(normalize=True)
     assert numpy.fabs(pot(1.1,0.1).to(units.km**2/units.s**2).value-potu(1.1,0.1)*vo**2.) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.Rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.Rforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(pot.rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.rforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method rforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.zforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.zforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method zforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.phiforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.phiforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.dens(1.1,0.1).to(units.Msun/units.pc**3).value-potu.dens(1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential method dens does not return the correct value as Quantity'
@@ -1131,6 +1137,7 @@ def test_potential_function_returntype():
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.)]
     assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
     assert isinstance(potential.evaluateRforces(pot,1.1,0.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
+    assert isinstance(potential.evaluaterforces(pot,1.1,0.1),units.Quantity), 'Potential function rforce does not return Quantity when it should'
     assert isinstance(potential.evaluatezforces(pot,1.1,0.1),units.Quantity), 'Potential function zforce does not return Quantity when it should'
     assert isinstance(potential.evaluatephiforces(pot,1.1,0.1),units.Quantity), 'Potential function phiforce does not return Quantity when it should'
     assert isinstance(potential.evaluateDensities(pot,1.1,0.1),units.Quantity), 'Potential function dens does not return Quantity when it should'
@@ -1186,6 +1193,10 @@ def test_potential_function_returnunit():
         potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function Rforce does not return Quantity with the right units')
+    try:
+        potential.evaluaterforces(pot,1.1,0.1).to(units.km/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function rforce does not return Quantity with the right units')
     try:
         potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2)
     except units.UnitConversionError:
@@ -1319,6 +1330,7 @@ def test_potential_function_value():
     potu= [PlummerPotential(normalize=True)]
     assert numpy.fabs(potential.evaluatePotentials(pot,1.1,0.1).to(units.km**2/units.s**2).value-potential.evaluatePotentials(potu,1.1,0.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateRforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluaterforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluaterforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function rforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatezforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function zforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatephiforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1,0.1).to(units.Msun/units.pc**3).value-potential.evaluateDensities(potu,1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential function dens does not return the correct value as Quantity'
@@ -1376,6 +1388,7 @@ def test_potential_method_inputAsQuantity():
     # Few more cases for Rforce
     assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=9.,use_physical=False)-potu.Rforce(1.1*8./9.,0.1*8./9.)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,vo=230.,use_physical=False)-potu.Rforce(1.1,0.1)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.rforce(1.1,0.1)) < 10.**-4., 'Potential method rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.zforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.zforce(1.1,0.1)) < 10.**-4., 'Potential method zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.phiforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phiforce(1.1,0.1)) < 10.**-4., 'Potential method phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.dens(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.dens(1.1,0.1)) < 10.**-8., 'Potential method dens does not return the correct value when input is Quantity'
@@ -1448,6 +1461,7 @@ def test_potential_function_inputAsQuantity():
     potu= [PlummerPotential(normalize=True)]
     assert numpy.fabs(potential.evaluatePotentials(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatePotentials(potu,1.1,0.1)) < 10.**-8., 'Potential function __call__ does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateRforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,use_physical=False)-potential.evaluateRforces(potu,1.1,0.1)) < 10.**-4., 'Potential function Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.evaluaterforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,use_physical=False)-potential.evaluaterforces(potu,1.1,0.1)) < 10.**-4., 'Potential function rforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatezforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatezforces(potu,1.1,0.1)) < 10.**-4., 'Potential function zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatephiforces(potu,1.1,0.1)) < 10.**-4., 'Potential function phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateDensities(potu,1.1,0.1)) < 10.**-8., 'Potential function dens does not return the correct value when input is Quantity'
@@ -1576,6 +1590,33 @@ def test_potential_ampunits():
     pot= potential.NFWPotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerTriaxialPotential
+    pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun,a=2.,
+                                             b=0.3,c=1.4,
+                                             alpha=1.5,beta=3.5,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TwoPowerTriaxialPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerTriaxialPotential with integer powers
+    pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun,a=2.,
+                                             b=0.3,c=1.4,
+                                             alpha=2.,beta=5.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TwoPowerTriaxialPotential w/ amp w/ units does not behave as expected"
+    # TriaxialJaffePotential
+    pot= potential.TriaxialJaffePotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo,
+                                          b=0.3,c=1.4)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialJaffePotential w/ amp w/ units does not behave as expected"
+    # TriaxialHernquistPotential
+    pot= potential.TriaxialHernquistPotential(amp=20.*units.Msun,a=2.,
+                                              b=0.4,c=1.4,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TriaxialHernquistPotential w/ amp w/ units does not behave as expected"
+    # TriaxialNFWPotential
+    pot= potential.TriaxialNFWPotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo,
+                                        b=1.3,c=0.4)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialNFWPotential w/ amp w/ units does not behave as expected"
     # FlattenedPowerPotential
     pot= potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s**2,
                                            r1=1.,q=0.9,alpha=0.5,core=0.,
@@ -1685,6 +1726,33 @@ def test_potential_ampunits_altunits():
     pot= potential.NFWPotential(amp=20.*units.Msun*constants.G,a=2.,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerTriaxialPotential
+    pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun*constants.G,a=2.,
+                                             b=0.3,c=1.4,
+                                              alpha=1.5,beta=3.5,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TwoPowerTriaxialPotential w/ amp w/ units does not behave as expected"
+    # TwoPowerTriaxialPotential with integer powers
+    pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun*constants.G,
+                                             a=2.,b=0.5,c=0.3,
+                                              alpha=2.,beta=5.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TwoPowerTriaxialPotential w/ amp w/ units does not behave as expected"
+    # TriaxialJaffePotential
+    pot= potential.TriaxialJaffePotential(amp=20.*units.Msun*constants.G,a=2.,
+                                          b=0.4,c=0.9,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialJaffePotential w/ amp w/ units does not behave as expected"
+    # TriaxialHernquistPotential
+    pot= potential.TriaxialHernquistPotential(amp=20.*units.Msun*constants.G,
+                                              a=2.,b=1.3,c=0.3,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TriaxialHernquistPotential w/ amp w/ units does not behave as expected"
+    # TriaxialNFWPotential
+    pot= potential.TriaxialNFWPotential(amp=20.*units.Msun*constants.G,a=2.,
+                                        b=1.2,c=0.6,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialNFWPotential w/ amp w/ units does not behave as expected"
     # IsochronePotential
     pot= potential.IsochronePotential(amp=20.*units.Msun*constants.G,b=2.,ro=ro,vo=vo)
     # Check potential
@@ -1776,6 +1844,19 @@ def test_potential_ampunits_wrongunits():
     # NFWPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.NFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
+    # TwoPowerTriaxialPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TwoPowerTriaxialPotential(amp=20.*units.Msun/units.pc**3,a=2.,
+                                              alpha=1.5,beta=3.5,ro=ro,vo=vo),())
+    # TriaxialJaffePotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TriaxialJaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo),())
+    # TriaxialHernquistPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TriaxialHernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
+    # TriaxialNFWPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.TriaxialNFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
     # FlattenedPowerPotential
     assert_raises(units.UnitConversionError,
                   lambda x: potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s,
@@ -1875,6 +1956,34 @@ def test_potential_paramunits():
     pot= potential.NFWPotential(amp=20.*units.Msun,a=15.*units.kpc,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(15./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ parameters w/ units does not behave as expected"
+    # TwoPowerTriaxialPotential
+    pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun,
+                                              a=10.*units.kpc,
+                                              alpha=1.5,beta=3.5,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(10./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TwoPowerTriaxialPotential w/ parameters w/ units does not behave as expected"
+    # TriaxialJaffePotential
+    pot= potential.TriaxialJaffePotential(amp=20.*units.Msun,a=0.02*units.Mpc,
+                                          b=0.2,c=0.8,
+                                          ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(20./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialJaffePotential w/ parameters w/ units does not behave as expected"
+    # TriaxialHernquistPotential
+    pot= potential.TriaxialHernquistPotential(amp=20.*units.Msun,
+                                              a=10.*units.kpc,b=0.7,c=0.9,
+                                              ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(10./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "TriaxialHernquistPotential w/ parameters w/ units does not behave as expected"
+    # TriaxialNFWPotential
+    pot= potential.TriaxialNFWPotential(amp=20.*units.Msun,a=15.*units.kpc,
+                                        b=1.3,c=0.2,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(15./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialNFWPotential w/ parameters w/ units does not behave as expected"
+    # Also do pa
+    pot= potential.TriaxialNFWPotential(amp=20.*units.Msun,a=15.*units.kpc,
+                                        pa=30.*units.deg,
+                                        b=1.3,c=0.2,ro=ro,vo=vo)
+    assert numpy.fabs(numpy.arccos(pot._rot[0,0])-30./180.*numpy.pi) < 10.**-8., 'TriaxialNFWPotential w/ parameters w/ units does not behave as expected'
     # FlattenedPowerPotential
     pot= potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s**2,
                                            r1=10.*units.kpc,

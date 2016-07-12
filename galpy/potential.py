@@ -32,6 +32,7 @@ from galpy.potential_src import KuzminKutuzovStaeckelPotential
 from galpy.potential_src import PlummerPotential
 from galpy.potential_src import PseudoIsothermalPotential
 from galpy.potential_src import KuzminDiskPotential
+from galpy.potential_src import TwoPowerTriaxialPotential
 from galpy.potential_src import SCFPotential
 #
 # Functions
@@ -41,10 +42,12 @@ evaluateDensities= Potential.evaluateDensities
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
+evaluaterforces= Potential.evaluaterforces
 evaluateR2derivs= Potential.evaluateR2derivs
 evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
+toPlanarPotential= planarPotential.toPlanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
@@ -77,6 +80,7 @@ nemo_accpars= Potential.nemo_accpars
 turn_physical_off= Potential.turn_physical_off
 turn_physical_on= Potential.turn_physical_on
 _dim= Potential._dim
+_isNonAxi= Potential._isNonAxi
 scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
 scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
 scf_compute_coeffs = SCFPotential.scf_compute_coeffs
@@ -117,6 +121,10 @@ KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovSta
 PlummerPotential = PlummerPotential.PlummerPotential
 PseudoIsothermalPotential = PseudoIsothermalPotential.PseudoIsothermalPotential
 KuzminDiskPotential = KuzminDiskPotential.KuzminDiskPotential
+TriaxialHernquistPotential= TwoPowerTriaxialPotential.TriaxialHernquistPotential
+TriaxialNFWPotential= TwoPowerTriaxialPotential.TriaxialNFWPotential
+TriaxialJaffePotential= TwoPowerTriaxialPotential.TriaxialJaffePotential
+TwoPowerTriaxialPotential= TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
 SCFPotential = SCFPotential.SCFPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening

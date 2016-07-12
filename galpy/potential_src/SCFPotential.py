@@ -70,10 +70,9 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-
+        self.isNonAxi= True
         return None
 
- 
     def _Nroot(self, L):
         """
         NAME:

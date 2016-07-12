@@ -54,7 +54,8 @@ install:
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
- - nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis
+# only wait longer for orbit integrations
+ - if [[ $NOSE_IGNORE_FILES == '^((?!test_orbit).)*$' ]]; then travis_wait 30 nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis; else nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis; fi
 after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info

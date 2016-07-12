@@ -196,7 +196,30 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
       break;
-      
+    case 20: //BurkertPotential, 2 arguments
+      potentialArgs->Rforce= &BurkertPotentialRforce;
+      potentialArgs->zforce= &BurkertPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 21: //TriaxialHernquistPotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialHernquistPotentialRforce;
+      potentialArgs->zforce= &TriaxialHernquistPotentialzforce;
+      potentialArgs->phiforce= &TriaxialHernquistPotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 22: //TriaxialNFWPotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialNFWPotentialRforce;
+      potentialArgs->zforce= &TriaxialNFWPotentialzforce;
+      potentialArgs->phiforce= &TriaxialNFWPotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 23: //TriaxialJaffePotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialJaffePotentialRforce;
+      potentialArgs->zforce= &TriaxialJaffePotentialzforce;
+      potentialArgs->phiforce= &TriaxialJaffePotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;      
     case 24: //SCFPotential, many arguments
       potentialArgs->Rforce= &SCFPotentialRforce;
       potentialArgs->zforce= &SCFPotentialzforce;

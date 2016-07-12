@@ -121,6 +121,29 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.KuzminDiskPotential):
             pot_type.append(19)
             pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.BurkertPotential):
+            pot_type.append(20)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.TwoPowerTriaxialPotential):
+            if isinstance(p,potential.TriaxialHernquistPotential):
+                pot_type.append(21)
+            elif isinstance(p,potential.TriaxialNFWPotential):
+                pot_type.append(22)
+            elif isinstance(p,potential.TriaxialJaffePotential):
+                pot_type.append(23)
+            pot_args.extend([p._amp,p.a,p._b2,p._c2,int(p._aligned)])
+            if not p._aligned:
+                pot_args.extend(list(p._rot.flatten()))
+            else:
+                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+            pot_args.append(p._glorder)
+            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
+            # this adds some common factors to the integration weights
+            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**(3.-2.*potforactions)\
+                                 /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+                                          *(1.+(p._c2-1.)*p._glx[ii]**2.))
+                             for ii in range(p._glorder)])
+            pot_args.extend([0.,0.,0.,0.,0.,0.])
         elif isinstance(p,potential.SCFPotential):
             pot_type.append(24)
             pot_args.extend([p._a])
@@ -199,6 +222,9 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+    
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
@@ -270,6 +296,9 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)

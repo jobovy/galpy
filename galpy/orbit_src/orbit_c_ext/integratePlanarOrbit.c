@@ -187,7 +187,29 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
-    
+    case 20: //BurkertPotential, 2 arguments
+      potentialArgs->planarRforce= &BurkertPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &BurkertPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 21: //TriaxialHernquistPotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialHernquistPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialHernquistPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 22: //TriaxialNFWPotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialNFWPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialNFWPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 23: //TriaxialJaffePotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialJaffePotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialJaffePotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;    
     case 24: //SCFPotential, many arguments
       potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
       potentialArgs->planarphiforce= &SCFPotentialPlanarphiforce;
