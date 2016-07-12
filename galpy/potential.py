@@ -33,6 +33,7 @@ from galpy.potential_src import PlummerPotential
 from galpy.potential_src import PseudoIsothermalPotential
 from galpy.potential_src import KuzminDiskPotential
 from galpy.potential_src import TwoPowerTriaxialPotential
+from galpy.potential_src import SCFPotential
 #
 # Functions
 #
@@ -80,6 +81,9 @@ turn_physical_off= Potential.turn_physical_off
 turn_physical_on= Potential.turn_physical_on
 _dim= Potential._dim
 _isNonAxi= Potential._isNonAxi
+scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
+scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
+scf_compute_coeffs = SCFPotential.scf_compute_coeffs
 #
 # Classes
 #
@@ -121,6 +125,7 @@ TriaxialHernquistPotential= TwoPowerTriaxialPotential.TriaxialHernquistPotential
 TriaxialNFWPotential= TwoPowerTriaxialPotential.TriaxialNFWPotential
 TriaxialJaffePotential= TwoPowerTriaxialPotential.TriaxialJaffePotential
 TwoPowerTriaxialPotential= TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
+SCFPotential = SCFPotential.SCFPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
