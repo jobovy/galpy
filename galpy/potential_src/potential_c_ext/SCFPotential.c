@@ -28,13 +28,13 @@ inline void compute_phiTilde(double r, double a, int N, int L, double* C, double
     double xi;
     calculateXi(r, a, &xi);
     double rterms = -1./(r + a);
-
-    for (int l = 0; l < L; l++){
+    int n,l;
+    for (l = 0; l < L; l++){
 
         if (l != 0)
             rterms *= r*a/((a + r)*(a + r));
 
-        for (int n = 0; n < N; n++){
+        for (n = 0; n < N; n++){
             *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
         }
     }
@@ -45,11 +45,12 @@ inline void compute_dphiTilde(double r, double a, int N, int L, double * C, doub
     double xi;
     calculateXi(r, a, &xi);
     double rterm = 1./(r*power(a + r, 3));
-    for (int l = 0; l < L; l++){
+    int n,l;
+    for (l = 0; l < L; l++){
         if (l != 0){
             rterm *= (a*r)/power(a + r, 2) ; 
         }
-        for (int n = 0; n < N; n++){
+        for (n = 0; n < N; n++){
            *( dphiTilde + l*N + n) = rterm *(((2*l + 1)*r*(a + r) - l*power(a + r,2))*(*(C + l*N + n)) -
            2*a*r*(*(dC + l*N + n)));
         
@@ -61,14 +62,14 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
     double xi;
     calculateXi(r, a, &xi);
     double rterm = 1./(r*r) / power(a + r,5);
-    
-    for (int l = 0; l < L; l++){
+    int n,l;
+    for (l = 0; l < L; l++){
 
         
         if (l != 0){
             rterm *= (a*r)/power(a + r, 2);
         }
-        for (int n = 0; n < N; n++){
+        for (n = 0; n < N; n++){
     
             double C_val = *(C + l*N + n);
             double dC_val = *(dC + l*N + n);
@@ -83,18 +84,20 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
 }
 
 inline void compute_C(double xi, int N, int L, double * C_array){
-  for (int l = 0; l < L; l++){
+  int l;
+  for (l = 0; l < L; l++){
         gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
     }
 }
 
 
 inline void compute_dC(double xi, int N, int L, double * dC_array){
-    for (int l = 0; l < L; l++){
+  int n,l;
+    for (l = 0; l < L; l++){
         *(dC_array +l*N) = 0;
         if (N != 1)
             gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
-        for (int n = 0; n<N; n++){
+        for (n = 0; n<N; n++){
         *(dC_array +l*N + n) *= 2*(2*l + 3./2);
         }
     }
@@ -103,13 +106,14 @@ inline void compute_dC(double xi, int N, int L, double * dC_array){
 
 
 inline void compute_d2C(double xi, int N, int L, double * d2C_array){
-    for (int l = 0; l < L; l++){
+  int n,l;
+    for (l = 0; l < L; l++){
         *(d2C_array +l*N) = 0;
         if (N >1)
             *(d2C_array +l*N + 1) = 0;
         if (N > 2)
             gsl_sf_gegenpoly_array(N - 3, 7./2 + 2*l, xi, d2C_array + l*N + 2);
-        for (int n = 0; n<N; n++){
+        for (n = 0; n<N; n++){
         *(d2C_array +l*N + n) *= 4*(2*l + 3./2)*(2*l + 5./2);
         }
     }
@@ -117,7 +121,8 @@ inline void compute_d2C(double xi, int N, int L, double * d2C_array){
 }
 
 inline void compute_P(double x, int L, double * P_array, double *dP_array){
-  for (int l = 0; l < L; l++){
+  int l;
+  for (l = 0; l < L; l++){
         int shift = l*L + l;
         gsl_sf_legendre_Plm_deriv_array(L - 1, l, x, P_array + shift, dP_array + shift);
     }
@@ -136,20 +141,21 @@ inline void compute(double a, int N, int L, int M,
     double *Acos, double *Asin, int eq_size,
     equations e,
     double *F){
-            for (int i = 0; i < eq_size; i++){
+  int i,n,l,m;
+            for (i = 0; i < eq_size; i++){
         *(F + i) =0;
     } 
         
    
-      for (int l = 0; l < L; l++){
-                                    for (int m = 0; m<=l;m++){
+      for (l = 0; l < L; l++){
+                                    for (m = 0; m<=l;m++){
                                         double mCos = cos(m*phi);
                                         double mSin = sin(m*phi);
-                                        for (int n = 0;n < N; n++){
+                                        for (n = 0;n < N; n++){
     double Acos_val = *(Acos +m + M*l + M*L*n);
     double Asin_val = *(Asin +m + M*l + M*L*n);
     
-    for (int i = 0; i < eq_size; i++){
+    for (i = 0; i < eq_size; i++){
         double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
         double *P = *(e.P + i);
         double *phiTilde = *(e.phiTilde + i);
@@ -161,7 +167,7 @@ inline void compute(double a, int N, int L, int M,
 
 
                 }}}
-    for (int i = 0; i < eq_size; i++){
+    for (i = 0; i < eq_size; i++){
         double constant = *(e.Constant + i);
         *(F + i) *= constant*sqrt(4*M_PI);
     } 
