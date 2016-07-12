@@ -24,6 +24,13 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockCombLinearPotential, \
     mockSimpleLinearPotential, \
     mockMovingObjectLongIntPotential, \
+    mockSCFZeeuwPotential, \
+    mockSCFNFWPotential, \
+    mockSCFAxiDensity1Potential, \
+    mockSCFAxiDensity2Potential, \
+    mockSCFAcosPotential, \
+    mockSCFAsinPotential, \
+    mockSCFDensityPotential, \
     specialFlattenedPowerPotential, \
     specialMiyamotoNagaiPotential, \
     BurkertPotentialNoC, \
@@ -85,6 +92,13 @@ def test_energy_jacobi_conservation():
     pots.append('triaxialNFWPotential')
     pots.append('fullyRotatedTriaxialNFWPotential')
     pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -192,7 +206,7 @@ def test_energy_jacobi_conservation():
             if isinstance(tp,potential.linearPotential) \
                     or 'MovingObject' in p:
                 if _QUICKTEST \
-                        and not (('NFW' in p and not tp.isNonAxi)
+                        and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p)
                                  or 'linearMWPotential' in p \
                                      or ('Burkert' in p and not tp.hasC)):
                     break
@@ -237,7 +251,7 @@ def test_energy_jacobi_conservation():
                     else:
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             if ptp is None:
-                if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
+                if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
                                            or ('Burkert' in p and not tp.hasC)): break
                 else: continue
             #Same for a planarPotential
@@ -347,7 +361,7 @@ def test_energy_jacobi_conservation():
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
+            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
                                      or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
     return None
@@ -414,6 +428,13 @@ def test_liouville_planar():
     pots.append('specialFlattenedPowerPotential')
     pots.append('BurkertPotentialNoC')
     pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFAcosPotential')
+    pots.append('mockSCFAsinPotential')
+    pots.append('mockSCFDensityPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -501,7 +522,7 @@ def test_liouville_planar():
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
                 firstTest= False                    
-            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi) \
+            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
                                        or ('Burkert' in p and not tp.hasC)): break
     return None
 
@@ -1222,6 +1243,7 @@ def test_analytic_zmax():
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['testMWPotential']= -6. #these are more difficult
     tol['KuzminDiskPotential']=-4 #these are more difficult
+    tol['SCFPotential']= -8. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
