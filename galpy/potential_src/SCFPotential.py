@@ -456,6 +456,10 @@ class SCFPotential(Potential):
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
         return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)
         
+    def OmegaP(self):
+        print 1;
+        return 0
+
         
 def xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
