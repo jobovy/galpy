@@ -140,12 +140,11 @@ inline void compute(double a, int N, int L, int M,
     double r, double theta, double phi,
     double *Acos, double *Asin, int eq_size,
     equations e,
-    double *F){
+    double *F){ 
   int i,n,l,m;
             for (i = 0; i < eq_size; i++){
         *(F + i) =0;
     } 
-        
    
       for (l = 0; l < L; l++){
                                     for (m = 0; m<=l;m++){
@@ -211,9 +210,9 @@ void computeForce(double R,double Z, double phi,
 	double * args= potentialArgs->args;
   //Get args
   double a = *args++;
-  int N = *args++;
-  int L = *args++;
-  int M = *args++;
+  int N = (int)*args++;
+  int L = (int)*args++;
+  int M = (int)*args++;
   double* Acos = args;
   double* Asin = args + N*L*M;
   
@@ -341,8 +340,8 @@ compute_P(cos(theta), L, &P, &dP);
 int num_eq = 3;
 
 double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
-double (*PhiTilde_Pointer)[3] = {&d2phiTilde, &phiTilde, &dphiTilde};
-double (*P_Pointer)[3] = {&P, &P, &P};
+double (*PhiTilde_Pointer[3]) = {&d2phiTilde, &phiTilde, &dphiTilde};
+double (*P_Pointer[3]) = {&P, &P, &P};
 
 double Constant[3] = {1., 1, 1.};
 equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
@@ -426,7 +425,10 @@ double SCFPotentialRforce(double R,double Z, double phi,
   
   double F[3];
   computeForce(R, Z, phi, t,potentialArgs, &F) ;
+
   return *(F + 0)*dr_dR + *(F + 1)*dtheta_dR + *(F + 2)*dphi_dR;
+
+  
 }
 
 double SCFPotentialzforce(double R,double Z, double phi,
@@ -466,14 +468,15 @@ double SCFPotentialphiforce(double R,double Z, double phi,
 double SCFPotentialPlanarRforce(double R,double phi,
 				double t,
 				struct potentialArg * potentialArgs){
-  return SCFPotentialRforce(R,0, phi,t,potentialArgs);
+				    double * args= potentialArgs->args;	    
+  return SCFPotentialRforce(R,0., phi,t,potentialArgs);
   
 }
 
 double SCFPotentialPlanarphiforce(double R,double phi,
 				double t,
 				struct potentialArg * potentialArgs){
-  return SCFPotentialphiforce(R,0, phi,t,potentialArgs);
+  return SCFPotentialphiforce(R,0., phi,t,potentialArgs);
 }
 
 
@@ -511,9 +514,7 @@ double SCFPotentialPlanarRphideriv(double R, double phi,
                             struct potentialArg * potentialArgs){
   
   double Farray[3];
-  
  computeDeriv(R, 0, phi, t,potentialArgs, &Farray) ;
- 
     return *(Farray + 2);
                                                         
    }
