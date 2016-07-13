@@ -457,7 +457,6 @@ class SCFPotential(Potential):
         return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)
         
     def OmegaP(self):
-        print 1;
         return 0
 
         
