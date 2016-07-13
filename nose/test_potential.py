@@ -122,8 +122,6 @@ def test_forceAsDeriv_potential():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
-    pots.append('mockSCFAcosPotential')
-    pots.append('mockSCFAsinPotential')
     pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -583,8 +581,6 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
-    pots.append('mockSCFAcosPotential')
-    pots.append('mockSCFAsinPotential')
     pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -2178,22 +2174,6 @@ class mockSCFDensityPotential(potential.SCFPotential):
     def __init__(self):
         Acos, Asin = potential.scf_compute_coeffs(scf_density,20,20,phi_order=30)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
-        
-class mockSCFAcosPotential(potential.SCFPotential):
-    def __init__(self):
-        N, L = 5,5
-        Acos = numpy.ones((N,L,L), dtype=float);
-        Asin = numpy.zeros((N,L,L), dtype=float);
-        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
-        
-class mockSCFAsinPotential(potential.SCFPotential):
-    def __init__(self):
-        N, L = 5,5
-        Acos = numpy.zeros((N,L,L), dtype=float);
-        Acos[1,:,0] =1.
-        Asin = -numpy.ones((N,L,L), dtype=float);
-        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
-              
         
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
