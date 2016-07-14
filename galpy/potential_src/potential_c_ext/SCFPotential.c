@@ -9,12 +9,17 @@
 
 const int FORCE =1;
 const int DERIV =2;
+
+//Useful Functions
+
+//Converts from cylindrical coordinates to spherical
 inline void cyl_to_spher(double R, double Z,double *r, double *theta)
 {
     *r = sqrt(R*R + Z*Z);
     *theta = atan2(R, Z);
 }
 
+//Integer power
 double power(double x, int i)
 {
     if (i==0)
@@ -22,191 +27,14 @@ double power(double x, int i)
     return x*power(x,i - 1);
 }
 
+//Calculates xi
 inline void calculateXi(double r, double a, double *xi)
 {
     *xi = (r - a)/(r + a);
 }
 
-inline void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterms = -1./(r + a);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
 
-        if (l != 0)
-            rterms *= r*a/((a + r)*(a + r));
-
-        for (n = 0; n < N; n++)
-        {
-            *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
-        }
-    }
-
-}
-
-inline void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*power(a + r, 3));
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2) ;
-        }
-        for (n = 0; n < N; n++)
-        {
-            *( dphiTilde + l*N + n) = rterm *(((2*l + 1)*r*(a + r) - l*power(a + r,2))*(*(C + l*N + n)) -
-                                              2*a*r*(*(dC + l*N + n)));
-
-        }
-    }
-}
-
-inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*r) / power(a + r,5);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-
-
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2);
-        }
-        for (n = 0; n < N; n++)
-        {
-
-            double C_val = *(C + l*N + n);
-            double dC_val = *(dC + l*N + n);
-            double d2C_val = *(d2C + l*N + n);
-            *( d2phiTilde + l*N + n) = rterm*(C_val*(l*(1 - l)*power(a + r, 4) - (4*l*l + 6*l + 2.)*r*r*power(a + r,2) +
-                                              l*(4*l + 2)*r*power(a + r,3))
-                                              + a*r*((4*r*r + 4*a*r + (8*l + 4)*r*(a + r)-
-                                                      4*l*power(a + r,2))*dC_val - 4*a*r*d2C_val));
-
-        }
-    }
-}
-
-inline void compute_C(double xi, int N, int L, double * C_array)
-{
-    int l;
-    for (l = 0; l < L; l++)
-    {
-        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
-    }
-}
-
-
-inline void compute_dC(double xi, int N, int L, double * dC_array)
-{
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(dC_array +l*N) = 0;
-        if (N != 1)
-            gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
-        for (n = 0; n<N; n++)
-        {
-            *(dC_array +l*N + n) *= 2*(2*l + 3./2);
-        }
-    }
-
-}
-
-
-inline void compute_d2C(double xi, int N, int L, double * d2C_array)
-{
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(d2C_array +l*N) = 0;
-        if (N >1)
-            *(d2C_array +l*N + 1) = 0;
-        if (N > 2)
-            gsl_sf_gegenpoly_array(N - 3, 7./2 + 2*l, xi, d2C_array + l*N + 2);
-        for (n = 0; n<N; n++)
-        {
-            *(d2C_array +l*N + n) *= 4*(2*l + 3./2)*(2*l + 5./2);
-        }
-    }
-
-}
-
-inline void compute_P(double x, int L, double * P_array, double *dP_array)
-{
-    int l;
-    for (l = 0; l < L; l++)
-    {
-        int shift = l*L + l;
-        gsl_sf_legendre_Plm_deriv_array(L - 1, l, x, P_array + shift, dP_array + shift);
-    }
-}
-
-typedef struct equations equations;
-struct equations
-{
-    double ((**Eq)(double, double, double, double, double, double, int));
-    double *(*phiTilde);
-    double *(*P);
-    double *Constant;
-};
-
-inline void compute(double a, int N, int L, int M,
-                    double r, double theta, double phi,
-                    double *Acos, double *Asin, int eq_size,
-                    equations e,
-                    double *F)
-{
-    int i,n,l,m;
-    for (i = 0; i < eq_size; i++)
-    {
-        *(F + i) =0;
-    }
-
-    for (l = 0; l < L; l++)
-    {
-        for (m = 0; m<=l; m++)
-        {
-            double mCos = cos(m*phi);
-            double mSin = sin(m*phi);
-            for (n = 0; n < N; n++)
-            {
-                double Acos_val = *(Acos +m + M*l + M*L*n);
-                double Asin_val = *(Asin +m + M*l + M*L*n);
-
-                for (i = 0; i < eq_size; i++)
-                {
-                    double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
-                    double *P = *(e.P + i);
-                    double *phiTilde = *(e.phiTilde + i);
-                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[m*L + l], phiTilde[l*N + n], m);
-                }
-
-
-
-
-
-            }
-        }
-    }
-    for (i = 0; i < eq_size; i++)
-    {
-        double constant = *(e.Constant + i);
-        *(F + i) *= constant*sqrt(4*M_PI);
-    }
-
-}
-
+//Potentials, forces, and derivative functions
 
 double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
 {
@@ -243,9 +71,208 @@ double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSi
     return m*m*(Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
 
+//Calculates the Gegenbauer polynomials
+inline void compute_C(double xi, int N, int L, double * C_array)
+{
+    int l;
+    for (l = 0; l < L; l++)
+    {
+        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
+    }
+}
+
+//Calculates the derivative of the Gegenbauer polynomials
+inline void compute_dC(double xi, int N, int L, double * dC_array)
+{
+    int n,l;
+    for (l = 0; l < L; l++)
+    {
+        *(dC_array +l*N) = 0;
+        if (N != 1)
+            gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
+        for (n = 0; n<N; n++)
+        {
+            *(dC_array +l*N + n) *= 2*(2*l + 3./2);
+        }
+    }
+
+}
+
+//Calculates the second derivative of the Gegenbauer polynomials
+inline void compute_d2C(double xi, int N, int L, double * d2C_array)
+{
+    int n,l;
+    for (l = 0; l < L; l++)
+    {
+        *(d2C_array +l*N) = 0;
+        if (N >1)
+            *(d2C_array +l*N + 1) = 0;
+        if (N > 2)
+            gsl_sf_gegenpoly_array(N - 3, 7./2 + 2*l, xi, d2C_array + l*N + 2);
+        for (n = 0; n<N; n++)
+        {
+            *(d2C_array +l*N + n) *= 4*(2*l + 3./2)*(2*l + 5./2);
+        }
+    }
+
+}
+
+//Compute phi_Tilde
+inline void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
+{
+    double xi;
+    calculateXi(r, a, &xi);
+    double rterms = -1./(r + a);
+    int n,l;
+    for (l = 0; l < L; l++)
+    {
+
+        if (l != 0)
+            rterms *= r*a/((a + r)*(a + r));
+
+        for (n = 0; n < N; n++)
+        {
+            *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
+        }
+    }
+
+}
+
+//Computes the derivative of phiTilde with respect to r
+inline void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
+{
+    double xi;
+    calculateXi(r, a, &xi);
+    double rterm = 1./(r*power(a + r, 3));
+    int n,l;
+    for (l = 0; l < L; l++)
+    {
+        if (l != 0)
+        {
+            rterm *= (a*r)/power(a + r, 2) ;
+        }
+        for (n = 0; n < N; n++)
+        {
+            *( dphiTilde + l*N + n) = rterm *(((2*l + 1)*r*(a + r) - l*power(a + r,2))*(*(C + l*N + n)) -
+                                              2*a*r*(*(dC + l*N + n)));
+
+        }
+    }
+}
+
+//Computes the second derivative of phiTilde with respect to r
+inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
+{
+    double xi;
+    calculateXi(r, a, &xi);
+    double rterm = 1./(r*r) / power(a + r,5);
+    int n,l;
+    for (l = 0; l < L; l++)
+    {
 
 
-void computeForce(double R,double Z, double phi,
+        if (l != 0)
+        {
+            rterm *= (a*r)/power(a + r, 2);
+        }
+        for (n = 0; n < N; n++)
+        {
+
+            double C_val = *(C + l*N + n);
+            double dC_val = *(dC + l*N + n);
+            double d2C_val = *(d2C + l*N + n);
+            *( d2phiTilde + l*N + n) = rterm*(C_val*(l*(1 - l)*power(a + r, 4) - (4*l*l + 6*l + 2.)*r*r*power(a + r,2) +
+                                              l*(4*l + 2)*r*power(a + r,3))
+                                              + a*r*((4*r*r + 4*a*r + (8*l + 4)*r*(a + r)-
+                                                      4*l*power(a + r,2))*dC_val - 4*a*r*d2C_val));
+
+        }
+    }
+}
+
+//Computes the associated Legendre polynomials
+inline void compute_P(double x, int L, double * P_array)
+{
+    int l;
+    for (l = 0; l < L; l++)
+    {
+        int shift = l*L + l;
+        gsl_sf_legendre_Plm_array(L - 1, l, x, P_array + shift);
+    }
+}
+
+//Computes the associated Legendre polynomials and its derivative 
+inline void compute_P_dP(double x, int L, double * P_array, double *dP_array)
+{
+    int l;
+    for (l = 0; l < L; l++)
+    {
+        int shift = l*L + l;
+        gsl_sf_legendre_Plm_deriv_array(L - 1, l, x, P_array + shift, dP_array + shift);
+    }
+}
+
+
+
+
+typedef struct equations equations;
+struct equations
+{
+    double ((**Eq)(double, double, double, double, double, double, int));
+    double *(*phiTilde);
+    double *(*P);
+    double *Constant;
+};
+
+//Compute 
+inline void compute(double a, int N, int L, int M,
+                    double r, double theta, double phi,
+                    double *Acos, double *Asin, int eq_size,
+                    equations e,
+                    double *F)
+{
+    int i,n,l,m;
+    for (i = 0; i < eq_size; i++)
+    {
+        *(F + i) =0; //Initialize each F
+    }
+
+    
+    for (l = 0; l < L; l++)
+    {
+        for (m = 0; m<=l; m++)
+        {
+            double mCos = cos(m*phi);
+            double mSin = sin(m*phi);
+            for (n = 0; n < N; n++)
+            {
+                double Acos_val = *(Acos +m + M*l + M*L*n);
+                double Asin_val = *(Asin +m + M*l + M*L*n);
+                for (i = 0; i < eq_size; i++)
+                {
+                    double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
+                    double *P = *(e.P + i);
+                    double *phiTilde = *(e.phiTilde + i);
+                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[m*L + l], phiTilde[l*N + n], m);
+                }
+
+
+            }
+        }
+    }
+    //Multiply F by constants
+    for (i = 0; i < eq_size; i++)
+    {
+        double constant = *(e.Constant + i);
+        *(F + i) *= constant*sqrt(4*M_PI);
+    }
+
+}
+
+
+
+//Compute the Forces
+inline void computeForce(double R,double Z, double phi,
                   double t,
                   struct potentialArg * potentialArgs, double * F)
 {
@@ -298,7 +325,7 @@ void computeForce(double R,double Z, double phi,
     double P[L*L];
     double dP[L*L];
 
-    compute_P(cos(theta), L, &P, &dP);
+    compute_P_dP(cos(theta), L, &P, &dP);
 
     double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
     double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
@@ -324,7 +351,9 @@ void computeForce(double R,double Z, double phi,
 
 
 }
-void computeDeriv(double R,double Z, double phi,
+
+//Compute the Derivatives
+inline void computeDeriv(double R,double Z, double phi,
                   double t,
                   struct potentialArg * potentialArgs, double * F)
 {
@@ -380,9 +409,8 @@ void computeDeriv(double R,double Z, double phi,
 
 //Compute Associated Legendre Polynomials
     double P[L*L];
-    double dP[L*L];
 
-    compute_P(cos(theta), L, &P, &dP);
+    compute_P(cos(theta), L, &P);
 
     int num_eq = 3;
 
@@ -408,7 +436,7 @@ void computeDeriv(double R,double Z, double phi,
 
 }
 
-
+//Compute the Potential
 double SCFPotentialEval(double R,double Z, double phi,
                         double t,
                         struct potentialArg * potentialArgs)
@@ -439,9 +467,8 @@ double SCFPotentialEval(double R,double Z, double phi,
     compute_phiTilde(r, a, N, L, &C, &phiTilde);
     //Compute Associated Legendre Polynomials
     double P[L*L];
-    double dP[L*L];
 
-    compute_P(cos(theta), L, &P, &dP);
+    compute_P(cos(theta), L, &P);
 
     double potential;
 
@@ -458,6 +485,7 @@ double SCFPotentialEval(double R,double Z, double phi,
     return potential;
 }
 
+//Compute the force in the R direction
 double SCFPotentialRforce(double R,double Z, double phi,
                           double t,
                           struct potentialArg * potentialArgs)
@@ -480,6 +508,7 @@ double SCFPotentialRforce(double R,double Z, double phi,
 
 }
 
+//Compute the force in the z direction
 double SCFPotentialzforce(double R,double Z, double phi,
                           double t,
                           struct potentialArg * potentialArgs)
@@ -497,6 +526,7 @@ double SCFPotentialzforce(double R,double Z, double phi,
     return *(F + 0)*dr_dz + *(F + 1)*dtheta_dz + *(F + 2)*dphi_dz;
 }
 
+//Compute the force in the phi direction
 double SCFPotentialphiforce(double R,double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs)
@@ -516,6 +546,7 @@ double SCFPotentialphiforce(double R,double Z, double phi,
     return *(F + 0)*dr_dphi + *(F + 1)*dtheta_dphi + *(F + 2)*dphi_dphi;
 }
 
+//Compute the planar force in the R direction
 double SCFPotentialPlanarRforce(double R,double phi,
                                 double t,
                                 struct potentialArg * potentialArgs)
@@ -525,6 +556,7 @@ double SCFPotentialPlanarRforce(double R,double phi,
 
 }
 
+//Compute the planar force in the phi direction
 double SCFPotentialPlanarphiforce(double R,double phi,
                                   double t,
                                   struct potentialArg * potentialArgs)
@@ -533,7 +565,7 @@ double SCFPotentialPlanarphiforce(double R,double phi,
 }
 
 
-
+//Compute the planar double derivative of the potential with respect to R
 double SCFPotentialPlanarR2deriv(double R, double phi,
                                  double t,
                                  struct potentialArg * potentialArgs)
@@ -548,7 +580,7 @@ double SCFPotentialPlanarR2deriv(double R, double phi,
 
 }
 
-
+//Compute the planar double derivative of the potential with respect to phi
 double SCFPotentialPlanarphi2deriv(double R, double phi,
                                    double t,
                                    struct potentialArg * potentialArgs)
@@ -564,6 +596,7 @@ double SCFPotentialPlanarphi2deriv(double R, double phi,
 
 }
 
+//Compute the planar double derivative of the potential with respect to R, Phi
 double SCFPotentialPlanarRphideriv(double R, double phi,
                                    double t,
                                    struct potentialArg * potentialArgs)
